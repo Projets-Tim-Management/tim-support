@@ -1,14 +1,20 @@
 import type { Field } from "payload";
 
+// Regex hissées au niveau module : compilées une seule fois, pas à chaque
+// appel. Sûres avec .replace() (qui réinitialise lastIndex malgré le flag /g).
+const DIACRITICS = /[̀-ͯ]/g; // marques diacritiques (é → e, ç → c…)
+const NON_SLUG = /[^a-z0-9]+/g;
+const EDGE_DASHES = /(^-|-$)+/g;
+
 /** Transforme un texte en slug URL (gère les accents français). */
 const slugify = (val: string): string =>
   val
     .toLowerCase()
     .trim()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "") // retire les diacritiques (é → e, ç → c…)
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)+/g, "");
+    .replace(DIACRITICS, "")
+    .replace(NON_SLUG, "-")
+    .replace(EDGE_DASHES, "");
 
 /**
  * Champ `slug` réutilisable, placé dans la barre latérale.
@@ -22,8 +28,7 @@ export const slugField = (source = "title"): Field => ({
   name: "slug",
   type: "text",
   required: true,
-  unique: true,
-  index: true,
+  unique: true, // crée déjà un index unique — pas besoin de `index: true`
   admin: {
     position: "sidebar",
     description: "Laisser vide pour générer automatiquement depuis le titre.",

@@ -1,4 +1,4 @@
-import type { Access } from "payload";
+import type { Access, CollectionConfig } from "payload";
 
 /**
  * Contrôles d'accès partagés par les collections Payload.
@@ -27,4 +27,15 @@ export const isAdminOrSelf: Access = ({ req: { user } }) => {
   if (hasAdminRole(user)) return true;
   if (user) return { id: { equals: (user as { id: string | number }).id } };
   return false;
+};
+
+/**
+ * Politique d'accès du contenu éditorial : lecture publique, écriture admin.
+ * Partagée par toutes les collections éditoriales (articles, features…).
+ */
+export const editorialAccess: CollectionConfig["access"] = {
+  read: anyone,
+  create: isAdmin,
+  update: isAdmin,
+  delete: isAdmin,
 };

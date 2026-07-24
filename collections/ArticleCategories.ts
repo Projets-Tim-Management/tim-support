@@ -1,6 +1,6 @@
 import type { CollectionConfig } from "payload";
 
-import { anyone, isAdmin } from "./access";
+import { editorialAccess } from "./access";
 import { slugField } from "../fields/slug";
 
 /**
@@ -15,7 +15,7 @@ export const ArticleCategories: CollectionConfig = {
     defaultColumns: ["name", "slug", "parent"],
     group: "Éditorial",
   },
-  access: { read: anyone, create: isAdmin, update: isAdmin, delete: isAdmin },
+  access: editorialAccess,
   fields: [
     { name: "name", type: "text", label: "Nom", required: true },
     slugField("name"),

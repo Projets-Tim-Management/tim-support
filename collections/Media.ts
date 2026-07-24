@@ -1,5 +1,7 @@
 import type { CollectionConfig } from "payload";
 
+import { anyone, isAdmin } from "./access";
+
 /**
  * Médias (uploads) : logos partenaires, visuels de récompenses, captures de
  * missions, images d'articles. `upload: true` active le stockage de fichiers.
@@ -9,9 +11,9 @@ import type { CollectionConfig } from "payload";
  */
 export const Media: CollectionConfig = {
   slug: "media",
-  access: {
-    read: () => true,
-  },
+  labels: { singular: "Média", plural: "Médias" },
+  admin: { group: "Système" },
+  access: { read: anyone, create: isAdmin, update: isAdmin, delete: isAdmin },
   fields: [
     {
       name: "alt",

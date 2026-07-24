@@ -1,6 +1,6 @@
 import type { CollectionConfig } from "payload";
 
-import { anyone, isAdmin } from "./access";
+import { editorialAccess } from "./access";
 import { slugField } from "../fields/slug";
 
 /**
@@ -17,7 +17,7 @@ export const Parcours: CollectionConfig = {
     defaultColumns: ["title", "slug", "profil", "order", "_status"],
     group: "Éditorial",
   },
-  access: { read: anyone, create: isAdmin, update: isAdmin, delete: isAdmin },
+  access: editorialAccess,
   versions: { drafts: true },
   fields: [
     { name: "title", type: "text", label: "Titre", required: true },
@@ -27,6 +27,7 @@ export const Parcours: CollectionConfig = {
       type: "number",
       label: "Ordre",
       defaultValue: 0,
+      index: true, // tri croissant systématique sur les listes
       admin: {
         position: "sidebar",
         description: "Tri croissant (équivalent menu_order WP).",

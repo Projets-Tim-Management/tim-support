@@ -1,6 +1,6 @@
 import type { CollectionConfig } from "payload";
 
-import { anyone, isAdmin } from "./access";
+import { editorialAccess } from "./access";
 import { slugField } from "../fields/slug";
 
 /**
@@ -18,7 +18,7 @@ export const Articles: CollectionConfig = {
     defaultColumns: ["title", "slug", "publishedAt", "_status"],
     group: "Éditorial",
   },
-  access: { read: anyone, create: isAdmin, update: isAdmin, delete: isAdmin },
+  access: editorialAccess,
   versions: { drafts: true },
   fields: [
     { name: "title", type: "text", label: "Titre", required: true },
@@ -49,6 +49,7 @@ export const Articles: CollectionConfig = {
       name: "publishedAt",
       type: "date",
       label: "Date de publication",
+      index: true, // trié/filtré sur les listes publiques
       admin: { position: "sidebar" },
     },
     {

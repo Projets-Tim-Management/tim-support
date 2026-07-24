@@ -1,25 +1,6 @@
-import type { Access, CollectionConfig } from "payload";
+import type { CollectionConfig } from "payload";
 
-/**
- * Vrai si l'utilisateur porte le rôle "admin". Écrit défensivement pour ne pas
- * dépendre des types générés (payload-types.ts) qui arriveront plus tard.
- */
-const hasAdminRole = (user: unknown): boolean =>
-  Boolean(
-    user &&
-      typeof user === "object" &&
-      Array.isArray((user as { roles?: unknown }).roles) &&
-      ((user as { roles: unknown[] }).roles).includes("admin"),
-  );
-
-const isAdmin: Access = ({ req: { user } }) => hasAdminRole(user);
-
-/** Un admin voit/modifie tout ; un non-admin, uniquement son propre compte. */
-const isAdminOrSelf: Access = ({ req: { user } }) => {
-  if (hasAdminRole(user)) return true;
-  if (user) return { id: { equals: (user as { id: string | number }).id } };
-  return false;
-};
+import { hasAdminRole, isAdmin, isAdminOrSelf } from "./access";
 
 /**
  * Utilisateurs du back-office.
@@ -36,12 +17,16 @@ const isAdminOrSelf: Access = ({ req: { user } }) => {
  */
 export const Users: CollectionConfig = {
   slug: "users",
+  labels: { singular: "Utilisateur", plural: "Utilisateurs" },
   admin: {
     useAsTitle: "email",
     defaultColumns: ["name", "email", "roles"],
+    group: "Système",
   },
   auth: true,
   access: {
+    // `admin` doit renvoyer un booléen strict (pas de clause Where) :
+    // on n'utilise donc pas isAdmin ici mais hasAdminRole directement.
     admin: ({ req: { user } }) => hasAdminRole(user),
     create: isAdmin,
     read: isAdminOrSelf,

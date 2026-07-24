@@ -1,6 +1,6 @@
 import type { Block, CollectionConfig } from "payload";
 
-import { anyone, isAdmin } from "./access";
+import { editorialAccess } from "./access";
 import { slugField } from "../fields/slug";
 
 /**
@@ -60,7 +60,7 @@ export const Features: CollectionConfig = {
     defaultColumns: ["title", "slug", "availability", "_status"],
     group: "Éditorial",
   },
-  access: { read: anyone, create: isAdmin, update: isAdmin, delete: isAdmin },
+  access: editorialAccess,
   versions: { drafts: true },
   fields: [
     { name: "title", type: "text", label: "Titre", required: true },
@@ -83,11 +83,11 @@ export const Features: CollectionConfig = {
       name: "availability",
       type: "select",
       label: "Statut",
-      defaultValue: "Disponible",
+      defaultValue: "disponible",
       options: [
-        { label: "Disponible", value: "Disponible" },
-        { label: "Beta", value: "Beta" },
-        { label: "Prochainement", value: "Prochainement" },
+        { label: "Disponible", value: "disponible" },
+        { label: "Beta", value: "beta" },
+        { label: "Prochainement", value: "prochainement" },
       ],
       admin: { position: "sidebar" },
     },
@@ -123,20 +123,20 @@ export const Features: CollectionConfig = {
       label: "Sections de documentation",
       labels: { singular: "Section", plural: "Sections" },
       fields: [
-        { name: "title_doc", type: "text", label: "Titre de section" },
-        { name: "description_doc", type: "richText", label: "Description" },
+        { name: "titleDoc", type: "text", label: "Titre de section" },
+        { name: "descriptionDoc", type: "richText", label: "Description" },
         {
-          name: "media_position",
+          name: "mediaPosition",
           type: "select",
           label: "Position du média",
-          defaultValue: "Droite",
+          defaultValue: "droite",
           options: [
-            { label: "Droite", value: "Droite" },
-            { label: "Gauche", value: "Gauche" },
+            { label: "Droite", value: "droite" },
+            { label: "Gauche", value: "gauche" },
           ],
         },
         {
-          name: "media_doc",
+          name: "mediaDoc",
           type: "blocks",
           label: "Média",
           blocks: mediaBlocks,
