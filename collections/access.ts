@@ -39,3 +39,16 @@ export const editorialAccess: CollectionConfig["access"] = {
   update: isAdmin,
   delete: isAdmin,
 };
+
+/**
+ * Politique d'accès du métier / support : réservé aux admins.
+ * Les données partenaires (points, missions, récompenses…) sont servies au
+ * front par le serveur Next via la Local API (accès surchargé côté serveur),
+ * jamais en lecture publique directe.
+ */
+export const adminOnly: CollectionConfig["access"] = {
+  read: isAdmin,
+  create: isAdmin,
+  update: isAdmin,
+  delete: isAdmin,
+};

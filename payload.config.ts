@@ -14,6 +14,13 @@ import { Platforms } from "./collections/Platforms";
 import { FeatureCategories } from "./collections/FeatureCategories";
 import { Features } from "./collections/Features";
 import { Parcours } from "./collections/Parcours";
+import { Partners } from "./collections/Partners";
+import { PointTransactions } from "./collections/PointTransactions";
+import { Missions } from "./collections/Missions";
+import { MissionSubmissions } from "./collections/MissionSubmissions";
+import { Rewards } from "./collections/Rewards";
+import { RewardOrders } from "./collections/RewardOrders";
+import { Tickets } from "./collections/Tickets";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -24,8 +31,6 @@ export default buildConfig({
     user: Users.slug,
   },
 
-  // Éditorial (Phase 1) en place ; le métier (Partners, Points, Missions,
-  // Rewards, Orders) et le support (Tickets) viendront ensuite.
   collections: [
     // Éditorial
     Articles,
@@ -34,6 +39,15 @@ export default buildConfig({
     FeatureCategories,
     Platforms,
     Parcours,
+    // Métier partenaires
+    Partners,
+    PointTransactions,
+    Missions,
+    MissionSubmissions,
+    Rewards,
+    RewardOrders,
+    // Support
+    Tickets,
     // Système
     Media,
     Users,
