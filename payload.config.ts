@@ -8,6 +8,12 @@ import sharp from "sharp";
 
 import { Users } from "./collections/Users";
 import { Media } from "./collections/Media";
+import { ArticleCategories } from "./collections/ArticleCategories";
+import { Articles } from "./collections/Articles";
+import { Platforms } from "./collections/Platforms";
+import { FeatureCategories } from "./collections/FeatureCategories";
+import { Features } from "./collections/Features";
+import { Parcours } from "./collections/Parcours";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -18,9 +24,20 @@ export default buildConfig({
     user: Users.slug,
   },
 
-  // Collections de démarrage. On ajoutera l'éditorial (Articles, Features,
-  // Parcours) et le métier (Partners, Points, Missions, Rewards) en Phase 1.
-  collections: [Users, Media],
+  // Éditorial (Phase 1) en place ; le métier (Partners, Points, Missions,
+  // Rewards, Orders) et le support (Tickets) viendront ensuite.
+  collections: [
+    // Éditorial
+    Articles,
+    ArticleCategories,
+    Features,
+    FeatureCategories,
+    Platforms,
+    Parcours,
+    // Système
+    Media,
+    Users,
+  ],
 
   // Éditeur de texte riche par défaut (pour l'éditorial à venir).
   editor: lexicalEditor(),
