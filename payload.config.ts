@@ -29,6 +29,14 @@ export default buildConfig({
   // Collection qui porte l'authentification du back-office.
   admin: {
     user: Users.slug,
+    // Résolution des composants admin custom (logo/icône) depuis la racine.
+    importMap: { baseDir: dirname },
+    components: {
+      graphics: {
+        Logo: "/admin/graphics/Logo#Logo",
+        Icon: "/admin/graphics/Icon#Icon",
+      },
+    },
   },
 
   collections: [

@@ -1,1 +1,3 @@
-/* Personnalisations du back-office Payload (vide pour l'instant). */
+/* Habillage du back-office Payload.
+   Tout le design vit dans styles/admin-theme.scss (source unique de vérité). */
+@import "../../styles/admin-theme.scss";
