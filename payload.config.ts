@@ -29,6 +29,8 @@ export default buildConfig({
   // Collection qui porte l'authentification du back-office.
   admin: {
     user: Users.slug,
+    // Fond blanc systématique (aligné sur le front), pas de thème sombre.
+    theme: "light",
     // Résolution des composants admin custom (logo/icône) depuis la racine.
     importMap: { baseDir: dirname },
     components: {
