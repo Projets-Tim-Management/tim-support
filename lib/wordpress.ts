@@ -1,4 +1,7 @@
-import type { WPPost, WPCategory, ArticleSummary, ArticleFull, Feature, FeatureTerm } from "./types";
+import type {
+  WPPost, WPCategory, ArticleSummary, ArticleFull, Feature, FeatureTerm,
+  Reward, PointsSummary, RedeemResult, Mission,
+} from "./types";
 
 const API_URL =
   process.env.SUPPORT_WP_API_URL ??
@@ -247,6 +250,85 @@ export async function getParcoursBySlug(
 export async function getAllParcoursSlugs(): Promise<string[]> {
   const list = await getParcours();
   return list.map((p) => p.slug);
+}
+
+// ─── Espace partenaires : points & récompenses ───────────────────────────────
+//
+// Ces appels sont SERVER-ONLY : ils portent le secret partagé
+// TIM_INTERNAL_SECRET qui ne doit jamais atteindre le navigateur. À n'utiliser
+// que dans des Server Components ou des route handlers. L'identité du
+// partenaire (email) provient toujours d'une session JWT vérifiée côté Next.
+
+const INTERNAL_SECRET = process.env.TIM_INTERNAL_SECRET ?? "";
+
+async function timAuthFetch<T>(
+  path: string,
+  init: RequestInit = {}
+): Promise<T | null> {
+  try {
+    const res = await fetch(`${TIM_API_URL}${path}`, {
+      ...init,
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        "X-Tim-Internal-Secret": INTERNAL_SECRET,
+        ...(init.headers ?? {}),
+      },
+    });
+    if (!res.ok) {
+      console.warn(`TIM partner API ${res.status} on ${path}`);
+      return null;
+    }
+    return res.json() as Promise<T>;
+  } catch (err) {
+    console.warn(`TIM partner API fetch failed on ${path}:`, err);
+    return null;
+  }
+}
+
+/** Catalogue des récompenses disponibles (épuisées masquées côté WP). */
+export async function getRewards(): Promise<Reward[]> {
+  const r = await timAuthFetch<Reward[]>("/rewards");
+  return r ?? [];
+}
+
+/** Solde + historique de points d'un partenaire (par email de session). */
+export async function getPointsSummary(email: string): Promise<PointsSummary | null> {
+  const params = new URLSearchParams({ email });
+  return timAuthFetch<PointsSummary>(`/points?${params.toString()}`);
+}
+
+/** Liste des missions actives, annotées du statut pour le partenaire courant. */
+export async function getMissions(email: string): Promise<Mission[]> {
+  const params = new URLSearchParams({ email });
+  const r = await timAuthFetch<Mission[]>(`/missions?${params.toString()}`);
+  return r ?? [];
+}
+
+/** Échange de points contre une récompense. Renvoie le détail WP (succès ou erreur). */
+export async function redeemReward(
+  email: string,
+  rewardId: number
+): Promise<{ status: number; data: RedeemResult }> {
+  try {
+    const res = await fetch(`${TIM_API_URL}/rewards/redeem`, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-Tim-Internal-Secret": INTERNAL_SECRET,
+      },
+      body: JSON.stringify({ email, reward_id: rewardId }),
+    });
+    const data = (await res.json().catch(() => ({}))) as RedeemResult;
+    return { status: res.status, data };
+  } catch {
+    return {
+      status: 503,
+      data: { code: "network_error", message: "Impossible de joindre le serveur." },
+    };
+  }
 }
 
 /** Envoie un feedback utilisateur (côté client uniquement) */

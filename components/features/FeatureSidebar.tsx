@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import type { FeatureTerm } from "@/lib/types";
-import { useActiveCategory } from "@/app/features/active-category-context";
+import { useActiveCategory } from "@/components/features/active-category-context";
 
 /** Retourne vrai si ce nœud est le match le plus profond parmi les slugs actifs.
  *  Un nœud est "le plus spécifique" s'il est dans les slugs ET qu'aucun de ses

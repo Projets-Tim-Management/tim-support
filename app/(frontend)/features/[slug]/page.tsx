@@ -8,7 +8,7 @@ import DocSection from "@/components/features/DocSection";
 import FeedbackWidget from "@/components/features/FeedbackWidget";
 import FeatureNav from "@/components/features/FeatureNav";
 import ContentProtection from "@/components/ui/ContentProtection";
-import { SetActiveCategory } from "@/app/features/active-category-context";
+import { SetActiveCategory } from "@/components/features/active-category-context";
 
 export const revalidate = 3600;
 

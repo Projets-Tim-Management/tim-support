@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { getFeatureCategories } from "@/lib/wordpress";
 import FeatureSidebar from "@/components/features/FeatureSidebar";
 import MobileSidebarTrigger from "@/components/features/MobileSidebarTrigger";
-import { ActiveCategoryProvider } from "./active-category-context";
+import { ActiveCategoryProvider } from "@/components/features/active-category-context";
 
 export default async function FeaturesLayout({
   children,
