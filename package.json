@@ -19,6 +19,7 @@
     "@payloadcms/richtext-lexical": "^3.86.0",
     "graphql": "^16.14.2",
     "jose": "^5.9.6",
+    "jsdom": "^29.1.1",
     "next": "^16.2.4",
     "payload": "^3.86.0",
     "react": "^19.0.0",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
+    "@types/jsdom": "^28.0.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

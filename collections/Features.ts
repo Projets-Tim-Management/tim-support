@@ -66,6 +66,13 @@ export const Features: CollectionConfig = {
     { name: "title", type: "text", label: "Titre", required: true },
     slugField("title"),
     {
+      name: "thumbnail",
+      type: "upload",
+      relationTo: "media",
+      label: "Image à la une",
+      admin: { position: "sidebar" },
+    },
+    {
       name: "titleFeature",
       type: "text",
       label: "Titre affiché (front)",
