@@ -80,7 +80,6 @@ export const Tickets: CollectionConfig = {
         { label: "Normale", value: "normal" },
         { label: "Basse", value: "low" },
       ],
-      index: true,
     },
     {
       name: "attachments",

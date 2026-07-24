@@ -21,6 +21,7 @@
   --tim-foreground:     #505050;
   --tim-muted:          #8a8f98;
   --tim-surface:        #f8f9fb;
+  --tim-nav-bg:         #fcfcfd; /* fond de la barre latérale */
   --tim-border:         #d2d2d6;
 
   --tim-success:        #1bc181;
@@ -52,6 +53,7 @@ html[data-theme="light"] {
   --color-success-500: var(--tim-success);
   --color-error-500:   var(--tim-danger);
   --color-warning-500: var(--tim-warning);
+  --color-info-500:    var(--tim-info);
 
   /* Rayons */
   --style-radius-s: var(--tim-radius-sm);
@@ -142,54 +144,41 @@ input[type="checkbox"]:checked {
   mask-position: center;
   -webkit-mask-size: contain;
   mask-size: contain;
+  /* Icône de repli (document) : toute nouvelle collection sans entrée dans la
+     map ci-dessous récupère cette icône plutôt qu'un carré plein. */
+  $fallback: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 3h9l4 4v14H6z'/><path d='M15 3v4h4'/></svg>";
+  -webkit-mask-image: url("data:image/svg+xml,#{$fallback}");
+  mask-image: url("data:image/svg+xml,#{$fallback}");
 }
 
-/* Icônes par collection (Lucide-style, traits fins).
-   👉 Pour changer une icône : remplace le SVG ci-dessous. */
-.nav a[href$="/collections/articles"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 3h9l5 5v13H4z'/><path d='M13 3v5h5'/><path d='M8 13h7M8 17h5'/></svg>");
-}
-.nav a[href$="/collections/article-categories"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 3h8l10 10-8 8L3 11z'/><circle cx='7.5' cy='7.5' r='1.3'/></svg>");
-}
-.nav a[href$="/collections/features"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z'/></svg>");
-}
-.nav a[href$="/collections/feature-categories"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 6h6l2 2h10v11H3z'/></svg>");
-}
-.nav a[href$="/collections/platforms"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='12' rx='1.5'/><path d='M8 20h8M12 16v4'/></svg>");
-}
-.nav a[href$="/collections/parcours"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 8l9-4 9 4-9 4z'/><path d='M7 11v4c0 1.2 3 2.5 5 2.5s5-1.3 5-2.5v-4'/></svg>");
-}
-.nav a[href$="/collections/partners"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='9' cy='8' r='3'/><path d='M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5'/><path d='M16 5.5a3 3 0 010 5.8M21.5 20c0-2.2-1.2-3.7-3.2-4.4'/></svg>");
-}
-.nav a[href$="/collections/point-transactions"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><ellipse cx='9' cy='7' rx='6' ry='3'/><path d='M3 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7'/><path d='M9 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5c0-1.7-2.7-3-6-3'/></svg>");
-}
-.nav a[href$="/collections/missions"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='8.5'/><circle cx='12' cy='12' r='4.5'/><circle cx='12' cy='12' r='1'/></svg>");
-}
-.nav a[href$="/collections/mission-submissions"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 8h3l2-2h8l2 2h3v11H3z'/><circle cx='12' cy='13' r='3.3'/></svg>");
-}
-.nav a[href$="/collections/rewards"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='9' width='18' height='11' rx='1'/><path d='M3 9h18M12 9v11'/><path d='M12 9C9.5 9 8 7.5 8.5 6s3.5-.5 3.5 3c0-3.5 3-4.5 3.5-3S14.5 9 12 9'/></svg>");
-}
-.nav a[href$="/collections/reward-orders"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3l8 4v10l-8 4-8-4V7z'/><path d='M4 7l8 4 8-4M12 11v10'/></svg>");
-}
-.nav a[href$="/collections/tickets"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 8a2 2 0 012-2h12a2 2 0 012 2 2 2 0 000 4 2 2 0 010 4H6a2 2 0 01-2-2 2 2 0 000-4z'/><path d='M14 6v12' stroke-dasharray='2 2'/></svg>");
-}
-.nav a[href$="/collections/media"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='16' rx='2'/><circle cx='8.5' cy='9' r='1.6'/><path d='M21 15l-5-5L5 21'/></svg>");
-}
-.nav a[href$="/collections/users"]::before {
-  mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='8' r='4'/><path d='M4 21c0-4 4-6 8-6s8 2 8 6'/></svg>");
+/* Icônes du menu, centralisées dans une map (Lucide-style, traits fins).
+   👉 Pour changer une icône : remplace ses tracés en face du slug.
+   Le wrapper <svg> commun est factorisé dans $icon-open / $icon-close. */
+$icon-open: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>";
+$icon-close: "</svg>";
+$nav-icons: (
+  "articles":            "<path d='M4 3h9l5 5v13H4z'/><path d='M13 3v5h5'/><path d='M8 13h7M8 17h5'/>",
+  "article-categories":  "<path d='M3 3h8l10 10-8 8L3 11z'/><circle cx='7.5' cy='7.5' r='1.3'/>",
+  "features":            "<path d='M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z'/>",
+  "feature-categories":  "<path d='M3 6h6l2 2h10v11H3z'/>",
+  "platforms":           "<rect x='3' y='4' width='18' height='12' rx='1.5'/><path d='M8 20h8M12 16v4'/>",
+  "parcours":            "<path d='M3 8l9-4 9 4-9 4z'/><path d='M7 11v4c0 1.2 3 2.5 5 2.5s5-1.3 5-2.5v-4'/>",
+  "partners":            "<circle cx='9' cy='8' r='3'/><path d='M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5'/><path d='M16 5.5a3 3 0 010 5.8M21.5 20c0-2.2-1.2-3.7-3.2-4.4'/>",
+  "point-transactions":  "<ellipse cx='9' cy='7' rx='6' ry='3'/><path d='M3 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7'/><path d='M9 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5c0-1.7-2.7-3-6-3'/>",
+  "missions":            "<circle cx='12' cy='12' r='8.5'/><circle cx='12' cy='12' r='4.5'/><circle cx='12' cy='12' r='1'/>",
+  "mission-submissions": "<path d='M3 8h3l2-2h8l2 2h3v11H3z'/><circle cx='12' cy='13' r='3.3'/>",
+  "rewards":             "<rect x='3' y='9' width='18' height='11' rx='1'/><path d='M3 9h18M12 9v11'/><path d='M12 9C9.5 9 8 7.5 8.5 6s3.5-.5 3.5 3c0-3.5 3-4.5 3.5-3S14.5 9 12 9'/>",
+  "reward-orders":       "<path d='M12 3l8 4v10l-8 4-8-4V7z'/><path d='M4 7l8 4 8-4M12 11v10'/>",
+  "tickets":             "<path d='M4 8a2 2 0 012-2h12a2 2 0 012 2 2 2 0 000 4 2 2 0 010 4H6a2 2 0 01-2-2 2 2 0 000-4z'/><path d='M14 6v12' stroke-dasharray='2 2'/>",
+  "media":               "<rect x='3' y='4' width='18' height='16' rx='2'/><circle cx='8.5' cy='9' r='1.6'/><path d='M21 15l-5-5L5 21'/>",
+  "users":               "<circle cx='12' cy='8' r='4'/><path d='M4 21c0-4 4-6 8-6s8 2 8 6'/>",
+);
+@each $slug, $paths in $nav-icons {
+  .nav a[href$="/collections/#{$slug}"]::before {
+    $svg: "#{$icon-open}#{$paths}#{$icon-close}";
+    -webkit-mask-image: url("data:image/svg+xml,#{$svg}");
+    mask-image: url("data:image/svg+xml,#{$svg}");
+  }
 }
 
 /* ─── 5. RELIEF & VIVACITÉ (léger) ───────────────────────────────────────────
@@ -197,7 +186,7 @@ input[type="checkbox"]:checked {
 
 /* Barre latérale légèrement teintée + délimitée */
 .nav {
-  background: #fcfcfd;
+  background: var(--tim-nav-bg);
   border-right: 1px solid var(--tim-border);
 }
 
@@ -212,13 +201,13 @@ input[type="checkbox"]:checked {
   border: 1px solid var(--tim-border);
   border-radius: var(--tim-radius);
   background: #ffffff;
-  box-shadow: 0 1px 2px rgba(80, 80, 80, 0.05);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 6%, transparent);
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 .card:hover {
   transform: translateY(-2px);
   border-color: var(--tim-primary);
-  box-shadow: 0 10px 24px -12px rgba(254, 84, 100, 0.35);
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--tim-primary) 32%, transparent);
 }
 .card:hover .card__title {
   color: var(--tim-primary);

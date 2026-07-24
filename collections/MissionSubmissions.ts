@@ -1,6 +1,7 @@
 import type { CollectionConfig } from "payload";
 
 import { adminOnly } from "./access";
+import { partnerField } from "../fields/partner";
 import { referenceNumber } from "../fields/referenceNumber";
 
 /**
@@ -28,14 +29,7 @@ export const MissionSubmissions: CollectionConfig = {
       required: true,
       index: true,
     },
-    {
-      name: "partner",
-      type: "relationship",
-      relationTo: "partners",
-      label: "Partenaire",
-      required: true,
-      index: true,
-    },
+    partnerField,
     { name: "note", type: "textarea", label: "Note du partenaire" },
     {
       name: "status",

@@ -1,6 +1,7 @@
 import type { CollectionConfig } from "payload";
 
 import { adminOnly } from "./access";
+import { partnerField } from "../fields/partner";
 import { referenceNumber } from "../fields/referenceNumber";
 
 /**
@@ -21,14 +22,7 @@ export const RewardOrders: CollectionConfig = {
   access: adminOnly,
   fields: [
     referenceNumber,
-    {
-      name: "partner",
-      type: "relationship",
-      relationTo: "partners",
-      label: "Partenaire",
-      required: true,
-      index: true,
-    },
+    partnerField,
     {
       name: "reward",
       type: "relationship",
@@ -36,7 +30,7 @@ export const RewardOrders: CollectionConfig = {
       label: "Récompense",
       required: true,
     },
-    { name: "cost", type: "number", label: "Coût (points)", required: true },
+    { name: "cost", type: "number", label: "Coût (points)", required: true, min: 0 },
     {
       name: "status",
       type: "select",

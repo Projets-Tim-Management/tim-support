@@ -33,16 +33,14 @@ export const Partners: CollectionConfig = {
       type: "email",
       label: "Email",
       required: true,
-      unique: true,
-      index: true,
+      unique: true, // index unique déjà créé par `unique`
     },
     { name: "name", type: "text", label: "Nom" },
     {
       name: "code",
       type: "text",
       label: "Code partenaire",
-      unique: true,
-      index: true,
+      unique: true, // index unique déjà créé par `unique`
       admin: {
         position: "sidebar",
         readOnly: true,

@@ -1,6 +1,7 @@
 import type { CollectionConfig } from "payload";
 
 import { adminOnly } from "./access";
+import { partnerField } from "../fields/partner";
 
 /**
  * Ledger de points — 1 ligne = 1 transaction (append-only, auditable).
@@ -22,14 +23,7 @@ export const PointTransactions: CollectionConfig = {
   },
   access: adminOnly,
   fields: [
-    {
-      name: "partner",
-      type: "relationship",
-      relationTo: "partners",
-      label: "Partenaire",
-      required: true,
-      index: true,
-    },
+    partnerField,
     {
       name: "delta",
       type: "number",
@@ -49,7 +43,6 @@ export const PointTransactions: CollectionConfig = {
         { label: "Ajustement manuel", value: "ajustement" },
         { label: "Échange (débit récompense)", value: "echange" },
       ],
-      index: true,
     },
     {
       name: "ref",

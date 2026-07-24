@@ -12,8 +12,7 @@ import type { Field } from "payload";
 export const referenceNumber: Field = {
   name: "number",
   type: "number",
-  unique: true,
-  index: true,
+  unique: true, // crée déjà un index unique — pas de `index: true` en plus
   label: "Numéro",
   admin: {
     position: "sidebar",
