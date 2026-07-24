@@ -3,6 +3,7 @@ import { fileURLToPath } from "url";
 
 import { postgresAdapter } from "@payloadcms/db-postgres";
 import { lexicalEditor } from "@payloadcms/richtext-lexical";
+import { fr } from "@payloadcms/translations/languages/fr";
 import { buildConfig } from "payload";
 import sharp from "sharp";
 
@@ -62,6 +63,12 @@ export default buildConfig({
     Media,
     Users,
   ],
+
+  // Back-office en français uniquement.
+  i18n: {
+    supportedLanguages: { fr },
+    fallbackLanguage: "fr",
+  },
 
   // Éditeur de texte riche par défaut (pour l'éditorial à venir).
   editor: lexicalEditor(),

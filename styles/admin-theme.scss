@@ -191,3 +191,52 @@ input[type="checkbox"]:checked {
 .nav a[href$="/collections/users"]::before {
   mask-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='8' r='4'/><path d='M4 21c0-4 4-6 8-6s8 2 8 6'/></svg>");
 }
+
+/* ─── 5. RELIEF & VIVACITÉ (léger) ───────────────────────────────────────────
+   Un peu de profondeur pour rendre le dashboard vivant, sans casser le blanc. */
+
+/* Barre latérale légèrement teintée + délimitée */
+.nav {
+  background: #fcfcfd;
+  border-right: 1px solid var(--tim-border);
+}
+
+/* En-têtes délimités */
+.app-header,
+.step-nav {
+  border-bottom: 1px solid var(--tim-border);
+}
+
+/* Cartes du dashboard : bordure, rayon, ombre douce, survol vivant */
+.card {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(80, 80, 80, 0.05);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  border-color: var(--tim-primary);
+  box-shadow: 0 10px 24px -12px rgba(254, 84, 100, 0.35);
+}
+.card:hover .card__title {
+  color: var(--tim-primary);
+}
+.card__title {
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+
+/* Lignes de tableau : survol teinté pour le confort de lecture */
+.table tbody tr:hover td {
+  background: var(--tim-surface);
+}
+
+/* Champs & panneaux : bordure douce cohérente */
+.field-type input,
+.field-type textarea,
+.field-type .rs__control {
+  border-color: var(--tim-border);
+}
+
