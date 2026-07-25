@@ -28,6 +28,10 @@ const dirname = path.dirname(filename);
 
 export default buildConfig({
   // Collection qui porte l'authentification du back-office.
+  // API Payload isolée sous /payload-api pour ne pas entrer en collision avec
+  // les routes /api/* du front (app/(frontend)/api/*).
+  routes: { api: "/payload-api" },
+
   admin: {
     user: Users.slug,
     // Fond blanc systématique (aligné sur le front), pas de thème sombre.
