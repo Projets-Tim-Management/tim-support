@@ -3,6 +3,12 @@ import type { Payload } from "payload";
 import { htmlToLexical, stripHtml } from "./htmlToLexical";
 import { uploadMediaFromUrl } from "./media";
 
+/**
+ * Coerce en tableau. ACF renvoie `false` (et non `[]`) pour un repeater ou un
+ * flexible content vide — ce qui casse les `for…of`. On normalise ici.
+ */
+const arr = <T>(x: unknown): T[] => (Array.isArray(x) ? (x as T[]) : []);
+
 // ─── Accès à l'API WordPress (namespace tim-support/v1) ──────────────────────
 
 const TIM_API = process.env.SUPPORT_WP_API_URL
@@ -15,6 +21,20 @@ async function wp<T>(path: string): Promise<T> {
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`WP ${res.status} sur ${path}`);
+  return res.json() as Promise<T>;
+}
+
+// API cœur WordPress (posts / catégories natifs)
+const CORE_API =
+  process.env.SUPPORT_WP_API_URL ??
+  "https://support-tim-management.co/wp-json/wp/v2";
+
+async function wpCore<T>(path: string): Promise<T> {
+  const res = await fetch(`${CORE_API}${path}`, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`WP core ${res.status} sur ${path}`);
   return res.json() as Promise<T>;
 }
 
@@ -132,15 +152,15 @@ type WPFeature = {
   };
 };
 
-async function buildMediaBlocks(payload: Payload, items: WPMediaDocItem[] = []) {
+async function buildMediaBlocks(payload: Payload, items: unknown) {
   const blocks: Record<string, unknown>[] = [];
-  for (const item of items) {
+  for (const item of arr<WPMediaDocItem>(items)) {
     if (item.acf_fc_layout === "img") {
       const id = await uploadMediaFromUrl(payload, item.img?.source_url, item.img?.alt_text);
       if (id) blocks.push({ blockType: "img", image: id });
     } else if (item.acf_fc_layout === "galerie") {
       const ids: number[] = [];
-      for (const g of item.galerie ?? []) {
+      for (const g of arr<WPMediaRef>(item.galerie)) {
         const id = await uploadMediaFromUrl(payload, g.source_url, g.alt_text);
         if (id) ids.push(id);
       }
@@ -163,7 +183,7 @@ export async function migrateFeature(
   categoryBySlug: Map<string, number>,
 ): Promise<number> {
   const doc = [];
-  for (const s of f.acf?.doc ?? []) {
+  for (const s of arr<NonNullable<WPFeature["acf"]["doc"]>[number]>(f.acf?.doc)) {
     doc.push({
       titleDoc: s.title_doc ?? "",
       descriptionDoc: await htmlToLexical(payload, s.description_doc ?? ""),
@@ -186,8 +206,8 @@ export async function migrateFeature(
     shortDescription: stripHtml(f.acf?.short_description),
     availability: STATUS[f.acf?.status ?? ""] ?? "disponible",
     keywords,
-    platforms: f.platforms.map((p) => platformBySlug.get(p.slug)).filter(Boolean),
-    categories: f.categories.map((c) => categoryBySlug.get(c.slug)).filter(Boolean),
+    platforms: arr<{ slug: string }>(f.platforms).map((p) => platformBySlug.get(p.slug)).filter(Boolean),
+    categories: arr<{ slug: string }>(f.categories).map((c) => categoryBySlug.get(c.slug)).filter(Boolean),
     content: await htmlToLexical(payload, f.content ?? ""),
     doc,
     feedback: {
@@ -227,4 +247,129 @@ export async function migrateAllFeatures(payload: Payload) {
     }
   }
   return { taxonomies: counts, features: { total: list.length, migrated: ok, errors } };
+}
+
+// ─── Parcours ────────────────────────────────────────────────────────────────
+
+type WPParcours = {
+  slug: string;
+  title: string;
+  intro?: string;
+  profil?: string;
+  order?: number;
+  steps?: { slug: string }[];
+};
+
+/** Migre les parcours. Nécessite que les features soient déjà migrées
+ *  (les étapes sont reliées par slug de feature). */
+export async function migrateParcours(payload: Payload) {
+  const feats = await payload.find({
+    collection: "features",
+    limit: 1000,
+    depth: 0,
+    draft: true,
+  });
+  const featBySlug = new Map(feats.docs.map((f) => [f.slug as string, f.id as number]));
+
+  const list = await wp<{ slug: string }[]>("/parcours");
+  let ok = 0;
+  const errors: { slug: string; error: string }[] = [];
+  for (const { slug } of list) {
+    try {
+      const p = await wp<WPParcours>(`/parcours/${slug}`);
+      const steps = arr<{ slug: string }>(p.steps)
+        .map((s) => featBySlug.get(s.slug))
+        .filter((id): id is number => typeof id === "number");
+      await upsertBySlug(payload, "parcours", slug, {
+        title: p.title,
+        slug,
+        order: p.order ?? 0,
+        profil: p.profil || undefined,
+        intro: p.intro ?? "",
+        steps,
+        _status: "published",
+      });
+      ok++;
+    } catch (err) {
+      errors.push({ slug, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  return { total: list.length, migrated: ok, errors };
+}
+
+// ─── Articles (posts natifs WordPress) ───────────────────────────────────────
+
+type WPRendered = { rendered: string };
+type WPPost = {
+  slug: string;
+  title: WPRendered;
+  excerpt: WPRendered;
+  content: WPRendered;
+  date: string;
+  categories: number[];
+  yoast_head_json?: { title?: string; description?: string };
+  _embedded?: { "wp:featuredmedia"?: { source_url: string }[] };
+};
+type WPCategory = { id: number; name: string; slug: string; description?: string; parent?: number };
+
+/** Migre articles + catégories d'articles (cœur WordPress). */
+export async function migrateArticles(payload: Payload) {
+  const catByWpId = new Map<number, number>();
+  const cats = await wpCore<WPCategory[]>("/categories?per_page=100");
+  for (const c of cats) {
+    const id = await upsertBySlug(payload, "article-categories", c.slug, {
+      name: c.name,
+      slug: c.slug,
+      description: stripHtml(c.description),
+    });
+    catByWpId.set(c.id, id);
+  }
+  for (const c of cats) {
+    const childId = catByWpId.get(c.id);
+    if (childId && c.parent && catByWpId.has(c.parent)) {
+      await payload.update({
+        collection: "article-categories",
+        id: childId,
+        data: { parent: catByWpId.get(c.parent) },
+      });
+    }
+  }
+
+  const posts = await wpCore<WPPost[]>("/posts?per_page=100&_embed");
+  let ok = 0;
+  const errors: { slug: string; error: string }[] = [];
+  for (const p of posts) {
+    try {
+      const featUrl = p._embedded?.["wp:featuredmedia"]?.[0]?.source_url;
+      const featuredImage = featUrl
+        ? await uploadMediaFromUrl(payload, featUrl, stripHtml(p.title.rendered))
+        : null;
+      await upsertBySlug(payload, "articles", p.slug, {
+        title: stripHtml(p.title.rendered) || p.slug,
+        slug: p.slug,
+        excerpt: stripHtml(p.excerpt.rendered),
+        content: await htmlToLexical(payload, p.content.rendered),
+        categories: p.categories.map((id) => catByWpId.get(id)).filter(Boolean),
+        featuredImage,
+        publishedAt: p.date,
+        seo: {
+          title: p.yoast_head_json?.title,
+          description: p.yoast_head_json?.description,
+        },
+        _status: "published",
+      });
+      ok++;
+    } catch (err) {
+      errors.push({ slug: p.slug, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  return { categories: cats.length, articles: { total: posts.length, migrated: ok, errors } };
+}
+
+/** Migration éditoriale complète : features → parcours → articles. */
+export async function migrateAllEditorial(payload: Payload) {
+  const features = await migrateAllFeatures(payload);
+  const parcours = await migrateParcours(payload);
+  const articles = await migrateArticles(payload);
+  return { features, parcours, articles };
 }

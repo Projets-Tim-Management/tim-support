@@ -2,7 +2,7 @@ import config from "@payload-config";
 import { NextResponse } from "next/server";
 import { getPayload } from "payload";
 
-import { migrateAllFeatures, migrateOneFeature } from "@/lib/migrate/editorial";
+import { migrateAllEditorial, migrateOneFeature } from "@/lib/migrate/editorial";
 
 // Route de migration — DEV UNIQUEMENT, temporaire (à retirer après la Phase 3).
 // Protégée par la clé PAYLOAD_SECRET. Usage :
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   try {
     const report = feature
       ? await migrateOneFeature(payload, feature)
-      : await migrateAllFeatures(payload);
+      : await migrateAllEditorial(payload);
     return NextResponse.json({ ok: true, report });
   } catch (err) {
     return NextResponse.json(
