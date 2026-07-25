@@ -3,6 +3,7 @@ import { fileURLToPath } from "url";
 
 import { postgresAdapter } from "@payloadcms/db-postgres";
 import { lexicalEditor } from "@payloadcms/richtext-lexical";
+import { vercelBlobStorage } from "@payloadcms/storage-vercel-blob";
 import { fr } from "@payloadcms/translations/languages/fr";
 import { buildConfig } from "payload";
 import sharp from "sharp";
@@ -83,6 +84,18 @@ export default buildConfig({
   typescript: {
     outputFile: path.resolve(dirname, "payload-types.ts"),
   },
+
+  // Stockage des médias sur Vercel Blob (activé dès que le token est présent ;
+  // sinon repli sur le disque local en dev).
+  plugins: [
+    vercelBlobStorage({
+      enabled: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+      // Store public → on sert les images en direct depuis le CDN Blob
+      // (URL blob.vercel-storage.com) plutôt qu'en proxy via Payload.
+      collections: { media: { disablePayloadAccessControl: true } },
+      token: process.env.BLOB_READ_WRITE_TOKEN || "",
+    }),
+  ],
 
   db: postgresAdapter({
     pool: {
