@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { ticketAdminNotificationEmail, ticketConfirmationEmail } from "@/lib/email";
 import { payloadClient } from "@/lib/payload-client";
 
 const TICKET_TYPES = ["assistance", "suggestion", "autre"];
@@ -88,22 +89,14 @@ export async function POST(req: Request) {
     // Confirmation au demandeur + notification admin (best-effort, ne bloque
     // jamais la création du ticket).
     payload
-      .sendEmail({
-        to: email,
-        subject: `Votre demande #${number} a bien été reçue`,
-        text:
-          `Bonjour${name ? ` ${name}` : ""},\n\n` +
-          `Nous avons bien reçu votre demande « ${subject} » (n° ${number}). ` +
-          `Notre équipe la prend en charge dans les meilleurs délais.\n\n— L'équipe TIM Support`,
-      })
+      .sendEmail({ to: email, ...ticketConfirmationEmail({ name, subject, number }) })
       .catch((e) => console.warn("[tickets] e-mail confirmation échoué:", e));
 
     if (process.env.TICKETS_NOTIFY_EMAIL) {
       payload
         .sendEmail({
           to: process.env.TICKETS_NOTIFY_EMAIL,
-          subject: `Nouveau ticket #${number} — ${subject}`,
-          text: `Type : ${type}\nDe : ${name || "—"} <${email}>\nService : ${service ?? "—"}\nPage : ${url || "—"}\n\n${description}`,
+          ...ticketAdminNotificationEmail({ number, subject, type, name, email, service, url, description }),
         })
         .catch(() => {});
     }
