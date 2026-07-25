@@ -15,9 +15,9 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://support.tim-management.co"
   ),
   icons: {
-    icon: "https://support-tim-management.co/wp-content/uploads/2026/04/favicon.png",
-    shortcut: "https://support-tim-management.co/wp-content/uploads/2026/04/favicon.png",
-    apple: "https://support-tim-management.co/wp-content/uploads/2026/04/favicon.png",
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
   },
 };
 
