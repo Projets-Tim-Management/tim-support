@@ -113,5 +113,29 @@ export const Tickets: CollectionConfig = {
       label: "Notes internes",
       admin: { description: "Jamais inclus dans les e-mails." },
     },
+    {
+      name: "messages",
+      type: "array",
+      label: "Conversation",
+      labels: { singular: "Message", plural: "Messages" },
+      admin: {
+        description:
+          "Fil des échanges. Les réponses du client par e-mail s'ajoutent ici automatiquement.",
+      },
+      fields: [
+        {
+          name: "author",
+          type: "select",
+          label: "Auteur",
+          defaultValue: "client",
+          options: [
+            { label: "Client", value: "client" },
+            { label: "Support", value: "support" },
+          ],
+        },
+        { name: "body", type: "textarea", label: "Message" },
+        { name: "sentAt", type: "date", label: "Reçu le" },
+      ],
+    },
   ],
 };

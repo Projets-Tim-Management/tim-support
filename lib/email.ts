@@ -14,6 +14,9 @@ const FONT =
   "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://support.tim-management.co";
+// Si défini, les réponses aux e-mails sont rapatriées dans le dashboard
+// (Brevo Inbound Parsing) → on invite le client à répondre.
+const REPLY_ENABLED = Boolean(process.env.REPLY_DOMAIN);
 // Logo hébergé sur le CDN Blob (URL publique, PNG email-safe).
 const LOGO_URL =
   process.env.EMAIL_LOGO_URL ||
@@ -41,7 +44,11 @@ function shell(opts: { heading: string; preheader?: string; bodyHtml: string }):
         ${bodyHtml}
       </td></tr>
       <tr><td style="padding:18px 28px;border-top:1px solid ${BORDER};background:${SURFACE};">
-        <p style="margin:0 0 6px;font-family:${FONT};font-size:12px;line-height:1.5;color:${MUTED};">Cet e-mail est automatique, merci de <strong>ne pas y répondre</strong>. Pour toute question, contactez-nous via le <a href="${SITE_URL}/contact" style="color:${BRAND};text-decoration:none;">centre d'aide</a> en indiquant votre numéro de suivi.</p>
+        <p style="margin:0 0 6px;font-family:${FONT};font-size:12px;line-height:1.5;color:${MUTED};">${
+          REPLY_ENABLED
+            ? `Vous pouvez <strong>répondre directement à cet e-mail</strong> pour ajouter un message à votre demande. Suivi aussi via le <a href="${SITE_URL}/contact" style="color:${BRAND};text-decoration:none;">centre d'aide</a>.`
+            : `Cet e-mail est automatique, merci de <strong>ne pas y répondre</strong>. Pour toute question, contactez-nous via le <a href="${SITE_URL}/contact" style="color:${BRAND};text-decoration:none;">centre d'aide</a> en indiquant votre numéro de suivi.`
+        }</p>
         <p style="margin:0;font-family:${FONT};font-size:12px;color:${MUTED};">TIM Management — Centre d'aide</p>
       </td></tr>
     </table>

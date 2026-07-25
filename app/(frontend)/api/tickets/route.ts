@@ -89,7 +89,15 @@ export async function POST(req: Request) {
     // Confirmation au demandeur + notification admin (best-effort, ne bloque
     // jamais la création du ticket).
     payload
-      .sendEmail({ to: email, ...ticketConfirmationEmail({ name, subject, number }) })
+      .sendEmail({
+        to: email,
+        // Reply-To par ticket → les réponses reviennent dans le dashboard
+        // (via Brevo Inbound Parsing), si REPLY_DOMAIN est configuré.
+        ...(process.env.REPLY_DOMAIN
+          ? { replyTo: `ticket-${number}@${process.env.REPLY_DOMAIN}` }
+          : {}),
+        ...ticketConfirmationEmail({ name, subject, number }),
+      })
       .catch((e) => console.warn("[tickets] e-mail confirmation échoué:", e));
 
     if (process.env.TICKETS_NOTIFY_EMAIL) {
