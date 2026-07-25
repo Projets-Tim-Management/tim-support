@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import ConnectNotice from "@/components/partenaires/ConnectNotice";
 import { getSession } from "@/lib/session";
-import { getPointsSummary } from "@/lib/wordpress";
+import { getPointsSummary } from "@/lib/partner";
 import type { PointsSource } from "@/lib/types";
 
 export const metadata: Metadata = {

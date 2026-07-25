@@ -1,6 +1,7 @@
 import type { CollectionConfig } from "payload";
 
 import { adminOnly } from "./access";
+import { creditApprovedSubmission } from "./hooks";
 import { partnerField } from "../fields/partner";
 import { referenceNumber } from "../fields/referenceNumber";
 
@@ -19,6 +20,7 @@ export const MissionSubmissions: CollectionConfig = {
     group: "Partenaires",
   },
   access: adminOnly,
+  hooks: { afterChange: [creditApprovedSubmission] },
   fields: [
     referenceNumber,
     {

@@ -1,6 +1,7 @@
 import type { CollectionConfig } from "payload";
 
 import { adminOnly } from "./access";
+import { refundCancelledOrder } from "./hooks";
 import { partnerField } from "../fields/partner";
 import { referenceNumber } from "../fields/referenceNumber";
 
@@ -20,6 +21,7 @@ export const RewardOrders: CollectionConfig = {
     group: "Partenaires",
   },
   access: adminOnly,
+  hooks: { afterChange: [refundCancelledOrder] },
   fields: [
     referenceNumber,
     partnerField,

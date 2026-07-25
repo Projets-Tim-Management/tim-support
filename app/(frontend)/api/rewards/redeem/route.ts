@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
-import { redeemReward } from "@/lib/wordpress";
+import { redeemReward } from "@/lib/partner";
 
 // Échange de points contre une récompense.
 // L'identité du partenaire vient de la session JWT (jamais du corps de la

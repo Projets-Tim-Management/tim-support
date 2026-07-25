@@ -5,7 +5,7 @@ import Breadcrumb from "@/components/ui/Breadcrumb";
 import ConnectNotice from "@/components/partenaires/ConnectNotice";
 import RedeemButton from "@/components/partenaires/RedeemButton";
 import { getSession } from "@/lib/session";
-import { getPointsSummary, getRewards } from "@/lib/wordpress";
+import { getPointsSummary, getRewards } from "@/lib/partner";
 
 export const metadata: Metadata = {
   title: "Récompenses",

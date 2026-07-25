@@ -26,7 +26,7 @@ import type {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Convertit un état Lexical (richText Payload) en HTML pour le front. */
-function lexicalToHtml(data: unknown): string {
+export function lexicalToHtml(data: unknown): string {
   const state = data as SerializedEditorState | undefined;
   if (!state || !state.root) return "";
   try {
@@ -39,7 +39,7 @@ function lexicalToHtml(data: unknown): string {
 type MediaDoc = { id: number; url?: string | null; alt?: string | null; filename?: string | null; width?: number | null; height?: number | null; mimeType?: string | null; filesize?: number | null };
 
 /** upload Payload (populé) → URL, ou null. */
-function mediaUrl(m: unknown): string | null {
+export function mediaUrl(m: unknown): string | null {
   return m && typeof m === "object" ? ((m as MediaDoc).url ?? null) : null;
 }
 

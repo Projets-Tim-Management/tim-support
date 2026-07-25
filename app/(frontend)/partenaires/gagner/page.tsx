@@ -4,7 +4,7 @@ import Breadcrumb from "@/components/ui/Breadcrumb";
 import ConnectNotice from "@/components/partenaires/ConnectNotice";
 import MissionCard from "@/components/partenaires/MissionCard";
 import { getSession } from "@/lib/session";
-import { getPointsSummary, getMissions } from "@/lib/wordpress";
+import { getPointsSummary, getMissions } from "@/lib/partner";
 
 export const metadata: Metadata = {
   title: "Gagner des points",

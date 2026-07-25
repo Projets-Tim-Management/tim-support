@@ -1,58 +1,40 @@
 import { NextResponse } from "next/server";
+
+import { submitMission } from "@/lib/partner";
 import { getSession } from "@/lib/session";
 
-const TIM_API =
-  process.env.SUPPORT_WP_API_URL
-    ? process.env.SUPPORT_WP_API_URL.replace("/wp/v2", "/tim-support/v1")
-    : "https://support-tim-management.co/wp-json/tim-support/v1";
-
-const INTERNAL_SECRET = process.env.TIM_INTERNAL_SECRET ?? "";
-
-// Soumission d'une preuve de mission (capture d'écran).
-// Le formulaire envoie du multipart (capture + mission_id + note). On injecte
-// l'email depuis la session (jamais depuis le client) puis on relaie à WP avec
-// le secret serveur-à-serveur. Node fixe le bon Content-Type multipart.
+// Soumission d'une preuve de mission (capture d'écran) → Payload.
+// L'identité (email) vient TOUJOURS de la session, jamais du client.
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json(
       { code: "unauthorized", message: "Connectez-vous depuis l'app pour envoyer une preuve." },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
   try {
-    const incoming = await req.formData();
-    const outgoing = new FormData();
-
-    // On ne reconduit que les champs attendus + les fichiers.
-    const missionId = incoming.get("mission_id");
-    const note = incoming.get("note");
-    const reviewerEmail = incoming.get("reviewer_email");
-    if (missionId != null) outgoing.set("mission_id", String(missionId));
-    if (note != null) outgoing.set("note", String(note));
-    if (reviewerEmail != null) outgoing.set("reviewer_email", String(reviewerEmail));
-
-    for (const [key, value] of incoming.entries()) {
-      if (value instanceof File) outgoing.append(key, value, value.name);
+    const form = await req.formData();
+    const missionId = Number(form.get("mission_id"));
+    if (!Number.isInteger(missionId) || missionId <= 0) {
+      return NextResponse.json({ code: "invalid_mission", message: "Mission invalide." }, { status: 400 });
     }
 
-    // Identité forcée par la session.
-    outgoing.set("email", session.email);
+    const files = [...form.values()].filter((v): v is File => v instanceof File);
 
-    const res = await fetch(`${TIM_API}/missions/submit`, {
-      method: "POST",
-      body: outgoing,
-      cache: "no-store",
-      headers: { "X-Tim-Internal-Secret": INTERNAL_SECRET },
+    const { status, data } = await submitMission({
+      email: session.email,
+      missionId,
+      note: String(form.get("note") ?? "") || undefined,
+      reviewerEmail: String(form.get("reviewer_email") ?? "") || undefined,
+      files,
     });
-
-    const data = await res.json().catch(() => ({} as Record<string, unknown>));
-    return NextResponse.json(data, { status: res.status });
+    return NextResponse.json(data, { status });
   } catch {
     return NextResponse.json(
       { code: "network_error", message: "Impossible de joindre le serveur." },
-      { status: 503 }
+      { status: 503 },
     );
   }
 }
