@@ -2,6 +2,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import { postgresAdapter } from "@payloadcms/db-postgres";
+import { nodemailerAdapter } from "@payloadcms/email-nodemailer";
 import { lexicalEditor } from "@payloadcms/richtext-lexical";
 import { vercelBlobStorage } from "@payloadcms/storage-vercel-blob";
 import { fr } from "@payloadcms/translations/languages/fr";
@@ -74,6 +75,22 @@ export default buildConfig({
     supportedLanguages: { fr },
     fallbackLanguage: "fr",
   },
+
+  // E-mails transactionnels via Brevo (SMTP). Repli console si non configuré.
+  email: process.env.BREVO_SMTP_KEY
+    ? nodemailerAdapter({
+        defaultFromAddress: process.env.EMAIL_FROM || "support@tim-management.co",
+        defaultFromName: process.env.EMAIL_FROM_NAME || "TIM Support",
+        transportOptions: {
+          host: process.env.BREVO_SMTP_HOST || "smtp-relay.brevo.com",
+          port: Number(process.env.BREVO_SMTP_PORT || 587),
+          auth: {
+            user: process.env.BREVO_SMTP_USER || "",
+            pass: process.env.BREVO_SMTP_KEY,
+          },
+        },
+      })
+    : undefined,
 
   // Éditeur de texte riche par défaut (pour l'éditorial à venir).
   editor: lexicalEditor(),

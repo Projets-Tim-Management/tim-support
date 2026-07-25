@@ -85,6 +85,29 @@ export async function POST(req: Request) {
       },
     });
 
+    // Confirmation au demandeur + notification admin (best-effort, ne bloque
+    // jamais la création du ticket).
+    payload
+      .sendEmail({
+        to: email,
+        subject: `Votre demande #${number} a bien été reçue`,
+        text:
+          `Bonjour${name ? ` ${name}` : ""},\n\n` +
+          `Nous avons bien reçu votre demande « ${subject} » (n° ${number}). ` +
+          `Notre équipe la prend en charge dans les meilleurs délais.\n\n— L'équipe TIM Support`,
+      })
+      .catch((e) => console.warn("[tickets] e-mail confirmation échoué:", e));
+
+    if (process.env.TICKETS_NOTIFY_EMAIL) {
+      payload
+        .sendEmail({
+          to: process.env.TICKETS_NOTIFY_EMAIL,
+          subject: `Nouveau ticket #${number} — ${subject}`,
+          text: `Type : ${type}\nDe : ${name || "—"} <${email}>\nService : ${service ?? "—"}\nPage : ${url || "—"}\n\n${description}`,
+        })
+        .catch(() => {});
+    }
+
     return NextResponse.json({ success: true, ticket_number: number });
   } catch (err) {
     console.error("[tickets] création échouée:", err);
