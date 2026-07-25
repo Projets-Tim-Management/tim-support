@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getParcours } from "@/lib/wordpress";
+import { getParcours } from "@/lib/content";
 import type { ParcoursProfil } from "@/lib/types";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import ParcoursCard from "@/components/parcours/ParcoursCard";

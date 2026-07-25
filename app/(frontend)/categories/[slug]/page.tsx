@@ -4,7 +4,7 @@ import {
   getCategoryBySlug,
   getArticlesByCategory,
   getAllCategorySlugs,
-} from "@/lib/wordpress";
+} from "@/lib/content";
 import ArticleCard from "@/components/ui/ArticleCard";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 

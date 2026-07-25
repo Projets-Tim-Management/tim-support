@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getParcoursBySlug, getAllParcoursSlugs } from "@/lib/wordpress";
+import { getParcoursBySlug, getAllParcoursSlugs } from "@/lib/content";
 import DocSection from "@/components/features/DocSection";
 import StepNavigator from "@/components/parcours/StepNavigator";
 import StepsList from "@/components/parcours/StepsList";

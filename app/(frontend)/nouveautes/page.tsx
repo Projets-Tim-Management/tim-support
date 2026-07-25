@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getFeatures } from "@/lib/wordpress";
+import { getFeatures } from "@/lib/content";
 import FeatureCard from "@/components/features/FeatureCard";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import { getRecentFeatures, NEW_FEATURE_DAYS } from "@/lib/feature-utils";

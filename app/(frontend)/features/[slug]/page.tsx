@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getFeatureBySlug, getAllFeatureSlugs, getFeatures } from "@/lib/wordpress";
+import { getFeatureBySlug, getAllFeatureSlugs, getFeatures } from "@/lib/content";
 import { htmlToText } from "@/lib/html";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import StatusBadge from "@/components/features/StatusBadge";

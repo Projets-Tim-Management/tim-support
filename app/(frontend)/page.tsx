@@ -1,4 +1,4 @@
-import { getFeatures, getFeatureCategories } from "@/lib/wordpress";
+import { getFeatures, getFeatureCategories } from "@/lib/content";
 import SearchBar from "@/components/ui/SearchBar";
 import FeatureCard from "@/components/features/FeatureCard";
 import Link from "next/link";

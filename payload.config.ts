@@ -91,6 +91,11 @@ export default buildConfig({
       ssl: process.env.DATABASE_URL?.includes("supabase")
         ? { rejectUnauthorized: false }
         : undefined,
+      // Le session pooler Supabase plafonne à 15 clients : on garde une petite
+      // marge et on libère vite les connexions inactives (surtout en dev, où
+      // les rechargements à chaud peuvent multiplier les pools).
+      max: 5,
+      idleTimeoutMillis: 10000,
     },
   }),
 

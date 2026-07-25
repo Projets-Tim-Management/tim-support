@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { searchArticles } from "@/lib/wordpress";
+import { searchArticles } from "@/lib/content";
 import ArticleCard from "@/components/ui/ArticleCard";
 import SearchBar from "@/components/ui/SearchBar";
 import Breadcrumb from "@/components/ui/Breadcrumb";

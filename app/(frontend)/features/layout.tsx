@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getFeatureCategories } from "@/lib/wordpress";
+import { getFeatureCategories } from "@/lib/content";
 import FeatureSidebar from "@/components/features/FeatureSidebar";
 import MobileSidebarTrigger from "@/components/features/MobileSidebarTrigger";
 import { ActiveCategoryProvider } from "@/components/features/active-category-context";
