@@ -1,7 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { submitFeedback } from "@/lib/wordpress";
+
+/** Envoie un vote de feedback à l'API Payload (silencieux en cas d'échec). */
+async function sendFeedback(postId: number, helpful: boolean, comment?: string) {
+  try {
+    await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ postId, helpful, comment }),
+    });
+  } catch {
+    /* silencieux */
+  }
+}
 
 export default function FeedbackWidget({ postId }: { postId: number }) {
   const [choice, setChoice]   = useState<"helpful" | "not_helpful" | null>(null);
@@ -12,13 +24,13 @@ export default function FeedbackWidget({ postId }: { postId: number }) {
     if (sent) return;
     setChoice(helpful ? "helpful" : "not_helpful");
     if (helpful) {
-      await submitFeedback(postId, true);
+      await sendFeedback(postId, true);
       setSent(true);
     }
   }
 
   async function handleSubmitComment() {
-    await submitFeedback(postId, false, comment);
+    await sendFeedback(postId, false, comment);
     setSent(true);
   }
 

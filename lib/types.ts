@@ -56,6 +56,65 @@ export interface Feature {
   search_h3?: string[];
 }
 
+// ─── Espace partenaires : points & récompenses ───────────────────────────────
+
+export type PointsSource = 'contrat' | 'avis' | 'ajustement' | 'echange';
+
+export interface PointsEntry {
+  delta:      number;       // > 0 crédit, < 0 débit
+  motif:      string;
+  source:     PointsSource;
+  ref:        string | null;
+  created_at: string;       // ISO 8601
+}
+
+export interface PointsSummary {
+  email:   string;
+  balance: number;
+  history: PointsEntry[];
+  code:    string;       // code partenaire unique (parrainage / leads)
+}
+
+export type MissionType = 'preuve' | 'manuelle';
+export type MissionPartnerStatus = 'none' | 'pending' | 'approved';
+
+export interface Mission {
+  id:             number;
+  title:          string;
+  description:    string;
+  points:         number;
+  url:            string;
+  type:           MissionType;
+  image:          string | null;
+  repeatable:     boolean;
+  partner_status: MissionPartnerStatus;   // statut pour le partenaire courant
+}
+
+export interface MissionSubmitResult {
+  success?:           boolean;
+  submission_number?: number;
+  code?:              string;
+  message?:           string;
+}
+
+export interface Reward {
+  id:          number;
+  slug:        string;
+  title:       string;
+  description: string;
+  cost:        number;       // coût en points
+  stock:       number;       // -1 = illimité
+  image:       string | null;
+}
+
+export interface RedeemResult {
+  success?:      boolean;
+  order_number?: number;
+  balance?:      number;
+  code?:         string;
+  message?:      string;
+}
+
 // ─── Articles ─────────────────────────────────────────────────────────────────
 
 export interface WPCategory {

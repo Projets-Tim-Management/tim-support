@@ -48,7 +48,7 @@ export default function Header() {
           <div className="flex items-center gap-5">
             <Link href="/" className="flex items-center gap-2.5">
               <Image
-                src="https://support-tim-management.co/wp-content/uploads/2026/05/logo_tim_management_support.webp"
+                src="/logo-support.webp"
                 alt="TIM Management"
                 width={160}
                 height={32}
