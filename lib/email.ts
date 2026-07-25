@@ -13,6 +13,12 @@ const SURFACE = "#f6f7f9";
 const FONT =
   "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://support.tim-management.co";
+// Logo hébergé sur le CDN Blob (URL publique, PNG email-safe).
+const LOGO_URL =
+  process.env.EMAIL_LOGO_URL ||
+  "https://ytlg8jezeqmgptjq.public.blob.vercel-storage.com/email/logo-tim-support.png";
+
 /** Enveloppe HTML commune (en-tête marque + corps + pied de page). */
 function shell(opts: { heading: string; preheader?: string; bodyHtml: string }): string {
   const { heading, preheader = "", bodyHtml } = opts;
@@ -28,14 +34,15 @@ function shell(opts: { heading: string; preheader?: string; bodyHtml: string }):
   <tr><td align="center" style="padding:32px 16px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid ${BORDER};border-radius:14px;overflow:hidden;">
       <tr><td style="padding:22px 28px;border-bottom:1px solid ${BORDER};">
-        <span style="font-family:${FONT};font-size:19px;font-weight:800;letter-spacing:-.02em;color:${INK};">TIM <span style="color:${BRAND};">&middot;</span> Support</span>
+        <img src="${LOGO_URL}" alt="TIM Support" width="96" height="48" style="display:block;border:0;outline:none;text-decoration:none;height:48px;width:auto;">
       </td></tr>
       <tr><td style="padding:28px;font-family:${FONT};">
         <h1 style="margin:0 0 14px;font-size:20px;line-height:1.3;color:${INK};font-weight:700;">${heading}</h1>
         ${bodyHtml}
       </td></tr>
       <tr><td style="padding:18px 28px;border-top:1px solid ${BORDER};background:${SURFACE};">
-        <p style="margin:0;font-family:${FONT};font-size:12px;line-height:1.5;color:${MUTED};">TIM Management — Centre d'aide.<br>Cet e-mail automatique fait suite à votre demande.</p>
+        <p style="margin:0 0 6px;font-family:${FONT};font-size:12px;line-height:1.5;color:${MUTED};">Cet e-mail est automatique, merci de <strong>ne pas y répondre</strong>. Pour toute question, contactez-nous via le <a href="${SITE_URL}/contact" style="color:${BRAND};text-decoration:none;">centre d'aide</a> en indiquant votre numéro de suivi.</p>
+        <p style="margin:0;font-family:${FONT};font-size:12px;color:${MUTED};">TIM Management — Centre d'aide</p>
       </td></tr>
     </table>
   </td></tr>
