@@ -18,9 +18,9 @@ import type {
 } from "./types";
 
 /**
- * Couche de lecture Payload — même interface que lib/wordpress.ts (mêmes types
- * de retour) pour l'ÉDITORIAL, afin que les pages du front basculent sans
- * changer leur code. Le métier (points, missions…) reste dans lib/wordpress.ts.
+ * Couche de lecture Payload pour l'ÉDITORIAL (features, parcours, articles,
+ * taxonomies), aux mêmes types de retour que l'ancien accès WordPress. Le
+ * métier (points, missions, récompenses…) vit dans lib/partner.ts.
  */
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
