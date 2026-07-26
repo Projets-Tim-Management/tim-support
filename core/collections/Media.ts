@@ -21,5 +21,9 @@ export const Media: CollectionConfig = {
       label: "Texte alternatif",
     },
   ],
-  upload: true,
+  // Pas de recadrage / point focal : on stocke les fichiers tels quels (dont de
+  // gros GIF animés de 200+ frames que le pipeline sharp de Payload ne doit pas
+  // tenter de retravailler — sinon échec de téléversement). Aucune imageSizes
+  // n'est définie non plus : les visuels sont servis en taille d'origine.
+  upload: { focalPoint: false, crop: false },
 };
