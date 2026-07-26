@@ -43,6 +43,8 @@ export default buildConfig({
         Logo: "/admin/graphics/Logo#Logo",
         Icon: "/admin/graphics/Icon#Icon",
       },
+      // Bandeau de notifications tickets en tête du dashboard.
+      beforeDashboard: ["/modules/support/admin/TicketNotifications#TicketNotifications"],
     },
   },
 

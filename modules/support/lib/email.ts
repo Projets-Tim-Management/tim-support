@@ -24,6 +24,16 @@ const FONT =
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://support.tim-management.co";
 const REPLY_ENABLED = Boolean(process.env.REPLY_DOMAIN);
+
+/**
+ * Destinataire des alertes internes (nouveau ticket / réponse client). Par
+ * défaut on notifie l'adresse d'envoi (support@…) ; surchargeable via
+ * TICKETS_NOTIFY_EMAIL si l'équipe veut router ailleurs.
+ */
+export const SUPPORT_NOTIFY_EMAIL =
+  process.env.TICKETS_NOTIFY_EMAIL ||
+  process.env.EMAIL_FROM ||
+  "support@tim-management.co";
 const LOGO_URL =
   process.env.EMAIL_LOGO_URL ||
   "https://ytlg8jezeqmgptjq.public.blob.vercel-storage.com/email/logo-tim-support.png";
@@ -204,7 +214,46 @@ export function ticketReplyEmail(args: {
   };
 }
 
-export function ticketAdminNotificationEmail(args: {
+// ─── Alertes internes (équipe support) ──────────────────────────────────────
+// E-mails volontairement simples (pas d'habillage marketing) : ils préviennent
+// l'équipe qu'un ticket demande une action et offrent un lien direct vers la
+// fiche dans le back-office. Envoyés à SUPPORT_NOTIFY_EMAIL.
+
+/** Enveloppe minimaliste + bouton « Ouvrir le ticket ». */
+function internalNotice(args: {
+  heading: string;
+  rows: Array<[string, string]>;
+  message?: string;
+  ticketId: number | string;
+}): string {
+  const { heading, rows, message, ticketId } = args;
+  const link = `${SITE_URL}/admin/collections/tickets/${ticketId}`;
+  const rowsHtml = rows
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:3px 14px 3px 0;font-family:${FONT};font-size:13px;color:${MUTED};white-space:nowrap;vertical-align:top;">${k}</td><td style="padding:3px 0;font-family:${FONT};font-size:13px;color:${INK};">${v}</td></tr>`,
+    )
+    .join("");
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:24px;background:${OUTER};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid ${BORDER};border-radius:12px;">
+    <tr><td style="padding:22px 24px;">
+      <p style="margin:0 0 16px;font-family:${FONT};font-size:18px;font-weight:800;color:${INK};">${heading}</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">${rowsHtml}</table>
+      ${
+        message
+          ? `<div style="margin:0 0 18px;padding:14px 16px;background:${OUTER};border:1px solid ${BORDER};border-radius:8px;font-family:${FONT};font-size:14px;line-height:1.55;color:${BODY};white-space:pre-wrap;">${message}</div>`
+          : ""
+      }
+      <a href="${link}" style="display:inline-block;padding:11px 22px;background:${BRAND};border-radius:8px;color:#ffffff;font-family:${FONT};font-size:14px;font-weight:700;text-decoration:none;">Ouvrir le ticket</a>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+/** Notification interne : un nouveau ticket vient d'être créé. */
+export function newTicketNoticeEmail(args: {
+  id: number | string;
   number: number;
   subject: string;
   type: string;
@@ -214,24 +263,48 @@ export function ticketAdminNotificationEmail(args: {
   url?: string;
   description: string;
 }) {
-  const { number, subject, type, name, email, service, url, description } = args;
-  const row = (k: string, v: string) =>
-    `<tr><td style="padding:4px 0;font-family:${FONT};font-size:13px;color:${MUTED};width:110px;">${k}</td><td style="padding:4px 0;font-family:${FONT};font-size:13px;color:${BODY};">${v}</td></tr>`;
+  const { id, number, subject, type, name, email, service, url, description } = args;
+  const excerpt = description.slice(0, 2000);
   return {
-    subject: `Nouveau ticket #${number} — ${subject}`,
-    html: shell({
+    subject: `🎫 Nouveau ticket #${number} — ${subject}`,
+    html: internalNotice({
       heading: `Nouveau ticket #${number}`,
-      preheader: escape(subject),
-      bodyHtml:
-        paragraph(`<strong>${escape(subject)}</strong>`) +
-        `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">${
-          row("Type", escape(type)) +
-          row("De", `${escape(name || "—")} &lt;${escape(email)}&gt;`) +
-          row("Service", escape(service || "—")) +
-          row("Page", escape(url || "—"))
-        }</table>` +
-        paragraph(escape(description).replace(/\n/g, "<br>")),
+      rows: [
+        ["Sujet", escape(subject)],
+        ["De", `${escape(name || "—")} &lt;${escape(email)}&gt;`],
+        ["Type", escape(type)],
+        ["Service", escape(service || "—")],
+        ["Page", escape(url || "—")],
+      ],
+      message: escape(excerpt),
+      ticketId: id,
     }),
-    text: `Nouveau ticket #${number}\n${subject}\n\nType : ${type}\nDe : ${name || "—"} <${email}>\nService : ${service ?? "—"}\nPage : ${url || "—"}\n\n${description}`,
+    text: `Nouveau ticket #${number}\n${subject}\n\nDe : ${name || "—"} <${email}>\nType : ${type}\nService : ${service ?? "—"}\nPage : ${url || "—"}\n\n${excerpt}\n\nOuvrir : ${SITE_URL}/admin/collections/tickets/${id}`,
+  };
+}
+
+/** Notification interne : le client a répondu à un ticket existant. */
+export function ticketReplyNoticeEmail(args: {
+  id: number | string;
+  number: number;
+  subject: string;
+  name?: string;
+  email: string;
+  body: string;
+}) {
+  const { id, number, subject, name, email, body } = args;
+  const excerpt = body.slice(0, 2000);
+  return {
+    subject: `💬 Réponse au ticket #${number} — ${subject}`,
+    html: internalNotice({
+      heading: `Nouvelle réponse — ticket #${number}`,
+      rows: [
+        ["Sujet", escape(subject)],
+        ["De", `${escape(name || "—")} &lt;${escape(email)}&gt;`],
+      ],
+      message: escape(excerpt),
+      ticketId: id,
+    }),
+    text: `Nouvelle réponse au ticket #${number} (${subject})\nDe : ${name || "—"} <${email}>\n\n${excerpt}\n\nOuvrir : ${SITE_URL}/admin/collections/tickets/${id}`,
   };
 }

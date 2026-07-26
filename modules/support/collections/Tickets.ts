@@ -213,6 +213,17 @@ export const Tickets: CollectionConfig = {
       index: true, // filtré + trié par le cron de purge
       admin: { position: "sidebar", readOnly: true },
     },
+    // Drapeau « à traiter » : true à la création et à chaque réponse client,
+    // false quand le support répond ou résout. Alimente les notifications du
+    // dashboard (composant TicketNotifications). Interne — masqué du formulaire.
+    {
+      name: "needsAttention",
+      type: "checkbox",
+      label: "En attente de réponse",
+      defaultValue: true,
+      index: true,
+      admin: { hidden: true },
+    },
     // IP + User-Agent côte à côte (technique).
     {
       type: "row",

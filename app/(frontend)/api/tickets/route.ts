@@ -1,6 +1,10 @@
 import { after, NextResponse } from "next/server";
 
-import { ticketAdminNotificationEmail, ticketConfirmationEmail } from "@/modules/support/lib/email";
+import {
+  newTicketNoticeEmail,
+  SUPPORT_NOTIFY_EMAIL,
+  ticketConfirmationEmail,
+} from "@/modules/support/lib/email";
 import { payloadClient } from "@/core/payload-client";
 import { attachmentsFromForm, uploadImages } from "@/core/lib/uploads";
 import { ticketValues } from "@/modules/support/admin/ticket-meta";
@@ -62,6 +66,7 @@ export async function POST(req: Request) {
         type,
         status: "new",
         priority: "normal",
+        needsAttention: true, // à traiter par le support (badge dashboard)
         attachments,
         ip: req.headers.get("x-forwarded-for") ?? undefined,
         userAgent: req.headers.get("user-agent") ?? undefined,
@@ -89,15 +94,13 @@ export async function POST(req: Request) {
         console.warn("[tickets] e-mail confirmation échoué:", e);
       }
 
-      if (process.env.TICKETS_NOTIFY_EMAIL) {
-        try {
-          await payload.sendEmail({
-            to: process.env.TICKETS_NOTIFY_EMAIL,
-            ...ticketAdminNotificationEmail({ number, subject, type, name, email, service, url, description }),
-          });
-        } catch (e) {
-          console.warn("[tickets] notification admin échouée:", e);
-        }
+      try {
+        await payload.sendEmail({
+          to: SUPPORT_NOTIFY_EMAIL,
+          ...newTicketNoticeEmail({ id: created.id, number, subject, type, name, email, service, url, description }),
+        });
+      } catch (e) {
+        console.warn("[tickets] notification support échouée:", e);
       }
     });
 
