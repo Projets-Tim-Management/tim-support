@@ -2,12 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify, SignJWT } from "jose";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? "change-me-in-production"
-);
-
-const SESSION_COOKIE = "tim_support_session";
-const SESSION_MAX_AGE = 60 * 60 * 8; // 8 heures
+import { JWT_SECRET, SESSION_COOKIE, SESSION_MAX_AGE } from "@/core/lib/jwt-secret";
 
 /**
  * Middleware d'authentification.
@@ -27,7 +22,7 @@ const SESSION_MAX_AGE = 60 * 60 * 8; // 8 heures
  *  restreindre l'accès aux utilisateurs connectés uniquement.
  */
 export async function proxy(request: NextRequest) {
-  const { pathname, searchParams } = request.nextUrl;
+  const { searchParams } = request.nextUrl;
 
   // ── 1. Réception du token depuis l'app ────────────────────────────────────
   const incomingToken = searchParams.get("token");

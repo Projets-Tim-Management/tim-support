@@ -103,8 +103,8 @@ input[type="checkbox"]:checked {
 .nav-group__toggle,
 .nav-group__label {
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 0.6875rem;
+  letter-spacing: 0.05em;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--tim-muted);
 }
@@ -157,8 +157,6 @@ input[type="checkbox"]:checked {
 $icon-open: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>";
 $icon-close: "</svg>";
 $nav-icons: (
-  "articles":            "<path d='M4 3h9l5 5v13H4z'/><path d='M13 3v5h5'/><path d='M8 13h7M8 17h5'/>",
-  "article-categories":  "<path d='M3 3h8l10 10-8 8L3 11z'/><circle cx='7.5' cy='7.5' r='1.3'/>",
   "features":            "<path d='M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z'/>",
   "feature-categories":  "<path d='M3 6h6l2 2h10v11H3z'/>",
   "platforms":           "<rect x='3' y='4' width='18' height='12' rx='1.5'/><path d='M8 20h8M12 16v4'/>",
@@ -220,6 +218,538 @@ $nav-icons: (
 /* Lignes de tableau : survol teinté pour le confort de lecture */
 .table tbody tr:hover td {
   background: var(--tim-surface);
+}
+
+/* Scroll horizontal quand le tableau a beaucoup de colonnes (au lieu de
+   déborder la page). */
+.table {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* ─── 6. MENU COMPACT + GROUPES REPLIÉS (ouverture au survol) ─────────────────
+   Gain de place : menu plus étroit, catégories fermées par défaut ; survoler
+   le titre d'une catégorie la déroule. 👉 Largeur : ajuster --nav-width. */
+
+/* Menu plus étroit — desktop uniquement (le mobile, ≤768px, reste plein écran). */
+@media (min-width: 769px) {
+  :root {
+    --nav-width: 220px;
+  }
+}
+
+/* Le conteneur animé de Payload (.rah-static) est piloté en JS : hauteur posée
+   par ref + `display:none` sur son enfant dès que le groupe est replié (via les
+   préférences enregistrées après un clic). Ces 2 mécanismes empêchaient le
+   survol de fonctionner → on les neutralise pour reprendre la main en CSS. */
+.nav-group__toggle + div {
+  height: auto !important;
+  overflow: visible !important;
+}
+.nav-group__toggle + div > div {
+  display: block !important; /* annule le display:none posé par Payload */
+}
+
+/* Catégories repliées par défaut, déroulées EN DOUCEUR au survol du groupe.
+   Le fondu (opacity) adoucit la fin de l'animation de hauteur. */
+.nav-group__content {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition:
+    max-height 0.4s ease,
+    opacity 0.3s ease;
+}
+.nav-group:hover .nav-group__content {
+  max-height: 22rem; /* marge large : tient n'importe quel groupe */
+  opacity: 1;
+}
+
+/* Titre de groupe cliquable + petit feedback au survol. */
+.nav-group__toggle {
+  cursor: pointer;
+  border-radius: var(--tim-radius-sm);
+  transition: color 0.12s ease;
+}
+.nav-group:hover .nav-group__toggle {
+  color: var(--tim-primary);
+}
+/* Chevron : vers le bas quand c'est fermé (au repos), vers le haut au survol. */
+.nav-group__toggle > .nav-group__indicator {
+  transition: transform 0.15s ease;
+}
+.nav-group:not(:hover) .nav-group__toggle > .nav-group__indicator {
+  transform: rotate(180deg);
+}
+
+/* ─── 7. VUE TICKET (style « page de support ») ───────────────────────────────
+   Fil de conversation en bulles + pastilles de statut/priorité + zone de
+   réponse + notes internes. Composants : modules/support/admin/Ticket*. */
+
+/* En-tête du ticket */
+.ticket-conversation__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 1rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--tim-border);
+}
+.ticket-conversation__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.ticket-conversation__num {
+  color: var(--tim-muted);
+  margin-right: 0.4rem;
+  font-variant-numeric: tabular-nums;
+}
+.ticket-conversation__from {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--tim-muted);
+}
+.ticket-conversation__pills {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* Pastilles colorées (statut + priorité) */
+.ticket-pill {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+$ticket-status: (
+  "new": #1e6fd9 #e7f0fd,
+  "acknowledged": #6b46c1 #efe9fb,
+  "in_progress": #b45309 #fdf0dd,
+  "on_hold": #5b616e #eceef1,
+  "resolved": #15803d #e3f5e9,
+);
+@each $key, $pair in $ticket-status {
+  .ticket-pill--status-#{$key} {
+    color: nth($pair, 1);
+    background: nth($pair, 2);
+  }
+}
+$ticket-prio: (
+  "urgent": #c0261b #fde8e6,
+  "high": #b45309 #fdf0dd,
+  "normal": #5b616e #eceef1,
+  "low": #6b7280 #f3f4f6,
+);
+@each $key, $pair in $ticket-prio {
+  .ticket-pill--prio-#{$key} {
+    color: nth($pair, 1);
+    background: nth($pair, 2);
+  }
+}
+
+/* Fil de conversation */
+.ticket-conversation__thread {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.ticket-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 78%;
+}
+.ticket-msg--client {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+.ticket-msg--support {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+.ticket-msg__meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 0 0.3rem 0.25rem;
+  font-size: 0.72rem;
+}
+.ticket-msg__author {
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.ticket-msg__date {
+  color: var(--tim-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ticket-msg__bubble {
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--tim-border);
+  background: #ffffff;
+}
+.ticket-msg--client .ticket-msg__bubble {
+  background: var(--tim-surface);
+  border-bottom-left-radius: 0.25rem;
+}
+.ticket-msg--support .ticket-msg__bubble {
+  background: var(--tim-primary-light);
+  border-color: color-mix(in srgb, var(--tim-primary) 25%, transparent);
+  border-bottom-right-radius: 0.25rem;
+}
+.ticket-msg__body {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--tim-foreground);
+  white-space: pre-wrap; /* conserve les retours à la ligne des e-mails */
+  word-break: break-word;
+}
+.ticket-msg__files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+.ticket-msg__file img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--tim-radius-sm);
+  border: 1px solid var(--tim-border);
+  display: block;
+}
+
+/* Zone de réponse au client */
+.ticket-reply {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: #ffffff;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 6%, transparent);
+}
+.ticket-reply__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.ticket-reply__label {
+  display: block;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--tim-foreground);
+}
+/* Bouton « statut suivant » : avance le workflow + pré-remplit un message. */
+.ticket-reply__status {
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: filter 0.12s ease;
+}
+.ticket-reply__status:hover {
+  filter: brightness(0.96);
+}
+$reply-status-colors: (
+  "new": #1e6fd9 #e7f0fd,
+  "acknowledged": #6b46c1 #efe9fb,
+  "in_progress": #b45309 #fdf0dd,
+  "on_hold": #5b616e #eceef1,
+  "resolved": #15803d #e3f5e9,
+);
+@each $key, $pair in $reply-status-colors {
+  .ticket-reply__status--#{$key} {
+    color: nth($pair, 1);
+    background: nth($pair, 2);
+    border-color: color-mix(in srgb, nth($pair, 1) 30%, transparent);
+  }
+}
+.ticket-reply__input {
+  width: 100%;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  padding: 0.65rem 0.8rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--tim-foreground);
+  resize: vertical;
+  background: var(--tim-surface);
+}
+.ticket-reply__input:focus {
+  outline: none;
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tim-primary) 18%, transparent);
+  background: #ffffff;
+}
+.ticket-reply__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+}
+.ticket-reply__btn {
+  cursor: pointer;
+  border: none;
+  border-radius: var(--tim-radius-sm);
+  padding: 0.55rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #ffffff;
+  background: var(--tim-primary);
+  transition: background-color 0.12s ease;
+}
+.ticket-reply__btn:hover:not(:disabled) {
+  background: var(--tim-primary-dark);
+}
+.ticket-reply__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ticket-reply__msg {
+  font-size: 0.82rem;
+}
+.ticket-reply__msg--sent {
+  color: #15803d;
+}
+.ticket-reply__msg--error {
+  color: #c0261b;
+}
+.ticket-reply__attach {
+  cursor: pointer;
+  border: 1px solid var(--tim-border);
+  background: #ffffff;
+  border-radius: var(--tim-radius-sm);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.82rem;
+  color: var(--tim-foreground);
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.ticket-reply__attach:hover:not(:disabled) {
+  border-color: var(--tim-primary);
+  color: var(--tim-primary);
+}
+.ticket-reply__attach:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ticket-reply__files {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.ticket-reply__file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  background: var(--tim-surface);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  padding: 0.3rem 0.5rem;
+}
+.ticket-reply__file-name {
+  color: var(--tim-foreground);
+  word-break: break-all;
+}
+.ticket-reply__file-remove {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--tim-muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 0.2rem;
+}
+.ticket-reply__file-remove:hover {
+  color: var(--tim-danger);
+}
+
+/* Galerie des pièces jointes du client (barre latérale, lecture seule) */
+.ticket-attach-field {
+  margin-bottom: 0.85rem;
+}
+.ticket-attach__empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+}
+.ticket-attach__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 0.4rem;
+  max-height: 220px; /* défile au-delà */
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+.ticket-attach__item img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--tim-radius-sm);
+  border: 1px solid var(--tim-border);
+  display: block;
+  transition: border-color 0.12s ease;
+}
+.ticket-attach__item:hover img {
+  border-color: var(--tim-primary);
+}
+
+/* ─── Tableau des tickets : pastilles colorées + vues rapides ─────────────────*/
+.ticket-cell-pill {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ticket-quickfilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+.ticket-quickfilter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--tim-border);
+  background: #ffffff;
+  color: var(--tim-foreground);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.ticket-quickfilter:hover {
+  border-color: var(--tim-primary);
+  color: var(--tim-primary);
+}
+.ticket-quickfilter--active {
+  background: var(--tim-primary);
+  border-color: var(--tim-primary);
+  color: #ffffff;
+}
+/* Badge compteur (nombre de tickets dans la catégorie) */
+.ticket-quickfilter__badge {
+  display: inline-block;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--tim-primary);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+}
+.ticket-quickfilter--active .ticket-quickfilter__badge {
+  background: #ffffff;
+  color: var(--tim-primary);
+}
+
+/* Lignes de tableau cliquables (ouvre la fiche) */
+.table tbody tr {
+  cursor: pointer;
+}
+
+/* Notes internes : bloc privé bien distinct (jamais envoyé au client) */
+.ticket-notes {
+  margin-top: 1.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px dashed var(--tim-warning);
+  border-radius: var(--tim-radius);
+  background: color-mix(in srgb, var(--tim-warning) 10%, #ffffff);
+}
+
+/* Champs « select » présentés en badge coloré façon front
+   (statut / priorité / type / service), tout en restant éditables. */
+.ticket-cfield {
+  margin-bottom: 0.85rem;
+}
+.ticket-cfield__label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--tim-muted);
+  margin-bottom: 0.3rem;
+}
+.ticket-cselect {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border-radius: 6px;
+  padding: 0.3rem 0.55rem 0.3rem 0.8rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.ticket-cselect__native {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  max-width: 100%;
+  padding: 0;
+}
+.ticket-cselect__native:focus {
+  outline: none;
+}
+.ticket-cselect__native:disabled {
+  cursor: default;
+}
+/* La liste déroulante native reste lisible (fond blanc, texte neutre). */
+.ticket-cselect__native option {
+  color: var(--tim-foreground);
+  background: #ffffff;
+  font-weight: 500;
+}
+.ticket-cselect__caret {
+  font-size: 0.7rem;
+  opacity: 0.65;
+  pointer-events: none;
+  margin-left: 0.25rem;
+}
+
+/* Grille 2 colonnes pour les rangées de badges (statut+priorité, type+service).
+   Le row de Payload ne dimensionne pas nos composants custom → on impose la
+   grille nous-mêmes. Ne cible que les rangées contenant nos badges. */
+.row__fields:has(.ticket-cfield) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.85rem;
+  align-items: start;
+}
+.row__fields:has(.ticket-cfield) > * {
+  min-width: 0;
+  width: 100%;
 }
 
 /* Champs & panneaux : bordure douce cohérente */

@@ -4,8 +4,9 @@ import type { Metadata } from "next";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import ConnectNotice from "@/components/partenaires/ConnectNotice";
 import RedeemButton from "@/components/partenaires/RedeemButton";
-import { getSession } from "@/lib/session";
-import { getPointsSummary, getRewards } from "@/lib/partner";
+import { getSession } from "@/modules/partner/lib/session";
+import { getPointsSummary, getRewards } from "@/modules/partner/lib/partner";
+import { htmlToText } from "@/core/lib/html";
 
 export const metadata: Metadata = {
   title: "Récompenses",
@@ -79,7 +80,7 @@ export default async function RecompensesPage() {
                 <div className="flex flex-col flex-1 p-4">
                   <h2 className="font-bold text-foreground">{r.title}</h2>
                   {r.description && (
-                    <p className="mt-1 text-sm text-muted line-clamp-3">{r.description}</p>
+                    <p className="mt-1 text-sm text-muted line-clamp-3">{htmlToText(r.description)}</p>
                   )}
 
                   <div className="mt-3 mb-4">

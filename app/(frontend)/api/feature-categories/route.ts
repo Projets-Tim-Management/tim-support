@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getFeatureCategories } from "@/lib/content";
+import { getFeatureCategories } from "@/modules/editorial/lib/content";
 
 // Catégories de features (recherche client, formulaire de contact). Payload.
 export async function GET() {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import FeatureSidebar from "./FeatureSidebar";
-import type { FeatureTerm } from "@/lib/types";
+import type { FeatureTerm } from "@/core/lib/types";
 
 interface Props {
   categories: FeatureTerm[];

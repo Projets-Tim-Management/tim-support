@@ -3,8 +3,8 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
-import { burstAt } from "@/lib/confetti";
-import type { RedeemResult } from "@/lib/types";
+import { burstAt } from "@/core/ui/confetti";
+import type { RedeemResult } from "@/core/lib/types";
 
 interface Props {
   rewardId:  number;

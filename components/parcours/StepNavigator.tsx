@@ -7,8 +7,8 @@ import {
   validateStep,
   maxAccessibleStep,
   resetProgress,
-} from "@/lib/parcours-progress";
-import { burstAt } from "@/lib/confetti";
+} from "@/modules/editorial/lib/parcours-progress";
+import { burstAt } from "@/core/ui/confetti";
 
 interface Props {
   slug:        string;       // slug du parcours

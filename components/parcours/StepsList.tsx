@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { loadProgress, maxAccessibleStep, progressPercent } from "@/lib/parcours-progress";
+import { loadProgress, maxAccessibleStep, progressPercent } from "@/modules/editorial/lib/parcours-progress";
 
 interface Step {
   slug:  string;

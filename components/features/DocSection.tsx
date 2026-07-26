@@ -1,5 +1,5 @@
 import Image from "next/image";
-import type { DocSection as DocSectionType, MediaDocItem, WPMedia } from "@/lib/types";
+import type { DocSection as DocSectionType, MediaDocItem, WPMedia } from "@/core/lib/types";
 import ImageCarousel from "./ImageCarousel";
 
 type AcfImage = WPMedia | Record<string, unknown> | null | undefined;

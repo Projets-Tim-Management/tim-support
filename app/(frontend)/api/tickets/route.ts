@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
-import { ticketAdminNotificationEmail, ticketConfirmationEmail } from "@/lib/email";
-import { payloadClient } from "@/lib/payload-client";
+import { ticketAdminNotificationEmail, ticketConfirmationEmail } from "@/modules/support/lib/email";
+import { payloadClient } from "@/core/payload-client";
+import { attachmentsFromForm, uploadImages } from "@/core/lib/uploads";
+import { ticketValues } from "@/modules/support/admin/ticket-meta";
 
-const TICKET_TYPES = ["assistance", "suggestion", "autre"];
-const TICKET_SERVICES = ["technique", "facturation", "support", "commercial", "autre"];
-const ALLOWED_MIME = /^image\/(jpeg|png|gif|webp)$/;
-const MAX_FILE = 5 * 1024 * 1024; // 5 Mo
+const TICKET_TYPES = ticketValues("type");
+const TICKET_SERVICES = ticketValues("service");
 
 function fail(message: string, status = 400) {
   return NextResponse.json({ success: false, message }, { status });
@@ -45,32 +45,14 @@ export async function POST(req: Request) {
     const payload = await payloadClient();
 
     // Pièces jointes (captures) — uniquement pour l'assistance.
-    const attachments: number[] = [];
-    if (type === "assistance") {
-      for (const [key, value] of form.entries()) {
-        if (
-          key.startsWith("attachment_") &&
-          value instanceof File &&
-          value.size > 0 &&
-          value.size <= MAX_FILE &&
-          ALLOWED_MIME.test(value.type)
-        ) {
-          const buffer = Buffer.from(await value.arrayBuffer());
-          const media = await payload.create({
-            collection: "media",
-            data: { alt: value.name },
-            file: { data: buffer, mimetype: value.type, name: value.name, size: buffer.length },
-          });
-          attachments.push(media.id as number);
-        }
-      }
-    }
+    const attachments =
+      type === "assistance" ? (await uploadImages(payload, attachmentsFromForm(form))).ids : [];
 
-    const number = Math.floor(Math.random() * 98999) + 1000;
-    await payload.create({
+    // Le numéro (unique) est attribué automatiquement par le hook du champ
+    // referenceNumber ; on le relit depuis le document créé.
+    const created = await payload.create({
       collection: "tickets",
       data: {
-        number,
         subject,
         description,
         email,
@@ -85,29 +67,39 @@ export async function POST(req: Request) {
         userAgent: req.headers.get("user-agent") ?? undefined,
       },
     });
+    const number = created.number as number;
 
-    // Confirmation au demandeur + notification admin (best-effort, ne bloque
-    // jamais la création du ticket).
-    payload
-      .sendEmail({
-        to: email,
-        // Reply-To par ticket → les réponses reviennent dans le dashboard
-        // (via Brevo Inbound Parsing), si REPLY_DOMAIN est configuré.
-        ...(process.env.REPLY_DOMAIN
-          ? { replyTo: `ticket-${number}@${process.env.REPLY_DOMAIN}` }
-          : {}),
-        ...ticketConfirmationEmail({ name, subject, number }),
-      })
-      .catch((e) => console.warn("[tickets] e-mail confirmation échoué:", e));
+    // Confirmation au demandeur + notification admin. Exécutés APRÈS la réponse
+    // via after() : ça ne ralentit pas le client, mais garantit que l'envoi va
+    // jusqu'au bout (le fire-and-forget était abandonné aléatoirement quand le
+    // serverless figeait la fonction après la réponse). Ne bloque jamais le
+    // ticket : chaque envoi est protégé par son propre try/catch.
+    after(async () => {
+      try {
+        await payload.sendEmail({
+          to: email,
+          // Reply-To par ticket → les réponses reviennent dans le dashboard
+          // (via Brevo Inbound Parsing), si REPLY_DOMAIN est configuré.
+          ...(process.env.REPLY_DOMAIN
+            ? { replyTo: `ticket-${number}@${process.env.REPLY_DOMAIN}` }
+            : {}),
+          ...ticketConfirmationEmail({ name, email, subject, number }),
+        });
+      } catch (e) {
+        console.warn("[tickets] e-mail confirmation échoué:", e);
+      }
 
-    if (process.env.TICKETS_NOTIFY_EMAIL) {
-      payload
-        .sendEmail({
-          to: process.env.TICKETS_NOTIFY_EMAIL,
-          ...ticketAdminNotificationEmail({ number, subject, type, name, email, service, url, description }),
-        })
-        .catch(() => {});
-    }
+      if (process.env.TICKETS_NOTIFY_EMAIL) {
+        try {
+          await payload.sendEmail({
+            to: process.env.TICKETS_NOTIFY_EMAIL,
+            ...ticketAdminNotificationEmail({ number, subject, type, name, email, service, url, description }),
+          });
+        } catch (e) {
+          console.warn("[tickets] notification admin échouée:", e);
+        }
+      }
+    });
 
     return NextResponse.json({ success: true, ticket_number: number });
   } catch (err) {

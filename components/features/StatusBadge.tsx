@@ -1,4 +1,4 @@
-import type { FeatureStatus } from "@/lib/types";
+import type { FeatureStatus } from "@/core/lib/types";
 
 const styles: Record<FeatureStatus, string> = {
   Disponible:    "bg-success-bg text-success-text border-success/30",
