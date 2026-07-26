@@ -1,12 +1,21 @@
-import config from "@payload-config";
+import { timingSafeEqual } from "crypto";
+
 import { NextResponse } from "next/server";
-import { getPayload } from "payload";
+
+import { payloadClient } from "@/core/payload-client";
 
 // Webhook d'e-mails entrants (Brevo Inbound Parsing).
 // Quand un client répond à la confirmation (Reply-To ticket-<n>@REPLY_DOMAIN),
 // Brevo POSTe le message ici → on l'ajoute au fil du ticket correspondant.
 // Protégé par une clé en query (?key=...) car Brevo ne signe pas les webhooks.
 export const dynamic = "force-dynamic";
+
+/** Comparaison à temps constant d'une clé fournie avec INBOUND_SECRET. */
+function keyIsValid(provided: string | null): boolean {
+  const secret = process.env.INBOUND_SECRET ?? "";
+  if (!secret || !provided || provided.length !== secret.length) return false;
+  return timingSafeEqual(Buffer.from(provided), Buffer.from(secret));
+}
 
 function extractTicketNumber(recipients: string[]): number | null {
   for (const r of recipients) {
@@ -29,8 +38,9 @@ function collectAddresses(value: unknown, out: string[]): void {
 }
 
 export async function POST(req: Request) {
-  const key = new URL(req.url).searchParams.get("key");
-  if (!key || key !== (process.env.INBOUND_SECRET || process.env.PAYLOAD_SECRET)) {
+  // Secret dédié obligatoire (jamais de repli sur PAYLOAD_SECRET, qui ne doit
+  // pas transiter en clair dans une URL de webhook).
+  if (!keyIsValid(new URL(req.url).searchParams.get("key"))) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
@@ -45,7 +55,7 @@ export async function POST(req: Request) {
     ? ((body as { items: unknown[] }).items as Record<string, unknown>[])
     : [body];
 
-  const payload = await getPayload({ config });
+  const payload = await payloadClient();
   let handled = 0;
 
   for (const item of items) {

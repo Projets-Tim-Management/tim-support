@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ParcoursSummary } from "@/lib/types";
+import type { ParcoursSummary } from "@/core/lib/types";
 import ParcoursProgressBadge from "./ParcoursProgressBadge";
 import ParcoursNumberPastille from "./ParcoursNumberPastille";
 

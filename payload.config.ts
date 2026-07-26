@@ -9,21 +9,19 @@ import { fr } from "@payloadcms/translations/languages/fr";
 import { buildConfig } from "payload";
 import sharp from "sharp";
 
-import { Users } from "./collections/Users";
-import { Media } from "./collections/Media";
-import { ArticleCategories } from "./collections/ArticleCategories";
-import { Articles } from "./collections/Articles";
-import { Platforms } from "./collections/Platforms";
-import { FeatureCategories } from "./collections/FeatureCategories";
-import { Features } from "./collections/Features";
-import { Parcours } from "./collections/Parcours";
-import { Partners } from "./collections/Partners";
-import { PointTransactions } from "./collections/PointTransactions";
-import { Missions } from "./collections/Missions";
-import { MissionSubmissions } from "./collections/MissionSubmissions";
-import { Rewards } from "./collections/Rewards";
-import { RewardOrders } from "./collections/RewardOrders";
-import { Tickets } from "./collections/Tickets";
+import { Users } from "./core/collections/Users";
+import { Media } from "./core/collections/Media";
+import { Platforms } from "./modules/editorial/collections/Platforms";
+import { FeatureCategories } from "./modules/editorial/collections/FeatureCategories";
+import { Features } from "./modules/editorial/collections/Features";
+import { Parcours } from "./modules/editorial/collections/Parcours";
+import { Partners } from "./modules/partner/collections/Partners";
+import { PointTransactions } from "./modules/partner/collections/PointTransactions";
+import { Missions } from "./modules/partner/collections/Missions";
+import { MissionSubmissions } from "./modules/partner/collections/MissionSubmissions";
+import { Rewards } from "./modules/partner/collections/Rewards";
+import { RewardOrders } from "./modules/partner/collections/RewardOrders";
+import { Tickets } from "./modules/support/collections/Tickets";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -48,23 +46,25 @@ export default buildConfig({
     },
   },
 
+  // L'ordre ci-dessous pilote l'ordre des groupes dans le menu de l'admin.
   collections: [
-    // Éditorial
-    Articles,
-    ArticleCategories,
+    // Support
+    Tickets,
+    // Features (+ leurs paramètres : catégories, plateformes)
     Features,
     FeatureCategories,
     Platforms,
+    // Parcours
     Parcours,
-    // Métier partenaires
+    // Partenaires
     Partners,
     PointTransactions,
+    // Missions
     Missions,
     MissionSubmissions,
+    // Récompenses
     Rewards,
     RewardOrders,
-    // Support
-    Tickets,
     // Système
     Media,
     Users,

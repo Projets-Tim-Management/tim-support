@@ -1,9 +1,9 @@
-import { getFeatures, getFeatureCategories } from "@/lib/content";
+import { getFeatures, getFeatureCategories } from "@/modules/editorial/lib/content";
 import SearchBar from "@/components/ui/SearchBar";
 import FeatureCard from "@/components/features/FeatureCard";
 import Link from "next/link";
-import type { FeatureTerm } from "@/lib/types";
-import { getRecentFeatures, getModifiedFeatures, NEW_FEATURE_DAYS, MODIFIED_FEATURE_DAYS } from "@/lib/feature-utils";
+import type { FeatureTerm } from "@/core/lib/types";
+import { getRecentFeatures, getModifiedFeatures, NEW_FEATURE_DAYS, MODIFIED_FEATURE_DAYS } from "@/modules/editorial/lib/feature-utils";
 
 export const revalidate = 3600;
 

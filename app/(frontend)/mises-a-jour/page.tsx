@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { getFeatures } from "@/lib/content";
+import { getFeatures } from "@/modules/editorial/lib/content";
 import FeatureCard from "@/components/features/FeatureCard";
 import Breadcrumb from "@/components/ui/Breadcrumb";
-import { getModifiedFeatures, MODIFIED_FEATURE_DAYS } from "@/lib/feature-utils";
+import { getModifiedFeatures, MODIFIED_FEATURE_DAYS } from "@/modules/editorial/lib/feature-utils";
 
 export const revalidate = 3600;
 

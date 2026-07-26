@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getFeatureBySlug, getAllFeatureSlugs, getFeatures } from "@/lib/content";
-import { htmlToText } from "@/lib/html";
+import { getFeatureBySlug, getAllFeatureSlugs, getFeatures } from "@/modules/editorial/lib/content";
+import { htmlToText } from "@/core/lib/html";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import StatusBadge from "@/components/features/StatusBadge";
 import DocSection from "@/components/features/DocSection";

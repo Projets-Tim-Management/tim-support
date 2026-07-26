@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import type { Feature, FeatureACF, FeatureTerm } from "@/lib/types";
-import { htmlToText } from "@/lib/html";
+import type { Feature, FeatureACF, FeatureTerm } from "@/core/lib/types";
+import { htmlToText } from "@/core/lib/html";
 
 interface Props {
   open:          boolean;

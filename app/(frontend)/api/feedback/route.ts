@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { payloadClient } from "@/lib/payload-client";
+import { payloadClient } from "@/core/payload-client";
 
 // Feedback « utile / pas utile » sur une feature → incrémente les compteurs
 // Payload. (postId = id Payload de la feature, fourni par le front.)

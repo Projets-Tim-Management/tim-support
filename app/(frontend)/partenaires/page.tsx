@@ -2,9 +2,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import ConnectNotice from "@/components/partenaires/ConnectNotice";
-import { getSession } from "@/lib/session";
-import { getPointsSummary } from "@/lib/partner";
-import type { PointsSource } from "@/lib/types";
+import { getSession } from "@/modules/partner/lib/session";
+import { getPointsSummary } from "@/modules/partner/lib/partner";
+import type { PointsSource } from "@/core/lib/types";
 
 export const metadata: Metadata = {
   title: "Espace partenaires",

@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import Breadcrumb from "@/components/ui/Breadcrumb";
 import ConnectNotice from "@/components/partenaires/ConnectNotice";
 import MissionCard from "@/components/partenaires/MissionCard";
-import { getSession } from "@/lib/session";
-import { getPointsSummary, getMissions } from "@/lib/partner";
+import { getSession } from "@/modules/partner/lib/session";
+import { getPointsSummary, getMissions } from "@/modules/partner/lib/partner";
 
 export const metadata: Metadata = {
   title: "Gagner des points",

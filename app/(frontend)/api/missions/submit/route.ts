@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { submitMission } from "@/lib/partner";
-import { getSession } from "@/lib/session";
+import { submitMission } from "@/modules/partner/lib/partner";
+import { getSession } from "@/modules/partner/lib/session";
 
 // Soumission d'une preuve de mission (capture d'écran) → Payload.
 // L'identité (email) vient TOUJOURS de la session, jamais du client.

@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getParcoursBySlug, getAllParcoursSlugs } from "@/lib/content";
+import { getParcoursBySlug, getAllParcoursSlugs } from "@/modules/editorial/lib/content";
 import DocSection from "@/components/features/DocSection";
 import StepNavigator from "@/components/parcours/StepNavigator";
 import StepsList from "@/components/parcours/StepsList";
-import { htmlToText } from "@/lib/html";
+import { htmlToText } from "@/core/lib/html";
 
 export const revalidate = 600;
 

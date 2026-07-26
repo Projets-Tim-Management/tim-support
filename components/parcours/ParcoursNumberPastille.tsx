@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadProgress, parcoursStatus, type ParcoursStatus } from "@/lib/parcours-progress";
+import { loadProgress, parcoursStatus, type ParcoursStatus } from "@/modules/editorial/lib/parcours-progress";
 
 interface Props {
   slug:       string;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getFeatures } from "@/lib/content";
+import { getFeatures } from "@/modules/editorial/lib/content";
 
 // Liste des features (recherche client). Sert désormais Payload.
 export async function GET() {

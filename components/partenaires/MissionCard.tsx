@@ -4,8 +4,8 @@ import { useState, useRef, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Button from "@/components/ui/Button";
-import { burstAt } from "@/lib/confetti";
-import type { Mission, MissionSubmitResult } from "@/lib/types";
+import { burstAt } from "@/core/ui/confetti";
+import type { Mission, MissionSubmitResult } from "@/core/lib/types";
 
 const MAX_FILES = 3;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -114,7 +114,10 @@ export default function MissionCard({
             </span>
           </div>
           {mission.description && (
-            <p className="mt-1 text-sm text-muted">{mission.description}</p>
+            <div
+              className="mt-1 text-sm text-muted [&_p]:m-0 [&_p+p]:mt-1.5 [&_a]:text-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
+              dangerouslySetInnerHTML={{ __html: mission.description }}
+            />
           )}
         </div>
       </div>

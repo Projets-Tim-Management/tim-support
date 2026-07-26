@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getFeatures, getFeatureCategories } from "@/lib/content";
+import { getFeatures, getFeatureCategories } from "@/modules/editorial/lib/content";
 import FeatureCard from "@/components/features/FeatureCard";
 
 export const revalidate = 3600;

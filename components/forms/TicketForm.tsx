@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, type FormEvent, type ChangeEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import type { FeatureTerm } from "@/lib/types";
+import type { FeatureTerm } from "@/core/lib/types";
 
 const TYPES = [
   { value: "assistance", label: "Assistance",  icon: "💬", desc: "Une question ou un problème sur le logiciel" },

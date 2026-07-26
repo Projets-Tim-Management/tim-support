@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import type { FeatureTerm } from "@/lib/types";
+import type { FeatureTerm } from "@/core/lib/types";
 import { useActiveCategory } from "@/components/features/active-category-context";
 
 /** Retourne vrai si ce nœud est le match le plus profond parmi les slugs actifs.

@@ -8,7 +8,7 @@ export default function NotFound() {
         Page introuvable
       </h1>
       <p className="text-muted">
-        Cet article n&apos;existe pas ou a été déplacé.
+        Cette page n&apos;existe pas ou a été déplacée.
       </p>
       <Link
         href="/"
