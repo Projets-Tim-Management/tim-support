@@ -675,6 +675,78 @@ $reply-status-colors: (
   cursor: pointer;
 }
 
+/* Bandeau de notifications tickets (tête du dashboard) */
+.ticket-notif {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 0 1.75rem;
+  padding: 0.9rem 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--tim-primary) 30%, transparent);
+  border-radius: var(--tim-radius);
+  background: color-mix(in srgb, var(--tim-primary) 7%, #ffffff);
+}
+.ticket-notif--clear {
+  border-color: color-mix(in srgb, var(--tim-success) 35%, transparent);
+  background: color-mix(in srgb, var(--tim-success) 9%, #ffffff);
+}
+.ticket-notif__icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.ticket-notif__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1 1 auto;
+}
+.ticket-notif__title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.ticket-notif__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.ticket-notif__chip {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid var(--tim-border);
+  color: var(--tim-foreground);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.ticket-notif__chip:hover {
+  border-color: var(--tim-primary);
+  color: var(--tim-primary);
+}
+.ticket-notif__chip--urgent {
+  border-color: color-mix(in srgb, var(--tim-danger) 55%, transparent);
+  color: var(--tim-danger);
+}
+.ticket-notif__cta {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.95rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.12s ease;
+}
+.ticket-notif__cta:hover {
+  background: var(--tim-primary-dark);
+}
+
 /* Notes internes : bloc privé bien distinct (jamais envoyé au client) */
 .ticket-notes {
   margin-top: 1.25rem;

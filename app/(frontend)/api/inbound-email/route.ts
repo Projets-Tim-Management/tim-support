@@ -3,6 +3,7 @@ import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
+import { SUPPORT_NOTIFY_EMAIL, ticketReplyNoticeEmail } from "@/modules/support/lib/email";
 
 // Webhook d'e-mails entrants (Brevo Inbound Parsing).
 // Quand un client répond à la confirmation (Reply-To ticket-<n>@REPLY_DOMAIN),
@@ -73,7 +74,9 @@ export async function POST(req: Request) {
       limit: 1,
       depth: 0,
     });
-    const ticket = found.docs[0] as { id: number; status?: string; messages?: unknown[] } | undefined;
+    const ticket = found.docs[0] as
+      | { id: number; number?: number; subject?: string; email?: string; name?: string; status?: string; messages?: unknown[] }
+      | undefined;
     if (!ticket) continue;
 
     const text = (
@@ -95,11 +98,31 @@ export async function POST(req: Request) {
       id: ticket.id,
       data: {
         messages,
+        // Réponse client → le ticket attend une action du support (badge dashboard).
+        needsAttention: true,
         // Une réponse client ré-ouvre un ticket résolu.
         ...(ticket.status === "resolved" ? { status: "new" } : {}),
       },
     });
     handled++;
+
+    // Notification interne à l'équipe support (best-effort — le message est déjà
+    // enregistré dans le ticket ; un échec d'envoi ne doit pas casser le webhook).
+    try {
+      await payload.sendEmail({
+        to: SUPPORT_NOTIFY_EMAIL,
+        ...ticketReplyNoticeEmail({
+          id: ticket.id,
+          number: ticket.number ?? 0,
+          subject: ticket.subject ?? `#${ticket.number ?? ""}`,
+          name: ticket.name,
+          email: ticket.email ?? "",
+          body: text,
+        }),
+      });
+    } catch (e) {
+      console.warn("[inbound-email] notification support échouée:", e);
+    }
   }
 
   return NextResponse.json({ ok: true, handled });
