@@ -45,6 +45,17 @@ export default buildConfig({
       },
       // Bandeau de notifications tickets en tête du dashboard.
       beforeDashboard: ["/modules/support/admin/TicketNotifications#TicketNotifications"],
+      // Lien « Notifications » + puces (réponses client / nouveaux) en tête du menu.
+      beforeNavLinks: ["/modules/support/admin/NavNotifications#NavNotifications"],
+      // Page « Notifications » complète (boîte de réception des tickets à traiter).
+      views: {
+        notifications: {
+          Component: "/modules/support/admin/NotificationsView#default",
+          path: "/notifications",
+          exact: true,
+          meta: { title: "Notifications" },
+        },
+      },
     },
   },
 

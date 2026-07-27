@@ -12,9 +12,10 @@ export const stampResolvedAt: CollectionBeforeChangeHook = ({ data, originalDoc 
     if (!(data.resolvedAt ?? originalDoc?.resolvedAt)) {
       data.resolvedAt = new Date().toISOString();
     }
-    // Résolu → ne réclame plus d'action (retire le badge du dashboard), sauf si
-    // l'appelant force explicitement la valeur (ex. réponse client concomitante).
+    // Résolu → ne réclame plus d'action (retire les badges), sauf si l'appelant
+    // force explicitement la valeur (ex. réponse client concomitante).
     if (data.needsAttention === undefined) data.needsAttention = false;
+    if (data.unreadClientReply === undefined) data.unreadClientReply = false;
   } else if (status) {
     data.resolvedAt = null;
   }

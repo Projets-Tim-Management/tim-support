@@ -66,8 +66,8 @@ export async function POST(req: Request) {
     collection: "tickets",
     id: ticket.id,
     // Le support vient de répondre → le ticket n'attend plus de réponse
-    // (retire le badge « à traiter » du dashboard).
-    data: { messages, needsAttention: false, ...(nextStatus ? { status: nextStatus } : {}) },
+    // (retire les badges « à traiter » et « réponse client »).
+    data: { messages, needsAttention: false, unreadClientReply: false, ...(nextStatus ? { status: nextStatus } : {}) },
   });
 
   // E-mail au client (best-effort : le message est déjà enregistré).
