@@ -100,6 +100,8 @@ export async function POST(req: Request) {
         messages,
         // Réponse client → le ticket attend une action du support (badge dashboard).
         needsAttention: true,
+        // Réponse client non traitée → puces « réponse client » (menu/tableau/notifs).
+        unreadClientReply: true,
         // Une réponse client ré-ouvre un ticket résolu.
         ...(ticket.status === "resolved" ? { status: "new" } : {}),
       },

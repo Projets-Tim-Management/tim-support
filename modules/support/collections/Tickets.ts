@@ -20,7 +20,7 @@ export const Tickets: CollectionConfig = {
   labels: { singular: "Ticket", plural: "Tickets" },
   admin: {
     useAsTitle: "subject",
-    defaultColumns: ["number", "subject", "name", "status", "priority", "service", "createdAt"],
+    defaultColumns: ["number", "alerts", "subject", "name", "status", "priority", "service", "createdAt"],
     listSearchableFields: ["subject", "email", "name", "number"],
     group: "Support",
     components: {
@@ -223,6 +223,30 @@ export const Tickets: CollectionConfig = {
       defaultValue: true,
       index: true,
       admin: { hidden: true },
+    },
+    // Drapeau « réponse client non traitée » : true UNIQUEMENT quand le client
+    // répond à un ticket existant (webhook inbound), false quand le support
+    // répond / résout. Distinct de needsAttention (qui couvre aussi les nouveaux
+    // tickets). Alimente les puces « réponse client » (menu, tableau, page notifs).
+    {
+      name: "unreadClientReply",
+      type: "checkbox",
+      label: "Réponse client non traitée",
+      defaultValue: false,
+      index: true,
+      admin: { hidden: true },
+    },
+    // Colonne « Alertes » du tableau : puces Nouveau / Réponse client (lecture
+    // seule, rendue à partir de la ligne). Pas un vrai champ stocké.
+    {
+      name: "alerts",
+      type: "ui",
+      label: "Alertes",
+      admin: {
+        components: {
+          Cell: "/modules/support/admin/TicketAlertCell#TicketAlertCell",
+        },
+      },
     },
     // IP + User-Agent côte à côte (technique).
     {
