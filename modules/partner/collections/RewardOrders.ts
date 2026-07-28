@@ -1,9 +1,24 @@
-import type { CollectionConfig } from "payload";
+import type { CollectionConfig, FieldHook } from "payload";
 
 import { adminOnly } from "@/core/access";
 import { refundCancelledOrder } from "@/modules/partner/hooks/refund-order";
-import { partnerField } from "@/modules/partner/fields/partner";
 import { referenceNumber } from "@/core/fields/referenceNumber";
+
+/** Coût = coût de la récompense choisie (dérivé automatiquement). */
+const costFromReward: FieldHook = async ({ value, data, req }) => {
+  const r = data?.reward as unknown;
+  const rewardId = r && typeof r === "object" ? (r as { id?: unknown }).id : r;
+  const db = req?.payload?.db as { findOne?: (a: unknown) => Promise<Record<string, unknown> | null> } | undefined;
+  if (rewardId != null && db?.findOne) {
+    try {
+      const reward = await db.findOne({ collection: "rewards", where: { id: { equals: rewardId } }, req });
+      if (reward && typeof reward.cost === "number") return reward.cost;
+    } catch {
+      /* récompense indisponible → garde la valeur existante */
+    }
+  }
+  return value;
+};
 
 /**
  * Commandes de récompenses (CPT `reward_order` côté WP).
@@ -24,15 +39,41 @@ export const RewardOrders: CollectionConfig = {
   hooks: { afterChange: [refundCancelledOrder] },
   fields: [
     referenceNumber,
-    partnerField,
+    // « + » (créer) retiré : on ne crée pas un partenaire/récompense ici.
+    {
+      name: "partner",
+      type: "relationship",
+      relationTo: "partners",
+      label: "Partenaire",
+      required: true,
+      index: true,
+      admin: { allowCreate: false },
+    },
     {
       name: "reward",
       type: "relationship",
       relationTo: "rewards",
       label: "Récompense",
       required: true,
+      admin: { allowCreate: false },
     },
-    { name: "cost", type: "number", label: "Coût (points)", required: true, min: 0 },
+    {
+      name: "cost",
+      type: "number",
+      label: "Coût (points)",
+      required: true,
+      min: 0,
+      admin: { readOnly: true, description: "Défini automatiquement par la récompense choisie." },
+      hooks: { beforeValidate: [costFromReward] },
+    },
+    // Récap live : coût, solde du partenaire, solde après échange.
+    {
+      name: "balanceBox",
+      type: "ui",
+      admin: {
+        components: { Field: "/modules/partner/admin/RewardOrderBalance#RewardOrderBalance" },
+      },
+    },
     {
       name: "status",
       type: "select",

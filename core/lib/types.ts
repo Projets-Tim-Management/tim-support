@@ -117,37 +117,6 @@ export interface RedeemResult {
 
 // ─── Types WordPress (legacy / migration) ──────────────────────────────────────
 
-export interface WPCategory {
-  id: number;
-  name: string;
-  slug: string;
-  description: string;
-  count: number;
-  parent: number;
-}
-
-export interface WPPost {
-  id: number;
-  slug: string;
-  title: { rendered: string };
-  excerpt: { rendered: string };
-  content: { rendered: string };
-  date: string;
-  modified: string;
-  categories: number[];
-  featured_media: number;
-  acf?: Record<string, unknown>;
-  yoast_head_json?: {
-    title?: string;
-    description?: string;
-    og_image?: { url: string }[];
-  };
-  _embedded?: {
-    "wp:featuredmedia"?: { source_url: string; alt_text: string }[];
-    "wp:term"?: WPCategory[][];
-  };
-}
-
 export interface WPMedia {
   id: number;
   source_url: string;

@@ -1,6 +1,7 @@
 import type { CollectionConfig } from "payload";
 
 import { adminOnly } from "@/core/access";
+import { referenceNumber } from "@/core/fields/referenceNumber";
 import { partnerField } from "@/modules/partner/fields/partner";
 
 /**
@@ -20,9 +21,14 @@ export const PointTransactions: CollectionConfig = {
     useAsTitle: "motif",
     defaultColumns: ["partner", "delta", "source", "motif", "createdAt"],
     group: "Partenaires",
+    // Pas une page du menu : géré en drawer depuis la fiche du partenaire
+    // utilisateur (onglet Points & activité → Transactions de points).
+    hidden: true,
   },
   access: adminOnly,
   fields: [
+    // Référence séquentielle unique, attribuée automatiquement (1, 2, 3…).
+    { ...referenceNumber, label: "Référence" },
     partnerField,
     {
       name: "delta",
@@ -47,10 +53,10 @@ export const PointTransactions: CollectionConfig = {
     {
       name: "ref",
       type: "text",
-      label: "Référence",
+      label: "Traçabilité",
       admin: {
         position: "sidebar",
-        description: "Traçabilité (ex : order:123, submission:45).",
+        description: "Lien technique interne (ex : order:123, submission:45). Optionnel.",
       },
     },
     {
@@ -58,6 +64,8 @@ export const PointTransactions: CollectionConfig = {
       type: "relationship",
       relationTo: "users",
       label: "Saisi par",
+      // Pré-rempli avec l'utilisateur courant (affiché tout de suite), verrouillé.
+      defaultValue: ({ user }) => user?.id ?? null,
       admin: { position: "sidebar", readOnly: true },
       hooks: {
         beforeChange: [

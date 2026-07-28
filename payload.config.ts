@@ -16,6 +16,7 @@ import { FeatureCategories } from "./modules/editorial/collections/FeatureCatego
 import { Features } from "./modules/editorial/collections/Features";
 import { Parcours } from "./modules/editorial/collections/Parcours";
 import { Partners } from "./modules/partner/collections/Partners";
+import { PartnerClients } from "./modules/partner/collections/PartnerClients";
 import { PointTransactions } from "./modules/partner/collections/PointTransactions";
 import { Missions } from "./modules/partner/collections/Missions";
 import { MissionSubmissions } from "./modules/partner/collections/MissionSubmissions";
@@ -46,6 +47,7 @@ export default buildConfig({
       // Bandeau de notifications tickets en tête du dashboard.
       beforeDashboard: ["/modules/support/admin/TicketNotifications#TicketNotifications"],
       // Lien « Notifications » + puces (réponses client / nouveaux) en tête du menu.
+      // (Le repli en rail d'icônes réutilise le bouton natif de Payload — voir SCSS.)
       beforeNavLinks: ["/modules/support/admin/NavNotifications#NavNotifications"],
       // Page « Notifications » complète (boîte de réception des tickets à traiter).
       views: {
@@ -71,6 +73,7 @@ export default buildConfig({
     Parcours,
     // Partenaires
     Partners,
+    PartnerClients,
     PointTransactions,
     // Missions
     Missions,
@@ -107,6 +110,36 @@ export default buildConfig({
 
   // Éditeur de texte riche par défaut (pour l'éditorial à venir).
   editor: lexicalEditor(),
+
+  // Backfill unique : calcule chemin (pathTitle) + clé de tri (sortKey) des
+  // catégories existantes créées avant ces champs. Ne réécrit que celles dont
+  // le sortKey manque → une seule passe, puis no-op aux démarrages suivants.
+  onInit: async (payload) => {
+    try {
+      const all = await payload.find({
+        collection: "feature-categories",
+        limit: 2000,
+        depth: 0,
+        pagination: false,
+        overrideAccess: true,
+      });
+      const todo = all.docs.filter((d) => !(d as { sortKey?: string }).sortKey);
+      for (const cat of todo) {
+        await payload.update({
+          collection: "feature-categories",
+          id: cat.id,
+          data: {}, // déclenche les hooks beforeChange (pathTitle + sortKey)
+          depth: 0,
+          overrideAccess: true,
+        });
+      }
+      if (todo.length) {
+        payload.logger.info(`[features] ${todo.length} catégorie(s) réindexée(s) (chemin + tri).`);
+      }
+    } catch (err) {
+      payload.logger.error(`[features] réindexation des catégories échouée : ${err}`);
+    }
+  },
 
   secret: process.env.PAYLOAD_SECRET || "",
 

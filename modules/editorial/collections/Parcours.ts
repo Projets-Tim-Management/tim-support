@@ -2,6 +2,7 @@ import type { CollectionConfig } from "payload";
 
 import { editorialAccess } from "@/core/access";
 import { slugField } from "@/core/fields/slug";
+import { PARCOURS_PROFILS, PARCOURS_PROFIL_VALUES } from "@/modules/editorial/lib/parcours-profils";
 
 /**
  * Parcours d'apprentissage — CPT `parcours` + ACF (défini en code côté WP).
@@ -16,6 +17,14 @@ export const Parcours: CollectionConfig = {
     useAsTitle: "title",
     defaultColumns: ["title", "slug", "profil", "order", "_status"],
     group: "Parcours",
+    components: {
+      views: {
+        // Remplace le tableau par une carte par parcours (liste des étapes).
+        list: {
+          Component: "/modules/editorial/admin/ParcoursListView#default",
+        },
+      },
+    },
   },
   access: editorialAccess,
   versions: { drafts: true },
@@ -37,12 +46,13 @@ export const Parcours: CollectionConfig = {
       name: "profil",
       type: "select",
       label: "Profil cible",
-      options: [
-        { label: "Admin", value: "admin" },
-        { label: "Conducteur", value: "conducteur" },
-        { label: "Chef de chantier", value: "chef-chantier" },
-        { label: "Compagnon", value: "compagnon" },
-      ],
+      options: PARCOURS_PROFILS.map((p) => ({ label: p.label, value: p.value })),
+      // Pré-rempli quand on crée depuis un groupe de la vue liste
+      // (bouton « + Ajouter » → /admin/collections/parcours/create?profil=…).
+      defaultValue: ({ req }) => {
+        const p = req?.searchParams?.get?.("profil");
+        return p && PARCOURS_PROFIL_VALUES.includes(p) ? p : undefined;
+      },
       admin: { position: "sidebar" },
     },
     { name: "intro", type: "textarea", label: "Introduction" },

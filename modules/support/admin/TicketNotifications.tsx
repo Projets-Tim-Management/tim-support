@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { NEWS, REPLIES, URGENT, countTickets } from "@/modules/support/lib/counts";
+
 /**
  * Bandeau de notifications en tête du dashboard (admin.components.beforeDashboard).
  * Résume ce qui demande une action côté support, en deux compteurs distincts :
@@ -14,24 +16,6 @@ import { useEffect, useState } from "react";
  */
 const TICKETS = "/admin/collections/tickets";
 const NOTIFICATIONS = "/admin/notifications";
-
-// Filtres réutilisés pour le compte ET le lien (cohérence garantie).
-const REPLIES = "where[unreadClientReply][equals]=true";
-const NEWS =
-  "where[and][0][needsAttention][equals]=true&where[and][1][unreadClientReply][not_equals]=true&where[and][2][status][not_equals]=resolved";
-const URGENT = "where[priority][equals]=urgent&where[status][not_equals]=resolved";
-
-async function countTickets(query: string): Promise<number> {
-  try {
-    const res = await fetch(`/payload-api/tickets?${query}&limit=1&depth=0`, {
-      credentials: "include",
-    });
-    const data = res.ok ? await res.json() : { totalDocs: 0 };
-    return Number(data.totalDocs) || 0;
-  } catch {
-    return 0;
-  }
-}
 
 type Counts = { replies: number; news: number; urgents: number };
 

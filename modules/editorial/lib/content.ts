@@ -1,10 +1,12 @@
+import { cache } from "react";
+
 import { convertLexicalToHTML } from "@payloadcms/richtext-lexical/html";
 import type { SerializedEditorState } from "@payloadcms/richtext-lexical/lexical";
 
 import { payloadClient } from "@/core/payload-client";
+import { AVAILABILITY_LABEL } from "@/modules/editorial/lib/availability";
 import type {
   Feature,
-  FeatureStatus,
   FeatureTerm,
   MediaDocItem,
   MediaPosition,
@@ -57,12 +59,6 @@ function toTerm(t: unknown): FeatureTerm {
   return { id: d.id, name: d.name, slug: d.slug, parent };
 }
 
-const STATUS_LABEL: Record<string, FeatureStatus> = {
-  disponible: "Disponible",
-  beta: "Beta",
-  prochainement: "Prochainement",
-};
-
 // ─── Features ────────────────────────────────────────────────────────────────
 
 function mapMediaBlock(b: Record<string, unknown>): MediaDocItem | null {
@@ -103,7 +99,7 @@ function toFeature(d: FeatureDoc, full: boolean): Feature {
     acf: {
       title_feature: d.titleFeature || d.title,
       short_description: d.shortDescription || "",
-      status: STATUS_LABEL[d.availability] ?? "Disponible",
+      status: AVAILABILITY_LABEL[d.availability] ?? "Disponible",
       keywords: d.keywords ?? [],
       doc: full
         ? (d.doc ?? []).map((s: Record<string, unknown>) => ({
@@ -126,20 +122,23 @@ function toFeature(d: FeatureDoc, full: boolean): Feature {
   };
 }
 
-export async function getFeatures(
-  opts: { platform?: string; category?: string } = {},
-): Promise<Feature[]> {
-  const payload = await payloadClient();
-  const res = await payload.find({ collection: "features", limit: 1000, depth: 1, sort: "title" });
-  let docs = res.docs as FeatureDoc[];
-  if (opts.platform)
-    docs = docs.filter((d) => (d.platforms ?? []).some((p: TermDoc) => p.slug === opts.platform));
-  if (opts.category)
-    docs = docs.filter((d) => (d.categories ?? []).some((c: TermDoc) => c.slug === opts.category));
-  return docs.map((d) => toFeature(d, false));
-}
+// Loaders lecture seule mémoïsés par requête (React cache) : dédoublonne les
+// appels identiques d'un même rendu — ex. generateMetadata + page, ou layout +
+// page — pour n'exécuter la requête Payload qu'une fois.
+export const getFeatures = cache(
+  async (opts: { platform?: string; category?: string } = {}): Promise<Feature[]> => {
+    const payload = await payloadClient();
+    const res = await payload.find({ collection: "features", limit: 1000, depth: 1, sort: "title" });
+    let docs = res.docs as FeatureDoc[];
+    if (opts.platform)
+      docs = docs.filter((d) => (d.platforms ?? []).some((p: TermDoc) => p.slug === opts.platform));
+    if (opts.category)
+      docs = docs.filter((d) => (d.categories ?? []).some((c: TermDoc) => c.slug === opts.category));
+    return docs.map((d) => toFeature(d, false));
+  },
+);
 
-export async function getFeatureBySlug(slug: string): Promise<Feature | null> {
+export const getFeatureBySlug = cache(async (slug: string): Promise<Feature | null> => {
   const payload = await payloadClient();
   const res = await payload.find({
     collection: "features",
@@ -149,25 +148,25 @@ export async function getFeatureBySlug(slug: string): Promise<Feature | null> {
   });
   const doc = res.docs[0] as FeatureDoc | undefined;
   return doc ? toFeature(doc, true) : null;
-}
+});
 
-export async function getFeatureCategories(): Promise<FeatureTerm[]> {
+export const getFeatureCategories = cache(async (): Promise<FeatureTerm[]> => {
   const payload = await payloadClient();
   const res = await payload.find({ collection: "feature-categories", limit: 1000, depth: 1, sort: "name" });
   return (res.docs as TermDoc[]).map(toTerm);
-}
+});
 
-export async function getPlatforms(): Promise<FeatureTerm[]> {
+export const getPlatforms = cache(async (): Promise<FeatureTerm[]> => {
   const payload = await payloadClient();
   const res = await payload.find({ collection: "platforms", limit: 1000, depth: 0, sort: "name" });
   return (res.docs as TermDoc[]).map(toTerm);
-}
+});
 
-export async function getAllFeatureSlugs(): Promise<string[]> {
+export const getAllFeatureSlugs = cache(async (): Promise<string[]> => {
   const payload = await payloadClient();
   const res = await payload.find({ collection: "features", limit: 1000, depth: 0 });
   return (res.docs as FeatureDoc[]).map((d) => d.slug);
-}
+});
 
 // ─── Parcours ────────────────────────────────────────────────────────────────
 
@@ -186,13 +185,13 @@ function toParcoursSummary(d: ParcoursDoc): ParcoursSummary {
   };
 }
 
-export async function getParcours(): Promise<ParcoursSummary[]> {
+export const getParcours = cache(async (): Promise<ParcoursSummary[]> => {
   const payload = await payloadClient();
   const res = await payload.find({ collection: "parcours", limit: 1000, depth: 0, sort: "order" });
   return (res.docs as ParcoursDoc[]).map(toParcoursSummary);
-}
+});
 
-export async function getParcoursBySlug(slug: string): Promise<ParcoursFull | null> {
+export const getParcoursBySlug = cache(async (slug: string): Promise<ParcoursFull | null> => {
   const payload = await payloadClient();
   const res = await payload.find({
     collection: "parcours",
@@ -214,10 +213,10 @@ export async function getParcoursBySlug(slug: string): Promise<ParcoursFull | nu
       .filter((s: unknown) => s && typeof s === "object")
       .map((s: FeatureDoc) => toFeature(s, true)),
   };
-}
+});
 
-export async function getAllParcoursSlugs(): Promise<string[]> {
+export const getAllParcoursSlugs = cache(async (): Promise<string[]> => {
   const payload = await payloadClient();
   const res = await payload.find({ collection: "parcours", limit: 1000, depth: 0 });
   return (res.docs as ParcoursDoc[]).map((d) => d.slug);
-}
+});

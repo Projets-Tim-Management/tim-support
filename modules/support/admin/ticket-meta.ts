@@ -4,7 +4,7 @@
  * (ColoredSelectField), les cellules de liste (ColoredCell) et l'en-tête du fil.
  */
 
-export const TICKET_LABELS: Record<string, Record<string, string>> = {
+const TICKET_LABELS: Record<string, Record<string, string>> = {
   status: {
     new: "Nouveau",
     acknowledged: "Pris en compte",
@@ -33,7 +33,7 @@ export const TICKET_LABELS: Record<string, Record<string, string>> = {
 };
 
 // [couleur texte, couleur fond] par champ puis par valeur.
-export const TICKET_COLORS: Record<string, Record<string, [string, string]>> = {
+const TICKET_COLORS: Record<string, Record<string, [string, string]>> = {
   status: {
     new: ["#1e6fd9", "#e7f0fd"],
     acknowledged: ["#6b46c1", "#efe9fb"],
