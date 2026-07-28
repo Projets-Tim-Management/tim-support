@@ -1,0 +1,55 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOKENS DE COULEUR — SOURCE UNIQUE DE VÉRITÉ (le SEUL fichier avec des #hex)
+   ═══════════════════════════════════════════════════════════════════════════
+   👉 Pour changer une couleur dans TOUT le back-office, modifie-la ICI.
+   Partout ailleurs (admin-theme.scss), les couleurs sont référencées via
+   var(--tim-…) — aucun code couleur en dur.
+
+   Repris du design system du front (app/(frontend)/globals.css).
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* ─── Marque ──────────────────────────────────────────────────────────────*/
+  --tim-primary:        #fe5464; /* rouge TIM — actions, liens, actifs */
+  --tim-primary-dark:   #e03e4d;
+  --tim-primary-light:  #fff0f1;
+
+  /* ─── Neutres ─────────────────────────────────────────────────────────────*/
+  --tim-white:          #ffffff;
+  --tim-foreground:     #505050; /* texte principal */
+  --tim-muted:          #8a8f98; /* texte secondaire */
+  --tim-muted-light:    #b0b4bc; /* libellés de groupe (menu) */
+  --tim-surface:        #f8f9fb; /* fonds légers */
+  --tim-nav-bg:         #fcfcfd; /* fond de la barre latérale */
+  --tim-border:         #d2d2d6;
+
+  /* Échelle d'élévation (fonds de cartes/panneaux) */
+  --tim-elevation-100:  #f1f2f5;
+  --tim-elevation-150:  #eceef2;
+  --tim-elevation-200:  #e4e6eb;
+
+  /* ─── Sémantiques de base ─────────────────────────────────────────────────*/
+  --tim-success:        #1bc181;
+  --tim-danger:         #ff7e7e; /* rouge doux (bordures, accents) */
+  --tim-danger-text:    #b91c1c; /* rouge foncé lisible (texte d'erreur) */
+  --tim-warning:        #fcc35b;
+  --tim-warning-text:   #b7791f; /* ambre foncé lisible (texte) */
+  --tim-info:           #4a90e2;
+
+  /* ─── Palette statuts / priorités (texte + fond clair associé) ────────────*/
+  --tim-blue:      #1e6fd9;  --tim-blue-bg:   #e7f0fd; /* nouveau            */
+  --tim-purple:    #6b46c1;  --tim-purple-bg: #efe9fb; /* pris en compte     */
+  --tim-amber:     #b45309;  --tim-amber-bg:  #fdf0dd; /* en cours / haute   */
+  --tim-slate:     #5b616e;  --tim-slate-bg:  #eceef1; /* en attente / normale */
+  --tim-green:     #15803d;  --tim-green-bg:  #e3f5e9; /* résolu             */
+  --tim-red:       #c0261b;  --tim-red-bg:    #fde8e6; /* urgent             */
+  --tim-gray:      #6b7280;  --tim-gray-bg:   #f3f4f6; /* basse              */
+
+  /* ─── Plateformes (badge bleu identique au front) ─────────────────────────*/
+  --tim-platform-bg:          #dae6ff; /* fond du badge (texte = --tim-info) */
+  --tim-platform-text-strong: #2f6ca8; /* survol du bouton retirer           */
+
+  /* ─── Rayons & typo ───────────────────────────────────────────────────────*/
+  --tim-radius:         0.5rem;
+  --tim-radius-sm:      0.375rem;
+  --tim-font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}

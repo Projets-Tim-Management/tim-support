@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { NEWS, REPLIES, countTickets } from "@/modules/support/lib/counts";
+
 /**
  * Injecté via admin.components.afterNavLinks. Deux rôles :
  *   1. Ajoute une entrée « Notifications » dans le menu, avec deux puces
@@ -12,21 +14,6 @@ import { useEffect, useState } from "react";
  *      car ce lien est rendu par Payload en dehors de ce composant).
  * Compteurs lus via l'API REST Payload et rafraîchis au changement de page.
  */
-const REPLIES = "where[unreadClientReply][equals]=true";
-const NEWS =
-  "where[and][0][needsAttention][equals]=true&where[and][1][unreadClientReply][not_equals]=true&where[and][2][status][not_equals]=resolved";
-
-async function countTickets(query: string): Promise<number> {
-  try {
-    const res = await fetch(`/payload-api/tickets?${query}&limit=1&depth=0`, {
-      credentials: "include",
-    });
-    const data = res.ok ? await res.json() : { totalDocs: 0 };
-    return Number(data.totalDocs) || 0;
-  } catch {
-    return 0;
-  }
-}
 
 type Counts = { replies: number; news: number };
 
@@ -85,12 +72,9 @@ export function NavNotifications() {
 
   return (
     <Link
-      className={`nav__link nav-notif-link${total > 0 ? " nav-notif-link--active" : ""}`}
+      className={`nav-notif-link${total > 0 ? " nav-notif-link--active" : ""}`}
       href="/admin/notifications"
     >
-      <span className="nav-notif-link__icon" aria-hidden>
-        🔔
-      </span>
       <span className="nav-notif-link__label">Notifications</span>
       <span className="nav-badges">
         {counts && counts.replies > 0 && (

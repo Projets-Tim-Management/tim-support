@@ -28,6 +28,18 @@ import { StrikethroughFeatureClient as StrikethroughFeatureClient_e70f5e05f09f93
 import { UnderlineFeatureClient as UnderlineFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
+import { DocSectionRowLabel as DocSectionRowLabel_67e1bc4d7225aec381db547c4b4a729c } from '../../../modules/editorial/admin/DocSectionRowLabel'
+import { FeatureImport as FeatureImport_0cbeb25d32bc0babbecc520b3ac7820e } from '../../../modules/editorial/admin/FeatureImport'
+import { default as default_7e85f5cff101ba7e7585712dd2365fa1 } from '../../../modules/editorial/admin/ParcoursListView'
+import { PartnerClientsPanel as PartnerClientsPanel_c7863830fd24855994fff2ef0b0ebd06 } from '../../../modules/partner/admin/PartnerClientsPanel'
+import { PartnerActivity as PartnerActivity_0cefa807c5e124a83847213cf92a333a } from '../../../modules/partner/admin/PartnerActivity'
+import { LicencesTable as LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338 } from '../../../modules/partner/admin/LicencesTable'
+import { PartnerClientHistory as PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2 } from '../../../modules/partner/admin/PartnerClientHistory'
+import { PartnerCommissionBox as PartnerCommissionBox_3b6f7425f35df62396e249af6e16b3db } from '../../../modules/partner/admin/PartnerCommissionBox'
+import { SmartSaveButton as SmartSaveButton_d2f84cfd7b2e15c9b318cc3949e7984f } from '../../../modules/partner/admin/SmartSaveButton'
+import { PartnerClientEditMenu as PartnerClientEditMenu_e271aadbf9279fb914faf39302326860 } from '../../../modules/partner/admin/PartnerClientEditMenu'
+import { HiddenControl as HiddenControl_7ccae3f972b05a5b902716411bfd380c } from '../../../modules/partner/admin/HiddenControl'
+import { RewardOrderBalance as RewardOrderBalance_21383d1a7f3c464032bdb799d5d3261b } from '../../../modules/partner/admin/RewardOrderBalance'
 import { Icon as Icon_48a75e37b0630d5b8c8066e180c0e6ef } from '../../../admin/graphics/Icon'
 import { Logo as Logo_88541c286955dbac4d90fb5ed606381c } from '../../../admin/graphics/Logo'
 import { TicketNotifications as TicketNotifications_249de6f7061934fbd50e86a6ce480ec2 } from '../../../modules/support/admin/TicketNotifications'
@@ -68,6 +80,18 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#UnderlineFeatureClient": UnderlineFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#BoldFeatureClient": BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
+  "/modules/editorial/admin/DocSectionRowLabel#DocSectionRowLabel": DocSectionRowLabel_67e1bc4d7225aec381db547c4b4a729c,
+  "/modules/editorial/admin/FeatureImport#FeatureImport": FeatureImport_0cbeb25d32bc0babbecc520b3ac7820e,
+  "/modules/editorial/admin/ParcoursListView#default": default_7e85f5cff101ba7e7585712dd2365fa1,
+  "/modules/partner/admin/PartnerClientsPanel#PartnerClientsPanel": PartnerClientsPanel_c7863830fd24855994fff2ef0b0ebd06,
+  "/modules/partner/admin/PartnerActivity#PartnerActivity": PartnerActivity_0cefa807c5e124a83847213cf92a333a,
+  "/modules/partner/admin/LicencesTable#LicencesTable": LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338,
+  "/modules/partner/admin/PartnerClientHistory#PartnerClientHistory": PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2,
+  "/modules/partner/admin/PartnerCommissionBox#PartnerCommissionBox": PartnerCommissionBox_3b6f7425f35df62396e249af6e16b3db,
+  "/modules/partner/admin/SmartSaveButton#SmartSaveButton": SmartSaveButton_d2f84cfd7b2e15c9b318cc3949e7984f,
+  "/modules/partner/admin/PartnerClientEditMenu#PartnerClientEditMenu": PartnerClientEditMenu_e271aadbf9279fb914faf39302326860,
+  "/modules/partner/admin/HiddenControl#HiddenControl": HiddenControl_7ccae3f972b05a5b902716411bfd380c,
+  "/modules/partner/admin/RewardOrderBalance#RewardOrderBalance": RewardOrderBalance_21383d1a7f3c464032bdb799d5d3261b,
   "/admin/graphics/Icon#Icon": Icon_48a75e37b0630d5b8c8066e180c0e6ef,
   "/admin/graphics/Logo#Logo": Logo_88541c286955dbac4d90fb5ed606381c,
   "/modules/support/admin/TicketNotifications#TicketNotifications": TicketNotifications_249de6f7061934fbd50e86a6ce480ec2,

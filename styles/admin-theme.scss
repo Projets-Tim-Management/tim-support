@@ -5,49 +5,31 @@
    👉 Pour changer l'apparence de tout le back-office, tout se règle ICI.
 
    Sommaire :
-     1. Tokens de marque (couleurs, typo, rayons)  ← le plus souvent modifié
+     1. Tokens de couleur   → styles/_tokens.scss (source unique, seul fichier #hex)
      2. Fond blanc + palette claire (calée sur le front)
      3. Accents de marque (boutons, liens, focus, états actifs)
      4. Menu latéral (lisibilité + icônes SVG par collection)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ─── 1. TOKENS DE MARQUE ────────────────────────────────────────────────────
-   Repris à l'identique du front. Change une valeur → tout l'admin suit. */
-:root {
-  --tim-primary:        #fe5464; /* rouge TIM — actions, liens, actifs */
-  --tim-primary-dark:   #e03e4d;
-  --tim-primary-light:  #fff0f1;
-
-  --tim-foreground:     #505050;
-  --tim-muted:          #8a8f98;
-  --tim-surface:        #f8f9fb;
-  --tim-nav-bg:         #fcfcfd; /* fond de la barre latérale */
-  --tim-border:         #d2d2d6;
-
-  --tim-success:        #1bc181;
-  --tim-danger:         #ff7e7e;
-  --tim-warning:        #fcc35b;
-  --tim-info:           #4a90e2;
-
-  --tim-radius:         0.5rem;
-  --tim-radius-sm:      0.375rem;
-  --tim-font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-}
+/* ─── 1. TOKENS DE COULEUR ───────────────────────────────────────────────────
+   👉 Toutes les couleurs vivent dans styles/_tokens.scss. On les référence
+   ici uniquement via var(--tim-…) — aucun code couleur en dur dans ce fichier. */
+@import "tokens";
 
 /* ─── 2. FOND BLANC + PALETTE CLAIRE ─────────────────────────────────────────
    L'admin est forcé en thème clair (voir payload.config admin.theme).
    On remappe les variables du thème Payload sur les couleurs du front. */
 html[data-theme="light"] {
-  --theme-bg:            #ffffff;
-  --theme-input-bg:      #ffffff;
+  --theme-bg:            var(--tim-white);
+  --theme-input-bg:      var(--tim-white);
   --theme-text:          var(--tim-foreground);
 
   /* Échelle d'élévation (fonds, cartes, bordures) calée sur le front */
-  --theme-elevation-0:    #ffffff;
-  --theme-elevation-50:   #f8f9fb;
-  --theme-elevation-100:  #f1f2f5;
-  --theme-elevation-150:  #eceef2;
-  --theme-elevation-200:  #e4e6eb;
+  --theme-elevation-0:    var(--tim-white);
+  --theme-elevation-50:   var(--tim-surface);
+  --theme-elevation-100:  var(--tim-elevation-100);
+  --theme-elevation-150:  var(--tim-elevation-150);
+  --theme-elevation-200:  var(--tim-elevation-200);
 
   /* Sémantiques alignées sur le front */
   --color-success-500: var(--tim-success);
@@ -65,7 +47,7 @@ body,
 .template-default,
 .template-minimal {
   font-family: var(--tim-font);
-  background: #ffffff;
+  background: var(--tim-white);
 }
 
 /* ─── 3. ACCENTS DE MARQUE ───────────────────────────────────────────────────
@@ -74,7 +56,7 @@ body,
 .btn--style-primary {
   background-color: var(--tim-primary);
   border-color: var(--tim-primary);
-  color: #fff;
+  color: var(--tim-white);
 }
 .btn--style-primary:not(.btn--disabled):hover {
   background-color: var(--tim-primary-dark);
@@ -198,7 +180,7 @@ $nav-icons: (
 .card {
   border: 1px solid var(--tim-border);
   border-radius: var(--tim-radius);
-  background: #ffffff;
+  background: var(--tim-white);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 6%, transparent);
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
@@ -330,11 +312,11 @@ $nav-icons: (
   white-space: nowrap;
 }
 $ticket-status: (
-  "new": #1e6fd9 #e7f0fd,
-  "acknowledged": #6b46c1 #efe9fb,
-  "in_progress": #b45309 #fdf0dd,
-  "on_hold": #5b616e #eceef1,
-  "resolved": #15803d #e3f5e9,
+  "new": var(--tim-blue) var(--tim-blue-bg),
+  "acknowledged": var(--tim-purple) var(--tim-purple-bg),
+  "in_progress": var(--tim-amber) var(--tim-amber-bg),
+  "on_hold": var(--tim-slate) var(--tim-slate-bg),
+  "resolved": var(--tim-green) var(--tim-green-bg),
 );
 @each $key, $pair in $ticket-status {
   .ticket-pill--status-#{$key} {
@@ -343,10 +325,10 @@ $ticket-status: (
   }
 }
 $ticket-prio: (
-  "urgent": #c0261b #fde8e6,
-  "high": #b45309 #fdf0dd,
-  "normal": #5b616e #eceef1,
-  "low": #6b7280 #f3f4f6,
+  "urgent": var(--tim-red) var(--tim-red-bg),
+  "high": var(--tim-amber) var(--tim-amber-bg),
+  "normal": var(--tim-slate) var(--tim-slate-bg),
+  "low": var(--tim-gray) var(--tim-gray-bg),
 );
 @each $key, $pair in $ticket-prio {
   .ticket-pill--prio-#{$key} {
@@ -393,7 +375,7 @@ $ticket-prio: (
   padding: 0.7rem 0.9rem;
   border-radius: 0.9rem;
   border: 1px solid var(--tim-border);
-  background: #ffffff;
+  background: var(--tim-white);
 }
 .ticket-msg--client .ticket-msg__bubble {
   background: var(--tim-surface);
@@ -433,7 +415,7 @@ $ticket-prio: (
   padding: 1rem;
   border: 1px solid var(--tim-border);
   border-radius: var(--tim-radius);
-  background: #ffffff;
+  background: var(--tim-white);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 6%, transparent);
 }
 .ticket-reply__head {
@@ -465,11 +447,11 @@ $ticket-prio: (
   filter: brightness(0.96);
 }
 $reply-status-colors: (
-  "new": #1e6fd9 #e7f0fd,
-  "acknowledged": #6b46c1 #efe9fb,
-  "in_progress": #b45309 #fdf0dd,
-  "on_hold": #5b616e #eceef1,
-  "resolved": #15803d #e3f5e9,
+  "new": var(--tim-blue) var(--tim-blue-bg),
+  "acknowledged": var(--tim-purple) var(--tim-purple-bg),
+  "in_progress": var(--tim-amber) var(--tim-amber-bg),
+  "on_hold": var(--tim-slate) var(--tim-slate-bg),
+  "resolved": var(--tim-green) var(--tim-green-bg),
 );
 @each $key, $pair in $reply-status-colors {
   .ticket-reply__status--#{$key} {
@@ -493,7 +475,7 @@ $reply-status-colors: (
   outline: none;
   border-color: var(--tim-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--tim-primary) 18%, transparent);
-  background: #ffffff;
+  background: var(--tim-white);
 }
 .ticket-reply__actions {
   display: flex;
@@ -509,7 +491,7 @@ $reply-status-colors: (
   padding: 0.55rem 1.1rem;
   font-weight: 600;
   font-size: 0.9rem;
-  color: #ffffff;
+  color: var(--tim-white);
   background: var(--tim-primary);
   transition: background-color 0.12s ease;
 }
@@ -524,15 +506,15 @@ $reply-status-colors: (
   font-size: 0.82rem;
 }
 .ticket-reply__msg--sent {
-  color: #15803d;
+  color: var(--tim-green);
 }
 .ticket-reply__msg--error {
-  color: #c0261b;
+  color: var(--tim-red);
 }
 .ticket-reply__attach {
   cursor: pointer;
   border: 1px solid var(--tim-border);
-  background: #ffffff;
+  background: var(--tim-white);
   border-radius: var(--tim-radius-sm);
   padding: 0.4rem 0.7rem;
   font-size: 0.82rem;
@@ -635,7 +617,7 @@ $reply-status-colors: (
   padding: 0.35rem 0.8rem;
   border-radius: 6px;
   border: 1px solid var(--tim-border);
-  background: #ffffff;
+  background: var(--tim-white);
   color: var(--tim-foreground);
   font-size: 0.85rem;
   font-weight: 600;
@@ -649,7 +631,7 @@ $reply-status-colors: (
 .ticket-quickfilter--active {
   background: var(--tim-primary);
   border-color: var(--tim-primary);
-  color: #ffffff;
+  color: var(--tim-white);
 }
 /* Badge compteur (nombre de tickets dans la catégorie) */
 .ticket-quickfilter__badge {
@@ -659,14 +641,14 @@ $reply-status-colors: (
   padding: 0 5px;
   border-radius: 9px;
   background: var(--tim-primary);
-  color: #ffffff;
+  color: var(--tim-white);
   font-size: 0.7rem;
   font-weight: 800;
   line-height: 18px;
   text-align: center;
 }
 .ticket-quickfilter--active .ticket-quickfilter__badge {
-  background: #ffffff;
+  background: var(--tim-white);
   color: var(--tim-primary);
 }
 
@@ -684,11 +666,11 @@ $reply-status-colors: (
   padding: 0.9rem 1.15rem;
   border: 1px solid color-mix(in srgb, var(--tim-primary) 30%, transparent);
   border-radius: var(--tim-radius);
-  background: color-mix(in srgb, var(--tim-primary) 7%, #ffffff);
+  background: color-mix(in srgb, var(--tim-primary) 7%, var(--tim-white));
 }
 .ticket-notif--clear {
   border-color: color-mix(in srgb, var(--tim-success) 35%, transparent);
-  background: color-mix(in srgb, var(--tim-success) 9%, #ffffff);
+  background: color-mix(in srgb, var(--tim-success) 9%, var(--tim-white));
 }
 .ticket-notif__icon {
   font-size: 1.4rem;
@@ -715,7 +697,7 @@ $reply-status-colors: (
   display: inline-block;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--tim-white);
   border: 1px solid var(--tim-border);
   color: var(--tim-foreground);
   font-size: 0.78rem;
@@ -736,7 +718,7 @@ $reply-status-colors: (
   padding: 0.45rem 0.95rem;
   border-radius: var(--tim-radius-sm);
   background: var(--tim-primary);
-  color: #ffffff;
+  color: var(--tim-white);
   font-size: 0.85rem;
   font-weight: 700;
   text-decoration: none;
@@ -753,7 +735,7 @@ $reply-status-colors: (
   padding: 0.9rem 1rem;
   border: 1px dashed var(--tim-warning);
   border-radius: var(--tim-radius);
-  background: color-mix(in srgb, var(--tim-warning) 10%, #ffffff);
+  background: color-mix(in srgb, var(--tim-warning) 10%, var(--tim-white));
 }
 
 /* Champs « select » présentés en badge coloré façon front
@@ -800,7 +782,7 @@ $reply-status-colors: (
 /* La liste déroulante native reste lisible (fond blanc, texte neutre). */
 .ticket-cselect__native option {
   color: var(--tim-foreground);
-  background: #ffffff;
+  background: var(--tim-white);
   font-weight: 500;
 }
 .ticket-cselect__caret {
@@ -831,6 +813,55 @@ $reply-status-colors: (
   border-color: var(--tim-border);
 }
 
+/* Largeur max des inputs : évite qu'un champ pleine largeur s'étire sur tout
+   l'écran (surtout en grand écran). Les champs en row (50 %, 33 %…) gardent
+   leur proportion, juste plafonnée. Textareas laissés pleine largeur. */
+.field-type input:not([type="checkbox"]):not([type="radio"]),
+.field-type .react-select {
+  max-width: 40rem;
+}
+
+/* ─── Drawer document (clients apportés / transactions de points…) ────────────
+   Plus étroit et TOUT sur une seule colonne (main + sidebar empilés, rangées
+   dépliées). Scopé aux drawers document (.doc-drawer), pas aux autres. */
+.doc-drawer .drawer__content {
+  max-width: 640px !important;
+  margin-left: auto;
+}
+/* Empêche tout défilement horizontal dans le drawer réduit. */
+.doc-drawer .drawer__content,
+.doc-drawer .drawer__content-children {
+  overflow-x: hidden;
+}
+.doc-drawer .document-fields,
+.doc-drawer .render-fields,
+.doc-drawer .field-type,
+.doc-drawer .row__fields > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.doc-drawer .document-fields {
+  flex-direction: column;
+}
+.doc-drawer .document-fields__main,
+.doc-drawer .document-fields__sidebar-wrap {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+/* Rangées de champs → une seule colonne */
+.doc-drawer .row__fields {
+  flex-direction: column;
+}
+.doc-drawer .row__fields > * {
+  width: 100% !important;
+  max-width: 100%;
+}
+/* Dans le drawer, les inputs reprennent toute la largeur (colonne unique). */
+.doc-drawer .field-type input:not([type="checkbox"]):not([type="radio"]),
+.doc-drawer .field-type .react-select {
+  max-width: 100%;
+}
+
 /* ─── NOTIFICATIONS : deux puces distinctes ──────────────────────────────────
    Convention couleur, réutilisée partout (dashboard, menu, tableau, page) :
      💬 réponse client → bleu info ;  🎫 nouveau ticket → ambre. */
@@ -846,11 +877,11 @@ $reply-status-colors: (
 }
 .ticket-notif__chip--new {
   border-color: color-mix(in srgb, var(--tim-warning) 65%, transparent);
-  color: #b7791f;
+  color: var(--tim-warning-text);
 }
 .ticket-notif__chip--new:hover {
   border-color: var(--tim-warning);
-  color: #b7791f;
+  color: var(--tim-warning-text);
 }
 
 /* Colonne « Alertes » du tableau des tickets */
@@ -870,52 +901,1071 @@ $reply-status-colors: (
   white-space: nowrap;
 }
 .ticket-alert--reply {
-  background: color-mix(in srgb, var(--tim-info) 14%, #ffffff);
+  background: color-mix(in srgb, var(--tim-info) 14%, var(--tim-white));
   color: var(--tim-info);
 }
 .ticket-alert--new {
-  background: color-mix(in srgb, var(--tim-warning) 20%, #ffffff);
-  color: #b7791f;
+  background: color-mix(in srgb, var(--tim-warning) 20%, var(--tim-white));
+  color: var(--tim-warning-text);
 }
 
-/* Menu : lien « Notifications » + puces de comptage */
+/* ─── MENU MODERNE : icônes SVG par item + puces (façon dashboard moderne) ────
+   Chaque lien de collection porte un id stable (#nav-<slug>) et la classe
+   .nav__link (texte dans span .nav__link-label). On ajoute une icône ligne
+   (masque SVG teinté par background-color → suit l'état) SANS remplacer la Nav
+   de Payload, et on aligne icône · label · badge. */
+
+.nav__link,
 .nav-notif-link {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
+  border-radius: var(--tim-radius-sm);
+  padding-top: 0.42rem;
+  padding-bottom: 0.42rem;
+  color: var(--tim-foreground);
+  text-decoration: none;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
-.nav-notif-link__icon {
-  font-size: 0.95rem;
-  line-height: 1;
+.nav__link:hover,
+.nav-notif-link:hover {
+  background: var(--tim-surface);
 }
+/* Lien de la page courante : Payload rend un .nav__link contenant l'indicateur */
+.nav__link:has(.nav__link-indicator) {
+  background: var(--tim-primary-light);
+  font-weight: 700;
+}
+
+/* Emplacement d'icône : masque SVG dont la couleur = background-color.
+   Réservé aux liens de collection (le lien Notifications n'a PAS d'icône). */
+.nav__link::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  background-color: var(--tim-muted);
+  -webkit-mask: center / contain no-repeat;
+  mask: center / contain no-repeat;
+  transition: background-color 0.12s ease;
+}
+.nav__link:hover::before {
+  background-color: var(--tim-foreground);
+}
+.nav__link:has(.nav__link-indicator)::before {
+  background-color: var(--tim-primary);
+}
+
+.nav__link-label,
 .nav-notif-link__label {
   flex: 1 1 auto;
+  min-width: 0;
 }
+
+/* Icônes ligne par collection (Feather/Lucide, viewBox 24) */
+#nav-tickets::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cline x1='4.93' y1='4.93' x2='9.17' y2='9.17'/%3E%3Cline x1='14.83' y1='14.83' x2='19.07' y2='19.07'/%3E%3Cline x1='14.83' y1='9.17' x2='19.07' y2='4.93'/%3E%3Cline x1='9.17' y1='14.83' x2='4.93' y2='19.07'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='4'/%3E%3Cline x1='4.93' y1='4.93' x2='9.17' y2='9.17'/%3E%3Cline x1='14.83' y1='14.83' x2='19.07' y2='19.07'/%3E%3Cline x1='14.83' y1='9.17' x2='19.07' y2='4.93'/%3E%3Cline x1='9.17' y1='14.83' x2='4.93' y2='19.07'/%3E%3C/svg%3E");
+}
+#nav-features::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2'/%3E%3C/svg%3E");
+}
+#nav-feature-categories::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z'/%3E%3Cline x1='7' y1='7' x2='7.01' y2='7'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z'/%3E%3Cline x1='7' y1='7' x2='7.01' y2='7'/%3E%3C/svg%3E");
+}
+#nav-platforms::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Cline x1='3' y1='9' x2='21' y2='9'/%3E%3Cline x1='9' y1='21' x2='9' y2='9'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Cline x1='3' y1='9' x2='21' y2='9'/%3E%3Cline x1='9' y1='21' x2='9' y2='9'/%3E%3C/svg%3E");
+}
+#nav-parcours::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6'/%3E%3Cline x1='8' y1='2' x2='8' y2='18'/%3E%3Cline x1='16' y1='6' x2='16' y2='22'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6'/%3E%3Cline x1='8' y1='2' x2='8' y2='18'/%3E%3Cline x1='16' y1='6' x2='16' y2='22'/%3E%3C/svg%3E");
+}
+#nav-partners::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
+}
+#nav-point-transactions::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='7'/%3E%3Cpolyline points='8.21 13.89 7 23 12 20 17 23 15.79 13.88'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='7'/%3E%3Cpolyline points='8.21 13.89 7 23 12 20 17 23 15.79 13.88'/%3E%3C/svg%3E");
+}
+#nav-missions::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='6'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='6'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3C/svg%3E");
+}
+#nav-mission-submissions::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/%3E%3Crect x='8' y='2' width='8' height='4' rx='1'/%3E%3Cpath d='m9 14 2 2 4-4'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2'/%3E%3Crect x='8' y='2' width='8' height='4' rx='1'/%3E%3Cpath d='m9 14 2 2 4-4'/%3E%3C/svg%3E");
+}
+#nav-rewards::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 12 20 22 4 22 4 12'/%3E%3Crect x='2' y='7' width='20' height='5'/%3E%3Cline x1='12' y1='22' x2='12' y2='7'/%3E%3Cpath d='M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z'/%3E%3Cpath d='M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 12 20 22 4 22 4 12'/%3E%3Crect x='2' y='7' width='20' height='5'/%3E%3Cline x1='12' y1='22' x2='12' y2='7'/%3E%3Cpath d='M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z'/%3E%3Cpath d='M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z'/%3E%3C/svg%3E");
+}
+#nav-reward-orders::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z'/%3E%3Cline x1='3' y1='6' x2='21' y2='6'/%3E%3Cpath d='M16 10a4 4 0 0 1-8 0'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z'/%3E%3Cline x1='3' y1='6' x2='21' y2='6'/%3E%3Cpath d='M16 10a4 4 0 0 1-8 0'/%3E%3C/svg%3E");
+}
+#nav-media::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'/%3E%3Cpolyline points='21 15 16 10 5 21'/%3E%3C/svg%3E");
+}
+#nav-users::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E");
+}
+/* Lien Notifications : PAS d'icône (voulu). Texte rouge quand il y a à traiter. */
+.nav-notif-link {
+  font-weight: 700;
+}
+.nav-notif-link--active {
+  color: var(--tim-primary);
+}
+
+/* Puces de comptage : petits pavés arrondis à fond doux (façon mockup) */
 .nav-badges {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  margin-left: 0.4rem;
+  gap: 0.3rem;
+  margin-left: auto;
 }
 .nav-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.15rem;
-  height: 1.15rem;
-  padding: 0 0.35rem;
-  border-radius: 999px;
-  font-size: 0.68rem;
+  min-width: 1.3rem;
+  height: 1.3rem;
+  padding: 0 0.4rem;
+  border-radius: 7px;
+  font-size: 0.72rem;
   font-weight: 800;
   line-height: 1;
-  color: #ffffff;
 }
 .nav-badge--reply {
-  background: var(--tim-info);
+  background: color-mix(in srgb, var(--tim-info) 16%, var(--tim-white));
+  color: var(--tim-info);
 }
 .nav-badge--new {
-  background: var(--tim-warning);
-  color: #7a5310;
+  background: color-mix(in srgb, var(--tim-warning) 28%, var(--tim-white));
+  color: var(--tim-warning-text);
+}
+
+/* En-têtes de groupe (SUPPORT, FEATURES…) : discrets, pas criards.
+   Payload : bouton .nav-group__toggle > .nav-group__label + chevron .nav-group__indicator. */
+.nav-group {
+  margin-top: 0.35rem;
+}
+.nav-group__toggle {
+  padding: 0.35rem 0.5rem 0.25rem;
+}
+.nav-group__label {
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--tim-muted-light);
+}
+/* Chevron de repli très atténué (on ne veut pas qu'il tire l'œil) */
+.nav-group__indicator,
+.nav-group__indicator svg {
+  width: 0.7rem;
+  height: 0.7rem;
+  opacity: 0.35;
+}
+
+/* (Le mode « rail d'icônes » au repli a été retiré : le comportement natif de
+   Payload — masquer la barre — est conservé. Les icônes par item et les en-têtes
+   allégés restent actifs.) */
+
+/* ─── Features : libellé de chaque « partie » (array doc) ─────────────────────
+   Rend la liste des parties lisible : numéro + titre + éventuel média. */
+.doc-rowlabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.doc-rowlabel__num {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  padding: 0 0.4rem;
+  border-radius: 7px;
+  /* Badge plein (fort contraste) plutôt que fond pâle */
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.doc-rowlabel__title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--tim-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doc-rowlabel__media {
+  flex: 0 0 auto;
+  padding: 0.12rem 0.5rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--tim-info) 14%, var(--tim-white));
+  border: 1px solid color-mix(in srgb, var(--tim-info) 40%, transparent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--tim-info);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FORMULAIRE FEATURE — parties, média & boutons d'ajout (scopé via .doc-array)
+   ═══════════════════════════════════════════════════════════════════════════
+   Objectifs UX :
+     • chaque « partie » = une carte nette, en-tête clairement cliquable ;
+     • les boutons « Ajouter » deviennent des zones d'ajout invitantes (au lieu
+       du petit lien discret par défaut) — c'est l'action la plus fréquente ;
+     • le média imbriqué (champ blocks) est allégé pour ne pas empiler les cadres.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Carte d'une partie ──────────────────────────────────────────────────── */
+.doc-array .array-field__row {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  margin-bottom: 0.85rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.doc-array .array-field__row:hover {
+  border-color: color-mix(in srgb, var(--tim-primary) 35%, var(--tim-border));
+}
+/* Carte dépliée = carte « active » : liseré rouge à gauche pour se repérer. */
+.doc-array .array-field__row:has(.collapsible:not(.collapsible--collapsed)) {
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+  box-shadow: 0 6px 18px -12px color-mix(in srgb, var(--tim-primary) 40%, transparent);
+}
+
+/* En-tête de la carte : bande claire, haute, cliquable, survol vivant. */
+.doc-array .collapsible__header-wrap {
+  background: var(--tim-surface);
+  border-bottom: 1px solid transparent;
+  padding: 0.6rem 0.85rem;
+  transition: background-color 0.12s ease;
+}
+.doc-array .collapsible:not(.collapsible--collapsed) .collapsible__header-wrap {
+  border-bottom-color: var(--tim-border);
+  background: color-mix(in srgb, var(--tim-primary) 5%, var(--tim-surface));
+}
+.doc-array .collapsible__header-wrap:hover {
+  background: color-mix(in srgb, var(--tim-primary) 8%, var(--tim-surface));
+}
+/* Chevron bien visible */
+.doc-array .collapsible__indicator {
+  opacity: 0.85;
+}
+
+/* Contenu de la partie : de l'air + espacement régulier entre les champs. */
+.doc-array .collapsible__content {
+  padding: 1.1rem 1rem 0.6rem;
+}
+.doc-array .collapsible__content .render-fields {
+  gap: 1.1rem;
+}
+
+/* ── Bouton « Ajouter une partie » → zone d'ajout pleine largeur ─────────── */
+/* Par défaut Payload rend un petit lien effacé ; on en fait une cible franche. */
+.doc-array > .array-field__add-row.btn,
+.doc-array .array-field__add-row.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin: 0.4rem 0 0;
+  padding: 0.7rem 1rem;
+  border: 1.5px dashed color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+  border-radius: var(--tim-radius);
+  background: color-mix(in srgb, var(--tim-primary) 4%, var(--tim-white));
+  color: var(--tim-primary);
+  font-weight: 700;
+  font-size: 0.9rem;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+.doc-array > .array-field__add-row.btn:hover,
+.doc-array .array-field__add-row.btn:hover {
+  background: var(--tim-primary-light);
+  border-color: var(--tim-primary);
+  border-style: solid;
+}
+
+/* ── Média de la partie : champ blocks allégé ────────────────────────────── */
+/* Encadré doux qui regroupe la zone média sous la description. */
+.doc-array .blocks-field {
+  padding: 0.15rem 0;
+}
+/* Ligne d'un média (image / galerie / éditeur / fichier) : carte légère,
+   moins marquée que la carte « partie » pour ne pas rivaliser avec elle. */
+.doc-array .blocks-field__row {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+.doc-array .blocks-field__row .collapsible__header-wrap {
+  background: color-mix(in srgb, var(--tim-info) 6%, var(--tim-surface));
+  padding: 0.45rem 0.7rem;
+}
+.doc-array .blocks-field__row .collapsible__content {
+  padding: 0.85rem 0.75rem 0.35rem;
+}
+/* Pastille du type de média (Image / GIF, Galerie…) : plus lisible. */
+.doc-array .blocks-field__block-pill {
+  background: color-mix(in srgb, var(--tim-info) 14%, var(--tim-white));
+  color: var(--tim-info);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* Bouton « Ajouter un média » → zone d'ajout discrète mais claire. */
+.doc-array .blocks-field__drawer-toggler {
+  width: 100%;
+}
+.doc-array .blocks-field__drawer-toggler .btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.55rem 0.9rem;
+  border: 1.5px dashed var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: border-color 0.12s ease, color 0.12s ease, background-color 0.12s ease;
+}
+.doc-array .blocks-field__drawer-toggler .btn:hover {
+  border-color: var(--tim-info);
+  color: var(--tim-info);
+  background: color-mix(in srgb, var(--tim-info) 5%, var(--tim-white));
+}
+
+/* ── Lisibilité générale des champs dans le formulaire d'édition ─────────── */
+/* Descriptions de champ : ton secondaire homogène, pas trop pâle. */
+.field-description {
+  color: var(--tim-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+/* Libellés de champ : un poil plus affirmés. */
+.field-label {
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+/* Descriptions d'onglet : encart d'aide léger sous la barre d'onglets.
+   `> .field-description` (enfant DIRECT de la zone d'onglet) → ne cible que la
+   description de l'onglet, pas celles des champs qu'il contient. */
+.tabs-field__content-wrap > .field-description {
+  margin-bottom: 1rem;
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid color-mix(in srgb, var(--tim-primary) 35%, transparent);
+  background: color-mix(in srgb, var(--tim-primary) 4%, var(--tim-surface));
+  border-radius: var(--tim-radius-sm);
+  color: var(--tim-foreground);
+  font-size: 0.85rem;
+}
+
+/* ─── Onglets : onglet actif bien marqué (contraste) ─────────────────────────
+   S'applique à tous les onglets de l'admin (features, etc.) — plus lisible. */
+.tabs-field__tab-button {
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+/* Onglet actif : neutre (plus de rouge), juste un peu plus foncé + soulignage
+   sobre pour se repérer. */
+.tabs-field__tab-button--active {
+  color: var(--tim-foreground);
+  font-weight: 700;
+  border-bottom: 2px solid var(--tim-foreground);
+}
+
+/* ─── « Image à la une » : vignette encadrée dans la sidebar ─────────────────
+   Présentation en carte : grande prévisualisation, cadre net, état vide clair. */
+.feature-thumb .field-label {
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+/* Prévisualisation (image choisie) : passe en carte verticale pleine largeur,
+   grande image en haut, nom/actions dessous. */
+.feature-thumb .upload-relationship-details {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+  padding: 0.5rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+}
+.feature-thumb .upload-relationship-details__imageAndDetails {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+.feature-thumb .upload-relationship-details__thumbnail,
+.feature-thumb .upload-relationship-details__thumbnail img {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 190px;
+  object-fit: cover;
+  border-radius: var(--tim-radius-sm);
+  border: 1px solid var(--tim-border);
+}
+.feature-thumb .upload-relationship-details__details {
+  margin-right: 0;
+}
+.feature-thumb .upload-relationship-details__actions {
+  align-self: flex-end;
+}
+/* ─── TOUS les champs d'upload (photo / document) : état vide épuré ───────────
+   UNE seule zone « Cliquez ou glissez-déposez », appliquée PARTOUT (contrat,
+   images, logos, pièces jointes, médias…). On masque les libellés natifs
+   (« ou », « glisser-déposer », « Choisir parmi… ») et on étire le bouton
+   « Créer » à toute la zone → clic = ouverture du drawer d'upload (modal) ;
+   le glisser-déposer reste géré par la zone .dropzone. Pour changer ce
+   comportement partout, c'est ici (sélecteurs globaux, sans scope de champ). */
+.dropzone {
+  min-height: 88px;
+  border: 1.5px dashed var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+  padding: 0;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+.dropzone.dragging {
+  border-color: var(--tim-primary);
+  background: color-mix(in srgb, var(--tim-primary) 8%, var(--tim-surface));
+}
+.upload__dropzoneContent__orText,
+.upload__dragAndDropText,
+.upload__listToggler {
+  display: none !important;
+}
+.upload__dropzoneContent,
+.upload__dropzoneContent__buttons {
+  width: 100%;
+  margin: 0;
+  left: 0;
+}
+.upload__createNewToggler.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 88px;
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border: none;
+  background: transparent;
+  border-radius: var(--tim-radius);
+  cursor: pointer;
+  font-size: 0; /* masque le libellé natif « Créer » */
+  transition: background-color 0.12s ease;
+}
+.upload__createNewToggler.btn svg {
+  display: none; /* masque l'éventuelle icône native */
+}
+.upload__createNewToggler.btn::after {
+  content: "Cliquez ou glissez-déposez un fichier ici";
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  text-align: center;
+  line-height: 1.4;
+}
+.dropzone:hover {
+  border-color: var(--tim-primary);
+  background: color-mix(in srgb, var(--tim-primary) 4%, var(--tim-surface));
+}
+.dropzone:hover .upload__createNewToggler.btn::after {
+  color: var(--tim-primary);
+}
+/* Champs strictement image : texte adapté (« une image »). */
+.feature-thumb .upload__createNewToggler.btn::after {
+  content: "Cliquez ou glissez-déposez une image ici";
+}
+
+/* ─── « Licences par profil » : tableau compact (Profil · Qté · Prix · Total) ─
+   Vrai tableau aligné, tient même en drawer étroit. Inputs resserrés. */
+.lic-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+.lic-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.lic-table th {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--tim-muted);
+  border-bottom: 1px solid var(--tim-border);
+  white-space: nowrap;
+}
+.lic-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+  vertical-align: middle;
+}
+.lic-table .lic-num {
+  text-align: right;
+  white-space: nowrap;
+}
+.lic-profil {
+  font-weight: 600;
+  color: var(--tim-foreground);
+  white-space: nowrap;
+}
+.lic-input {
+  width: 84px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  text-align: right;
+  font: inherit;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+}
+.lic-input:focus {
+  outline: none;
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 2px var(--tim-primary-light);
+}
+.lic-sub {
+  text-align: right;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lic-total td {
+  font-weight: 800;
+  border-top: 2px solid var(--tim-border);
+  border-bottom: none;
+  padding-top: 0.55rem;
+  color: var(--tim-foreground);
+}
+.lic-total .lic-num:last-child {
+  color: var(--tim-primary);
+}
+/* « prix conseillé » sous chaque prix : gris léger, discret, cliquable. */
+.lic-suggest {
+  display: block;
+  margin: 0.15rem 0 0 auto;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--tim-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lic-suggest:hover {
+  color: var(--tim-foreground);
+  text-decoration: underline;
+}
+
+/* Bouton de sauvegarde intelligent du client apporté (Publier / Brouillon) */
+.smart-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+/* Publiable : bouton plein rouge TIM. */
+.smart-save--publish {
+  border: 1px solid var(--tim-primary);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+}
+.smart-save--publish:hover {
+  background: var(--tim-primary-dark);
+  border-color: var(--tim-primary-dark);
+}
+/* Brouillon (champs requis manquants) : contour ambré + curseur d'aide. */
+.smart-save--draft {
+  cursor: help;
+  border: 1px solid var(--tim-warning);
+  background: color-mix(in srgb, var(--tim-warning) 12%, var(--tim-white));
+  color: var(--tim-warning-text);
+}
+.smart-save--draft:hover {
+  background: color-mix(in srgb, var(--tim-warning) 22%, var(--tim-white));
+}
+
+/* Récap live d'une commande de récompense (coût / solde / différence) */
+.ro-balance {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+  max-width: 40rem;
+}
+.ro-balance--empty {
+  color: var(--tim-muted);
+  font-size: 0.88rem;
+}
+.ro-balance--ko {
+  border-color: color-mix(in srgb, var(--tim-danger) 55%, transparent);
+  background: color-mix(in srgb, var(--tim-danger) 8%, var(--tim-white));
+}
+.ro-balance__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.ro-balance__k {
+  font-size: 0.85rem;
+  color: var(--tim-muted);
+}
+.ro-balance__v {
+  font-weight: 700;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.ro-balance__row--diff {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--tim-border);
+}
+.ro-balance__row--diff .ro-balance__v {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+.ro-balance--ko .ro-balance__row--diff .ro-balance__v {
+  color: var(--tim-danger-text);
+}
+.ro-balance__warn {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tim-danger-text);
+}
+
+/* Historique daté des montants (client apporté) */
+.cli-history {
+  margin-top: 1.5rem;
+}
+.cli-history__title {
+  margin: 0 0 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.cli-history__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.cli-history__table th {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--tim-muted);
+  border-bottom: 1px solid var(--tim-border);
+}
+.cli-history__table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.cli-history__row {
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+.cli-history__row:hover {
+  background: var(--tim-surface);
+}
+.cli-history__month {
+  display: block;
+  font-weight: 700;
+  color: var(--tim-foreground);
+  text-transform: capitalize;
+}
+.cli-history__range {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--tim-muted);
+}
+.cli-history__chevron {
+  color: var(--tim-muted);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.cli-history__empty {
+  margin: 0;
+  padding: 0.6rem 0;
+  font-size: 0.85rem;
+  color: var(--tim-muted);
+}
+.cli-history__note {
+  margin: 0.5rem 0 0;
+  font-size: 0.76rem;
+  color: var(--tim-muted);
+}
+
+/* Drawer de détail d'une période d'historique */
+.cli-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--tim-foreground) 35%, transparent);
+}
+.cli-drawer__panel {
+  width: min(480px, 92vw);
+  height: 100%;
+  overflow-y: auto;
+  background: var(--tim-white);
+  border-left: 1px solid var(--tim-border);
+  box-shadow: -8px 0 24px -12px color-mix(in srgb, var(--tim-foreground) 40%, transparent);
+  padding: 1.4rem 1.5rem;
+}
+.cli-drawer__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--tim-border);
+}
+.cli-drawer__title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+  text-transform: capitalize;
+}
+.cli-drawer__period {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  color: var(--tim-muted);
+}
+.cli-history__commission {
+  color: var(--tim-primary);
+  font-weight: 700;
+}
+/* KPI du drawer : CA facturé + commission */
+.cli-drawer__summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.cli-drawer__kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.cli-drawer__kpi--commission {
+  border-color: color-mix(in srgb, var(--tim-primary) 40%, var(--tim-border));
+  background: color-mix(in srgb, var(--tim-primary) 6%, var(--tim-white));
+}
+.cli-drawer__kpi-k {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--tim-muted);
+}
+.cli-drawer__kpi-v {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.cli-drawer__kpi--commission .cli-drawer__kpi-v {
+  color: var(--tim-primary);
+}
+.cli-drawer__missing {
+  padding: 0.9rem 0.5rem;
+  color: var(--tim-muted);
+  font-size: 0.85rem;
+}
+.cli-drawer__close {
+  flex: 0 0 auto;
+  cursor: pointer;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-muted);
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.9rem;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.cli-drawer__close:hover {
+  color: var(--tim-primary);
+  border-color: var(--tim-primary);
+}
+.cli-drawer__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.cli-drawer__table th {
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--tim-muted);
+  border-bottom: 1px solid var(--tim-border);
+}
+.cli-drawer__table td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.cli-drawer__total td {
+  font-weight: 800;
+  border-top: 2px solid var(--tim-border);
+  border-bottom: none;
+  padding-top: 0.55rem;
+}
+.cli-drawer__total .lic-num:last-child {
+  color: var(--tim-primary);
+}
+
+/* Récap barre latérale du client apporté (total licences, CA HT) */
+.pc-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.pc-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.pc-row__k {
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+}
+.pc-row__v {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Case « Commission partenaire » (barre latérale du client apporté) */
+.pcommission {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--tim-primary) 40%, var(--tim-border));
+  border-radius: var(--tim-radius);
+  background: color-mix(in srgb, var(--tim-primary) 6%, var(--tim-white));
+}
+.pcommission__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--tim-muted);
+}
+.pcommission__value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--tim-primary);
+  font-variant-numeric: tabular-nums;
+}
+.pcommission__hint {
+  font-size: 0.72rem;
+  color: var(--tim-muted);
+  line-height: 1.35;
+}
+
+/* ─── Champ « Plateformes » : pills bleus identiques au front ─────────────────
+   Le front rend les plateformes (web / app) en badge bleu « absence/info »
+   (var(--tim-info) sur var(--tim-platform-bg)). On reproduit exactement cette couleur sur les pills du
+   multiselect de l'admin, scopé via .feature-platforms. */
+.feature-platforms .rs__multi-value {
+  background: var(--tim-platform-bg);
+  border: 1px solid color-mix(in srgb, var(--tim-info) 30%, transparent);
+  border-radius: 5px; /* même rayon que les badges front (rounded-[5px]) */
+  overflow: hidden;
+}
+.feature-platforms .rs__multi-value__label {
+  color: var(--tim-info);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+.feature-platforms .rs__multi-value__remove {
+  color: var(--tim-info);
+}
+.feature-platforms .rs__multi-value__remove:hover {
+  background: color-mix(in srgb, var(--tim-info) 18%, var(--tim-platform-bg));
+  color: var(--tim-platform-text-strong);
+}
+
+/* ─── Import d'une feature depuis Claude (au-dessus de la liste) ──────────────
+   Panneau repliable : copie du modèle, collage du JSON, création du brouillon. */
+.feat-import {
+  margin: 0 0 1.25rem;
+}
+.feat-import__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-weight: 700;
+  font-size: 0.9rem;
+  transition: border-color 0.12s ease, color 0.12s ease, background-color 0.12s ease;
+}
+.feat-import__toggle:hover {
+  border-color: var(--tim-primary);
+  color: var(--tim-primary);
+  background: var(--tim-primary-light);
+}
+.feat-import__toggle-icon {
+  font-size: 1rem;
+}
+.feat-import__chevron {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+.feat-import__panel {
+  margin-top: 0.75rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.feat-import__steps {
+  margin: 0 0 1rem;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: var(--tim-foreground);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.feat-import__copy {
+  cursor: pointer;
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid var(--tim-primary);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary-light);
+  color: var(--tim-primary);
+  font-weight: 700;
+  font-size: 0.8rem;
+  transition: background-color 0.12s ease;
+}
+.feat-import__copy:hover {
+  background: color-mix(in srgb, var(--tim-primary) 16%, var(--tim-white));
+}
+.feat-import__textarea {
+  width: 100%;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  padding: 0.7rem 0.85rem;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+  resize: vertical;
+}
+.feat-import__textarea:focus {
+  outline: none;
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tim-primary) 16%, transparent);
+}
+.feat-import__error {
+  margin: 0.6rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--tim-radius-sm);
+  background: color-mix(in srgb, var(--tim-danger) 12%, var(--tim-white));
+  border: 1px solid color-mix(in srgb, var(--tim-danger) 45%, transparent);
+  color: var(--tim-danger-text);
+  font-size: 0.83rem;
+}
+.feat-import__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+}
+.feat-import__hint {
+  color: var(--tim-muted);
+  font-size: 0.8rem;
+}
+.feat-import__submit {
+  cursor: pointer;
+  padding: 0.55rem 1.1rem;
+  border: none;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-weight: 700;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  transition: background-color 0.12s ease;
+}
+.feat-import__submit:hover:not(:disabled) {
+  background: var(--tim-primary-dark);
+}
+.feat-import__submit:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 /* Page « Notifications » complète (boîte de réception) */
@@ -986,7 +2036,7 @@ $reply-status-colors: (
   padding: 0.75rem 0.9rem;
   border: 1px solid var(--tim-border);
   border-radius: var(--tim-radius);
-  background: #ffffff;
+  background: var(--tim-white);
   text-decoration: none;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
@@ -1028,5 +2078,494 @@ $reply-status-colors: (
   font-size: 0.78rem;
   color: var(--tim-muted);
   white-space: nowrap;
+}
+
+/* ─── Vue Parcours : une carte par parcours + liste d'étapes ──────────────────
+   Remplace le tableau. Chaque parcours = une carte avec ses étapes numérotées. */
+.parcours-view {
+  padding: 1.25rem 0 3rem;
+}
+.parcours-view__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.75rem;
+}
+.parcours-view__heading {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.parcours-view__subtitle {
+  margin: 0.35rem 0 0;
+  color: var(--tim-muted);
+  font-size: 0.92rem;
+}
+.parcours-view__empty {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border: 1px dashed var(--tim-border);
+  border-radius: var(--tim-radius);
+  color: var(--tim-muted);
+}
+
+/* Onglets par profil cible (Admin / Conducteur / …) */
+.parcours-tabs__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--tim-border);
+}
+.parcours-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  padding: 0.55rem 0.9rem;
+  border: none;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px; /* chevauche la bordure du conteneur */
+  color: var(--tim-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.parcours-tab:hover {
+  color: var(--tim-foreground);
+}
+.parcours-tab--active {
+  color: var(--tim-foreground);
+  font-weight: 800;
+  border-bottom-color: var(--tim-foreground);
+}
+.parcours-tab__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  border: 1px solid var(--tim-border);
+  color: var(--tim-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.parcours-tab--active .parcours-tab__count {
+  background: var(--tim-platform-bg);
+  border-color: transparent;
+  color: var(--tim-info);
+}
+
+/* Barre du panneau : compteur + bouton d'ajout */
+.parcours-tabs__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.parcours-tabs__bar-label {
+  color: var(--tim-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.parcours-group__add {
+  flex: 0 0 auto;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--tim-primary);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary-light);
+  color: var(--tim-primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.parcours-group__add:hover {
+  background: var(--tim-primary);
+  color: var(--tim-white);
+}
+
+/* Grille de cartes (responsive : 1 colonne sur petit écran, 2 dès qu'il y a la place) */
+.parcours-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1.1rem;
+  align-items: start;
+}
+
+.pcard {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--tim-foreground) 6%, transparent);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.pcard:hover {
+  border-color: color-mix(in srgb, var(--tim-primary) 35%, var(--tim-border));
+  box-shadow: 0 8px 22px -14px color-mix(in srgb, var(--tim-primary) 40%, transparent);
+}
+.pcard__head {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--tim-border);
+  background: var(--tim-surface);
+}
+.pcard__title {
+  display: inline-block;
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+  text-decoration: none;
+}
+.pcard__title:hover {
+  color: var(--tim-primary);
+}
+.pcard__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.45rem;
+}
+.pcard__badge {
+  display: inline-block;
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  background: var(--tim-platform-bg);
+  color: var(--tim-info);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.pcard__badge--draft {
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+}
+.pcard__count {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+}
+.pcard__intro {
+  margin: 0;
+  padding: 0.7rem 1rem 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--tim-muted);
+}
+.pcard__empty {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  font-size: 0.83rem;
+  color: var(--tim-muted);
+}
+
+/* Liste des étapes (features ordonnées) */
+.pcard__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0.6rem 0.75rem 0.85rem;
+  counter-reset: none;
+}
+.pstep {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.35rem;
+  border-radius: var(--tim-radius-sm);
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
+}
+.pstep + .pstep {
+  border-top: 1px solid color-mix(in srgb, var(--tim-border) 60%, transparent);
+}
+.pstep:hover {
+  background: var(--tim-surface);
+}
+/* Cible de dépôt pendant le glisser : liseré rouge en haut. */
+.pstep--over {
+  box-shadow: inset 0 2px 0 var(--tim-primary);
+  background: color-mix(in srgb, var(--tim-primary) 5%, var(--tim-surface));
+}
+/* Poignée de glissement */
+.pstep__grip {
+  flex: 0 0 auto;
+  cursor: grab;
+  color: var(--tim-muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  user-select: none;
+}
+.pstep__grip:active {
+  cursor: grabbing;
+}
+.pstep__num {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 7px;
+  background: var(--tim-elevation-150);
+  border: 1px solid var(--tim-border);
+  color: var(--tim-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.pstep__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pstep__title:hover {
+  color: var(--tim-primary);
+}
+
+/* Message d'enregistrement de l'ordre (glisser-déposer) */
+.pcard__save {
+  margin: 0.2rem 0.35rem 0.5rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+.pcard__save--saving {
+  color: var(--tim-muted);
+}
+.pcard__save--saved {
+  color: var(--tim-green);
+}
+.pcard__save--error {
+  color: var(--tim-danger-text);
+}
+
+/* ─── Fiche partenaire : vue « Points & activité » ───────────────────────────
+   Tuiles de synthèse + listes (ledger, missions, commandes). Tokens only. */
+.partner-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.partner-activity__empty {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border: 1px dashed var(--tim-border);
+  border-radius: var(--tim-radius);
+  color: var(--tim-muted);
+  font-size: 0.9rem;
+}
+
+/* Tuiles de stats */
+.pa-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+.pa-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.pa-stat--strong {
+  border-color: color-mix(in srgb, var(--tim-primary) 40%, var(--tim-border));
+  background: color-mix(in srgb, var(--tim-primary) 5%, var(--tim-white));
+}
+.pa-stat__label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+.pa-stat__value {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.pa-stat--strong .pa-stat__value {
+  color: var(--tim-primary);
+}
+.pa-stat__value--pos {
+  color: var(--tim-green);
+}
+.pa-stat__value--neg {
+  color: var(--tim-red);
+}
+.pa-stat__sub {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+
+/* Sections listes */
+.pa-section {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  overflow: hidden;
+}
+.pa-section__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.7rem 0.95rem;
+  border-bottom: 1px solid var(--tim-border);
+  background: var(--tim-surface);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.pa-section__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  border: 1px solid var(--tim-border);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--tim-muted);
+}
+/* Note d'aide (avertissement) sous les panneaux d'activité */
+.partner-activity__hint {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid var(--tim-warning);
+  background: color-mix(in srgb, var(--tim-warning) 10%, var(--tim-white));
+  border-radius: var(--tim-radius-sm);
+  color: var(--tim-warning-text);
+  font-size: 0.83rem;
+}
+/* Note d'info discrète (renvoi vers le tableau des clients) */
+.partner-activity__note {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+}
+.pa-empty {
+  margin: 0;
+  padding: 0.85rem 0.95rem;
+  color: var(--tim-muted);
+  font-size: 0.85rem;
+}
+.pa-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0.35rem;
+  display: flex;
+  flex-direction: column;
+}
+.pa-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--tim-radius-sm);
+}
+.pa-row + .pa-row {
+  border-top: 1px solid color-mix(in srgb, var(--tim-border) 60%, transparent);
+}
+.pa-row:hover {
+  background: var(--tim-surface);
+}
+.pa-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pa-row__title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pa-row__title:hover {
+  color: var(--tim-primary);
+}
+.pa-row__meta {
+  font-size: 0.76rem;
+  color: var(--tim-muted);
+}
+.pa-row__when {
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Delta du ledger (crédit / débit) */
+.pa-delta {
+  flex: 0 0 auto;
+  min-width: 3.2rem;
+  text-align: right;
+  font-weight: 800;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+.pa-delta--pos {
+  color: var(--tim-green);
+}
+.pa-delta--neg {
+  color: var(--tim-red);
+}
+
+/* Badges de statut (missions + commandes) */
+.pa-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pa-badge--pending {
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+}
+.pa-badge--approved {
+  background: var(--tim-blue-bg);
+  color: var(--tim-blue);
+}
+.pa-badge--rejected,
+.pa-badge--cancelled {
+  background: var(--tim-slate-bg);
+  color: var(--tim-slate);
+}
+.pa-badge--shipped {
+  background: var(--tim-purple-bg);
+  color: var(--tim-purple);
+}
+.pa-badge--delivered {
+  background: var(--tim-green-bg);
+  color: var(--tim-green);
 }
 
