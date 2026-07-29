@@ -83,6 +83,7 @@ export const Tickets: CollectionConfig = {
           relationTo: "media",
           hasMany: true,
           label: "Pièces jointes",
+          admin: { components: { Field: "/admin/fields/DirectUpload#default" } },
         },
       ],
     },

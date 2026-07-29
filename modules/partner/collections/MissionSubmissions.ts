@@ -17,7 +17,7 @@ export const MissionSubmissions: CollectionConfig = {
   admin: {
     useAsTitle: "number",
     defaultColumns: ["number", "mission", "partner", "status"],
-    group: "Missions",
+    group: "Partenaires",
   },
   access: adminOnly,
   hooks: { afterChange: [creditApprovedSubmission] },
@@ -61,6 +61,7 @@ export const MissionSubmissions: CollectionConfig = {
       hasMany: true,
       maxRows: 3,
       label: "Pièces jointes",
+      admin: { components: { Field: "/admin/fields/DirectUpload#default" } },
     },
     {
       name: "credited",

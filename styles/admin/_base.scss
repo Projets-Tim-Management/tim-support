@@ -1,0 +1,177 @@
+/* Base : fond blanc, palette claire, accents de marque, relief (cards/tables).
+   Surcharge du thème Payload. Importé par styles/admin-theme.scss. */
+
+/* ─── 2. FOND BLANC + PALETTE CLAIRE ─────────────────────────────────────────
+   L'admin est forcé en thème clair (voir payload.config admin.theme).
+   On remappe les variables du thème Payload sur les couleurs du front. */
+html[data-theme="light"] {
+  --theme-bg:            var(--tim-white);
+  --theme-input-bg:      var(--tim-white);
+  --theme-text:          var(--tim-foreground);
+
+  /* Échelle d'élévation (fonds, cartes, bordures) calée sur le front */
+  --theme-elevation-0:    var(--tim-white);
+  --theme-elevation-50:   var(--tim-surface);
+  --theme-elevation-100:  var(--tim-elevation-100);
+  --theme-elevation-150:  var(--tim-elevation-150);
+  --theme-elevation-200:  var(--tim-elevation-200);
+
+  /* Sémantiques alignées sur le front */
+  --color-success-500: var(--tim-success);
+  --color-error-500:   var(--tim-danger);
+  --color-warning-500: var(--tim-warning);
+  --color-info-500:    var(--tim-info);
+
+  /* Rayons */
+  --style-radius-s: var(--tim-radius-sm);
+  --style-radius-m: var(--tim-radius);
+  --style-radius-l: var(--tim-radius);
+}
+
+body,
+.template-default,
+.template-minimal {
+  font-family: var(--tim-font);
+  background: var(--tim-white);
+}
+
+/* ─── 3. ACCENTS DE MARQUE ───────────────────────────────────────────────────
+   Le rouge TIM sur les éléments interactifs clés. */
+
+.btn--style-primary {
+  background-color: var(--tim-primary);
+  border-color: var(--tim-primary);
+  color: var(--tim-white);
+}
+.btn--style-primary:not(.btn--disabled):hover {
+  background-color: var(--tim-primary-dark);
+  border-color: var(--tim-primary-dark);
+}
+
+/* Focus des champs → liseré rouge */
+.field-type input:focus,
+.field-type textarea:focus,
+.field-type .rs__control--is-focused {
+  border-color: var(--tim-primary) !important;
+  box-shadow: 0 0 0 2px var(--tim-primary-light) !important;
+}
+
+/* Cases à cocher cochées */
+.checkbox-input__input:checked ~ .checkbox-input__icon,
+input[type="checkbox"]:checked {
+  background-color: var(--tim-primary);
+  border-color: var(--tim-primary);
+}
+
+
+/* ─── 5. RELIEF & VIVACITÉ (léger) ───────────────────────────────────────────
+   Un peu de profondeur pour rendre le dashboard vivant, sans casser le blanc. */
+
+/* Barre latérale légèrement teintée + délimitée */
+.nav {
+  background: var(--tim-nav-bg);
+  border-right: 1px solid var(--tim-border);
+}
+
+/* En-têtes délimités */
+.app-header,
+.step-nav {
+  border-bottom: 1px solid var(--tim-border);
+}
+
+/* Cartes du dashboard : bordure, rayon, ombre douce, survol vivant */
+.card {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 6%, transparent);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  border-color: var(--tim-primary);
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--tim-primary) 32%, transparent);
+}
+.card:hover .card__title {
+  color: var(--tim-primary);
+}
+.card__title {
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+
+/* Lignes de tableau : survol teinté pour le confort de lecture */
+.table tbody tr:hover td {
+  background: var(--tim-surface);
+}
+
+/* Scroll horizontal quand le tableau a beaucoup de colonnes (au lieu de
+   déborder la page). */
+.table {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+
+
+
+/* Avatar du compte (admin.avatar) : photo de profil (champ Users.avatar) ou
+   initiale en repli. Voir admin/graphics/Avatar.tsx. */
+.tim-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  border-radius: 999px;
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-weight: 800;
+  overflow: hidden;
+}
+.tim-avatar__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 999px;
+}
+
+/* Page compte : on retire la section « Paramètres de Payload » (langue/thème),
+   sans intérêt ici. */
+.payload-settings {
+  display: none;
+}
+
+/* Barre d'actions du document (Enregistrer / Publier) rendue STICKY sous la
+   barre du haut fixe : le bouton Enregistrer reste visible en défilant, sur
+   toutes les pages d'édition. */
+.doc-controls {
+  position: sticky;
+  top: var(--app-header-height);
+  z-index: 20;
+  background: var(--tim-white);
+}
+
+/* Bouton « Enregistrer le mot de passe » rendu (par portail) DANS la barre de
+   contrôles de la boîte mot de passe, à côté du bouton « Annuler ». */
+.tim-pwd-save {
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.12s ease, opacity 0.12s ease;
+}
+.tim-pwd-save:hover:not(:disabled) {
+  background: var(--tim-primary-dark);
+}
+.tim-pwd-save:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

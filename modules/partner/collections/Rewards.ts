@@ -13,7 +13,7 @@ export const Rewards: CollectionConfig = {
   admin: {
     useAsTitle: "title",
     defaultColumns: ["title", "cost", "stock"],
-    group: "Récompenses",
+    group: "Partenaires",
   },
   access: adminOnly,
   fields: [
@@ -25,7 +25,7 @@ export const Rewards: CollectionConfig = {
       type: "upload",
       relationTo: "media",
       label: "Visuel",
-      admin: { position: "sidebar" },
+      admin: { position: "sidebar", components: { Field: "/admin/fields/DirectUpload#default" } },
     },
     {
       name: "cost",

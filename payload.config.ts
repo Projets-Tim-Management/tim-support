@@ -37,6 +37,9 @@ export default buildConfig({
     user: Users.slug,
     // Fond blanc systématique (aligné sur le front), pas de thème sombre.
     theme: "light",
+    // Avatar du compte = photo de profil (champ `avatar` de Users) si présente,
+    // sinon initiale. Voir admin/graphics/Avatar.tsx.
+    avatar: { Component: "/admin/graphics/Avatar#default" },
     // Résolution des composants admin custom (logo/icône) depuis la racine.
     importMap: { baseDir: dirname },
     components: {
@@ -44,13 +47,20 @@ export default buildConfig({
         Logo: "/admin/graphics/Logo#Logo",
         Icon: "/admin/graphics/Icon#Icon",
       },
-      // Bandeau de notifications tickets en tête du dashboard.
-      beforeDashboard: ["/modules/support/admin/TicketNotifications#TicketNotifications"],
-      // Lien « Notifications » + puces (réponses client / nouveaux) en tête du menu.
-      // (Le repli en rail d'icônes réutilise le bouton natif de Payload — voir SCSS.)
-      beforeNavLinks: ["/modules/support/admin/NavNotifications#NavNotifications"],
-      // Page « Notifications » complète (boîte de réception des tickets à traiter).
+      // Menu latéral custom : groupes à 2 niveaux (sous-groupes repliables),
+      // structure définie dans admin/nav/nav-structure.ts.
+      Nav: "/admin/nav/CustomNav#default",
+      // Barre du haut : switcher de partenaire (recherche + bascule de contexte)
+      // + cloche de notifications (compteur + popover) + compte. La cloche
+      // remplace l'ancien raccourci « Notifications » du menu (retiré).
+      header: ["/admin/header/PartnerSwitcher#default"],
       views: {
+        // Tableau de bord custom (remplace la page d'accueil /admin). Métriques
+        // par compartiment + graphiques — voir admin/dashboard/.
+        dashboard: {
+          Component: "/admin/dashboard/DashboardView#default",
+        },
+        // Page « Notifications » complète (boîte de réception des tickets à traiter).
         notifications: {
           Component: "/modules/support/admin/NotificationsView#default",
           path: "/notifications",

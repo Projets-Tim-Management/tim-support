@@ -20,7 +20,7 @@ export const Users: CollectionConfig = {
   labels: { singular: "Utilisateur", plural: "Utilisateurs" },
   admin: {
     useAsTitle: "email",
-    defaultColumns: ["name", "email", "roles"],
+    defaultColumns: ["lastName", "firstName", "email", "roles"],
     group: "Système",
   },
   auth: true,
@@ -35,9 +35,40 @@ export const Users: CollectionConfig = {
   },
   fields: [
     {
+      // Bouton « Enregistrer le mot de passe » inline, en tête de formulaire
+      // (juste sous la section e-mail / mot de passe). Actif dès qu'un champ est
+      // modifié. Voir admin/components/SaveButton.tsx.
+      name: "passwordSave",
+      type: "ui",
+      admin: { components: { Field: "/admin/components/SaveButton#default" } },
+    },
+    {
+      name: "avatar",
+      type: "upload",
+      relationTo: "media",
+      label: "Photo de profil",
+      admin: {
+        position: "sidebar",
+        description: "Affichée comme avatar du compte.",
+        // Upload direct (Finder) sans le drawer Payload.
+        components: { Field: "/admin/fields/DirectUpload#default" },
+      },
+    },
+    { name: "firstName", type: "text", label: "Prénom" },
+    { name: "lastName", type: "text", label: "Nom" },
+    {
+      // Nom complet, calculé automatiquement depuis prénom + nom, caché du
+      // formulaire. Conservé pour les affichages qui l'utilisent (avatar, barre
+      // du haut, colonnes de liste, useAsTitle éventuel).
       name: "name",
       type: "text",
-      label: "Nom",
+      admin: { hidden: true },
+      hooks: {
+        beforeChange: [
+          ({ siblingData }) =>
+            [siblingData?.firstName, siblingData?.lastName].filter(Boolean).join(" ") || undefined,
+        ],
+      },
     },
     {
       name: "roles",

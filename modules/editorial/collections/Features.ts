@@ -19,7 +19,10 @@ const mediaBlocks: Block[] = [
         type: "upload",
         relationTo: "media",
         required: true,
-        admin: { description: "PNG, JPG ou GIF animé (démonstration de la partie)." },
+        admin: {
+          description: "PNG, JPG ou GIF animé (démonstration de la partie).",
+          components: { Field: "/admin/fields/DirectUpload#default" },
+        },
       },
     ],
   },
@@ -33,6 +36,7 @@ const mediaBlocks: Block[] = [
         relationTo: "media",
         hasMany: true,
         required: true,
+        admin: { components: { Field: "/admin/fields/DirectUpload#default" } },
       },
     ],
   },
@@ -45,7 +49,16 @@ const mediaBlocks: Block[] = [
     slug: "fichier",
     labels: { singular: "Fichier", plural: "Fichiers" },
     fields: [
-      { name: "file", type: "upload", relationTo: "media", required: true },
+      {
+        name: "file",
+        type: "upload",
+        relationTo: "media",
+        required: true,
+        admin: {
+          custom: { accept: "*", noun: "un fichier" },
+          components: { Field: "/admin/fields/DirectUpload#default" },
+        },
+      },
     ],
   },
 ];
@@ -66,7 +79,7 @@ export const Features: CollectionConfig = {
   admin: {
     useAsTitle: "title",
     defaultColumns: ["title", "slug", "availability", "_status"],
-    group: "Features",
+    group: "Éditorial",
     components: {
       // Panneau « Importer une feature depuis Claude » au-dessus de la liste.
       beforeListTable: ["/modules/editorial/admin/FeatureImport#FeatureImport"],
@@ -200,9 +213,8 @@ export const Features: CollectionConfig = {
       label: "Image à la une",
       admin: {
         position: "sidebar",
-        // Classe dédiée → présentation « vignette encadrée » (voir SCSS).
-        className: "feature-thumb",
         description: "Visuel de couverture (listes, cartes, résultats de recherche).",
+        components: { Field: "/admin/fields/DirectUpload#default" },
       },
     },
     {

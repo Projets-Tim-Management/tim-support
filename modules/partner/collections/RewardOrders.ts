@@ -33,7 +33,7 @@ export const RewardOrders: CollectionConfig = {
   admin: {
     useAsTitle: "number",
     defaultColumns: ["number", "partner", "reward", "cost", "status"],
-    group: "Récompenses",
+    group: "Partenaires",
   },
   access: adminOnly,
   hooks: { afterChange: [refundCancelledOrder] },

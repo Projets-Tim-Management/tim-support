@@ -1,0 +1,524 @@
+/* Styles de la barre du haut : switcher partenaire + notifs + compte
+   (composant admin/header/PartnerSwitcher.tsx). */
+
+/* ─── BARRE DU HAUT : SWITCHER DE PARTENAIRE (admin/header/) ──────────────────
+   Barre globale (admin.components.header) au-dessus de l'app-header natif :
+   bascule de contexte partenaire façon « switcher d'entreprise ». */
+
+/* Une seule barre du haut : on masque l'app-header natif (fil d'Ariane + profil),
+   tout est réuni dans .tim-topbar façon Pennylane. */
+.app-header {
+  display: none !important;
+}
+
+.tim-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 1.25rem;
+  /* Même hauteur que la rangée logo du menu (--app-header-height) : les deux
+     bordures du bas s'alignent → une seule ligne en travers du haut. */
+  min-height: var(--app-header-height);
+  background: var(--tim-white);
+  border-bottom: 1px solid var(--tim-border);
+}
+.tim-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.tim-topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+/* Bouton de repli custom (remplace le ‹ natif) */
+.tim-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--tim-muted);
+  border-radius: var(--tim-radius-sm);
+  cursor: pointer;
+  transition: color 0.12s ease, background-color 0.12s ease;
+}
+.tim-collapse:hover {
+  color: var(--tim-foreground);
+  background: var(--tim-surface);
+}
+/* Desktop : la barre devient fixe au-dessus de la SEULE zone contenu (à droite
+   du menu). Ainsi le menu latéral remonte tout en haut au lieu d'être poussé
+   vers le bas par la barre. Le contenu est décalé d'autant. */
+@media (min-width: 769px) {
+  .tim-topbar {
+    position: fixed;
+    top: 0;
+    left: var(--nav-width);
+    right: 0;
+    z-index: 30;
+    transition: left 0.2s ease;
+  }
+  /* Menu replié → la barre s'étend sur toute la largeur. */
+  .tim-topbar--full {
+    left: 0;
+  }
+  /* Décalage sous la barre du haut fixe = hauteur de la barre + un espace, pour
+     que les titres de page ne soient pas collés à la barre. */
+  .template-default__wrap {
+    padding-top: calc(var(--app-header-height) + 2rem);
+  }
+}
+
+.tim-pswitch {
+  position: relative;
+}
+
+/* Bouton icône (cloche) */
+.tim-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--tim-muted);
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+.tim-iconbtn:hover {
+  color: var(--tim-foreground);
+}
+
+/* Compte / avatar */
+.tim-account {
+  position: relative;
+}
+.tim-account__btn {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 999px;
+}
+.tim-account__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+.tim-account__pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  min-width: 200px;
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  box-shadow: 0 18px 50px -20px color-mix(in srgb, var(--tim-foreground) 40%, transparent);
+  padding: 0.35rem;
+  overflow: hidden;
+}
+.tim-account__head {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--tim-border);
+  margin-bottom: 0.25rem;
+}
+.tim-account__name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-account__email {
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+.tim-account__item {
+  display: block;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.85rem;
+  color: var(--tim-foreground);
+  text-decoration: none;
+  transition: background-color 0.1s ease;
+}
+.tim-account__item:hover {
+  background: var(--tim-surface);
+}
+.tim-account__item--danger {
+  color: var(--tim-danger-text);
+}
+.tim-account__item--danger:hover {
+  background: color-mix(in srgb, var(--tim-danger) 14%, var(--tim-white));
+}
+
+/* Cloche de notifications : puce (compteur) + popover ancré */
+.tim-notif {
+  position: relative;
+}
+.tim-notif .tim-iconbtn {
+  position: relative;
+}
+/* Pastille discrète (pas de chiffre) : présence de notifications. */
+.tim-notif__dot-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--tim-primary);
+  border: 2px solid var(--tim-white);
+}
+.tim-notif__pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  width: min(360px, 92vw);
+  max-height: 70vh;
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  box-shadow: 0 18px 50px -20px color-mix(in srgb, var(--tim-foreground) 40%, transparent);
+  overflow: hidden;
+}
+.tim-notif__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--tim-border);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-notif__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--tim-primary-light);
+  color: var(--tim-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.tim-notif__list {
+  overflow-y: auto;
+  padding: 0.3rem;
+}
+.tim-notif__empty {
+  margin: 0;
+  padding: 1.25rem 0.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--tim-muted);
+}
+.tim-notif__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--tim-radius-sm);
+  text-decoration: none;
+  color: var(--tim-foreground);
+  transition: background-color 0.1s ease;
+}
+.tim-notif__item:hover {
+  background: var(--tim-surface);
+}
+.tim-notif__dot {
+  flex: 0 0 auto;
+  font-size: 1rem;
+  line-height: 1;
+}
+.tim-notif__item-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.tim-notif__item-title {
+  font-size: 0.83rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tim-notif__item-meta {
+  font-size: 0.74rem;
+  color: var(--tim-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tim-notif__all {
+  display: block;
+  padding: 0.6rem;
+  text-align: center;
+  border-top: 1px solid var(--tim-border);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tim-primary);
+  text-decoration: none;
+  transition: background-color 0.1s ease;
+}
+.tim-notif__all:hover {
+  background: var(--tim-surface);
+}
+
+/* Bouton d'ouverture */
+.tim-pswitch__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 230px;
+  padding: 0.35rem 0.75rem 0.35rem 0.4rem;
+  border-radius: var(--tim-radius);
+  border: 1px solid var(--tim-border);
+  background: var(--tim-surface);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
+}
+.tim-pswitch__btn:hover {
+  border-color: var(--tim-primary);
+  background: var(--tim-white);
+  box-shadow: 0 4px 14px -8px color-mix(in srgb, var(--tim-primary) 45%, transparent);
+}
+.tim-pswitch__btn.is-active .tim-pswitch__avatar {
+  background: var(--tim-primary);
+}
+.tim-pswitch__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: var(--tim-muted-light);
+  color: var(--tim-white);
+  font-size: 0.8rem;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+.tim-pswitch__current {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.1;
+}
+.tim-pswitch__eyebrow {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tim-muted);
+}
+.tim-pswitch__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+.tim-pswitch__chevron {
+  color: var(--tim-muted);
+}
+
+/* Popover */
+.tim-pswitch__pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 100;
+  display: flex;
+  width: min(600px, 92vw);
+  max-height: 70vh;
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  box-shadow: 0 18px 50px -20px color-mix(in srgb, var(--tim-foreground) 40%, transparent);
+  overflow: hidden;
+}
+.tim-pswitch__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 58%;
+  min-width: 0;
+  border-right: 1px solid var(--tim-border);
+}
+.tim-pswitch__search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--tim-border);
+  color: var(--tim-muted);
+}
+.tim-pswitch__search input {
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: 0.9rem;
+  color: var(--tim-foreground);
+  width: 100%;
+}
+.tim-pswitch__list {
+  overflow-y: auto;
+  padding: 0.4rem;
+}
+.tim-pswitch__list-title {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tim-muted);
+  padding: 0.4rem 0.5rem 0.25rem;
+}
+.tim-pswitch__empty {
+  padding: 0.75rem 0.5rem;
+  font-size: 0.83rem;
+  color: var(--tim-muted);
+}
+.tim-pswitch__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  border: 0;
+  background: transparent;
+  border-radius: var(--tim-radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.1s ease;
+}
+.tim-pswitch__item:hover {
+  background: var(--tim-surface);
+}
+.tim-pswitch__item.is-current {
+  background: var(--tim-primary-light);
+}
+.tim-pswitch__item-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  background: var(--tim-elevation-200);
+  color: var(--tim-foreground);
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.tim-pswitch__item-label {
+  flex: 1 1 auto;
+  font-size: 0.86rem;
+  color: var(--tim-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tim-pswitch__item-code {
+  font-size: 0.72rem;
+  color: var(--tim-muted);
+  font-variant-numeric: tabular-nums;
+}
+.tim-pswitch__reset {
+  margin: 0.25rem 0.4rem 0.5rem;
+  padding: 0.4rem;
+  border: 0;
+  background: transparent;
+  color: var(--tim-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: var(--tim-radius-sm);
+}
+.tim-pswitch__reset:hover {
+  background: var(--tim-surface);
+  color: var(--tim-danger-text);
+}
+
+/* Panneau détails */
+.tim-pswitch__details {
+  flex: 1 1 42%;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--tim-nav-bg);
+}
+.tim-pswitch__details-name {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.tim-pswitch__dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.75rem;
+  margin: 0;
+}
+.tim-pswitch__dl dt {
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+.tim-pswitch__dl dd {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+  text-align: right;
+}
+.tim-pswitch__open {
+  margin-top: auto;
+  padding: 0.5rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+.tim-pswitch__open:hover {
+  background: var(--tim-primary-dark);
+}
+.tim-pswitch__details-empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+}
+
+@media (max-width: 640px) {
+  .tim-pswitch__pop {
+    flex-direction: column;
+  }
+  .tim-pswitch__main {
+    border-right: none;
+    border-bottom: 1px solid var(--tim-border);
+  }
+}
+
+

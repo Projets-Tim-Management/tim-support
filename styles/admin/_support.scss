@@ -1,0 +1,648 @@
+/* Support : vue ticket, tableau des tickets, drawer, bandeau notifications. */
+
+/* ─── 7. VUE TICKET (style « page de support ») ───────────────────────────────
+   Fil de conversation en bulles + pastilles de statut/priorité + zone de
+   réponse + notes internes. Composants : modules/support/admin/Ticket*. */
+
+/* En-tête du ticket */
+.ticket-conversation__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 1rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--tim-border);
+}
+.ticket-conversation__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.ticket-conversation__num {
+  color: var(--tim-muted);
+  margin-right: 0.4rem;
+  font-variant-numeric: tabular-nums;
+}
+.ticket-conversation__from {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--tim-muted);
+}
+.ticket-conversation__pills {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* Pastilles colorées (statut + priorité) */
+.ticket-pill {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+$ticket-status: (
+  "new": var(--tim-blue) var(--tim-blue-bg),
+  "acknowledged": var(--tim-purple) var(--tim-purple-bg),
+  "in_progress": var(--tim-amber) var(--tim-amber-bg),
+  "on_hold": var(--tim-slate) var(--tim-slate-bg),
+  "resolved": var(--tim-green) var(--tim-green-bg),
+);
+@each $key, $pair in $ticket-status {
+  .ticket-pill--status-#{$key} {
+    color: nth($pair, 1);
+    background: nth($pair, 2);
+  }
+}
+$ticket-prio: (
+  "urgent": var(--tim-red) var(--tim-red-bg),
+  "high": var(--tim-amber) var(--tim-amber-bg),
+  "normal": var(--tim-slate) var(--tim-slate-bg),
+  "low": var(--tim-gray) var(--tim-gray-bg),
+);
+@each $key, $pair in $ticket-prio {
+  .ticket-pill--prio-#{$key} {
+    color: nth($pair, 1);
+    background: nth($pair, 2);
+  }
+}
+
+/* Fil de conversation */
+.ticket-conversation__thread {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.ticket-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 78%;
+}
+.ticket-msg--client {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+.ticket-msg--support {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+.ticket-msg__meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 0 0.3rem 0.25rem;
+  font-size: 0.72rem;
+}
+.ticket-msg__author {
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.ticket-msg__date {
+  color: var(--tim-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ticket-msg__bubble {
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--tim-border);
+  background: var(--tim-white);
+}
+.ticket-msg--client .ticket-msg__bubble {
+  background: var(--tim-surface);
+  border-bottom-left-radius: 0.25rem;
+}
+.ticket-msg--support .ticket-msg__bubble {
+  background: var(--tim-primary-light);
+  border-color: color-mix(in srgb, var(--tim-primary) 25%, transparent);
+  border-bottom-right-radius: 0.25rem;
+}
+.ticket-msg__body {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--tim-foreground);
+  white-space: pre-wrap; /* conserve les retours à la ligne des e-mails */
+  word-break: break-word;
+}
+.ticket-msg__files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+.ticket-msg__file img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--tim-radius-sm);
+  border: 1px solid var(--tim-border);
+  display: block;
+}
+
+/* Zone de réponse au client */
+.ticket-reply {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 6%, transparent);
+}
+.ticket-reply__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.ticket-reply__label {
+  display: block;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--tim-foreground);
+}
+/* Bouton « statut suivant » : avance le workflow + pré-remplit un message. */
+.ticket-reply__status {
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: filter 0.12s ease;
+}
+.ticket-reply__status:hover {
+  filter: brightness(0.96);
+}
+$reply-status-colors: (
+  "new": var(--tim-blue) var(--tim-blue-bg),
+  "acknowledged": var(--tim-purple) var(--tim-purple-bg),
+  "in_progress": var(--tim-amber) var(--tim-amber-bg),
+  "on_hold": var(--tim-slate) var(--tim-slate-bg),
+  "resolved": var(--tim-green) var(--tim-green-bg),
+);
+@each $key, $pair in $reply-status-colors {
+  .ticket-reply__status--#{$key} {
+    color: nth($pair, 1);
+    background: nth($pair, 2);
+    border-color: color-mix(in srgb, nth($pair, 1) 30%, transparent);
+  }
+}
+.ticket-reply__input {
+  width: 100%;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  padding: 0.65rem 0.8rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--tim-foreground);
+  resize: vertical;
+  background: var(--tim-surface);
+}
+.ticket-reply__input:focus {
+  outline: none;
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tim-primary) 18%, transparent);
+  background: var(--tim-white);
+}
+.ticket-reply__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.6rem;
+}
+.ticket-reply__btn {
+  cursor: pointer;
+  border: none;
+  border-radius: var(--tim-radius-sm);
+  padding: 0.55rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--tim-white);
+  background: var(--tim-primary);
+  transition: background-color 0.12s ease;
+}
+.ticket-reply__btn:hover:not(:disabled) {
+  background: var(--tim-primary-dark);
+}
+.ticket-reply__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ticket-reply__msg {
+  font-size: 0.82rem;
+}
+.ticket-reply__msg--sent {
+  color: var(--tim-green);
+}
+.ticket-reply__msg--error {
+  color: var(--tim-red);
+}
+.ticket-reply__attach {
+  cursor: pointer;
+  border: 1px solid var(--tim-border);
+  background: var(--tim-white);
+  border-radius: var(--tim-radius-sm);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.82rem;
+  color: var(--tim-foreground);
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.ticket-reply__attach:hover:not(:disabled) {
+  border-color: var(--tim-primary);
+  color: var(--tim-primary);
+}
+.ticket-reply__attach:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ticket-reply__files {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.ticket-reply__file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  background: var(--tim-surface);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  padding: 0.3rem 0.5rem;
+}
+.ticket-reply__file-name {
+  color: var(--tim-foreground);
+  word-break: break-all;
+}
+.ticket-reply__file-remove {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--tim-muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 0.2rem;
+}
+.ticket-reply__file-remove:hover {
+  color: var(--tim-danger);
+}
+
+/* Galerie des pièces jointes du client (barre latérale, lecture seule) */
+.ticket-attach-field {
+  margin-bottom: 0.85rem;
+}
+.ticket-attach__empty {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+}
+.ticket-attach__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 0.4rem;
+  max-height: 220px; /* défile au-delà */
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+.ticket-attach__item img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--tim-radius-sm);
+  border: 1px solid var(--tim-border);
+  display: block;
+  transition: border-color 0.12s ease;
+}
+.ticket-attach__item:hover img {
+  border-color: var(--tim-primary);
+}
+
+/* ─── Tableau des tickets : pastilles colorées + vues rapides ─────────────────*/
+.ticket-cell-pill {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ticket-quickfilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+.ticket-quickfilter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--tim-border);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.ticket-quickfilter:hover {
+  border-color: var(--tim-primary);
+  color: var(--tim-primary);
+}
+.ticket-quickfilter--active {
+  background: var(--tim-primary);
+  border-color: var(--tim-primary);
+  color: var(--tim-white);
+}
+/* Badge compteur (nombre de tickets dans la catégorie) */
+.ticket-quickfilter__badge {
+  display: inline-block;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+}
+.ticket-quickfilter--active .ticket-quickfilter__badge {
+  background: var(--tim-white);
+  color: var(--tim-primary);
+}
+
+/* Lignes de tableau cliquables (ouvre la fiche) */
+.table tbody tr {
+  cursor: pointer;
+}
+
+/* Bandeau de notifications tickets (tête du dashboard) */
+.ticket-notif {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 0 1.75rem;
+  padding: 0.9rem 1.15rem;
+  border: 1px solid color-mix(in srgb, var(--tim-primary) 30%, transparent);
+  border-radius: var(--tim-radius);
+  background: color-mix(in srgb, var(--tim-primary) 7%, var(--tim-white));
+}
+.ticket-notif--clear {
+  border-color: color-mix(in srgb, var(--tim-success) 35%, transparent);
+  background: color-mix(in srgb, var(--tim-success) 9%, var(--tim-white));
+}
+.ticket-notif__icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.ticket-notif__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1 1 auto;
+}
+.ticket-notif__title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.ticket-notif__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.ticket-notif__chip {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  color: var(--tim-foreground);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.ticket-notif__chip:hover {
+  border-color: var(--tim-primary);
+  color: var(--tim-primary);
+}
+.ticket-notif__chip--urgent {
+  border-color: color-mix(in srgb, var(--tim-danger) 55%, transparent);
+  color: var(--tim-danger);
+}
+.ticket-notif__cta {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.95rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.12s ease;
+}
+.ticket-notif__cta:hover {
+  background: var(--tim-primary-dark);
+}
+
+/* Notes internes : bloc privé bien distinct (jamais envoyé au client) */
+.ticket-notes {
+  margin-top: 1.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px dashed var(--tim-warning);
+  border-radius: var(--tim-radius);
+  background: color-mix(in srgb, var(--tim-warning) 10%, var(--tim-white));
+}
+
+/* Champs « select » présentés en badge coloré façon front
+   (statut / priorité / type / service), tout en restant éditables. */
+.ticket-cfield {
+  margin-bottom: 0.85rem;
+}
+.ticket-cfield__label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--tim-muted);
+  margin-bottom: 0.3rem;
+}
+.ticket-cselect {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border-radius: 6px;
+  padding: 0.3rem 0.55rem 0.3rem 0.8rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.ticket-cselect__native {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  max-width: 100%;
+  padding: 0;
+}
+.ticket-cselect__native:focus {
+  outline: none;
+}
+.ticket-cselect__native:disabled {
+  cursor: default;
+}
+/* La liste déroulante native reste lisible (fond blanc, texte neutre). */
+.ticket-cselect__native option {
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+  font-weight: 500;
+}
+.ticket-cselect__caret {
+  font-size: 0.7rem;
+  opacity: 0.65;
+  pointer-events: none;
+  margin-left: 0.25rem;
+}
+
+/* Grille 2 colonnes pour les rangées de badges (statut+priorité, type+service).
+   Le row de Payload ne dimensionne pas nos composants custom → on impose la
+   grille nous-mêmes. Ne cible que les rangées contenant nos badges. */
+.row__fields:has(.ticket-cfield) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.85rem;
+  align-items: start;
+}
+.row__fields:has(.ticket-cfield) > * {
+  min-width: 0;
+  width: 100%;
+}
+
+/* Champs & panneaux : bordure douce cohérente */
+.field-type input,
+.field-type textarea,
+.field-type .rs__control {
+  border-color: var(--tim-border);
+}
+
+/* Largeur max des inputs : évite qu'un champ pleine largeur s'étire sur tout
+   l'écran (surtout en grand écran). Les champs en row (50 %, 33 %…) gardent
+   leur proportion, juste plafonnée. Textareas laissés pleine largeur. */
+.field-type input:not([type="checkbox"]):not([type="radio"]),
+.field-type .react-select {
+  max-width: 40rem;
+}
+
+/* ─── Drawer document (clients apportés / transactions de points…) ────────────
+   Plus étroit et TOUT sur une seule colonne (main + sidebar empilés, rangées
+   dépliées). Scopé aux drawers document (.doc-drawer), pas aux autres. */
+.doc-drawer .drawer__content {
+  max-width: 640px !important;
+  margin-left: auto;
+}
+/* Empêche tout défilement horizontal dans le drawer réduit. */
+.doc-drawer .drawer__content,
+.doc-drawer .drawer__content-children {
+  overflow-x: hidden;
+}
+.doc-drawer .document-fields,
+.doc-drawer .render-fields,
+.doc-drawer .field-type,
+.doc-drawer .row__fields > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.doc-drawer .document-fields {
+  flex-direction: column;
+}
+.doc-drawer .document-fields__main,
+.doc-drawer .document-fields__sidebar-wrap {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+/* Rangées de champs → une seule colonne */
+.doc-drawer .row__fields {
+  flex-direction: column;
+}
+.doc-drawer .row__fields > * {
+  width: 100% !important;
+  max-width: 100%;
+}
+/* Dans le drawer, les inputs reprennent toute la largeur (colonne unique). */
+.doc-drawer .field-type input:not([type="checkbox"]):not([type="radio"]),
+.doc-drawer .field-type .react-select {
+  max-width: 100%;
+}
+
+/* ─── NOTIFICATIONS : deux puces distinctes ──────────────────────────────────
+   Convention couleur, réutilisée partout (dashboard, menu, tableau, page) :
+     💬 réponse client → bleu info ;  🎫 nouveau ticket → ambre. */
+
+/* Puces du bandeau dashboard (réutilise .ticket-notif__chip) */
+.ticket-notif__chip--reply {
+  border-color: color-mix(in srgb, var(--tim-info) 55%, transparent);
+  color: var(--tim-info);
+}
+.ticket-notif__chip--reply:hover {
+  border-color: var(--tim-info);
+  color: var(--tim-info);
+}
+.ticket-notif__chip--new {
+  border-color: color-mix(in srgb, var(--tim-warning) 65%, transparent);
+  color: var(--tim-warning-text);
+}
+.ticket-notif__chip--new:hover {
+  border-color: var(--tim-warning);
+  color: var(--tim-warning-text);
+}
+
+/* Colonne « Alertes » du tableau des tickets */
+.ticket-alerts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.ticket-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ticket-alert--reply {
+  background: color-mix(in srgb, var(--tim-info) 14%, var(--tim-white));
+  color: var(--tim-info);
+}
+.ticket-alert--new {
+  background: color-mix(in srgb, var(--tim-warning) 20%, var(--tim-white));
+  color: var(--tim-warning-text);
+}
+
+

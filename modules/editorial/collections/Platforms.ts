@@ -13,7 +13,7 @@ export const Platforms: CollectionConfig = {
   admin: {
     useAsTitle: "name",
     defaultColumns: ["name", "slug"],
-    group: "Features",
+    group: "Éditorial",
   },
   access: editorialAccess,
   fields: [
