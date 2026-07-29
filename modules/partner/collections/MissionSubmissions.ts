@@ -1,6 +1,7 @@
 import type { CollectionConfig } from "payload";
 
-import { adminOnly } from "@/core/access";
+import { utilisateurOwnedAccess } from "@/core/access";
+import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { creditApprovedSubmission } from "@/modules/partner/hooks/credit-submission";
 import { partnerField } from "@/modules/partner/fields/partner";
 import { referenceNumber } from "@/core/fields/referenceNumber";
@@ -19,8 +20,10 @@ export const MissionSubmissions: CollectionConfig = {
     defaultColumns: ["number", "mission", "partner", "status"],
     group: "Partenaires",
   },
-  access: adminOnly,
-  hooks: { afterChange: [creditApprovedSubmission] },
+  // Soumissions : partenaire-utilisateur = C·R scopé à sa fiche ; revue = admin.
+  access: utilisateurOwnedAccess,
+  // enforcePartnerField : à la création, le partenaire est forcé sur SA fiche.
+  hooks: { beforeChange: [enforcePartnerField()], afterChange: [creditApprovedSubmission] },
   fields: [
     referenceNumber,
     {

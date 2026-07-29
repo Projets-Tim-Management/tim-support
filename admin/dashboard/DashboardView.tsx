@@ -3,6 +3,7 @@ import type { AdminViewServerProps } from "payload";
 import { Gutter } from "@payloadcms/ui";
 import Link from "next/link";
 
+import { hasAdminRole } from "@/core/access";
 import { TicketNotifications } from "@/modules/support/admin/TicketNotifications";
 
 import Donut from "./charts/Donut";
@@ -29,8 +30,28 @@ export default async function DashboardView({ initPageResult }: AdminViewServerP
   // La vue dashboard est déjà rendue DANS le template admin (nav + header) :
   // on ne réenveloppe PAS dans DefaultTemplate (sinon double menu).
   const { req } = initPageResult;
-  const { payload } = req;
+  const { payload, user } = req;
   const adminRoute = payload.config.routes.admin;
+
+  // SÉCURITÉ — les données du tableau de bord sont GLOBALES (overrideAccess).
+  // Un rôle non-admin (partenaire, support) ne doit donc pas les voir. En
+  // attendant les dashboards scopés par rôle (Phase 6), on rend un accueil neutre.
+  if (!hasAdminRole(user)) {
+    return (
+      <Gutter>
+        <div className="dash">
+          <header className="dash__header">
+            <div>
+              <h1 className="dash__title">Bienvenue</h1>
+              <p className="dash__subtitle">
+                Votre espace personnel. Utilisez le menu à gauche pour accéder à vos données.
+              </p>
+            </div>
+          </header>
+        </div>
+      </Gutter>
+    );
+  }
 
   const d = await getDashboardData(req);
   const t = (q: string) => `${adminRoute}/collections/tickets?${q}`;

@@ -75,7 +75,7 @@ export async function POST(req: Request) {
       depth: 0,
     });
     const ticket = found.docs[0] as
-      | { id: number; number?: number; subject?: string; email?: string; name?: string; status?: string; messages?: unknown[] }
+      | { id: number; number?: number; subject?: string; email?: string; name?: string; status?: string; messages?: { author: "client" | "support"; body: string; sentAt: string; attachments?: number[] }[] }
       | undefined;
     if (!ticket) continue;
 

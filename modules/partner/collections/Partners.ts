@@ -1,8 +1,8 @@
 import { randomBytes } from "crypto";
 
-import type { CollectionConfig } from "payload";
+import type { CollectionConfig, Field } from "payload";
 
-import { adminOnly } from "@/core/access";
+import { adminOnlyField, adminOnlyFieldRead, isAdmin, ownPartnerRecord } from "@/core/access";
 import { validatePhone } from "@/core/lib/validators";
 
 /** Génère un code partenaire unique au format TIM-XXXXXX (6 hex majuscules). */
@@ -27,6 +27,54 @@ const modelValue = (data: unknown): string | undefined =>
   (data as { partnershipModel?: string })?.partnershipModel;
 
 /**
+ * Champs INTERNES TIM (commission, conditions contractuelles, suivi commercial) :
+ * un partenaire consultant SA propre fiche ne doit ni les voir ni les modifier.
+ * Voir docs/RBAC-PLAN.md §7.
+ */
+const INTERNAL_FIELDS = new Set([
+  "partnershipModel",
+  "commissionRate",
+  "commissionDuration",
+  "contractNotes",
+  "joinedAt",
+  "acquisitionSource",
+  "tier",
+  "accountManager",
+  "tags",
+  "notes",
+]);
+
+/**
+ * Applique récursivement un field-level access « admin uniquement » (lecture +
+ * écriture) aux champs internes ci-dessus, en descendant dans les onglets et les
+ * rows imbriqués. Une seule source de vérité (la liste INTERNAL_FIELDS) plutôt
+ * que d'annoter chaque champ à la main.
+ */
+const protectInternalFields = (fields: Field[]): Field[] =>
+  (fields as unknown[]).map((field) => {
+    const f = field as {
+      fields?: unknown[];
+      tabs?: { fields: unknown[] }[];
+      name?: string;
+      access?: Record<string, unknown>;
+    };
+    let out: Record<string, unknown> = f as Record<string, unknown>;
+    if (Array.isArray(f.fields)) {
+      out = { ...out, fields: protectInternalFields(f.fields as Field[]) };
+    }
+    if (Array.isArray(f.tabs)) {
+      out = {
+        ...out,
+        tabs: f.tabs.map((t) => ({ ...t, fields: protectInternalFields(t.fields as Field[]) })),
+      };
+    }
+    if (typeof f.name === "string" && INTERNAL_FIELDS.has(f.name)) {
+      out = { ...out, access: { ...f.access, read: adminOnlyFieldRead, update: adminOnlyField } };
+    }
+    return out;
+  }) as Field[];
+
+/**
  * Partenaires — apporteurs d'affaires (BTP) du programme de points/récompenses.
  *
  * - `email` reste la clé de rapprochement (migration + SSO app de Mathieu).
@@ -46,8 +94,16 @@ export const Partners: CollectionConfig = {
     defaultColumns: ["partnerKind", "email", "name", "societe", "status"],
     group: "Partenaires",
   },
-  access: adminOnly,
-  fields: [
+  // admin = toutes les fiches ; un partenaire = UNIQUEMENT la sienne (lecture +
+  // mise à jour). Création/suppression réservées aux admins.
+  access: {
+    read: ownPartnerRecord,
+    create: isAdmin,
+    update: ownPartnerRecord,
+    delete: isAdmin,
+  },
+  // Les champs internes TIM sont masqués aux partenaires (field-level access).
+  fields: protectInternalFields([
     {
       name: "avatar",
       type: "upload",
@@ -456,5 +512,5 @@ export const Partners: CollectionConfig = {
         description: "Identifiant sur app.tim-management.co, si disponible.",
       },
     },
-  ],
+  ]),
 };

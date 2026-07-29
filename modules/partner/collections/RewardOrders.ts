@@ -1,6 +1,7 @@
 import type { CollectionConfig, FieldHook } from "payload";
 
-import { adminOnly } from "@/core/access";
+import { utilisateurOwnedAccess } from "@/core/access";
+import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { refundCancelledOrder } from "@/modules/partner/hooks/refund-order";
 import { referenceNumber } from "@/core/fields/referenceNumber";
 
@@ -35,8 +36,10 @@ export const RewardOrders: CollectionConfig = {
     defaultColumns: ["number", "partner", "reward", "cost", "status"],
     group: "Partenaires",
   },
-  access: adminOnly,
-  hooks: { afterChange: [refundCancelledOrder] },
+  // Commandes : partenaire-utilisateur = C·R scopé à sa fiche ; traitement = admin.
+  access: utilisateurOwnedAccess,
+  // enforcePartnerField : à la création, le partenaire est forcé sur SA fiche.
+  hooks: { beforeChange: [enforcePartnerField()], afterChange: [refundCancelledOrder] },
   fields: [
     referenceNumber,
     // « + » (créer) retiré : on ne crée pas un partenaire/récompense ici.

@@ -36,7 +36,8 @@ async function getOrCreatePartner(payload: Payload, email: string, name?: string
   if (found.docs.length) return found.docs[0];
   return payload.create({
     collection: "partners",
-    data: { email: normalized, name, status: "active" },
+    // partnerKind est requis à la création (défaut historique = "metier").
+    data: { email: normalized, name: name ?? null, partnerKind: "metier", status: "active" },
   });
 }
 
@@ -180,7 +181,7 @@ export async function redeemReward(
   });
 
   // Création de la commande ; rollback du débit en cas d'échec.
-  let order: { id: number | string; number?: number };
+  let order: { id: number | string; number?: number | null };
   try {
     // Le numéro est attribué automatiquement (hook du champ referenceNumber).
     order = await payload.create({
@@ -208,7 +209,7 @@ export async function redeemReward(
     status: 200,
     data: {
       success: true,
-      order_number: order.number,
+      order_number: order.number ?? undefined,
       balance: balance - reward.cost,
       code: (partner as { code?: string }).code,
     },
