@@ -7,6 +7,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAvatarUrl } from "../graphics/Avatar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { hasAdminRole, isSupport } from "@/core/access";
+
 /**
  * Barre du haut unique (façon « switcher d'entreprise » Pennylane), rendue via
  * admin.components.header. Remplace l'app-header natif de Payload (fil d'Ariane +
@@ -74,6 +76,12 @@ export default function PartnerSwitcher() {
   const { navOpen, setNavOpen } = useNav();
   const adminRoute = config.routes.admin;
 
+  // Barre du haut adaptée au rôle : le switcher de partenaire n'a de sens que
+  // pour les admins ; la cloche (tickets) pour admins + support. Les partenaires
+  // n'ont ni l'un ni l'autre (collapse + compte restent pour tout le monde).
+  const canSwitchPartner = hasAdminRole(user);
+  const canSeeTickets = hasAdminRole(user) || isSupport(user);
+
   const [menu, setMenu] = useState<null | "partner" | "account" | "notif">(null);
   const [query, setQuery] = useState("");
   const [partners, setPartners] = useState<Partner[] | null>(null);
@@ -95,6 +103,8 @@ export default function PartnerSwitcher() {
   // pour la puce + liste pour le popover, rafraîchis au changement de page.
   const pathname = usePathname();
   useEffect(() => {
+    // Inutile de charger les tickets si la cloche n'est pas affichée (partenaires).
+    if (!canSeeTickets) return;
     let cancelled = false;
     (async () => {
       try {
@@ -122,7 +132,7 @@ export default function PartnerSwitcher() {
     return () => {
       cancelled = true;
     };
-  }, [pathname]);
+  }, [pathname, canSeeTickets]);
 
   const load = useCallback(async () => {
     if (partners || loading) return;
@@ -205,6 +215,7 @@ export default function PartnerSwitcher() {
             <line x1="9" y1="4" x2="9" y2="20" stroke="currentColor" strokeWidth="1.8" />
           </svg>
         </button>
+        {canSwitchPartner && (
         <div className="tim-pswitch">
         <button
           type="button"
@@ -312,10 +323,12 @@ export default function PartnerSwitcher() {
           </div>
         )}
         </div>
+        )}
       </div>
 
       {/* ── Droite : notifications + compte ───────────────────────────── */}
       <div className="tim-topbar__right">
+        {canSeeTickets && (
         <div className="tim-notif">
           <button
             type="button"
@@ -372,6 +385,7 @@ export default function PartnerSwitcher() {
             </div>
           )}
         </div>
+        )}
 
         <div className="tim-account">
           <button

@@ -42,8 +42,19 @@ export async function POST(req: Request) {
   if (description.length < 10) return fail("Description trop courte (10 caractères minimum).");
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail("Adresse e-mail invalide.");
 
-  const type = TICKET_TYPES.includes(typeRaw) ? typeRaw : "assistance";
-  const service = TICKET_SERVICES.includes(serviceRaw) ? serviceRaw : undefined;
+  // Valeurs déjà validées ci-dessus contre les options de la collection Tickets ;
+  // on affine le type pour satisfaire les enums attendus par payload.create.
+  const type = (TICKET_TYPES.includes(typeRaw) ? typeRaw : "assistance") as
+    | "assistance"
+    | "suggestion"
+    | "autre";
+  const service = (TICKET_SERVICES.includes(serviceRaw) ? serviceRaw : undefined) as
+    | "support"
+    | "autre"
+    | "technique"
+    | "facturation"
+    | "commercial"
+    | undefined;
 
   try {
     const payload = await payloadClient();

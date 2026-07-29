@@ -128,12 +128,113 @@ function bucketDays(docs: Doc[], field: string, days: number): Point[] {
   return series;
 }
 
+/** Select minimal partagé pour la lecture des tickets (dashboard admin & support). */
+const TICKETS_SELECT = {
+  status: true,
+  priority: true,
+  needsAttention: true,
+  unreadClientReply: true,
+  resolvedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  number: true,
+  subject: true,
+  name: true,
+  email: true,
+} as const;
+
+/**
+ * Métriques support — dérivées d'une seule lecture `tickets`. Pure (testable),
+ * partagée entre le dashboard admin (getDashboardData) et le dashboard support
+ * (getSupportMetrics) : aucune duplication de calcul.
+ */
+export function computeSupport(tickets: Doc[]): DashboardData["support"] {
+  const s30 = SINCE_30();
+  const s60 = SINCE_60();
+  const isOpen = (t: Doc) => t.status !== "resolved";
+  const open = tickets.filter(isOpen).length;
+  const unreadReplies = tickets.filter((t) => t.unreadClientReply === true).length;
+  const newToHandle = tickets.filter(
+    (t) => t.needsAttention === true && t.unreadClientReply !== true && isOpen(t),
+  ).length;
+  const urgentOpen = tickets.filter((t) => t.priority === "urgent" && isOpen(t)).length;
+
+  const resolvedIn = (from: string, to?: string) =>
+    tickets.filter(
+      (t) => t.status === "resolved" && t.resolvedAt && t.resolvedAt >= from && (!to || t.resolvedAt < to),
+    );
+  const resolved30 = resolvedIn(s30).length;
+  const resolvedPrev = resolvedIn(s60, s30).length;
+
+  const resolvedDocs = resolvedIn(s30).filter((t) => t.createdAt && t.resolvedAt);
+  const avgResolutionHours =
+    resolvedDocs.length > 0
+      ? resolvedDocs.reduce(
+          (sum, t) => sum + (new Date(t.resolvedAt).getTime() - new Date(t.createdAt).getTime()),
+          0,
+        ) /
+        resolvedDocs.length /
+        3_600_000
+      : null;
+
+  const created30docs = tickets.filter((t) => t.createdAt && t.createdAt >= s30);
+  const createdPrev = tickets.filter((t) => t.createdAt && t.createdAt >= s60 && t.createdAt < s30).length;
+  const createdSeries = bucketDays(created30docs, "createdAt", 30);
+
+  const statusDist: Slice[] = Object.keys(LABELS.status).map((key) => ({
+    key,
+    label: LABELS.status[key],
+    count: tickets.filter((t) => t.status === key).length,
+  }));
+
+  const recentUnread = tickets
+    .filter((t) => t.unreadClientReply === true)
+    .slice(0, 5)
+    .map((t) => ({
+      id: t.id,
+      number: t.number,
+      subject: t.subject,
+      who: t.name || t.email,
+      priority: t.priority,
+      updatedAt: t.updatedAt,
+    }));
+
+  return {
+    unreadReplies,
+    newToHandle,
+    urgentOpen,
+    open,
+    resolved30,
+    resolvedDelta: resolved30 - resolvedPrev,
+    avgResolutionHours,
+    created30: created30docs.length,
+    createdDelta: created30docs.length - createdPrev,
+    createdSeries,
+    statusDist,
+    recentUnread,
+  };
+}
+
+/** Dashboard support : ne lit QUE les tickets (pas les données partenaires). */
+export async function getSupportMetrics(req: PayloadRequest): Promise<DashboardData["support"]> {
+  const { docs } = await req.payload.find({
+    overrideAccess: true,
+    depth: 0,
+    req,
+    collection: "tickets",
+    limit: 8000,
+    pagination: false,
+    sort: "-updatedAt",
+    select: TICKETS_SELECT,
+  });
+  return computeSupport(docs as Doc[]);
+}
+
 export async function getDashboardData(req: PayloadRequest): Promise<DashboardData> {
   const { payload } = req;
   const opts = { overrideAccess: true as const, depth: 0 as const, req };
 
-  const s30 = SINCE_30();
-  const s60 = SINCE_60();
+  const s30 = SINCE_30(); // seul s30 sert ici (le support a son propre calcul dans computeSupport)
 
   // ── Batch 1 : une lecture ciblée par grosse collection ──────────────────
   const [tickets, clients, ptx, features, partners] = await batched<Doc[]>([
@@ -145,19 +246,7 @@ export async function getDashboardData(req: PayloadRequest): Promise<DashboardDa
           limit: 8000,
           pagination: false,
           sort: "-updatedAt",
-          select: {
-            status: true,
-            priority: true,
-            needsAttention: true,
-            unreadClientReply: true,
-            resolvedAt: true,
-            createdAt: true,
-            updatedAt: true,
-            number: true,
-            subject: true,
-            name: true,
-            email: true,
-          },
+          select: TICKETS_SELECT,
         })
         .then((r) => r.docs),
     () =>
@@ -218,54 +307,8 @@ export async function getDashboardData(req: PayloadRequest): Promise<DashboardDa
         .then((r) => r.docs),
   ]);
 
-  // ── SUPPORT (tout dérivé de la seule lecture `tickets`) ──────────────────
-  const isOpen = (t: Doc) => t.status !== "resolved";
-  const open = tickets.filter(isOpen).length;
-  const unreadReplies = tickets.filter((t) => t.unreadClientReply === true).length;
-  const newToHandle = tickets.filter(
-    (t) => t.needsAttention === true && t.unreadClientReply !== true && isOpen(t),
-  ).length;
-  const urgentOpen = tickets.filter((t) => t.priority === "urgent" && isOpen(t)).length;
-
-  const resolvedIn = (from: string, to?: string) =>
-    tickets.filter(
-      (t) => t.status === "resolved" && t.resolvedAt && t.resolvedAt >= from && (!to || t.resolvedAt < to),
-    );
-  const resolved30 = resolvedIn(s30).length;
-  const resolvedPrev = resolvedIn(s60, s30).length;
-
-  const resolvedDocs = resolvedIn(s30).filter((t) => t.createdAt && t.resolvedAt);
-  const avgResolutionHours =
-    resolvedDocs.length > 0
-      ? resolvedDocs.reduce(
-          (sum, t) => sum + (new Date(t.resolvedAt).getTime() - new Date(t.createdAt).getTime()),
-          0,
-        ) /
-        resolvedDocs.length /
-        3_600_000
-      : null;
-
-  const created30docs = tickets.filter((t) => t.createdAt && t.createdAt >= s30);
-  const createdPrev = tickets.filter((t) => t.createdAt && t.createdAt >= s60 && t.createdAt < s30).length;
-  const createdSeries = bucketDays(created30docs, "createdAt", 30);
-
-  const statusDist: Slice[] = Object.keys(LABELS.status).map((key) => ({
-    key,
-    label: LABELS.status[key],
-    count: tickets.filter((t) => t.status === key).length,
-  }));
-
-  const recentUnread = tickets
-    .filter((t) => t.unreadClientReply === true)
-    .slice(0, 5)
-    .map((t) => ({
-      id: t.id,
-      number: t.number,
-      subject: t.subject,
-      who: t.name || t.email,
-      priority: t.priority,
-      updatedAt: t.updatedAt,
-    }));
+  // ── SUPPORT (calcul factorisé, partagé avec getSupportMetrics) ───────────
+  const support = computeSupport(tickets);
 
   // ── PARTENAIRES ──────────────────────────────────────────────────────────
   const activePartners = partners.filter((p) => p.status === "active");
@@ -320,20 +363,7 @@ export async function getDashboardData(req: PayloadRequest): Promise<DashboardDa
   const mediaWeight = media.reduce((sum: number, m: Doc) => sum + (Number(m.filesize) || 0), 0);
 
   return {
-    support: {
-      unreadReplies,
-      newToHandle,
-      urgentOpen,
-      open,
-      resolved30,
-      resolvedDelta: resolved30 - resolvedPrev,
-      avgResolutionHours,
-      created30: created30docs.length,
-      createdDelta: created30docs.length - createdPrev,
-      createdSeries,
-      statusDist,
-      recentUnread,
-    },
+    support,
     partners: {
       active: activePartners.length,
       metier: activePartners.filter((p) => p.partnerKind === "metier").length,

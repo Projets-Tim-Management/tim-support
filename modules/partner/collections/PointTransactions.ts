@@ -1,6 +1,6 @@
 import type { CollectionConfig } from "payload";
 
-import { adminOnly } from "@/core/access";
+import { utilisateurReadonlyAccess } from "@/core/access";
 import { referenceNumber } from "@/core/fields/referenceNumber";
 import { partnerField } from "@/modules/partner/fields/partner";
 
@@ -25,7 +25,8 @@ export const PointTransactions: CollectionConfig = {
     // utilisateur (onglet Points & activité → Transactions de points).
     hidden: true,
   },
-  access: adminOnly,
+  // Grand livre : partenaire-utilisateur en lecture seule (ses transactions) ; écriture admin.
+  access: utilisateurReadonlyAccess,
   fields: [
     // Référence séquentielle unique, attribuée automatiquement (1, 2, 3…).
     { ...referenceNumber, label: "Référence" },

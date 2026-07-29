@@ -1,6 +1,6 @@
 import type { CollectionConfig } from "payload";
 
-import { adminOnly } from "@/core/access";
+import { canReadCatalog, catalogAccess } from "@/core/access";
 
 /**
  * Missions — actions rémunérées en points (CPT `mission` côté WP).
@@ -15,8 +15,13 @@ export const Missions: CollectionConfig = {
     useAsTitle: "title",
     defaultColumns: ["title", "type", "points", "order"],
     group: "Partenaires",
+    components: {
+      // Catalogue pour le partenaire-utilisateur (l'admin garde le tableau).
+      beforeListTable: ["/modules/partner/admin/MissionsCatalog#default"],
+    },
   },
-  access: adminOnly,
+  // Catalogue : lecture admins + partenaires-utilisateurs, écriture admins.
+  access: catalogAccess(canReadCatalog),
   fields: [
     { name: "title", type: "text", label: "Titre", required: true },
     { name: "instructions", type: "richText", label: "Instructions" },

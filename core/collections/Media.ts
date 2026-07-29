@@ -1,6 +1,6 @@
 import type { CollectionConfig } from "payload";
 
-import { editorialAccess } from "@/core/access";
+import { anyone, isAdmin, isBackoffice } from "@/core/access";
 
 /**
  * Médias (uploads) : logos partenaires, visuels de récompenses, captures de
@@ -13,7 +13,14 @@ export const Media: CollectionConfig = {
   slug: "media",
   labels: { singular: "Média", plural: "Médias" },
   admin: { group: "Système" },
-  access: editorialAccess,
+  // Lecture publique (images du site) ; upload possible par tout compte
+  // back-office (avatars, pièces jointes) ; modification/suppression = admins.
+  access: {
+    read: anyone,
+    create: isBackoffice,
+    update: isAdmin,
+    delete: isAdmin,
+  },
   fields: [
     {
       name: "alt",

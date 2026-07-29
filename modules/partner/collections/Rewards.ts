@@ -1,6 +1,6 @@
 import type { CollectionConfig } from "payload";
 
-import { adminOnly } from "@/core/access";
+import { canReadCatalog, catalogAccess } from "@/core/access";
 import { slugField } from "@/core/fields/slug";
 
 /**
@@ -14,8 +14,13 @@ export const Rewards: CollectionConfig = {
     useAsTitle: "title",
     defaultColumns: ["title", "cost", "stock"],
     group: "Partenaires",
+    components: {
+      // Catalogue + commande pour le partenaire-utilisateur (l'admin garde le tableau).
+      beforeListTable: ["/modules/partner/admin/RewardsCatalog#default"],
+    },
   },
-  access: adminOnly,
+  // Catalogue : lecture admins + partenaires-utilisateurs, écriture admins.
+  access: catalogAccess(canReadCatalog),
   fields: [
     { name: "title", type: "text", label: "Titre", required: true },
     slugField("title"),

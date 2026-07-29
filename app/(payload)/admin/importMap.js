@@ -40,6 +40,8 @@ import { PartnerCommissionBox as PartnerCommissionBox_3b6f7425f35df62396e249af6e
 import { SmartSaveButton as SmartSaveButton_d2f84cfd7b2e15c9b318cc3949e7984f } from '../../../modules/partner/admin/SmartSaveButton'
 import { PartnerClientEditMenu as PartnerClientEditMenu_e271aadbf9279fb914faf39302326860 } from '../../../modules/partner/admin/PartnerClientEditMenu'
 import { HiddenControl as HiddenControl_7ccae3f972b05a5b902716411bfd380c } from '../../../modules/partner/admin/HiddenControl'
+import { default as default_06617f97e881e99c74ab5a8129fcef54 } from '../../../modules/partner/admin/MissionsCatalog'
+import { default as default_d78fb9bf342cb6b769b2c45ebb7c851d } from '../../../modules/partner/admin/RewardsCatalog'
 import { RewardOrderBalance as RewardOrderBalance_21383d1a7f3c464032bdb799d5d3261b } from '../../../modules/partner/admin/RewardOrderBalance'
 import { default as default_c08243cbb0e32dd70b45a5afb5f6cbd4 } from '../../../admin/components/SaveButton'
 import { default as default_5599fe28f2b3157f52fea861e6ba12e6 } from '../../../admin/graphics/Avatar'
@@ -96,6 +98,8 @@ export const importMap = {
   "/modules/partner/admin/SmartSaveButton#SmartSaveButton": SmartSaveButton_d2f84cfd7b2e15c9b318cc3949e7984f,
   "/modules/partner/admin/PartnerClientEditMenu#PartnerClientEditMenu": PartnerClientEditMenu_e271aadbf9279fb914faf39302326860,
   "/modules/partner/admin/HiddenControl#HiddenControl": HiddenControl_7ccae3f972b05a5b902716411bfd380c,
+  "/modules/partner/admin/MissionsCatalog#default": default_06617f97e881e99c74ab5a8129fcef54,
+  "/modules/partner/admin/RewardsCatalog#default": default_d78fb9bf342cb6b769b2c45ebb7c851d,
   "/modules/partner/admin/RewardOrderBalance#RewardOrderBalance": RewardOrderBalance_21383d1a7f3c464032bdb799d5d3261b,
   "/admin/components/SaveButton#default": default_c08243cbb0e32dd70b45a5afb5f6cbd4,
   "/admin/graphics/Avatar#default": default_5599fe28f2b3157f52fea861e6ba12e6,

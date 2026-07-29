@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   const ticket = (await payload
     .findByID({ collection: "tickets", id: ticketId, depth: 0 })
     .catch(() => null)) as
-    | { id: number; number?: number; subject: string; email: string; name?: string; status?: string; messages?: unknown[] }
+    | { id: number; number?: number; subject: string; email: string; name?: string; status?: string; messages?: { author: "client" | "support"; body: string; sentAt: string; attachments?: number[] }[] }
     | null;
   if (!ticket) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     author: "support",
     body,
     sentAt: new Date().toISOString(),
-    ...(attachmentIds.length ? { attachments: attachmentIds } : {}),
+    ...(attachmentIds.length ? { attachments: attachmentIds as number[] } : {}),
   });
 
   // Statut : on applique celui choisi dans la vue (envoyé avec la réponse). À
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
     id: ticket.id,
     // Le support vient de répondre → le ticket n'attend plus de réponse
     // (retire les badges « à traiter » et « réponse client »).
-    data: { messages, needsAttention: false, unreadClientReply: false, ...(nextStatus ? { status: nextStatus } : {}) },
+    data: { messages, needsAttention: false, unreadClientReply: false, ...(nextStatus ? { status: nextStatus as "new" | "acknowledged" | "in_progress" | "on_hold" | "resolved" } : {}) },
   });
 
   // E-mail au client (best-effort : le message est déjà enregistré).

@@ -1,6 +1,7 @@
 import type { CollectionBeforeChangeHook, CollectionConfig, Field } from "payload";
 
-import { adminOnly } from "@/core/access";
+import { metierOwnedAccess } from "@/core/access";
+import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { validatePhone } from "@/core/lib/validators";
 import { round2 } from "@/modules/partner/lib/format";
 import { computeClientCA, LICENCE_BASE_PRICES, PROFILS } from "@/modules/partner/lib/pricing";
@@ -144,11 +145,13 @@ export const PartnerClients: CollectionConfig = {
   },
   // Retire « Dupliquer » du menu 3-points natif.
   disableDuplicate: true,
-  access: adminOnly,
+  // Clients : partenaire-métier = CRUD scopé à sa fiche ; admin = tout.
+  access: metierOwnedAccess,
   // Brouillons : permet de créer un client incomplet (sans l'e-mail requis).
   // Les champs obligatoires ne sont exigés qu'à la publication.
   versions: { drafts: true },
-  hooks: { beforeChange: [computeCA] },
+  // enforcePartnerField : un partenaire est forcé sur SA fiche (anti-usurpation).
+  hooks: { beforeChange: [enforcePartnerField(), computeCA] },
   fields: [
     {
       name: "companyName",

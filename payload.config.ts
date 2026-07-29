@@ -23,9 +23,49 @@ import { MissionSubmissions } from "./modules/partner/collections/MissionSubmiss
 import { Rewards } from "./modules/partner/collections/Rewards";
 import { RewardOrders } from "./modules/partner/collections/RewardOrders";
 import { Tickets } from "./modules/support/collections/Tickets";
+import {
+  hideUnlessAdmin,
+  hideUnlessAdminOrPartner,
+  hideUnlessMetier,
+  hideUnlessSupport,
+  hideUnlessUtilisateur,
+} from "./core/access";
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
+
+/**
+ * Masquage du menu par rôle (`admin.hidden`), centralisé ici plutôt que répliqué
+ * dans chaque collection. La sécurité réelle vit dans l'access control de chaque
+ * collection (Phase 3) ; ceci ne fait que filtrer le menu/URL selon le rôle.
+ * CustomNav respecte automatiquement ce masquage via `visibleEntities`.
+ */
+const ROLE_NAV_HIDDEN: Record<string, (args: { user?: unknown }) => boolean> = {
+  // Éditorial + Système : admins uniquement
+  features: hideUnlessAdmin,
+  "feature-categories": hideUnlessAdmin,
+  platforms: hideUnlessAdmin,
+  parcours: hideUnlessAdmin,
+  media: hideUnlessAdmin,
+  users: hideUnlessAdmin,
+  // Partenaires
+  partners: hideUnlessAdminOrPartner,
+  "partner-clients": hideUnlessMetier,
+  missions: hideUnlessUtilisateur,
+  "mission-submissions": hideUnlessUtilisateur,
+  rewards: hideUnlessUtilisateur,
+  "reward-orders": hideUnlessUtilisateur,
+  // Support
+  tickets: hideUnlessSupport,
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const applyRoleNavVisibility = (cols: any[]): any[] =>
+  cols.map((c) =>
+    c.slug in ROLE_NAV_HIDDEN
+      ? { ...c, admin: { ...(c.admin ?? {}), hidden: ROLE_NAV_HIDDEN[c.slug] } }
+      : c,
+  );
 
 export default buildConfig({
   // Collection qui porte l'authentification du back-office.
@@ -72,7 +112,8 @@ export default buildConfig({
   },
 
   // L'ordre ci-dessous pilote l'ordre des groupes dans le menu de l'admin.
-  collections: [
+  // applyRoleNavVisibility injecte le masquage par rôle (admin.hidden).
+  collections: applyRoleNavVisibility([
     // Support
     Tickets,
     // Features (+ leurs paramètres : catégories, plateformes)
@@ -94,7 +135,7 @@ export default buildConfig({
     // Système
     Media,
     Users,
-  ],
+  ]),
 
   // Back-office en français uniquement.
   i18n: {
@@ -171,6 +212,12 @@ export default buildConfig({
   ],
 
   db: postgresAdapter({
+    // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :
+    // dev et prod partagent la même base, donc tout changement de schéma doit
+    // passer par une migration explicite (`payload migrate`), jamais par un push
+    // implicite au démarrage (cf. incident de suppression de colonnes 2026-07-29).
+    migrationDir: path.resolve(dirname, "migrations"),
+    push: false,
     pool: {
       connectionString: process.env.DATABASE_URL || "",
       // Supabase impose TLS ; on tolère le certificat du pooler.

@@ -1,6 +1,6 @@
 import type { CollectionConfig } from "payload";
 
-import { adminOnly } from "@/core/access";
+import { canSupport, isAdmin } from "@/core/access";
 import { referenceNumber } from "@/core/fields/referenceNumber";
 import { stampResolvedAt } from "@/modules/support/hooks/resolved-at";
 
@@ -31,7 +31,12 @@ export const Tickets: CollectionConfig = {
   // Les tickets ne se créent QUE via le formulaire de contact (Local API, qui
   // outrepasse l'accès). Dans l'admin : pas de bouton « Créer », pas de
   // « Dupliquer » — on ne fait que consulter/traiter les tickets existants.
-  access: { ...adminOnly, create: () => false },
+  access: {
+    read: canSupport,
+    create: () => false,
+    update: canSupport,
+    delete: isAdmin,
+  },
   disableDuplicate: true,
   defaultSort: "-createdAt", // les plus récents en premier
   hooks: { beforeChange: [stampResolvedAt] },
