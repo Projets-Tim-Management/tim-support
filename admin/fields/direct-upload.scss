@@ -1,0 +1,99 @@
+/* Champ upload en dropzone (Finder + glisser-déposer) — admin/fields/DirectUpload.tsx */
+
+/* Zone en pointillés « Cliquez ou glissez-déposez … ici » */
+.direct-upload__zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 120px;
+  padding: 1.5rem;
+  border: 2px dashed var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+  color: var(--tim-muted);
+  font-size: 0.9rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background-color 0.12s ease, color 0.12s ease;
+}
+.direct-upload__zone:hover {
+  border-color: var(--tim-primary);
+  color: var(--tim-primary);
+}
+.direct-upload__zone.is-drag {
+  border-color: var(--tim-primary);
+  background: var(--tim-primary-light);
+  color: var(--tim-primary);
+}
+.direct-upload__zone.is-busy {
+  cursor: default;
+  opacity: 0.75;
+}
+.direct-upload__zone:focus-visible {
+  outline: 2px solid var(--tim-primary);
+  outline-offset: 2px;
+}
+
+/* Aperçus */
+.direct-upload__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+.direct-upload__grid--single {
+  margin-bottom: 0.75rem;
+}
+.direct-upload__thumb {
+  position: relative;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  overflow: hidden;
+  background: var(--tim-white);
+}
+.direct-upload__grid--single .direct-upload__thumb img {
+  max-width: 220px;
+  max-height: 220px;
+}
+.direct-upload__thumb img {
+  display: block;
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+}
+.direct-upload__doc {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 220px;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.82rem;
+  color: var(--tim-foreground);
+}
+.direct-upload__doc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.direct-upload__remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 1.4rem;
+  height: 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tim-foreground) 65%, transparent);
+  color: var(--tim-white);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+.direct-upload__remove:hover {
+  background: var(--tim-danger-text);
+}

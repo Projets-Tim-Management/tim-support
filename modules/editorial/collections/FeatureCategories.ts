@@ -21,7 +21,7 @@ export const FeatureCategories: CollectionConfig = {
   admin: {
     useAsTitle: "pathTitle",
     defaultColumns: ["name", "parent", "slug"],
-    group: "Features",
+    group: "Éditorial",
   },
   // Tri par plateforme puis chemin → dans le sélecteur d'une feature et dans la
   // liste : toutes les catégories Web d'abord, puis toutes les Mobile. Lu par le

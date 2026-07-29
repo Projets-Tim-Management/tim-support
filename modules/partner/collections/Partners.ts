@@ -48,6 +48,17 @@ export const Partners: CollectionConfig = {
   },
   access: adminOnly,
   fields: [
+    {
+      name: "avatar",
+      type: "upload",
+      relationTo: "media",
+      label: "Photo de profil",
+      admin: {
+        position: "sidebar",
+        description: "Photo / logo du partenaire.",
+        components: { Field: "/admin/fields/DirectUpload#default" },
+      },
+    },
     // ─── En-tête (toujours visible) ──────────────────────────────────────────
     {
       name: "partnerKind",
@@ -266,7 +277,11 @@ export const Partners: CollectionConfig = {
               type: "upload",
               relationTo: "media",
               label: "Contrat (document signé)",
-              admin: { description: "PDF du contrat signé." },
+              admin: {
+                description: "PDF du contrat signé.",
+                custom: { accept: "*", noun: "un fichier" },
+                components: { Field: "/admin/fields/DirectUpload#default" },
+              },
             },
             {
               name: "contractAttachments",
@@ -274,7 +289,11 @@ export const Partners: CollectionConfig = {
               relationTo: "media",
               hasMany: true,
               label: "Autres documents",
-              admin: { description: "Avenants, annexes, pièces justificatives…" },
+              admin: {
+                description: "Avenants, annexes, pièces justificatives…",
+                custom: { accept: "*", noun: "un fichier" },
+                components: { Field: "/admin/fields/DirectUpload#default" },
+              },
             },
             { name: "contractNotes", type: "textarea", label: "Notes contrat" },
           ],

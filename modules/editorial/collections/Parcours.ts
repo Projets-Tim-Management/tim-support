@@ -16,7 +16,7 @@ export const Parcours: CollectionConfig = {
   admin: {
     useAsTitle: "title",
     defaultColumns: ["title", "slug", "profil", "order", "_status"],
-    group: "Parcours",
+    group: "Éditorial",
     components: {
       views: {
         // Remplace le tableau par une carte par parcours (liste des étapes).

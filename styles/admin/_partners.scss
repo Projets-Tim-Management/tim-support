@@ -1,0 +1,642 @@
+/* Partenaires : tableau « Licences par profil » + fiche « Points & activité ». */
+
+/* ─── « Licences par profil » : tableau compact (Profil · Qté · Prix · Total) ─
+   Vrai tableau aligné, tient même en drawer étroit. Inputs resserrés. */
+.lic-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+.lic-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.lic-table th {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--tim-muted);
+  border-bottom: 1px solid var(--tim-border);
+  white-space: nowrap;
+}
+.lic-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+  vertical-align: middle;
+}
+.lic-table .lic-num {
+  text-align: right;
+  white-space: nowrap;
+}
+.lic-profil {
+  font-weight: 600;
+  color: var(--tim-foreground);
+  white-space: nowrap;
+}
+.lic-input {
+  width: 84px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  text-align: right;
+  font: inherit;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+}
+.lic-input:focus {
+  outline: none;
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 2px var(--tim-primary-light);
+}
+.lic-sub {
+  text-align: right;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lic-total td {
+  font-weight: 800;
+  border-top: 2px solid var(--tim-border);
+  border-bottom: none;
+  padding-top: 0.55rem;
+  color: var(--tim-foreground);
+}
+.lic-total .lic-num:last-child {
+  color: var(--tim-primary);
+}
+/* « prix conseillé » sous chaque prix : gris léger, discret, cliquable. */
+.lic-suggest {
+  display: block;
+  margin: 0.15rem 0 0 auto;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--tim-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lic-suggest:hover {
+  color: var(--tim-foreground);
+  text-decoration: underline;
+}
+
+/* Bouton de sauvegarde intelligent du client apporté (Publier / Brouillon) */
+.smart-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+/* Publiable : bouton plein rouge TIM. */
+.smart-save--publish {
+  border: 1px solid var(--tim-primary);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+}
+.smart-save--publish:hover {
+  background: var(--tim-primary-dark);
+  border-color: var(--tim-primary-dark);
+}
+/* Brouillon (champs requis manquants) : contour ambré + curseur d'aide. */
+.smart-save--draft {
+  cursor: help;
+  border: 1px solid var(--tim-warning);
+  background: color-mix(in srgb, var(--tim-warning) 12%, var(--tim-white));
+  color: var(--tim-warning-text);
+}
+.smart-save--draft:hover {
+  background: color-mix(in srgb, var(--tim-warning) 22%, var(--tim-white));
+}
+
+/* Récap live d'une commande de récompense (coût / solde / différence) */
+.ro-balance {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+  max-width: 40rem;
+}
+.ro-balance--empty {
+  color: var(--tim-muted);
+  font-size: 0.88rem;
+}
+.ro-balance--ko {
+  border-color: color-mix(in srgb, var(--tim-danger) 55%, transparent);
+  background: color-mix(in srgb, var(--tim-danger) 8%, var(--tim-white));
+}
+.ro-balance__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.ro-balance__k {
+  font-size: 0.85rem;
+  color: var(--tim-muted);
+}
+.ro-balance__v {
+  font-weight: 700;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.ro-balance__row--diff {
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--tim-border);
+}
+.ro-balance__row--diff .ro-balance__v {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+.ro-balance--ko .ro-balance__row--diff .ro-balance__v {
+  color: var(--tim-danger-text);
+}
+.ro-balance__warn {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tim-danger-text);
+}
+
+/* Historique daté des montants (client apporté) */
+.cli-history {
+  margin-top: 1.5rem;
+}
+.cli-history__title {
+  margin: 0 0 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.cli-history__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.cli-history__table th {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--tim-muted);
+  border-bottom: 1px solid var(--tim-border);
+}
+.cli-history__table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.cli-history__row {
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+.cli-history__row:hover {
+  background: var(--tim-surface);
+}
+.cli-history__month {
+  display: block;
+  font-weight: 700;
+  color: var(--tim-foreground);
+  text-transform: capitalize;
+}
+.cli-history__range {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--tim-muted);
+}
+.cli-history__chevron {
+  color: var(--tim-muted);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.cli-history__empty {
+  margin: 0;
+  padding: 0.6rem 0;
+  font-size: 0.85rem;
+  color: var(--tim-muted);
+}
+.cli-history__note {
+  margin: 0.5rem 0 0;
+  font-size: 0.76rem;
+  color: var(--tim-muted);
+}
+
+/* Drawer de détail d'une période d'historique */
+.cli-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--tim-foreground) 35%, transparent);
+}
+.cli-drawer__panel {
+  width: min(480px, 92vw);
+  height: 100%;
+  overflow-y: auto;
+  background: var(--tim-white);
+  border-left: 1px solid var(--tim-border);
+  box-shadow: -8px 0 24px -12px color-mix(in srgb, var(--tim-foreground) 40%, transparent);
+  padding: 1.4rem 1.5rem;
+}
+.cli-drawer__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--tim-border);
+}
+.cli-drawer__title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+  text-transform: capitalize;
+}
+.cli-drawer__period {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  color: var(--tim-muted);
+}
+.cli-history__commission {
+  color: var(--tim-primary);
+  font-weight: 700;
+}
+/* KPI du drawer : CA facturé + commission */
+.cli-drawer__summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+.cli-drawer__kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.cli-drawer__kpi--commission {
+  border-color: color-mix(in srgb, var(--tim-primary) 40%, var(--tim-border));
+  background: color-mix(in srgb, var(--tim-primary) 6%, var(--tim-white));
+}
+.cli-drawer__kpi-k {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--tim-muted);
+}
+.cli-drawer__kpi-v {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.cli-drawer__kpi--commission .cli-drawer__kpi-v {
+  color: var(--tim-primary);
+}
+.cli-drawer__missing {
+  padding: 0.9rem 0.5rem;
+  color: var(--tim-muted);
+  font-size: 0.85rem;
+}
+.cli-drawer__close {
+  flex: 0 0 auto;
+  cursor: pointer;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-muted);
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.9rem;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.cli-drawer__close:hover {
+  color: var(--tim-primary);
+  border-color: var(--tim-primary);
+}
+.cli-drawer__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.cli-drawer__table th {
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--tim-muted);
+  border-bottom: 1px solid var(--tim-border);
+}
+.cli-drawer__table td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.cli-drawer__total td {
+  font-weight: 800;
+  border-top: 2px solid var(--tim-border);
+  border-bottom: none;
+  padding-top: 0.55rem;
+}
+.cli-drawer__total .lic-num:last-child {
+  color: var(--tim-primary);
+}
+
+/* Récap barre latérale du client apporté (total licences, CA HT) */
+.pc-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.pc-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.pc-row__k {
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+}
+.pc-row__v {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Case « Commission partenaire » (barre latérale du client apporté) */
+.pcommission {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--tim-primary) 40%, var(--tim-border));
+  border-radius: var(--tim-radius);
+  background: color-mix(in srgb, var(--tim-primary) 6%, var(--tim-white));
+}
+.pcommission__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--tim-muted);
+}
+.pcommission__value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--tim-primary);
+  font-variant-numeric: tabular-nums;
+}
+.pcommission__hint {
+  font-size: 0.72rem;
+  color: var(--tim-muted);
+  line-height: 1.35;
+}
+
+
+/* ─── Fiche partenaire : vue « Points & activité » ───────────────────────────
+   Tuiles de synthèse + listes (ledger, missions, commandes). Tokens only. */
+.partner-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.partner-activity__empty {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border: 1px dashed var(--tim-border);
+  border-radius: var(--tim-radius);
+  color: var(--tim-muted);
+  font-size: 0.9rem;
+}
+
+/* Tuiles de stats */
+.pa-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+.pa-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.pa-stat--strong {
+  border-color: color-mix(in srgb, var(--tim-primary) 40%, var(--tim-border));
+  background: color-mix(in srgb, var(--tim-primary) 5%, var(--tim-white));
+}
+.pa-stat__label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+.pa-stat__value {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.pa-stat--strong .pa-stat__value {
+  color: var(--tim-primary);
+}
+.pa-stat__value--pos {
+  color: var(--tim-green);
+}
+.pa-stat__value--neg {
+  color: var(--tim-red);
+}
+.pa-stat__sub {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+
+/* Sections listes */
+.pa-section {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  overflow: hidden;
+}
+.pa-section__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.7rem 0.95rem;
+  border-bottom: 1px solid var(--tim-border);
+  background: var(--tim-surface);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.pa-section__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  border: 1px solid var(--tim-border);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--tim-muted);
+}
+/* Note d'aide (avertissement) sous les panneaux d'activité */
+.partner-activity__hint {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid var(--tim-warning);
+  background: color-mix(in srgb, var(--tim-warning) 10%, var(--tim-white));
+  border-radius: var(--tim-radius-sm);
+  color: var(--tim-warning-text);
+  font-size: 0.83rem;
+}
+/* Note d'info discrète (renvoi vers le tableau des clients) */
+.partner-activity__note {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+}
+.pa-empty {
+  margin: 0;
+  padding: 0.85rem 0.95rem;
+  color: var(--tim-muted);
+  font-size: 0.85rem;
+}
+.pa-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0.35rem;
+  display: flex;
+  flex-direction: column;
+}
+.pa-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--tim-radius-sm);
+}
+.pa-row + .pa-row {
+  border-top: 1px solid color-mix(in srgb, var(--tim-border) 60%, transparent);
+}
+.pa-row:hover {
+  background: var(--tim-surface);
+}
+.pa-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pa-row__title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pa-row__title:hover {
+  color: var(--tim-primary);
+}
+.pa-row__meta {
+  font-size: 0.76rem;
+  color: var(--tim-muted);
+}
+.pa-row__when {
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Delta du ledger (crédit / débit) */
+.pa-delta {
+  flex: 0 0 auto;
+  min-width: 3.2rem;
+  text-align: right;
+  font-weight: 800;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+.pa-delta--pos {
+  color: var(--tim-green);
+}
+.pa-delta--neg {
+  color: var(--tim-red);
+}
+
+/* Badges de statut (missions + commandes) */
+.pa-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pa-badge--pending {
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+}
+.pa-badge--approved {
+  background: var(--tim-blue-bg);
+  color: var(--tim-blue);
+}
+.pa-badge--rejected,
+.pa-badge--cancelled {
+  background: var(--tim-slate-bg);
+  color: var(--tim-slate);
+}
+.pa-badge--shipped {
+  background: var(--tim-purple-bg);
+  color: var(--tim-purple);
+}
+.pa-badge--delivered {
+  background: var(--tim-green-bg);
+  color: var(--tim-green);
+}
+
+

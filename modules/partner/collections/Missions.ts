@@ -14,7 +14,7 @@ export const Missions: CollectionConfig = {
   admin: {
     useAsTitle: "title",
     defaultColumns: ["title", "type", "points", "order"],
-    group: "Missions",
+    group: "Partenaires",
   },
   access: adminOnly,
   fields: [
@@ -25,7 +25,7 @@ export const Missions: CollectionConfig = {
       type: "upload",
       relationTo: "media",
       label: "Logo",
-      admin: { position: "sidebar" },
+      admin: { position: "sidebar", components: { Field: "/admin/fields/DirectUpload#default" } },
     },
     {
       name: "points",
