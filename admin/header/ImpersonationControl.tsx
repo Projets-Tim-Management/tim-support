@@ -160,9 +160,6 @@ export default function ImpersonationControl() {
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <span className="tim-pswitch__avatar" aria-hidden>
-          👁
-        </span>
         <span className="tim-pswitch__current">
           <span className="tim-pswitch__eyebrow">Voir comme</span>
           <span className="tim-pswitch__name">Sélectionner un compte…</span>
