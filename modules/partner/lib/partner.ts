@@ -151,13 +151,17 @@ export async function getRewards(): Promise<Reward[]> {
 
 // ─── Échange (débit initié par le partenaire) ────────────────────────────────
 
-export async function redeemReward(
-  email: string,
+/**
+ * Cœur de l'échange (débit sécurisé + création de commande), à partir d'une
+ * fiche partenaire déjà résolue. Réutilisé par le front (email → fiche) ET par
+ * le back-office (compte authentifié → fiche). SEULE porte d'entrée qui débite
+ * les points : la création brute de reward-orders est réservée aux admins.
+ */
+export async function redeemRewardForPartner(
+  payload: Payload,
+  partner: { id: number; code?: string },
   rewardId: number,
 ): Promise<{ status: number; data: RedeemResult }> {
-  const payload = await payloadClient();
-  const partner = await getOrCreatePartner(payload, email);
-
   const reward = (await payload
     .findByID({ collection: "rewards", id: rewardId, depth: 0 })
     .catch(() => null)) as { id: number; title: string; cost: number; stock: number } | null;
@@ -211,9 +215,23 @@ export async function redeemReward(
       success: true,
       order_number: order.number ?? undefined,
       balance: balance - reward.cost,
-      code: (partner as { code?: string }).code,
+      code: partner.code,
     },
   };
+}
+
+/** Échange initié depuis le FRONT (résolution de la fiche par email). */
+export async function redeemReward(
+  email: string,
+  rewardId: number,
+): Promise<{ status: number; data: RedeemResult }> {
+  const payload = await payloadClient();
+  const partner = await getOrCreatePartner(payload, email);
+  return redeemRewardForPartner(
+    payload,
+    { id: Number(partner.id), code: (partner as { code?: string }).code },
+    rewardId,
+  );
 }
 
 // ─── Soumission de mission (preuve) ──────────────────────────────────────────

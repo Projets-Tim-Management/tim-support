@@ -123,7 +123,10 @@ Champs éditables par le partenaire : identité/contact de base, avatar. Le rest
 
 ---
 
-## 8. Dashboard réduit par rôle
+## 8. Dashboard réduit par rôle ✅ (Phase 6)
+Fait : `DashboardView` branche par rôle. Admin = global (getDashboardData). Support = `getSupportMetrics` (ne lit QUE les tickets) via `<SupportSection>` (extrait, partagé avec l'admin → pas de duplication). Partenaire = `getPartnerMetrics` (scopé `partner = user.partner`, 4 requêtes // ) via `<PartnerSection>` (métier → clients/CA ; utilisateur → points/missions/récompenses + accès catalogues). Aucune donnée globale pour les non-admins.
+
+## 8-bis. Dashboard réduit par rôle (spec initiale)
 
 - `admin/dashboard/data.ts` : arrêter le `overrideAccess: true` global pour les non-admins ; router vers une fonction de données **scopée** (`partner = user.partner`) ou passer les requêtes en `overrideAccess: false` + `req`.
 - Une **vue dashboard par rôle** (super-admin/admin = complet ; partenaire = ses KPI ; support = KPI support).
@@ -200,8 +203,8 @@ Suite d'intégration : pour **chaque rôle**, seed un user + (pour les partenair
 - [ ] Données scopées par rôle + vues dédiées (UX soignée).
 
 ### Phase 7 — Expérience partenaire-utilisateur
-- [ ] Vue « Missions à réaliser » (parcourir + soumettre une preuve → MissionSubmission).
-- [ ] Vue « Récompenses » (parcourir + commander → RewardOrder) + solde de points.
+- [x] Vue « Missions à réaliser » : `MissionsCatalog` (beforeListTable sur `missions`, rendu pour partner-utilisateur) — catalogue de cartes, soumission de preuve (note + image → média) → crée une `mission-submission` « pending ». Le tableau standard est masqué pour ce rôle (`.tim-catalog-mode`). `partnerField` a un `defaultValue` = fiche du compte. Le crédit des points reste à la validation admin (hook existant).
+- [x] Vue « Récompenses » : `RewardsCatalog` (beforeListTable sur `rewards`) — solde de points + cartes (image, coût, stock), bouton « Commander » désactivé si solde insuffisant/épuisé. **Économie sécurisée** : la commande passe par `POST /api/partner/redeem` (auth Payload + rôle) → `redeemRewardForPartner` (check solde + débit ledger + création commande + rollback). La création brute de `reward-orders` est passée en **admin-only** (`utilisateurReadonlyAccess`) → impossible de commander sans débit (exploit fermé).
 
 ### Phase 8 — Support
 - [ ] Vue support scopée (tickets), dashboard support.

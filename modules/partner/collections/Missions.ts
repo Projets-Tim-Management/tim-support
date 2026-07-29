@@ -15,6 +15,10 @@ export const Missions: CollectionConfig = {
     useAsTitle: "title",
     defaultColumns: ["title", "type", "points", "order"],
     group: "Partenaires",
+    components: {
+      // Catalogue pour le partenaire-utilisateur (l'admin garde le tableau).
+      beforeListTable: ["/modules/partner/admin/MissionsCatalog#default"],
+    },
   },
   // Catalogue : lecture admins + partenaires-utilisateurs, écriture admins.
   access: catalogAccess(canReadCatalog),

@@ -487,4 +487,22 @@
   white-space: nowrap;
 }
 
+/* Carte-lien (accès catalogue missions/récompenses depuis le dashboard partenaire) */
+.dash-card--link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.dash-card--link:hover {
+  transform: translateY(-2px);
+  border-color: var(--tim-primary);
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--tim-primary) 32%, transparent);
+}
+.dash-card__text {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--tim-muted);
+}
+
 

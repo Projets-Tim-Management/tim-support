@@ -14,6 +14,10 @@ export const Rewards: CollectionConfig = {
     useAsTitle: "title",
     defaultColumns: ["title", "cost", "stock"],
     group: "Partenaires",
+    components: {
+      // Catalogue + commande pour le partenaire-utilisateur (l'admin garde le tableau).
+      beforeListTable: ["/modules/partner/admin/RewardsCatalog#default"],
+    },
   },
   // Catalogue : lecture admins + partenaires-utilisateurs, écriture admins.
   access: catalogAccess(canReadCatalog),

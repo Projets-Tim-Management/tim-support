@@ -1,0 +1,229 @@
+/* Catalogue de missions (partenaire-utilisateur) — rendu via beforeListTable.
+   Voir modules/partner/admin/MissionsCatalog.tsx. */
+
+/* En mode catalogue, on masque le tableau/contrôles Payload standard : le
+   partenaire n'a que le catalogue. (Selecteurs tolérants : si l'un n'existe
+   pas, le catalogue reste affiché au-dessus.) */
+.tim-catalog-mode {
+  .list-controls,
+  .table,
+  .list-selection,
+  .paginator,
+  .collection-list__page-info,
+  .list-header__title-and-actions .btn--style-primary {
+    display: none !important;
+  }
+}
+
+.tim-catalog {
+  margin: 0 0 1.5rem;
+}
+.tim-catalog__head {
+  margin-bottom: 1.25rem;
+}
+.tim-catalog__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.tim-catalog__sub {
+  margin: 0.25rem 0 0;
+  color: var(--tim-muted);
+}
+.tim-catalog__empty {
+  color: var(--tim-muted);
+  padding: 2rem 0;
+}
+
+/* Bandeau de solde (catalogue récompenses) */
+.tim-catalog__balance {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+  padding: 0.6rem 1rem;
+  border-radius: var(--tim-radius);
+  background: color-mix(in srgb, var(--tim-primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tim-primary) 24%, transparent);
+}
+.tim-catalog__balance-label {
+  color: var(--tim-muted);
+  font-size: 0.85rem;
+}
+.tim-catalog__balance-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--tim-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Coût / stock d'une récompense */
+.tim-mcard__cost {
+  font-weight: 800;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.tim-mcard__stock {
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+}
+.tim-mcard__ok {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--tim-success);
+}
+
+.tim-catalog__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.tim-mcard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 6%, transparent);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.tim-mcard:hover {
+  transform: translateY(-2px);
+  border-color: var(--tim-primary);
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--tim-primary) 32%, transparent);
+}
+.tim-mcard.is-done {
+  opacity: 0.85;
+}
+.tim-mcard__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.tim-mcard__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 1.2rem;
+  overflow: hidden;
+}
+.tim-mcard__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tim-mcard__points {
+  font-weight: 800;
+  color: var(--tim-primary);
+  font-variant-numeric: tabular-nums;
+}
+.tim-mcard__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-mcard__foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.tim-mcard__link {
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+  text-decoration: none;
+}
+.tim-mcard__link:hover {
+  color: var(--tim-primary);
+}
+.tim-mcard__status {
+  margin-top: auto;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  color: var(--tim-foreground);
+}
+.tim-mcard__status.is-approved {
+  background: color-mix(in srgb, var(--tim-success) 16%, transparent);
+  color: var(--tim-success);
+}
+.tim-mcard__status.is-rejected {
+  background: color-mix(in srgb, var(--tim-danger) 14%, transparent);
+  color: var(--tim-danger);
+}
+
+.tim-mcard__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.tim-mcard__note {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  padding: 0.5rem;
+  font: inherit;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+}
+.tim-mcard__file {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+  cursor: pointer;
+}
+.tim-mcard__file input {
+  max-width: 60%;
+}
+.tim-mcard__error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--tim-danger);
+}
+.tim-mcard__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.tim-mcard__btn {
+  padding: 0.45rem 0.9rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.12s ease, opacity 0.12s ease;
+}
+.tim-mcard__btn:hover:not(:disabled) {
+  background: var(--tim-primary-dark);
+}
+.tim-mcard__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.tim-mcard__btn--ghost {
+  background: transparent;
+  color: var(--tim-muted);
+  border: 1px solid var(--tim-border);
+}
+.tim-mcard__btn--ghost:hover:not(:disabled) {
+  background: var(--tim-surface);
+  color: var(--tim-foreground);
+}
