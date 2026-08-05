@@ -1,7 +1,9 @@
 "use client";
 
 import { FieldLabel, useField } from "@payloadcms/ui";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+
+import UploadZone from "./UploadZone";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -58,9 +60,7 @@ export default function DirectUpload(props: any) {
   const noun: string = custom.noun ?? "une image";
 
   const { value, setValue } = useField<any>({ path });
-  const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<MediaLite[]>([]);
-  const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // Résout la/les valeur(s) actuelle(s) en médias pour l'aperçu.
@@ -102,12 +102,6 @@ export default function DirectUpload(props: any) {
       }
     }
     setBusy(false);
-  };
-
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    if (e.dataTransfer.files?.length) void addFiles(e.dataTransfer.files);
   };
 
   const removeAt = (idx: number) => {
@@ -157,43 +151,14 @@ export default function DirectUpload(props: any) {
       )}
 
       {showZone && !readOnly && (
-        <div
-          className={`direct-upload__zone${dragging ? " is-drag" : ""}${busy ? " is-busy" : ""}`}
-          role="button"
-          tabIndex={0}
-          onClick={() => !busy && inputRef.current?.click()}
-          onKeyDown={(e) => {
-            if ((e.key === "Enter" || e.key === " ") && !busy) inputRef.current?.click();
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-        >
-          {busy
-            ? "Envoi en cours…"
-            : dragging
-              ? "Déposez pour envoyer"
-              : `Cliquez ou glissez-déposez ${noun} ici`}
-        </div>
+        <UploadZone
+          onFiles={(files) => void addFiles(files)}
+          accept={accept}
+          noun={noun}
+          multiple={hasMany}
+          busy={busy}
+        />
       )}
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept={accept}
-        hidden
-        multiple={hasMany}
-        onChange={(e) => {
-          // Copier les fichiers AVANT de réinitialiser l'input : sinon
-          // `e.target.value = ""` vide la FileList et l'upload ne part pas.
-          const files = e.target.files ? Array.from(e.target.files) : [];
-          e.target.value = "";
-          if (files.length) void addFiles(files);
-        }}
-      />
     </div>
   );
 }

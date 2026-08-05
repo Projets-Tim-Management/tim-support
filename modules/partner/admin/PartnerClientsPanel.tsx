@@ -1,9 +1,11 @@
 "use client";
 
-import { useDocumentInfo, useFormFields } from "@payloadcms/ui";
+import { useAuth, useDocumentInfo, useFormFields } from "@payloadcms/ui";
 import { useEffect, useState } from "react";
 
+import { hasAdminRole } from "@/core/access";
 import { eur, round2 } from "@/modules/partner/lib/format";
+import { isBillableClient } from "@/modules/partner/lib/pricing";
 
 /**
  * Synthèse « commission » de la fiche partenaire : tuiles calculées en direct
@@ -18,6 +20,10 @@ type Client = { caPaye?: number; clientStatus?: string };
 
 export function PartnerClientsPanel() {
   const { id } = useDocumentInfo();
+  const { user } = useAuth();
+  // Le partenaire VOIT son taux (lecture ouverte, écriture admin) : la tuile est
+  // donc juste pour lui aussi. Seul le renvoi vers l'onglet d'édition est admin.
+  const isAdmin = hasAdminRole(user);
   const rate = useFormFields(([fields]) => Number(fields?.commissionRate?.value ?? 0));
 
   const [loading, setLoading] = useState(true);
@@ -64,7 +70,9 @@ export function PartnerClientsPanel() {
     );
   }
 
-  const actifs = clients.filter((c) => c.clientStatus !== "resilie" && c.clientStatus !== "archive");
+  // Seuls les clients ACTIFS comptent (voir isBillableClient) : un prospect ou
+  // un client en cours a déjà des licences saisies mais ne paie pas encore.
+  const actifs = clients.filter((c) => isBillableClient(c.clientStatus));
   const caActif = actifs.reduce((s, c) => s + (c.caPaye ?? 0), 0);
   const commissionMensuelle = round2((caActif * rate) / 100);
 
@@ -76,7 +84,9 @@ export function PartnerClientsPanel() {
           <span className="pa-stat__value">
             {actifs.length}
             {clients.length > actifs.length && (
-              <span className="pa-stat__sub"> · {clients.length - actifs.length} résilié(s)</span>
+              // « autres » et non « résiliés » : le reste mêle prospects, clients
+              // en cours, résiliés et archivés — tous hors facturation.
+              <span className="pa-stat__sub"> · {clients.length - actifs.length} autre(s)</span>
             )}
           </span>
         </div>
@@ -92,13 +102,10 @@ export function PartnerClientsPanel() {
 
       {rate === 0 && (
         <p className="partner-activity__hint">
-          Aucun taux de commission défini (onglet « Contrat & programme ») → commission affichée à 0.
+          Aucun taux de commission défini{isAdmin && " (onglet « Contrat & programme »)"} →
+          commission affichée à 0.
         </p>
       )}
-      <p className="partner-activity__note">
-        Ajoutez ou modifiez les clients dans le tableau ci-dessous (fenêtre, sans quitter la page).
-        Les tuiles se mettent à jour au rechargement de la fiche.
-      </p>
     </div>
   );
 }

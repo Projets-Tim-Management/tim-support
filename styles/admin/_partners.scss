@@ -527,11 +527,155 @@
   color: var(--tim-warning-text);
   font-size: 0.83rem;
 }
-/* Note d'info discrète (renvoi vers le tableau des clients) */
-.partner-activity__note {
-  margin: 0;
-  font-size: 0.82rem;
+/* Bouton « Ajouter un client » (beforeInput du champ join, fiche partenaire).
+   Le lien « Ajouter » natif du tableau de relations est masqué : il n'est plus
+   qu'un déclencheur invisible du drawer, cliqué par notre bouton. */
+.relationship-table:has(.tim-add-client) .relationship-table__add-new {
+  display: none;
+}
+.tim-add-client-bar {
+  display: flex;
+  margin-bottom: 0.75rem;
+}
+.tim-add-client {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  appearance: none;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color 0.12s ease;
+}
+.tim-add-client:hover {
+  background: var(--tim-primary-dark);
+}
+
+/* ─── Tableau de relations (champ `join` d'une fiche) ────────────────────────*/
+/* Crayon d'édition retiré de chaque ligne : c'est le CLIC SUR LA LIGNE qui ouvre
+   le drawer. Plutôt que de masquer le bouton natif et de le déclencher en JS —
+   fragile, et sans effet ici —, on ÉTIRE ce bouton (invisible) sur toute la
+   ligne : cliquer la ligne, c'est cliquer le bouton. Aucun code intermédiaire,
+   donc le drawer s'ouvre avec sa logique native.
+   Prérequis : la ligne devient le bloc conteneur (les cellules de Payload sont
+   `position: relative`, ce qui capterait le positionnement absolu). */
+.relationship-table tbody tr {
+  position: relative;
+}
+.relationship-table tbody td {
+  position: static;
+}
+.relationship-table .drawer-link__doc-drawer-toggler {
+  position: absolute;
+  inset: 0;
+  /* Au-dessus du contenu des cellules, mais SOUS l'en-tête figé (z-index: 2),
+     sinon la zone cliquable recouvrirait l'en-tête pendant le défilement. */
+  z-index: 1;
+  width: 100%;
+  cursor: pointer;
+}
+.relationship-table .drawer-link__doc-drawer-toggler svg {
+  display: none;
+}
+/* Pastille de statut dans les tableaux (ClientStatusCell). Les couleurs sont
+   posées en style inline depuis CLIENT_STATUSES — une seule source avec le
+   Kanban — donc rien d'autre ici que la forme. */
+.tim-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 4px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.tim-status-pill--empty {
+  padding: 0;
   color: var(--tim-muted);
+  font-weight: 500;
+}
+
+/* Mise en forme commune aux DEUX tableaux de clients : celui d'une fiche
+   partenaire (champ `join`) et la liste « Clients apportés ». Un seul mixin →
+   les deux vues restent identiques quand on touche à l'un. */
+@mixin tim-clients-table {
+  /* Flèches de tri retirées des en-têtes : elles encombrent chaque colonne alors
+     que l'ordre utile est déjà celui par défaut (`defaultSort` = actifs d'abord).
+     Le tri reste possible via l'URL (?sort=) si besoin. */
+  thead th .sort-column__buttons {
+    display: none;
+  }
+
+  /* En-têtes sur DEUX lignes : « CA / mois » et « Commission / mois » ne forcent
+     plus la largeur de leur colonne, ce qui rend la place à « Entreprise
+     cliente ». Payload tronque le libellé (`nowrap` + ellipse) ; ces règles ne
+     sont dans aucune @layer, elles priment donc sur les siennes. */
+  thead th {
+    white-space: normal;
+    vertical-align: bottom;
+  }
+  thead th .sort-column__label {
+    white-space: normal;
+    overflow: visible;
+  }
+  /* Payload impose `min-width: 150px` à toutes les cellules : sans le
+     neutraliser, la largeur ci-dessous n'aurait aucun effet et les colonnes
+     courtes continueraient de manger la place de « Entreprise cliente ». */
+  #heading-clientStatus,
+  #heading-signatureDate,
+  #heading-caPaye,
+  #heading-commissionMonthly,
+  tbody td.cell-clientStatus,
+  tbody td.cell-signatureDate,
+  tbody td.cell-caPaye,
+  tbody td.cell-commissionMonthly {
+    width: 8rem;
+    min-width: 0;
+  }
+
+  /* Tout est centré (statuts, dates, montants) SAUF la 1re colonne : un nom
+     d'entreprise se lit à gauche, aligné sur le titre de sa colonne. */
+  thead th,
+  tbody td {
+    text-align: center;
+  }
+  thead th .sort-column {
+    justify-content: center;
+  }
+  thead th#heading-companyName,
+  tbody td.cell-companyName {
+    text-align: left;
+  }
+  thead th#heading-companyName .sort-column,
+  tbody td.cell-companyName .drawer-link {
+    justify-content: flex-start;
+  }
+
+  /* Colonne « Commission / mois » mise en avant : c'est le chiffre qui compte
+     pour le partenaire. Même code couleur que les tuiles de synthèse. */
+  thead th#heading-commissionMonthly,
+  tbody td.cell-commissionMonthly {
+    background: var(--tim-primary-light);
+    color: var(--tim-primary-dark);
+    font-weight: 700;
+  }
+  thead th#heading-commissionMonthly button,
+  thead th#heading-commissionMonthly .sort-column__label {
+    color: inherit;
+  }
+}
+
+.relationship-table {
+  @include tim-clients-table;
+}
+.collection-list--partner-clients .table {
+  @include tim-clients-table;
 }
 .pa-empty {
   margin: 0;
@@ -640,3 +784,761 @@
 }
 
 
+
+/* ─── Partenaire-MÉTIER : list view « allégée » de `partners` ─────────────────
+   Classe posée sur <body> par PartnersListLite.tsx (beforeListTable) quand
+   l'utilisateur est partenaire-métier. On masque toute la barre de contrôles
+   (recherche + filtres + sélecteur de colonnes + tri) mais on GARDE le tableau.
+   Scopé à la collection `partners` (classe `.collection-list--partners`) → aucun
+   effet ailleurs. L'admin, lui, ne pose jamais cette classe : contrôles intacts. */
+.tim-partners-list-lite .collection-list--partners .list-controls,
+/* Contrôles de bas de liste (compteur « X sur Y », pagination, par-page) : le
+   métier ne voit qu'une seule fiche → inutiles. */
+.tim-partners-list-lite .collection-list--partners .page-controls {
+  display: none;
+}
+
+/* ─── Onglet « Contact » de la fiche client (champ `join`) ────────────────────
+   Le tableau des contacts (RelationshipTable) affiche un bouton « Colonnes »
+   inutile ici (jeu de colonnes figé) → masqué. C'est le seul champ `join` de
+   l'app ; le sélecteur ne sert qu'à lui. */
+.relationship-table__toggle-columns {
+  display: none;
+}
+
+/* Onglet « Contact » (join) : on masque le message vide verbeux de Payload
+   (« Aucun Contacts trouvé… ») — déroutant, surtout tant que la fiche client
+   n'est pas enregistrée (Payload cache alors le bouton « Créer »). Le bouton
+   « Créer » (dans .no-results__actions) et la description du champ restent, eux,
+   visibles. Scopé au tableau du join → n'affecte pas les listes de collections. */
+.relationship-table .no-results > h3,
+.relationship-table .no-results > p {
+  display: none;
+}
+
+/* ─── Modal de confirmation d'archivage d'un client (ArchiveClientModal) ──────
+   Le Modal faceless-ui rend .payload__modal-item.tim-archive. Il peut s'ouvrir
+   PAR-DESSUS un drawer (z-index ~101) → overlay plein écran centré, AU-DESSUS de
+   tout (z-index élevé) + fond assombri. */
+.tim-archive {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 300 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--tim-foreground) 40%, transparent);
+}
+.tim-archive__panel {
+  width: min(460px, 92vw);
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  box-shadow: 0 12px 40px -12px color-mix(in srgb, var(--tim-foreground) 45%, transparent);
+  padding: 1.5rem;
+}
+.tim-archive__title {
+  margin: 0 0 0.6rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.tim-archive__text {
+  margin: 0 0 1.1rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--tim-muted);
+}
+.tim-archive__label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-archive__input {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  font: inherit;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+}
+.tim-archive__input:focus {
+  outline: none;
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 2px var(--tim-primary-light);
+}
+.tim-archive__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1.4rem;
+}
+.tim-archive__btn {
+  padding: 0.5rem 1rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.tim-archive__btn--ghost {
+  background: var(--tim-white);
+  border-color: var(--tim-border);
+  color: var(--tim-foreground);
+}
+.tim-archive__btn--ghost:hover {
+  background: var(--tim-surface);
+}
+.tim-archive__btn--danger {
+  background: var(--tim-primary);
+  color: var(--tim-white);
+}
+.tim-archive__btn--danger:hover {
+  background: var(--tim-primary-dark);
+}
+.tim-archive__btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* ─── Onglets de statut au-dessus de la liste « Clients apportés » ────────────*/
+.tim-status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--tim-border);
+}
+.tim-status-tab {
+  appearance: none;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.tim-status-tab:hover {
+  color: var(--tim-foreground);
+}
+.tim-status-tab--active {
+  color: var(--tim-primary);
+  border-bottom-color: var(--tim-primary);
+}
+
+/* ─── Bouton « retour à la liste » (fiches client & partenaire) ──────────────*/
+/* Le bouton est injecté dans beforeDocumentControls (donc à droite, dans
+   .doc-controls__controls). Sur desktop, on le repositionne TOUT À GAUCHE du
+   .doc-controls__wrapper (avant le bloc « Statut / Dernière modification /
+   Créé »), via un positionnement absolu + une place réservée dans __content.
+   Scopé par :has(.tim-back-btn) → n'affecte que les fiches qui l'affichent.
+   Repli statique (poussé à gauche du groupe de contrôles) sur petits écrans. */
+.tim-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-right: auto;
+  appearance: none;
+  cursor: pointer;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.tim-back-btn:hover {
+  background: var(--tim-surface);
+  border-color: color-mix(in srgb, var(--tim-primary) 40%, var(--tim-border));
+}
+
+@media (min-width: 769px) {
+  /* Place réservée à gauche du bloc statut pour accueillir le bouton. */
+  .doc-controls__wrapper:has(.tim-back-btn) .doc-controls__content {
+    padding-left: 12rem;
+  }
+  /* Neutralise le `position: relative` du groupe de contrôles (à droite) : sinon
+     le `left: 0` du bouton s'ancre sur CE conteneur (donc à droite) au lieu du
+     wrapper global. Le popup 3-points a son propre contexte, non impacté. */
+  .doc-controls__wrapper:has(.tim-back-btn) .doc-controls__controls-wrapper,
+  .doc-controls__wrapper:has(.tim-back-btn) .doc-controls__controls {
+    position: static;
+    overflow: visible;
+  }
+  .doc-controls__wrapper:has(.tim-back-btn) .tim-back-btn {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    z-index: 1;
+    margin-right: 0;
+    transform: translateY(-50%);
+  }
+}
+
+/* ─── Bascule Tableau / Kanban ───────────────────────────────────────────────*/
+.tim-clients-header {
+  margin-bottom: 1rem;
+}
+.tim-view-switch {
+  display: inline-flex;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  margin-bottom: 1rem;
+  background: var(--tim-surface);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+}
+.tim-view-switch__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  background: none;
+  color: var(--tim-muted);
+  padding: 0.4rem 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: var(--tim-radius-sm);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.tim-view-switch__btn svg {
+  flex: 0 0 auto;
+}
+.tim-view-switch__btn:hover {
+  color: var(--tim-foreground);
+}
+.tim-view-switch__btn--active {
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 8%, transparent);
+}
+
+/* ─── Board Kanban ───────────────────────────────────────────────────────────*/
+.tim-kanban__msg {
+  color: var(--tim-muted);
+  padding: 1rem 0;
+}
+.tim-kanban__error {
+  margin: 0 0 0.6rem;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+  color: var(--tim-danger-text);
+  background: var(--tim-red-bg);
+  border: 1px solid var(--tim-danger);
+  border-radius: var(--tim-radius);
+  cursor: pointer;
+}
+.tim-kanban {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+}
+.tim-kanban__col {
+  flex: 0 0 300px;
+  width: 300px;
+}
+.tim-kanban__col-head {
+  padding: 0.2rem 0.2rem 0.7rem;
+}
+.tim-kanban__col-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.tim-kanban__dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+.tim-kanban__col-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-kanban__count {
+  margin-left: auto;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+.tim-kanban__col-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+}
+.tim-kanban__col-total-val {
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-kanban__col-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  /* Hauteur FIXE identique pour toutes les colonnes (= écran moins en-tête d'app
+     + titre + toggle + en-tête de colonne). Au-delà, la colonne scrolle en
+     interne — le board reste dans l'écran et les lanes sont toutes égales. */
+  height: calc(100vh - var(--app-header-height, 3.5rem) - 13rem);
+  overflow-y: auto;
+  padding: 0.6rem;
+  background: var(--tim-surface);
+  border: 1px solid color-mix(in srgb, var(--tim-border) 45%, transparent);
+  border-radius: var(--tim-radius);
+  transition: background 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.tim-kanban__col--over .tim-kanban__col-body {
+  background: color-mix(in srgb, var(--tim-primary) 6%, var(--tim-surface));
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--tim-primary) 40%, transparent);
+}
+.tim-kanban__card {
+  padding: 0.8rem;
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: 0.65rem;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 5%, transparent);
+  cursor: pointer;
+  transition: box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.tim-kanban__card:hover {
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+  box-shadow: 0 5px 14px -6px color-mix(in srgb, var(--tim-foreground) 24%, transparent);
+}
+.tim-kanban__card:active {
+  cursor: grabbing;
+}
+.tim-kanban__card-title {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--tim-foreground);
+  word-break: break-word;
+}
+.tim-kanban__draft {
+  padding: 0.05rem 0.35rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--tim-warning-text);
+  background: var(--tim-amber-bg);
+  border-radius: 4px;
+}
+.tim-kanban__amount {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-kanban__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  margin-top: 0.55rem;
+  padding: 0.2rem 0.6rem 0.2rem 0.25rem;
+  background: var(--tim-surface);
+  border: 1px solid color-mix(in srgb, var(--tim-border) 60%, transparent);
+  border-radius: 999px;
+}
+.tim-kanban__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  background: var(--tim-elevation-200);
+  color: var(--tim-foreground);
+  font-size: 0.58rem;
+  font-weight: 700;
+}
+.tim-kanban__chip-name {
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--tim-foreground);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tim-kanban__activity {
+  margin-top: 0.55rem;
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+}
+.tim-kanban__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+}
+.tim-kanban__foot-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+.tim-kanban__foot-ico {
+  display: inline-flex;
+  color: var(--tim-muted);
+}
+.tim-kanban__foot-date {
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+}
+.tim-kanban__empty {
+  margin: 0;
+  padding: 0.6rem 0;
+  font-size: 0.82rem;
+  text-align: center;
+  color: var(--tim-muted-light);
+}
+
+/* Modal « date de fin de contrat » lors d'un dépôt en Résilié / Archivé. */
+.tim-kanban__modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--tim-foreground) 40%, transparent);
+}
+.tim-kanban__modal {
+  width: min(440px, 92vw);
+  padding: 1.5rem;
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  box-shadow: 0 12px 40px -12px color-mix(in srgb, var(--tim-foreground) 45%, transparent);
+}
+.tim-kanban__modal-title {
+  margin: 0 0 0.6rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.tim-kanban__modal-text {
+  margin: 0 0 1.1rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--tim-muted);
+}
+.tim-kanban__modal-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-kanban__modal-input {
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+}
+.tim-kanban__modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1.4rem;
+}
+.tim-kanban__btn {
+  appearance: none;
+  cursor: pointer;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+}
+.tim-kanban__btn--primary {
+  color: var(--tim-white);
+  background: var(--tim-primary);
+  border-color: var(--tim-primary);
+}
+.tim-kanban__btn--primary:hover {
+  background: var(--tim-primary-dark);
+}
+.tim-kanban__btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* En mode Kanban, on masque le tableau natif Payload et ses contrôles/pagination
+   (le board occupe le slot beforeListTable). La classe est posée sur <body> par
+   PartnerClientsViewSwitcher, uniquement sur la liste « Clients apportés ». */
+body.tim-clients-kanban .list-controls,
+body.tim-clients-kanban .collection-list__sub-header,
+body.tim-clients-kanban .collection-list__tables,
+body.tim-clients-kanban .no-results,
+body.tim-clients-kanban .page-controls,
+body.tim-clients-kanban .tim-clients-total,
+body.tim-clients-kanban .collection-list__list-selection {
+  display: none !important;
+}
+
+/* Colonne « Partenaire apporteur » réservée aux admins : un partenaire ne voit
+   que SES clients, la colonne répéterait son propre nom sur chaque ligne. On
+   masque la colonne ET sa pastille dans le sélecteur de colonnes (sinon il
+   pourrait la réactiver sans effet visible). Classe posée par RoleBodyClass.
+   Purement cosmétique : le cloisonnement, lui, est assuré par l'access control. */
+body.tim-not-admin .collection-list--partner-clients #heading-partner,
+body.tim-not-admin .collection-list--partner-clients .cell-partner,
+body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
+  display: none;
+}
+
+/* ─── Ligne de total sous la liste « Clients apportés » ──────────────────────*/
+/* Rendue en `afterListTable`, donc HORS du <table> : impossible d'aligner un
+   vrai <tfoot> sur les colonnes. On assume une barre de synthèse à droite, dans
+   l'ordre des colonnes (CA puis commission) et au même code couleur. */
+.tim-clients-total {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0.7rem 0.95rem;
+  background: var(--tim-surface);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+}
+.tim-clients-total__label {
+  margin-right: auto;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-clients-total__hint {
+  font-weight: 500;
+  color: var(--tim-muted);
+}
+.tim-clients-total__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-clients-total__cell-label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--tim-muted);
+}
+.tim-clients-total__cell--strong {
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary-light);
+  color: var(--tim-primary-dark);
+}
+
+/* ─── Accès back-office (fiche partenaire métier) ────────────────────────────*/
+.tim-access {
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.1rem;
+  background: var(--tim-surface);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+}
+.tim-access__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-access__hint {
+  margin: 0 0 0.9rem;
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+}
+.tim-access__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+}
+.tim-access__field {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+.tim-access__field input {
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  font-weight: 400;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+}
+.tim-access__field input:focus {
+  outline: none;
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tim-primary) 16%, transparent);
+}
+.tim-access__readonly {
+  padding: 0.55rem 0.7rem;
+  font-weight: 400;
+  color: var(--tim-muted);
+  background: var(--tim-elevation-100);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+}
+.tim-access__btn {
+  margin-top: 0.9rem;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tim-white);
+  background: var(--tim-primary);
+  border: 1px solid var(--tim-primary);
+  border-radius: var(--tim-radius-sm);
+  cursor: pointer;
+}
+.tim-access__btn:hover {
+  background: var(--tim-primary-dark);
+}
+.tim-access__btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.tim-access__msg {
+  margin: 0.7rem 0 0;
+  font-size: 0.82rem;
+}
+.tim-access__msg--ok {
+  color: var(--tim-success);
+}
+.tim-access__msg--err {
+  color: var(--tim-danger-text);
+}
+
+/* ─── Recherche INSEE (préremplissage fiche client) ──────────────────────────*/
+.tim-insee {
+  position: relative;
+  margin-bottom: 1.25rem;
+}
+.tim-insee__hint {
+  margin: 0.15rem 0 0.4rem;
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+}
+.tim-insee__control {
+  position: relative;
+}
+.tim-insee__input {
+  width: 100%;
+  padding: 0.6rem 2.2rem 0.6rem 0.75rem;
+  font: inherit;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+}
+.tim-insee__input:focus {
+  outline: none;
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tim-primary) 16%, transparent);
+}
+.tim-insee__spin {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  width: 1rem;
+  height: 1rem;
+  margin-top: -0.5rem;
+  border: 2px solid color-mix(in srgb, var(--tim-primary) 30%, transparent);
+  border-top-color: var(--tim-primary);
+  border-radius: 50%;
+  animation: tim-insee-spin 0.6s linear infinite;
+}
+@keyframes tim-insee-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.tim-insee__error {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: var(--tim-danger-text);
+}
+.tim-insee__empty {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+}
+.tim-insee__list {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  margin: 0.35rem 0 0;
+  padding: 0.25rem;
+  list-style: none;
+  max-height: 18rem;
+  overflow-y: auto;
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  box-shadow: 0 12px 32px -12px color-mix(in srgb, var(--tim-foreground) 35%, transparent);
+}
+.tim-insee__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  cursor: pointer;
+}
+.tim-insee__item:hover {
+  background: var(--tim-surface);
+}
+.tim-insee__name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+.tim-insee__meta {
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+}

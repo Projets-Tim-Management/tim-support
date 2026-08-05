@@ -48,6 +48,24 @@ body,
   border-color: var(--tim-primary-dark);
 }
 
+/* Bouton « Ajouter » des listes : Payload le rend en pastille discrète, collée
+   au titre. On en fait l'action principale de la page — rouge TIM, poussée tout
+   à droite de la ligne de titre. Vaut pour TOUTES les collections. */
+.list-header__title-actions {
+  margin-left: auto;
+}
+/* On surcharge les VARIABLES du bouton pastille (--bg-color / --color…) plutôt
+   que ses propriétés : c'est par elles que Payload peint le fond et le survol,
+   donc la couleur tient sans surenchère de spécificité. */
+.list-create-new-doc__create-new-button {
+  --bg-color: var(--tim-primary);
+  --color: var(--tim-white);
+  --hover-bg: var(--tim-primary-dark);
+  --hover-color: var(--tim-white);
+  font-weight: 600;
+  padding: 0.4rem 1rem;
+}
+
 /* Focus des champs → liseré rouge */
 .field-type input:focus,
 .field-type textarea:focus,
@@ -105,11 +123,22 @@ input[type="checkbox"]:checked {
   background: var(--tim-surface);
 }
 
-/* Scroll horizontal quand le tableau a beaucoup de colonnes (au lieu de
-   déborder la page). */
+/* Scroll horizontal (beaucoup de colonnes) ET vertical (beaucoup de lignes) :
+   le tableau est plafonné en hauteur, au-delà on scrolle à l'intérieur. */
 .table {
-  overflow-x: auto;
+  overflow: auto;
   max-width: 100%;
+  /* Hauteur = celle de l'écran, moins l'en-tête d'app + titre/contrôles + la
+     pagination sous le tableau. Au-delà : scroll vertical (en-tête figé). */
+  max-height: calc(100vh - var(--app-header-height, 3.5rem) - 11rem);
+}
+/* En-tête figé pendant le scroll vertical (sinon il disparaît). Fond opaque pour
+   que les lignes ne transparaissent pas dessous. */
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--tim-white);
 }
 
 
@@ -174,4 +203,142 @@ input[type="checkbox"]:checked {
 .tim-pwd-save:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+/* ─── Visibilité par rôle (classe posée sur <body> par RoleBodyClass) ─────────
+   Non-admin (partenaires, support…) :
+   - onglet « API » du document masqué ;
+   - action « Créer un » des contrôles de document masquée (la « Suppression » est
+     déjà retirée côté access pour les clients → pas besoin de CSS).
+   L'admin/super-admin (tim-is-admin) garde tout. */
+.tim-not-admin .doc-tab[aria-label="API"],
+.tim-not-admin #action-create {
+  /* NB : on ne masque PAS #action-delete globalement — la suppression client est
+     déjà bloquée par l'access (isAdmin), et le partenaire DOIT pouvoir supprimer
+     ses contacts (client-contacts autorise le delete au métier). */
+  display: none !important;
+}
+
+/* Non-admin : masquer les identifiants techniques partout.
+   - Colonne « ID » des tableaux (en-tête `#heading-id`, cellules `.cell-id`) ;
+   - Pavé « ID: X » de l'en-tête d'un document / drawer (`.id-label`). */
+.tim-not-admin #heading-id,
+.tim-not-admin .cell-id,
+.tim-not-admin .id-label {
+  display: none !important;
+}
+
+/* ─── Champs relationship : plus d'édition inline de la fiche liée ────────────
+   On retire PARTOUT l'icône crayon (« drawer-toggler ») qui ouvre/modifie le
+   document lié directement depuis l'input. Tous rôles, tous les relationship
+   (single + multi). */
+.relationship--single-value__drawer-toggler,
+.relationship--multi-value-label__drawer-toggler {
+  display: none !important;
+}
+
+/* ─── Drawers de document (ex. édition d'un client depuis la fiche partenaire) ─
+   Le sidebar (325px) reste EN LIGNE → contenu à ~66% (tableau licences serré).
+   Sélecteur robuste `[class*="drawer"]` = n'importe quel ancêtre de drawer
+   (.drawer, .doc-drawer, .drawer__content…) et JAMAIS la pleine page.
+   1) `display: block` sur `.document-fields` (mécanisme natif Payload
+      `--force-sidebar-wrap`) → contenu + sidebar empilés, pleine largeur.
+   2) Force tout le chemin onglet → tableau à 100%. */
+/* Bandeau « Enregistrer » (doc-controls) collé en haut au scroll : notre règle
+   globale le colle sous la barre du haut (`top: var(--app-header-height)`), mais
+   dans un DRAWER il n'y a pas de barre du haut → on le colle à `top: 0`. */
+[class*="drawer"] .doc-controls {
+  top: 0 !important;
+}
+
+[class*="drawer"] .document-fields {
+  display: block !important;
+  isolation: isolate;
+}
+[class*="drawer"] .document-fields > .document-fields__main {
+  width: 100% !important;
+  min-height: initial !important;
+  border-right: 0 !important;
+}
+[class*="drawer"] .document-fields > .document-fields__sidebar-wrap {
+  position: static !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: initial !important;
+  border-left: 0 !important;
+}
+/* Neutralise les marges négatives + padding imbriqués (onglet + groupe) qui, avec
+   box-sizing:border-box, écrasent le contenu en cascade → tableau à ~299px. */
+[class*="drawer"] .tabs-field,
+[class*="drawer"] .group-field {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  width: auto !important;
+  max-width: none !important;
+}
+[class*="drawer"] .tabs-field__content-wrap,
+[class*="drawer"] .group-field__wrap {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  width: auto !important;
+  max-width: none !important;
+}
+[class*="drawer"] .lic-wrap,
+[class*="drawer"] .lic-table {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* ─── Cellules de tableau ─────────────────────────────────────────────────────
+   Colonne avatar : n'afficher QUE la vignette, pas le nom du fichier. */
+.cell-avatar .file__filename {
+  display: none;
+}
+
+/* Lignes de liste : hauteur minimum + contenu centré verticalement, sur TOUS les
+   tableaux (cohérence + confort). Le clic sur toute la ligne ouvre la fiche
+   (géré par le provider RowClick → curseur « pointer »). */
+.table thead th,
+.table tbody td {
+  vertical-align: middle;
+}
+.table tbody td {
+  height: 3.5rem; /* sur une cellule de tableau, `height` agit comme hauteur mini */
+}
+.table tbody tr {
+  cursor: pointer;
+}
+/* Avatar/logo en liste : Payload fixe le CONTENEUR `.file__thumbnail` à ~40px
+   (et l'image en "cover"). On le borne à 2rem et on centre le contenu → la
+   vignette ne « gonfle » plus la ligne et reste centrée, sans être rognée. */
+.cell-avatar {
+  width: 3.5rem;
+}
+.cell-avatar .file {
+  align-items: center;
+}
+.cell-avatar .file__thumbnail {
+  width: 2rem;
+  max-width: 2rem;
+  height: 2rem;
+}
+.cell-avatar .file__thumbnail img {
+  object-fit: contain;
+}
+
+/* Compteurs / totaux masqués pour les partenaires (pas d'exposition de la taille
+   de la BDD) : « X sur Y » de la pagination + pastilles de comptage des onglets
+   (ex. nombre de versions). */
+.tim-not-admin .page-controls__page-info,
+.tim-not-admin .doc-tab .pill {
+  display: none !important;
+}
+
+/* Filtres masqués pour les partenaires : le champ « ID » ne pouvant pas être
+   retiré des filtres au cas par cas (injecté par Payload hors config), on masque
+   le bouton « Filtres » entier côté partenaire. L'admin garde les filtres. */
+.tim-not-admin .list-controls__toggle-where {
+  display: none !important;
 }

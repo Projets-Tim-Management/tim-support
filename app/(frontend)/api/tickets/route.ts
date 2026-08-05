@@ -8,6 +8,7 @@ import {
 import { payloadClient } from "@/core/payload-client";
 import { attachmentsFromForm, uploadImages } from "@/core/lib/uploads";
 import { ticketValues } from "@/modules/support/admin/ticket-meta";
+import { ticketMailHeaders } from "@/modules/support/lib/brevo";
 
 const TICKET_TYPES = ticketValues("type");
 const TICKET_SERVICES = ticketValues("service");
@@ -34,6 +35,9 @@ export async function POST(req: Request) {
   const description = String(form.get("description") ?? "").trim();
   const email = String(form.get("email") ?? "").trim();
   const name = String(form.get("name") ?? "").trim();
+  // Facultatifs : ils situent le demandeur sans conditionner l'envoi.
+  const firstName = String(form.get("firstName") ?? "").trim();
+  const company = String(form.get("company") ?? "").trim();
   const url = String(form.get("url") ?? "").trim();
   const typeRaw = String(form.get("type") ?? "assistance").trim();
   const serviceRaw = String(form.get("service") ?? "").trim();
@@ -72,6 +76,8 @@ export async function POST(req: Request) {
         description,
         email,
         name: name || undefined,
+        firstName: firstName || undefined,
+        company: company || undefined,
         url: url || undefined,
         service,
         type,
@@ -99,6 +105,8 @@ export async function POST(req: Request) {
           ...(process.env.REPLY_DOMAIN
             ? { replyTo: `ticket-${number}@${process.env.REPLY_DOMAIN}` }
             : {}),
+          // Tag Brevo → l'onglet « E-mails » du ticket retrouve cet envoi.
+          ...ticketMailHeaders(number),
           ...ticketConfirmationEmail({ name, email, subject, number }),
         });
       } catch (e) {
@@ -108,6 +116,7 @@ export async function POST(req: Request) {
       try {
         await payload.sendEmail({
           to: SUPPORT_NOTIFY_EMAIL,
+          ...ticketMailHeaders(number),
           ...newTicketNoticeEmail({ id: created.id, number, subject, type, name, email, service, url, description }),
         });
       } catch (e) {

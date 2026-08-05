@@ -1,9 +1,22 @@
 import { randomBytes } from "crypto";
 
-import type { CollectionConfig, Field } from "payload";
+import type { CollectionConfig, Condition, Field } from "payload";
 
-import { adminOnlyField, adminOnlyFieldRead, isAdmin, ownPartnerRecord } from "@/core/access";
+import {
+  adminOnlyField,
+  adminOnlyFieldRead,
+  isAdmin,
+  isPartnerMetier,
+  ownPartnerRecord,
+} from "@/core/access";
 import { validatePhone } from "@/core/lib/validators";
+
+/**
+ * `admin.condition` masquant un champ/onglet en UI pour le partenaire-MÉTIER
+ * (la donnée reste en base ; l'admin voit tout). Le métier n'administre pas ces
+ * éléments : il ne doit ni les voir ni les changer.
+ */
+const hideForMetier: Condition = (_data, _siblingData, { user }) => !isPartnerMetier(user);
 
 /** Génère un code partenaire unique au format TIM-XXXXXX (6 hex majuscules). */
 const generatePartnerCode = (): string =>
@@ -33,7 +46,6 @@ const modelValue = (data: unknown): string | undefined =>
  */
 const INTERNAL_FIELDS = new Set([
   "partnershipModel",
-  "commissionRate",
   "commissionDuration",
   "contractNotes",
   "joinedAt",
@@ -45,10 +57,18 @@ const INTERNAL_FIELDS = new Set([
 ]);
 
 /**
- * Applique récursivement un field-level access « admin uniquement » (lecture +
- * écriture) aux champs internes ci-dessus, en descendant dans les onglets et les
- * rows imbriqués. Une seule source de vérité (la liste INTERNAL_FIELDS) plutôt
- * que d'annoter chaque champ à la main.
+ * Exception : le TAUX de commission est ce qu'on reverse au partenaire — il doit
+ * le voir sur sa fiche (et dans la tuile « Commission / mois »), sans jamais
+ * pouvoir le modifier. Lecture ouverte, écriture admin : Payload désactive le
+ * champ dans l'UI ET refuse l'écriture côté serveur.
+ */
+const PARTNER_READONLY_FIELDS = new Set(["commissionRate"]);
+
+/**
+ * Applique récursivement le field-level access, en descendant dans les onglets
+ * et les rows imbriqués : « admin uniquement » en lecture + écriture pour
+ * INTERNAL_FIELDS, écriture seule pour PARTNER_READONLY_FIELDS. Deux listes
+ * comme source de vérité, plutôt que d'annoter chaque champ à la main.
  */
 const protectInternalFields = (fields: Field[]): Field[] =>
   (fields as unknown[]).map((field) => {
@@ -71,6 +91,9 @@ const protectInternalFields = (fields: Field[]): Field[] =>
     if (typeof f.name === "string" && INTERNAL_FIELDS.has(f.name)) {
       out = { ...out, access: { ...f.access, read: adminOnlyFieldRead, update: adminOnlyField } };
     }
+    if (typeof f.name === "string" && PARTNER_READONLY_FIELDS.has(f.name)) {
+      out = { ...out, access: { ...f.access, update: adminOnlyField } };
+    }
     return out;
   }) as Field[];
 
@@ -91,8 +114,14 @@ export const Partners: CollectionConfig = {
   labels: { singular: "Partenaire", plural: "Partenaires" },
   admin: {
     useAsTitle: "email",
-    defaultColumns: ["partnerKind", "email", "name", "societe", "status"],
+    // Ordre des colonnes du tableau : Avatar, Nom, Prénom, Société, Email.
+    defaultColumns: ["avatar", "name", "firstName", "societe", "email"],
     group: "Partenaires",
+    components: {
+      // Partenaire-métier : retire recherche/filtres/colonnes du tableau (il ne
+      // voit que sa propre fiche). L'admin garde les contrôles. Voir le composant.
+      beforeListTable: ["/modules/partner/admin/PartnersListLite#default"],
+    },
   },
   // admin = toutes les fiches ; un partenaire = UNIQUEMENT la sienne (lecture +
   // mise à jour). Création/suppression réservées aux admins.
@@ -129,7 +158,21 @@ export const Partners: CollectionConfig = {
       admin: {
         description:
           "Métier = payé en commission via un contrat. Utilisateur = personne individuelle qui gagne des points.",
+        // Le métier ne doit pas pouvoir changer son type → masqué pour lui.
+        condition: hideForMetier,
       },
+    },
+    // Identité de la personne : nom et prénom SÉPARÉS, côte à côte (les deux
+    // types de partenaires) — c'est ce couple qui compose le libellé affiché
+    // partout (« Prénom Nom ») et l'identité du compte back-office provisionné.
+    // Pour un métier constitué en société, la raison sociale a son propre champ
+    // (« Société / raison sociale », onglet Contact & identité).
+    {
+      type: "row",
+      fields: [
+        { name: "name", type: "text", label: "Nom", admin: { width: "50%" } },
+        { name: "firstName", type: "text", label: "Prénom", admin: { width: "50%" } },
+      ],
     },
     {
       type: "row",
@@ -140,19 +183,8 @@ export const Partners: CollectionConfig = {
           label: "Email",
           required: true,
           unique: true,
-          admin: { width: "50%", description: "Clé de rapprochement (app + migration)." },
-        },
-        { name: "name", type: "text", label: "Nom", admin: { width: "50%" } },
-      ],
-    },
-    {
-      type: "row",
-      fields: [
-        {
-          name: "firstName",
-          type: "text",
-          label: "Prénom",
-          admin: { width: "50%", condition: (data) => data?.partnerKind === "utilisateur" },
+          // Clé de rapprochement (app + migration) → unique, d'où le `unique`.
+          admin: { width: "50%" },
         },
         {
           name: "phone",
@@ -171,7 +203,6 @@ export const Partners: CollectionConfig = {
         // ── Contact & identité (partenaire métier) ──────────────────────────
         {
           label: "Contact & identité",
-          description: "Coordonnées et nature du partenaire.",
           admin: { condition: (data) => data?.partnerKind !== "utilisateur" },
           fields: [
             {
@@ -216,7 +247,6 @@ export const Partners: CollectionConfig = {
         // ── Entreprise & légal (partenaire métier) ──────────────────────────
         {
           label: "Entreprise & légal",
-          description: "Informations utiles à la facturation, aux cadeaux et aux seuils fiscaux.",
           admin: { condition: (data) => data?.partnerKind !== "utilisateur" },
           fields: [
             {
@@ -239,8 +269,6 @@ export const Partners: CollectionConfig = {
         // ── Contrat & programme partenaire (métier) ─────────────────────────
         {
           label: "Contrat & programme",
-          description:
-            "Modèle de partenariat (PDF 2026), commission et contrat signé. La commission et sa durée découlent du modèle.",
           admin: { condition: (data) => data?.partnerKind !== "utilisateur" },
           fields: [
             {
@@ -254,6 +282,15 @@ export const Partners: CollectionConfig = {
               ],
               admin: { description: "Détermine automatiquement le taux et la durée de commission." },
             },
+            // Pré-remplit (côté UI, en direct) Commission (%) + Durée dès qu'on
+            // choisit le modèle — modifiable ensuite. Ne rend rien.
+            {
+              name: "modelAutofill",
+              type: "ui",
+              admin: {
+                components: { Field: "/modules/partner/admin/ContractModelAutofill#ContractModelAutofill" },
+              },
+            },
             {
               type: "row",
               fields: [
@@ -263,10 +300,9 @@ export const Partners: CollectionConfig = {
                   label: "Commission (%)",
                   min: 0,
                   max: 100,
-                  admin: {
-                    width: "50%",
-                    description: "Pré-rempli selon le modèle. Modifiable (taux négocié) ; videz pour re-déduire.",
-                  },
+                  // Pré-rempli depuis le modèle de partenariat (modifiable
+                  // ensuite ; vidé, il est re-déduit du modèle par le hook).
+                  admin: { width: "50%" },
                   hooks: {
                     beforeChange: [
                       ({ value, siblingData }) => {
@@ -283,7 +319,8 @@ export const Partners: CollectionConfig = {
                   label: "Durée de commission",
                   admin: {
                     width: "50%",
-                    description: "Pré-remplie selon le modèle. Modifiable ; videz pour re-déduire.",
+                    description:
+                      "Pré-remplie automatiquement quand tu choisis le modèle (modifiable ensuite). Videz pour re-déduire.",
                   },
                   options: [
                     { label: "24 mois", value: "24m" },
@@ -304,17 +341,28 @@ export const Partners: CollectionConfig = {
             {
               type: "row",
               fields: [
-                { name: "contractSigned", type: "checkbox", label: "Contrat signé", defaultValue: false, admin: { width: "34%" } },
+                // Contrat : le métier consulte mais ne peut PAS ajouter/modifier
+                // ces champs (update réservé à l'admin ; enforce aussi côté serveur).
+                {
+                  name: "contractSigned",
+                  type: "checkbox",
+                  label: "Contrat signé",
+                  defaultValue: false,
+                  access: { update: adminOnlyField },
+                  admin: { width: "34%" },
+                },
                 {
                   name: "contractSignatureDate",
                   type: "date",
                   label: "Date de signature",
+                  access: { update: adminOnlyField },
                   admin: { width: "33%", date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" } },
                 },
                 {
                   name: "contractStartDate",
                   type: "date",
                   label: "Début du contrat",
+                  access: { update: adminOnlyField },
                   admin: { width: "33%", date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" } },
                 },
               ],
@@ -326,6 +374,8 @@ export const Partners: CollectionConfig = {
               admin: {
                 description: "Pour un modèle 24 mois. Laisser vide si « à vie ».",
                 date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
+                // Masqué pour le métier (il ne gère pas la fin de contrat).
+                condition: hideForMetier,
               },
             },
             {
@@ -355,11 +405,35 @@ export const Partners: CollectionConfig = {
           ],
         },
 
+        // ── Accès back-office (métier) ──────────────────────────────────────
+        // Compte de connexion lié à la fiche : l'email = le champ « Email » de la
+        // fiche (forcé) ; ici on ne définit que le mot de passe. Provisioning via
+        // l'endpoint /api/partner/access (le mot de passe n'est jamais stocké).
+        {
+          label: "Accès",
+          description: "Accès back-office du partenaire (compte + mot de passe).",
+          admin: { condition: (data) => data?.partnerKind !== "utilisateur" },
+          fields: [
+            {
+              name: "accessManager",
+              type: "ui",
+              admin: {
+                components: { Field: "/modules/partner/admin/PartnerAccessManager#PartnerAccessManager" },
+              },
+            },
+          ],
+        },
+
         // ── Suivi commercial / programme (métier) ───────────────────────────
         {
           label: "Suivi commercial",
           description: "Relation, acquisition et notes internes.",
-          admin: { condition: (data) => data?.partnerKind !== "utilisateur" },
+          // Utilisateur : masqué (comme les autres onglets métier). Métier : masqué
+          // aussi (suivi interne TIM, pas destiné au partenaire lui-même).
+          admin: {
+            condition: (data, siblingData, ctx) =>
+              data?.partnerKind !== "utilisateur" && hideForMetier(data, siblingData, ctx),
+          },
           fields: [
             {
               type: "row",
@@ -432,11 +506,22 @@ export const Partners: CollectionConfig = {
               type: "join",
               collection: "partner-clients",
               on: "partner",
-              label: "Clients apportés",
+              // Pas de titre : l'onglet annonce déjà « Clients & commission ».
+              label: false,
               defaultSort: "-createdAt",
               admin: {
                 allowCreate: true,
-                defaultColumns: ["companyName", "clientStatus", "signatureDate"],
+                defaultColumns: [
+                  "companyName",
+                  "clientStatus",
+                  "signatureDate",
+                  "caPaye",
+                  "commissionMonthly",
+                ],
+                // Bouton « Ajouter un client » (le lien natif est masqué en CSS).
+                components: {
+                  beforeInput: ["/modules/partner/admin/AddClientButton#AddClientButton"],
+                },
               },
             },
           ],
@@ -482,11 +567,8 @@ export const Partners: CollectionConfig = {
       type: "text",
       label: "Code partenaire",
       unique: true,
-      admin: {
-        position: "sidebar",
-        readOnly: true,
-        description: "Généré automatiquement (TIM-XXXXXX).",
-      },
+      // Généré automatiquement (TIM-XXXXXX) par le hook ci-dessous.
+      admin: { position: "sidebar", readOnly: true },
       hooks: {
         beforeChange: [({ value }) => value || generatePartnerCode()],
       },
@@ -507,10 +589,8 @@ export const Partners: CollectionConfig = {
       name: "appUserId",
       type: "text",
       label: "ID utilisateur app",
-      admin: {
-        position: "sidebar",
-        description: "Identifiant sur app.tim-management.co, si disponible.",
-      },
+      // Identifiant du partenaire sur app.tim-management.co, si disponible.
+      admin: { position: "sidebar" },
     },
   ]),
 };

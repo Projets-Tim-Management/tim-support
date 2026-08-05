@@ -1,4 +1,4 @@
-import type { CollectionConfig } from "payload";
+import type { CollectionConfig, PayloadRequest } from "payload";
 
 import { ALL_ROLES, ROLES, adminOnlyField, hasBackofficeRole, isAdmin, isAdminOrSelf } from "@/core/access";
 import { guardSuperAdminOnChange, guardSuperAdminOnDelete } from "@/core/hooks/superAdmin";
@@ -128,7 +128,10 @@ export const Users: CollectionConfig = {
       },
       // Cohérence : requis pour un rôle partenaire, et le type de la fiche
       // (partnerKind) doit correspondre au rôle (métier ↔ utilisateur).
-      validate: async (value: unknown, { req, siblingData }: { req: any; siblingData?: unknown }) => {
+      validate: async (
+        value: unknown,
+        { req, siblingData }: { req: PayloadRequest; siblingData?: unknown },
+      ) => {
         const roles = (Array.isArray((siblingData as { roles?: unknown })?.roles)
           ? (siblingData as { roles: string[] }).roles
           : []) as string[];

@@ -34,14 +34,18 @@ export default function Donut({ slices, centerLabel }: { slices: Slice[]; center
   const total = slices.reduce((s, x) => s + x.count, 0);
   if (total === 0) return <p className="dash-empty">Aucune donnée</p>;
 
-  let acc = -Math.PI / 2;
-  const arcs = slices.map((s) => {
+  // Angles cumulés, calculés par `reduce` : chaque segment démarre là où le
+  // précédent s'arrête. Une variable mutée dans un `map` ferait le même calcul,
+  // mais muter pendant le rendu est ce que le compilateur React proscrit.
+  const arcs = slices.reduce<{ a0: number; a1: number; frac: number; start: number }[]>((acc, s) => {
+    const start = acc.length > 0 ? acc[acc.length - 1].start : -Math.PI / 2;
     const frac = s.count / total;
-    const a0 = acc + (s.count > 0 ? GAP / 2 : 0);
-    const a1 = acc + frac * Math.PI * 2 - (s.count > 0 ? GAP / 2 : 0);
-    acc += frac * Math.PI * 2;
-    return { a0: Math.min(a0, a1), a1: Math.max(a0, a1), frac };
-  });
+    const gap = s.count > 0 ? GAP / 2 : 0;
+    const a0 = start + gap;
+    const a1 = start + frac * Math.PI * 2 - gap;
+    acc.push({ a0: Math.min(a0, a1), a1: Math.max(a0, a1), frac, start: start + frac * Math.PI * 2 });
+    return acc;
+  }, []);
 
   return (
     <div className="dash-donut">

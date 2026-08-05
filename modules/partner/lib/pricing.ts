@@ -8,6 +8,19 @@
  */
 import { round2 } from "./format";
 
+/**
+ * Un client ne compte dans le CA et les commissions que s'il est **Actif**.
+ *
+ * Un prospect ou un client « en cours » a déjà des licences saisies (l'offre en
+ * préparation) mais ne paie encore rien ; un résilié/archivé ne paie plus (la
+ * commission s'interrompt à la résiliation, cf. PDF). Les compter gonflerait un
+ * CA « / mois » qui n'est pas encaissé.
+ *
+ * Source de vérité unique : les tuiles de la fiche partenaire, la colonne
+ * « Commission / mois » et la ligne de total de la liste s'y réfèrent toutes.
+ */
+export const isBillableClient = (clientStatus?: string | null) => clientStatus === "actif";
+
 /** Prix de base /mois par profil (€ HT) — valeurs par défaut, surchargeables. */
 export const LICENCE_BASE_PRICES = {
   admin: 39,

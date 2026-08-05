@@ -206,10 +206,29 @@
   font-weight: 700;
   flex: 0 0 auto;
 }
-.tim-pswitch__item-label {
+/* Deux lignes : l'entreprise (ou la personne à défaut), puis la personne en
+   plus petit. `min-width: 0` autorise l'ellipse des enfants dans le flex. */
+.tim-pswitch__item-text {
+  display: flex;
   flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  /* Les deux lignes forment UN bloc : pas d'écart, l'interligne serré suffit
+     à les séparer (sinon elles se lisent comme deux informations distinctes). */
+  gap: 0;
+}
+.tim-pswitch__item-label {
   font-size: 0.86rem;
+  line-height: 1.25;
   color: var(--tim-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tim-pswitch__item-sub {
+  font-size: 0.73rem;
+  line-height: 1.2;
+  color: var(--tim-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -227,10 +246,23 @@
   gap: 0.75rem;
   background: var(--tim-nav-bg);
 }
+/* Même hiérarchie dans le panneau de détails : entreprise en titre, personne
+   juste en dessous (le groupe échappe au `gap` de la colonne). */
+.tim-pswitch__details-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
 .tim-pswitch__details-name {
   font-size: 1rem;
+  line-height: 1.3;
   font-weight: 800;
   color: var(--tim-foreground);
+}
+.tim-pswitch__details-sub {
+  font-size: 0.8rem;
+  line-height: 1.25;
+  color: var(--tim-muted);
 }
 .tim-pswitch__dl {
   display: grid;

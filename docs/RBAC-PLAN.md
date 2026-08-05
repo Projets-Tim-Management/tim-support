@@ -118,7 +118,10 @@ C=create R=read U=update D=delete · **(own)** = scopé `partner = user.partner`
 ## 7. Field-level access (crucial pour les partenaires)
 
 Un partenaire voit sa fiche **mais pas les champs internes TIM**. Masquer en lecture pour les rôles partenaire :
-`accountManager`, `tier`, `acquisitionSource`, `commissionRate`, `commissionDuration`, `partnershipModel`, `notes`, `contractNotes`, `internalNotes`, `tags`, coordonnées de suivi commercial.
+`accountManager`, `tier`, `acquisitionSource`, `commissionDuration`, `partnershipModel`, `notes`, `contractNotes`, `internalNotes`, `tags`, coordonnées de suivi commercial.
+
+**Exception `commissionRate` (décision du 03/08/2026)** : le taux reversé au partenaire lui est **visible en lecture** (fiche + tuile « Commission / mois »), mais **modifiable par un admin uniquement**. Le barème qui le produit (`partnershipModel`) et la durée restent internes.
+
 Champs éditables par le partenaire : identité/contact de base, avatar. Le reste en lecture seule ou masqué.
 
 ---
@@ -188,8 +191,9 @@ Suite d'intégration : pour **chaque rôle**, seed un user + (pour les partenair
 - Note : ces règles ne s'appliquent qu'aux accès avec `user` sans `overrideAccess` → **dormantes tant que partenaires/support ne se connectent pas (Phase 5)** ; le front et le dashboard utilisent `overrideAccess` → aucune régression.
 
 ### Phase 4 — Field-level partenaire ✅
-- [x] Helper `protectInternalFields` (Partners.ts) : applique récursivement un field-access admin-only (lecture + écriture) aux champs internes TIM listés dans `INTERNAL_FIELDS` (partnershipModel, commissionRate, commissionDuration, contractNotes, joinedAt, acquisitionSource, tier, accountManager, tags, notes), y compris dans les rows/onglets. Un partenaire consultant SA fiche ne les voit pas.
-- Note : les documents/dates de contrat du partenaire restent visibles (sa propre info) ; seuls commission & suivi commercial interne sont masqués.
+- [x] Helper `protectInternalFields` (Partners.ts) : applique récursivement un field-access admin-only (lecture + écriture) aux champs internes TIM listés dans `INTERNAL_FIELDS` (partnershipModel, commissionDuration, contractNotes, joinedAt, acquisitionSource, tier, accountManager, tags, notes), y compris dans les rows/onglets. Un partenaire consultant SA fiche ne les voit pas.
+- [x] Seconde liste `PARTNER_READONLY_FIELDS` (commissionRate) : lecture ouverte au partenaire, écriture admin-only — voir l'exception §7.
+- Note : les documents/dates de contrat du partenaire restent visibles (sa propre info) ; seuls le suivi commercial interne et le barème (modèle + durée) sont masqués.
 
 ### Phase 5 — Accès module & UI ✅
 - [x] `Users.access.admin` → `hasBackofficeRole` (partenaires/support entrent dans /admin).

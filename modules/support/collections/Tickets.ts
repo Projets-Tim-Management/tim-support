@@ -1,14 +1,30 @@
-import type { CollectionConfig } from "payload";
+import type { CollectionConfig, Condition } from "payload";
 
 import { canSupport, isAdmin } from "@/core/access";
 import { referenceNumber } from "@/core/fields/referenceNumber";
 import { stampResolvedAt } from "@/modules/support/hooks/resolved-at";
 
 /**
+ * Le formulaire de CRÉATION et la fiche d'un ticket existant n'affichent pas les
+ * mêmes champs : à l'ouverture il faut saisir le sujet et la demande, alors que
+ * sur un ticket existant ces deux champs sont rendus par le fil de conversation.
+ *
+ * `condition` plutôt que `hidden` : un champ masqué par condition CONSERVE sa
+ * valeur à l'enregistrement (il n'est ni vidé ni revalidé), il n'est simplement
+ * pas rendu — c'est ce qui permet de garder `required` sans bloquer les
+ * enregistrements suivants.
+ */
+const onCreate: Condition = (_data, _siblingData, { operation }) => operation === "create";
+const onEdit: Condition = (_data, _siblingData, { operation }) => operation === "update";
+
+/**
  * Tickets de support.
  *
- * Créés par le front (formulaire de contact) via le serveur Next. La vue
- * d'édition est présentée comme une page de support : la colonne principale
+ * Trois origines : le formulaire de contact du front, les e-mails entrants
+ * (webhook) et le back-office — admin et support peuvent ouvrir un ticket
+ * eux-mêmes, pour tracer une demande reçue par téléphone ou de vive voix.
+ *
+ * La vue d'édition est présentée comme une page de support : la colonne principale
  * affiche le fil de conversation (composant TicketConversation) + la zone de
  * réponse (TicketReply) + les notes internes ; la barre latérale regroupe le
  * contexte (statut, priorité, demandeur…). Les champs bruts subject/description/
@@ -28,12 +44,12 @@ export const Tickets: CollectionConfig = {
       beforeListTable: ["/modules/support/admin/TicketListFilters#TicketListFilters"],
     },
   },
-  // Les tickets ne se créent QUE via le formulaire de contact (Local API, qui
-  // outrepasse l'accès). Dans l'admin : pas de bouton « Créer », pas de
-  // « Dupliquer » — on ne fait que consulter/traiter les tickets existants.
+  // Création : formulaire de contact (Local API), e-mail entrant, ET back-office
+  // pour l'admin comme pour le support — une demande arrivée par téléphone doit
+  // pouvoir être tracée. Pas de « Dupliquer » pour autant : un ticket est unique.
   access: {
     read: canSupport,
-    create: () => false,
+    create: canSupport,
     update: canSupport,
     delete: isAdmin,
   },
@@ -41,28 +57,71 @@ export const Tickets: CollectionConfig = {
   defaultSort: "-createdAt", // les plus récents en premier
   hooks: { beforeChange: [stampResolvedAt] },
   fields: [
-    // ─── Colonne principale : conversation, réponse, notes ───────────────────
+    // ─── Colonne principale : deux onglets sur un ticket existant ────────────
+    // « Conversation » (le fil + la réponse) et « E-mails » (ce que Brevo sait
+    // des envois : remis, ouvert, cliqué…). Les onglets ne s'affichent pas à la
+    // création : il n'y a encore ni fil ni envoi.
     {
-      name: "conversationView",
-      type: "ui",
-      admin: {
-        components: {
-          Field: "/modules/support/admin/TicketConversation#TicketConversation",
+      type: "tabs",
+      admin: { condition: onEdit },
+      tabs: [
+        {
+          label: "Conversation",
+          fields: [
+            {
+              name: "conversationView",
+              type: "ui",
+              admin: {
+                components: {
+                  Field: "/modules/support/admin/TicketConversation#TicketConversation",
+                },
+              },
+            },
+            {
+              name: "replyBox",
+              type: "ui",
+              admin: {
+                components: {
+                  Field: "/modules/support/admin/TicketReply#TicketReply",
+                },
+              },
+            },
+          ],
         },
-      },
+        {
+          label: "E-mails",
+          fields: [
+            {
+              name: "emailActivity",
+              type: "ui",
+              admin: {
+                components: {
+                  Field: "/modules/support/admin/TicketEmails#TicketEmails",
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+    // ─── Saisis à l'ouverture, puis rendus par le fil de conversation ─────────
+    {
+      name: "subject",
+      type: "text",
+      label: "Sujet",
+      required: true,
+      admin: { condition: onCreate, placeholder: "Objet de la demande" },
     },
     {
-      name: "replyBox",
-      type: "ui",
+      name: "description",
+      type: "textarea",
+      label: "Demande",
+      required: true,
       admin: {
-        components: {
-          Field: "/modules/support/admin/TicketReply#TicketReply",
-        },
+        condition: onCreate,
+        placeholder: "Ce que le client demande, dans ses mots si possible.",
       },
     },
-    // ─── Champs affichés dans le fil (masqués du formulaire) ──────────────────
-    { name: "subject", type: "text", label: "Sujet", required: true, admin: { hidden: true } },
-    { name: "description", type: "textarea", label: "Description", required: true, admin: { hidden: true } },
     {
       name: "messages",
       type: "array",
@@ -82,6 +141,11 @@ export const Tickets: CollectionConfig = {
         },
         { name: "body", type: "textarea", label: "Message" },
         { name: "sentAt", type: "date", label: "Reçu le" },
+        // Destinataires en copie de CET envoi, tels que saisis au moment de la
+        // réponse (liste séparée par des virgules). Conservés ici plutôt que
+        // déduits de Brevo : c'est un fait de notre envoi, il doit rester lisible
+        // au-delà des 90 jours d'historique de l'API.
+        { name: "cc", type: "text", label: "En copie" },
         {
           name: "attachments",
           type: "upload",
@@ -196,8 +260,29 @@ export const Tickets: CollectionConfig = {
       },
     },
     { name: "email", type: "email", label: "Email", required: true, admin: { position: "sidebar" } },
-    { name: "name", type: "text", label: "Nom", admin: { position: "sidebar" } },
-    { name: "url", type: "text", label: "Page concernée", admin: { position: "sidebar" } },
+    // Identité du demandeur. `name` (Nom) existait déjà ; prénom et entreprise
+    // sont facultatifs — un ticket ne doit jamais être bloqué par ces champs,
+    // et les demandes arrivées par e-mail n'en ont pas.
+    {
+      type: "row",
+      admin: { position: "sidebar" },
+      fields: [
+        { name: "name", type: "text", label: "Nom", admin: { width: "50%" } },
+        { name: "firstName", type: "text", label: "Prénom", admin: { width: "50%" } },
+      ],
+    },
+    { name: "company", type: "text", label: "Entreprise", admin: { position: "sidebar" } },
+    {
+      name: "url",
+      type: "text",
+      label: "Page concernée",
+      admin: {
+        position: "sidebar",
+        // Même liste que le formulaire public (catégories de features, Web /
+        // Mobile) au lieu d'une URL à taper à la main.
+        components: { Field: "/modules/support/admin/TicketPageSelect#TicketPageSelect" },
+      },
+    },
     {
       name: "attachments",
       type: "upload",
@@ -207,6 +292,9 @@ export const Tickets: CollectionConfig = {
       label: "Pièces jointes",
       admin: {
         position: "sidebar",
+        // Galerie en lecture seule des pièces envoyées par le client : rien à
+        // montrer sur un ticket qu'on est en train d'ouvrir.
+        condition: onEdit,
         components: {
           Field: "/modules/support/admin/TicketAttachments#TicketAttachments",
         },
@@ -217,7 +305,7 @@ export const Tickets: CollectionConfig = {
       type: "date",
       label: "Résolu le",
       index: true, // filtré + trié par le cron de purge
-      admin: { position: "sidebar", readOnly: true },
+      admin: { position: "sidebar", readOnly: true, condition: onEdit },
     },
     // Drapeau « à traiter » : true à la création et à chaque réponse client,
     // false quand le support répond ou résout. Alimente les notifications du
@@ -254,10 +342,11 @@ export const Tickets: CollectionConfig = {
         },
       },
     },
-    // IP + User-Agent côte à côte (technique).
+    // IP + User-Agent côte à côte (technique) — relevés par le formulaire du
+    // front, donc sans objet sur un ticket ouvert depuis le back-office.
     {
       type: "row",
-      admin: { position: "sidebar" },
+      admin: { position: "sidebar", condition: onEdit },
       fields: [
         { name: "ip", type: "text", label: "IP", admin: { readOnly: true } },
         { name: "userAgent", type: "text", label: "User-Agent", admin: { readOnly: true } },

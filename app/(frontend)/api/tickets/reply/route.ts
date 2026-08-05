@@ -4,6 +4,7 @@ import { payloadClient } from "@/core/payload-client";
 import { ticketReplyEmail } from "@/modules/support/lib/email";
 import { attachmentsFromForm, uploadImages } from "@/core/lib/uploads";
 import { ticketValues } from "@/modules/support/admin/ticket-meta";
+import { getSenders, ticketMailHeaders } from "@/modules/support/lib/brevo";
 
 // Réponse du support à un ticket, déclenchée depuis la vue admin du ticket.
 // Ajoute le message (+ pièces jointes éventuelles) au fil, envoie l'e-mail au
@@ -31,10 +32,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "empty" }, { status: 400 });
   }
 
+  // ── Expéditeur choisi + copies ────────────────────────────────────────────
+  // L'expéditeur est VALIDÉ contre les adresses vérifiées du compte Brevo : une
+  // adresse inconnue ferait rejeter l'envoi par Brevo, donc on retombe sur
+  // l'adresse du support plutôt que de perdre la réponse.
+  const fromInput = String(form.get("from") ?? "").trim().toLowerCase();
+  const senders = await getSenders();
+  const sender = senders.find((s) => s.email.toLowerCase() === fromInput);
+  const from = sender ? { from: `${sender.name} <${sender.email}>` } : {};
+
+  // Copies : adresses séparées par virgule / point-virgule / espace.
+  const cc = String(form.get("cc") ?? "")
+    .split(/[,;\s]+/)
+    .map((a) => a.trim())
+    .filter((a) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a))
+    .slice(0, 10);
+
   const ticket = (await payload
     .findByID({ collection: "tickets", id: ticketId, depth: 0 })
     .catch(() => null)) as
-    | { id: number; number?: number; subject: string; email: string; name?: string; status?: string; messages?: { author: "client" | "support"; body: string; sentAt: string; attachments?: number[] }[] }
+    | { id: number; number?: number; subject: string; email: string; name?: string; status?: string; messages?: { author: "client" | "support"; body: string; sentAt: string; cc?: string; attachments?: number[] }[] }
     | null;
   if (!ticket) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
@@ -49,6 +66,9 @@ export async function POST(req: Request) {
     author: "support",
     body,
     sentAt: new Date().toISOString(),
+    // Trace des destinataires en copie : sans elle, impossible de savoir plus
+    // tard qui a reçu cette réponse en dehors du demandeur.
+    ...(cc.length ? { cc: cc.join(", ") } : {}),
     ...(attachmentIds.length ? { attachments: attachmentIds as number[] } : {}),
   });
 
@@ -75,9 +95,13 @@ export async function POST(req: Request) {
   try {
     await payload.sendEmail({
       to: ticket.email,
+      ...from,
+      ...(cc.length ? { cc } : {}),
       ...(process.env.REPLY_DOMAIN
         ? { replyTo: `ticket-${ticket.number}@${process.env.REPLY_DOMAIN}` }
         : {}),
+      // Tag Brevo → l'onglet « E-mails » du ticket retrouve cet envoi.
+      ...ticketMailHeaders(ticket.number as number),
       ...(emailAttachments.length ? { attachments: emailAttachments } : {}),
       ...ticketReplyEmail({
         name: ticket.name,

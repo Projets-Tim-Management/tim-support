@@ -67,6 +67,8 @@ export default function TicketForm() {
   const [description, setDescription] = useState("");
   const [email,       setEmail]       = useState("");
   const [name,        setName]        = useState("");
+  const [firstName,   setFirstName]   = useState("");
+  const [company,     setCompany]     = useState("");
   const [page,        setPage]        = useState(initialPage);
   const [service,     setService]     = useState("");
   const [files,       setFiles]       = useState<File[]>([]);
@@ -193,6 +195,8 @@ export default function TicketForm() {
       fd.append("description", description);
       fd.append("email",       email);
       fd.append("name",        name);
+      fd.append("firstName",   firstName);
+      fd.append("company",     company);
       // Pour 'autre' on envoie le service au lieu de la page concernée.
       if (type === "autre") {
         fd.append("service", service);
@@ -394,6 +398,36 @@ export default function TicketForm() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            className="w-full h-10 px-3 border border-border rounded-md outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
+          />
+        </div>
+      </div>
+
+      {/* Prénom + Entreprise — facultatifs : ils aident le support à situer le
+          demandeur, sans jamais bloquer l'envoi d'une demande. */}
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="firstName" className="block text-sm font-semibold mb-1">
+            Prénom <span className="text-muted text-xs font-normal">(optionnel)</span>
+          </label>
+          <input
+            id="firstName"
+            type="text"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            className="w-full h-10 px-3 border border-border rounded-md outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
+          />
+        </div>
+        <div>
+          <label htmlFor="company" className="block text-sm font-semibold mb-1">
+            Entreprise <span className="text-muted text-xs font-normal">(optionnel)</span>
+          </label>
+          <input
+            id="company"
+            type="text"
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+            placeholder="Nom de votre société"
             className="w-full h-10 px-3 border border-border rounded-md outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition"
           />
         </div>

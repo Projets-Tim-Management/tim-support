@@ -15,6 +15,8 @@ import { hasAdminRole } from "@/core/access";
 
 interface Partner {
   name?: string;
+  firstName?: string;
+  societe?: string;
   partnerKind?: string;
 }
 interface U {
@@ -37,10 +39,30 @@ const readCookie = (name: string): string | null => {
   return m ? decodeURIComponent(m[1]) : null;
 };
 
-const ulabel = (u: U) => u.name || u.email;
+const partnerOf = (u: U): Partner | null =>
+  u.partner && typeof u.partner === "object" ? u.partner : null;
+// Identité de la PERSONNE derrière la fiche partenaire, « Prénom Nom ».
+const partnerName = (u: U): string | null => {
+  const p = partnerOf(u);
+  return p ? [p.firstName, p.name].filter(Boolean).join(" ").trim() || null : null;
+};
+/** Raison sociale de la fiche partenaire. */
+const partnerCompany = (u: U): string | null => partnerOf(u)?.societe?.trim() || null;
+/**
+ * Ligne 1 — l'ENTREPRISE quand la fiche en porte une, sinon on remonte la
+ * personne : nom de la fiche, puis nom du compte (interne : admin / support),
+ * puis l'e-mail. Un compte a donc toujours un libellé, jamais une ligne vide.
+ */
+const ulabel = (u: U) => partnerCompany(u) || partnerName(u) || u.name || u.email;
+/**
+ * Ligne 2 — la personne, en plus petit sous l'entreprise. Masquée quand elle
+ * ferait doublon avec la ligne 1 (compte sans société, compte interne).
+ */
+const usublabel = (u: U): string | null => {
+  const person = partnerName(u) || u.name || null;
+  return person && person !== ulabel(u) ? person : null;
+};
 const roleOf = (u: U) => (u.roles ?? []).find((r) => ROLE_LABEL[r]);
-const partnerName = (u: U): string | null =>
-  u.partner && typeof u.partner === "object" ? (u.partner.name ?? null) : null;
 
 export default function ImpersonationControl() {
   const { user } = useAuth();
@@ -99,7 +121,9 @@ export default function ImpersonationControl() {
     const list = users ?? [];
     const q = query.trim().toLowerCase();
     if (!q) return list;
-    return list.filter((u) => [u.email, u.name].some((v) => v?.toLowerCase().includes(q)));
+    return list.filter((u) =>
+      [u.email, u.name, partnerName(u), partnerCompany(u)].some((v) => v?.toLowerCase().includes(q)),
+    );
   }, [users, query]);
 
   const details = highlight ?? filtered[0] ?? null;
@@ -114,7 +138,12 @@ export default function ImpersonationControl() {
         body: JSON.stringify({ userId: u.id }),
       });
       if (res.ok) {
-        window.location.href = "/admin";
+        // Rechargement COMPLET volontaire : le cookie d'impersonation vient de
+        // changer, et toute l'interface (nav, permissions, données) est rendue
+        // côté serveur à partir de la session. `router.push` réutiliserait le
+        // rendu de l'ancienne identité.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.assign("/admin");
         return;
       }
     } catch {
@@ -128,7 +157,9 @@ export default function ImpersonationControl() {
     await fetch(`/api/admin/impersonate/exit`, { method: "POST", credentials: "include" }).catch(
       () => {},
     );
-    window.location.href = "/admin";
+    // Idem : on redevient admin, tout le rendu serveur doit être refait.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.assign("/admin");
   };
 
   // ── Bandeau pendant l'impersonation (indépendant du rôle courant) ──────────
@@ -197,6 +228,9 @@ export default function ImpersonationControl() {
                     key={String(u.id)}
                     type="button"
                     role="option"
+                    // Requis par le rôle `option` : sans lui, un lecteur d'écran
+                    // annonce la liste sans dire quelle entrée est sélectionnée.
+                    aria-selected={details?.id === u.id}
                     className="tim-pswitch__item"
                     onMouseEnter={() => setHighlight(u)}
                     onClick={() => void start(u)}
@@ -205,7 +239,12 @@ export default function ImpersonationControl() {
                     <span className="tim-pswitch__item-avatar" aria-hidden>
                       {ulabel(u).charAt(0).toUpperCase()}
                     </span>
-                    <span className="tim-pswitch__item-label">{ulabel(u)}</span>
+                    <span className="tim-pswitch__item-text">
+                      <span className="tim-pswitch__item-label">{ulabel(u)}</span>
+                      {usublabel(u) && (
+                        <span className="tim-pswitch__item-sub">{usublabel(u)}</span>
+                      )}
+                    </span>
                     {role && <span className="tim-pswitch__item-code">{ROLE_LABEL[role]}</span>}
                   </button>
                 );
@@ -216,7 +255,12 @@ export default function ImpersonationControl() {
           <aside className="tim-pswitch__details">
             {details ? (
               <>
-                <div className="tim-pswitch__details-name">{ulabel(details)}</div>
+                <div className="tim-pswitch__details-head">
+                  <div className="tim-pswitch__details-name">{ulabel(details)}</div>
+                  {usublabel(details) && (
+                    <div className="tim-pswitch__details-sub">{usublabel(details)}</div>
+                  )}
+                </div>
                 <dl className="tim-pswitch__dl">
                   <dt>Email</dt>
                   <dd>{details.email}</dd>
@@ -226,12 +270,8 @@ export default function ImpersonationControl() {
                       <dd>{ROLE_LABEL[roleOf(details) as string]}</dd>
                     </>
                   )}
-                  {partnerName(details) && (
-                    <>
-                      <dt>Fiche</dt>
-                      <dd>{partnerName(details)}</dd>
-                    </>
-                  )}
+                  {/* Société et personne sont déjà en tête du panneau — pas de
+                      ligne « Société » ici, elle ferait doublon. */}
                 </dl>
                 <button
                   type="button"

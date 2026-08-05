@@ -45,11 +45,11 @@ export function SmartSaveButton() {
       onClick={() => void save()}
       title={
         canPublish
-          ? "Publier le client."
-          : "Publication impossible : renseignez les champs requis (e-mail, entreprise, partenaire). Enregistré en brouillon pour l'instant."
+          ? "Enregistrer le client."
+          : "Enregistrement complet impossible : renseignez les champs requis (e-mail, entreprise, partenaire). Enregistré en brouillon pour l'instant."
       }
     >
-      {canPublish ? "Publier" : "Enregistrer le brouillon"}
+      {canPublish ? "Enregistrer" : "Enregistrer le brouillon"}
     </button>
   );
 }

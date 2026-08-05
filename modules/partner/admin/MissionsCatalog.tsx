@@ -5,20 +5,25 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { isPartnerUtilisateur } from "@/core/access";
 
+import MissionRunDrawer, { type RunnableMission } from "./MissionRunDrawer";
+
 /**
  * Catalogue de missions présenté au PARTENAIRE-UTILISATEUR (rendu via
  * beforeListTable de la collection `missions`). Il parcourt les missions et
  * soumet une preuve → crée une mission-submission « en attente » (le crédit des
  * points se fait à la validation par un admin). Pour les autres rôles, ce
  * composant ne rend rien (l'admin garde le tableau standard).
+ *
+ * Présentation en LISTE LARGE : chaque mission occupe toute la largeur (visuel,
+ * titre, extrait des instructions, badges, points, action) et se déplie sur place
+ * pour l'envoi de la preuve. Une grille de cartes étroites tronquait les titres
+ * et n'affichait aucune consigne — ici l'essentiel se lit sans cliquer.
  */
 
-interface Mission {
-  id: number | string;
-  title?: string;
-  points?: number;
-  type?: "preuve" | "manuelle";
+interface Mission extends RunnableMission {
   url?: string;
+  repeatable?: boolean;
+  instructions?: unknown;
   logo?: { url?: string } | number | null;
 }
 interface Submission {
@@ -29,12 +34,26 @@ interface Submission {
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "En attente de validation",
-  approved: "Validée ✓",
+  approved: "Validée",
   rejected: "Refusée",
 };
 
 const logoUrl = (m: Mission): string | null =>
   m.logo && typeof m.logo === "object" ? (m.logo.url ?? null) : null;
+
+/** Extrait lisible des instructions (richText Lexical) — 180 caractères max. */
+function excerpt(instructions: unknown, max = 180): string {
+  const out: string[] = [];
+  const walk = (node: unknown) => {
+    if (!node || typeof node !== "object") return;
+    const n = node as { text?: unknown; children?: unknown };
+    if (typeof n.text === "string") out.push(n.text);
+    if (Array.isArray(n.children)) n.children.forEach(walk);
+  };
+  walk((instructions as { root?: unknown })?.root ?? instructions);
+  const text = out.join(" ").replace(/\s+/g, " ").trim();
+  return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
+}
 
 export default function MissionsCatalog() {
   const { user } = useAuth();
@@ -42,11 +61,8 @@ export default function MissionsCatalog() {
 
   const [missions, setMissions] = useState<Mission[] | null>(null);
   const [subs, setSubs] = useState<Submission[]>([]);
-  const [openId, setOpenId] = useState<number | string | null>(null);
-  const [note, setNote] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  /** Mission en cours de réalisation (drawer pas-à-pas). */
+  const [running, setRunning] = useState<Mission | null>(null);
 
   // Le catalogue remplace le tableau standard : on masque ce dernier pour ce rôle.
   useEffect(() => {
@@ -96,46 +112,25 @@ export default function MissionsCatalog() {
     return map;
   }, [subs]);
 
-  const openForm = (id: number | string) => {
-    setOpenId(id);
-    setNote("");
-    setFile(null);
-    setError(null);
-  };
-
-  const submit = async (m: Mission) => {
-    setBusy(true);
-    setError(null);
-    try {
-      let attachments: (number | string)[] = [];
-      if (file) {
-        const fd = new FormData();
-        fd.append("file", file);
-        const up = await fetch(`/payload-api/media`, {
-          method: "POST",
-          body: fd,
-          credentials: "include",
-        }).then((r) => r.json());
-        const mediaId = up?.doc?.id;
-        if (!mediaId) throw new Error("upload");
-        attachments = [mediaId];
+  // Progression : ce qui est déjà gagné et ce qui reste à prendre. Un catalogue
+  // sans repère donne peu envie de s'y remettre.
+  const progress = useMemo(() => {
+    const list = missions ?? [];
+    let earned = 0;
+    let available = 0;
+    let done = 0;
+    for (const m of list) {
+      const status = statusByMission.get(String(m.id));
+      const pts = Number(m.points) || 0;
+      if (status === "approved") {
+        earned += pts;
+        done += 1;
+      } else if (!status) {
+        available += pts;
       }
-      const res = await fetch(`/payload-api/mission-submissions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        // partner est forcé côté serveur (enforcePartnerField) ; inutile de l'envoyer.
-        body: JSON.stringify({ mission: m.id, note: note || undefined, attachments }),
-      });
-      if (!res.ok) throw new Error("submit");
-      await reloadSubs();
-      setOpenId(null);
-    } catch {
-      setError("Échec de l'envoi. Vérifiez la pièce jointe et réessayez.");
-    } finally {
-      setBusy(false);
     }
-  };
+    return { earned, available, done, total: list.length };
+  }, [missions, statusByMission]);
 
   if (!isUtil) return null;
 
@@ -143,91 +138,106 @@ export default function MissionsCatalog() {
     <div className="tim-catalog">
       <header className="tim-catalog__head">
         <h1 className="tim-catalog__title">Missions à réaliser</h1>
-        <p className="tim-catalog__sub">Réalisez une mission et envoyez votre preuve pour gagner des points.</p>
+        <p className="tim-catalog__sub">
+          Réalisez une mission et envoyez votre preuve pour gagner des points.
+        </p>
       </header>
+
+      {missions !== null && missions.length > 0 && (
+        <div className="tim-mprogress">
+          <div className="tim-mprogress__item">
+            <span className="tim-mprogress__value">{progress.earned}</span>
+            <span className="tim-mprogress__label">points gagnés</span>
+          </div>
+          <div className="tim-mprogress__item">
+            <span className="tim-mprogress__value">
+              {progress.done}
+              <span className="tim-mprogress__of">/{progress.total}</span>
+            </span>
+            <span className="tim-mprogress__label">missions validées</span>
+          </div>
+          <div className="tim-mprogress__item tim-mprogress__item--accent">
+            <span className="tim-mprogress__value">{progress.available}</span>
+            <span className="tim-mprogress__label">points encore à prendre</span>
+          </div>
+        </div>
+      )}
 
       {missions === null ? (
         <p className="tim-catalog__empty">Chargement…</p>
       ) : missions.length === 0 ? (
         <p className="tim-catalog__empty">Aucune mission disponible pour le moment.</p>
       ) : (
-        <div className="tim-catalog__grid">
+        <ul className="tim-missions">
           {missions.map((m) => {
             const status = statusByMission.get(String(m.id));
-            const isOpen = openId === m.id;
             const url = logoUrl(m);
+            const desc = excerpt(m.instructions);
+            const title = m.title || "Mission";
+
             return (
-              <article key={String(m.id)} className={`tim-mcard${status ? " is-done" : ""}`}>
-                <div className="tim-mcard__top">
-                  <span className="tim-mcard__logo" aria-hidden>
+              <li key={String(m.id)} className={`tim-mission${status ? ` is-${status}` : ""}`}>
+                <div className="tim-mission__row">
+                  {/* Visuel : le logo de la mission, sinon une pastille au monogramme
+                      (initiale du titre) — pas de pictogramme générique. */}
+                  <span className="tim-mission__visual" aria-hidden>
                     {url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={url} alt="" />
                     ) : (
-                      "🎯"
+                      <span className="tim-mission__monogram">{title.trim().charAt(0).toUpperCase()}</span>
                     )}
                   </span>
-                  <span className="tim-mcard__points">+{m.points ?? 0} pts</span>
-                </div>
-                <h2 className="tim-mcard__title">{m.title || "Mission"}</h2>
 
-                {status ? (
-                  <div className={`tim-mcard__status is-${status}`}>{STATUS_LABEL[status] ?? status}</div>
-                ) : isOpen ? (
-                  <div className="tim-mcard__form">
-                    <textarea
-                      className="tim-mcard__note"
-                      placeholder="Un mot sur votre réalisation (optionnel)…"
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      rows={2}
-                    />
-                    {m.type === "preuve" && (
-                      <label className="tim-mcard__file">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                        />
-                        <span>{file ? file.name : "Ajouter une preuve (image)"}</span>
-                      </label>
-                    )}
-                    {error && <p className="tim-mcard__error">{error}</p>}
-                    <div className="tim-mcard__actions">
-                      <button
-                        type="button"
-                        className="tim-mcard__btn tim-mcard__btn--ghost"
-                        onClick={() => setOpenId(null)}
-                        disabled={busy}
-                      >
-                        Annuler
-                      </button>
-                      <button
-                        type="button"
-                        className="tim-mcard__btn"
-                        onClick={() => void submit(m)}
-                        disabled={busy}
-                      >
-                        {busy ? "Envoi…" : "Envoyer la preuve"}
-                      </button>
+                  <div className="tim-mission__body">
+                    <h2 className="tim-mission__title">{title}</h2>
+                    {desc && <p className="tim-mission__desc">{desc}</p>}
+                    <div className="tim-mission__meta">
+                      <span className="tim-tag">
+                        {m.type === "manuelle" ? "Validation par TIM" : "Preuve à envoyer"}
+                      </span>
+                      {m.repeatable && <span className="tim-tag">Répétable</span>}
+                      {m.url && (
+                        <a className="tim-mission__link" href={m.url} target="_blank" rel="noreferrer">
+                          En savoir plus ↗
+                        </a>
+                      )}
                     </div>
                   </div>
-                ) : (
-                  <div className="tim-mcard__foot">
-                    {m.url && (
-                      <a className="tim-mcard__link" href={m.url} target="_blank" rel="noreferrer">
-                        En savoir plus
-                      </a>
+
+                  <div className="tim-mission__aside">
+                    <span className="tim-mission__points">
+                      +{m.points ?? 0}
+                      <small>pts</small>
+                    </span>
+                    {status ? (
+                      <span className={`tim-mission__status is-${status}`}>
+                        {STATUS_LABEL[status] ?? status}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="tim-mission__cta"
+                        onClick={() => setRunning(m)}
+                      >
+                        Réaliser
+                      </button>
                     )}
-                    <button type="button" className="tim-mcard__btn" onClick={() => openForm(m.id)}>
-                      Réaliser
-                    </button>
                   </div>
-                )}
-              </article>
+                </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
+      )}
+
+      {/* Réalisation pas-à-pas : étapes puis envoi de la preuve. */}
+      {running && (
+        <MissionRunDrawer
+          mission={running}
+          onClose={() => setRunning(null)}
+          onSubmitted={reloadSubs}
+        />
       )}
     </div>
   );
