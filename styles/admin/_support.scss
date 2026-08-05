@@ -41,7 +41,7 @@
 .ticket-pill {
   display: inline-block;
   padding: 0.2rem 0.6rem;
-  border-radius: 4px;
+  border-radius: 8px;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -196,6 +196,70 @@ $reply-status-colors: (
     border-color: color-mix(in srgb, nth($pair, 1) 30%, transparent);
   }
 }
+/* En-tête d'envoi de la réponse : De / À / Cc, affichés avant l'envoi. */
+.ticket-reply__env {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+}
+.ticket-reply__env-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.ticket-reply__env-key {
+  flex: 0 0 1.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+}
+.ticket-reply__env-val {
+  font-size: 0.84rem;
+  color: var(--tim-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ticket-reply__env-select,
+.ticket-reply__env-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font: inherit;
+  font-size: 0.84rem;
+  color: var(--tim-foreground);
+}
+.ticket-reply__env-select:focus,
+.ticket-reply__env-input:focus {
+  outline: none;
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 2px var(--tim-primary-light);
+}
+.ticket-reply__env-add {
+  margin-left: auto;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 999px;
+  background: var(--tim-white);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  cursor: pointer;
+}
+.ticket-reply__env-add:hover {
+  color: var(--tim-primary);
+  border-color: color-mix(in srgb, var(--tim-primary) 40%, var(--tim-border));
+}
+
 .ticket-reply__input {
   width: 100%;
   border: 1px solid var(--tim-border);
@@ -526,6 +590,244 @@ $reply-status-colors: (
   opacity: 0.65;
   pointer-events: none;
   margin-left: 0.25rem;
+}
+
+/* Destinataires en copie, sous le message — discret, informatif. */
+.ticket-msg__cc {
+  margin: 0.45rem 0 0;
+  padding-top: 0.4rem;
+  border-top: 1px solid color-mix(in srgb, var(--tim-border) 60%, transparent);
+  font-size: 0.72rem;
+  color: var(--tim-muted);
+  word-break: break-word;
+}
+
+/* Dernier état de l'e-mail, à côté de l'auteur et de la date du message. */
+.ticket-msg__state {
+  padding: 0.05rem 0.45rem;
+  border-radius: 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ─── « Voir le rendu » : aperçu de l'e-mail envoyé ──────────────────────────*/
+.ticket-msg__preview {
+  padding: 0.1rem 0.5rem;
+  border: 0px solid var(--tim-border);
+  background: var(--tim-white);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  cursor: pointer;
+}
+.ticket-msg__preview:hover {
+  color: var(--tim-primary);
+  border-color: color-mix(in srgb, var(--tim-primary) 40%, var(--tim-border));
+}
+/* Rendu par portail sur <body> : sans quoi le z-index resterait prisonnier du
+   contexte d'empilement de la vue et passerait sous la barre du haut. */
+.ticket-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: color-mix(in srgb, var(--tim-foreground) 40%, transparent);
+}
+.ticket-preview__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 96vw);
+  height: min(88vh, 900px);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  overflow: hidden;
+  box-shadow: 0 24px 60px -20px color-mix(in srgb, var(--tim-foreground) 60%, transparent);
+}
+.ticket-preview__head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--tim-border);
+}
+.ticket-preview__title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.ticket-preview__open {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+  text-decoration: none;
+}
+.ticket-preview__open:hover {
+  color: var(--tim-primary);
+  text-decoration: underline;
+}
+.ticket-preview__close {
+  border: 0;
+  background: none;
+  color: var(--tim-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.2rem 0.35rem;
+  border-radius: var(--tim-radius-sm);
+}
+.ticket-preview__close:hover {
+  background: var(--tim-surface);
+  color: var(--tim-foreground);
+}
+.ticket-preview__frame {
+  flex: 1 1 auto;
+  width: 100%;
+  border: 0;
+  /* Fond neutre pendant le chargement, proche de celui des e-mails. */
+  background: var(--tim-surface);
+}
+
+/* ─── Onglet « E-mails » d'un ticket (TicketEmails) ──────────────────────────*/
+.tmail__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tmail__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+}
+.tmail__badge {
+  flex: 0 0 auto;
+  min-width: 7.5rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+.tmail__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.tmail__subject {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+.tmail__meta {
+  font-size: 0.76rem;
+  color: var(--tim-muted);
+}
+.tmail__link {
+  font-size: 0.75rem;
+  color: var(--tim-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tmail__empty {
+  margin: 0;
+  padding: 1rem 0;
+  font-size: 0.86rem;
+  color: var(--tim-muted);
+}
+.tmail__more {
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--tim-border);
+}
+.tmail__more summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  margin-bottom: 0.6rem;
+}
+.tmail__more summary:hover {
+  color: var(--tim-foreground);
+}
+
+/* ─── « Page concernée » : liste des pages (TicketPageSelect) ────────────────
+   Même ossature que les badges ci-dessus, mais neutre : ce n'est pas un statut,
+   donc pas de couleur — un contrôle sobre, pleine largeur, qui se lit comme un
+   champ de saisie et non comme une pastille. */
+.ticket-page {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 6px;
+  background: var(--tim-white);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.ticket-page:hover {
+  border-color: color-mix(in srgb, var(--tim-primary) 40%, var(--tim-border));
+}
+.ticket-page:focus-within {
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 2px var(--tim-primary-light);
+}
+.ticket-page__icon {
+  flex: 0 0 auto;
+  color: var(--tim-muted);
+}
+.ticket-page__native {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.86rem;
+  color: var(--tim-foreground);
+  cursor: pointer;
+  padding: 0;
+}
+.ticket-page__native:focus {
+  outline: none;
+}
+/* La liste déroulante native reste lisible (fond blanc, texte neutre). */
+.ticket-page__native option {
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+}
+/* Aucune page choisie : le libellé passe en gris, comme un texte indicatif. */
+.ticket-page--empty .ticket-page__native {
+  color: var(--tim-muted);
+}
+.ticket-page__caret {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  opacity: 0.65;
+  pointer-events: none;
+}
+.ticket-page__link {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+  text-decoration: none;
+}
+.ticket-page__link:hover {
+  color: var(--tim-primary);
+  text-decoration: underline;
 }
 
 /* Grille 2 colonnes pour les rangées de badges (statut+priorité, type+service).

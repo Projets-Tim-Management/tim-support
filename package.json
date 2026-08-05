@@ -4,15 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "payload": "payload",
     "generate:types": "payload generate:types",
     "generate:importmap": "payload generate:importmap",
     "migrate": "payload migrate",
     "migrate:create": "payload migrate:create",
+    "db:migrate:create": "node scripts/db-migrate.mjs create",
+    "db:migrate:apply": "node scripts/db-migrate.mjs apply",
+    "db:migrate:status": "node scripts/db-migrate.mjs status",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -33,12 +36,15 @@
     "sharp": "^0.35.3"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.6",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5",
     "vitest": "^4.1.10"

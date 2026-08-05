@@ -86,6 +86,10 @@ function mapMediaBlock(b: Record<string, unknown>): MediaDocItem | null {
   }
 }
 
+// Document Payload brut : sa forme varie selon la profondeur demandée et les
+// champs sélectionnés. `unknown` imposerait un cast à chaque accès sans rien
+// garantir de plus — la conversion vers le type du domaine se fait juste après.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type FeatureDoc = Record<string, any>;
 
 function toFeature(d: FeatureDoc, full: boolean): Feature {
@@ -170,6 +174,8 @@ export const getAllFeatureSlugs = cache(async (): Promise<string[]> => {
 
 // ─── Parcours ────────────────────────────────────────────────────────────────
 
+// Même raison que FeatureDoc ci-dessus : document Payload brut.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ParcoursDoc = Record<string, any>;
 
 function toParcoursSummary(d: ParcoursDoc): ParcoursSummary {

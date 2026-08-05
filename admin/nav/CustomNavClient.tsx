@@ -1,11 +1,14 @@
 "use client";
 
 import { getTranslation } from "@payloadcms/translations";
-import { Link, useConfig, useTranslation } from "@payloadcms/ui";
+import { Link, useAuth, useConfig, useTranslation } from "@payloadcms/ui";
 import { EntityType } from "@payloadcms/ui/shared";
+import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import { formatAdminURL } from "payload/shared";
 import { Fragment, useState } from "react";
+
+import { hasAdminRole } from "@/core/access";
 
 import CollapsibleGroup from "./CollapsibleGroup";
 import { NAV_LAYOUT, isSubGroup, type NavItem } from "./nav-structure";
@@ -82,9 +85,16 @@ function NavLink({
 
 export default function CustomNavClient({ groups }: Props) {
   const { config } = useConfig();
+  const { user } = useAuth();
   const i18n = useTranslation().i18n as I18n;
   const isActive = useIsActive();
+  const pathname = usePathname();
   const adminRoute = config.routes.admin;
+
+  // Rôles non-admin (support, partenaires) : menus OUVERTS par défaut — la nav
+  // est courte, plus simple à parcourir sans dérouler. Admins : accordéon.
+  const keepOpen = !hasAdminRole(user);
+  const onDashboard = pathname === adminRoute || pathname === `${adminRoute}/`;
 
   const activeHref = (entity: NavEntity) => {
     const isGlobal = entity.type === EntityType.global;
@@ -115,6 +125,19 @@ export default function CustomNavClient({ groups }: Props) {
 
   return (
     <Fragment>
+      {/* Accès direct au tableau de bord (pour tous les rôles). Comme le logo,
+          on utilise next/link (le Link de Payload ne mène pas à la racine /admin). */}
+      {onDashboard ? (
+        <div className={`${baseClass}__link`} id="nav-dashboard">
+          <div className={`${baseClass}__link-indicator`} />
+          <span className={`${baseClass}__link-label`}>Tableau de bord</span>
+        </div>
+      ) : (
+        <NextLink className={`${baseClass}__link`} href={adminRoute} id="nav-dashboard">
+          <span className={`${baseClass}__link-label`}>Tableau de bord</span>
+        </NextLink>
+      )}
+
       {groups.map((group) => {
         const bySlug = new Map(group.entities.map((e) => [e.slug, e]));
         const layout: NavItem[] = NAV_LAYOUT[group.label] ?? group.entities.map((e) => e.slug);
@@ -131,10 +154,12 @@ export default function CustomNavClient({ groups }: Props) {
           <CollapsibleGroup
             key={group.label}
             label={group.label}
-            open={openGroup === group.label}
-            onToggle={() =>
-              setOpenGroup((prev) => (prev === group.label ? null : group.label))
-            }
+            {...(keepOpen
+              ? { defaultOpen: true }
+              : {
+                  open: openGroup === group.label,
+                  onToggle: () => setOpenGroup((prev) => (prev === group.label ? null : group.label)),
+                })}
           >
             {layout.map((item, i) => {
               if (!isSubGroup(item)) {
@@ -153,7 +178,7 @@ export default function CustomNavClient({ groups }: Props) {
                 <CollapsibleGroup
                   key={`${item.label}-${i}`}
                   label={item.label}
-                  defaultOpen={subContainsActive}
+                  defaultOpen={keepOpen || subContainsActive}
                 >
                   {entities.map(renderLink)}
                 </CollapsibleGroup>

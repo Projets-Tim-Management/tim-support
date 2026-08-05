@@ -17,6 +17,7 @@ import { Features } from "./modules/editorial/collections/Features";
 import { Parcours } from "./modules/editorial/collections/Parcours";
 import { Partners } from "./modules/partner/collections/Partners";
 import { PartnerClients } from "./modules/partner/collections/PartnerClients";
+import { ClientContacts } from "./modules/partner/collections/ClientContacts";
 import { PointTransactions } from "./modules/partner/collections/PointTransactions";
 import { Missions } from "./modules/partner/collections/Missions";
 import { MissionSubmissions } from "./modules/partner/collections/MissionSubmissions";
@@ -25,7 +26,6 @@ import { RewardOrders } from "./modules/partner/collections/RewardOrders";
 import { Tickets } from "./modules/support/collections/Tickets";
 import {
   hideUnlessAdmin,
-  hideUnlessAdminOrPartner,
   hideUnlessMetier,
   hideUnlessSupport,
   hideUnlessUtilisateur,
@@ -48,8 +48,10 @@ const ROLE_NAV_HIDDEN: Record<string, (args: { user?: unknown }) => boolean> = {
   parcours: hideUnlessAdmin,
   media: hideUnlessAdmin,
   users: hideUnlessAdmin,
-  // Partenaires
-  partners: hideUnlessAdminOrPartner,
+  // Partenaires — la fiche « Partenaires » (Comptes) est réservée à l'admin et au
+  // partenaire-MÉTIER ; masquée pour le partenaire-utilisateur (il n'administre pas
+  // de comptes). L'accès data à sa propre fiche (ownPartnerRecord) reste inchangé.
+  partners: hideUnlessMetier,
   "partner-clients": hideUnlessMetier,
   missions: hideUnlessUtilisateur,
   "mission-submissions": hideUnlessUtilisateur,
@@ -67,6 +69,37 @@ const applyRoleNavVisibility = (cols: any[]): any[] =>
       : c,
   );
 
+/**
+ * Bouton « ← <Liste> » en tête des contrôles de CHAQUE fiche. Injecté ici plutôt
+ * que déclaré dans les 14 collections : un seul endroit, et toute collection
+ * ajoutée plus tard en hérite sans y penser. Le composant déduit la collection et
+ * son libellé du contexte, et s'efface si la liste est masquée pour ce rôle.
+ * Placé en TÊTE des contrôles existants (SmartSaveButton, modals…), qu'il préserve.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const withBackToList = (cols: any[]): any[] =>
+  cols.map((c) => {
+    const admin = c.admin ?? {};
+    const components = admin.components ?? {};
+    const edit = components.edit ?? {};
+    return {
+      ...c,
+      admin: {
+        ...admin,
+        components: {
+          ...components,
+          edit: {
+            ...edit,
+            beforeDocumentControls: [
+              "/admin/components/BackToListButton#BackToListButton",
+              ...(edit.beforeDocumentControls ?? []),
+            ],
+          },
+        },
+      },
+    };
+  });
+
 export default buildConfig({
   // Collection qui porte l'authentification du back-office.
   // API Payload isolée sous /payload-api pour ne pas entrer en collision avec
@@ -83,6 +116,14 @@ export default buildConfig({
     // Résolution des composants admin custom (logo/icône) depuis la racine.
     importMap: { baseDir: dirname },
     components: {
+      // Pose une classe de rôle sur <body> (tim-is-admin / tim-not-admin) pour
+      // piloter en CSS les éléments sans visibilité par rôle (onglet API, action
+      // « Créer un » des contrôles de document). Voir admin/providers/.
+      providers: [
+        "/admin/providers/RoleBodyClass#default",
+        // Clic sur toute la largeur d'une ligne de liste → ouvre la fiche.
+        "/admin/providers/RowClick#default",
+      ],
       graphics: {
         Logo: "/admin/graphics/Logo#Logo",
         Icon: "/admin/graphics/Icon#Icon",
@@ -113,34 +154,84 @@ export default buildConfig({
 
   // L'ordre ci-dessous pilote l'ordre des groupes dans le menu de l'admin.
   // applyRoleNavVisibility injecte le masquage par rôle (admin.hidden).
-  collections: applyRoleNavVisibility([
-    // Support
-    Tickets,
-    // Features (+ leurs paramètres : catégories, plateformes)
-    Features,
-    FeatureCategories,
-    Platforms,
-    // Parcours
-    Parcours,
-    // Partenaires
-    Partners,
-    PartnerClients,
-    PointTransactions,
-    // Missions
-    Missions,
-    MissionSubmissions,
-    // Récompenses
-    Rewards,
-    RewardOrders,
-    // Système
-    Media,
-    Users,
-  ]),
+  collections: withBackToList(
+    applyRoleNavVisibility([
+      // Support
+      Tickets,
+      // Features (+ leurs paramètres : catégories, plateformes)
+      Features,
+      FeatureCategories,
+      Platforms,
+      // Parcours
+      Parcours,
+      // Partenaires
+      Partners,
+      PartnerClients,
+      ClientContacts, // caché du menu (admin.hidden) — géré via le join de la fiche client
+      PointTransactions,
+      // Missions
+      Missions,
+      MissionSubmissions,
+      // Récompenses
+      Rewards,
+      RewardOrders,
+      // Système
+      Media,
+      Users,
+    ]),
+  ),
 
   // Back-office en français uniquement.
   i18n: {
     supportedLanguages: { fr },
     fallbackLanguage: "fr",
+    // Surcharge des libellés « genrés » de Payload (« un(e) nouveau ou nouvelle »,
+    // « Créé(e) », « Aucun(e) »…) → une seule forme (masculin singulier), plus
+    // lisible. Deep-mergé sur les traductions fr ; le reste est inchangé.
+    translations: {
+      fr: {
+        fields: {
+          addNew: "Ajouter",
+          addNewLabel: "Ajouter un {{label}}",
+          chooseFromExisting: "Choisir parmi les existants",
+          chooseLabel: "Choisir un {{label}}",
+          newLabel: "Nouveau {{label}}",
+          uploadNewLabel: "Téléverser un {{label}}",
+        },
+        general: {
+          created: "Créé",
+          createdAt: "Créé le",
+          // Libellé du bouton d'ajout des listes : « Ajouter », plus court et
+          // identique partout (le nom de la collection est déjà en titre).
+          // `createNewLabel` reste explicite : il sert d'intitulé accessible du
+          // bouton et de texte visible sur les écrans « aucun résultat ».
+          createNew: "Ajouter",
+          createNewLabel: "Ajouter un {{label}}",
+          creatingNewLabel: "Création d'un {{label}}",
+          // Cellule sans donnée → visuellement RIEN (au lieu de « <Pas de X> »).
+          // ⚠️ NE PAS mettre "" : la résolution i18n de Payload fait `translation ||
+          // key`, donc une chaîne vide retombe sur la clé brute « general:noLabel »
+          // (affichée telle quelle dans les cellules). Une espace insécable est
+          // « truthy » → elle est renvoyée telle quelle et la cellule reste blanche.
+          noLabel: " ",
+          deletedSuccessfully: "Supprimé avec succès.",
+          descending: "Descendant",
+          newLabel: "Nouveau {{label}}",
+          none: "Aucun",
+          noResults:
+            "Aucun {{label}} trouvé. Soit aucun {{label}} n'existe encore, soit aucun ne correspond aux filtres que vous avez spécifiés ci-dessus",
+          successfullyCreated: "{{label}} créé avec succès.",
+          successfullyDuplicated: "{{label}} dupliqué avec succès.",
+          titleDeleted: '{{label}} "{{title}}" supprimé avec succès.',
+        },
+        version: {
+          aboutToRestoreGlobal:
+            "Vous êtes sur le point de restaurer le {{label}} global à l'état où il se trouvait le {{versionDate}}.",
+          noRowsFound: "Aucun {{label}} trouvé",
+          restoredSuccessfully: "Restauré avec succès.",
+        },
+      },
+    },
   },
 
   // E-mails transactionnels via Brevo (SMTP). Repli console si non configuré.
@@ -227,7 +318,12 @@ export default buildConfig({
       // Le session pooler Supabase plafonne à 15 clients : on garde une petite
       // marge et on libère vite les connexions inactives (surtout en dev, où
       // les rechargements à chaud peuvent multiplier les pools).
-      max: 5,
+      //
+      // Pendant un BUILD, plusieurs processus prérendent les pages en parallèle
+      // et ouvrent chacun leur pool : 5 connexions par worker saturent le pooler
+      // (« max clients reached in session mode »). On descend à 2 dans cette
+      // phase — le prérendu est séquentiel par page, il n'a pas besoin de plus.
+      max: process.env.NEXT_PHASE === "phase-production-build" ? 2 : 5,
       idleTimeoutMillis: 10000,
     },
   }),

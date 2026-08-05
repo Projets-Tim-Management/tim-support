@@ -1,10 +1,22 @@
-import type { CollectionBeforeChangeHook, CollectionConfig, Field } from "payload";
+import type {
+  CollectionBeforeChangeHook,
+  CollectionBeforeDeleteHook,
+  CollectionConfig,
+  Field,
+  FieldHook,
+} from "payload";
 
-import { metierOwnedAccess } from "@/core/access";
+import { adminOnlyField, hasAdminRole, isAdmin, metierOwnedAccess, partnerIdOf } from "@/core/access";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { validatePhone } from "@/core/lib/validators";
+import { CLIENT_STATUS_OPTIONS, CLIENT_STATUS_RANK } from "@/modules/partner/lib/clientStatus";
 import { round2 } from "@/modules/partner/lib/format";
-import { computeClientCA, LICENCE_BASE_PRICES, PROFILS } from "@/modules/partner/lib/pricing";
+import {
+  computeClientCA,
+  isBillableClient,
+  LICENCE_BASE_PRICES,
+  PROFILS,
+} from "@/modules/partner/lib/pricing";
 
 /**
  * Clients apportés — les entreprises BTP qu'un partenaire a amenées à Tim.
@@ -110,6 +122,92 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
 };
 
 /**
+ * Rang de tri du statut : « actif » d'abord (clients payants), puis le pipeline
+ * vivant (en test, en cours, prospect), puis les fins de contrat (résilié,
+ * archivé). `client_status` est un enum Postgres trié par ordre de déclaration :
+ * on ne peut donc PAS obtenir « actifs en premier » par un tri direct sur l'enum.
+ * On stocke un rang numérique dédié (voir CLIENT_STATUSES), utilisé comme tri par
+ * défaut de la liste et par l'onglet « Tous » (PartnerClientsStatusTabs).
+ *
+ * Les rangs sont décimaux quand il le faut (« en-test » = 0.5, colonne `numeric`) :
+ * insérer un statut sans renuméroter l'échelle. Les rangs déjà STOCKÉS ne sont
+ * recalculés qu'au prochain enregistrement de chaque client — décaler l'échelle
+ * aurait mal trié toutes les fiches non ré-enregistrées.
+ */
+const setStatusRank: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
+  const status = (data?.clientStatus ?? originalDoc?.clientStatus ?? "actif") as string;
+  return { ...data, statusRank: CLIENT_STATUS_RANK[status] ?? 9 };
+};
+
+/**
+ * Commission mensuelle du partenaire SUR CE CLIENT, calculée à la lecture :
+ * CA payé HT × taux de la fiche partenaire, et 0 tant que le client n'est pas
+ * **Actif** (voir `isBillableClient`) — même règle partout, donc la somme de la
+ * colonne égale bien la tuile « Commission / mois ».
+ *
+ * Lecture du taux via `payload.db` (comme computeCA) et NON via `payload.find` :
+ * lire une fiche partenaire par l'API peuplerait son champ `join` clients, qui
+ * relancerait ce hook sur chaque client → boucle. Le taux est mémoïsé par requête
+ * dans `req.context` : un seul aller-retour pour tout un tableau.
+ */
+const computeCommissionMonthly: FieldHook = async ({ data, req, siblingData }) => {
+  const doc = (siblingData ?? data ?? {}) as {
+    caPaye?: number;
+    clientStatus?: string;
+    partner?: unknown;
+  };
+  const caPaye = Number(doc.caPaye ?? 0);
+  if (!caPaye || !isBillableClient(doc.clientStatus)) return 0;
+
+  const ref = doc.partner;
+  const partnerId = ref && typeof ref === "object" ? (ref as { id?: unknown }).id : ref;
+  if (partnerId == null) return 0;
+
+  const ctx = req?.context as { partnerRates?: Map<string, number> } | undefined;
+  if (ctx && !ctx.partnerRates) ctx.partnerRates = new Map();
+  const cache = ctx?.partnerRates;
+  const key = String(partnerId);
+  const cached = cache?.get(key);
+  if (cached !== undefined) return round2((caPaye * cached) / 100);
+
+  let rate = 0;
+  const db = req?.payload?.db as
+    | { findOne?: (a: unknown) => Promise<Record<string, unknown> | null> }
+    | undefined;
+  if (db?.findOne) {
+    try {
+      const partner = await db.findOne({
+        collection: "partners",
+        where: { id: { equals: partnerId } },
+        req,
+      });
+      if (typeof partner?.commissionRate === "number") rate = partner.commissionRate;
+    } catch {
+      /* taux indisponible → 0 */
+    }
+  }
+  cache?.set(key, rate);
+  return round2((caPaye * rate) / 100);
+};
+
+/**
+ * Avant de supprimer un client, on supprime ses contacts rattachés.
+ * Le champ `client` d'un contact est REQUIS (colonne `client_id` NOT NULL) alors
+ * que sa clé étrangère est `ON DELETE SET NULL` : supprimer un client qui a des
+ * contacts ferait échouer Postgres (SET NULL sur une colonne NOT NULL → 500).
+ * Les contacts sont des enfants du client → on les supprime en cascade ici.
+ * `req` transmis = même transaction ; overrideAccess car nettoyage d'intégrité.
+ */
+const deleteClientContacts: CollectionBeforeDeleteHook = async ({ req, id }) => {
+  await req.payload.delete({
+    collection: "client-contacts",
+    where: { client: { equals: id } },
+    overrideAccess: true,
+    req,
+  });
+};
+
+/**
  * Champs quantité/prix cachés : la SAISIE se fait via le tableau custom
  * (LicencesTable), mais les valeurs sont stockées dans ces vrais champs (liés
  * au tableau par useField). `hidden` = présent dans l'état + en base, non rendu.
@@ -125,9 +223,19 @@ const hiddenNum = (name: string, def: number): Field => ({
 export const PartnerClients: CollectionConfig = {
   slug: "partner-clients",
   labels: { singular: "Client apporté", plural: "Clients apportés" },
+  // Tri par défaut de la liste : « actifs en premier » (via le rang `statusRank`),
+  // plutôt que par date de création. L'onglet « Tous » réapplique ce tri (cf. tabs).
+  defaultSort: "statusRank",
   admin: {
     useAsTitle: "companyName",
-    defaultColumns: ["companyName", "partner", "signatureDate", "clientStatus"],
+    defaultColumns: [
+      "companyName",
+      "partner",
+      "signatureDate",
+      "clientStatus",
+      "caPaye",
+      "commissionMonthly",
+    ],
     group: "Partenaires",
     // Boutons natifs masqués → toutes les actions passent par le menu 3-points.
     components: {
@@ -136,23 +244,61 @@ export const PartnerClients: CollectionConfig = {
         SaveButton: "/modules/partner/admin/HiddenControl#HiddenControl",
         SaveDraftButton: "/modules/partner/admin/HiddenControl#HiddenControl",
         PublishButton: "/modules/partner/admin/HiddenControl#HiddenControl",
+        // « Annuler la publication » retiré : le retour en brouillon n'a de sens
+        // que pour une fiche incomplète non enregistrée (géré par SmartSaveButton),
+        // pas pour rétrograder une fiche déjà validée.
+        UnpublishButton: "/modules/partner/admin/HiddenControl#HiddenControl",
         // Bouton « Publier » / « Enregistrer le brouillon » (création + édition).
-        beforeDocumentControls: ["/modules/partner/admin/SmartSaveButton#SmartSaveButton"],
+        beforeDocumentControls: [
+          // Le retour « ← Clients apportés » est injecté en tête pour toutes les
+          // collections (voir withBackToList dans payload.config.ts).
+          "/modules/partner/admin/SmartSaveButton#SmartSaveButton",
+          // Modal de confirmation d'archivage (monté en permanence, ouvert par le menu).
+          "/modules/partner/admin/ArchiveClientModal#ArchiveClientModal",
+        ],
         // « Archiver » ajouté au menu 3-points natif (édition).
         editMenuItems: ["/modules/partner/admin/PartnerClientEditMenu#PartnerClientEditMenu"],
       },
+      // En-tête de liste : bascule Tableau/Kanban. En mode tableau, affiche les
+      // onglets de statut (pré-filtrage) ; en mode kanban, le board par statut.
+      beforeListTable: ["/modules/partner/admin/PartnerClientsViewSwitcher#PartnerClientsViewSwitcher"],
+      // Ligne de total (CA + commissions) sous le tableau.
+      afterListTable: ["/modules/partner/admin/PartnerClientsTotals#PartnerClientsTotals"],
     },
   },
   // Retire « Dupliquer » du menu 3-points natif.
   disableDuplicate: true,
-  // Clients : partenaire-métier = CRUD scopé à sa fiche ; admin = tout.
-  access: metierOwnedAccess,
+  // Verrouillage de document désactivé : Payload verrouille une fiche pendant
+  // son édition et refuse alors de la SUPPRIMER (« Document is currently locked
+  // and cannot be deleted »). Comme les fiches client sont éditées par peu de
+  // personnes, on désactive ce verrou pour pouvoir supprimer depuis la fiche.
+  lockDocuments: false,
+  // Clients : partenaire-métier = CRU scopé à sa fiche ; admin = tout.
+  // SUPPRESSION réservée à l'admin (un partenaire ne peut pas supprimer un client) →
+  // retire aussi le bouton « Supprimer » des contrôles de document pour le métier.
+  access: { ...metierOwnedAccess, delete: isAdmin },
   // Brouillons : permet de créer un client incomplet (sans l'e-mail requis).
   // Les champs obligatoires ne sont exigés qu'à la publication.
   versions: { drafts: true },
   // enforcePartnerField : un partenaire est forcé sur SA fiche (anti-usurpation).
-  hooks: { beforeChange: [enforcePartnerField(), computeCA] },
+  hooks: {
+    beforeChange: [enforcePartnerField(), setStatusRank, computeCA],
+    // Supprime les contacts liés avant de supprimer le client (cf. deleteClientContacts).
+    beforeDelete: [deleteClientContacts],
+  },
   fields: [
+    // Recherche INSEE (préremplissage) — tout en haut du formulaire : remplit
+    // « Entreprise cliente », raison sociale, SIREN, TVA et adresse d'un coup.
+    // Masquée dès qu'« Entreprise cliente » est renseignée ; réapparaît si on
+    // efface ce champ (permet de relancer une recherche).
+    {
+      name: "inseeLookup",
+      type: "ui",
+      admin: {
+        condition: (data) => !data?.companyName,
+        components: { Field: "/modules/partner/admin/InseeLookup#InseeLookup" },
+      },
+    },
     {
       name: "companyName",
       type: "text",
@@ -166,52 +312,58 @@ export const PartnerClients: CollectionConfig = {
       label: "Partenaire apporteur",
       required: true,
       index: true,
-      // Pré-rempli quand on crée depuis la fiche d'un partenaire
-      // (bouton « + Ajouter un client » → ?partner=<id>).
+      // Anti-usurpation : `enforcePartnerField` (beforeChange) force déjà la valeur
+      // sur SA fiche pour un rôle partenaire. Côté UI on VERROUILLE pour le métier :
+      //  - access create/update réservé à l'admin → champ en lecture seule (le
+      //    métier ne peut pas changer la sélection ; enforcé aussi côté serveur) ;
+      //  - allowEdit/allowCreate = false → masque l'icône crayon (édition inline de
+      //    la fiche liée) et le bouton « créer », inutiles ici. L'admin garde le
+      //    choix via le menu déroulant.
+      access: { create: adminOnlyField, update: adminOnlyField },
+      admin: {
+        allowEdit: false,
+        allowCreate: false,
+      },
+      // Pré-rempli : rôle partenaire → SA propre fiche (verrouillée, satisfait
+      // `required`) ; sinon valeur passée en query (?partner=<id>) lors d'un
+      // « + Ajouter un client » depuis une fiche partenaire (admin).
       defaultValue: ({ req }) => {
+        const own = partnerIdOf(req?.user);
+        if (own != null && !hasAdminRole(req?.user)) return own;
         const p = req?.searchParams?.get?.("partner");
         return p ? p : undefined;
       },
     },
     {
-      type: "row",
-      fields: [
-        {
-          name: "signatureDate",
-          type: "date",
-          label: "Date de signature",
-          admin: { width: "50%", date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" } },
-        },
-        {
-          // Nommé `clientStatus` (et non `status`) pour éviter la collision de
-          // nom d'enum avec le champ `_status` des brouillons dans la table de
-          // versions (les deux se réduiraient à « ..._version_status »).
-          name: "clientStatus",
-          type: "select",
-          label: "Statut",
-          defaultValue: "actif",
-          admin: { width: "50%" },
-          options: [
-            { label: "Actif", value: "actif" },
-            { label: "Résilié", value: "resilie" },
-            { label: "Archivé", value: "archive" },
-          ],
-        },
-      ],
+      // Nommé `clientStatus` (et non `status`) pour éviter la collision de
+      // nom d'enum avec le champ `_status` des brouillons dans la table de
+      // versions (les deux se réduiraient à « ..._version_status »).
+      // (La « Date de signature » vit désormais dans l'onglet « Contrat client ».)
+      name: "clientStatus",
+      type: "select",
+      label: "Statut",
+      defaultValue: "actif",
+      admin: {
+        width: "50%",
+        // En tableau : pastille colorée (même code couleur que le Kanban).
+        components: { Cell: "/modules/partner/admin/ClientStatusCell#ClientStatusCell" },
+      },
+      options: CLIENT_STATUS_OPTIONS,
     },
     {
       name: "resiliationDate",
       type: "date",
-      label: "Date de résiliation",
+      label: "Date de fin de contrat",
       admin: {
         date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
-        // N'apparaît que si le client est résilié.
-        condition: (data) => data?.clientStatus === "resilie",
-        description: "Fin du contrat client — la commission s'arrête à cette date.",
+        // Visible dès que le contrat est terminé : client résilié OU archivé.
+        condition: (data) => data?.clientStatus === "resilie" || data?.clientStatus === "archive",
+        description:
+          "Fin du contrat / de l'abonnement mensuel — la commission du partenaire s'arrête à cette date.",
       },
     },
 
-    // ─── Onglets : facturation / licences / historique ───────────────────────
+    // ─── Onglets : contrat / facturation / licences ──────────────────────────
     {
       type: "tabs",
       tabs: [
@@ -326,6 +478,98 @@ export const PartnerClients: CollectionConfig = {
             },
           ],
         },
+        // ── Contrat client (métier + admin) — en dernier ────────────────────
+        {
+          label: "Contrat client",
+          description:
+            "Mode de paiement, conditions et contrat signé avec le client apporté.",
+          fields: [
+            {
+              type: "row",
+              fields: [
+                {
+                  name: "paymentMethod",
+                  type: "select",
+                  label: "Mode de paiement",
+                  admin: { width: "50%" },
+                  options: [
+                    { label: "Prélèvement (GoCardless)", value: "prelevement-gocardless" },
+                    { label: "Virement", value: "virement" },
+                  ],
+                },
+                {
+                  name: "paymentTerms",
+                  type: "select",
+                  label: "Conditions de paiement",
+                  // Uniquement pour le virement (le prélèvement GoCardless est
+                  // déclenché automatiquement, sans délai à choisir).
+                  admin: {
+                    width: "50%",
+                    condition: (data) => data?.paymentMethod === "virement",
+                    description: "Délai de règlement du virement.",
+                  },
+                  options: [
+                    { label: "1er du mois", value: "1er-du-mois" },
+                    { label: "7 jours", value: "7j" },
+                    { label: "15 jours", value: "15j" },
+                    { label: "30 jours", value: "30j" },
+                    { label: "45 jours", value: "45j" },
+                    { label: "60 jours", value: "60j" },
+                  ],
+                },
+              ],
+            },
+            {
+              // Dans un `row` : sinon `admin.width` est ignoré, le champ prend
+              // toute la largeur et l'icône du calendrier file tout à droite.
+              type: "row",
+              fields: [
+                {
+                  name: "signatureDate",
+                  type: "date",
+                  label: "Date de signature",
+                  admin: { width: "50%", date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" } },
+                },
+              ],
+            },
+            {
+              name: "contractDocument",
+              type: "upload",
+              relationTo: "media",
+              label: "Contrat signé (document)",
+              admin: {
+                description: "PDF du contrat signé avec le client.",
+                custom: { accept: "*", noun: "un fichier" },
+                components: { Field: "/admin/fields/DirectUpload#default" },
+              },
+            },
+          ],
+        },
+        // ── Contact (tout à la fin) : contacts de l'entreprise cliente ───────
+        {
+          label: "Contact",
+          fields: [
+            {
+              // Champ `join` : tableau des contacts liés (client-contacts.client),
+              // lignes cliquables → drawer d'édition. `allowCreate` affiche le
+              // bouton « Créer un Contact » → drawer d'ajout (client pré-rempli).
+              // Voir ClientContacts.ts.
+              name: "contacts",
+              type: "join",
+              collection: "client-contacts",
+              on: "client",
+              label: false,
+              admin: {
+                allowCreate: true,
+                // Payload masque le bouton « Créer » tant que le client n'a pas
+                // d'id (un contact se rattache à un client existant) → on l'explique.
+                description:
+                  "Enregistrez d'abord la fiche client, puis cliquez « Créer un Contact » pour ajouter les personnes à contacter chez ce client.",
+                defaultColumns: ["firstName", "lastName", "role", "email", "phone"],
+              },
+            },
+          ],
+        },
       ],
     },
     {
@@ -359,8 +603,40 @@ export const PartnerClients: CollectionConfig = {
     // Totaux STOCKÉS par le hook (reporting / colonnes de liste), non affichés
     // dans le formulaire (le récap ci-dessus est la source visible, en direct).
     { name: "totalLicences", type: "number", admin: { hidden: true } },
-    { name: "caPaye", type: "number", admin: { hidden: true } },
+    // `caPaye` sert de COLONNE (fiche partenaire, liste clients) : il ne peut donc
+    // pas être `hidden` (Payload exclut les champs cachés des colonnes) — on le
+    // sort du formulaire avec un composant vide à la place du champ.
+    {
+      name: "caPaye",
+      type: "number",
+      label: "CA / mois",
+      admin: {
+        components: {
+          Field: "/modules/partner/admin/HiddenControl#HiddenControl",
+          Cell: "/modules/partner/admin/MoneyCell#MoneyCell",
+        },
+      },
+    },
+    // Commission mensuelle du partenaire sur CE client — VIRTUELLE : calculée à
+    // la lecture depuis le taux de la fiche partenaire, donc jamais désynchronisée
+    // si le taux change (les montants stockés le sont dans `history`, figés).
+    {
+      name: "commissionMonthly",
+      type: "number",
+      label: "Commission / mois",
+      virtual: true,
+      admin: {
+        components: {
+          Field: "/modules/partner/admin/HiddenControl#HiddenControl",
+          Cell: "/modules/partner/admin/MoneyCell#MoneyCell",
+        },
+      },
+      hooks: { afterRead: [computeCommissionMonthly] },
+    },
     { name: "caBrut", type: "number", admin: { hidden: true } },
     { name: "discountPct", type: "number", admin: { hidden: true } },
+    // Rang de tri dérivé de `clientStatus` (0 = actif). Stocké/indexé pour trier
+    // « actifs en premier » côté BDD — voir setStatusRank + defaultSort.
+    { name: "statusRank", type: "number", index: true, admin: { hidden: true } },
   ],
 };

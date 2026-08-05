@@ -1,11 +1,14 @@
 import { TicketConversation as TicketConversation_fb92716304d231f4c816d76a0ee726e6 } from '../../../modules/support/admin/TicketConversation'
 import { TicketReply as TicketReply_c022cd1f6b5f4560fb88ddde4de1c692 } from '../../../modules/support/admin/TicketReply'
+import { TicketEmails as TicketEmails_6e31d56b2fee4573d76ebe347c3b535e } from '../../../modules/support/admin/TicketEmails'
 import { default as default_40605f4ba1c0a526a32bc7182606996c } from '../../../admin/fields/DirectUpload'
 import { ColoredCell as ColoredCell_acd47df5632d512e8adc7b1eabe7f150 } from '../../../modules/support/admin/ColoredCell'
 import { ColoredSelectField as ColoredSelectField_b4c0004ddd75d8c70b0e0808738ae1e8 } from '../../../modules/support/admin/ColoredSelectField'
+import { TicketPageSelect as TicketPageSelect_8a4a2086081c5438a7a8891c24ff25b7 } from '../../../modules/support/admin/TicketPageSelect'
 import { TicketAttachments as TicketAttachments_87e94bd030fa525d2b258e102bca13ac } from '../../../modules/support/admin/TicketAttachments'
 import { TicketAlertCell as TicketAlertCell_bc783fda4b7224342b8bdee45d2751b5 } from '../../../modules/support/admin/TicketAlertCell'
 import { TicketListFilters as TicketListFilters_ae5b32e140a9f00f2cdbcf996154b234 } from '../../../modules/support/admin/TicketListFilters'
+import { BackToListButton as BackToListButton_f7d026444a05d2bc171e6cce3246d6f0 } from '../../../admin/components/BackToListButton'
 import { RscEntryLexicalCell as RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { RscEntryLexicalField as RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { LexicalDiffComponent as LexicalDiffComponent_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
@@ -32,14 +35,24 @@ import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0
 import { DocSectionRowLabel as DocSectionRowLabel_67e1bc4d7225aec381db547c4b4a729c } from '../../../modules/editorial/admin/DocSectionRowLabel'
 import { FeatureImport as FeatureImport_0cbeb25d32bc0babbecc520b3ac7820e } from '../../../modules/editorial/admin/FeatureImport'
 import { default as default_7e85f5cff101ba7e7585712dd2365fa1 } from '../../../modules/editorial/admin/ParcoursListView'
+import { ContractModelAutofill as ContractModelAutofill_efe650ce4b81695b55d0f3c26a9c1118 } from '../../../modules/partner/admin/ContractModelAutofill'
+import { PartnerAccessManager as PartnerAccessManager_a9d284710faa2b19d5b2a4bb9cc2406b } from '../../../modules/partner/admin/PartnerAccessManager'
 import { PartnerClientsPanel as PartnerClientsPanel_c7863830fd24855994fff2ef0b0ebd06 } from '../../../modules/partner/admin/PartnerClientsPanel'
+import { AddClientButton as AddClientButton_ce0017323009dc202b417bbc2eca1cd0 } from '../../../modules/partner/admin/AddClientButton'
 import { PartnerActivity as PartnerActivity_0cefa807c5e124a83847213cf92a333a } from '../../../modules/partner/admin/PartnerActivity'
+import { default as default_8a9381e16c061227fc1bf73c50e6e581 } from '../../../modules/partner/admin/PartnersListLite'
+import { InseeLookup as InseeLookup_408c5271613c1beb0676cb0c9b2b5bf9 } from '../../../modules/partner/admin/InseeLookup'
+import { ClientStatusCell as ClientStatusCell_358b486afee2c4532aca3d72ba0365eb } from '../../../modules/partner/admin/ClientStatusCell'
 import { LicencesTable as LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338 } from '../../../modules/partner/admin/LicencesTable'
 import { PartnerClientHistory as PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2 } from '../../../modules/partner/admin/PartnerClientHistory'
 import { PartnerCommissionBox as PartnerCommissionBox_3b6f7425f35df62396e249af6e16b3db } from '../../../modules/partner/admin/PartnerCommissionBox'
-import { SmartSaveButton as SmartSaveButton_d2f84cfd7b2e15c9b318cc3949e7984f } from '../../../modules/partner/admin/SmartSaveButton'
-import { PartnerClientEditMenu as PartnerClientEditMenu_e271aadbf9279fb914faf39302326860 } from '../../../modules/partner/admin/PartnerClientEditMenu'
+import { MoneyCell as MoneyCell_defb85bf524b4db47dbfd1fb41b08924 } from '../../../modules/partner/admin/MoneyCell'
 import { HiddenControl as HiddenControl_7ccae3f972b05a5b902716411bfd380c } from '../../../modules/partner/admin/HiddenControl'
+import { PartnerClientsTotals as PartnerClientsTotals_a95dc08b9178c1ea2adff6a6c4d2fa1f } from '../../../modules/partner/admin/PartnerClientsTotals'
+import { PartnerClientsViewSwitcher as PartnerClientsViewSwitcher_b8c8256971de8bf5f5dde87d3219777f } from '../../../modules/partner/admin/PartnerClientsViewSwitcher'
+import { SmartSaveButton as SmartSaveButton_d2f84cfd7b2e15c9b318cc3949e7984f } from '../../../modules/partner/admin/SmartSaveButton'
+import { ArchiveClientModal as ArchiveClientModal_a512844c00e3b0e965609bd9ac0749f3 } from '../../../modules/partner/admin/ArchiveClientModal'
+import { PartnerClientEditMenu as PartnerClientEditMenu_e271aadbf9279fb914faf39302326860 } from '../../../modules/partner/admin/PartnerClientEditMenu'
 import { default as default_06617f97e881e99c74ab5a8129fcef54 } from '../../../modules/partner/admin/MissionsCatalog'
 import { default as default_d78fb9bf342cb6b769b2c45ebb7c851d } from '../../../modules/partner/admin/RewardsCatalog'
 import { RewardOrderBalance as RewardOrderBalance_21383d1a7f3c464032bdb799d5d3261b } from '../../../modules/partner/admin/RewardOrderBalance'
@@ -49,6 +62,8 @@ import { default as default_8224f9d0d872abe7f15fe4a0b0d49bd9 } from '../../../ad
 import { default as default_bd65fe58e0079c6c4581354ef4ec3555 } from '../../../admin/header/PartnerSwitcher'
 import { Icon as Icon_48a75e37b0630d5b8c8066e180c0e6ef } from '../../../admin/graphics/Icon'
 import { Logo as Logo_88541c286955dbac4d90fb5ed606381c } from '../../../admin/graphics/Logo'
+import { default as default_055834be697654d564715e5f4ed084b8 } from '../../../admin/providers/RoleBodyClass'
+import { default as default_0c7a18af881eb624fa2c205ee8033462 } from '../../../admin/providers/RowClick'
 import { VercelBlobClientUploadHandler as VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e } from '@payloadcms/storage-vercel-blob/client'
 import { default as default_a8bdfd6ec46ed48bd1e9402d58bf4c34 } from '../../../admin/dashboard/DashboardView'
 import { default as default_6971e0609c24bbf2339323e60b70e021 } from '../../../modules/support/admin/NotificationsView'
@@ -58,12 +73,15 @@ import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } f
 export const importMap = {
   "/modules/support/admin/TicketConversation#TicketConversation": TicketConversation_fb92716304d231f4c816d76a0ee726e6,
   "/modules/support/admin/TicketReply#TicketReply": TicketReply_c022cd1f6b5f4560fb88ddde4de1c692,
+  "/modules/support/admin/TicketEmails#TicketEmails": TicketEmails_6e31d56b2fee4573d76ebe347c3b535e,
   "/admin/fields/DirectUpload#default": default_40605f4ba1c0a526a32bc7182606996c,
   "/modules/support/admin/ColoredCell#ColoredCell": ColoredCell_acd47df5632d512e8adc7b1eabe7f150,
   "/modules/support/admin/ColoredSelectField#ColoredSelectField": ColoredSelectField_b4c0004ddd75d8c70b0e0808738ae1e8,
+  "/modules/support/admin/TicketPageSelect#TicketPageSelect": TicketPageSelect_8a4a2086081c5438a7a8891c24ff25b7,
   "/modules/support/admin/TicketAttachments#TicketAttachments": TicketAttachments_87e94bd030fa525d2b258e102bca13ac,
   "/modules/support/admin/TicketAlertCell#TicketAlertCell": TicketAlertCell_bc783fda4b7224342b8bdee45d2751b5,
   "/modules/support/admin/TicketListFilters#TicketListFilters": TicketListFilters_ae5b32e140a9f00f2cdbcf996154b234,
+  "/admin/components/BackToListButton#BackToListButton": BackToListButton_f7d026444a05d2bc171e6cce3246d6f0,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalCell": RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalField": RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#LexicalDiffComponent": LexicalDiffComponent_44fe37237e0ebf4470c9990d8cb7b07e,
@@ -90,14 +108,24 @@ export const importMap = {
   "/modules/editorial/admin/DocSectionRowLabel#DocSectionRowLabel": DocSectionRowLabel_67e1bc4d7225aec381db547c4b4a729c,
   "/modules/editorial/admin/FeatureImport#FeatureImport": FeatureImport_0cbeb25d32bc0babbecc520b3ac7820e,
   "/modules/editorial/admin/ParcoursListView#default": default_7e85f5cff101ba7e7585712dd2365fa1,
+  "/modules/partner/admin/ContractModelAutofill#ContractModelAutofill": ContractModelAutofill_efe650ce4b81695b55d0f3c26a9c1118,
+  "/modules/partner/admin/PartnerAccessManager#PartnerAccessManager": PartnerAccessManager_a9d284710faa2b19d5b2a4bb9cc2406b,
   "/modules/partner/admin/PartnerClientsPanel#PartnerClientsPanel": PartnerClientsPanel_c7863830fd24855994fff2ef0b0ebd06,
+  "/modules/partner/admin/AddClientButton#AddClientButton": AddClientButton_ce0017323009dc202b417bbc2eca1cd0,
   "/modules/partner/admin/PartnerActivity#PartnerActivity": PartnerActivity_0cefa807c5e124a83847213cf92a333a,
+  "/modules/partner/admin/PartnersListLite#default": default_8a9381e16c061227fc1bf73c50e6e581,
+  "/modules/partner/admin/InseeLookup#InseeLookup": InseeLookup_408c5271613c1beb0676cb0c9b2b5bf9,
+  "/modules/partner/admin/ClientStatusCell#ClientStatusCell": ClientStatusCell_358b486afee2c4532aca3d72ba0365eb,
   "/modules/partner/admin/LicencesTable#LicencesTable": LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338,
   "/modules/partner/admin/PartnerClientHistory#PartnerClientHistory": PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2,
   "/modules/partner/admin/PartnerCommissionBox#PartnerCommissionBox": PartnerCommissionBox_3b6f7425f35df62396e249af6e16b3db,
-  "/modules/partner/admin/SmartSaveButton#SmartSaveButton": SmartSaveButton_d2f84cfd7b2e15c9b318cc3949e7984f,
-  "/modules/partner/admin/PartnerClientEditMenu#PartnerClientEditMenu": PartnerClientEditMenu_e271aadbf9279fb914faf39302326860,
+  "/modules/partner/admin/MoneyCell#MoneyCell": MoneyCell_defb85bf524b4db47dbfd1fb41b08924,
   "/modules/partner/admin/HiddenControl#HiddenControl": HiddenControl_7ccae3f972b05a5b902716411bfd380c,
+  "/modules/partner/admin/PartnerClientsTotals#PartnerClientsTotals": PartnerClientsTotals_a95dc08b9178c1ea2adff6a6c4d2fa1f,
+  "/modules/partner/admin/PartnerClientsViewSwitcher#PartnerClientsViewSwitcher": PartnerClientsViewSwitcher_b8c8256971de8bf5f5dde87d3219777f,
+  "/modules/partner/admin/SmartSaveButton#SmartSaveButton": SmartSaveButton_d2f84cfd7b2e15c9b318cc3949e7984f,
+  "/modules/partner/admin/ArchiveClientModal#ArchiveClientModal": ArchiveClientModal_a512844c00e3b0e965609bd9ac0749f3,
+  "/modules/partner/admin/PartnerClientEditMenu#PartnerClientEditMenu": PartnerClientEditMenu_e271aadbf9279fb914faf39302326860,
   "/modules/partner/admin/MissionsCatalog#default": default_06617f97e881e99c74ab5a8129fcef54,
   "/modules/partner/admin/RewardsCatalog#default": default_d78fb9bf342cb6b769b2c45ebb7c851d,
   "/modules/partner/admin/RewardOrderBalance#RewardOrderBalance": RewardOrderBalance_21383d1a7f3c464032bdb799d5d3261b,
@@ -107,6 +135,8 @@ export const importMap = {
   "/admin/header/PartnerSwitcher#default": default_bd65fe58e0079c6c4581354ef4ec3555,
   "/admin/graphics/Icon#Icon": Icon_48a75e37b0630d5b8c8066e180c0e6ef,
   "/admin/graphics/Logo#Logo": Logo_88541c286955dbac4d90fb5ed606381c,
+  "/admin/providers/RoleBodyClass#default": default_055834be697654d564715e5f4ed084b8,
+  "/admin/providers/RowClick#default": default_0c7a18af881eb624fa2c205ee8033462,
   "@payloadcms/storage-vercel-blob/client#VercelBlobClientUploadHandler": VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e,
   "/admin/dashboard/DashboardView#default": default_a8bdfd6ec46ed48bd1e9402d58bf4c34,
   "/modules/support/admin/NotificationsView#default": default_6971e0609c24bbf2339323e60b70e021,

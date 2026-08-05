@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getFeatures, getFeatureCategories } from "@/modules/editorial/lib/content";
 import FeatureCard from "@/components/features/FeatureCard";
 
@@ -41,9 +42,9 @@ export default async function FeaturesPage({ searchParams }: PageProps) {
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <p className="text-4xl mb-4">🔍</p>
           <p className="text-muted">Aucune fonctionnalité dans cette catégorie.</p>
-          <a href="/features" className="mt-3 text-sm text-primary hover:underline">
+          <Link href="/features" className="mt-3 text-sm text-primary hover:underline">
             Voir toutes les fonctionnalités
-          </a>
+          </Link>
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">

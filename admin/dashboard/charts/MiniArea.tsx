@@ -5,10 +5,19 @@ import { useRef, useState } from "react";
 interface Point {
   day: string;
   count: number;
+  /** Libellé de l'abscisse (défaut : la date au jour). */
+  label?: string;
+  /** Valeur déjà formatée pour le tooltip (défaut : le nombre brut). */
+  valueLabel?: string;
 }
 
 /** Courbe d'aire (1 série, teinte primary) avec crosshair + tooltip au survol.
- *  Job : évolution dans le temps. viewBox fixe, largeur 100% (responsive). */
+ *  Job : évolution dans le temps. viewBox fixe, largeur 100% (responsive).
+ *
+ *  Pour afficher autre chose qu'un compte journalier (ex. un montant en € par
+ *  mois), l'appelant fournit `label` / `valueLabel` DÉJÀ formatés sur chaque
+ *  point : ce composant est client, et React interdit de lui passer une fonction
+ *  de formatage depuis un server component. */
 export default function MiniArea({ data, unit = "" }: { data: Point[]; unit?: string }) {
   const ref = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -32,8 +41,8 @@ export default function MiniArea({ data, unit = "" }: { data: Point[]; unit?: st
     setHover(Math.max(0, Math.min(data.length - 1, Math.round(frac * (data.length - 1)))));
   };
 
-  const fmtDay = (d: string) =>
-    new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+  const fmtDay = (p: Point) =>
+    p.label ?? new Date(p.day).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
 
   const hx = hover != null ? pts[hover][0] : 0;
 
@@ -60,13 +69,13 @@ export default function MiniArea({ data, unit = "" }: { data: Point[]; unit?: st
         )}
       </svg>
       <div className="dash-area__axis">
-        <span>{fmtDay(data[0].day)}</span>
-        <span>{fmtDay(data[data.length - 1].day)}</span>
+        <span>{fmtDay(data[0])}</span>
+        <span>{fmtDay(data[data.length - 1])}</span>
       </div>
       {hover != null && (
         <div className="dash-tooltip" style={{ left: `${(hx / W) * 100}%` }}>
-          <strong>{data[hover].count}</strong>
-          {unit ? ` ${unit}` : ""} · {fmtDay(data[hover].day)}
+          <strong>{data[hover].valueLabel ?? data[hover].count}</strong>
+          {unit ? ` ${unit}` : ""} · {fmtDay(data[hover])}
         </div>
       )}
     </div>

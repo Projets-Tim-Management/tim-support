@@ -25,6 +25,28 @@ export const Missions: CollectionConfig = {
   fields: [
     { name: "title", type: "text", label: "Titre", required: true },
     { name: "instructions", type: "richText", label: "Instructions" },
+    /**
+     * Étapes de réalisation — guident le partenaire pas à pas dans le drawer
+     * « Réaliser » (1, 2, 3… puis l'envoi de la preuve). Facultatives : sans
+     * étape, le drawer s'ouvre directement sur l'envoi de la preuve.
+     */
+    {
+      name: "steps",
+      type: "array",
+      label: "Étapes de réalisation",
+      labels: { singular: "Étape", plural: "Étapes" },
+      fields: [
+        { name: "title", type: "text", label: "Intitulé", required: true },
+        { name: "detail", type: "textarea", label: "Détail" },
+        { name: "url", type: "text", label: "Lien" },
+      ],
+    },
+    {
+      name: "proofHint",
+      type: "textarea",
+      label: "Preuve attendue",
+      admin: { placeholder: "Ex. : capture de votre avis publié, visible avec la date." },
+    },
     {
       name: "logo",
       type: "upload",

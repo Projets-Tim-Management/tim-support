@@ -1,8 +1,12 @@
 "use client";
 
 import { useDocumentInfo, useField, useForm } from "@payloadcms/ui";
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
+// Type importé (et non redéclaré) pour rester aligné sur la réponse de l'API :
+// un `import type` est effacé à la compilation, rien du module serveur n'atterrit
+// dans le bundle client.
+import type { BrevoSender as Sender } from "../lib/brevo";
 import { ticketMeta } from "./ticket-meta";
 
 /**
@@ -48,11 +52,35 @@ export function TicketReply() {
 
   const { value: status, setValue: setStatus } = useField<string>({ path: "status" });
   const { value: clientName } = useField<string>({ path: "name" });
+  const { value: clientEmail } = useField<string>({ path: "email" });
 
   const [body, setBody] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
+
+  // Expéditeurs vérifiés du compte Brevo : le support est le défaut, mais on
+  // peut répondre depuis une autre adresse vérifiée (direction, commercial…).
+  const [senders, setSenders] = useState<Sender[]>([]);
+  const [from, setFrom] = useState("");
+  const [cc, setCc] = useState("");
+  const [ccOpen, setCcOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/tickets/senders", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { senders?: Sender[]; default?: string } | null) => {
+        if (cancelled || !d) return;
+        setSenders(d.senders ?? []);
+        setFrom((prev) => prev || d.default || "");
+      })
+      // Liste indisponible → l'envoi partira de l'adresse par défaut du serveur.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!id) return null;
 
@@ -98,6 +126,8 @@ export function TicketReply() {
       fd.set("ticketId", String(id));
       fd.set("body", text);
       fd.set("status", current); // persiste le statut choisi côté serveur
+      if (from) fd.set("from", from);
+      if (cc.trim()) fd.set("cc", cc.trim());
       files.forEach((f, i) => fd.append(`attachment_${i}`, f, f.name));
 
       const res = await fetch("/api/tickets/reply", {
@@ -109,6 +139,8 @@ export function TicketReply() {
       if (res.ok && data.ok) {
         setBody("");
         setFiles([]);
+        setCc("");
+        setCcOpen(false);
         setState("sent");
         setMessage(
           data.emailSent
@@ -144,6 +176,58 @@ export function TicketReply() {
             Passer à « {ticketMeta("status", next).label} » ▸
           </button>
         ) : null}
+      </div>
+
+      {/* En-tête d'envoi : qui écrit, à qui, et qui reçoit une copie — visible
+          AVANT d'envoyer, pour qu'aucune réponse ne parte de la mauvaise adresse. */}
+      <div className="ticket-reply__env">
+        <div className="ticket-reply__env-row">
+          <span className="ticket-reply__env-key">De</span>
+          {senders.length > 0 ? (
+            <select
+              className="ticket-reply__env-select"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              aria-label="Adresse d'expédition"
+            >
+              {senders.map((s) => (
+                <option key={s.id} value={s.email}>
+                  {s.name} — {s.email}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="ticket-reply__env-val">{from || "adresse par défaut du support"}</span>
+          )}
+        </div>
+
+        <div className="ticket-reply__env-row">
+          <span className="ticket-reply__env-key">À</span>
+          <span className="ticket-reply__env-val">{clientEmail || "—"}</span>
+          {!ccOpen && (
+            <button
+              type="button"
+              className="ticket-reply__env-add"
+              onClick={() => setCcOpen(true)}
+            >
+              + Copie
+            </button>
+          )}
+        </div>
+
+        {ccOpen && (
+          <div className="ticket-reply__env-row">
+            <span className="ticket-reply__env-key">Cc</span>
+            <input
+              type="text"
+              className="ticket-reply__env-input"
+              value={cc}
+              onChange={(e) => setCc(e.target.value)}
+              placeholder="adresse@exemple.com, autre@exemple.com"
+              aria-label="Adresses en copie"
+            />
+          </div>
+        )}
       </div>
 
       <textarea

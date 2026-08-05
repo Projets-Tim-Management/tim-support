@@ -24,21 +24,43 @@ type Payload = Awaited<ReturnType<typeof payloadClient>>;
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
-/** Trouve le partenaire par email, ou le crée (code généré automatiquement). */
-async function getOrCreatePartner(payload: Payload, email: string, name?: string) {
+/**
+ * Résout la FICHE partenaire d'un compte à partir de son email de session.
+ *
+ * Identification par le LIEN STABLE compte↔fiche (`users.partner`, par ID), pas
+ * par correspondance d'email : l'email de session est celui du LOGIN (donc
+ * toujours à jour), on remonte au compte puis à SA fiche par identifiants. Ainsi
+ * changer l'email d'une fiche (ou d'un compte) ne recrée plus de fiche en double.
+ *
+ * Repli hérité : correspondance par email, EN LECTURE SEULE. Plus aucune création
+ * silencieuse — c'était elle qui générait les doublons dès que l'email divergeait.
+ *
+ * @returns la fiche partenaire, ou `null` si le compte n'est rattaché à aucune.
+ */
+async function resolvePartner(payload: Payload, email: string) {
   const normalized = normalizeEmail(email);
+  // 1) Lien stable compte → fiche (par ID) : la source de vérité.
+  const users = await payload.find({
+    collection: "users",
+    where: { email: { equals: normalized } },
+    limit: 1,
+    depth: 0,
+  });
+  const partnerId = relId((users.docs[0] as { partner?: unknown } | undefined)?.partner);
+  if (partnerId) {
+    const linked = await payload
+      .findByID({ collection: "partners", id: partnerId, depth: 0 })
+      .catch(() => null);
+    if (linked) return linked;
+  }
+  // 2) Repli hérité : correspondance par email (lecture seule, sans création).
   const found = await payload.find({
     collection: "partners",
     where: { email: { equals: normalized } },
     limit: 1,
     depth: 0,
   });
-  if (found.docs.length) return found.docs[0];
-  return payload.create({
-    collection: "partners",
-    // partnerKind est requis à la création (défaut historique = "metier").
-    data: { email: normalized, name: name ?? null, partnerKind: "metier", status: "active" },
-  });
+  return found.docs[0] ?? null;
 }
 
 /** Solde = somme des deltas du ledger du partenaire. */
@@ -56,7 +78,8 @@ async function getBalance(payload: Payload, partnerId: number): Promise<number> 
 
 export async function getPointsSummary(email: string): Promise<PointsSummary | null> {
   const payload = await payloadClient();
-  const partner = await getOrCreatePartner(payload, email);
+  const partner = await resolvePartner(payload, email);
+  if (!partner) return null;
   const res = await payload.find({
     collection: "point-transactions",
     where: { partner: { equals: partner.id } },
@@ -90,18 +113,20 @@ function mapPartnerStatus(status: string | undefined): MissionPartnerStatus {
 
 export async function getMissions(email: string): Promise<Mission[]> {
   const payload = await payloadClient();
-  const partner = await getOrCreatePartner(payload, email);
+  const partner = await resolvePartner(payload, email);
 
-  const [missions, subs] = await Promise.all([
-    payload.find({ collection: "missions", limit: 1000, depth: 1, sort: "order" }),
-    payload.find({
-      collection: "mission-submissions",
-      where: { partner: { equals: partner.id } },
-      limit: 10000,
-      depth: 0,
-      sort: "-createdAt",
-    }),
-  ]);
+  // Le catalogue est public ; le statut par mission n'existe que si le compte est
+  // rattaché à une fiche (sinon aucune soumission → statut par défaut).
+  const missions = await payload.find({ collection: "missions", limit: 1000, depth: 1, sort: "order" });
+  const subs = partner
+    ? await payload.find({
+        collection: "mission-submissions",
+        where: { partner: { equals: partner.id } },
+        limit: 10000,
+        depth: 0,
+        sort: "-createdAt",
+      })
+    : { docs: [] as unknown[] };
 
   // Statut le plus récent par mission pour ce partenaire.
   const latestStatus = new Map<number, string>();
@@ -111,6 +136,9 @@ export async function getMissions(email: string): Promise<Mission[]> {
   }
 
   return missions.docs.map((m) => {
+    // Document Payload brut : `unknown` obligerait à un cast à chaque accès
+    // sans rien garantir de plus (conversion vers le type du domaine juste après).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const d = m as Record<string, any>;
     return {
       id: d.id,
@@ -136,6 +164,8 @@ export async function getRewards(): Promise<Reward[]> {
     sort: "cost",
   });
   return res.docs.map((r) => {
+    // Idem : document Payload brut, converti juste après.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const d = r as Record<string, any>;
     return {
       id: d.id,
@@ -226,7 +256,13 @@ export async function redeemReward(
   rewardId: number,
 ): Promise<{ status: number; data: RedeemResult }> {
   const payload = await payloadClient();
-  const partner = await getOrCreatePartner(payload, email);
+  const partner = await resolvePartner(payload, email);
+  if (!partner) {
+    return {
+      status: 404,
+      data: { code: "partner_not_found", message: "Compte non rattaché à une fiche partenaire." },
+    };
+  }
   return redeemRewardForPartner(
     payload,
     { id: Number(partner.id), code: (partner as { code?: string }).code },
@@ -245,7 +281,13 @@ export async function submitMission(args: {
 }): Promise<{ status: number; data: { success?: boolean; submission_number?: number; code?: string; message?: string } }> {
   const { email, missionId, note, reviewerEmail, files } = args;
   const payload = await payloadClient();
-  const partner = await getOrCreatePartner(payload, email);
+  const partner = await resolvePartner(payload, email);
+  if (!partner) {
+    return {
+      status: 404,
+      data: { code: "partner_not_found", message: "Compte non rattaché à une fiche partenaire." },
+    };
+  }
 
   const mission = (await payload
     .findByID({ collection: "missions", id: missionId, depth: 0 })

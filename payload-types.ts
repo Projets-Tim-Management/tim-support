@@ -74,6 +74,7 @@ export interface Config {
     parcours: Parcour;
     partners: Partner;
     'partner-clients': PartnerClient;
+    'client-contacts': ClientContact;
     'point-transactions': PointTransaction;
     missions: Mission;
     'mission-submissions': MissionSubmission;
@@ -91,6 +92,9 @@ export interface Config {
       clients: 'partner-clients';
       ledger: 'point-transactions';
     };
+    'partner-clients': {
+      contacts: 'client-contacts';
+    };
   };
   collectionsSelect: {
     tickets: TicketsSelect<false> | TicketsSelect<true>;
@@ -100,6 +104,7 @@ export interface Config {
     parcours: ParcoursSelect<false> | ParcoursSelect<true>;
     partners: PartnersSelect<false> | PartnersSelect<true>;
     'partner-clients': PartnerClientsSelect<false> | PartnerClientsSelect<true>;
+    'client-contacts': ClientContactsSelect<false> | ClientContactsSelect<true>;
     'point-transactions': PointTransactionsSelect<false> | PointTransactionsSelect<true>;
     missions: MissionsSelect<false> | MissionsSelect<true>;
     'mission-submissions': MissionSubmissionsSelect<false> | MissionSubmissionsSelect<true>;
@@ -152,13 +157,14 @@ export interface UserAuthOperations {
  */
 export interface Ticket {
   id: number;
-  subject: string;
-  description: string;
+  subject?: string | null;
+  description?: string | null;
   messages?:
     | {
         author?: ('client' | 'support') | null;
         body?: string | null;
         sentAt?: string | null;
+        cc?: string | null;
         attachments?: (number | Media)[] | null;
         id?: string | null;
       }[]
@@ -177,6 +183,8 @@ export interface Ticket {
   internalNotes?: string | null;
   email: string;
   name?: string | null;
+  firstName?: string | null;
+  company?: string | null;
   url?: string | null;
   attachments?: (number | Media)[] | null;
   resolvedAt?: string | null;
@@ -415,13 +423,10 @@ export interface Partner {
   /**
    * Métier = payé en commission via un contrat. Utilisateur = personne individuelle qui gagne des points.
    */
-  partnerKind: 'metier' | 'utilisateur';
-  /**
-   * Clé de rapprochement (app + migration).
-   */
-  email: string;
+  partnerKind?: ('metier' | 'utilisateur') | null;
   name?: string | null;
   firstName?: string | null;
+  email: string;
   phone?: string | null;
   societe?: string | null;
   mobile?: string | null;
@@ -441,12 +446,9 @@ export interface Partner {
    * Détermine automatiquement le taux et la durée de commission.
    */
   partnershipModel?: ('apporteur-affaires' | 'revendeur' | 'revendeur-sav') | null;
-  /**
-   * Pré-rempli selon le modèle. Modifiable (taux négocié) ; videz pour re-déduire.
-   */
   commissionRate?: number | null;
   /**
-   * Pré-remplie selon le modèle. Modifiable ; videz pour re-déduire.
+   * Pré-remplie automatiquement quand tu choisis le modèle (modifiable ensuite). Videz pour re-déduire.
    */
   commissionDuration?: ('24m' | 'vie') | null;
   contractSigned?: boolean | null;
@@ -501,14 +503,8 @@ export interface Partner {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  /**
-   * Généré automatiquement (TIM-XXXXXX).
-   */
   code?: string | null;
   status?: ('active' | 'paused' | 'archived') | null;
-  /**
-   * Identifiant sur app.tim-management.co, si disponible.
-   */
   appUserId?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -558,10 +554,9 @@ export interface PartnerClient {
   id: number;
   companyName: string;
   partner: number | Partner;
-  signatureDate?: string | null;
-  clientStatus?: ('actif' | 'resilie' | 'archive') | null;
+  clientStatus?: ('prospect' | 'en-cours' | 'en-test' | 'actif' | 'resilie' | 'archive') | null;
   /**
-   * Fin du contrat client — la commission s'arrête à cette date.
+   * Fin du contrat / de l'abonnement mensuel — la commission du partenaire s'arrête à cette date.
    */
   resiliationDate?: string | null;
   /**
@@ -597,6 +592,24 @@ export interface PartnerClient {
     compagnonQty?: number | null;
     compagnonPrice?: number | null;
   };
+  paymentMethod?: ('prelevement-gocardless' | 'virement') | null;
+  /**
+   * Délai de règlement du virement.
+   */
+  paymentTerms?: ('1er-du-mois' | '7j' | '15j' | '30j' | '45j' | '60j') | null;
+  signatureDate?: string | null;
+  /**
+   * PDF du contrat signé avec le client.
+   */
+  contractDocument?: (number | null) | Media;
+  /**
+   * Enregistrez d'abord la fiche client, puis cliquez « Créer un Contact » pour ajouter les personnes à contacter chez ce client.
+   */
+  contacts?: {
+    docs?: (number | ClientContact)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   history?:
     | {
         at?: string | null;
@@ -619,11 +632,30 @@ export interface PartnerClient {
   notes?: string | null;
   totalLicences?: number | null;
   caPaye?: number | null;
+  commissionMonthly?: number | null;
   caBrut?: number | null;
   discountPct?: number | null;
+  statusRank?: number | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-contacts".
+ */
+export interface ClientContact {
+  id: number;
+  client: number | PartnerClient;
+  firstName?: string | null;
+  lastName?: string | null;
+  role?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  partner?: (number | null) | Partner;
+  displayName?: string | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -672,6 +704,15 @@ export interface Mission {
     };
     [k: string]: unknown;
   } | null;
+  steps?:
+    | {
+        title: string;
+        detail?: string | null;
+        url?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  proofHint?: string | null;
   logo?: (number | null) | Media;
   points?: number | null;
   type?: ('preuve' | 'manuelle') | null;
@@ -825,8 +866,8 @@ export interface PayloadLockedDocument {
         value: number | Partner;
       } | null)
     | ({
-        relationTo: 'partner-clients';
-        value: number | PartnerClient;
+        relationTo: 'client-contacts';
+        value: number | ClientContact;
       } | null)
     | ({
         relationTo: 'point-transactions';
@@ -911,6 +952,7 @@ export interface TicketsSelect<T extends boolean = true> {
         author?: T;
         body?: T;
         sentAt?: T;
+        cc?: T;
         attachments?: T;
         id?: T;
       };
@@ -922,6 +964,8 @@ export interface TicketsSelect<T extends boolean = true> {
   internalNotes?: T;
   email?: T;
   name?: T;
+  firstName?: T;
+  company?: T;
   url?: T;
   attachments?: T;
   resolvedAt?: T;
@@ -1043,9 +1087,9 @@ export interface ParcoursSelect<T extends boolean = true> {
 export interface PartnersSelect<T extends boolean = true> {
   avatar?: T;
   partnerKind?: T;
-  email?: T;
   name?: T;
   firstName?: T;
+  email?: T;
   phone?: T;
   societe?: T;
   mobile?: T;
@@ -1094,7 +1138,6 @@ export interface PartnersSelect<T extends boolean = true> {
 export interface PartnerClientsSelect<T extends boolean = true> {
   companyName?: T;
   partner?: T;
-  signatureDate?: T;
   clientStatus?: T;
   resiliationDate?: T;
   raisonSociale?: T;
@@ -1120,6 +1163,11 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         compagnonQty?: T;
         compagnonPrice?: T;
       };
+  paymentMethod?: T;
+  paymentTerms?: T;
+  signatureDate?: T;
+  contractDocument?: T;
+  contacts?: T;
   history?:
     | T
     | {
@@ -1134,11 +1182,29 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   notes?: T;
   totalLicences?: T;
   caPaye?: T;
+  commissionMonthly?: T;
   caBrut?: T;
   discountPct?: T;
+  statusRank?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-contacts_select".
+ */
+export interface ClientContactsSelect<T extends boolean = true> {
+  client?: T;
+  firstName?: T;
+  lastName?: T;
+  role?: T;
+  email?: T;
+  phone?: T;
+  partner?: T;
+  displayName?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1162,6 +1228,15 @@ export interface PointTransactionsSelect<T extends boolean = true> {
 export interface MissionsSelect<T extends boolean = true> {
   title?: T;
   instructions?: T;
+  steps?:
+    | T
+    | {
+        title?: T;
+        detail?: T;
+        url?: T;
+        id?: T;
+      };
+  proofHint?: T;
   logo?: T;
   points?: T;
   type?: T;
