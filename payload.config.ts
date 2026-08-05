@@ -319,11 +319,14 @@ export default buildConfig({
       // marge et on libère vite les connexions inactives (surtout en dev, où
       // les rechargements à chaud peuvent multiplier les pools).
       //
-      // Pendant un BUILD, plusieurs processus prérendent les pages en parallèle
-      // et ouvrent chacun leur pool : 5 connexions par worker saturent le pooler
-      // (« max clients reached in session mode »). On descend à 2 dans cette
-      // phase — le prérendu est séquentiel par page, il n'a pas besoin de plus.
-      max: process.env.NEXT_PHASE === "phase-production-build" ? 2 : 5,
+      // Pendant un BUILD, le budget se partage entre les processus de prérendu.
+      // `experimental.cpus: 2` (next.config) en borne le nombre à 2 : 6 connexions
+      // chacun tiennent dans les 15, tout en évitant la file d'attente. Descendre
+      // à 2 par worker faisait dépasser 60 s à des pages entières (le prérendu
+      // rend PLUSIEURS pages en parallèle dans un même worker) et faisait échouer
+      // le build Vercel — d'autant que la base est en Europe et le builder aux
+      // États-Unis, chaque requête payant l'aller-retour.
+      max: process.env.NEXT_PHASE === "phase-production-build" ? 6 : 5,
       idleTimeoutMillis: 10000,
     },
   }),
