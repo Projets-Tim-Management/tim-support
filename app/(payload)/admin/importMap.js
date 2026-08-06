@@ -54,6 +54,8 @@ import { SmartSaveButton as SmartSaveButton_d2f84cfd7b2e15c9b318cc3949e7984f } f
 import { ArchiveClientModal as ArchiveClientModal_a512844c00e3b0e965609bd9ac0749f3 } from '../../../modules/partner/admin/ArchiveClientModal'
 import { PartnerClientEditMenu as PartnerClientEditMenu_e271aadbf9279fb914faf39302326860 } from '../../../modules/partner/admin/PartnerClientEditMenu'
 import { default as default_06617f97e881e99c74ab5a8129fcef54 } from '../../../modules/partner/admin/MissionsCatalog'
+import { EditableNumberCell as EditableNumberCell_3870cc48058273f86b46eff4152d7ef5 } from '../../../admin/fields/EditableNumberCell'
+import { RewardStockCell as RewardStockCell_313b5a94900b9c722f8a2af8605c469a } from '../../../modules/partner/admin/RewardStockCell'
 import { default as default_d78fb9bf342cb6b769b2c45ebb7c851d } from '../../../modules/partner/admin/RewardsCatalog'
 import { RewardOrderBalance as RewardOrderBalance_21383d1a7f3c464032bdb799d5d3261b } from '../../../modules/partner/admin/RewardOrderBalance'
 import { default as default_c08243cbb0e32dd70b45a5afb5f6cbd4 } from '../../../admin/components/SaveButton'
@@ -127,6 +129,8 @@ export const importMap = {
   "/modules/partner/admin/ArchiveClientModal#ArchiveClientModal": ArchiveClientModal_a512844c00e3b0e965609bd9ac0749f3,
   "/modules/partner/admin/PartnerClientEditMenu#PartnerClientEditMenu": PartnerClientEditMenu_e271aadbf9279fb914faf39302326860,
   "/modules/partner/admin/MissionsCatalog#default": default_06617f97e881e99c74ab5a8129fcef54,
+  "/admin/fields/EditableNumberCell#EditableNumberCell": EditableNumberCell_3870cc48058273f86b46eff4152d7ef5,
+  "/modules/partner/admin/RewardStockCell#RewardStockCell": RewardStockCell_313b5a94900b9c722f8a2af8605c469a,
   "/modules/partner/admin/RewardsCatalog#default": default_d78fb9bf342cb6b769b2c45ebb7c851d,
   "/modules/partner/admin/RewardOrderBalance#RewardOrderBalance": RewardOrderBalance_21383d1a7f3c464032bdb799d5d3261b,
   "/admin/components/SaveButton#default": default_c08243cbb0e32dd70b45a5afb5f6cbd4,

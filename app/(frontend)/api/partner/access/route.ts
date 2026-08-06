@@ -75,8 +75,18 @@ export async function POST(req: Request) {
   const partner = (await payload
     .findByID({ collection: "partners", id: partnerId, depth: 0, overrideAccess: true })
     .catch(() => null)) as
-    | { email?: string; firstName?: string; name?: string; avatar?: number | string | null }
+    | {
+        email?: string;
+        firstName?: string;
+        name?: string;
+        partnerKind?: string;
+        avatar?: number | string | null;
+      }
     | null;
+  // Le rôle DÉCOULE du type de la fiche : la validation de `Users.partner` exige
+  // que les deux concordent (métier ↔ métier, utilisateur ↔ utilisateur).
+  const role =
+    partner?.partnerKind === "utilisateur" ? ROLES.partnerUtilisateur : ROLES.partnerMetier;
   const email = String(partner?.email ?? "").trim().toLowerCase();
   if (!email) {
     return NextResponse.json(
@@ -108,7 +118,7 @@ export async function POST(req: Request) {
       data: {
         email,
         password,
-        roles: [ROLES.partnerMetier],
+        roles: [role],
         partner: partnerId,
         // Infos reprises de la fiche partenaire.
         ...identity,

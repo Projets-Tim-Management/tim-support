@@ -416,6 +416,7 @@ export interface Parcour {
  */
 export interface Partner {
   id: number;
+  displayName?: string | null;
   /**
    * Photo / logo du partenaire.
    */
@@ -780,6 +781,11 @@ export interface Reward {
     };
     [k: string]: unknown;
   } | null;
+  /**
+   * Ce que la récompense coûte à TIM. Jamais visible par un partenaire.
+   */
+  purchasePrice?: number | null;
+  supplier?: string | null;
   image?: (number | null) | Media;
   cost: number;
   /**
@@ -1085,6 +1091,7 @@ export interface ParcoursSelect<T extends boolean = true> {
  * via the `definition` "partners_select".
  */
 export interface PartnersSelect<T extends boolean = true> {
+  displayName?: T;
   avatar?: T;
   partnerKind?: T;
   name?: T;
@@ -1270,6 +1277,8 @@ export interface RewardsSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
   description?: T;
+  purchasePrice?: T;
+  supplier?: T;
   image?: T;
   cost?: T;
   stock?: T;

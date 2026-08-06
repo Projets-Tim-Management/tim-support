@@ -4,13 +4,13 @@ import { useDocumentInfo, useFormFields } from "@payloadcms/ui";
 import { useEffect, useState } from "react";
 
 /**
- * Accès back-office d'un partenaire MÉTIER, dans l'onglet « Accès ».
+ * Accès back-office d'un partenaire, dans l'onglet « Accès ».
  *
  * - L'identifiant de connexion est FORCÉ sur le champ « Email » de la fiche
  *   (affiché en lecture seule) → ici on ne définit que le MOT DE PASSE.
- * - À la validation → crée/met à jour le compte `Users` lié (rôle Métier,
- *   infos reprises de la fiche) via /api/partner/access. Le mot de passe n'est
- *   jamais stocké sur la fiche partenaire.
+ * - À la validation → crée/met à jour le compte `Users` lié via
+ *   /api/partner/access. Le RÔLE découle du type de la fiche (métier ou
+ *   utilisateur) ; le mot de passe n'est jamais stocké sur la fiche.
  * - N'apparaît qu'une fois la fiche enregistrée (id requis pour rattacher).
  */
 export function PartnerAccessManager() {
@@ -80,7 +80,7 @@ export function PartnerAccessManager() {
       <p className="tim-access__hint">
         {linkedEmail
           ? `Compte lié : ${linkedEmail}. Définis un nouveau mot de passe pour le changer.`
-          : "Aucun compte pour l'instant. Définis un mot de passe pour créer l'accès (rôle Partenaire — Métier)."}
+          : "Aucun compte pour l'instant. Définis un mot de passe pour créer l'accès — le rôle suit le type de la fiche."}
       </p>
 
       <div className="tim-access__row">

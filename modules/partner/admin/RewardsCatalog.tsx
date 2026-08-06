@@ -51,7 +51,9 @@ export default function RewardsCatalog() {
     let cancelled = false;
     (async () => {
       try {
-        const rw = await fetch(`/payload-api/rewards?limit=200&depth=1&sort=cost`, {
+        // `-cost` : les récompenses les plus chères en tête — ce sont elles qui
+        // donnent envie de cumuler des points, et elles portent les visuels.
+        const rw = await fetch(`/payload-api/rewards?limit=200&depth=1&sort=-cost`, {
           credentials: "include",
         }).then((res) => res.json());
         if (!cancelled) setRewards((rw?.docs as Reward[]) ?? []);
@@ -147,9 +149,11 @@ export default function RewardsCatalog() {
                 )}
 
                 <div className="tim-mcard__foot">
-                  <span className="tim-mcard__stock">
-                    {soldOut ? "Épuisée" : r.stock != null && r.stock > 0 ? `${r.stock} en stock` : ""}
-                  </span>
+                  {/* Le nombre d'exemplaires restants ne regarde pas le
+                      partenaire : c'est une donnée de gestion, et l'afficher
+                      pousse à la précipitation. Seule l'indisponibilité compte
+                      pour lui — sinon, rien. */}
+                  {soldOut ? <span className="tim-mcard__soldout">Épuisée</span> : <span />}
                   <button
                     type="button"
                     className="tim-mcard__btn"
