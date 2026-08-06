@@ -175,8 +175,36 @@ export default function MissionsCatalog() {
             const desc = excerpt(m.instructions);
             const title = m.title || "Mission";
 
+            // Une mission déjà envoyée n'est plus actionnable : la ligne reste
+            // lisible mais n'ouvre rien.
+            const openable = !status;
+
             return (
-              <li key={String(m.id)} className={`tim-mission${status ? ` is-${status}` : ""}`}>
+              <li
+                key={String(m.id)}
+                className={`tim-mission${status ? ` is-${status}` : ""}${
+                  openable ? " is-openable" : ""
+                }`}
+                {...(openable
+                  ? {
+                      role: "button" as const,
+                      tabIndex: 0,
+                      // Toute la ligne ouvre le drawer — le bouton « Réaliser »
+                      // reste le repère visuel de l'action. On laisse passer les
+                      // liens (« En savoir plus »), qui ont leur propre destination.
+                      onClick: (e: React.MouseEvent) => {
+                        if ((e.target as HTMLElement).closest("a")) return;
+                        setRunning(m);
+                      },
+                      onKeyDown: (e: React.KeyboardEvent) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setRunning(m);
+                        }
+                      },
+                    }
+                  : {})}
+              >
                 <div className="tim-mission__row">
                   {/* Visuel : le logo de la mission, sinon une pastille au monogramme
                       (initiale du titre) — pas de pictogramme générique. */}

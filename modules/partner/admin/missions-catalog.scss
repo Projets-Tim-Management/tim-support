@@ -64,9 +64,15 @@
   color: var(--tim-foreground);
   font-variant-numeric: tabular-nums;
 }
-.tim-mcard__stock {
-  font-size: 0.78rem;
-  color: var(--tim-muted);
+/* Récompense indisponible : seule information de stock montrée au partenaire.
+   Le nombre restant, lui, est une donnée de gestion et n'est jamais affiché. */
+.tim-mcard__soldout {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: var(--tim-gray-bg);
+  color: var(--tim-gray);
+  font-size: 0.74rem;
+  font-weight: 700;
 }
 .tim-mcard__ok {
   margin: 0;
@@ -140,9 +146,17 @@
   background: var(--tim-white);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+/* Toute la ligne ouvre le drawer quand la mission est encore réalisable. */
+.tim-mission.is-openable {
+  cursor: pointer;
+}
 .tim-mission:hover {
   border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
   box-shadow: 0 8px 20px -14px color-mix(in srgb, var(--tim-foreground) 55%, transparent);
+}
+.tim-mission.is-openable:focus-visible {
+  outline: 2px solid var(--tim-primary);
+  outline-offset: 2px;
 }
 /* Mission déjà validée : elle reste lisible mais cesse d'appeler à l'action. */
 .tim-mission.is-approved {
@@ -162,14 +176,20 @@
   flex: 0 0 auto;
   width: 4.5rem;
   height: 4.5rem;
+  /* Marge intérieure : un logo carré ne touche pas les bords de la pastille. */
+  padding: 0.4rem;
   overflow: hidden;
   border-radius: var(--tim-radius);
   background: var(--tim-primary-light);
 }
+/* Logo affiché ENTIER (`contain`) : `cover` rognait les logos qui ne sont pas
+   carrés — un logo tronqué n'identifie plus rien. */
 .tim-mission__visual img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
 }
 .tim-mission__monogram {
   font-size: 1.75rem;
@@ -537,26 +557,46 @@
 .tim-mcard.is-done {
   opacity: 0.85;
 }
+/* Visuel de la récompense : pleine largeur de la carte, image affichée ENTIÈRE
+   (`contain`) et non rognée — une photo de produit perd son sens si on lui coupe
+   les bords. Le fond neutre comble ce qui reste, quel que soit le rapport. */
 .tim-mcard__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.tim-mcard__logo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--tim-radius-sm);
+  position: relative;
+  /* Déborde le padding de la carte : le visuel touche les bords. */
+  margin: -1rem -1.1rem 0.2rem;
+  border-radius: var(--tim-radius) var(--tim-radius) 0 0;
   background: var(--tim-surface);
-  font-size: 1.2rem;
+  border-bottom: 1px solid var(--tim-border);
   overflow: hidden;
 }
-.tim-mcard__logo img {
+.tim-mcard__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: 170px;
+  padding: 0.75rem;
+  font-size: 2.5rem; /* emoji de repli, à l'échelle du bloc */
+}
+.tim-mcard__logo img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+/* Le coût passe en pastille posée sur le visuel : lisible, sans voler de
+   hauteur à l'image. */
+.tim-mcard__cost {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tim-white) 88%, transparent);
+  border: 1px solid var(--tim-border);
+  backdrop-filter: blur(4px);
+  font-size: 0.85rem;
 }
 .tim-mcard__points {
   font-weight: 800;

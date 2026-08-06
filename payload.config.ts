@@ -53,10 +53,15 @@ const ROLE_NAV_HIDDEN: Record<string, (args: { user?: unknown }) => boolean> = {
   // de comptes). L'accès data à sa propre fiche (ownPartnerRecord) reste inchangé.
   partners: hideUnlessMetier,
   "partner-clients": hideUnlessMetier,
+  // Le partenaire-utilisateur voit les CATALOGUES (missions, récompenses) — ce
+  // sont ses écrans d'action. Les collections de suivi qui en découlent
+  // (soumissions, commandes) sont des tables de traitement pour TIM : leur état
+  // lui est déjà rendu là où il compte pour lui, dans le catalogue et sur son
+  // accueil. Les lui montrer exposerait des écrans de gestion sans usage.
   missions: hideUnlessUtilisateur,
-  "mission-submissions": hideUnlessUtilisateur,
+  "mission-submissions": hideUnlessAdmin,
   rewards: hideUnlessUtilisateur,
-  "reward-orders": hideUnlessUtilisateur,
+  "reward-orders": hideUnlessAdmin,
   // Support
   tickets: hideUnlessSupport,
 };

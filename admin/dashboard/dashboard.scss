@@ -506,3 +506,345 @@
 }
 
 
+
+/* ─── Accueil du partenaire-UTILISATEUR ───────────────────────────────────────
+   Ordre de lecture voulu : solde et progression vers la prochaine récompense en
+   tête (ce qui motive), l'action ensuite, le suivi administratif en bas.
+   Voir admin/dashboard/PartnerSection.tsx. */
+
+/* Bandeau d'accueil : accroche + solde à gauche, objectif en image à droite. */
+.pu-hero {
+  display: grid;
+  grid-template-columns: 1fr minmax(220px, 300px);
+  gap: 1.75rem;
+  align-items: center;
+  padding: 1.75rem 2rem;
+  border: 1px solid color-mix(in srgb, var(--tim-primary) 22%, transparent);
+  border-radius: var(--tim-radius);
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--tim-primary) 14%, transparent), transparent 60%),
+    linear-gradient(135deg, var(--tim-primary-light), var(--tim-white) 70%);
+}
+@media (max-width: 780px) {
+  .pu-hero {
+    grid-template-columns: 1fr;
+  }
+}
+.pu-hero__pitch {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.pu-hero__eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tim-primary);
+}
+.pu-hero__headline {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--tim-foreground);
+}
+.pu-hero__headline span {
+  color: var(--tim-primary);
+}
+.pu-hero__pitch-text {
+  margin: 0 0 0.4rem;
+  font-size: 0.92rem;
+  color: var(--tim-muted);
+}
+.pu-hero__balance {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.pu-hero__value {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--tim-primary);
+  font-variant-numeric: tabular-nums;
+}
+.pu-hero__value small {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+}
+.pu-hero__sub {
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+}
+
+/* Objectif suivant, présenté comme une carte cadeau. */
+.pu-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  box-shadow: 0 10px 30px -18px color-mix(in srgb, var(--tim-foreground) 60%, transparent);
+}
+.pu-goal__visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 110px;
+  margin-bottom: 0.4rem;
+  padding: 0.5rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 2.4rem;
+}
+/* Visuel ENTIER, comme partout ailleurs dans le catalogue. */
+.pu-goal__visual img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.pu-goal__label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+.pu-goal__title {
+  font-size: 1rem;
+  line-height: 1.3;
+  color: var(--tim-foreground);
+}
+.pu-goal__missing {
+  margin: 0.25rem 0 0;
+  font-size: 0.84rem;
+  color: var(--tim-muted);
+}
+.pu-goal__missing strong {
+  color: var(--tim-foreground);
+}
+.pu-goal__total {
+  opacity: 0.75;
+}
+.pu-goal--empty {
+  justify-content: center;
+  text-align: center;
+}
+
+/* Barre de progression vers la prochaine récompense — l'élément qui donne
+   envie de continuer : elle rend l'effort restant tangible. */
+.pu-progress {
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tim-primary) 14%, var(--tim-white));
+  overflow: hidden;
+}
+.pu-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--tim-primary);
+  transition: width 0.4s ease;
+}
+
+/* Récompenses accessibles : vignette + titre + coût. */
+.pu-rewards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0.85rem;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  list-style: none;
+}
+.pu-reward {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.75rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.pu-reward__visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88px;
+  padding: 0.4rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 2rem;
+}
+/* Visuel affiché ENTIER, comme dans le catalogue. */
+.pu-reward__visual img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.pu-reward__title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+.pu-reward__cost {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--tim-primary);
+}
+
+/* Missions restantes : titre + gain, en liste dense. */
+.pu-lead {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--tim-muted);
+}
+.pu-lead strong {
+  color: var(--tim-foreground);
+}
+.pu-missions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  list-style: none;
+}
+.pu-mission {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+}
+/* Logo de la mission (ou son initiale) : même traitement que le catalogue —
+   image ENTIÈRE, jamais rognée, avec une marge intérieure. */
+.pu-mission__visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0.25rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary-light);
+  color: var(--tim-primary);
+  font-size: 0.95rem;
+  font-weight: 800;
+  overflow: hidden;
+}
+.pu-mission__visual img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.pu-mission__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.88rem;
+  color: var(--tim-foreground);
+}
+.pu-mission__points {
+  flex: 0 0 auto;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--tim-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Appel à l'action de section : une seule par bloc, en rouge de marque. */
+.pu-cta {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.12s ease;
+}
+.pu-cta:hover {
+  background: var(--tim-primary-dark);
+  color: var(--tim-white);
+}
+
+
+/* Vitrine des gros lots : défilement horizontal natif, avec calage (scroll-snap).
+   Pas de rotation automatique — un contenu qui bouge seul se lit mal et gêne
+   les lecteurs d'écran ; ici l'utilisateur garde la main. */
+.pu-carousel {
+  display: flex;
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0 0 0.4rem;
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+.pu-carousel__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 0 0 190px;
+  scroll-snap-align: start;
+  padding: 0.75rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.pu-carousel__item:hover {
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+  box-shadow: 0 10px 24px -18px color-mix(in srgb, var(--tim-foreground) 60%, transparent);
+}
+.pu-carousel__visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 110px;
+  margin-bottom: 0.3rem;
+  padding: 0.5rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 2.2rem;
+}
+/* Visuel ENTIER, comme partout ailleurs. */
+.pu-carousel__visual img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.pu-carousel__title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--tim-foreground);
+}
+.pu-carousel__cost {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--tim-primary);
+  font-variant-numeric: tabular-nums;
+}
+.pu-carousel__missing {
+  font-size: 0.74rem;
+  color: var(--tim-muted);
+}

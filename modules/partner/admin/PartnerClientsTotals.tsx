@@ -36,7 +36,18 @@ export function PartnerClientsTotals() {
       // champ titre : on la reproduit ici pour rester cohérent avec l'affichage.
       const clauses = [where, search ? { companyName: { like: search } } : null].filter(Boolean);
       const qs = stringify(
-        { depth: 0, limit: 0, ...(clauses.length ? { where: { and: clauses } } : {}) },
+        {
+          depth: 0,
+          limit: 0,
+          // Seuls ces champs servent au total. Sans `select`, chaque client
+          // arrive complet, historique des montants inclus (23 Ko pour 12 clients).
+          // ⚠️ `partner` est indispensable : la commission est un champ VIRTUEL
+          // calculé à la lecture depuis le taux de la fiche partenaire — sans le
+          // lien, le hook ne trouve pas le taux et renvoie 0, donc un total faux.
+          // Mesuré : 166 ms / 23 Ko → 22 ms / 1 Ko.
+          select: { caPaye: true, commissionMonthly: true, clientStatus: true, partner: true },
+          ...(clauses.length ? { where: { and: clauses } } : {}),
+        },
         { addQueryPrefix: true },
       );
       try {

@@ -7,6 +7,8 @@ import * as migration_20260803_163806_add_client_status_en_test from './20260803
 import * as migration_20260803_171040_add_mission_steps from './20260803_171040_add_mission_steps';
 import * as migration_20260804_153500_add_ticket_identity_fields from './20260804_153500_add_ticket_identity_fields';
 import * as migration_20260805_075058_add_ticket_message_cc from './20260805_075058_add_ticket_message_cc';
+import * as migration_20260805_152942_add_reward_purchase_price from './20260805_152942_add_reward_purchase_price';
+import * as migration_20260805_163141_add_partner_display_name from './20260805_163141_add_partner_display_name';
 
 export const migrations = [
   {
@@ -52,6 +54,16 @@ export const migrations = [
   {
     up: migration_20260805_075058_add_ticket_message_cc.up,
     down: migration_20260805_075058_add_ticket_message_cc.down,
-    name: '20260805_075058_add_ticket_message_cc'
+    name: '20260805_075058_add_ticket_message_cc',
+  },
+  {
+    up: migration_20260805_152942_add_reward_purchase_price.up,
+    down: migration_20260805_152942_add_reward_purchase_price.down,
+    name: '20260805_152942_add_reward_purchase_price',
+  },
+  {
+    up: migration_20260805_163141_add_partner_display_name.up,
+    down: migration_20260805_163141_add_partner_display_name.down,
+    name: '20260805_163141_add_partner_display_name'
   },
 ];

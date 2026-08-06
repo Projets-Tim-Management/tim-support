@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 
-import type { CollectionConfig, Condition, Field } from "payload";
+import type { CollectionBeforeChangeHook, CollectionConfig, Condition, Field } from "payload";
 
 import {
   adminOnlyField,
@@ -17,6 +17,24 @@ import { validatePhone } from "@/core/lib/validators";
  * éléments : il ne doit ni les voir ni les changer.
  */
 const hideForMetier: Condition = (_data, _siblingData, { user }) => !isPartnerMetier(user);
+
+/**
+ * Titre lisible d'une fiche partenaire — « Prénom Nom », sinon la raison
+ * sociale, sinon l'e-mail.
+ *
+ * C'est ce champ que `useAsTitle` désigne : dans Payload, une liste de relation
+ * n'affiche ET n'interroge qu'un seul champ. Avec l'e-mail comme titre, chercher
+ * « Afonso » ne renvoyait rien. Même mécanisme que `Users.name` et
+ * `ClientContacts.displayName`.
+ *
+ * Recalculé à chaque enregistrement, avec repli sur `originalDoc` : une mise à
+ * jour partielle (un seul champ modifié) ne doit pas vider le titre.
+ */
+const setPartnerDisplayName: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
+  const pick = (key: string) => data?.[key] ?? originalDoc?.[key];
+  const person = [pick("firstName"), pick("name")].filter(Boolean).join(" ").trim();
+  return { ...data, displayName: person || pick("societe") || pick("email") || "Partenaire" };
+};
 
 /** Génère un code partenaire unique au format TIM-XXXXXX (6 hex majuscules). */
 const generatePartnerCode = (): string =>
@@ -113,7 +131,9 @@ export const Partners: CollectionConfig = {
   slug: "partners",
   labels: { singular: "Partenaire", plural: "Partenaires" },
   admin: {
-    useAsTitle: "email",
+    // Titre = « Prénom Nom » calculé (voir setPartnerDisplayName) : c'est aussi
+    // le champ interrogé par les listes de relation, d'où la recherche par nom.
+    useAsTitle: "displayName",
     // Ordre des colonnes du tableau : Avatar, Nom, Prénom, Société, Email.
     defaultColumns: ["avatar", "name", "firstName", "societe", "email"],
     group: "Partenaires",
@@ -131,8 +151,11 @@ export const Partners: CollectionConfig = {
     update: ownPartnerRecord,
     delete: isAdmin,
   },
+  hooks: { beforeChange: [setPartnerDisplayName] },
   // Les champs internes TIM sont masqués aux partenaires (field-level access).
   fields: protectInternalFields([
+    // Titre calculé (useAsTitle) — non éditable en UI.
+    { name: "displayName", type: "text", admin: { hidden: true } },
     {
       name: "avatar",
       type: "upload",
@@ -405,14 +428,18 @@ export const Partners: CollectionConfig = {
           ],
         },
 
-        // ── Accès back-office (métier) ──────────────────────────────────────
+        // ── Accès back-office (tous les partenaires) ────────────────────────
         // Compte de connexion lié à la fiche : l'email = le champ « Email » de la
         // fiche (forcé) ; ici on ne définit que le mot de passe. Provisioning via
         // l'endpoint /api/partner/access (le mot de passe n'est jamais stocké).
+        //
+        // Ouvert AUSSI aux fiches « Utilisateur » : une personne qui vient réaliser
+        // des missions a besoin d'un compte pour se connecter — et sans compte,
+        // elle n'apparaît nulle part côté admin (ni switcher, ni suivi).
+        // Le rôle attribué découle du type de la fiche (voir la route).
         {
           label: "Accès",
           description: "Accès back-office du partenaire (compte + mot de passe).",
-          admin: { condition: (data) => data?.partnerKind !== "utilisateur" },
           fields: [
             {
               name: "accessManager",

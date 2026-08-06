@@ -582,6 +582,150 @@
 .relationship-table .drawer-link__doc-drawer-toggler svg {
   display: none;
 }
+/* ─── Liste des récompenses : colonnes centrées sauf le titre ────────────────*/
+/* Les colonnes chiffrées (coût, prix d'achat, stock) portent des contrôles de
+   largeur fixe : centrés, ils s'alignent d'une ligne à l'autre. Le titre reste à
+   gauche — un intitulé de longueur variable centré donne un bord déchiqueté. */
+.collection-list--rewards .table thead th,
+.collection-list--rewards .table tbody td {
+  text-align: center;
+}
+.collection-list--rewards .table thead th .sort-column {
+  justify-content: center;
+}
+.collection-list--rewards .table thead th#heading-title,
+.collection-list--rewards .table tbody td.cell-title {
+  text-align: left;
+}
+.collection-list--rewards .table thead th#heading-title .sort-column {
+  justify-content: flex-start;
+}
+/* Valeur centrée DANS le champ, pour suivre l'en-tête centré. */
+.collection-list--rewards .tim-editnum__input {
+  text-align: center;
+}
+
+/* ─── Cellule numérique éditable (EditableNumberCell) ────────────────────────*/
+.tim-editnum {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.tim-editnum__input {
+  width: 5rem;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: right;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.tim-editnum__input:focus {
+  outline: none;
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 2px var(--tim-primary-light);
+}
+.tim-editnum__unit {
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+}
+/* Retour d'enregistrement discret : le tableau ne doit pas clignoter. */
+.tim-editnum--saving {
+  opacity: 0.6;
+}
+.tim-editnum--saved .tim-editnum__input {
+  border-color: var(--tim-success);
+}
+.tim-editnum--error .tim-editnum__input {
+  border-color: var(--tim-danger);
+}
+.tim-editnum__err {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--tim-danger);
+}
+
+/* ─── Stock éditable dans la liste des récompenses (RewardStockCell) ─────────*/
+.rstock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.rstock__btn,
+.rstock__inf {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-muted);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease, background-color 0.12s ease;
+}
+.rstock__btn:hover:not(:disabled),
+.rstock__inf:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+  color: var(--tim-primary);
+}
+.rstock__btn:disabled,
+.rstock__inf:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+/* Régime « illimité » actif : le bouton ∞ porte l'état, pas un texte de plus. */
+.rstock__inf.is-on {
+  border-color: var(--tim-primary);
+  background: var(--tim-primary-light);
+  color: var(--tim-primary);
+}
+.rstock__input {
+  width: 3.2rem;
+  padding: 0.15rem 0.3rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: center;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.rstock__input:focus {
+  outline: none;
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 2px var(--tim-primary-light);
+}
+.rstock__infinite {
+  min-width: 3.2rem;
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+  text-align: center;
+}
+/* Retour d'enregistrement, discret : le tableau ne doit pas clignoter. */
+.rstock--saving {
+  opacity: 0.6;
+}
+.rstock--saved .rstock__input {
+  border-color: var(--tim-success);
+}
+.rstock--error .rstock__input {
+  border-color: var(--tim-danger);
+}
+.rstock__err {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--tim-danger);
+}
+
 /* Pastille de statut dans les tableaux (ClientStatusCell). Les couleurs sont
    posées en style inline depuis CLIENT_STATUSES — une seule source avec le
    Kanban — donc rien d'autre ici que la forme. */

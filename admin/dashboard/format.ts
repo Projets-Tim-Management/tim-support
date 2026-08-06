@@ -9,6 +9,15 @@ export function compact(n: number): string {
   return new Intl.NumberFormat("fr-FR").format(n);
 }
 
+/**
+ * Nombre entier, séparateur de milliers, JAMAIS abrégé : 12 000 et non « 12 k ».
+ * Utilisé pour les points d'un partenaire — un solde est une valeur qu'on lit
+ * précisément, l'abréviation y perd de l'information et de l'effet.
+ */
+export function plain(n: number): string {
+  return Number.isFinite(n) ? new Intl.NumberFormat("fr-FR").format(Math.round(n)) : "—";
+}
+
 /** Euros sans décimales : 12 480 €. */
 export function euros(n: number): string {
   return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(n)) + " €";

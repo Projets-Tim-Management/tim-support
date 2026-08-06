@@ -30,6 +30,47 @@ export interface PartnerClientsMetrics {
   series: PartnerMonthPoint[];
 }
 
+export interface MissionToDo {
+  id: number | string;
+  title: string;
+  points: number;
+  /** Logo de la mission, `null` si elle n'en a pas (repli sur un monogramme). */
+  image: string | null;
+}
+export interface RewardTeaser {
+  id: number | string;
+  title: string;
+  cost: number;
+  image: string | null;
+  /** Points manquants pour l'obtenir (0 = déjà accessible). */
+  missing: number;
+}
+
+/**
+ * Ce qui motive un partenaire-UTILISATEUR : ce qu'il a, ce qu'il peut déjà
+ * s'offrir, et ce qui l'en sépare. Les récompenses épuisées (stock 0) sont
+ * exclues — proposer un objectif indisponible est le meilleur moyen de décevoir.
+ */
+export interface PartnerUserMetrics {
+  earned: number;
+  spent: number;
+  /** Missions non encore soumises, avec ce qu'elles rapportent. */
+  missionsToDo: MissionToDo[];
+  /** Points encore à gagner sur ces missions. */
+  pointsToGrab: number;
+  /** Récompenses déjà accessibles avec le solde. */
+  reachable: RewardTeaser[];
+  /** La moins chère des récompenses hors de portée — le palier suivant. */
+  nextReward: RewardTeaser | null;
+  /**
+   * La plus belle récompense du catalogue — celle qu'on met en vitrine. Distincte
+   * du palier suivant : l'une fait rêver, l'autre se gagne bientôt.
+   */
+  topReward: RewardTeaser | null;
+  /** Les plus gros lots, du plus cher au moins cher — défilement en vitrine. */
+  topRewards: RewardTeaser[];
+}
+
 export interface PartnerMetrics {
   isMetier: boolean;
   pointsBalance: number;
@@ -37,6 +78,8 @@ export interface PartnerMetrics {
   orders: { pending: number; total: number };
   /** Uniquement pour un partenaire-métier (ses clients apportés). */
   clients: PartnerClientsMetrics | null;
+  /** Uniquement pour un partenaire-utilisateur (points, missions, cadeaux). */
+  user: PartnerUserMetrics | null;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -103,12 +146,18 @@ export async function getPartnerMetrics(
   const where = { partner: { equals: partnerId } };
   const base = { overrideAccess: true as const, depth: 0 as const, req, pagination: false as const };
 
-  const [ptx, subs, orders, clients, partner] = await Promise.all([
+  const [ptx, subs, orders, clients, partner, missions, rewards] = await Promise.all([
     payload
       .find({ ...base, collection: "point-transactions", where, limit: 40000, select: { delta: true } })
       .then((r) => r.docs as Doc[]),
     payload
-      .find({ ...base, collection: "mission-submissions", where, limit: 8000, select: { status: true } })
+      .find({
+        ...base,
+        collection: "mission-submissions",
+        where,
+        limit: 8000,
+        select: { status: true, mission: true },
+      })
       .then((r) => r.docs as Doc[]),
     payload
       .find({ ...base, collection: "reward-orders", where, limit: 8000, select: { status: true } })
@@ -138,6 +187,31 @@ export async function getPartnerMetrics(
           .findByID({ collection: "partners", id: partnerId, depth: 0, overrideAccess: true, req })
           .catch(() => null)
       : Promise.resolve(null),
+    // Catalogues du programme de points — pour un partenaire-utilisateur seulement.
+    isMetier
+      ? Promise.resolve([] as Doc[])
+      : payload
+          .find({
+            ...base,
+            collection: "missions",
+            limit: 500,
+            depth: 1, // logo de la mission
+            sort: "order",
+            select: { title: true, points: true, logo: true },
+          })
+          .then((r) => r.docs as Doc[]),
+    isMetier
+      ? Promise.resolve([] as Doc[])
+      : payload
+          .find({
+            ...base,
+            collection: "rewards",
+            limit: 500,
+            depth: 1, // visuel de la récompense
+            sort: "cost",
+            select: { title: true, cost: true, stock: true, image: true },
+          })
+          .then((r) => r.docs as Doc[]),
   ]);
 
   let clientsMetrics: PartnerClientsMetrics | null = null;
@@ -177,9 +251,60 @@ export async function getPartnerMetrics(
     };
   }
 
+  const pointsBalance = ptx.reduce((s, t) => s + (Number(t.delta) || 0), 0);
+
+  let userMetrics: PartnerUserMetrics | null = null;
+
+  if (!isMetier) {
+    // Une mission déjà soumise (quel que soit le verdict) sort de la liste :
+    // la reproposer laisserait croire qu'elle rapporte encore.
+    const done = new Set(
+      subs
+        .map((s) => (s.mission && typeof s.mission === "object" ? s.mission.id : s.mission))
+        .filter((v) => v != null)
+        .map(String),
+    );
+    const missionsToDo = missions
+      .filter((m) => !done.has(String(m.id)))
+      .map((m) => ({
+        id: m.id,
+        title: String(m.title ?? "Mission"),
+        points: Number(m.points) || 0,
+        image: m.logo && typeof m.logo === "object" ? (m.logo.url ?? null) : null,
+      }));
+
+    const teaser = (r: Doc): RewardTeaser => {
+      const img = r.image && typeof r.image === "object" ? (r.image.url ?? null) : null;
+      const cost = Number(r.cost) || 0;
+      return {
+        id: r.id,
+        title: String(r.title ?? "Récompense"),
+        cost,
+        image: img,
+        missing: Math.max(0, cost - pointsBalance),
+      };
+    };
+    // `stock === 0` = épuisée : jamais proposée comme objectif.
+    const available = rewards.filter((r) => Number(r.stock) !== 0).map(teaser);
+
+    userMetrics = {
+      earned: ptx.reduce((s, t) => s + Math.max(0, Number(t.delta) || 0), 0),
+      // `Math.abs` et non `* -1` : sans somme négative, ce dernier donne « -0 ».
+      spent: Math.abs(ptx.reduce((s, t) => s + Math.min(0, Number(t.delta) || 0), 0)),
+      missionsToDo,
+      pointsToGrab: missionsToDo.reduce((s, m) => s + m.points, 0),
+      // Les plus chères d'abord : la plus belle des récompenses accessibles
+      // se voit en premier.
+      reachable: available.filter((r) => r.missing === 0).sort((a, b) => b.cost - a.cost),
+      nextReward: available.filter((r) => r.missing > 0).sort((a, b) => a.cost - b.cost)[0] ?? null,
+      topReward: [...available].sort((a, b) => b.cost - a.cost)[0] ?? null,
+      topRewards: [...available].sort((a, b) => b.cost - a.cost).slice(0, 8),
+    };
+  }
+
   return {
     isMetier,
-    pointsBalance: ptx.reduce((s, t) => s + (Number(t.delta) || 0), 0),
+    pointsBalance,
     submissions: {
       pending: subs.filter((s) => s.status === "pending").length,
       approved: subs.filter((s) => s.status === "approved").length,
@@ -190,5 +315,6 @@ export async function getPartnerMetrics(
       total: orders.length,
     },
     clients: clientsMetrics,
+    user: userMetrics,
   };
 }
