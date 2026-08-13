@@ -7,15 +7,22 @@ import {
   partnerField,
   setPartnerFromClient,
 } from "@/modules/marketing/collections/clientOwned";
+import { PASSWORD_MASK, encryptPasswordValue } from "@/modules/marketing/lib/credential-secrets";
 import { LICENCE_PROFILE_OPTIONS } from "@/modules/marketing/lib/onboarding";
 
 /**
  * Identifiants applicatifs de test — les comptes TIM créés par l'admin pour les
  * utilisateurs du client, que le CLIENT distribue lui-même à ses équipes.
  *
- * ⚠️ Ces identifiants sont stockés en clair : ils doivent être RELUS et remis en
- * main propre par le client (beaucoup de compagnons n'ont pas d'e-mail). C'est
- * une contrainte du besoin, pas un oubli — d'où le cloisonnement serré :
+ * Le mot de passe est CHIFFRÉ au repos (AES-256-GCM, clé dérivée de
+ * PAYLOAD_SECRET) et MASQUÉ à la lecture : ce sont de vrais accès au logiciel,
+ * et une copie de la base ne doit pas les livrer.
+ *
+ * Il reste lisible à deux endroits, tous deux légitimes : l'espace client (le
+ * client vient chercher ce qu'il distribue à ses équipes, après connexion par
+ * code) et le back-office, après confirmation par un code envoyé au demandeur.
+ * Beaucoup de compagnons n'ayant pas d'e-mail, la remise en main propre reste la
+ * règle — d'où le cloisonnement serré :
  *  - création/modification réservées aux admins ;
  *  - lecture limitée aux admins et au partenaire du client (scoping `partner`) ;
  *  - côté espace client, la lecture passe par une route dédiée qui filtre sur la
@@ -78,7 +85,21 @@ export const ClientCredentials: CollectionConfig = {
           type: "text",
           label: "Mot de passe",
           required: true,
-          admin: { width: "50%", description: "Remis au client, qui le distribue à son équipe." },
+          hooks: {
+            // Chiffré à l'écriture, masqué à la lecture. Le masque doit revenir
+            // intact à l'écriture suivante (voir encryptPasswordValue) : sans
+            // ça, enregistrer la fiche sans y toucher remplacerait le mot de
+            // passe par des points.
+            beforeChange: [
+              ({ value, originalDoc, req }) =>
+                encryptPasswordValue(value, { payload: req.payload, id: originalDoc?.id }),
+            ],
+            afterRead: [({ value }) => (value ? PASSWORD_MASK : value)],
+          },
+          admin: {
+            width: "50%",
+            description: "Chiffré. Utilisez « Révéler » pour l'afficher, ou consultez l'espace client.",
+          },
         },
       ],
     },

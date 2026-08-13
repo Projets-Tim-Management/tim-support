@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
 import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
+import { sendJourneyEmailForClient } from "@/modules/marketing/lib/send";
 import { PORTAL_SECTIONS } from "@/modules/marketing/lib/portal-sections";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
 
@@ -49,6 +50,11 @@ export async function POST() {
 
   // La transmission EST l'étape « Dossier de démarrage complété ».
   await armAutoStep(payload, ctx.client.id, "dossier-demarrage");
+
+  // Accusé de réception au client. Sans lui, il vient de saisir des dizaines de
+  // lignes et n'a aucune confirmation que c'est bien arrivé. L'échec d'envoi ne
+  // remet PAS en cause la transmission : elle est déjà enregistrée.
+  await sendJourneyEmailForClient(payload, ctx.client.id, "dossier-recu");
 
   return NextResponse.json({ ok: true });
 }

@@ -4,6 +4,7 @@ import { payloadClient } from "@/core/payload-client";
 import { busyForPartner } from "@/modules/marketing/lib/calendar";
 import { sessionSummary } from "@/modules/marketing/lib/journey";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
+import { sendJourneyEmail } from "@/modules/marketing/lib/send";
 import {
   bookingModeOf,
   formatSlot,
@@ -173,6 +174,12 @@ export async function POST(req: Request) {
   const saved = (await payload
     .findByID({ collection: "journey-runs", id: run.id, depth: 0, overrideAccess: true })
     .catch(() => null)) as { sessionLink?: string | null; sessionEventId?: string | null } | null;
+
+  // Le partenaire anime la session : il doit l'apprendre autrement qu'en
+  // consultant son agenda. Placé APRÈS la création de l'événement, pour que le
+  // message porte le lien de visio — `sendJourneyEmail` relit le parcours,
+  // il verra donc l'état écrit entre-temps par le hook d'agenda.
+  await sendJourneyEmail(payload, { run, key: "creneau-reserve" });
 
   payload.logger.info(
     `[agenda] créneau ${formatSlot(at)} réservé pour le parcours ${run.id}${

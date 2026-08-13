@@ -1,7 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["cdg1"],
+  "regions": [
+    "cdg1"
+  ],
   "crons": [
-    { "path": "/api/cron/cleanup-tickets", "schedule": "0 3 * * *" }
+    {
+      "path": "/api/cron/cleanup-tickets",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/journey-emails",
+      "schedule": "0 7 * * *"
+    }
   ]
 }

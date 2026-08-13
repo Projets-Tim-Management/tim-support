@@ -88,6 +88,7 @@ export interface Config {
     'client-machines': ClientMachine;
     'client-portal-accounts': ClientPortalAccount;
     'client-credentials': ClientCredential;
+    'credential-reveals': CredentialReveal;
     'calendar-connections': CalendarConnection;
     media: Media;
     users: User;
@@ -136,6 +137,7 @@ export interface Config {
     'client-machines': ClientMachinesSelect<false> | ClientMachinesSelect<true>;
     'client-portal-accounts': ClientPortalAccountsSelect<false> | ClientPortalAccountsSelect<true>;
     'client-credentials': ClientCredentialsSelect<false> | ClientCredentialsSelect<true>;
+    'credential-reveals': CredentialRevealsSelect<false> | CredentialRevealsSelect<true>;
     'calendar-connections': CalendarConnectionsSelect<false> | CalendarConnectionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
@@ -775,7 +777,201 @@ export interface ClientEmployee {
   email?: string | null;
   phone?: string | null;
   address?: string | null;
-  nationality?: string | null;
+  nationality?:
+    | (
+        | 'FR'
+        | 'AF'
+        | 'ZA'
+        | 'AL'
+        | 'DZ'
+        | 'DE'
+        | 'AD'
+        | 'AO'
+        | 'AG'
+        | 'SA'
+        | 'AR'
+        | 'AM'
+        | 'AU'
+        | 'AT'
+        | 'AZ'
+        | 'BS'
+        | 'BH'
+        | 'BD'
+        | 'BB'
+        | 'BE'
+        | 'BZ'
+        | 'BJ'
+        | 'BT'
+        | 'BY'
+        | 'BO'
+        | 'BA'
+        | 'BW'
+        | 'BR'
+        | 'BN'
+        | 'BG'
+        | 'BF'
+        | 'BI'
+        | 'KH'
+        | 'CM'
+        | 'CA'
+        | 'CV'
+        | 'CL'
+        | 'CN'
+        | 'CY'
+        | 'CO'
+        | 'KM'
+        | 'CG'
+        | 'CD'
+        | 'KP'
+        | 'KR'
+        | 'CR'
+        | 'CI'
+        | 'HR'
+        | 'CU'
+        | 'DK'
+        | 'DJ'
+        | 'DM'
+        | 'EG'
+        | 'AE'
+        | 'EC'
+        | 'ER'
+        | 'ES'
+        | 'EE'
+        | 'SZ'
+        | 'VA'
+        | 'US'
+        | 'ET'
+        | 'FJ'
+        | 'FI'
+        | 'GA'
+        | 'GM'
+        | 'GE'
+        | 'GH'
+        | 'GR'
+        | 'GD'
+        | 'GT'
+        | 'GN'
+        | 'GQ'
+        | 'GW'
+        | 'GY'
+        | 'HT'
+        | 'HN'
+        | 'HU'
+        | 'SB'
+        | 'IN'
+        | 'ID'
+        | 'IQ'
+        | 'IR'
+        | 'IE'
+        | 'IS'
+        | 'IL'
+        | 'IT'
+        | 'JM'
+        | 'JP'
+        | 'JO'
+        | 'KZ'
+        | 'KE'
+        | 'KG'
+        | 'KI'
+        | 'KW'
+        | 'LA'
+        | 'LS'
+        | 'LV'
+        | 'LB'
+        | 'LR'
+        | 'LY'
+        | 'LI'
+        | 'LT'
+        | 'LU'
+        | 'MK'
+        | 'MG'
+        | 'MY'
+        | 'MW'
+        | 'MV'
+        | 'ML'
+        | 'MT'
+        | 'MA'
+        | 'MU'
+        | 'MR'
+        | 'MX'
+        | 'FM'
+        | 'MD'
+        | 'MC'
+        | 'MN'
+        | 'ME'
+        | 'MZ'
+        | 'MM'
+        | 'NA'
+        | 'NR'
+        | 'NP'
+        | 'NI'
+        | 'NE'
+        | 'NG'
+        | 'NO'
+        | 'NZ'
+        | 'OM'
+        | 'UG'
+        | 'UZ'
+        | 'PK'
+        | 'PW'
+        | 'PA'
+        | 'PG'
+        | 'PY'
+        | 'NL'
+        | 'PE'
+        | 'PH'
+        | 'PL'
+        | 'PT'
+        | 'QA'
+        | 'RO'
+        | 'GB'
+        | 'RU'
+        | 'RW'
+        | 'KN'
+        | 'SM'
+        | 'VC'
+        | 'LC'
+        | 'SV'
+        | 'WS'
+        | 'ST'
+        | 'SN'
+        | 'RS'
+        | 'SC'
+        | 'SL'
+        | 'SG'
+        | 'SK'
+        | 'SI'
+        | 'SO'
+        | 'SD'
+        | 'SS'
+        | 'LK'
+        | 'SE'
+        | 'CH'
+        | 'SR'
+        | 'SY'
+        | 'TJ'
+        | 'TZ'
+        | 'TD'
+        | 'CZ'
+        | 'TH'
+        | 'TL'
+        | 'TG'
+        | 'TO'
+        | 'TT'
+        | 'TN'
+        | 'TM'
+        | 'TR'
+        | 'TV'
+        | 'UA'
+        | 'UY'
+        | 'VU'
+        | 'VE'
+        | 'VN'
+        | 'YE'
+        | 'ZM'
+        | 'ZW'
+      )
+    | null;
   birthDate?: string | null;
   contractType?: ('cdi' | 'cdd' | 'interim' | 'apprentissage' | 'stage' | 'sous-traitant') | null;
   contractEndDate?: string | null;
@@ -803,9 +999,11 @@ export interface ClientSite {
    */
   endDate: string;
   /**
-   * Secteur ou périmètre du chantier.
+   * Découpage interne du chantier. Facultatif.
    */
-  zone?: string | null;
+  zone?:
+    | ('zone-1' | 'zone-2' | 'zone-3' | 'zone-4' | 'zone-5' | 'zone-6' | 'zone-7' | 'zone-8' | 'zone-9' | 'zone-10')
+    | null;
   partner?: (number | null) | Partner;
   displayName?: string | null;
   updatedAt: string;
@@ -920,7 +1118,7 @@ export interface ClientCredential {
    */
   username: string;
   /**
-   * Remis au client, qui le distribue à son équipe.
+   * Chiffré. Utilisez « Révéler » pour l'afficher, ou consultez l'espace client.
    */
   password: string;
   /**
@@ -1401,6 +1599,26 @@ export interface RewardOrder {
   createdAt: string;
 }
 /**
+ * Journal des consultations de mots de passe. Lecture seule : chaque ligne est une demande d'affichage.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "credential-reveals".
+ */
+export interface CredentialReveal {
+  id: number;
+  user: number | User;
+  client: number | PartnerClient;
+  codeHash: string;
+  expiresAt: string;
+  attempts?: number | null;
+  /**
+   * Vide = code demandé mais jamais confirmé.
+   */
+  usedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "calendar-connections".
  */
@@ -1528,6 +1746,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'client-credentials';
         value: number | ClientCredential;
+      } | null)
+    | ({
+        relationTo: 'credential-reveals';
+        value: number | CredentialReveal;
       } | null)
     | ({
         relationTo: 'calendar-connections';
@@ -2187,6 +2409,20 @@ export interface ClientCredentialsSelect<T extends boolean = true> {
   deliveredAt?: T;
   partner?: T;
   displayName?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "credential-reveals_select".
+ */
+export interface CredentialRevealsSelect<T extends boolean = true> {
+  user?: T;
+  client?: T;
+  codeHash?: T;
+  expiresAt?: T;
+  attempts?: T;
+  usedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

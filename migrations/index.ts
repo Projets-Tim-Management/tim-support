@@ -24,6 +24,7 @@ import * as migration_20260811_072415_add_step_auto_validate from './20260811_07
 import * as migration_20260812_091752_add_run_email_schedule from './20260812_091752_add_run_email_schedule';
 import * as migration_20260812_095100_add_email_send_hour from './20260812_095100_add_email_send_hour';
 import * as migration_20260812_105112_add_ticket_journey_run from './20260812_105112_add_ticket_journey_run';
+import * as migration_20260813_092355_add_reference_lists_and_reveals from './20260813_092355_add_reference_lists_and_reveals';
 
 export const migrations = [
   {
@@ -154,6 +155,11 @@ export const migrations = [
   {
     up: migration_20260812_105112_add_ticket_journey_run.up,
     down: migration_20260812_105112_add_ticket_journey_run.down,
-    name: '20260812_105112_add_ticket_journey_run'
+    name: '20260812_105112_add_ticket_journey_run',
+  },
+  {
+    up: migration_20260813_092355_add_reference_lists_and_reveals.up,
+    down: migration_20260813_092355_add_reference_lists_and_reveals.down,
+    name: '20260813_092355_add_reference_lists_and_reveals'
   },
 ];

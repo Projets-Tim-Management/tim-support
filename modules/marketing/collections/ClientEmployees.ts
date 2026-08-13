@@ -1,6 +1,7 @@
 import type { CollectionBeforeChangeHook, CollectionConfig } from "payload";
 
 import { metierOwnedAccess } from "@/core/access";
+import { COUNTRIES } from "@/modules/marketing/lib/reference-lists";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { validateEmail, validatePhone } from "@/core/lib/validators";
 import {
@@ -188,9 +189,10 @@ export const ClientEmployees: CollectionConfig = {
       fields: [
         {
           name: "nationality",
-          type: "text",
+          type: "select",
           label: "Nationalité",
-          admin: { width: "50%", placeholder: "Française" },
+          options: [...COUNTRIES],
+          admin: { width: "50%" },
         },
         {
           name: "birthDate",

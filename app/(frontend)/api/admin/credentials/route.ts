@@ -79,7 +79,8 @@ export async function GET(req: Request) {
     created: ctx.existing.length,
     missing: missing.length,
     // Un accès sans mot de passe n'est pas distribuable : c'est ce qui reste à
-    // faire pour TIM, et ce que l'écran doit mettre en avant.
+    // faire pour TIM, et ce que l'écran doit mettre en avant. Le masque compte
+    // comme un mot de passe présent — il en signale un, chiffré.
     incomplete: ctx.existing.filter((c) => !c.password?.trim()).length,
   });
 }

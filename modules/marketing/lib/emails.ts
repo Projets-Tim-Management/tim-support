@@ -51,6 +51,18 @@ export type JourneyEmailContext = {
   dossierDeadline?: string | null;
   /** Code à usage unique — uniquement pour l'e-mail de connexion. */
   code?: string | null;
+  /**
+   * Phases de test du partenaire, pour le récapitulatif hebdomadaire. Un digest
+   * qui se contente d'un lien ne se lit pas : ce qu'on veut savoir, c'est quel
+   * client attend quoi, sans ouvrir le back-office.
+   */
+  partnerRuns?: Array<{
+    clientName: string;
+    currentStep?: string | null;
+    endDate?: string | null;
+    /** Jours restants avant la fin du test. Négatif = terminé. */
+    daysLeft?: number | null;
+  }> | null;
 };
 
 const PORTAL = `${SITE_URL}/espace-client`;
@@ -534,29 +546,58 @@ const creneauReserve = (ctx: JourneyEmailContext): BuiltEmail => {
   };
 };
 
-const recapPartenaire = (): BuiltEmail => ({
-  subject: "Vos phases de test en cours",
-  text: [
-    "Voici où en sont vos phases de test cette semaine.",
-    "",
-    "Le détail, client par client, avec le dernier relevé d'usage et l'action attendue :",
-    "",
-    `${SITE_URL}/admin/collections/journey-runs`,
-  ].join("\n"),
-  html: shell({
-    heading: "Vos phases de test en cours",
-    preheader: "Le point de la semaine, client par client.",
-    bodyHtml:
-      paragraph("Voici où en sont vos phases de test cette semaine.") +
-      paragraph(
-        "Le détail, client par client, avec le dernier relevé d'usage et l'action attendue de votre part.",
-      ) +
-      button(
-        "Ouvrir mes phases de test",
-        `${SITE_URL}/admin/collections/journey-runs`,
-      ),
-  }),
-});
+const recapPartenaire = (ctx: JourneyEmailContext): BuiltEmail => {
+  const runs = ctx.partnerRuns ?? [];
+  const url = `${SITE_URL}/admin/collections/journey-runs`;
+
+  // Le compte à rebours passe avant le nom de l'étape : c'est lui qui dit s'il
+  // faut agir cette semaine ou pas.
+  const ligne = (r: NonNullable<JourneyEmailContext["partnerRuns"]>[number]) => {
+    const reste =
+      r.daysLeft == null
+        ? null
+        : r.daysLeft < 0
+          ? "test terminé"
+          : r.daysLeft === 0
+            ? "dernier jour"
+            : `${r.daysLeft} jour${r.daysLeft > 1 ? "s" : ""} restant${r.daysLeft > 1 ? "s" : ""}`;
+    return [reste, r.currentStep].filter(Boolean).join(" — ");
+  };
+
+  return {
+    subject:
+      runs.length === 1
+        ? `Phase de test en cours : ${runs[0].clientName}`
+        : `Vos ${runs.length} phases de test en cours`,
+    text: [
+      "Voici où en sont vos phases de test cette semaine.",
+      "",
+      ...runs.map((r) => `• ${r.clientName} — ${ligne(r) || "en préparation"}`),
+      "",
+      "Le détail, client par client :",
+      url,
+      textSignature(),
+    ].join("\n"),
+    html: shell({
+      heading: "Vos phases de test cette semaine",
+      preheader: runs.map((r) => r.clientName).join(", ") || "Le point de la semaine.",
+      bodyHtml:
+        paragraph("Voici où en sont vos phases de test cette semaine.") +
+        (runs.length
+          ? bullets(
+              runs.map(
+                (r) =>
+                  `<strong>${escape(r.clientName)}</strong>${
+                    ligne(r) ? ` — ${escape(ligne(r))}` : ""
+                  }`,
+              ),
+            )
+          : paragraph("Aucune phase de test en cours pour le moment.")) +
+        button("Ouvrir mes phases de test", url) +
+        signature(),
+    }),
+  };
+};
 
 // ─── Registre ────────────────────────────────────────────────────────────────
 /**

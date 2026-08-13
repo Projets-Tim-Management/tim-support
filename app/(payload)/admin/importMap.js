@@ -50,6 +50,7 @@ import { LicencesTable as LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338 } from 
 import { PartnerClientHistory as PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2 } from '../../../modules/partner/admin/PartnerClientHistory'
 import { OnboardingRecap as OnboardingRecap_d713ec8857fdf2ef0b320360e45593af } from '../../../modules/marketing/admin/OnboardingRecap'
 import { CredentialsGenerator as CredentialsGenerator_434b2fb71b57f34ec67d49f20d3e68f5 } from '../../../modules/marketing/admin/CredentialsGenerator'
+import { RevealCredentials as RevealCredentials_25166c4cfe42835ebd8fd68fc1af3420 } from '../../../modules/marketing/admin/RevealCredentials'
 import { ClientJourneyBox as ClientJourneyBox_c84afba646637d6ef2144f2d37a0cb5c } from '../../../modules/marketing/admin/ClientJourneyBox'
 import { PartnerCommissionBox as PartnerCommissionBox_3b6f7425f35df62396e249af6e16b3db } from '../../../modules/partner/admin/PartnerCommissionBox'
 import { MoneyCell as MoneyCell_defb85bf524b4db47dbfd1fb41b08924 } from '../../../modules/partner/admin/MoneyCell'
@@ -137,6 +138,7 @@ export const importMap = {
   "/modules/partner/admin/PartnerClientHistory#PartnerClientHistory": PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2,
   "/modules/marketing/admin/OnboardingRecap#OnboardingRecap": OnboardingRecap_d713ec8857fdf2ef0b320360e45593af,
   "/modules/marketing/admin/CredentialsGenerator#CredentialsGenerator": CredentialsGenerator_434b2fb71b57f34ec67d49f20d3e68f5,
+  "/modules/marketing/admin/RevealCredentials#RevealCredentials": RevealCredentials_25166c4cfe42835ebd8fd68fc1af3420,
   "/modules/marketing/admin/ClientJourneyBox#ClientJourneyBox": ClientJourneyBox_c84afba646637d6ef2144f2d37a0cb5c,
   "/modules/partner/admin/PartnerCommissionBox#PartnerCommissionBox": PartnerCommissionBox_3b6f7425f35df62396e249af6e16b3db,
   "/modules/partner/admin/MoneyCell#MoneyCell": MoneyCell_defb85bf524b4db47dbfd1fb41b08924,

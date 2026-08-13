@@ -3,7 +3,7 @@ import type { Payload } from "payload";
 import { ROLES } from "@/core/access";
 import { eur } from "@/modules/partner/lib/format";
 import { PROFILS } from "@/modules/partner/lib/pricing";
-import { internalNotice } from "@/core/lib/email-template";
+import { escape, internalNotice } from "@/core/lib/email-template";
 
 /**
  * Notifications internes du parcours — envoyées sur événement, pas par le cron.
@@ -428,4 +428,45 @@ export function buildContractRequestEmail(
         : [],
     }),
   };
+}
+
+/**
+ * Les accès d'un client devaient partir aujourd'hui — ils n'existent pas.
+ *
+ * Le cron retient l'envoi plutôt que d'annoncer des identifiants inexistants un
+ * matin de démarrage. Cette alerte est le pendant nécessaire de cette retenue :
+ * sans elle, la rétention serait silencieuse et personne ne créerait les comptes.
+ */
+export async function notifyAdminsAccessMissing(
+  payload: Payload,
+  run: { id: number | string; startDate?: string | null },
+  clientName?: string | null,
+): Promise<void> {
+  try {
+    const to = await adminEmails(payload);
+    if (to.length === 0) return;
+
+    const url = adminUrl(`/collections/journey-runs/${run.id}`);
+    const html = internalNotice({
+      heading: "Accès à créer aujourd'hui",
+      rows: [
+        ["Client", escape(clientName ?? "—")],
+        ["Démarrage", frDate(run.startDate)],
+      ],
+      message:
+        "L'e-mail de remise des accès devait partir maintenant, mais aucun identifiant n'a été créé pour ce client. L'envoi est RETENU : il repartira tout seul dès que les accès seront enregistrés.",
+      cta: { label: "Créer les accès", url },
+    });
+
+    await payload.sendEmail({
+      to: to.join(","),
+      subject: `⚠️ Accès manquants — ${clientName ?? `parcours ${run.id}`}`,
+      html,
+      text:
+        `Les accès de ${clientName ?? `parcours ${run.id}`} devaient être remis aujourd'hui, ` +
+        `mais aucun identifiant n'existe. L'envoi est retenu jusqu'à leur création.\n\n${url}`,
+    });
+  } catch (err) {
+    payload.logger.error(`[parcours] alerte « accès manquants » échouée : ${err}`);
+  }
 }

@@ -1436,3 +1436,73 @@
     color: var(--tim-muted-light);
   }
 }
+
+/* ─── Révélation des mots de passe d'accès ───────────────────────────────────
+   Volontairement sobre : cet encart n'est pas un tableau de bord, c'est un
+   geste ponctuel qu'on referme aussitôt. */
+.jr-reveal {
+  margin: 0.5rem 0 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--tim-elevation-150);
+  border-radius: var(--tim-radius);
+  background: var(--tim-elevation-100);
+}
+
+.jr-reveal__note {
+  margin: 0 0 0.625rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--tim-muted);
+}
+
+.jr-reveal__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.jr-reveal__input {
+  width: 7rem;
+  padding: 0.4375rem 0.625rem;
+  border: 1px solid var(--tim-elevation-200);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1rem;
+  letter-spacing: 0.15em;
+  text-align: center;
+  color: var(--tim-foreground);
+}
+
+.jr-reveal__table {
+  width: 100%;
+  margin: 0 0 0.75rem;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+
+  th,
+  td {
+    padding: 0.375rem 0.5rem;
+    border-bottom: 1px solid var(--tim-elevation-150);
+    text-align: left;
+  }
+
+  th {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--tim-muted);
+  }
+}
+
+.jr-reveal__mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--tim-foreground);
+}
+
+.jr-reveal__error {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--tim-danger, #c0392b);
+}
