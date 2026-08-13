@@ -80,6 +80,15 @@ export interface Config {
     'mission-submissions': MissionSubmission;
     rewards: Reward;
     'reward-orders': RewardOrder;
+    'journey-runs': JourneyRun;
+    'marketing-journeys': MarketingJourney;
+    'client-employees': ClientEmployee;
+    'client-sites': ClientSite;
+    'client-vehicles': ClientVehicle;
+    'client-machines': ClientMachine;
+    'client-portal-accounts': ClientPortalAccount;
+    'client-credentials': ClientCredential;
+    'calendar-connections': CalendarConnection;
     media: Media;
     users: User;
     'payload-kv': PayloadKv;
@@ -93,7 +102,16 @@ export interface Config {
       ledger: 'point-transactions';
     };
     'partner-clients': {
+      employees: 'client-employees';
+      sites: 'client-sites';
+      vehicles: 'client-vehicles';
+      machines: 'client-machines';
+      portalAccounts: 'client-portal-accounts';
+      credentials: 'client-credentials';
       contacts: 'client-contacts';
+    };
+    'journey-runs': {
+      tickets: 'tickets';
     };
   };
   collectionsSelect: {
@@ -110,6 +128,15 @@ export interface Config {
     'mission-submissions': MissionSubmissionsSelect<false> | MissionSubmissionsSelect<true>;
     rewards: RewardsSelect<false> | RewardsSelect<true>;
     'reward-orders': RewardOrdersSelect<false> | RewardOrdersSelect<true>;
+    'journey-runs': JourneyRunsSelect<false> | JourneyRunsSelect<true>;
+    'marketing-journeys': MarketingJourneysSelect<false> | MarketingJourneysSelect<true>;
+    'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
+    'client-sites': ClientSitesSelect<false> | ClientSitesSelect<true>;
+    'client-vehicles': ClientVehiclesSelect<false> | ClientVehiclesSelect<true>;
+    'client-machines': ClientMachinesSelect<false> | ClientMachinesSelect<true>;
+    'client-portal-accounts': ClientPortalAccountsSelect<false> | ClientPortalAccountsSelect<true>;
+    'client-credentials': ClientCredentialsSelect<false> | ClientCredentialsSelect<true>;
+    'calendar-connections': CalendarConnectionsSelect<false> | CalendarConnectionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -187,6 +214,10 @@ export interface Ticket {
   company?: string | null;
   url?: string | null;
   attachments?: (number | Media)[] | null;
+  /**
+   * Parcours dont ce ticket est issu.
+   */
+  journeyRun?: (number | null) | JourneyRun;
   resolvedAt?: string | null;
   needsAttention?: boolean | null;
   unreadClientReply?: boolean | null;
@@ -211,6 +242,825 @@ export interface Media {
   filesize?: number | null;
   width?: number | null;
   height?: number | null;
+}
+/**
+ * Une ligne par client engagé dans un parcours. La barre d'étapes se pilote depuis la fiche.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "journey-runs".
+ */
+export interface JourneyRun {
+  id: number;
+  /**
+   * Au choix du partenaire, selon son client.
+   */
+  sessionMode?: ('visio' | 'sur-place') | null;
+  /**
+   * Créé automatiquement (Google Meet ou Teams) au moment où le client réserve son créneau depuis son espace, si l'agenda du partenaire est connecté. Tant qu'aucun créneau n'est réservé, ce champ reste vide — vous pouvez y coller un lien à la main.
+   */
+  sessionLink?: string | null;
+  /**
+   * Pré-remplie avec l'adresse du client ; modifiable (autre site, agence…).
+   */
+  sessionLocation?: string | null;
+  /**
+   * Réservé par le client depuis son espace, ou saisi ici à la main. Obligatoirement avant le lundi de démarrage. Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.
+   */
+  sessionAt?: string | null;
+  sessionEventId?: string | null;
+  extensions?:
+    | {
+        /**
+         * 14 = 2 semaines (la fin reste un lundi).
+         */
+        days: number;
+        at?: string | null;
+        reason?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  decision?: ('contrat' | 'prolongation' | 'abandon') | null;
+  decisionAt?: string | null;
+  /**
+   * Ce qui a manqué. Alimente l'analyse des tests perdus.
+   */
+  lostReason?: string | null;
+  tickets?: {
+    docs?: (number | Ticket)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  steps?:
+    | {
+        key: string;
+        label: string;
+        state?: ('a-faire' | 'auto' | 'fait' | 'bloque') | null;
+        autoAt?: string | null;
+        autoValidate?: boolean | null;
+        actor?: ('partenaire' | 'admin' | 'client') | null;
+        phase?: ('avant-test' | 'pendant-test' | 'sortie-test') | null;
+        detail?: string | null;
+        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin') | null;
+        offsetDays?: number | null;
+        doneAt?: string | null;
+        doneBy?: (number | null) | User;
+        note?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  emails?:
+    | {
+        key?: string | null;
+        subject?: string | null;
+        scheduledAt?: string | null;
+        /**
+         * Heure d'envoi (Paris).
+         */
+        sendHour?: string | null;
+        /**
+         * Cochée, la date ne suit plus le calendrier.
+         */
+        overridden?: boolean | null;
+        /**
+         * Renseigné à l'envoi. Un e-mail déjà parti ne repart pas.
+         */
+        sentAt?: string | null;
+        audience?: string | null;
+        anchor?: string | null;
+        offsetDays?: number | null;
+        stepKey?: string | null;
+        trigger?: string | null;
+        detail?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Dérivé des étapes. « Perdu » et « Annulé » se posent à la main et ne sont plus recalculés.
+   */
+  status?: ('preparation' | 'en-cours' | 'gagne' | 'perdu' | 'annule') | null;
+  notes?: string | null;
+  client: number | PartnerClient;
+  /**
+   * Le modèle suivi. Les étapes sont copiées à la création.
+   */
+  journey: number | MarketingJourney;
+  /**
+   * Repris automatiquement du client.
+   */
+  partner?: (number | null) | Partner;
+  /**
+   * Un lundi uniquement.
+   */
+  startDate?: string | null;
+  /**
+   * 4 = lundi → lundi.
+   */
+  durationWeeks?: number | null;
+  /**
+   * Calculée.
+   */
+  endDate?: string | null;
+  displayName?: string | null;
+  autoSteps?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  stepsTotal?: number | null;
+  stepsDone?: number | null;
+  progressPct?: number | null;
+  currentStepKey?: string | null;
+  currentStepLabel?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: number;
+  /**
+   * Affichée comme avatar du compte.
+   */
+  avatar?: (number | null) | Media;
+  firstName?: string | null;
+  lastName?: string | null;
+  name?: string | null;
+  roles?: ('super-admin' | 'admin' | 'partner-metier' | 'partner-utilisateur' | 'support')[] | null;
+  /**
+   * Fiche partenaire rattachée à ce compte (rôles partenaire uniquement).
+   */
+  partner?: (number | null) | Partner;
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+  collection: 'users';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "partners".
+ */
+export interface Partner {
+  id: number;
+  displayName?: string | null;
+  /**
+   * Photo / logo du partenaire.
+   */
+  avatar?: (number | null) | Media;
+  /**
+   * Métier = payé en commission via un contrat. Utilisateur = personne individuelle qui gagne des points.
+   */
+  partnerKind?: ('metier' | 'utilisateur') | null;
+  name?: string | null;
+  firstName?: string | null;
+  email: string;
+  phone?: string | null;
+  societe?: string | null;
+  mobile?: string | null;
+  contactName?: string | null;
+  contactRole?: string | null;
+  address?: {
+    street?: string | null;
+    postalCode?: string | null;
+    city?: string | null;
+    country?: string | null;
+  };
+  siret?: string | null;
+  vatNumber?: string | null;
+  legalForm?: string | null;
+  headcount?: number | null;
+  /**
+   * Détermine automatiquement le taux et la durée de commission.
+   */
+  partnershipModel?: ('apporteur-affaires' | 'revendeur' | 'revendeur-sav') | null;
+  commissionRate?: number | null;
+  /**
+   * Pré-remplie automatiquement quand tu choisis le modèle (modifiable ensuite). Videz pour re-déduire.
+   */
+  commissionDuration?: ('24m' | 'vie') | null;
+  contractSigned?: boolean | null;
+  contractSignatureDate?: string | null;
+  contractStartDate?: string | null;
+  /**
+   * Pour un modèle 24 mois. Laisser vide si « à vie ».
+   */
+  contractEndDate?: string | null;
+  /**
+   * PDF du contrat signé.
+   */
+  contractDocument?: (number | null) | Media;
+  /**
+   * Avenants, annexes, pièces justificatives…
+   */
+  contractAttachments?: (number | Media)[] | null;
+  contractNotes?: string | null;
+  scheduling?: {
+    /**
+     * Décoché, le client ne voit aucun créneau et le rendez-vous se cale hors de l'outil.
+     */
+    enabled?: boolean | null;
+    /**
+     * Soit TIM propose vos créneaux (agenda connecté), soit vous gardez votre propre outil de réservation.
+     */
+    mode?: ('creneaux' | 'lien') | null;
+    /**
+     * Le client sera renvoyé vers ce lien. La date retenue ne remonte pas automatiquement dans TIM : renseignez-la sur la phase de test si vous voulez la suivre.
+     */
+    bookingUrl?: string | null;
+    weekdays?: ('1' | '2' | '3' | '4' | '5' | '6' | '7')[] | null;
+    startTime?:
+      | (
+          | '07:00'
+          | '07:30'
+          | '08:00'
+          | '08:30'
+          | '09:00'
+          | '09:30'
+          | '10:00'
+          | '10:30'
+          | '11:00'
+          | '11:30'
+          | '12:00'
+          | '12:30'
+          | '13:00'
+          | '13:30'
+          | '14:00'
+          | '14:30'
+          | '15:00'
+          | '15:30'
+          | '16:00'
+          | '16:30'
+          | '17:00'
+          | '17:30'
+          | '18:00'
+          | '18:30'
+          | '19:00'
+          | '19:30'
+          | '20:00'
+        )
+      | null;
+    endTime?:
+      | (
+          | '07:00'
+          | '07:30'
+          | '08:00'
+          | '08:30'
+          | '09:00'
+          | '09:30'
+          | '10:00'
+          | '10:30'
+          | '11:00'
+          | '11:30'
+          | '12:00'
+          | '12:30'
+          | '13:00'
+          | '13:30'
+          | '14:00'
+          | '14:30'
+          | '15:00'
+          | '15:30'
+          | '16:00'
+          | '16:30'
+          | '17:00'
+          | '17:30'
+          | '18:00'
+          | '18:30'
+          | '19:00'
+          | '19:30'
+          | '20:00'
+        )
+      | null;
+    durationMin?: number | null;
+    /**
+     * Entre deux rendez-vous.
+     */
+    bufferMin?: number | null;
+    /**
+     * Pas de réservation à la dernière minute.
+     */
+    minNoticeHours?: number | null;
+    /**
+     * Jusqu'où le client peut réserver.
+     */
+    horizonDays?: number | null;
+  };
+  joinedAt?: string | null;
+  acquisitionSource?: ('recommandation' | 'salon' | 'prospection' | 'site-web' | 'reseaux-sociaux' | 'autre') | null;
+  tier?: ('bronze' | 'argent' | 'or') | null;
+  /**
+   * Commercial / interlocuteur TIM qui suit ce partenaire.
+   */
+  accountManager?: (number | null) | User;
+  /**
+   * Étiquettes libres (ex. prioritaire, région Sud…).
+   */
+  tags?: string[] | null;
+  notes?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  clients?: {
+    docs?: (number | PartnerClient)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  ledger?: {
+    docs?: (number | PointTransaction)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  code?: string | null;
+  status?: ('active' | 'paused' | 'archived') | null;
+  appUserId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "partner-clients".
+ */
+export interface PartnerClient {
+  id: number;
+  companyName: string;
+  partner: number | Partner;
+  clientStatus?: ('prospect' | 'en-cours' | 'en-test' | 'actif' | 'resilie' | 'archive') | null;
+  /**
+   * Fin du contrat / de l'abonnement mensuel — la commission du partenaire s'arrête à cette date.
+   */
+  resiliationDate?: string | null;
+  /**
+   * Nom officiel de l'entreprise (pour la facture).
+   */
+  raisonSociale?: string | null;
+  siren?: string | null;
+  vatNumber?: string | null;
+  /**
+   * Requis — envoi des factures.
+   */
+  email: string;
+  billingAddress?: string | null;
+  billingAddressComplement?: string | null;
+  phone?: string | null;
+  /**
+   * Nom du destinataire de la facture (optionnel).
+   */
+  recipient?: string | null;
+  /**
+   * Optionnel.
+   */
+  billingRemarks?: string | null;
+  licences?: {
+    adminQty?: number | null;
+    adminPrice?: number | null;
+    conducteurQty?: number | null;
+    conducteurPrice?: number | null;
+    chefChantierQty?: number | null;
+    chefChantierPrice?: number | null;
+    chefEquipeQty?: number | null;
+    chefEquipePrice?: number | null;
+    compagnonQty?: number | null;
+    compagnonPrice?: number | null;
+  };
+  paymentMethod?: ('prelevement-gocardless' | 'virement') | null;
+  /**
+   * Délai de règlement du virement.
+   */
+  paymentTerms?: ('1er-du-mois' | '7j' | '15j' | '30j' | '45j' | '60j') | null;
+  signatureDate?: string | null;
+  /**
+   * PDF du contrat signé avec le client.
+   */
+  contractDocument?: (number | null) | Media;
+  /**
+   * « Transmis » = le client a fini sa saisie ; « Validé » = TIM a contrôlé.
+   */
+  onboardingStatus?: ('en-cours' | 'transmis' | 'valide') | null;
+  onboardingSubmittedAt?: string | null;
+  /**
+   * Tout l'effectif. Cochez « Accès TIM » sur ceux qui consomment une licence — eux seuls comptent dans le devis.
+   */
+  employees?: {
+    docs?: (number | ClientEmployee)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  sites?: {
+    docs?: (number | ClientSite)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  vehicles?: {
+    docs?: (number | ClientVehicle)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  machines?: {
+    docs?: (number | ClientMachine)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Un seul compte par client : l'e-mail du référent. Aucun mot de passe — un code à 6 chiffres lui est envoyé à chaque connexion.
+   */
+  portalAccounts?: {
+    docs?: (number | ClientPortalAccount)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Les comptes TIM créés pour les utilisateurs. Le client les consulte et les imprime depuis son espace — ils ne partent jamais par e-mail.
+   */
+  credentials?: {
+    docs?: (number | ClientCredential)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Enregistrez d'abord la fiche client, puis cliquez « Créer un Contact » pour ajouter les personnes à contacter chez ce client.
+   */
+  contacts?: {
+    docs?: (number | ClientContact)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  history?:
+    | {
+        at?: string | null;
+        totalLicences?: number | null;
+        caHT?: number | null;
+        commissionRate?: number | null;
+        commission?: number | null;
+        detail?:
+          | {
+              [k: string]: unknown;
+            }
+          | unknown[]
+          | string
+          | number
+          | boolean
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  notes?: string | null;
+  totalLicences?: number | null;
+  caPaye?: number | null;
+  commissionMonthly?: number | null;
+  caBrut?: number | null;
+  discountPct?: number | null;
+  statusRank?: number | null;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-employees".
+ */
+export interface ClientEmployee {
+  id: number;
+  client: number | PartnerClient;
+  /**
+   * Généré automatiquement si laissé vide.
+   */
+  matricule?: string | null;
+  firstName: string;
+  lastName: string;
+  /**
+   * L'entité qui emploie ce salarié (un client peut regrouper plusieurs sociétés).
+   */
+  company: string;
+  /**
+   * Le métier réel — à ne pas confondre avec la priorité (profil de licence).
+   */
+  poste?: string | null;
+  isUser?: boolean | null;
+  /**
+   * Profil de licence — détermine le prix dans le devis.
+   */
+  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon') | null;
+  /**
+   * Requise pour les utilisateurs ; facultative pour les autres salariés.
+   */
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  nationality?: string | null;
+  birthDate?: string | null;
+  contractType?: ('cdi' | 'cdd' | 'interim' | 'apprentissage' | 'stage' | 'sous-traitant') | null;
+  contractEndDate?: string | null;
+  partner?: (number | null) | Partner;
+  displayName?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-sites".
+ */
+export interface ClientSite {
+  id: number;
+  client: number | PartnerClient;
+  name: string;
+  /**
+   * La référence interne du client.
+   */
+  code: string;
+  address: string;
+  startDate: string;
+  /**
+   * Fin prévisionnelle si la date exacte n'est pas connue.
+   */
+  endDate: string;
+  /**
+   * Secteur ou périmètre du chantier.
+   */
+  zone?: string | null;
+  partner?: (number | null) | Partner;
+  displayName?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-vehicles".
+ */
+export interface ClientVehicle {
+  id: number;
+  client: number | PartnerClient;
+  brand: string;
+  year: number;
+  plate: string;
+  /**
+   * Échéance du contrat.
+   */
+  insuranceDate: string;
+  /**
+   * Permis nécessaires pour conduire ce véhicule.
+   */
+  licenseTypes: ('b' | 'be' | 'c1' | 'c1e' | 'c' | 'ce' | 'd' | 'de')[];
+  partner?: (number | null) | Partner;
+  displayName?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-machines".
+ */
+export interface ClientMachine {
+  id: number;
+  client: number | PartnerClient;
+  brand: string;
+  year: number;
+  /**
+   * Plaque si l'engin en a une, sinon n° de série.
+   */
+  serial: string;
+  /**
+   * Échéance du contrat.
+   */
+  insuranceDate: string;
+  /**
+   * Certification nécessaire pour conduire cet engin.
+   */
+  cacesTypes: (
+    | 'r482-a'
+    | 'r482-b1'
+    | 'r482-b2'
+    | 'r482-c1'
+    | 'r482-c2'
+    | 'r482-c3'
+    | 'r482-d'
+    | 'r482-e'
+    | 'r482-f'
+    | 'r482-g'
+    | 'r486-a'
+    | 'r486-b'
+    | 'r486-c'
+    | 'r489-1'
+    | 'r489-3'
+    | 'r489-5'
+    | 'r490'
+  )[];
+  partner?: (number | null) | Partner;
+  displayName?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-portal-accounts".
+ */
+export interface ClientPortalAccount {
+  id: number;
+  client: number | PartnerClient;
+  /**
+   * C'est l'identifiant : le code de connexion y est envoyé.
+   */
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  /**
+   * Décoché = le client ne peut plus demander de code.
+   */
+  active?: boolean | null;
+  lastLoginAt?: string | null;
+  codeHash?: string | null;
+  codeExpiresAt?: string | null;
+  codeAttempts?: number | null;
+  requestCount?: number | null;
+  requestWindowStart?: string | null;
+  partner?: (number | null) | Partner;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-credentials".
+ */
+export interface ClientCredential {
+  id: number;
+  client: number | PartnerClient;
+  firstName: string;
+  lastName: string;
+  licenceProfile: 'admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon';
+  /**
+   * Tel qu'il a été créé dans TIM.
+   */
+  username: string;
+  /**
+   * Remis au client, qui le distribue à son équipe.
+   */
+  password: string;
+  /**
+   * Facultatif — relie l'accès à la ligne du dossier de démarrage.
+   */
+  employee?: (number | null) | ClientEmployee;
+  /**
+   * Renseigné par le client quand il a remis l'accès à la personne.
+   */
+  deliveredAt?: string | null;
+  partner?: (number | null) | Partner;
+  displayName?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-contacts".
+ */
+export interface ClientContact {
+  id: number;
+  client: number | PartnerClient;
+  firstName?: string | null;
+  lastName?: string | null;
+  role?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  partner?: (number | null) | Partner;
+  displayName?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "point-transactions".
+ */
+export interface PointTransaction {
+  id: number;
+  /**
+   * Référence attribuée automatiquement ou reprise à la migration.
+   */
+  number?: number | null;
+  partner: number | Partner;
+  /**
+   * > 0 crédit, < 0 débit.
+   */
+  delta: number;
+  motif: string;
+  source?: ('contrat' | 'avis' | 'ajustement' | 'echange') | null;
+  /**
+   * Lien technique interne (ex : order:123, submission:45). Optionnel.
+   */
+  ref?: string | null;
+  createdBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Le modèle : les étapes d'un parcours. Chaque client qui le suit obtient une phase de test dans « Phases de test ».
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "marketing-journeys".
+ */
+export interface MarketingJourney {
+  id: number;
+  title: string;
+  /**
+   * Identifiant stable référencé par le code. À ne pas modifier.
+   */
+  key: string;
+  /**
+   * À quoi sert ce parcours, en une phrase.
+   */
+  description?: string | null;
+  /**
+   * Lundi → lundi. La durée reste modifiable sur chaque phase de test.
+   */
+  defaultDurationWeeks?: number | null;
+  /**
+   * Interdit toute autre date de démarrage.
+   */
+  mondayOnly?: boolean | null;
+  /**
+   * Ordre = ordre d'exécution. Toutes les étapes sont obligatoires : le parcours avance dans cet ordre.
+   */
+  steps?:
+    | {
+        /**
+         * Identifiant stable. À ne pas modifier une fois des phases lancées.
+         */
+        key: string;
+        label: string;
+        actor: 'partenaire' | 'admin' | 'client';
+        phase: 'avant-test' | 'pendant-test' | 'sortie-test';
+        detail?: string | null;
+        /**
+         * Sans effet si aucun fait observable n'est associé à cette étape (voir AUTO_TRIGGERS).
+         */
+        autoValidate?: boolean | null;
+        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin') | null;
+        /**
+         * Négatif = avant l'ancrage. Ex. -7 = une semaine avant.
+         */
+        offsetDays?: number | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Objets et libellés modifiables sans déploiement. Un envoi sans échéance est déclenché par un événement (connexion, transmission du dossier…).
+   */
+  emails?:
+    | {
+        key: string;
+        subject: string;
+        audience?: ('client' | 'tim' | 'partenaire') | null;
+        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin') | null;
+        offsetDays?: number | null;
+        /**
+         * Heure de Paris. Une date sans heure partirait à minuit.
+         */
+        sendHour?: string | null;
+        /**
+         * Clé de l'étape sur laquelle afficher l'envoi. Obligatoire pour un envoi sans échéance ; sinon, il se rattache tout seul à l'étape correspondant à sa date.
+         */
+        stepKey?: string | null;
+        /**
+         * Le fait qui provoque l'envoi, quand il n'est pas daté.
+         */
+        trigger?: string | null;
+        detail?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Décoché = ne peut plus être lancé sur de nouveaux clients.
+   */
+  active?: boolean | null;
+  seedVersion?: number | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -412,279 +1262,6 @@ export interface Parcour {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "partners".
- */
-export interface Partner {
-  id: number;
-  displayName?: string | null;
-  /**
-   * Photo / logo du partenaire.
-   */
-  avatar?: (number | null) | Media;
-  /**
-   * Métier = payé en commission via un contrat. Utilisateur = personne individuelle qui gagne des points.
-   */
-  partnerKind?: ('metier' | 'utilisateur') | null;
-  name?: string | null;
-  firstName?: string | null;
-  email: string;
-  phone?: string | null;
-  societe?: string | null;
-  mobile?: string | null;
-  contactName?: string | null;
-  contactRole?: string | null;
-  address?: {
-    street?: string | null;
-    postalCode?: string | null;
-    city?: string | null;
-    country?: string | null;
-  };
-  siret?: string | null;
-  vatNumber?: string | null;
-  legalForm?: string | null;
-  headcount?: number | null;
-  /**
-   * Détermine automatiquement le taux et la durée de commission.
-   */
-  partnershipModel?: ('apporteur-affaires' | 'revendeur' | 'revendeur-sav') | null;
-  commissionRate?: number | null;
-  /**
-   * Pré-remplie automatiquement quand tu choisis le modèle (modifiable ensuite). Videz pour re-déduire.
-   */
-  commissionDuration?: ('24m' | 'vie') | null;
-  contractSigned?: boolean | null;
-  contractSignatureDate?: string | null;
-  contractStartDate?: string | null;
-  /**
-   * Pour un modèle 24 mois. Laisser vide si « à vie ».
-   */
-  contractEndDate?: string | null;
-  /**
-   * PDF du contrat signé.
-   */
-  contractDocument?: (number | null) | Media;
-  /**
-   * Avenants, annexes, pièces justificatives…
-   */
-  contractAttachments?: (number | Media)[] | null;
-  contractNotes?: string | null;
-  joinedAt?: string | null;
-  acquisitionSource?: ('recommandation' | 'salon' | 'prospection' | 'site-web' | 'reseaux-sociaux' | 'autre') | null;
-  tier?: ('bronze' | 'argent' | 'or') | null;
-  /**
-   * Commercial / interlocuteur TIM qui suit ce partenaire.
-   */
-  accountManager?: (number | null) | User;
-  /**
-   * Étiquettes libres (ex. prioritaire, région Sud…).
-   */
-  tags?: string[] | null;
-  notes?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  clients?: {
-    docs?: (number | PartnerClient)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  ledger?: {
-    docs?: (number | PointTransaction)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  code?: string | null;
-  status?: ('active' | 'paused' | 'archived') | null;
-  appUserId?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
- */
-export interface User {
-  id: number;
-  /**
-   * Affichée comme avatar du compte.
-   */
-  avatar?: (number | null) | Media;
-  firstName?: string | null;
-  lastName?: string | null;
-  name?: string | null;
-  roles?: ('super-admin' | 'admin' | 'partner-metier' | 'partner-utilisateur' | 'support')[] | null;
-  /**
-   * Fiche partenaire rattachée à ce compte (rôles partenaire uniquement).
-   */
-  partner?: (number | null) | Partner;
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
-  password?: string | null;
-  collection: 'users';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "partner-clients".
- */
-export interface PartnerClient {
-  id: number;
-  companyName: string;
-  partner: number | Partner;
-  clientStatus?: ('prospect' | 'en-cours' | 'en-test' | 'actif' | 'resilie' | 'archive') | null;
-  /**
-   * Fin du contrat / de l'abonnement mensuel — la commission du partenaire s'arrête à cette date.
-   */
-  resiliationDate?: string | null;
-  /**
-   * Nom officiel de l'entreprise (pour la facture).
-   */
-  raisonSociale?: string | null;
-  siren?: string | null;
-  vatNumber?: string | null;
-  /**
-   * Requis — envoi des factures.
-   */
-  email: string;
-  billingAddress?: string | null;
-  billingAddressComplement?: string | null;
-  phone?: string | null;
-  /**
-   * Nom du destinataire de la facture (optionnel).
-   */
-  recipient?: string | null;
-  /**
-   * Optionnel.
-   */
-  billingRemarks?: string | null;
-  licences?: {
-    adminQty?: number | null;
-    adminPrice?: number | null;
-    conducteurQty?: number | null;
-    conducteurPrice?: number | null;
-    chefChantierQty?: number | null;
-    chefChantierPrice?: number | null;
-    chefEquipeQty?: number | null;
-    chefEquipePrice?: number | null;
-    compagnonQty?: number | null;
-    compagnonPrice?: number | null;
-  };
-  paymentMethod?: ('prelevement-gocardless' | 'virement') | null;
-  /**
-   * Délai de règlement du virement.
-   */
-  paymentTerms?: ('1er-du-mois' | '7j' | '15j' | '30j' | '45j' | '60j') | null;
-  signatureDate?: string | null;
-  /**
-   * PDF du contrat signé avec le client.
-   */
-  contractDocument?: (number | null) | Media;
-  /**
-   * Enregistrez d'abord la fiche client, puis cliquez « Créer un Contact » pour ajouter les personnes à contacter chez ce client.
-   */
-  contacts?: {
-    docs?: (number | ClientContact)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  history?:
-    | {
-        at?: string | null;
-        totalLicences?: number | null;
-        caHT?: number | null;
-        commissionRate?: number | null;
-        commission?: number | null;
-        detail?:
-          | {
-              [k: string]: unknown;
-            }
-          | unknown[]
-          | string
-          | number
-          | boolean
-          | null;
-        id?: string | null;
-      }[]
-    | null;
-  notes?: string | null;
-  totalLicences?: number | null;
-  caPaye?: number | null;
-  commissionMonthly?: number | null;
-  caBrut?: number | null;
-  discountPct?: number | null;
-  statusRank?: number | null;
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "client-contacts".
- */
-export interface ClientContact {
-  id: number;
-  client: number | PartnerClient;
-  firstName?: string | null;
-  lastName?: string | null;
-  role?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  partner?: (number | null) | Partner;
-  displayName?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "point-transactions".
- */
-export interface PointTransaction {
-  id: number;
-  /**
-   * Référence attribuée automatiquement ou reprise à la migration.
-   */
-  number?: number | null;
-  partner: number | Partner;
-  /**
-   * > 0 crédit, < 0 débit.
-   */
-  delta: number;
-  motif: string;
-  source?: ('contrat' | 'avis' | 'ajustement' | 'echange') | null;
-  /**
-   * Lien technique interne (ex : order:123, submission:45). Optionnel.
-   */
-  ref?: string | null;
-  createdBy?: (number | null) | User;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "missions".
  */
 export interface Mission {
@@ -825,6 +1402,31 @@ export interface RewardOrder {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-connections".
+ */
+export interface CalendarConnection {
+  id: number;
+  partner: number | Partner;
+  provider: 'google' | 'microsoft';
+  accountEmail?: string | null;
+  calendars?:
+    | {
+        calendarId: string;
+        name?: string | null;
+        busy?: boolean | null;
+        target?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  status?: ('ok' | 'expired') | null;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  expiresAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -894,6 +1496,42 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'reward-orders';
         value: number | RewardOrder;
+      } | null)
+    | ({
+        relationTo: 'journey-runs';
+        value: number | JourneyRun;
+      } | null)
+    | ({
+        relationTo: 'marketing-journeys';
+        value: number | MarketingJourney;
+      } | null)
+    | ({
+        relationTo: 'client-employees';
+        value: number | ClientEmployee;
+      } | null)
+    | ({
+        relationTo: 'client-sites';
+        value: number | ClientSite;
+      } | null)
+    | ({
+        relationTo: 'client-vehicles';
+        value: number | ClientVehicle;
+      } | null)
+    | ({
+        relationTo: 'client-machines';
+        value: number | ClientMachine;
+      } | null)
+    | ({
+        relationTo: 'client-portal-accounts';
+        value: number | ClientPortalAccount;
+      } | null)
+    | ({
+        relationTo: 'client-credentials';
+        value: number | ClientCredential;
+      } | null)
+    | ({
+        relationTo: 'calendar-connections';
+        value: number | CalendarConnection;
       } | null)
     | ({
         relationTo: 'media';
@@ -974,6 +1612,7 @@ export interface TicketsSelect<T extends boolean = true> {
   company?: T;
   url?: T;
   attachments?: T;
+  journeyRun?: T;
   resolvedAt?: T;
   needsAttention?: T;
   unreadClientReply?: T;
@@ -1124,6 +1763,20 @@ export interface PartnersSelect<T extends boolean = true> {
   contractDocument?: T;
   contractAttachments?: T;
   contractNotes?: T;
+  scheduling?:
+    | T
+    | {
+        enabled?: T;
+        mode?: T;
+        bookingUrl?: T;
+        weekdays?: T;
+        startTime?: T;
+        endTime?: T;
+        durationMin?: T;
+        bufferMin?: T;
+        minNoticeHours?: T;
+        horizonDays?: T;
+      };
   joinedAt?: T;
   acquisitionSource?: T;
   tier?: T;
@@ -1174,6 +1827,14 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   paymentTerms?: T;
   signatureDate?: T;
   contractDocument?: T;
+  onboardingStatus?: T;
+  onboardingSubmittedAt?: T;
+  employees?: T;
+  sites?: T;
+  vehicles?: T;
+  machines?: T;
+  portalAccounts?: T;
+  credentials?: T;
   contacts?: T;
   history?:
     | T
@@ -1297,6 +1958,259 @@ export interface RewardOrdersSelect<T extends boolean = true> {
   status?: T;
   ledgerTransaction?: T;
   refunded?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "journey-runs_select".
+ */
+export interface JourneyRunsSelect<T extends boolean = true> {
+  sessionMode?: T;
+  sessionLink?: T;
+  sessionLocation?: T;
+  sessionAt?: T;
+  sessionEventId?: T;
+  extensions?:
+    | T
+    | {
+        days?: T;
+        at?: T;
+        reason?: T;
+        id?: T;
+      };
+  decision?: T;
+  decisionAt?: T;
+  lostReason?: T;
+  tickets?: T;
+  steps?:
+    | T
+    | {
+        key?: T;
+        label?: T;
+        state?: T;
+        autoAt?: T;
+        autoValidate?: T;
+        actor?: T;
+        phase?: T;
+        detail?: T;
+        anchor?: T;
+        offsetDays?: T;
+        doneAt?: T;
+        doneBy?: T;
+        note?: T;
+        id?: T;
+      };
+  emails?:
+    | T
+    | {
+        key?: T;
+        subject?: T;
+        scheduledAt?: T;
+        sendHour?: T;
+        overridden?: T;
+        sentAt?: T;
+        audience?: T;
+        anchor?: T;
+        offsetDays?: T;
+        stepKey?: T;
+        trigger?: T;
+        detail?: T;
+        id?: T;
+      };
+  status?: T;
+  notes?: T;
+  client?: T;
+  journey?: T;
+  partner?: T;
+  startDate?: T;
+  durationWeeks?: T;
+  endDate?: T;
+  displayName?: T;
+  autoSteps?: T;
+  stepsTotal?: T;
+  stepsDone?: T;
+  progressPct?: T;
+  currentStepKey?: T;
+  currentStepLabel?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "marketing-journeys_select".
+ */
+export interface MarketingJourneysSelect<T extends boolean = true> {
+  title?: T;
+  key?: T;
+  description?: T;
+  defaultDurationWeeks?: T;
+  mondayOnly?: T;
+  steps?:
+    | T
+    | {
+        key?: T;
+        label?: T;
+        actor?: T;
+        phase?: T;
+        detail?: T;
+        autoValidate?: T;
+        anchor?: T;
+        offsetDays?: T;
+        id?: T;
+      };
+  emails?:
+    | T
+    | {
+        key?: T;
+        subject?: T;
+        audience?: T;
+        anchor?: T;
+        offsetDays?: T;
+        sendHour?: T;
+        stepKey?: T;
+        trigger?: T;
+        detail?: T;
+        id?: T;
+      };
+  active?: T;
+  seedVersion?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-employees_select".
+ */
+export interface ClientEmployeesSelect<T extends boolean = true> {
+  client?: T;
+  matricule?: T;
+  firstName?: T;
+  lastName?: T;
+  company?: T;
+  poste?: T;
+  isUser?: T;
+  licenceProfile?: T;
+  email?: T;
+  phone?: T;
+  address?: T;
+  nationality?: T;
+  birthDate?: T;
+  contractType?: T;
+  contractEndDate?: T;
+  partner?: T;
+  displayName?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-sites_select".
+ */
+export interface ClientSitesSelect<T extends boolean = true> {
+  client?: T;
+  name?: T;
+  code?: T;
+  address?: T;
+  startDate?: T;
+  endDate?: T;
+  zone?: T;
+  partner?: T;
+  displayName?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-vehicles_select".
+ */
+export interface ClientVehiclesSelect<T extends boolean = true> {
+  client?: T;
+  brand?: T;
+  year?: T;
+  plate?: T;
+  insuranceDate?: T;
+  licenseTypes?: T;
+  partner?: T;
+  displayName?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-machines_select".
+ */
+export interface ClientMachinesSelect<T extends boolean = true> {
+  client?: T;
+  brand?: T;
+  year?: T;
+  serial?: T;
+  insuranceDate?: T;
+  cacesTypes?: T;
+  partner?: T;
+  displayName?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-portal-accounts_select".
+ */
+export interface ClientPortalAccountsSelect<T extends boolean = true> {
+  client?: T;
+  email?: T;
+  firstName?: T;
+  lastName?: T;
+  active?: T;
+  lastLoginAt?: T;
+  codeHash?: T;
+  codeExpiresAt?: T;
+  codeAttempts?: T;
+  requestCount?: T;
+  requestWindowStart?: T;
+  partner?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-credentials_select".
+ */
+export interface ClientCredentialsSelect<T extends boolean = true> {
+  client?: T;
+  firstName?: T;
+  lastName?: T;
+  licenceProfile?: T;
+  username?: T;
+  password?: T;
+  employee?: T;
+  deliveredAt?: T;
+  partner?: T;
+  displayName?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-connections_select".
+ */
+export interface CalendarConnectionsSelect<T extends boolean = true> {
+  partner?: T;
+  provider?: T;
+  accountEmail?: T;
+  calendars?:
+    | T
+    | {
+        calendarId?: T;
+        name?: T;
+        busy?: T;
+        target?: T;
+        id?: T;
+      };
+  status?: T;
+  accessToken?: T;
+  refreshToken?: T;
+  expiresAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

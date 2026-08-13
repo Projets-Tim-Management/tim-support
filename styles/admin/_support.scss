@@ -946,5 +946,11 @@ $reply-status-colors: (
   background: color-mix(in srgb, var(--tim-warning) 20%, var(--tim-white));
   color: var(--tim-warning-text);
 }
+/* Provenance, pas urgence : une teinte à part pour ne pas se confondre avec les
+   puces d'état, avec lesquelles elle s'affiche toujours côte à côte. */
+.ticket-alert--journey {
+  background: var(--tim-purple-bg);
+  color: var(--tim-purple);
+}
 
 

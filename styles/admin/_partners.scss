@@ -1402,6 +1402,17 @@
   font-weight: 700;
   color: var(--tim-foreground);
 }
+/* Contrainte « démarrage le lundi » : rappel neutre, puis alerte si la date
+   choisie n'en est pas un (le bouton est alors désactivé). */
+.tim-kanban__modal-hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+.tim-kanban__modal-hint--ko {
+  color: var(--tim-danger-text);
+  font-weight: 600;
+}
 .tim-kanban__modal-input {
   padding: 0.55rem 0.7rem;
   font: inherit;

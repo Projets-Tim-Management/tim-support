@@ -1,0 +1,1438 @@
+/* Parcours marketing — barre d'étapes (fiche phase de test) + encart de la
+   fiche client + libellés de lignes d'étapes.
+   Toutes les couleurs viennent des tokens (styles/_tokens.scss). */
+
+/* ─── Barre d'étapes ────────────────────────────────────────────────────────── */
+.jr-stepper {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  padding: 1rem 1.25rem 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.jr-stepper--empty {
+  color: var(--tim-muted);
+  font-size: 0.875rem;
+  padding: 1rem 1.25rem;
+
+  p { margin: 0; }
+}
+
+.jr-stepper__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid var(--tim-elevation-100);
+}
+
+.jr-stepper__title {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.jr-stepper__dates {
+  font-size: 0.875rem;
+  color: var(--tim-foreground);
+
+  em {
+    color: var(--tim-muted);
+    font-style: italic;
+  }
+}
+
+.jr-stepper__progress {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 12rem;
+}
+
+.jr-stepper__bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--tim-elevation-150);
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--tim-primary);
+    transition: width 0.2s ease;
+  }
+}
+
+.jr-stepper__count {
+  font-size: 0.8125rem;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+
+.jr-stepper__note {
+  margin: 0.75rem 0 0;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--tim-elevation-100);
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+
+/* ─── Blocs (avant / pendant / sortie) ──────────────────────────────────────── */
+.jr-phase {
+  margin-top: 1rem;
+}
+
+.jr-phase__title {
+  margin: 0 0 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tim-muted-light);
+}
+
+.jr-phase__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ─── Une étape ─────────────────────────────────────────────────────────────── */
+.jr-step {
+  display: grid;
+  /* Colonnes de droite en largeur FIXE. Chaque ligne étant sa propre grille,
+     des colonnes `auto` se dimensionnent indépendamment : les dates ne
+     tombaient pas au même endroit d'une ligne à l'autre. La dernière colonne
+     est assez large pour DEUX boutons (Annuler + Valider). */
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto 10rem 5.5rem 3.75rem;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.25rem;
+  border-radius: var(--tim-radius-sm);
+  border-bottom: 1px solid var(--tim-elevation-100);
+
+  &:last-child { border-bottom: 0; }
+}
+
+.jr-step__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--tim-elevation-100);
+  color: var(--tim-muted);
+}
+
+.jr-step__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.jr-step__label {
+  font-size: 0.875rem;
+  color: var(--tim-foreground);
+}
+
+.jr-step__detail {
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+
+.jr-step__actor {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  /* Radius 6 (token) plutôt qu'une pilule : aligné sur le reste des champs. */
+  border-radius: var(--tim-radius-sm);
+  white-space: nowrap;
+  background: var(--tim-gray-bg);
+  color: var(--tim-gray);
+}
+
+.jr-step__actor--partenaire {
+  background: var(--tim-blue-bg);
+  color: var(--tim-blue);
+}
+
+.jr-step__actor--admin {
+  background: var(--tim-purple-bg);
+  color: var(--tim-purple);
+}
+
+.jr-step__actor--client {
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+}
+
+.jr-step__actor--tim {
+  background: var(--tim-purple-bg);
+  color: var(--tim-purple);
+}
+
+.jr-step__who {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.jr-step__when {
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+  white-space: nowrap;
+  text-align: right;
+}
+
+.jr-step__action {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.375rem;
+  white-space: nowrap;
+}
+
+/* États */
+.jr-step--done {
+  .jr-step__mark {
+    background: var(--tim-green-bg);
+    color: var(--tim-green);
+  }
+
+  .jr-step__label { color: var(--tim-muted); }
+  .jr-step__detail { display: none; }
+}
+
+.jr-step--current {
+  background: var(--tim-primary-light);
+
+  .jr-step__mark {
+    background: var(--tim-primary);
+    color: var(--tim-white);
+  }
+
+  .jr-step__label { font-weight: 600; }
+}
+
+.jr-step--todo {
+  .jr-step__label { color: var(--tim-muted); }
+  .jr-step__detail { display: none; }
+}
+
+.jr-step--late .jr-step__when {
+  color: var(--tim-danger-text);
+  font-weight: 500;
+}
+
+/* ─── Boutons ───────────────────────────────────────────────────────────────── */
+.jr-btn {
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  padding: 0.3125rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  transition: background 0.15s ease;
+
+  &:hover { background: var(--tim-primary-dark); }
+}
+
+.jr-btn--ghost {
+  background: transparent;
+  color: var(--tim-muted);
+  border: 1px solid var(--tim-border);
+
+  &:hover {
+    background: var(--tim-elevation-100);
+    color: var(--tim-foreground);
+  }
+}
+
+/* ─── Encart de la fiche client (barre latérale) ────────────────────────────── */
+.jr-box {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+  padding: 0.875rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.jr-box--loading {
+  color: var(--tim-muted);
+  font-size: 0.8125rem;
+}
+
+.jr-box__title {
+  margin: 0 0 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tim-muted-light);
+}
+
+.jr-box__empty {
+  margin: 0 0 0.625rem;
+  font-size: 0.8125rem;
+  color: var(--tim-muted);
+}
+
+.jr-box__dates {
+  margin: 0.5rem 0 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+}
+
+.jr-box__bar {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--tim-elevation-150);
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--tim-primary);
+  }
+}
+
+.jr-box__count {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+
+.jr-box__current {
+  margin: 0.625rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+  line-height: 1.35;
+}
+
+.jr-box__current-k {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--tim-muted);
+}
+
+.jr-box__cta {
+  display: inline-block;
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--tim-primary);
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+}
+
+/* ─── Libellé de ligne d'étape (arrays repliés) ─────────────────────────────── */
+.jr-rowlabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.jr-rowlabel__num {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  color: var(--tim-muted-light);
+}
+
+.jr-rowlabel__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jr-rowlabel__actor {
+  font-size: 0.6875rem;
+  color: var(--tim-muted);
+}
+
+.jr-rowlabel__state--fait { color: var(--tim-green); }
+.jr-rowlabel__state--bloque { color: var(--tim-warning-text); }
+
+/* ─── Dossier de démarrage (onglet de la fiche client) ──────────────────────── */
+.jr-onb {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) minmax(0, 1.6fr);
+  gap: 1.25rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.jr-onb--empty {
+  display: block;
+  color: var(--tim-muted);
+  font-size: 0.875rem;
+}
+
+.jr-onb__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  border-right: 1px solid var(--tim-elevation-100);
+  padding-right: 1.25rem;
+}
+
+.jr-onb__section {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--tim-muted);
+}
+
+.jr-onb__section--ok { color: var(--tim-foreground); }
+
+.jr-onb__mark { color: var(--tim-muted-light); }
+.jr-onb__section--ok .jr-onb__mark { color: var(--tim-green); }
+
+.jr-onb__n {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+
+  em {
+    font-style: normal;
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: var(--tim-danger-text);
+  }
+}
+
+.jr-onb__headline {
+  margin: 0 0 0.75rem;
+  font-size: 0.9375rem;
+  color: var(--tim-foreground);
+
+  strong { font-size: 1.125rem; }
+}
+
+.jr-onb__sep {
+  margin: 0 0.5rem;
+  color: var(--tim-muted-light);
+}
+
+.jr-onb__hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+
+.jr-onb__profiles {
+  list-style: none;
+  margin: 0 0 0.875rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.jr-onb__profile {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-elevation-100);
+  font-size: 0.8125rem;
+}
+
+.jr-onb__profile-k { color: var(--tim-muted); }
+
+.jr-onb__profile-v {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.jr-onb__profile--diff {
+  background: var(--tim-amber-bg);
+
+  .jr-onb__profile-k,
+  .jr-onb__profile-v { color: var(--tim-amber); }
+}
+
+.jr-onb__profile--warn {
+  background: var(--tim-red-bg);
+
+  .jr-onb__profile-k,
+  .jr-onb__profile-v { color: var(--tim-red); }
+}
+
+.jr-onb__profile-old {
+  font-size: 0.6875rem;
+  color: var(--tim-muted);
+}
+
+.jr-onb__done {
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+
+/* ─── Cellule « Date d'assurance » ──────────────────────────────────────────── */
+.jr-ins {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.375rem;
+}
+
+.jr-ins--none { color: var(--tim-muted-light); }
+
+.jr-ins--expired { color: var(--tim-danger-text); }
+
+.jr-ins__flag {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+}
+
+.jr-onb__progress {
+  margin: 0 0 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tim-muted-light);
+}
+
+/* Démarrage inline d'une phase de test (encart de la fiche client) */
+.jr-box__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.5rem 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+
+.jr-box__input {
+  padding: 0.375rem 0.5rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+}
+
+.jr-box__ko {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tim-danger-text);
+}
+
+.jr-box__notice {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-green-bg);
+  color: var(--tim-green);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+/* ─── Modal « Démarrer la phase de test » ───────────────────────────────────────
+   Rendu par portail sur <body> (voir StartTestModal) : c'est le portail, pas le
+   z-index, qui règle le passage sous la barre de navigation — un z-index posé
+   dans une vue Payload reste prisonnier de son contexte d'empilement.
+   La valeur 400 le place au-dessus des drawers (~101) et des autres modals (300). */
+.jr-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: color-mix(in srgb, var(--tim-foreground) 45%, transparent);
+}
+
+.jr-modal__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(720px, 96vw);
+  max-height: min(88vh, 900px);
+  padding: 1.5rem;
+  background: var(--tim-white);
+  border-radius: var(--tim-radius);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 22%);
+}
+
+.jr-modal__head {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--tim-elevation-100);
+}
+
+.jr-modal__title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+
+.jr-modal__sub {
+  margin: 0.375rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--tim-muted);
+}
+
+.jr-modal__form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.875rem 1rem;
+  padding: 1rem 0;
+}
+
+.jr-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3125rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+
+.jr-modal__field--wide { grid-column: 1 / -1; }
+
+.jr-modal__input {
+  padding: 0.5rem 0.625rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+
+  &:focus {
+    outline: none;
+    border-color: var(--tim-primary);
+  }
+}
+
+.jr-modal__ko {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--tim-danger-text);
+}
+
+.jr-modal__range {
+  margin: 0 0 0.875rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary-light);
+  font-size: 0.875rem;
+  color: var(--tim-foreground);
+  text-align: center;
+}
+
+/* La liste des étapes est la seule zone qui défile : l'en-tête, le formulaire et
+   les boutons restent visibles quelle que soit la hauteur d'écran. */
+.jr-modal__steps {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  border-top: 1px solid var(--tim-elevation-100);
+}
+
+.jr-modal__phase {
+  position: sticky;
+  top: 0;
+  margin: 0.75rem 0 0.25rem;
+  padding: 0.25rem 0;
+  background: var(--tim-white);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tim-muted-light);
+}
+
+.jr-modal__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: jr-modal-step;
+}
+
+.jr-modal__step {
+  display: grid;
+  /* Dernière colonne de largeur FIXE : sans elle, chaque ligne formait sa propre
+     grille et les dates se décalaient selon le nombre de pastilles. */
+  grid-template-columns: 1.25rem minmax(0, 1fr) auto 4.25rem;
+  align-items: start;
+  gap: 0.5rem;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid var(--tim-elevation-100);
+  counter-increment: jr-modal-step;
+
+  &::before {
+    content: counter(jr-modal-step);
+    font-size: 0.6875rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--tim-muted-light);
+    text-align: right;
+  }
+
+  &:last-child { border-bottom: 0; }
+}
+
+.jr-modal__step-label {
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jr-modal__step-date {
+  padding-top: 0.0625rem; /* aligne la date sur la 1re ligne de l'intitulé */
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--tim-muted);
+  white-space: nowrap;
+  text-align: right;
+}
+
+.jr-modal__count {
+  margin: 0.625rem 0 0;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+
+.jr-modal__error {
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+  font-size: 0.75rem;
+}
+
+.jr-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.625rem;
+  padding-top: 1rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--tim-elevation-100);
+}
+
+.jr-modal__actions .jr-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 640px) {
+  .jr-modal__form { grid-template-columns: 1fr; }
+}
+
+/* Select « Statut » de la fiche client (champ custom qui intercepte « En test »).
+   Calé sur l'apparence des champs Payload pour ne pas détonner dans le formulaire. */
+.jr-status-select {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+
+  &:focus {
+    outline: none;
+    border-color: var(--tim-primary);
+  }
+}
+
+/* ─── Sélecteur de lundis (liste défilante, en-tête de mois collant) ─────────
+   Remplace une grille de mois : 30 cases affichées pour 4 utiles, c'était
+   beaucoup de place pour peu de choix. */
+.jr-cal {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font-weight: 400;
+  overflow: hidden;
+}
+
+.jr-cal__list {
+  max-height: 11rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.jr-cal__month {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.3125rem 0.625rem;
+  background: var(--tim-surface);
+  border-bottom: 1px solid var(--tim-elevation-100);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+
+.jr-cal__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.375rem 0.625rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover { background: var(--tim-primary-light); }
+}
+
+.jr-cal__row--sel,
+.jr-cal__row--sel:hover {
+  background: var(--tim-primary);
+  color: var(--tim-white);
+
+  .jr-cal__rel { color: color-mix(in srgb, var(--tim-white) 80%, transparent); }
+}
+
+.jr-cal__day { font-weight: 600; }
+
+.jr-cal__rel {
+  font-size: 0.6875rem;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+
+/* ─── Modal : colonne de droite, onglets, envois ────────────────────────────── */
+.jr-modal__side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.jr-modal__hint {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--tim-muted);
+}
+
+.jr-modal__step-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.jr-modal__step-detail {
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--tim-muted);
+  white-space: normal;
+}
+
+.jr-modal__step-trigger {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--tim-blue);
+}
+
+/* Un intitulé accompagné d'un détail passe à la ligne au lieu d'être tronqué. */
+.jr-modal__step:has(.jr-modal__step-detail) .jr-modal__step-label {
+  white-space: normal;
+}
+
+/* Pastilles d'envoi + responsable : regroupés pour laisser la date seule à droite. */
+.jr-modal__step-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 16rem;
+}
+
+
+/* ─── Envois automatiques signalés sur l'étape ───────────────────────────────
+   L'information vit sur l'étape concernée (icône + objet au survol) plutôt que
+   dans une liste séparée, qui obligeait à faire le rapprochement de tête. */
+.jr-mail {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.625rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: help;
+  background: var(--tim-gray-bg);
+  color: var(--tim-gray);
+}
+
+.jr-mail--client {
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+}
+
+.jr-mail--tim {
+  background: var(--tim-purple-bg);
+  color: var(--tim-purple);
+}
+
+.jr-mail--partenaire {
+  background: var(--tim-blue-bg);
+  color: var(--tim-blue);
+}
+
+.jr-mail__who { letter-spacing: 0.02em; }
+
+/* ─── Infobulle (portail sur <body>, hors du conteneur qui défile) ──────────── */
+.jr-tip {
+  position: fixed;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: max-content;
+  max-width: 20rem;
+  padding: 0.625rem 0.75rem;
+  transform: translate(-50%, -100%);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-foreground);
+  color: var(--tim-white);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 25%);
+  pointer-events: none; /* ne doit jamais voler le survol à sa cible */
+}
+
+.jr-tip__title {
+  font-weight: 700;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid rgb(255 255 255 / 20%);
+}
+
+.jr-tip__line { color: rgb(255 255 255 / 88%); }
+
+/* Cible d'infobulle : le curseur annonce qu'il y a quelque chose à lire. */
+.jr-mail,
+.jr-step__actor {
+  cursor: help;
+}
+
+/* Lundi trop proche : visible pour situer le calendrier, mais non sélectionnable. */
+.jr-cal__row--off {
+  cursor: not-allowed;
+  color: var(--tim-muted-light);
+
+  &:hover { background: transparent; }
+
+  .jr-cal__day { font-weight: 400; }
+
+  .jr-cal__rel {
+    font-style: italic;
+    color: var(--tim-danger-text);
+    opacity: 0.7;
+  }
+}
+
+.jr-cal__reason {
+  margin: 0;
+  padding: 0.5rem 0.625rem;
+  border-top: 1px solid var(--tim-elevation-100);
+  background: var(--tim-surface);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--tim-muted);
+}
+
+/* ─── Aperçu des créneaux (fiche partenaire, onglet Agenda) ─────────────────── */
+.jr-prev {
+  margin-top: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+}
+
+.jr-prev--off { color: var(--tim-muted); }
+
+.jr-prev--ko {
+  border-color: var(--tim-danger);
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+}
+
+.jr-prev__head { margin: 0 0 0.5rem; }
+
+.jr-prev__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+
+  li {
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--tim-radius-sm);
+    background: var(--tim-white);
+    border: 1px solid var(--tim-elevation-150);
+    font-size: 0.75rem;
+    color: var(--tim-muted);
+    text-transform: capitalize;
+  }
+}
+
+.jr-prev__more {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+
+/* ─── Connexion des agendas (fiche partenaire) ──────────────────────────────── */
+.jr-cnx { margin-bottom: 1rem; }
+
+.jr-cnx__notice,
+.jr-cnx__empty {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  border: 1px solid var(--tim-border);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--tim-muted);
+}
+
+.jr-cnx__notice {
+  background: var(--tim-green-bg);
+  border-color: transparent;
+  color: var(--tim-green);
+  font-weight: 600;
+}
+
+.jr-cnx__account {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+}
+
+.jr-cnx__head {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--tim-surface);
+  border-bottom: 1px solid var(--tim-elevation-100);
+  font-size: 0.8125rem;
+}
+
+.jr-cnx__provider { font-weight: 700; color: var(--tim-foreground); }
+.jr-cnx__mail { color: var(--tim-muted); flex: 1; }
+
+.jr-cnx__warn {
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.jr-cnx__unlink {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:hover { color: var(--tim-danger-text); }
+}
+
+.jr-cnx__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+
+  th {
+    padding: 0.375rem 0.75rem;
+    text-align: left;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--tim-muted-light);
+  }
+
+  th:not(:first-child),
+  td:not(:first-child) { width: 9rem; text-align: center; }
+
+  td {
+    padding: 0.375rem 0.75rem;
+    border-top: 1px solid var(--tim-elevation-100);
+    color: var(--tim-foreground);
+  }
+}
+
+.jr-cnx__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.jr-cnx__actions .jr-btn {
+  display: inline-block;
+  padding: 0.5rem 0.875rem;
+  text-decoration: none;
+}
+
+/* Étape en attente de validation automatique : ni faite, ni à faire — visible
+   comme un état transitoire, pour qu'on comprenne qu'il y a un délai en cours. */
+.jr-step--pending {
+  background: var(--tim-blue-bg);
+
+  .jr-step__mark {
+    background: var(--tim-blue);
+    color: var(--tim-white);
+  }
+
+  .jr-step__label { color: var(--tim-foreground); }
+}
+
+.jr-step__auto {
+  cursor: help;
+  font-weight: 600;
+  color: var(--tim-blue);
+}
+
+/* Cibles d'infobulle dans la barre d'étapes : le curseur annonce qu'il y a
+   quelque chose à lire, et l'intitulé reste aligné comme un texte normal. */
+.jr-step__label {
+  cursor: help;
+  display: inline-block;
+  text-align: left;
+}
+
+/* Étape réservée à TIM, vue par un partenaire : on remplace le bouton par un
+   repère explicite plutôt que de laisser un vide inexpliqué. */
+.jr-step__locked {
+  cursor: help;
+  white-space: nowrap;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.1875rem 0.5rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-elevation-100);
+  color: var(--tim-muted);
+}
+
+/* ─── Boutons d'action en icône (barre d'étapes) ─────────────────────────────
+   Deux libellés « Annuler » / « Valider » mangeaient un quart de la ligne pour
+   une action qu'on ne fait qu'une fois par étape. L'intention passe par la
+   forme (coche / flèche de retour), le mot reste au survol et pour les
+   lecteurs d'écran (aria-label). */
+.jr-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.625rem;
+  height: 1.625rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--tim-radius-sm);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.jr-icon-btn--ok {
+  background: var(--tim-primary);
+  color: var(--tim-white);
+
+  &:hover { background: var(--tim-primary-dark); }
+}
+
+.jr-icon-btn--undo {
+  color: var(--tim-muted);
+  border-color: var(--tim-border);
+
+  &:hover {
+    background: var(--tim-elevation-100);
+    color: var(--tim-foreground);
+  }
+}
+
+/* ─── Génération des accès de test (fiche client) ───────────────────────────── */
+.jr-gen {
+  margin-bottom: 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+}
+
+.jr-gen__line {
+  margin: 0 0 0.375rem;
+  font-size: 0.875rem;
+  color: var(--tim-foreground);
+}
+
+.jr-gen__warn { color: var(--tim-amber); font-weight: 600; }
+
+.jr-gen__hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--tim-muted);
+}
+
+.jr-gen__ko {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tim-danger-text);
+}
+
+/* ─── Pastilles d'envoi sur une étape ────────────────────────────────────────
+   Cliquables : elles ouvrent l'aperçu du message exact qui partira. */
+.jr-step__mails {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.1875rem;
+}
+
+.jr-mailbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.75rem;
+  cursor: pointer;
+  background: var(--tim-gray-bg);
+  color: var(--tim-gray);
+  transition: filter 0.15s ease;
+
+  &:hover { filter: brightness(0.94); }
+}
+
+.jr-mailbtn--client { background: var(--tim-amber-bg); color: var(--tim-amber); }
+.jr-mailbtn--tim { background: var(--tim-purple-bg); color: var(--tim-purple); }
+.jr-mailbtn--partenaire { background: var(--tim-blue-bg); color: var(--tim-blue); }
+
+/* Déjà parti : l'aperçu reste consultable, mais ce n'est plus une échéance. */
+.jr-mailbtn--sent { opacity: 0.5; }
+
+/* ─── Date d'envoi, modifiable sur la ligne de l'étape ───────────────────────
+   Elle vivait dans un onglet séparé, ce qui obligeait à retrouver de tête à
+   quelle étape chaque envoi se rapportait. Enveloppe et date forment une paire :
+   l'une montre le message, l'autre règle son moment. */
+.jr-maildate {
+  padding: 0.0625rem 0.25rem;
+  margin-right: -0.25rem; /* le padding ne doit pas désaligner la colonne */
+  border: 1px solid transparent;
+  border-radius: var(--tim-radius-sm);
+  background: none;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--tim-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:hover,
+  &.jr-maildate--open {
+    background: var(--tim-elevation-100);
+    border-color: var(--tim-elevation-150);
+    color: var(--tim-foreground);
+  }
+}
+
+/* Date fixée à la main : elle ne suivra plus le calendrier, et ça doit se voir
+   sans survol — sinon on change la durée du test en croyant qu'elle suivra. */
+.jr-maildate--fixed {
+  color: var(--tim-blue);
+  border-color: color-mix(in srgb, var(--tim-blue) 30%, transparent);
+}
+
+.jr-maildate--off {
+  color: var(--tim-muted);
+  text-decoration: line-through;
+}
+
+.jr-maildate--sent,
+.jr-maildate--ro {
+  padding: 0.0625rem 0.3125rem;
+  font-size: 0.6875rem;
+  color: var(--tim-muted);
+}
+
+/* Panneau de réglage, rendu par portail sur <body> : la liste d'étapes a son
+   propre overflow, qui le rognerait. */
+.jr-datepop {
+  position: fixed;
+  z-index: 9999;
+  width: 16.25rem;
+  padding: 0.75rem;
+  border: 1px solid var(--tim-elevation-150);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 14%);
+}
+
+.jr-datepop__title {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--tim-foreground);
+}
+
+.jr-datepop__input {
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--tim-elevation-150);
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+}
+
+/* Bornes rappelées sous le champ : sans elles, un sélecteur qui refuse une
+   date passe pour un bug plutôt que pour une règle. */
+.jr-datepop__bounds {
+  margin: 0.375rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--tim-blue);
+}
+
+.jr-datepop__state {
+  margin: 0.5rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--tim-muted);
+}
+
+.jr-datepop__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.625rem;
+}
+
+.jr-datepop__btn {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--tim-elevation-150);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  cursor: pointer;
+
+  &:hover { border-color: var(--tim-elevation-200); color: var(--tim-foreground); }
+}
+
+.jr-datepop__btn--reset { color: var(--tim-blue); }
+
+/* ─── Aperçu d'e-mail ────────────────────────────────────────────────────────── */
+.jr-mailview__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.875rem 0;
+}
+
+.jr-mailview__frame {
+  width: 100%;
+  min-height: 26rem;
+  border: 1px solid var(--tim-elevation-100);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+}
+
+.jr-mailview__note {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+  font-size: 0.75rem;
+}
+
+.jr-mailview__pending {
+  padding: 1.25rem;
+  border: 1px dashed var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--tim-muted);
+
+  p { margin: 0; }
+}
+
+.jr-mailview__intent {
+  margin-top: 0.75rem !important;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--tim-primary);
+  color: var(--tim-foreground);
+
+  span {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--tim-muted-light);
+  }
+}

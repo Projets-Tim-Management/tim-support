@@ -30,6 +30,10 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     "parcours",
     { label: "Paramètres", slugs: ["feature-categories", "platforms"] },
   ],
+  Marketing: [
+    "journey-runs",
+    { label: "Paramètres", slugs: ["marketing-journeys"] },
+  ],
   Partenaires: [
     { label: "Comptes", slugs: ["partners", "partner-clients"] },
     { label: "Missions", slugs: ["missions", "mission-submissions"] },

@@ -3,8 +3,8 @@
 import { useCallback, useRef } from "react";
 
 /**
- * Bouton « Ajouter un client » de la fiche partenaire (onglet Clients &
- * commission), rendu en `beforeInput` du champ `join`.
+ * Bouton « Ajouter une opportunité » de la fiche partenaire (onglet
+ * Opportunités & commission), rendu en `beforeInput` du champ `join`.
  *
  * Payload ne permet ni de renommer ni de restyler le lien « Ajouter » natif du
  * tableau de relations (libellé issu de l'i18n `fields:addNew`, partagé par TOUS
@@ -28,7 +28,7 @@ export function AddClientButton() {
         <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
           <path d="M8 3.5v9M3.5 8h9" />
         </svg>
-        Ajouter un client
+        Ajouter une opportunité
       </button>
     </div>
   );

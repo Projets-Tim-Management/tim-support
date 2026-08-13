@@ -8,7 +8,7 @@ import { eur, round2 } from "@/modules/partner/lib/format";
 import { isBillableClient } from "@/modules/partner/lib/pricing";
 
 /**
- * Ligne de TOTAL sous la liste « Clients apportés » (slot `afterListTable`) :
+ * Ligne de TOTAL sous la liste « Opportunités » (slot `afterListTable`) :
  * somme du CA mensuel et des commissions.
  *
  * Le total porte sur TOUS les clients du filtre courant, pas sur la seule page
