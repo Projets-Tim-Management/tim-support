@@ -698,6 +698,17 @@ export const PartnerClients: CollectionConfig = {
               },
             },
             {
+              // Les mots de passe sont chiffrés et masqués dans la liste
+              // ci-dessous : c'est ici qu'on les affiche, après confirmation.
+              name: "credentialsReveal",
+              type: "ui",
+              admin: {
+                components: {
+                  Field: "/modules/marketing/admin/RevealCredentials#RevealCredentials",
+                },
+              },
+            },
+            {
               name: "credentials",
               type: "join",
               collection: "client-credentials",

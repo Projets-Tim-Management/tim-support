@@ -5,6 +5,7 @@ import {
   LICENCE_PROFILE_OPTIONS,
   LICENSE_TYPES,
 } from "@/modules/marketing/lib/onboarding";
+import { COUNTRIES, SITE_ZONES } from "@/modules/marketing/lib/reference-lists";
 
 /**
  * Les 5 sections du dossier de démarrage, décrites une seule fois.
@@ -140,7 +141,7 @@ export const PORTAL_SECTIONS: PortalSection[] = [
         hint: "Obligatoire pour un utilisateur : c'est son identifiant de connexion.",
       },
       { name: "phone", label: "Téléphone", type: "tel", half: true },
-      { name: "nationality", label: "Nationalité", type: "text", half: true, placeholder: "Française" },
+      { name: "nationality", label: "Nationalité", type: "select", options: COUNTRIES, half: true },
       { name: "birthDate", label: "Date de naissance", type: "date", half: true },
       {
         name: "contractType",
@@ -187,7 +188,7 @@ export const PORTAL_SECTIONS: PortalSection[] = [
         half: true,
         hint: "Prévisionnelle si la date exacte n'est pas connue.",
       },
-      { name: "zone", label: "Zone de chantier", type: "text" },
+      { name: "zone", label: "Zone de chantier", type: "select", options: SITE_ZONES },
     ],
   },
   {

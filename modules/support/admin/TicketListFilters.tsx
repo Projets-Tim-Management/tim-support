@@ -10,6 +10,12 @@ import { ticketMeta } from "./ticket-meta";
  * Vues rapides au-dessus du tableau des tickets (façon helpdesk) :
  *  - filtres pré-définis (Nouveaux / En cours / Résolus / Urgents) via `where`
  *    dans l'URL, lu nativement par la liste Payload ;
+ *  - « Tous » exclut les tickets RÉSOLUS : sur un helpdesk, la vue par défaut
+ *    doit montrer ce qui reste à traiter, pas l'archive de tout ce qui a été
+ *    fait. Les résolus gardent leur propre onglet.
+ *    Le filtre passe par l'URL et non par `baseListFilter` : ce dernier
+ *    s'applique AUSSI aux champs de relation, et masquerait les résolus
+ *    jusque dans leur propre onglet ;
  *  - badge compteur par catégorie (masqué si 0 ; pas sur Tous ni Résolus) ;
  *  - clic n'importe où sur une ligne → ouvre la fiche du ticket.
  * Les filtres avancés restent dispo via le bouton « Filtres » de Payload.
@@ -21,8 +27,11 @@ type Filter = {
   color?: [field: string, value: string]; // couleur du bouton (palette ticket-meta)
 };
 
+/** Vue par défaut : tout sauf l'archive. */
+const OPEN_ONLY = "where[status][not_equals]=resolved";
+
 const FILTERS: Filter[] = [
-  { label: "Tous", query: "" },
+  { label: "Tous", query: OPEN_ONLY },
   {
     label: "Nouveaux",
     query: "where[status][equals]=new",
@@ -74,6 +83,13 @@ export function TicketListFilters() {
       active = false;
     };
   }, []);
+
+  // Arrivée sur la liste sans aucun filtre (menu, retour de fiche) : on applique
+  // « Tous ». Écrire le filtre dans l'URL plutôt que le cacher rend l'absence
+  // des résolus explicable d'un coup d'œil — et annulable en un clic.
+  useEffect(() => {
+    if (!search.includes("where[")) router.replace(`${pathname}?${OPEN_ONLY}`);
+  }, [search, pathname, router]);
 
   // Clic sur une ligne → ouvre la fiche (délégation, survit aux re-rendus/pagination).
   useEffect(() => {

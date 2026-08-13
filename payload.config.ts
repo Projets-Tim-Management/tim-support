@@ -31,6 +31,7 @@ import { ClientSites } from "./modules/marketing/collections/ClientSites";
 import { ClientVehicles } from "./modules/marketing/collections/ClientVehicles";
 import { ClientMachines } from "./modules/marketing/collections/ClientMachines";
 import { ClientPortalAccounts } from "./modules/marketing/collections/ClientPortalAccounts";
+import { CredentialReveals } from "@/modules/marketing/collections/CredentialReveals";
 import { ClientCredentials } from "./modules/marketing/collections/ClientCredentials";
 import { CalendarConnections } from "./modules/marketing/collections/CalendarConnections";
 import { seedJourneys } from "./modules/marketing/lib/seed";
@@ -206,6 +207,7 @@ export default buildConfig({
       // Espace client : le compte de connexion + les accès applicatifs de test.
       ClientPortalAccounts,
       ClientCredentials,
+      CredentialReveals,
       // Agendas connectés des partenaires (jetons OAuth chiffrés).
       CalendarConnections,
       // Système

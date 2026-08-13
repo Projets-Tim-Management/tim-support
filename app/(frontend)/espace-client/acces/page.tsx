@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { payloadClient } from "@/core/payload-client";
+import { readClientCredentials } from "@/modules/marketing/lib/credential-secrets";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
 import { LICENCE_PROFILE_OPTIONS } from "@/modules/marketing/lib/onboarding";
 
@@ -17,11 +18,11 @@ const PROFILE_LABEL: Record<string, string> = Object.fromEntries(
 
 type Credential = {
   id: number | string;
-  firstName?: string;
-  lastName?: string;
-  licenceProfile?: string;
-  username?: string;
-  password?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  licenceProfile?: string | null;
+  username?: string | null;
+  password?: string | null;
 };
 
 /**
@@ -41,15 +42,10 @@ export default async function AccesPage() {
   if (!ctx) redirect("/espace-client");
 
   const payload = await payloadClient();
-  const res = await payload.find({
-    collection: "client-credentials",
-    where: { client: { equals: ctx.client.id } },
-    sort: "lastName",
-    limit: 500,
-    depth: 0,
-    overrideAccess: true,
-  });
-  const credentials = res.docs as Credential[];
+  // Lecture déchiffrée : les mots de passe sont chiffrés au repos et masqués par
+  // l'API. Ici le client est déjà authentifié (code à usage unique) et vient
+  // chercher précisément ce qu'il doit distribuer à ses équipes.
+  const credentials = (await readClientCredentials(payload, ctx.client.id)) as Credential[];
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">

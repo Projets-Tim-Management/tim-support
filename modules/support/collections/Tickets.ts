@@ -36,8 +36,14 @@ export const Tickets: CollectionConfig = {
   labels: { singular: "Ticket", plural: "Tickets" },
   admin: {
     useAsTitle: "subject",
-    defaultColumns: ["number", "alerts", "subject", "name", "status", "priority", "service", "createdAt"],
-    listSearchableFields: ["subject", "email", "name", "number"],
+    // Ordre voulu par l'équipe : on trie d'abord par urgence (priorité, statut),
+    // puis on lit de quoi il s'agit (sujet) et pour qui (entreprise avant nom —
+    // deux demandeurs d'une même société se regroupent à l'œil).
+    // « Service » et « Alertes » ne sont pas dans le tableau : le premier est un
+    // critère de tri interne, le second reste disponible via le bouton
+    // « Colonnes » — les deux champs existent toujours.
+    defaultColumns: ["number", "priority", "status", "subject", "company", "name", "createdAt"],
+    listSearchableFields: ["subject", "email", "name", "company", "number"],
     group: "Support",
     components: {
       // Vues rapides (Nouveaux / En cours / Résolus / Urgents) au-dessus du tableau.

@@ -1,6 +1,7 @@
 import type { CollectionBeforeChangeHook, CollectionConfig } from "payload";
 
 import { metierOwnedAccess } from "@/core/access";
+import { SITE_ZONES } from "@/modules/marketing/lib/reference-lists";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import {
   clientField,
@@ -94,14 +95,12 @@ export const ClientSites: CollectionConfig = {
     },
     {
       name: "zone",
-      type: "text",
+      type: "select",
       label: "Zone de chantier",
-      admin: {
-        // ⚠️ Définition à confirmer côté métier (secteur géographique ? périmètre
-        // de pointage géolocalisé ?). Laissé en texte libre tant que la réponse
-        // n'est pas tranchée — un champ typé trop tôt serait à re-migrer.
-        description: "Secteur ou périmètre du chantier.",
-      },
+      options: [...SITE_ZONES],
+      // Facultatif à dessein : toutes les entreprises ne découpent pas leurs
+      // chantiers en zones, et l'exiger les obligerait à en inventer une.
+      admin: { description: "Découpage interne du chantier. Facultatif." },
     },
     partnerField,
     displayNameField,

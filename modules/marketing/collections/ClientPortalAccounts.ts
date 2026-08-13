@@ -3,6 +3,7 @@ import type { CollectionConfig, Field } from "payload";
 import { isAdmin, metierScoped } from "@/core/access";
 import { clientField, partnerField, setPartnerFromClient } from "@/modules/marketing/collections/clientOwned";
 import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
+import { sendJourneyEmailForClient } from "@/modules/marketing/lib/send";
 
 /**
  * Comptes de l'espace client — un par entreprise cliente en phase de test.
@@ -61,8 +62,21 @@ export const ClientPortalAccounts: CollectionConfig = {
         if (operation !== "create") return doc;
         const client = doc?.client;
         const clientId = typeof client === "object" ? (client as { id?: unknown })?.id : client;
-        if (clientId != null) {
-          await armAutoStep(req.payload, clientId as number | string, "compte-espace-client");
+        if (clientId == null) return doc;
+
+        await armAutoStep(req.payload, clientId as number | string, "compte-espace-client");
+
+        // PREMIER message du parcours : sans lui, le client dispose d'un espace
+        // dont il ignore l'existence. Il part à l'ouverture de l'accès, jamais à
+        // une modification — on ne réinvite pas quelqu'un déjà invité.
+        // L'échec est silencieux : un serveur SMTP qui tousse ne doit pas
+        // empêcher la création du compte, qui est le geste métier réel.
+        if (doc?.active !== false) {
+          await sendJourneyEmailForClient(
+            req.payload,
+            clientId as number | string,
+            "invitation-espace-client",
+          );
         }
         return doc;
       },
