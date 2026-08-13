@@ -3,11 +3,18 @@ import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
+import { extractJourneyRunId } from "@/modules/marketing/lib/reply-routing";
 import { SUPPORT_NOTIFY_EMAIL, ticketReplyNoticeEmail } from "@/modules/support/lib/email";
 
 // Webhook d'e-mails entrants (Brevo Inbound Parsing).
-// Quand un client répond à la confirmation (Reply-To ticket-<n>@REPLY_DOMAIN),
-// Brevo POSTe le message ici → on l'ajoute au fil du ticket correspondant.
+//
+// Deux adresses de réponse aboutissent ici :
+//   - ticket-<n>@REPLY_DOMAIN → réponse à un ticket existant, ajoutée au fil ;
+//   - run-<id>@REPLY_DOMAIN   → réponse à un e-mail de phase de test. Elle ouvre
+//     un ticket rattaché au parcours (ou complète celui déjà ouvert), pour que
+//     l'équipe puisse intervenir au lieu de laisser dormir le message dans la
+//     boîte support.
+//
 // Protégé par une clé en query (?key=...) car Brevo ne signe pas les webhooks.
 export const dynamic = "force-dynamic";
 
@@ -38,6 +45,25 @@ function collectAddresses(value: unknown, out: string[]): void {
   }
 }
 
+/** Nom affiché de l'expéditeur, quand Brevo le fournit. */
+function senderName(value: unknown): string | undefined {
+  const first = Array.isArray(value) ? value[0] : value;
+  if (!first || typeof first !== "object") return undefined;
+  const o = first as Record<string, unknown>;
+  const name = o.Name ?? o.name;
+  return typeof name === "string" && name.trim() ? name.trim() : undefined;
+}
+
+type TicketDoc = {
+  id: number;
+  number?: number;
+  subject?: string;
+  email?: string;
+  name?: string;
+  status?: string;
+  messages?: { author: "client" | "support"; body: string; sentAt: string; attachments?: number[] }[];
+};
+
 export async function POST(req: Request) {
   // Secret dédié obligatoire (jamais de repli sur PAYLOAD_SECRET, qui ne doit
   // pas transiter en clair dans une URL de webhook).
@@ -66,18 +92,8 @@ export async function POST(req: Request) {
     collectAddresses(item.Cc, recips);
 
     const number = extractTicketNumber(recips);
-    if (!number) continue;
-
-    const found = await payload.find({
-      collection: "tickets",
-      where: { number: { equals: number } },
-      limit: 1,
-      depth: 0,
-    });
-    const ticket = found.docs[0] as
-      | { id: number; number?: number; subject?: string; email?: string; name?: string; status?: string; messages?: { author: "client" | "support"; body: string; sentAt: string; attachments?: number[] }[] }
-      | undefined;
-    if (!ticket) continue;
+    const runId = number ? null : extractJourneyRunId(recips);
+    if (!number && !runId) continue;
 
     const text = (
       (item.ExtractedMarkdownMessage as string) ||
@@ -90,22 +106,55 @@ export async function POST(req: Request) {
       .slice(0, 20000);
     if (!text) continue;
 
-    const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
-    messages.push({ author: "client", body: text, sentAt: new Date().toISOString() });
+    // Résolution du ticket destinataire : celui visé par l'adresse, ou celui du
+    // parcours — quitte à le créer.
+    const from: string[] = [];
+    collectAddresses(item.From, from);
+    const journey = runId
+      ? await resolveJourney(payload, runId, {
+          text,
+          subject: typeof item.Subject === "string" ? item.Subject : undefined,
+          fromEmail: from[0],
+          fromName: senderName(item.From),
+        })
+      : null;
 
-    await payload.update({
-      collection: "tickets",
-      id: ticket.id,
-      data: {
-        messages,
-        // Réponse client → le ticket attend une action du support (badge dashboard).
-        needsAttention: true,
-        // Réponse client non traitée → puces « réponse client » (menu/tableau/notifs).
-        unreadClientReply: true,
-        // Une réponse client ré-ouvre un ticket résolu.
-        ...(ticket.status === "resolved" ? { status: "new" } : {}),
-      },
-    });
+    // Un parcours introuvable (supprimé, id fantaisiste) : on ne fabrique pas un
+    // ticket orphelin à partir d'une adresse qui ne correspond à rien.
+    if (runId && !journey) continue;
+
+    const ticket: TicketDoc | undefined = journey
+      ? journey.ticket
+      : ((
+          await payload.find({
+            collection: "tickets",
+            where: { number: { equals: number } },
+            limit: 1,
+            depth: 0,
+          })
+        ).docs[0] as TicketDoc | undefined);
+    if (!ticket) continue;
+
+    // Le ticket qu'on vient d'ouvrir porte déjà le message : le réécrire le
+    // dupliquerait dans le fil.
+    if (!journey?.created) {
+      const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
+      messages.push({ author: "client", body: text, sentAt: new Date().toISOString() });
+
+      await payload.update({
+        collection: "tickets",
+        id: ticket.id,
+        data: {
+          messages,
+          // Réponse client → le ticket attend une action du support (badge dashboard).
+          needsAttention: true,
+          // Réponse client non traitée → puces « réponse client » (menu/tableau/notifs).
+          unreadClientReply: true,
+          // Une réponse client ré-ouvre un ticket résolu.
+          ...(ticket.status === "resolved" ? { status: "new" } : {}),
+        },
+      });
+    }
     handled++;
 
     // Notification interne à l'équipe support (best-effort — le message est déjà
@@ -120,6 +169,9 @@ export async function POST(req: Request) {
           name: ticket.name,
           email: ticket.email ?? "",
           body: text,
+          ...(journey
+            ? { journey: { runId: journey.runId, clientName: journey.clientName } }
+            : {}),
         }),
       });
     } catch (e) {
@@ -128,4 +180,88 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ ok: true, handled });
+}
+
+/**
+ * Ticket portant les échanges d'un parcours donné.
+ *
+ * On réutilise le ticket ouvert du parcours plutôt que d'en créer un par
+ * réponse : pendant un test de 30 jours, un client répond plusieurs fois, et
+ * autant de tickets séparés feraient perdre le fil de la conversation. Un
+ * ticket résolu, lui, n'est pas rouvert de force — le nouvel échange repart
+ * proprement d'un ticket neuf.
+ */
+async function resolveJourney(
+  payload: Awaited<ReturnType<typeof payloadClient>>,
+  runId: number,
+  message: { text: string; subject?: string; fromEmail?: string; fromName?: string },
+): Promise<{
+  ticket: TicketDoc;
+  created: boolean;
+  runId: number;
+  clientName?: string | null;
+} | null> {
+  const run = (await payload
+    .findByID({ collection: "journey-runs", id: runId, depth: 1, overrideAccess: true })
+    .catch(() => null)) as { id: number; client?: unknown } | null;
+  if (!run) return null;
+
+  const client = (run.client && typeof run.client === "object" ? run.client : null) as {
+    companyName?: string;
+    email?: string;
+  } | null;
+  const clientName = client?.companyName ?? null;
+
+  const existing = (
+    await payload.find({
+      collection: "tickets",
+      where: {
+        and: [{ journeyRun: { equals: runId } }, { status: { not_equals: "resolved" } }],
+      },
+      sort: "-createdAt",
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+  ).docs[0] as TicketDoc | undefined;
+
+  if (existing) return { ticket: existing, created: false, runId, clientName };
+
+  // `email` est obligatoire sur un ticket, et à juste titre : sans adresse
+  // d'expéditeur on ne pourrait pas répondre. On le dit dans les logs plutôt que
+  // de créer un ticket auquel personne ne peut donner suite.
+  const replyAddress = message.fromEmail || client?.email;
+  if (!replyAddress) {
+    console.warn(`[inbound-email] réponse au parcours ${runId} sans adresse d'expéditeur, ignorée`);
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const subject = message.subject?.trim()
+    ? message.subject.trim().slice(0, 200)
+    : `Phase de test — ${clientName ?? `parcours #${runId}`}`;
+
+  const ticket = (await payload.create({
+    collection: "tickets",
+    data: {
+      subject,
+      description: message.text,
+      messages: [{ author: "client", body: message.text, sentAt: now }],
+      // L'adresse qui a écrit fait foi : c'est à elle qu'on répondra, même si
+      // elle diffère du contact enregistré sur la fiche.
+      email: replyAddress,
+      name: message.fromName,
+      company: clientName ?? undefined,
+      journeyRun: runId,
+      // Un essai en cours relève du commercial, pas de l'assistance technique.
+      service: "commercial",
+      type: "assistance",
+      status: "new",
+      needsAttention: true,
+      unreadClientReply: true,
+    } as never,
+    overrideAccess: true,
+  })) as TicketDoc;
+
+  return { ticket, created: true, runId, clientName };
 }

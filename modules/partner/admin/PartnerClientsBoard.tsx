@@ -3,12 +3,14 @@
 import { useConfig } from "@payloadcms/ui";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
+import { StartTestModal } from "@/modules/marketing/admin/StartTestModal";
 import { CLIENT_STATUSES } from "@/modules/partner/lib/clientStatus";
 import { eur } from "@/modules/partner/lib/format";
 
 /**
- * Vue Kanban de « Clients apportés » : une colonne par statut, cartes
+ * Vue Kanban des « Opportunités » : une colonne par statut, cartes
  * glissables (drag-and-drop natif) pour changer le statut d'un client.
  *
  * - Données récupérées via l'API REST (`?draft=true` pour voir l'état de travail),
@@ -100,9 +102,11 @@ export function PartnerClientsBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
-  // Déplacement vers un statut « fin de contrat » en attente de confirmation (date).
+  // Passage en résilié/archivé : en attente de la date de fin de contrat.
   const [pending, setPending] = useState<{ client: ClientDoc; status: string } | null>(null);
   const [pendingDate, setPendingDate] = useState<string>(todayISO());
+  // Passage en « En test » : le modal de démarrage (date, contact, étapes).
+  const [startingTest, setStartingTest] = useState<ClientDoc | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,7 +148,7 @@ export function PartnerClientsBoard() {
   const byStatus = useMemo(() => {
     const map: Record<string, ClientDoc[]> = {};
     for (const col of COLUMNS) map[col.value] = [];
-    for (const c of clients) (map[c.clientStatus ?? "actif"] ??= []).push(c);
+    for (const c of clients) (map[c.clientStatus ?? "prospect"] ??= []).push(c);
     return map;
   }, [clients]);
 
@@ -173,15 +177,21 @@ export function PartnerClientsBoard() {
     [clients],
   );
 
-  /** Résout un dépôt sur une colonne : ouvre le modal date si fin de contrat. */
+  /** Résout un dépôt sur une colonne : ouvre le modal qu'il faut, s'il en faut un. */
   const dropTo = useCallback(
     (status: string, id: string) => {
       setOverCol(null);
       const client = clients.find((c) => String(c.id) === id);
-      if (!client || (client.clientStatus ?? "actif") === status) return;
+      if (!client || (client.clientStatus ?? "prospect") === status) return;
+
       if (isEnded(status)) {
         setPendingDate(client.resiliationDate?.slice(0, 10) || todayISO());
         setPending({ client, status });
+      } else if (status === "en-test") {
+        // Passer « En test » n'est pas un simple changement de statut : c'est le
+        // démarrage du parcours. Le modal collecte la date et le contact, et
+        // montre les étapes que ça déclenche.
+        setStartingTest(client);
       } else {
         // Retour à un statut vivant → la date de fin n'a plus lieu d'être.
         void applyMove(client, status, null);
@@ -300,40 +310,59 @@ export function PartnerClientsBoard() {
         })}
       </div>
 
-      {pending && (
-        <div className="tim-kanban__modal-overlay" onClick={() => setPending(null)}>
-          <div className="tim-kanban__modal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="tim-kanban__modal-title">
-              Passer « {pending.client.companyName || "ce client"} » en «{" "}
-              {COLUMNS.find((c) => c.value === pending.status)?.label}{" "}»
-            </h3>
-            <p className="tim-kanban__modal-text">
-              Indiquez la date de fin de contrat — la commission du partenaire s'arrête à cette date.
-            </p>
-            <label className="tim-kanban__modal-label">
-              Date de fin de contrat
-              <input
-                type="date"
-                value={pendingDate}
-                onChange={(e) => setPendingDate(e.target.value)}
-                className="tim-kanban__modal-input"
-              />
-            </label>
-            <div className="tim-kanban__modal-actions">
-              <button type="button" className="tim-kanban__btn" onClick={() => setPending(null)}>
-                Annuler
-              </button>
-              <button
-                type="button"
-                className="tim-kanban__btn tim-kanban__btn--primary"
-                disabled={!pendingDate}
-                onClick={confirmPending}
-              >
-                Confirmer
-              </button>
+      {/* Modals rendus par PORTAIL sur <body> : à l'intérieur du tableau, leur
+          z-index reste prisonnier du contexte d'empilement de la vue et ils
+          passent sous la barre latérale et la barre du haut. */}
+      {pending &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="tim-kanban__modal-overlay" onClick={() => setPending(null)}>
+            <div className="tim-kanban__modal" onClick={(e) => e.stopPropagation()}>
+              <h3 className="tim-kanban__modal-title">
+                Passer « {pending.client.companyName || "ce client"} » en «{" "}
+                {COLUMNS.find((c) => c.value === pending.status)?.label}{" "}»
+              </h3>
+              <p className="tim-kanban__modal-text">
+                Indiquez la date de fin de contrat — la commission du partenaire s&apos;arrête à
+                cette date.
+              </p>
+              <label className="tim-kanban__modal-label">
+                Date de fin de contrat
+                <input
+                  type="date"
+                  value={pendingDate}
+                  onChange={(e) => setPendingDate(e.target.value)}
+                  className="tim-kanban__modal-input"
+                />
+              </label>
+              <div className="tim-kanban__modal-actions">
+                <button type="button" className="tim-kanban__btn" onClick={() => setPending(null)}>
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  className="tim-kanban__btn tim-kanban__btn--primary"
+                  disabled={!pendingDate}
+                  onClick={confirmPending}
+                >
+                  Confirmer
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
+          </div>,
+          document.body,
+        )}
+
+      {startingTest && (
+        <StartTestModal
+          client={{ id: startingTest.id, companyName: startingTest.companyName }}
+          onCancel={() => setStartingTest(null)}
+          onDone={() => {
+            const client = startingTest;
+            setStartingTest(null);
+            void applyMove(client, "en-test", null);
+          }}
+        />
       )}
     </div>
   );

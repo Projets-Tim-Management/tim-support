@@ -1,0 +1,474 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+
+import { MondayPicker } from "@/modules/marketing/admin/MondayPicker";
+import { Tooltip } from "@/modules/marketing/admin/Tooltip";
+import {
+  AUDIENCE_LABEL,
+  JOURNEY_ACTORS,
+  JOURNEY_PHASES,
+  attachEmailsToSteps,
+  computeEndDate,
+  isMonday,
+  stepDueDate,
+  stepTooltip,
+} from "@/modules/marketing/lib/journey";
+
+/**
+ * Démarrage d'une phase de test — le seul endroit d'où l'on enclenche le process.
+ *
+ * Il demande les deux seules informations que le système ne peut pas deviner :
+ * le lundi de démarrage et l'adresse qui recevra tout le parcours. Et il montre
+ * immédiatement ce que la date déclenche : les 20 étapes avec leurs échéances
+ * calculées. On ne lance pas un process de 4 semaines à l'aveugle.
+ *
+ * Rendu par PORTAIL sur <body> : à l'intérieur d'une vue Payload, un `z-index`
+ * reste prisonnier du contexte d'empilement local et le modal passe SOUS la
+ * barre de navigation (même correctif que l'aperçu d'e-mail des tickets).
+ */
+
+type JourneyStep = {
+  key?: string;
+  label?: string;
+  actor?: string;
+  phase?: string;
+  detail?: string;
+  anchor?: string;
+  offsetDays?: number;
+};
+
+type JourneyEmail = {
+  key?: string;
+  subject?: string;
+  audience?: string;
+  anchor?: string;
+  offsetDays?: number;
+  trigger?: string;
+  detail?: string;
+};
+
+const ACTOR_LABEL: Record<string, string> = Object.fromEntries(
+  JOURNEY_ACTORS.map((a) => [a.value, a.label]),
+);
+
+const DURATIONS = [2, 4, 6, 8];
+
+/**
+ * Premier lundi situé à au moins `leadDays` jours d'aujourd'hui.
+ *
+ * Sans délai, c'est le prochain lundi. Avec un délai, c'est le premier lundi qui
+ * laisse le temps de faire la préparation : sinon les étapes d'avant-test
+ * (ancrées à début −14 j, −10 j, −7 j…) naîtraient déjà en retard.
+ * Calcul entièrement en UTC.
+ */
+const firstMondayISO = (leadDays = 0): string => {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  d.setUTCDate(d.getUTCDate() + Math.max(0, leadDays));
+  d.setUTCDate(d.getUTCDate() + ((8 - d.getUTCDay()) % 7));
+  return d.toISOString().slice(0, 10);
+};
+
+const fmt = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }) : "—";
+
+const fmtLong = (iso?: string | null) =>
+  iso
+    ? new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })
+    : "—";
+
+const AUDIENCE_TO: Record<string, string> = {
+  client: "au contact du client",
+  tim: "à TIM, pour validation",
+  partenaire: "au partenaire suiveur",
+};
+
+/**
+ * Infobulle d'un envoi automatique — toujours les mêmes rubriques
+ * (destinataire, objet, moment, contenu). Un survol doit répondre seul à
+ * « qu'est-ce qui part, à qui, quand, et pour dire quoi ? ».
+ */
+const mailTooltip = (mail: {
+  audience?: string;
+  subject?: string;
+  trigger?: string;
+  detail?: string;
+  due?: string | null;
+}): string[] => {
+  const audience = mail.audience ?? "client";
+  const when = mail.trigger?.trim()
+    ? mail.trigger
+    : mail.due
+      ? `Envoyé le ${fmtLong(mail.due)}`
+      : "Sans date fixe";
+
+  return [
+    `E-mail automatique — ${AUDIENCE_TO[audience] ?? audience}`,
+    `Objet : « ${mail.subject ?? "—"} »`,
+    `Quand : ${when}`,
+    ...(mail.detail ? [mail.detail] : []),
+  ];
+};
+
+export function StartTestModal({
+  client,
+  defaultEmail,
+  onCancel,
+  onDone,
+}: {
+  client: { id: number | string; companyName?: string };
+  defaultEmail?: string;
+  onCancel: () => void;
+  onDone: (info: { startDate: string }) => void;
+}) {
+  const [startDate, setStartDate] = useState(firstMondayISO());
+  const [weeks, setWeeks] = useState(4);
+  const [email, setEmail] = useState(defaultEmail ?? "");
+  const [steps, setSteps] = useState<JourneyStep[]>([]);
+  const [emails, setEmails] = useState<JourneyEmail[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Les étapes viennent du MODÈLE : si l'équipe en modifie une dans le
+  // back-office, l'aperçu suit sans redéploiement.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          "/payload-api/marketing-journeys?where[key][equals]=phase-de-test&limit=1&depth=0",
+          { credentials: "include" },
+        );
+        const doc = res.ok ? (await res.json())?.docs?.[0] : null;
+        if (!cancelled) {
+          setSteps(doc?.steps ?? []);
+          setEmails(doc?.emails ?? []);
+          if (doc?.defaultDurationWeeks) setWeeks(doc.defaultDurationWeeks);
+        }
+      } catch {
+        /* aperçu indisponible → le démarrage reste possible */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  /**
+   * Délai de préparation exigé par le parcours : le plus grand décalage NÉGATIF
+   * des étapes ancrées au démarrage. Lu dans le modèle plutôt qu'écrit en dur —
+   * décaler une étape d'avant-test décale automatiquement le premier lundi
+   * démarrable.
+   */
+  const leadDays = useMemo(() => {
+    const offsets = steps
+      .filter((s) => s.anchor === "debut" && typeof s.offsetDays === "number")
+      .map((s) => s.offsetDays as number);
+    const min = offsets.length ? Math.min(...offsets) : 0;
+    return min < 0 ? -min : 0;
+  }, [steps]);
+
+  const minStart = useMemo(() => firstMondayISO(leadDays), [leadDays]);
+
+  // Les étapes arrivent après le premier rendu : dès qu'on connaît le délai de
+  // préparation, on repousse une date devenue invalide.
+  useEffect(() => {
+    setStartDate((current) => (current && current < minStart ? minStart : current));
+  }, [minStart]);
+
+  const startISO = startDate ? new Date(`${startDate}T00:00:00Z`).toISOString() : null;
+  const endISO = computeEndDate(startISO, weeks, 0);
+  const mondayOk = isMonday(`${startDate}T00:00:00Z`);
+  const startOk = mondayOk && startDate >= minStart;
+  const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+
+  const dated = useMemo(
+    () =>
+      steps.map((s) => ({
+        ...s,
+        due: stepDueDate({ anchor: s.anchor, offsetDays: s.offsetDays }, startISO, endISO),
+      })),
+    [steps, startISO, endISO],
+  );
+
+  /**
+   * Envois rattachés à leur étape : un e-mail listé à part n'aide pas à
+   * comprendre le déroulé. Chacun revient donc sur l'étape où il part, signalé
+   * par une icône et détaillé au survol.
+   */
+  const mailsByStep = useMemo(() => {
+    const withDate = emails.map((e) => ({
+      ...e,
+      due: stepDueDate({ anchor: e.anchor, offsetDays: e.offsetDays }, startISO, endISO),
+    }));
+    return attachEmailsToSteps(dated, withDate);
+  }, [emails, dated, startISO, endISO]);
+
+  const mailCount = useMemo(
+    () => [...mailsByStep.values()].reduce((n, list) => n + list.length, 0),
+    [mailsByStep],
+  );
+
+  const confirm = useCallback(async () => {
+    if (!startISO || !startOk || !emailOk) return;
+    setBusy(true);
+    setError(null);
+    try {
+      // 1. Le modèle actif.
+      const jRes = await fetch(
+        "/payload-api/marketing-journeys?where[key][equals]=phase-de-test&limit=1&depth=0",
+        { credentials: "include" },
+      );
+      const journeyId = jRes.ok ? (await jRes.json())?.docs?.[0]?.id : null;
+      if (!journeyId) throw new Error("Modèle « Phase de test » introuvable.");
+
+      // 2. Le parcours — daté, sauf s'il en existe déjà un ouvert.
+      const runRes = await fetch(
+        `/payload-api/journey-runs?where[client][equals]=${client.id}&limit=1&depth=0&sort=-createdAt`,
+        { credentials: "include" },
+      );
+      const existing = runRes.ok ? (await runRes.json())?.docs?.[0] : null;
+      const open = existing && !["gagne", "perdu", "annule"].includes(existing.status);
+
+      const runReq = open
+        ? fetch(`/payload-api/journey-runs/${existing.id}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ startDate: startISO, durationWeeks: weeks }),
+          })
+        : fetch("/payload-api/journey-runs", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              client: client.id,
+              journey: journeyId,
+              startDate: startISO,
+              durationWeeks: weeks,
+            }),
+          });
+
+      // 3. Le compte espace client — c'est l'adresse qui recevra tout le
+      //    parcours (e-mails de la séquence, code de connexion).
+      const accRes = await fetch(
+        `/payload-api/client-portal-accounts?where[client][equals]=${client.id}&limit=1&depth=0`,
+        { credentials: "include" },
+      );
+      const account = accRes.ok ? (await accRes.json())?.docs?.[0] : null;
+
+      const accountReq = account
+        ? fetch(`/payload-api/client-portal-accounts/${account.id}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, active: true }),
+          })
+        : fetch("/payload-api/client-portal-accounts", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ client: client.id, email, active: true }),
+          });
+
+      const [runOut, accOut] = await Promise.all([runReq, accountReq]);
+      if (!runOut.ok) {
+        const body = await runOut.json().catch(() => null);
+        throw new Error(body?.errors?.[0]?.message || "Création de la phase de test impossible.");
+      }
+      // Le compte portail est créable par un ADMIN seulement : un partenaire
+      // obtient un 403 ici. Ce n'est pas bloquant — la phase est créée, on le
+      // signale simplement plutôt que de tout annuler.
+      const accountFailed = !accOut.ok;
+
+      onDone({ startDate: startISO });
+      if (accountFailed) {
+        setError(
+          "Phase de test créée, mais l'accès espace client n'a pas pu être ouvert (réservé aux admins). Demandez-le à TIM.",
+        );
+        return;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Démarrage impossible.");
+    } finally {
+      setBusy(false);
+    }
+  }, [client.id, email, emailOk, startOk, onDone, startISO, weeks]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="jr-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Démarrer une phase de test"
+      onClick={(e) => e.target === e.currentTarget && onCancel()}
+    >
+      <div className="jr-modal__panel">
+        <header className="jr-modal__head">
+          <h3 className="jr-modal__title">
+            Démarrer la phase de test — {client.companyName || "ce client"}
+          </h3>
+          <p className="jr-modal__sub">
+            La date pose tout le calendrier du parcours&nbsp;; l&apos;adresse reçoit la séquence
+            d&apos;e-mails et les accès à l&apos;espace client.
+          </p>
+        </header>
+
+        <div className="jr-modal__form">
+          <div className="jr-modal__field">
+            Démarrage du test
+            <MondayPicker
+              value={startDate}
+              onChange={setStartDate}
+              minDate={minStart}
+              minReason={
+                leadDays > 0
+                  ? `La préparation demande ${leadDays} jours (demande, validation, dossier de démarrage) : les lundis trop proches placeraient déjà ces étapes en retard.`
+                  : undefined
+              }
+            />
+          </div>
+
+          <div className="jr-modal__side">
+            <label className="jr-modal__field">
+              Durée
+              <select
+                value={weeks}
+                onChange={(e) => setWeeks(Number(e.target.value))}
+                className="jr-modal__input"
+              >
+                {DURATIONS.map((w) => (
+                  <option key={w} value={w}>
+                    {w} semaines
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="jr-modal__field">
+              Adresse e-mail du contact
+              <input
+                type="email"
+                value={email}
+                placeholder="prenom.nom@entreprise.fr"
+                onChange={(e) => setEmail(e.target.value)}
+                className="jr-modal__input"
+              />
+              {!emailOk && email ? (
+                <span className="jr-modal__ko">Adresse invalide.</span>
+              ) : (
+                <span className="jr-modal__hint">
+                  Reçoit l&apos;invitation à l&apos;espace client, les codes de connexion et toute
+                  la séquence du test.
+                </span>
+              )}
+            </label>
+          </div>
+        </div>
+
+        {startISO && (
+          <p className="jr-modal__range">
+            <strong>{fmtLong(startISO)}</strong> → <strong>{fmtLong(endISO)}</strong>
+          </p>
+        )}
+
+        {dated.length > 0 && (
+          <div className="jr-modal__steps">
+            {JOURNEY_PHASES.map((phase) => {
+              const rows = dated.filter((s) => s.phase === phase.value);
+              if (!rows.length) return null;
+              return (
+                <section key={phase.value}>
+                  <h4 className="jr-modal__phase">{phase.label}</h4>
+                  <ol className="jr-modal__list">
+                    {rows.map((s, i) => {
+                      const mails = (s.key && mailsByStep.get(s.key)) || [];
+                      return (
+                        <li key={s.key ?? i} className="jr-modal__step">
+                          <span className="jr-modal__step-main">
+                            <span className="jr-modal__step-label">{s.label}</span>
+                            {/* Le détail n'est affiché qu'avant le test : c'est là
+                                que le client doit comprendre ce qu'on attend de lui
+                                et ce qui partira automatiquement. */}
+                            {phase.value === "avant-test" && s.detail && (
+                              <span className="jr-modal__step-detail">{s.detail}</span>
+                            )}
+                          </span>
+
+                          {/* Envois et responsable réunis dans une même colonne :
+                              la date reste ainsi seule à droite, alignée d'une
+                              ligne à l'autre quel que soit leur nombre. */}
+                          <span className="jr-modal__step-meta">
+                            {mails.map((m, j) => (
+                              <Tooltip
+                                key={m.key ?? j}
+                                content={mailTooltip(m)}
+                                className={`jr-mail jr-mail--${m.audience ?? "client"}`}
+                              >
+                                <span aria-hidden>✉</span>
+                                <span className="jr-mail__who">
+                                  {AUDIENCE_LABEL[m.audience ?? "client"]}
+                                </span>
+                              </Tooltip>
+                            ))}
+
+                            {s.actor && (
+                              <Tooltip
+                                content={stepTooltip(s)}
+                                className={`jr-step__actor jr-step__actor--${s.actor}`}
+                              >
+                                {ACTOR_LABEL[s.actor] ?? s.actor}
+                              </Tooltip>
+                            )}
+                          </span>
+
+                          <span className="jr-modal__step-date">{fmt(s.due)}</span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </section>
+              );
+            })}
+            <p className="jr-modal__count">
+              {dated.length} étapes, toutes obligatoires · {mailCount} e-mails envoyés
+              automatiquement (✉ — survolez pour le détail). Aucune relance commerciale
+              automatique&nbsp;: c&apos;est le partenaire qui les fait en direct.
+            </p>
+          </div>
+        )}
+
+        {error && (
+          <p className="jr-modal__error" role="alert">
+            {error}
+          </p>
+        )}
+
+        <footer className="jr-modal__actions">
+          <button type="button" className="jr-btn jr-btn--ghost" onClick={onCancel}>
+            Annuler
+          </button>
+          <button
+            type="button"
+            className="jr-btn"
+            disabled={busy || !startOk || !emailOk}
+            onClick={() => void confirm()}
+          >
+            {busy ? "Démarrage…" : "Démarrer la phase de test"}
+          </button>
+        </footer>
+      </div>
+    </div>,
+    document.body,
+  );
+}

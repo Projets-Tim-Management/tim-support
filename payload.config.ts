@@ -24,6 +24,16 @@ import { MissionSubmissions } from "./modules/partner/collections/MissionSubmiss
 import { Rewards } from "./modules/partner/collections/Rewards";
 import { RewardOrders } from "./modules/partner/collections/RewardOrders";
 import { Tickets } from "./modules/support/collections/Tickets";
+import { MarketingJourneys } from "./modules/marketing/collections/MarketingJourneys";
+import { JourneyRuns } from "./modules/marketing/collections/JourneyRuns";
+import { ClientEmployees } from "./modules/marketing/collections/ClientEmployees";
+import { ClientSites } from "./modules/marketing/collections/ClientSites";
+import { ClientVehicles } from "./modules/marketing/collections/ClientVehicles";
+import { ClientMachines } from "./modules/marketing/collections/ClientMachines";
+import { ClientPortalAccounts } from "./modules/marketing/collections/ClientPortalAccounts";
+import { ClientCredentials } from "./modules/marketing/collections/ClientCredentials";
+import { CalendarConnections } from "./modules/marketing/collections/CalendarConnections";
+import { seedJourneys } from "./modules/marketing/lib/seed";
 import {
   hideUnlessAdmin,
   hideUnlessMetier,
@@ -64,6 +74,10 @@ const ROLE_NAV_HIDDEN: Record<string, (args: { user?: unknown }) => boolean> = {
   "reward-orders": hideUnlessAdmin,
   // Support
   tickets: hideUnlessSupport,
+  // Marketing — les phases de test se pilotent à deux (partenaire-métier +
+  // admin) ; le MODÈLE de parcours reste un réglage TIM, donc admin seul.
+  "journey-runs": hideUnlessMetier,
+  "marketing-journeys": hideUnlessAdmin,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -180,6 +194,20 @@ export default buildConfig({
       // Récompenses
       Rewards,
       RewardOrders,
+      // Marketing (parcours : le modèle + les phases de test en cours)
+      JourneyRuns,
+      MarketingJourneys,
+      // Dossier de démarrage — cachées du menu (admin.hidden), gérées via les
+      // champs `join` de l'onglet « Dossier de démarrage » de la fiche client.
+      ClientEmployees,
+      ClientSites,
+      ClientVehicles,
+      ClientMachines,
+      // Espace client : le compte de connexion + les accès applicatifs de test.
+      ClientPortalAccounts,
+      ClientCredentials,
+      // Agendas connectés des partenaires (jetons OAuth chiffrés).
+      CalendarConnections,
       // Système
       Media,
       Users,
@@ -286,6 +314,10 @@ export default buildConfig({
     } catch (err) {
       payload.logger.error(`[features] réindexation des catégories échouée : ${err}`);
     }
+
+    // Crée le modèle de parcours « Phase de test » s'il n'existe pas encore.
+    // Idempotent : ne réécrit jamais un parcours existant (cf. seedJourneys).
+    await seedJourneys(payload);
   },
 
   secret: process.env.PAYLOAD_SECRET || "",

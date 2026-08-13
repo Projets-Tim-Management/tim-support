@@ -10,6 +10,12 @@ import {
   ownPartnerRecord,
 } from "@/core/access";
 import { validatePhone } from "@/core/lib/validators";
+import {
+  BOOKING_MODES,
+  DEFAULT_WEEKDAYS,
+  HOUR_OPTIONS,
+  WEEKDAY_OPTIONS,
+} from "@/modules/marketing/lib/scheduling";
 
 /**
  * `admin.condition` masquant un champ/onglet en UI pour le partenaire-MÉTIER
@@ -451,6 +457,167 @@ export const Partners: CollectionConfig = {
           ],
         },
 
+        // ── Agenda & rendez-vous ────────────────────────────────────────────
+        // Placé après « Accès » : les deux décrivent les BRANCHEMENTS du
+        // partenaire (son compte, puis ses disponibilités), là où les autres
+        // onglets décrivent son contrat ou son activité.
+        {
+          label: "Agenda & rendez-vous",
+          description:
+            "Vos disponibilités pour les sessions de prise en main. Le client réserve lui-même son créneau depuis son espace, dans ces limites.",
+          fields: [
+            // Connexion des agendas — au-dessus des règles : c'est ce qui rend
+            // les créneaux fiables, les règles n'en fixent que le cadre.
+            {
+              name: "calendarConnect",
+              type: "ui",
+              admin: {
+                components: { Field: "/modules/marketing/admin/CalendarConnect#CalendarConnect" },
+              },
+            },
+            {
+              name: "scheduling",
+              type: "group",
+              label: false,
+              fields: [
+                {
+                  name: "enabled",
+                  type: "checkbox",
+                  label: "Proposer des créneaux au client",
+                  defaultValue: true,
+                  admin: {
+                    description:
+                      "Décoché, le client ne voit aucun créneau et le rendez-vous se cale hors de l'outil.",
+                  },
+                },
+                {
+                  name: "mode",
+                  type: "radio",
+                  label: "Comment le client réserve",
+                  defaultValue: "creneaux",
+                  options: [...BOOKING_MODES],
+                  admin: {
+                    condition: (_, s) => s?.enabled !== false,
+                    description:
+                      "Soit TIM propose vos créneaux (agenda connecté), soit vous gardez votre propre outil de réservation.",
+                  },
+                },
+                {
+                  name: "bookingUrl",
+                  type: "text",
+                  label: "Lien de réservation",
+                  validate: (value: unknown, { siblingData }: { siblingData?: { mode?: string } }) => {
+                    if (siblingData?.mode !== "lien") return true;
+                    if (!value) return "Indiquez le lien vers votre outil de réservation.";
+                    return /^https?:\/\/\S+$/i.test(String(value))
+                      ? true
+                      : "Lien invalide (attendu : https://…).";
+                  },
+                  admin: {
+                    condition: (_, s) => s?.enabled !== false && s?.mode === "lien",
+                    placeholder: "https://calendly.com/…",
+                    description:
+                      "Le client sera renvoyé vers ce lien. La date retenue ne remonte pas automatiquement dans TIM : renseignez-la sur la phase de test si vous voulez la suivre.",
+                  },
+                },
+                {
+                  name: "weekdays",
+                  type: "select",
+                  hasMany: true,
+                  label: "Jours travaillés",
+                  defaultValue: DEFAULT_WEEKDAYS,
+                  options: [...WEEKDAY_OPTIONS],
+                  admin: { condition: (_, s) => s?.enabled !== false && s?.mode !== "lien" },
+                },
+                {
+                  type: "row",
+                  fields: [
+                    {
+                      name: "startTime",
+                      type: "select",
+                      label: "À partir de",
+                      defaultValue: "09:00",
+                      options: HOUR_OPTIONS,
+                      admin: { width: "50%", condition: (_, s) => s?.enabled !== false && s?.mode !== "lien" },
+                    },
+                    {
+                      name: "endTime",
+                      type: "select",
+                      label: "Jusqu'à",
+                      defaultValue: "18:00",
+                      options: HOUR_OPTIONS,
+                      admin: { width: "50%", condition: (_, s) => s?.enabled !== false && s?.mode !== "lien" },
+                    },
+                  ],
+                },
+                {
+                  type: "row",
+                  fields: [
+                    {
+                      name: "durationMin",
+                      type: "number",
+                      label: "Durée (min)",
+                      defaultValue: 45,
+                      min: 15,
+                      admin: {
+                        width: "25%",
+                        condition: (_, s) => s?.enabled !== false && s?.mode !== "lien",
+                      },
+                    },
+                    {
+                      name: "bufferMin",
+                      type: "number",
+                      label: "Battement (min)",
+                      defaultValue: 15,
+                      min: 0,
+                      admin: {
+                        width: "25%",
+                        condition: (_, s) => s?.enabled !== false && s?.mode !== "lien",
+                        description: "Entre deux rendez-vous.",
+                      },
+                    },
+                    {
+                      name: "minNoticeHours",
+                      type: "number",
+                      label: "Délai mini (h)",
+                      defaultValue: 24,
+                      min: 0,
+                      admin: {
+                        width: "25%",
+                        condition: (_, s) => s?.enabled !== false && s?.mode !== "lien",
+                        description: "Pas de réservation à la dernière minute.",
+                      },
+                    },
+                    {
+                      name: "horizonDays",
+                      type: "number",
+                      label: "Horizon (jours)",
+                      defaultValue: 15,
+                      min: 1,
+                      admin: {
+                        width: "25%",
+                        condition: (_, s) => s?.enabled !== false && s?.mode !== "lien",
+                        description: "Jusqu'où le client peut réserver.",
+                      },
+                    },
+                  ],
+                },
+                // Aperçu des créneaux réellement produits par ces règles : sans
+                // lui, on règle des paramètres à l'aveugle.
+                {
+                  name: "preview",
+                  type: "ui",
+                  admin: {
+                    components: {
+                      Field: "/modules/marketing/admin/SchedulingPreview#SchedulingPreview",
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+
         // ── Suivi commercial / programme (métier) ───────────────────────────
         {
           label: "Suivi commercial",
@@ -511,9 +678,9 @@ export const Partners: CollectionConfig = {
           ],
         },
 
-        // ── Clients & commission (métier) ───────────────────────────────────
+        // ── Opportunités & commission (métier) ──────────────────────────────
         {
-          label: "Clients & commission",
+          label: "Opportunités & commission",
           admin: { condition: (data) => data?.partnerKind !== "utilisateur" },
           fields: [
             // Synthèse commission (tuiles calculées en direct).
@@ -526,14 +693,14 @@ export const Partners: CollectionConfig = {
                 },
               },
             },
-            // Liste des clients apportés : ajout/édition en DRAWER (modal),
+            // Liste des opportunités : ajout/édition en DRAWER (modal),
             // sans quitter la page. Le partenaire est associé automatiquement.
             {
               name: "clients",
               type: "join",
               collection: "partner-clients",
               on: "partner",
-              // Pas de titre : l'onglet annonce déjà « Clients & commission ».
+              // Pas de titre : l'onglet annonce déjà « Opportunités & commission ».
               label: false,
               defaultSort: "-createdAt",
               admin: {
@@ -545,7 +712,7 @@ export const Partners: CollectionConfig = {
                   "caPaye",
                   "commissionMonthly",
                 ],
-                // Bouton « Ajouter un client » (le lien natif est masqué en CSS).
+                // Bouton « Ajouter une opportunité » (lien natif masqué en CSS).
                 components: {
                   beforeInput: ["/modules/partner/admin/AddClientButton#AddClientButton"],
                 },

@@ -6,7 +6,7 @@ import { PartnerClientsBoard } from "./PartnerClientsBoard";
 import { PartnerClientsStatusTabs } from "./PartnerClientsStatusTabs";
 
 /**
- * En-tête de la liste « Clients apportés » (slot `beforeListTable`) : bascule
+ * En-tête de la liste « Opportunités » (slot `beforeListTable`) : bascule
  * entre le TABLEAU natif Payload et une vue KANBAN par statut.
  *
  * - Mode tableau : on affiche les onglets de statut (pré-filtrage) au-dessus du

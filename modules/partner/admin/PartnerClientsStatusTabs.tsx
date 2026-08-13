@@ -5,7 +5,7 @@ import { useListQuery } from "@payloadcms/ui";
 import { CLIENT_STATUSES } from "@/modules/partner/lib/clientStatus";
 
 /**
- * Onglets de statut au-dessus de la LISTE « Clients apportés » (beforeListTable).
+ * Onglets de statut au-dessus de la LISTE « Opportunités » (beforeListTable).
  * Chaque onglet pré-filtre la liste par `clientStatus` via `handleWhereChange`
  * (« Tous » enlève le filtre). Plus lisible qu'un filtre manuel.
  */

@@ -9,6 +9,8 @@ import type {
 import { adminOnlyField, hasAdminRole, isAdmin, metierOwnedAccess, partnerIdOf } from "@/core/access";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { validatePhone } from "@/core/lib/validators";
+import { requireTestSchedule } from "@/modules/marketing/hooks/requireTestSchedule";
+import { ONBOARDING_STATUS_OPTIONS } from "@/modules/marketing/lib/onboarding";
 import { CLIENT_STATUS_OPTIONS, CLIENT_STATUS_RANK } from "@/modules/partner/lib/clientStatus";
 import { round2 } from "@/modules/partner/lib/format";
 import {
@@ -19,7 +21,8 @@ import {
 } from "@/modules/partner/lib/pricing";
 
 /**
- * Clients apportés — les entreprises BTP qu'un partenaire a amenées à Tim.
+ * Opportunités — les entreprises BTP qu'un partenaire a amenées à Tim, du
+ * prospect au client actif (le slug reste `partner-clients`).
  *
  * Pour chaque profil : une QUANTITÉ + un PRIX UNITAIRE (€ HT, pré-rempli avec
  * le prix de base mais modifiable — tarif négocié). Le CA se calcule dessus
@@ -135,7 +138,7 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
  * aurait mal trié toutes les fiches non ré-enregistrées.
  */
 const setStatusRank: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
-  const status = (data?.clientStatus ?? originalDoc?.clientStatus ?? "actif") as string;
+  const status = (data?.clientStatus ?? originalDoc?.clientStatus ?? "prospect") as string;
   return { ...data, statusRank: CLIENT_STATUS_RANK[status] ?? 9 };
 };
 
@@ -212,6 +215,20 @@ const deleteClientContacts: CollectionBeforeDeleteHook = async ({ req, id }) => 
  * (LicencesTable), mais les valeurs sont stockées dans ces vrais champs (liés
  * au tableau par useField). `hidden` = présent dans l'état + en base, non rendu.
  */
+/**
+ * Onglets liés à la phase de test (dossier de démarrage, espace client) : ils
+ * n'apparaissent qu'à partir du moment où un test existe.
+ *
+ * Sur un prospect ou un client « en cours », ces écrans n'ont rien à montrer et
+ * rien à demander — ils encombrent la fiche de deux onglets vides. On les
+ * affiche donc à partir de « En test » (le statut que pose le Kanban quand on
+ * date la phase), et on les GARDE ensuite : les données du dossier survivent au
+ * test, y compris sur un client devenu actif ou résilié.
+ */
+const AVANT_TEST = ["prospect", "en-cours"];
+const hasTestPhase = (data?: { clientStatus?: string }): boolean =>
+  !AVANT_TEST.includes(data?.clientStatus ?? "prospect");
+
 const hiddenNum = (name: string, def: number): Field => ({
   name,
   type: "number",
@@ -222,7 +239,10 @@ const hiddenNum = (name: string, def: number): Field => ({
 
 export const PartnerClients: CollectionConfig = {
   slug: "partner-clients",
-  labels: { singular: "Client apporté", plural: "Clients apportés" },
+  // Libellé « Opportunités » : la liste couvre tout le pipeline commercial, du
+  // prospect au client résilié. Le slug `partner-clients` reste inchangé — le
+  // renommer casserait relations, URLs et migrations pour un simple intitulé.
+  labels: { singular: "Opportunité", plural: "Opportunités" },
   // Tri par défaut de la liste : « actifs en premier » (via le rang `statusRank`),
   // plutôt que par date de création. L'onglet « Tous » réapplique ce tri (cf. tabs).
   defaultSort: "statusRank",
@@ -282,7 +302,9 @@ export const PartnerClients: CollectionConfig = {
   versions: { drafts: true },
   // enforcePartnerField : un partenaire est forcé sur SA fiche (anti-usurpation).
   hooks: {
-    beforeChange: [enforcePartnerField(), setStatusRank, computeCA],
+    // requireTestSchedule en TÊTE : le passage « En test » est refusé avant tout
+    // calcul, plutôt que d'échouer à mi-chemin sur une fiche déjà recalculée.
+    beforeChange: [requireTestSchedule, enforcePartnerField(), setStatusRank, computeCA],
     // Supprime les contacts liés avant de supprimer le client (cf. deleteClientContacts).
     beforeDelete: [deleteClientContacts],
   },
@@ -342,11 +364,19 @@ export const PartnerClients: CollectionConfig = {
       name: "clientStatus",
       type: "select",
       label: "Statut",
-      defaultValue: "actif",
+      // Une opportunité naît PROSPECT : la mettre « Actif » d'office ferait
+      // entrer un client dans le CA et les commissions dès sa création.
+      defaultValue: "prospect",
       admin: {
         width: "50%",
-        // En tableau : pastille colorée (même code couleur que le Kanban).
-        components: { Cell: "/modules/partner/admin/ClientStatusCell#ClientStatusCell" },
+        components: {
+          // En tableau : pastille colorée (même code couleur que le Kanban).
+          Cell: "/modules/partner/admin/ClientStatusCell#ClientStatusCell",
+          // Dans le formulaire : champ custom qui intercepte le passage à
+          // « En test » pour ouvrir le modal de démarrage (date + contact +
+          // aperçu des étapes) — le même que celui du Kanban.
+          Field: "/modules/marketing/admin/ClientStatusField#ClientStatusField",
+        },
       },
       options: CLIENT_STATUS_OPTIONS,
     },
@@ -545,6 +575,143 @@ export const PartnerClients: CollectionConfig = {
             },
           ],
         },
+        // ── Dossier de démarrage : ce que le client remplit avant son test ──
+        // Remplace le fichier Excel « éléments de l'entreprise » (5 sections).
+        // L'Administrateur n'est PAS dupliqué ici : c'est l'onglet « Contact »
+        // ci-dessous, qui existait déjà — un contact client reste un contact.
+        {
+          label: "Dossier de démarrage",
+          description:
+            "Les éléments que le client remplit avant le démarrage du test : effectif, chantiers, matériel. Le comptage des salariés « Accès TIM » alimente le tableau des licences.",
+          admin: { condition: hasTestPhase },
+          fields: [
+            {
+              name: "onboardingRecap",
+              type: "ui",
+              admin: {
+                components: { Field: "/modules/marketing/admin/OnboardingRecap#OnboardingRecap" },
+              },
+            },
+            {
+              type: "row",
+              fields: [
+                {
+                  name: "onboardingStatus",
+                  type: "select",
+                  label: "État du dossier",
+                  defaultValue: "en-cours",
+                  options: ONBOARDING_STATUS_OPTIONS,
+                  admin: {
+                    width: "50%",
+                    description: "« Transmis » = le client a fini sa saisie ; « Validé » = TIM a contrôlé.",
+                  },
+                },
+                {
+                  name: "onboardingSubmittedAt",
+                  type: "date",
+                  label: "Transmis le",
+                  admin: {
+                    width: "50%",
+                    date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
+                    condition: (data) => data?.onboardingStatus !== "en-cours",
+                  },
+                },
+              ],
+            },
+            {
+              name: "employees",
+              type: "join",
+              collection: "client-employees",
+              on: "client",
+              label: "Salariés",
+              admin: {
+                allowCreate: true,
+                description:
+                  "Tout l'effectif. Cochez « Accès TIM » sur ceux qui consomment une licence — eux seuls comptent dans le devis.",
+                defaultColumns: ["matricule", "firstName", "lastName", "poste", "isUser", "licenceProfile"],
+              },
+            },
+            {
+              name: "sites",
+              type: "join",
+              collection: "client-sites",
+              on: "client",
+              label: "Chantiers",
+              admin: {
+                allowCreate: true,
+                defaultColumns: ["name", "address", "startDate", "endDate", "zone"],
+              },
+            },
+            {
+              name: "vehicles",
+              type: "join",
+              collection: "client-vehicles",
+              on: "client",
+              label: "Véhicules",
+              admin: {
+                allowCreate: true,
+                defaultColumns: ["brand", "year", "plate", "insuranceDate", "licenseTypes"],
+              },
+            },
+            {
+              name: "machines",
+              type: "join",
+              collection: "client-machines",
+              on: "client",
+              label: "Engins",
+              admin: {
+                allowCreate: true,
+                defaultColumns: ["brand", "year", "serial", "insuranceDate", "cacesTypes"],
+              },
+            },
+          ],
+        },
+        // ── Espace client : connexion du client + accès applicatifs de test ──
+        {
+          label: "Espace client",
+          description:
+            "Le compte qui permet au client de se connecter (code à usage unique, session 24 h), et les identifiants TIM qu'il distribue lui-même à ses équipes. Création réservée aux admins.",
+          admin: { condition: hasTestPhase },
+          fields: [
+            {
+              name: "portalAccounts",
+              type: "join",
+              collection: "client-portal-accounts",
+              on: "client",
+              label: "Compte de connexion",
+              admin: {
+                allowCreate: true,
+                description:
+                  "Un seul compte par client : l'e-mail du référent. Aucun mot de passe — un code à 6 chiffres lui est envoyé à chaque connexion.",
+                defaultColumns: ["email", "firstName", "lastName", "active", "lastLoginAt"],
+              },
+            },
+            {
+              // Génère les accès depuis les salariés « Accès TIM » du dossier :
+              // sans ça, TIM retape à la main ce que le client a déjà déclaré.
+              name: "credentialsGenerator",
+              type: "ui",
+              admin: {
+                components: {
+                  Field: "/modules/marketing/admin/CredentialsGenerator#CredentialsGenerator",
+                },
+              },
+            },
+            {
+              name: "credentials",
+              type: "join",
+              collection: "client-credentials",
+              on: "client",
+              label: "Accès de test à remettre",
+              admin: {
+                allowCreate: true,
+                description:
+                  "Les comptes TIM créés pour les utilisateurs. Le client les consulte et les imprime depuis son espace — ils ne partent jamais par e-mail.",
+                defaultColumns: ["firstName", "lastName", "licenceProfile", "username", "deliveredAt"],
+              },
+            },
+          ],
+        },
         // ── Contact (tout à la fin) : contacts de l'entreprise cliente ───────
         {
           label: "Contact",
@@ -588,6 +755,17 @@ export const PartnerClients: CollectionConfig = {
     },
 
     // ─── Barre latérale (fixe à droite) ──────────────────────────────────────
+    // « Où en est-on avec ce client ? » — la question qu'on se pose en ouvrant
+    // la fiche, répondue en haut de la barre latérale : statut de la phase de
+    // test, dates, avancement, étape en cours (ou bouton pour en démarrer une).
+    {
+      name: "journeyBox",
+      type: "ui",
+      admin: {
+        position: "sidebar",
+        components: { Field: "/modules/marketing/admin/ClientJourneyBox#ClientJourneyBox" },
+      },
+    },
     // Récap LIVE (total licences, CA HT, remise conseillée, commission) →
     // toujours cohérent avec le tableau, sans attendre l'enregistrement.
     {

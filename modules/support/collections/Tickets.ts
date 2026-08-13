@@ -300,6 +300,25 @@ export const Tickets: CollectionConfig = {
         },
       },
     },
+    // Parcours marketing à l'origine du ticket, quand il y en a un : le client a
+    // répondu à un e-mail de sa phase de test (adresse `run-<id>@…`, voir
+    // modules/marketing/lib/reply-routing). Un prospect en essai ne se traite pas
+    // comme une demande d'assistance ordinaire — savoir d'où vient le message
+    // change qui répond, et à quelle vitesse.
+    // Modifiable : le support doit pouvoir rattacher à la main un ticket ouvert
+    // par téléphone pendant un test.
+    {
+      name: "journeyRun",
+      type: "relationship",
+      relationTo: "journey-runs",
+      label: "Phase de test",
+      index: true,
+      admin: {
+        position: "sidebar",
+        condition: onEdit,
+        description: "Parcours dont ce ticket est issu.",
+      },
+    },
     {
       name: "resolvedAt",
       type: "date",
