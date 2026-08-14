@@ -31,7 +31,19 @@ const adminUrl = (path: string): string => {
   return `${base}/admin${path}`;
 };
 
-/** Adresses de tous les admins et super-admins. */
+/**
+ * Adresses de tous les admins et super-admins, SANS DOUBLON.
+ *
+ * Le dédoublonnage n'est pas une précaution : `roles` est un select `hasMany`,
+ * donc une table à part, et une recherche « roles in (admin, super-admin) »
+ * renvoie une ligne PAR RÔLE correspondant. Un compte qui porte les deux — le
+ * cas normal d'un super-admin, puisque le rôle `admin` est la valeur par défaut
+ * — ressort donc deux fois, son adresse figure deux fois dans le `to`, et il
+ * reçoit chaque alerte en double.
+ *
+ * Comparaison en minuscules et sans espaces : deux comptes distincts écrits
+ * « Jean@… » et « jean@… » sont la même boîte aux lettres.
+ */
 async function adminEmails(payload: Payload): Promise<string[]> {
   const res = await payload.find({
     collection: "users",
@@ -40,9 +52,18 @@ async function adminEmails(payload: Payload): Promise<string[]> {
     depth: 0,
     overrideAccess: true,
   });
-  return res.docs
-    .map((u) => (u as { email?: string }).email)
-    .filter((e): e is string => Boolean(e));
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const doc of res.docs) {
+    const email = (doc as { email?: string }).email?.trim();
+    if (!email) continue;
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(email);
+  }
+  return out;
 }
 
 const frDate = (iso?: string | null) =>

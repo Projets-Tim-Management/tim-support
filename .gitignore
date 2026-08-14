@@ -25,3 +25,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .vercel
+
+# Copies « fichier 2.ts » créées sur cette machine par une duplication qui n'a
+# pas été identifiée (elle a touché du code source pendant une session de
+# travail, pas seulement le cache de build). Le contenu est identique à
+# l'original : rien à récupérer, mais un doublon d'une collection Payload parti
+# dans un commit créerait un slug en double. Ignorés ici, et exclus du typecheck
+# (tsconfig.json) pour qu'ils ne cassent pas non plus un build.
+* [0-9].*
