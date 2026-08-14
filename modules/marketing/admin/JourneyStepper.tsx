@@ -368,6 +368,41 @@ export function JourneyStepper() {
                         {step.label}
                       </Tooltip>
                       {step.detail && <span className="jr-step__detail">{step.detail}</span>}
+
+                      {/* Étape constatée, fait pas encore constaté : au lieu
+                          d'un bouton qui mentirait, le RENVOI vers le geste qui
+                          la coche. Il vit DANS la ligne et non dans la colonne
+                          des boutons, calibrée pour deux icônes : « Ouvrir
+                          l'accès → » y débordait par-dessus l'échéance. */}
+                      {!closed && !pending && !isDone && isCurrent && system && (
+                        <Tooltip
+                          className="jr-step__todo"
+                          interactive
+                          content={[
+                            `Se coche ${system.trigger}`,
+                            system.action?.hint ??
+                              system.wait ??
+                              "Rien à valider ici : le système constate cette étape lui-même.",
+                            ...(system.wait && system.action
+                              ? [`En attente : ${system.wait.toLowerCase()}.`]
+                              : []),
+                          ]}
+                        >
+                          {system.action && !locked ? (
+                            system.action.on === "client" && clientHref ? (
+                              <a className="jr-step__todo-link" href={clientHref}>
+                                {system.action.label} →
+                              </a>
+                            ) : (
+                              <span className="jr-step__todo-tag">{system.action.label}</span>
+                            )
+                          ) : (
+                            <span className="jr-step__todo-tag jr-step__todo-tag--wait">
+                              {system.wait ? `En attente : ${system.wait}` : "Validation automatique"}
+                            </span>
+                          )}
+                        </Tooltip>
+                      )}
                     </span>
 
                     {/* Enveloppes : voir le message exact qui partira. La date,
@@ -505,36 +540,6 @@ export function JourneyStepper() {
                             </button>
                           </Tooltip>
                         </>
-                      )}
-
-                      {/* Étape constatée, pas encore constatée : au lieu d'un
-                          bouton qui mentirait, le RENVOI vers le geste qui la
-                          coche. C'est la seule chose utile à proposer ici. */}
-                      {!closed && !pending && !isDone && isCurrent && system && (
-                        <Tooltip
-                          interactive
-                          content={[
-                            `Se coche ${system.trigger}`,
-                            system.action?.hint ??
-                              system.wait ??
-                              "Rien à valider ici : le système constate cette étape lui-même.",
-                            ...(system.wait && system.action ? [`En attente : ${system.wait.toLowerCase()}.`] : []),
-                          ]}
-                        >
-                          {system.action && !locked ? (
-                            system.action.on === "client" && clientHref ? (
-                              <a className="jr-step__todo-link" href={clientHref}>
-                                {system.action.label} →
-                              </a>
-                            ) : (
-                              <span className="jr-step__todo-tag">{system.action.label}</span>
-                            )
-                          ) : (
-                            <span className="jr-step__todo-tag jr-step__todo-tag--wait">
-                              {system.wait ? "en attente" : "auto"}
-                            </span>
-                          )}
-                        </Tooltip>
                       )}
 
                       {/* Étape humaine : le clic EST la déclaration. Le libellé

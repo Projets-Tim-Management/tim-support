@@ -8,6 +8,8 @@ import type {
 
 import { adminOnlyField, hasAdminRole, isAdmin, metierOwnedAccess } from "@/core/access";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
+import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
+import { sendJourneyEmailForClient } from "@/modules/marketing/lib/send";
 import {
   notifyAdminsContractNeeded,
   notifyAdminsQuoteNeeded,
@@ -711,13 +713,36 @@ const openPortalOnGo: CollectionAfterChangeHook = async ({ doc, previousDoc, req
     const account = existing.docs[0] as { id: number | string; active?: boolean } | undefined;
 
     if (account) {
-      if (account.active !== false) return doc; // déjà ouvert
-      await req.payload.update({
-        collection: "client-portal-accounts",
-        id: account.id,
-        data: { active: true },
-        overrideAccess: true,
-      });
+      // Accès en attente du Go : l'activer suffit, ses propres hooks envoient
+      // l'invitation et cochent l'étape.
+      if (account.active === false) {
+        await req.payload.update({
+          collection: "client-portal-accounts",
+          id: account.id,
+          data: { active: true },
+          overrideAccess: true,
+        });
+        return doc;
+      }
+
+      // Accès DÉJÀ ouvert — et c'est le piège : un accès hérité d'un test
+      // précédent (supprimer une phase de test ne supprime pas l'accès, qui
+      // appartient au client) laissait le Go sans rien faire, donc un client
+      // jamais invité pour CE test-ci. Ce qui doit être vrai après le Go n'est
+      // pas « l'accès existe » mais « le client a reçu son invitation pour ce
+      // parcours ». `sendJourneyEmail` se garde lui-même du doublon : il ne
+      // renvoie rien si la ligne d'envoi de CE parcours porte déjà un `sentAt`.
+      await armAutoStep(req.payload, clientId, "compte-espace-client");
+      const sent = await sendJourneyEmailForClient(
+        req.payload,
+        clientId,
+        "invitation-espace-client",
+      );
+      if (!sent.sent && sent.reason !== "already_sent") {
+        req.payload.logger.warn(
+          `[parcours] Go validé, accès déjà ouvert, mais invitation NON envoyée (${sent.reason}).`,
+        );
+      }
       return doc;
     }
 

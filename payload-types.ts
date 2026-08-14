@@ -1090,7 +1090,7 @@ export interface ClientPortalAccount {
   firstName?: string | null;
   lastName?: string | null;
   /**
-   * Décoché = le client ne peut plus demander de code.
+   * Décoché = le client ne peut pas demander de code. C'est la case qui OUVRE l'espace : la cocher envoie l'invitation (une seule fois) et coche l'étape du parcours. Elle se coche d'elle-même à la validation du Go/No-Go.
    */
   active?: boolean | null;
   lastLoginAt?: string | null;
