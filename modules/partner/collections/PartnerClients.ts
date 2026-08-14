@@ -196,20 +196,65 @@ const computeCommissionMonthly: FieldHook = async ({ data, req, siblingData }) =
 };
 
 /**
- * Avant de supprimer un client, on supprime ses contacts rattachés.
- * Le champ `client` d'un contact est REQUIS (colonne `client_id` NOT NULL) alors
- * que sa clé étrangère est `ON DELETE SET NULL` : supprimer un client qui a des
- * contacts ferait échouer Postgres (SET NULL sur une colonne NOT NULL → 500).
- * Les contacts sont des enfants du client → on les supprime en cascade ici.
- * `req` transmis = même transaction ; overrideAccess car nettoyage d'intégrité.
+ * Un client se supprime AVEC tout ce qui n'existe que par lui.
+ *
+ * Ces neuf collections portent un champ `client` REQUIS (colonne `client_id`
+ * NOT NULL) dont la clé étrangère est `ON DELETE SET NULL` : supprimer le
+ * client sans les avoir vidées fait échouer Postgres (SET NULL sur une colonne
+ * NOT NULL → 500). Seuls les contacts étaient nettoyés, parce qu'ils étaient
+ * seuls à exister quand la règle a été écrite ; les huit autres sont arrivées
+ * depuis, et chacune rendait la suppression impossible sans dire pourquoi.
+ *
+ * L'ORDRE compte : un accès de test référence un salarié du dossier, on vide
+ * donc les accès avant les salariés. Le reste est indépendant.
+ *
+ * Ce qui n'est PAS supprimé : les tickets. Leur lien vers la phase de test est
+ * facultatif, il passe à NULL — un échange avec le support est une trace qui
+ * survit au client, comme une facture survit à celui qui l'a payée.
+ *
+ * `req` transmis = même transaction (tout part, ou rien) ; `overrideAccess` car
+ * c'est un nettoyage d'intégrité, pas une action d'utilisateur.
  */
-const deleteClientContacts: CollectionBeforeDeleteHook = async ({ req, id }) => {
-  await req.payload.delete({
-    collection: "client-contacts",
-    where: { client: { equals: id } },
-    overrideAccess: true,
-    req,
-  });
+const CLIENT_CHILDREN = [
+  "client-credentials",
+  "client-employees",
+  "client-sites",
+  "client-vehicles",
+  "client-machines",
+  "client-portal-accounts",
+  "credential-reveals",
+  "journey-runs",
+  "client-contacts",
+] as const;
+
+const deleteClientChildren: CollectionBeforeDeleteHook = async ({ req, id }) => {
+  for (const collection of CLIENT_CHILDREN) {
+    const { docs, errors } = await req.payload.delete({
+      collection,
+      where: { client: { equals: id } },
+      overrideAccess: true,
+      req,
+    });
+
+    // Une suppression en lot NE LÈVE PAS : Payload collecte les échecs. Sans ce
+    // relais, une ligne récalcitrante ferait échouer la suppression du client
+    // plus loin, avec l'erreur Postgres pour seule explication — exactement ce
+    // qu'on est en train de corriger. On la nomme tout de suite.
+    if (errors?.length) {
+      throw new Error(
+        `Suppression impossible : ${errors.length} ${collection} n'ont pas pu être supprimés ` +
+          `(${errors[0]?.message ?? "raison inconnue"}).`,
+      );
+    }
+
+    // Tracé : la cascade emporte des données irrécupérables (phase de test,
+    // dossier de démarrage, accès). Savoir ce qui est parti est le minimum.
+    if (docs.length) {
+      req.payload.logger.info(
+        `[client ${id}] suppression en cascade : ${docs.length} × ${collection}.`,
+      );
+    }
+  }
 };
 
 /**
@@ -333,8 +378,9 @@ export const PartnerClients: CollectionConfig = {
     beforeChange: [requireTestSchedule, enforcePartnerField(), setStatusRank, computeCA],
     // Les faits saisis ici cochent les étapes du parcours correspondantes.
     afterChange: [armJourneySteps],
-    // Supprime les contacts liés avant de supprimer le client (cf. deleteClientContacts).
-    beforeDelete: [deleteClientContacts],
+    // Vide ce qui n'existe que par ce client avant de le supprimer, sans quoi
+    // Postgres refuse la suppression (cf. deleteClientChildren).
+    beforeDelete: [deleteClientChildren],
   },
   fields: [
     // Recherche INSEE (préremplissage) — tout en haut du formulaire : remplit
