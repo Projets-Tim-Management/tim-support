@@ -95,8 +95,8 @@ export function CredentialsGenerator() {
       ) : (
         <p className="jr-gen__hint">
           Tous les utilisateurs déclarés ont leur accès. Complétez les mots de passe avec ceux
-          réellement créés dans l&apos;application TIM, puis validez l&apos;étape
-          « Provisionnement des accès ».
+          réellement créés dans l&apos;application TIM. L&apos;étape « Provisionnement des accès »
+          s&apos;est cochée d&apos;elle-même&nbsp;: rien à valider dans la phase de test.
         </p>
       )}
 

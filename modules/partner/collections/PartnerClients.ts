@@ -702,6 +702,18 @@ export const PartnerClients: CollectionConfig = {
           admin: { condition: hasTestPhase },
           fields: [
             {
+              // Le tableau ci-dessous montre une LIGNE d'accès ; il ne dit pas
+              // si le client a reçu son lien. C'est pourtant la seule question
+              // qu'on se pose ici — d'où cet encart, et le bouton de renvoi.
+              name: "portalAccessBox",
+              type: "ui",
+              admin: {
+                components: {
+                  Field: "/modules/marketing/admin/PortalAccessBox#PortalAccessBox",
+                },
+              },
+            },
+            {
               name: "portalAccounts",
               type: "join",
               collection: "client-portal-accounts",

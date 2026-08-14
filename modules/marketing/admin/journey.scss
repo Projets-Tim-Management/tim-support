@@ -1209,12 +1209,21 @@
 /* ─── Étape constatée par le système : le renvoi vers le geste ────────────────
    À la place du bouton de validation, qui n'aurait fait que déclarer l'étape
    sans la réaliser. Volontairement plus discret qu'un bouton plein : c'est un
-   raccourci vers l'endroit où le travail se fait, pas l'action elle-même. */
+   raccourci vers l'endroit où le travail se fait, pas l'action elle-même.
+
+   Posé DANS la ligne, sous le détail, et non dans la colonne des boutons :
+   celle-ci fait 3.75rem (deux icônes), un libellé y débordait par-dessus la
+   colonne des échéances. */
+.jr-step__todo {
+  display: block;
+  margin-top: 0.375rem;
+}
+
 .jr-step__todo-link,
 .jr-step__todo-tag {
   display: inline-flex;
   align-items: center;
-  height: 1.625rem;
+  height: 1.5rem;
   padding: 0 0.5rem;
   border-radius: var(--tim-radius-sm);
   font-size: 0.6875rem;
@@ -1261,6 +1270,7 @@
 }
 
 .jr-gen__warn { color: var(--tim-amber); font-weight: 600; }
+.jr-gen__ok { color: var(--tim-green); font-weight: 600; }
 
 .jr-gen__hint {
   margin: 0 0 0.75rem;
@@ -1274,6 +1284,13 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--tim-danger-text);
+}
+
+.jr-gen__done {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tim-green);
 }
 
 /* ─── Pastilles d'envoi sur une étape ────────────────────────────────────────
