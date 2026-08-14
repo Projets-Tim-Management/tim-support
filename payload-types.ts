@@ -1215,7 +1215,7 @@ export interface MarketingJourney {
         phase: 'avant-test' | 'pendant-test' | 'sortie-test';
         detail?: string | null;
         /**
-         * Sans effet si aucun fait observable n'est associé à cette étape (voir AUTO_TRIGGERS).
+         * Sans effet si aucun fait observable n'est associé à cette étape. Les étapes que le logiciel sait constater (voir SYSTEM_STEPS) se valident seules de toute façon : cette règle vit dans le code, pas dans cette case.
          */
         autoValidate?: boolean | null;
         anchor?: ('aucun' | 'debut' | 'milieu' | 'fin') | null;

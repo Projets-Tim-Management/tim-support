@@ -431,6 +431,53 @@ export function buildContractRequestEmail(
 }
 
 /**
+ * Le partenaire vient de demander le contrat : TIM doit le rédiger.
+ *
+ * Cet envoi est la CONTREPARTIE de l'étape « Demande de contrat à TIM » : c'est
+ * ce qui fait que la valider soit un geste et pas une coche. Sans lui, le
+ * partenaire déclarait sa demande dans une fiche que personne ne surveille.
+ */
+export async function notifyAdminsContractNeeded(
+  payload: Payload,
+  run: { id: number | string },
+  ctx: SimpleNoticeContext,
+): Promise<void> {
+  try {
+    const to = await adminEmails(payload);
+    if (to.length === 0) {
+      payload.logger.warn("[parcours] aucune adresse admin : demande de contrat non notifiée.");
+      return;
+    }
+    await payload.sendEmail({ to: to.join(","), ...buildContractRequestEmail(run, ctx) });
+    payload.logger.info(`[parcours] demande de contrat notifiée à ${to.length} admin(s).`);
+  } catch (err) {
+    payload.logger.error(`[parcours] notification « contrat à établir » échouée : ${err}`);
+  }
+}
+
+/**
+ * Le client vient de transmettre son dossier : TIM doit le contrôler avant de
+ * créer les comptes. L'accusé de réception part au client, celui-ci à TIM.
+ */
+export async function notifyAdminsDossierToCheck(
+  payload: Payload,
+  run: { id: number | string },
+  ctx: SimpleNoticeContext,
+): Promise<void> {
+  try {
+    const to = await adminEmails(payload);
+    if (to.length === 0) {
+      payload.logger.warn("[parcours] aucune adresse admin : dossier à vérifier non notifié.");
+      return;
+    }
+    await payload.sendEmail({ to: to.join(","), ...buildDossierToCheckEmail(run, ctx) });
+    payload.logger.info(`[parcours] dossier à vérifier notifié à ${to.length} admin(s).`);
+  } catch (err) {
+    payload.logger.error(`[parcours] notification « dossier à vérifier » échouée : ${err}`);
+  }
+}
+
+/**
  * Les accès d'un client devaient partir aujourd'hui — ils n'existent pas.
  *
  * Le cron retient l'envoi plutôt que d'annoncer des identifiants inexistants un

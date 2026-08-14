@@ -55,27 +55,42 @@ export const ClientPortalAccounts: CollectionConfig = {
   },
   hooks: {
     beforeChange: [setPartnerFromClient],
-    // L'ouverture de l'accès EST l'étape « Création du compte espace client » :
-    // la faire cocher à la main reviendrait à redemander ce qu'on vient de faire.
+    // L'OUVERTURE de l'accès (« Accès actif » qui passe à oui) est l'étape
+    // « Création du compte espace client », et elle envoie l'invitation.
+    //
+    // La ligne, elle, naît AVANT : dès le démarrage de la phase de test, parce
+    // qu'elle porte l'adresse à laquelle part toute la séquence (voir
+    // buildJourneyContext). Elle est alors inactive — l'adresse est connue, le
+    // client n'est pas encore prévenu et ne peut pas demander de code. C'est le
+    // Go/No-Go de TIM qui l'active.
     afterChange: [
-      async ({ doc, operation, req }) => {
-        if (operation !== "create") return doc;
+      async ({ doc, previousDoc, operation, req }) => {
         const client = doc?.client;
-        const clientId = typeof client === "object" ? (client as { id?: unknown })?.id : client;
+        const clientId = (typeof client === "object" ? (client as { id?: unknown })?.id : client) as
+          | number
+          | string
+          | undefined;
         if (clientId == null) return doc;
 
-        await armAutoStep(req.payload, clientId as number | string, "compte-espace-client");
+        // Le fait, c'est l'accès ACTIF : à la création s'il l'est déjà, sinon au
+        // moment où on l'active. Une modification d'adresse ou de nom ne
+        // réinvite personne.
+        const opened =
+          doc?.active !== false &&
+          (operation === "create" || previousDoc?.active === false);
+        if (!opened) return doc;
+
+        await armAutoStep(req.payload, clientId, "compte-espace-client");
 
         // PREMIER message du parcours : sans lui, le client dispose d'un espace
-        // dont il ignore l'existence. Il part à l'ouverture de l'accès, jamais à
-        // une modification — on ne réinvite pas quelqu'un déjà invité.
-        // L'échec est silencieux : un serveur SMTP qui tousse ne doit pas
-        // empêcher la création du compte, qui est le geste métier réel.
-        if (doc?.active !== false) {
-          await sendJourneyEmailForClient(
-            req.payload,
-            clientId as number | string,
-            "invitation-espace-client",
+        // dont il ignore l'existence. L'échec est silencieux côté métier — un
+        // serveur SMTP qui tousse ne doit pas empêcher l'ouverture de l'accès —
+        // mais il est TRACÉ : un accès ouvert dont l'invitation n'est pas partie
+        // est le pire des états, tout a l'air fait et le client n'a rien reçu.
+        const sent = await sendJourneyEmailForClient(req.payload, clientId, "invitation-espace-client");
+        if (!sent.sent) {
+          req.payload.logger.warn(
+            `[parcours] accès espace client ${doc?.email} ouvert, mais invitation NON envoyée (${sent.reason}).`,
           );
         }
         return doc;
@@ -105,7 +120,10 @@ export const ClientPortalAccounts: CollectionConfig = {
       type: "checkbox",
       label: "Accès actif",
       defaultValue: true,
-      admin: { description: "Décoché = le client ne peut plus demander de code." },
+      admin: {
+        description:
+          "Décoché = le client ne peut pas demander de code. C'est la case qui OUVRE l'espace : la cocher envoie l'invitation (une seule fois) et coche l'étape du parcours. Elle se coche d'elle-même à la validation du Go/No-Go.",
+      },
     },
     {
       name: "lastLoginAt",

@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@payloadcms/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -238,7 +239,11 @@ export function StartTestModal({
       const existing = runRes.ok ? (await runRes.json())?.docs?.[0] : null;
       const open = existing && !["gagne", "perdu", "annule"].includes(existing.status);
 
-      const runReq = open
+      // ⚠ Le parcours est créé AVANT le compte espace client, et attendu.
+      // Les deux partaient en parallèle : quand le compte arrivait le premier,
+      // le hook qui envoie l'invitation ne trouvait aucun parcours ouvert et
+      // renonçait en silence — compte créé, client jamais prévenu.
+      const runOut = await (open
         ? fetch(`/payload-api/journey-runs/${existing.id}`, {
             method: "PATCH",
             credentials: "include",
@@ -255,47 +260,59 @@ export function StartTestModal({
               startDate: startISO,
               durationWeeks: weeks,
             }),
-          });
+          }));
 
-      // 3. Le compte espace client — c'est l'adresse qui recevra tout le
-      //    parcours (e-mails de la séquence, code de connexion).
+      if (!runOut.ok) {
+        const body = await runOut.json().catch(() => null);
+        throw new Error(body?.errors?.[0]?.message || "Création de la phase de test impossible.");
+      }
+
+      // 3. L'ADRESSE du parcours — celle qui recevra toute la séquence et les
+      //    codes de connexion. On l'enregistre, on n'ouvre RIEN : l'espace
+      //    s'ouvre au Go/No-Go de TIM (`active` passe à vrai à ce moment-là, et
+      //    c'est ce qui envoie l'invitation). Rien ne part donc à un client que
+      //    TIM n'a pas encore accepté.
       const accRes = await fetch(
         `/payload-api/client-portal-accounts?where[client][equals]=${client.id}&limit=1&depth=0`,
         { credentials: "include" },
       );
       const account = accRes.ok ? (await accRes.json())?.docs?.[0] : null;
 
-      const accountReq = account
+      const accOut = await (account
         ? fetch(`/payload-api/client-portal-accounts/${account.id}`, {
             method: "PATCH",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, active: true }),
+            // `active` n'est PAS touché : un espace déjà ouvert le reste, un
+            // espace en attente du Go continue d'attendre.
+            body: JSON.stringify({ email }),
           })
         : fetch("/payload-api/client-portal-accounts", {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ client: client.id, email, active: true }),
-          });
+            body: JSON.stringify({ client: client.id, email, active: false }),
+          }));
 
-      const [runOut, accOut] = await Promise.all([runReq, accountReq]);
-      if (!runOut.ok) {
-        const body = await runOut.json().catch(() => null);
-        throw new Error(body?.errors?.[0]?.message || "Création de la phase de test impossible.");
+      // L'échec n'annule pas la phase de test, mais il ne doit pas passer
+      // inaperçu : sans cette adresse, aucun e-mail du parcours n'a de
+      // destinataire. Le message part en TOAST et non dans le modal — `onDone`
+      // démonte le modal, l'erreur qu'on y affichait n'était jamais lue.
+      if (!accOut.ok) {
+        const body = await accOut.json().catch(() => null);
+        const cause =
+          body?.errors?.[0]?.message ||
+          (accOut.status === 403
+            ? "réservé aux admins"
+            : `erreur ${accOut.status}`);
+        toast.error(
+          `Phase de test créée, mais l'adresse du parcours n'a PAS été enregistrée (${cause}). ` +
+            `Aucun e-mail ne partira à ${email} : renseignez-la dans l'onglet « Espace client » de la fiche.`,
+          { duration: 15000 },
+        );
       }
-      // Le compte portail est créable par un ADMIN seulement : un partenaire
-      // obtient un 403 ici. Ce n'est pas bloquant — la phase est créée, on le
-      // signale simplement plutôt que de tout annuler.
-      const accountFailed = !accOut.ok;
 
       onDone({ startDate: startISO });
-      if (accountFailed) {
-        setError(
-          "Phase de test créée, mais l'accès espace client n'a pas pu être ouvert (réservé aux admins). Demandez-le à TIM.",
-        );
-        return;
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Démarrage impossible.");
     } finally {
@@ -368,8 +385,9 @@ export function StartTestModal({
                 <span className="jr-modal__ko">Adresse invalide.</span>
               ) : (
                 <span className="jr-modal__hint">
-                  Reçoit l&apos;invitation à l&apos;espace client, les codes de connexion et toute
-                  la séquence du test.
+                  Reçoit toute la séquence du test et les codes de connexion. Reprise de la fiche
+                  client — corrigez-la si ce n&apos;est pas la bonne personne. L&apos;espace ne
+                  s&apos;ouvre qu&apos;à votre Go&nbsp;: rien ne part avant.
                 </span>
               )}
             </label>

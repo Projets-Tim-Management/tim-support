@@ -1206,6 +1206,45 @@
   }
 }
 
+/* ─── Étape constatée par le système : le renvoi vers le geste ────────────────
+   À la place du bouton de validation, qui n'aurait fait que déclarer l'étape
+   sans la réaliser. Volontairement plus discret qu'un bouton plein : c'est un
+   raccourci vers l'endroit où le travail se fait, pas l'action elle-même. */
+.jr-step__todo-link,
+.jr-step__todo-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 1.625rem;
+  padding: 0 0.5rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.jr-step__todo-link {
+  border: 1px solid var(--tim-primary);
+  color: var(--tim-primary);
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--tim-primary);
+    color: var(--tim-white);
+  }
+}
+
+.jr-step__todo-tag {
+  border: 1px dashed var(--tim-border);
+  color: var(--tim-muted);
+  cursor: help;
+}
+
+.jr-step__todo-tag--wait {
+  font-weight: 500;
+  font-style: italic;
+}
+
 /* ─── Génération des accès de test (fiche client) ───────────────────────────── */
 .jr-gen {
   margin-bottom: 1rem;

@@ -12,11 +12,27 @@ import type { Payload } from "payload";
  */
 const OPEN = ["preparation", "en-cours"];
 
+/**
+ * Identifiant d'un lien Payload, qu'il soit déjà résolu (objet) ou non (id nu).
+ * Selon la profondeur de lecture, le même champ arrive sous les deux formes :
+ * chaque appelant refaisait ce test avant d'armer, autant le poser ici.
+ */
+const idOf = (ref: unknown): number | string | null => {
+  if (ref == null) return null;
+  if (typeof ref === "object") {
+    const id = (ref as { id?: unknown }).id;
+    return typeof id === "number" || typeof id === "string" ? id : null;
+  }
+  return typeof ref === "number" || typeof ref === "string" ? ref : null;
+};
+
 export async function armAutoStep(
   payload: Payload,
-  clientId: number | string,
+  client: unknown,
   stepKey: string,
 ): Promise<void> {
+  const clientId = idOf(client);
+  if (clientId == null) return;
   try {
     const runs = await payload.find({
       collection: "journey-runs",
@@ -28,6 +44,15 @@ export async function armAutoStep(
     });
     const run = runs.docs[0];
     if (!run) return;
+
+    // Déjà armée (ou déjà faite) : on ne réécrit pas le parcours pour rien.
+    // Une génération d'accès crée dix identifiants d'affilée, chacun constatant
+    // le même fait — sans ce filtre, dix enregistrements complets du parcours
+    // partiraient, hooks compris, pour une seule étape à cocher.
+    const step = ((run.steps ?? []) as { key?: string; state?: string }[]).find(
+      (s) => s.key === stepKey,
+    );
+    if (step && (step.state ?? "a-faire") !== "a-faire") return;
 
     await payload.update({
       collection: "journey-runs",

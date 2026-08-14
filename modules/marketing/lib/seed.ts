@@ -21,7 +21,12 @@ import {
  * mise à niveau ne réécrit QUE les textes `detail` des étapes connues et
  * n'ajoute les e-mails que si la liste est vide — jamais un libellé ni une date.
  */
-const SEED_VERSION = 11;
+// v12 : « Provisionnement des accès » et « Contrat signé » passent en validation
+// automatique — le geste qui les réalise (créer les identifiants, enregistrer la
+// signature) se fait sur la fiche client et les coche désormais lui-même.
+// v13 : l'espace client n'est plus « créé » par personne — l'adresse est posée au
+// démarrage, et le Go/No-Go de TIM ouvre l'accès et envoie l'invitation.
+const SEED_VERSION = 13;
 
 const stepSeed = () =>
   PHASE_DE_TEST_STEPS.map((s) => ({
