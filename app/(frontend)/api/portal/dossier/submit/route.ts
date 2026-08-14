@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
-import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
-import { sendJourneyEmailForClient } from "@/modules/marketing/lib/send";
+import { notifyAdminsDossierToCheck } from "@/modules/marketing/lib/notify";
+import {
+  findOpenRun,
+  markJourneyEmailSent,
+  sendJourneyEmailForClient,
+} from "@/modules/marketing/lib/send";
 import { PORTAL_SECTIONS } from "@/modules/marketing/lib/portal-sections";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
 
@@ -41,6 +45,10 @@ export async function POST() {
     );
   }
 
+  // La transmission EST l'étape « Dossier de démarrage complété » : c'est le
+  // passage à « Transmis » qui l'arme, par le hook de la fiche client. Un admin
+  // à qui le client remet son dossier autrement (téléphone, e-mail) fait donc le
+  // même geste au même endroit, et le parcours avance pareil.
   await payload.update({
     collection: "partner-clients",
     id: ctx.client.id,
@@ -48,13 +56,23 @@ export async function POST() {
     overrideAccess: true,
   });
 
-  // La transmission EST l'étape « Dossier de démarrage complété ».
-  await armAutoStep(payload, ctx.client.id, "dossier-demarrage");
-
   // Accusé de réception au client. Sans lui, il vient de saisir des dizaines de
   // lignes et n'a aucune confirmation que c'est bien arrivé. L'échec d'envoi ne
   // remet PAS en cause la transmission : elle est déjà enregistrée.
   await sendJourneyEmailForClient(payload, ctx.client.id, "dossier-recu");
+
+  // Pendant du précédent, côté TIM : le dossier attend un contrôle avant que les
+  // comptes soient créés. L'envoi était déclaré dans le modèle (l'enveloppe
+  // s'affiche sur l'étape) mais aucun code ne le déclenchait — il n'était donc
+  // jamais parti.
+  const run = await findOpenRun(payload, ctx.client.id);
+  if (run) {
+    await notifyAdminsDossierToCheck(payload, run, {
+      clientId: ctx.client.id,
+      clientName: ctx.client.companyName ?? null,
+    });
+    await markJourneyEmailSent(payload, run.id, "dossier-a-verifier");
+  }
 
   return NextResponse.json({ ok: true });
 }

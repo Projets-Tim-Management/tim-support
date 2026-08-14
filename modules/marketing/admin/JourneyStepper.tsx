@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth, useDocumentInfo, useForm, useFormFields } from "@payloadcms/ui";
+import { useAuth, useConfig, useDocumentInfo, useForm, useFormFields } from "@payloadcms/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { hasAdminRole } from "@/core/access";
@@ -10,7 +10,8 @@ import { Tooltip } from "@/modules/marketing/admin/Tooltip";
 import { useSaveAfterDispatch } from "@/modules/marketing/admin/useSaveAfterDispatch";
 import {
   AUDIENCE_LABEL,
-  AUTO_TRIGGERS,
+  STEP_VALIDATION_EFFECT,
+  SYSTEM_STEPS,
   attachEmailsToSteps,
   computeEmailSchedule,
   mailDateWindow,
@@ -126,6 +127,8 @@ type StepView = {
 
 export function JourneyStepper() {
   const { user } = useAuth();
+  const { config } = useConfig();
+  const adminRoute = config.routes.admin;
   const { id: docId } = useDocumentInfo();
   const { dispatchFields } = useForm();
   const saveNow = useSaveAfterDispatch();
@@ -149,7 +152,7 @@ export function JourneyStepper() {
    * (`steps.0.key`, `steps.0.state`…) : on remonte les lignes tant qu'une clé
    * existe, plutôt que de dépendre de la structure interne des `rows`.
    */
-  const { steps, mails, startDate, durationWeeks, extraDays, status } = useFormFields(([fields]) => {
+  const { steps, mails, startDate, durationWeeks, extraDays, status, clientId } = useFormFields(([fields]) => {
     const collected: StepView[] = [];
     for (let i = 0; fields[`steps.${i}.key`] !== undefined; i += 1) {
       collected.push({
@@ -198,8 +201,12 @@ export function JourneyStepper() {
       durationWeeks: Number(fields.durationWeeks?.value ?? 0) || null,
       extraDays: extra,
       status: (fields.status?.value as string | undefined) ?? "preparation",
+      // Sert les renvois « le geste se fait sur la fiche client ».
+      clientId: (fields.client?.value as number | string | undefined) ?? null,
     };
   });
+
+  const clientHref = clientId != null ? `${adminRoute}/collections/partner-clients/${clientId}` : null;
 
   // Envois rattachés à leur étape : par `stepKey` s'il est déclaré, sinon par
   // la date. Même règle que l'aperçu du modal de démarrage.
@@ -319,7 +326,11 @@ export function JourneyStepper() {
                 const isDone = isStepDone(step, nowMs ?? 0);
                 const pending = nowMs != null && isStepPending(step, nowMs);
                 const isCurrent = step.index === currentIndex;
-                const canUndo = isDone && step.index === lastDoneIndex;
+                // Une étape constatée par le système ne se coche pas à la main :
+                // le clic ne ferait pas le geste attendu (créer l'accès, générer
+                // les identifiants…), il se contenterait de le déclarer fait.
+                const system = step.key ? SYSTEM_STEPS[step.key] : undefined;
+                const canUndo = isDone && step.index === lastDoneIndex && !system;
                 const locked = isAdminStep(step) && !isAdmin;
                 const due = stepDueDate(step, startDate, endDate);
                 const late = !isDone && due != null && today != null && Date.parse(due) < today;
@@ -412,7 +423,7 @@ export function JourneyStepper() {
                           className="jr-step__auto"
                           content={[
                             "Validation automatique",
-                            `Déclenchée ${AUTO_TRIGGERS[step.key] ?? "par le système"}.`,
+                            `Déclenchée ${SYSTEM_STEPS[step.key]?.trigger ?? "par le système"}.`,
                             "Annulable jusqu'à l'échéance ; ensuite l'étape est acquise.",
                           ]}
                         >
@@ -457,25 +468,29 @@ export function JourneyStepper() {
 
                     <span className="jr-step__action">
                       {/* Pendant la fenêtre : on peut acter tout de suite, ou
-                          renoncer. Passé le délai, l'étape rejoint les autres. */}
+                          renoncer. Passé le délai, l'étape rejoint les autres.
+                          Renoncer n'est proposé que si le geste est REFAISABLE —
+                          sinon l'étape resterait à faire sans moyen de la faire. */}
                       {!closed && !locked && pending && (
                         <>
-                          <Tooltip
-                            interactive
-                            content={[
-                              "Annuler la validation automatique",
-                              "L'étape repasse « à faire » et ne se cochera pas toute seule.",
-                            ]}
-                          >
-                            <button
-                              type="button"
-                              aria-label="Annuler la validation automatique"
-                              className="jr-icon-btn jr-icon-btn--undo"
-                              onClick={() => setStep(step.index, false)}
+                          {(!system || system.action) && (
+                            <Tooltip
+                              interactive
+                              content={[
+                                "Annuler la validation automatique",
+                                "L'étape repasse « à faire » et ne se cochera pas toute seule.",
+                              ]}
                             >
-                              <IconUndo />
-                            </button>
-                          </Tooltip>
+                              <button
+                                type="button"
+                                aria-label="Annuler la validation automatique"
+                                className="jr-icon-btn jr-icon-btn--undo"
+                                onClick={() => setStep(step.index, false)}
+                              >
+                                <IconUndo />
+                              </button>
+                            </Tooltip>
+                          )}
                           <Tooltip
                             interactive
                             content={["Valider maintenant", "Sans attendre la fin du délai."]}
@@ -491,14 +506,62 @@ export function JourneyStepper() {
                           </Tooltip>
                         </>
                       )}
-                      {!closed && !locked && !pending && isCurrent && (
+
+                      {/* Étape constatée, pas encore constatée : au lieu d'un
+                          bouton qui mentirait, le RENVOI vers le geste qui la
+                          coche. C'est la seule chose utile à proposer ici. */}
+                      {!closed && !pending && !isDone && isCurrent && system && (
                         <Tooltip
                           interactive
-                          content={["Valider cette étape", "Elle sera enregistrée immédiatement."]}
+                          content={[
+                            `Se coche ${system.trigger}`,
+                            system.action?.hint ??
+                              system.wait ??
+                              "Rien à valider ici : le système constate cette étape lui-même.",
+                            ...(system.wait && system.action ? [`En attente : ${system.wait.toLowerCase()}.`] : []),
+                          ]}
+                        >
+                          {system.action && !locked ? (
+                            system.action.on === "client" && clientHref ? (
+                              <a className="jr-step__todo-link" href={clientHref}>
+                                {system.action.label} →
+                              </a>
+                            ) : (
+                              <span className="jr-step__todo-tag">{system.action.label}</span>
+                            )
+                          ) : (
+                            <span className="jr-step__todo-tag jr-step__todo-tag--wait">
+                              {system.wait ? "en attente" : "auto"}
+                            </span>
+                          )}
+                        </Tooltip>
+                      )}
+
+                      {/* Étape humaine : le clic EST la déclaration. Le libellé
+                          dit laquelle — « je l'ai fait » n'a pas le même sens
+                          que « le client me l'a confirmé ». */}
+                      {!closed && !locked && !pending && !system && isCurrent && (
+                        <Tooltip
+                          interactive
+                          content={[
+                            step.actor === "client"
+                              ? "Confirmer que le client l'a fait"
+                              : "Déclarer cette étape faite",
+                            step.actor === "client"
+                              ? "Vous constatez ce que le client vous a dit ; rien ne lui est envoyé."
+                              : "Enregistrée immédiatement.",
+                            ...(step.key && STEP_VALIDATION_EFFECT[step.key]
+                              ? [STEP_VALIDATION_EFFECT[step.key]]
+                              : []),
+                          ]}
                         >
                           <button
                             type="button"
-                            aria-label="Valider cette étape"
+                            aria-label={
+                              step.actor === "client"
+                                ? "Confirmer que le client l'a fait"
+                                : "Déclarer cette étape faite"
+                            }
                             className="jr-icon-btn jr-icon-btn--ok"
                             onClick={() => setStep(step.index, true)}
                           >
@@ -539,8 +602,10 @@ export function JourneyStepper() {
 
       <p className="jr-stepper__note">
         Les étapes se valident dans l'ordre : seule l'étape en cours est actionnable, et seule la
-        dernière validée peut être annulée. Celles que le système constate lui-même se cochent
-        automatiquement après 2 h — le temps de revenir en arrière si besoin.
+        dernière validée peut être annulée. On ne coche QUE ce qu'on a fait soi-même — les étapes
+        que le logiciel constate (accès ouvert, identifiants créés, dossier transmis, signature
+        enregistrée) n'ont pas de bouton : elles renvoient vers le geste qui les coche, puis se
+        valident seules après 2 h, le temps de revenir en arrière si besoin.
       </p>
     </div>
   );

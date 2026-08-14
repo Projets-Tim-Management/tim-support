@@ -243,27 +243,139 @@ export type JourneyStepDef = {
   offsetDays?: number;
   /**
    * L'étape se valide seule quand le système constate le fait correspondant
-   * (voir AUTO_TRIGGERS). Les étapes purement humaines restent manuelles : les
-   * cocher d'office inventerait des faits dont dépendent ensuite les relances.
+   * (voir SYSTEM_STEPS, qui prime sur ce drapeau). Les étapes purement humaines
+   * restent manuelles : les cocher d'office inventerait des faits dont
+   * dépendent ensuite les relances.
    */
   autoValidate?: boolean;
 };
 
-/**
- * Ce qui déclenche la validation automatique de chaque étape.
- *
- * Documenté ici plutôt que dispersé dans les hooks : c'est la table à lire pour
- * savoir pourquoi une étape s'est cochée toute seule.
- */
 /** Étapes que seul un admin TIM peut valider (celles dont il est l'acteur). */
 export const isAdminStep = (step: { actor?: string | null }): boolean =>
   step.actor === "admin";
 
-export const AUTO_TRIGGERS: Record<string, string> = {
-  demande: "au lancement de la phase de test",
-  "compte-espace-client": "quand l'accès à l'espace client existe",
-  "rdv-prise-en-main": "quand le client a réservé son créneau",
-  "dossier-demarrage": "quand le client transmet son dossier",
+/**
+ * Étapes que le SYSTÈME constate — donc que PERSONNE ne coche à la main.
+ *
+ * Une case à cocher n'a de sens que si le clic EST le geste attendu. Pour ces
+ * étapes-là, le geste se fait ailleurs (ouvrir l'accès, générer les identifiants,
+ * enregistrer la signature) et c'est lui qui coche l'étape. Proposer un bouton
+ * en plus, c'est proposer de déclarer faite une chose qu'on n'a pas faite : le
+ * parcours affiche alors une étape verte, et le client n'a rien reçu.
+ *
+ * Trois informations par étape :
+ *  - `trigger` : le fait qui la coche, en une phrase ;
+ *  - `action`  : où se fait ce geste quand il est de NOTRE ressort — sans ce
+ *                renvoi, l'écran dirait « ça se coche tout seul » sans dire ce
+ *                qu'il faut faire pour que ça arrive ;
+ *  - `wait`    : ce qu'on attend, quand le geste appartient au client.
+ *
+ * Table tenue EN CODE, comme NEVER_AUTO_VALIDATE : elle décrit ce que le
+ * logiciel sait observer, ce qu'aucune case cochée dans l'admin ne change. Elle
+ * vaut donc aussi pour les parcours lancés AVANT elle, dont la copie d'étapes
+ * porte encore l'ancien `autoValidate`.
+ */
+export type SystemStepDef = {
+  trigger: string;
+  /** Le geste réel, quand il nous revient. `on` = la fiche qui le porte. */
+  action?: { label: string; on: "client" | "run"; hint: string };
+  /** Ce qu'on attend, quand le geste revient au client. */
+  wait?: string;
+};
+
+export const SYSTEM_STEPS: Record<string, SystemStepDef> = {
+  demande: {
+    trigger: "au lancement de la phase de test",
+  },
+  "compte-espace-client": {
+    trigger: "à la validation du Go/No-Go, qui ouvre l'accès",
+    action: {
+      label: "Ouvrir l'accès",
+      on: "client",
+      hint: "Normalement rien à faire : le Go ouvre l'espace et envoie l'invitation. En secours, fiche client, onglet « Espace client » : cochez « Accès actif ».",
+    },
+  },
+  "rdv-prise-en-main": {
+    trigger: "quand le créneau est réservé",
+    action: {
+      label: "Saisir le créneau",
+      on: "run",
+      hint: "Onglet « Session de prise en main » de cette fiche, si le client vous a donné sa date de vive voix.",
+    },
+    wait: "Le client réserve depuis son espace",
+  },
+  "dossier-demarrage": {
+    trigger: "quand le dossier de démarrage est transmis",
+    action: {
+      label: "Marquer transmis",
+      on: "client",
+      hint: "Fiche client, onglet « Dossier de démarrage » : passez l'état à « Transmis » si le client vous l'a fourni autrement que par son espace.",
+    },
+    wait: "Le client remplit son dossier depuis son espace",
+  },
+  provisionnement: {
+    trigger: "quand les accès de test sont créés",
+    action: {
+      label: "Créer les accès",
+      on: "client",
+      hint: "Fiche client, onglet « Espace client » : générez les identifiants depuis les salariés du dossier de démarrage.",
+    },
+  },
+  signature: {
+    trigger: "quand la date de signature est enregistrée",
+    action: {
+      label: "Enregistrer la signature",
+      on: "client",
+      hint: "Fiche client, onglet « Contrat client » : date de signature et PDF signé.",
+    },
+    wait: "Le client signe le contrat",
+  },
+};
+
+/** L'étape se coche-t-elle sur constat du système (donc jamais à la main) ? */
+export const isSystemStep = (key?: string | null): boolean =>
+  Boolean(key && key in SYSTEM_STEPS);
+
+/**
+ * L'étape peut-elle se valider toute seule ?
+ *
+ * La table de code prime sur le `autoValidate` recopié dans le parcours : c'est
+ * ce qui fait qu'un parcours lancé il y a trois semaines suit la même règle
+ * qu'un parcours lancé aujourd'hui, sans reprise de données.
+ */
+export const canAutoValidate = (step: {
+  key?: string | null;
+  autoValidate?: boolean | null;
+}): boolean => {
+  if (step.key && NEVER_AUTO_VALIDATE.has(step.key)) return false;
+  return isSystemStep(step.key) || Boolean(step.autoValidate);
+};
+
+/**
+ * L'étape se coche-t-elle à la main ? C'est le complément exact du constat
+ * système : tout ce que le logiciel ne sait pas observer se déclare.
+ */
+export const isManualStep = (step: {
+  key?: string | null;
+  autoValidate?: boolean | null;
+}): boolean => !canAutoValidate(step);
+
+/**
+ * Ce que la validation DÉCLENCHE, pour les étapes où cocher fait plus que
+ * cocher.
+ *
+ * « Est-ce qu'il faut valider pour que l'e-mail parte ? » est la question qu'on
+ * se pose devant chaque ligne, et la réponse n'est pas la même partout. Elle est
+ * donc écrite sur le bouton, plutôt que déduite à tort d'une enveloppe affichée
+ * à côté (celles-ci montrent les envois RATTACHÉS à l'étape, pas ceux que la
+ * validation provoque).
+ */
+export const STEP_VALIDATION_EFFECT: Record<string, string> = {
+  "validation-admin":
+    "Ouvre l'espace client et lui envoie son invitation. Rien n'est parti au client avant ce Go.",
+  decision: "Déclenche l'alerte « devis à rédiger » aux admins TIM — sauf en cas d'abandon.",
+  "demande-contrat": "Déclenche l'alerte « contrat à établir » aux admins TIM.",
+  "mise-en-production": "Clôt le parcours : le client passe « Actif » et la facturation démarre.",
 };
 
 /**
@@ -297,7 +409,7 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
     actor: "admin",
     phase: "avant-test",
     detail:
-      "Éligibilité du client : SIREN, effectif, chantier pilote, décideur identifié.",
+      "Éligibilité du client : SIREN, effectif, chantier pilote, décideur identifié. Le Go ouvre l'espace client et déclenche son invitation — rien ne part au client avant.",
     anchor: "debut",
     offsetDays: -10,
   },
@@ -308,7 +420,7 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
     actor: "admin",
     phase: "avant-test",
     detail:
-      "Réservé aux admins. Ouvre l'accès à l'adresse de contact indiquée au démarrage — un e-mail d'invitation part automatiquement, avec le lien de l'espace et un code à 6 chiffres.",
+      "Rien à créer ni à cocher : l'adresse est enregistrée au démarrage du test, et le Go de TIM ouvre l'accès. L'invitation part à ce moment-là — lien de l'espace et code à 6 chiffres, sans mot de passe.",
     anchor: "debut",
     offsetDays: -9,
   },
@@ -348,11 +460,12 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
   // ── Bloc B — Pendant le test ──────────────────────────────────────────────
   {
     key: "provisionnement",
+    autoValidate: true,
     label: "Provisionnement des accès",
     actor: "admin",
     phase: "pendant-test",
     detail:
-      "Comptes créés par profil de licence. À terminer le vendredi précédent.",
+      "Comptes créés par profil de licence, depuis l'onglet « Espace client » de la fiche. À terminer le vendredi précédent. L'étape se coche dès que le premier identifiant existe.",
     anchor: "debut",
     offsetDays: -1,
   },
@@ -441,7 +554,8 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
     label: "Demande de contrat à TIM",
     actor: "partenaire",
     phase: "sortie-test",
-    detail: "Le partenaire ne rédige pas le contrat : il le demande à l'admin.",
+    detail:
+      "Le partenaire ne rédige pas le contrat : il le demande à l'admin. Valider cette étape EST la demande — l'alerte part aux admins à ce moment-là.",
     anchor: "fin",
     offsetDays: 3,
   },
@@ -457,10 +571,12 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
   },
   {
     key: "signature",
+    autoValidate: true,
     label: "Contrat signé",
     actor: "client",
     phase: "sortie-test",
-    detail: "Date de signature + PDF signé sur la fiche client.",
+    detail:
+      "L'étape se coche quand la date de signature est enregistrée sur la fiche client (onglet « Contrat client »), avec le PDF signé.",
     anchor: "fin",
     offsetDays: 10,
   },
@@ -581,7 +697,7 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "aucun",
     stepKey: "compte-espace-client",
-    trigger: "À l'ouverture de l'accès",
+    trigger: "À l'ouverture de l'accès, c'est-à-dire au Go de TIM",
     detail:
       "Invite le contact à se connecter et à remplir son dossier de démarrage : licences (prénom, nom, e-mail, priorité), salariés, chantiers, véhicules et engins.",
   },
@@ -954,8 +1070,11 @@ export const stepTooltip = (step: {
     ACTOR_ROLE[step.actor ?? ""] ?? "Responsable de cette étape.",
     ...(step.detail ? [step.detail] : []),
     ...(date ? [`Échéance : ${date}`] : []),
-    ...(step.autoValidate && step.key && AUTO_TRIGGERS[step.key]
-      ? [`Se valide automatiquement ${AUTO_TRIGGERS[step.key]}.`]
+    ...(step.key && SYSTEM_STEPS[step.key]
+      ? [
+          `Se coche toute seule ${SYSTEM_STEPS[step.key].trigger} — pas de validation à la main.`,
+          ...(SYSTEM_STEPS[step.key].action ? [SYSTEM_STEPS[step.key].action!.hint] : []),
+        ]
       : []),
   ];
 };

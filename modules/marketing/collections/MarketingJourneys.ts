@@ -155,7 +155,9 @@ export const MarketingJourneys: CollectionConfig = {
           /**
            * Étapes que le système sait constater lui-même (lancement du parcours,
            * ouverture de l'espace client, réservation du créneau, transmission du
-           * dossier). Elles se cochent seules après un délai de grâce.
+           * dossier, provisionnement, signature). Elles se cochent seules après un
+           * délai de grâce, et ne proposent AUCUN bouton de validation : le geste
+           * qui les réalise se fait ailleurs.
            *
            * Les étapes purement humaines restent décochées : les valider d'office
            * inventerait des faits dont dépendent ensuite relances et alertes.
@@ -165,7 +167,7 @@ export const MarketingJourneys: CollectionConfig = {
           label: "Se valide automatiquement",
           admin: {
             description:
-              "Sans effet si aucun fait observable n'est associé à cette étape (voir AUTO_TRIGGERS).",
+              "Sans effet si aucun fait observable n'est associé à cette étape. Les étapes que le logiciel sait constater (voir SYSTEM_STEPS) se valident seules de toute façon : cette règle vit dans le code, pas dans cette case.",
           },
         },
         {

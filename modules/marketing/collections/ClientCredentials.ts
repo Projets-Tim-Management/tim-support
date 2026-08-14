@@ -1,6 +1,7 @@
 import type { CollectionBeforeChangeHook, CollectionConfig } from "payload";
 
 import { isAdmin, metierScoped } from "@/core/access";
+import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
 import {
   clientField,
   displayNameField,
@@ -52,7 +53,19 @@ export const ClientCredentials: CollectionConfig = {
     update: isAdmin,
     delete: isAdmin,
   },
-  hooks: { beforeChange: [setPartnerFromClient, setDisplayName] },
+  hooks: {
+    beforeChange: [setPartnerFromClient, setDisplayName],
+    // Créer les identifiants EST l'étape « Provisionnement des accès » : c'est
+    // le geste attendu, il n'y a rien à cocher en plus. Le premier accès créé
+    // suffit — la suite de la liste se remplit dans la foulée.
+    afterChange: [
+      async ({ doc, operation, req }) => {
+        if (operation !== "create") return doc;
+        await armAutoStep(req.payload, doc?.client, "provisionnement");
+        return doc;
+      },
+    ],
+  },
   fields: [
     clientField,
     {

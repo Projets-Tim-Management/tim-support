@@ -40,7 +40,9 @@ export function ClientJourneyBox() {
   const [asking, setAsking] = useState(false);
   const [justStarted, setJustStarted] = useState(false);
 
-  const companyName = (savedDocumentData as { companyName?: string } | undefined)?.companyName;
+  // Adresse de la fiche : pré-remplit le modal plutôt que de la faire retaper.
+  const saved = savedDocumentData as { companyName?: string; email?: string } | undefined;
+  const companyName = saved?.companyName;
 
   /**
    * Fin du démarrage (le modal a créé le parcours et l'accès espace client) :
@@ -147,6 +149,7 @@ export function ClientJourneyBox() {
         {asking && (
           <StartTestModal
             client={{ id, companyName }}
+            defaultEmail={saved?.email}
             onCancel={onCancel}
             onDone={onStarted}
           />

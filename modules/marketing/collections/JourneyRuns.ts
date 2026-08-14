@@ -8,7 +8,11 @@ import type {
 
 import { adminOnlyField, hasAdminRole, isAdmin, metierOwnedAccess } from "@/core/access";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
-import { notifyAdminsQuoteNeeded, notifyAdminsTestRequested } from "@/modules/marketing/lib/notify";
+import {
+  notifyAdminsContractNeeded,
+  notifyAdminsQuoteNeeded,
+  notifyAdminsTestRequested,
+} from "@/modules/marketing/lib/notify";
 import { syncSessionEvent } from "@/modules/marketing/lib/session-calendar";
 import {
   DEFAULT_DURATION_WEEKS,
@@ -22,8 +26,10 @@ import {
   STEP_STATES,
   STEP_TEST_STARTS,
   STEP_TEST_WON,
+  SYSTEM_STEPS,
   AUTO_VALIDATE_DELAY_HOURS,
   NEVER_AUTO_VALIDATE,
+  canAutoValidate,
   clampMailDate,
   computeEmailSchedule,
   computeEndDate,
@@ -241,7 +247,7 @@ const armAutoSteps: CollectionBeforeChangeHook = ({ data, originalDoc, operation
       changed = true;
       return { ...s, state: "a-faire", autoAt: null };
     }
-    if (s.key && armed.has(s.key) && s.autoValidate && (s.state ?? "a-faire") === "a-faire") {
+    if (s.key && armed.has(s.key) && canAutoValidate(s) && (s.state ?? "a-faire") === "a-faire") {
       changed = true;
       return { ...s, state: "auto", autoAt: at };
     }
@@ -279,6 +285,46 @@ const guardAdminSteps: CollectionBeforeChangeHook = ({ data, originalDoc, req })
     if ((step.state ?? "a-faire") !== (old.state ?? "a-faire")) {
       throw new Error(
         `L'étape « ${step.label ?? step.key} » est réservée à l'équipe TIM : vous ne pouvez pas la valider.`,
+      );
+    }
+  }
+  return data;
+};
+
+/**
+ * Une étape que le système CONSTATE ne se coche pas à la main.
+ *
+ * L'écran ne propose plus le bouton, mais un bouton retiré n'est qu'un
+ * affichage : l'onglet « Correction manuelle » et l'API permettent la même
+ * écriture. Or cocher « Création du compte espace client » sans avoir créé le
+ * compte ne crée rien et n'envoie rien — le parcours affiche une étape verte et
+ * le client n'a jamais reçu son invitation. C'est exactement ce que cette règle
+ * empêche : pour avancer, on fait le geste, et le geste coche l'étape.
+ *
+ * Seul le passage « à faire » → « fait » est refusé. Acter tout de suite une
+ * validation automatique déjà armée (« auto » → « fait ») reste permis : le fait
+ * est constaté, on ne fait qu'écourter le délai de grâce.
+ *
+ * Les écritures SYSTÈME (routes de l'espace client, armement automatique) n'ont
+ * pas d'utilisateur : ce sont elles qui constatent, elles passent.
+ */
+const guardSystemSteps: CollectionBeforeChangeHook = ({ data, originalDoc, req }) => {
+  const next = (data?.steps ?? []) as RunStep[];
+  const previous = (originalDoc?.steps ?? []) as RunStep[];
+  if (!next.length || !previous.length || !req.user) return data;
+
+  const before = new Map(previous.map((s) => [s.key, s]));
+  for (const step of next) {
+    const def = step.key ? SYSTEM_STEPS[step.key] : undefined;
+    if (!def) continue;
+    const old = before.get(step.key);
+    if (!old) continue;
+    if ((step.state ?? "a-faire") === "fait" && (old.state ?? "a-faire") === "a-faire") {
+      throw new Error(
+        `L'étape « ${step.label ?? step.key} » se coche toute seule ${def.trigger}. ` +
+          (def.action
+            ? def.action.hint
+            : "Elle ne se valide pas à la main : rien ne se produirait."),
       );
     }
   }
@@ -635,6 +681,104 @@ const notifyQuoteNeeded: CollectionAfterChangeHook = async ({ doc, previousDoc, 
 };
 
 /**
+ * Le Go de TIM OUVRE l'espace client. C'est tout ce qu'il y avait à « créer ».
+ *
+ * L'adresse est connue depuis le démarrage (elle porte toute la séquence) ; il
+ * ne restait qu'un droit d'accès à accorder, et une décision pour l'accorder :
+ * le Go/No-Go. Les deux sont donc le même geste. Personne ne saisit deux fois
+ * une adresse déjà là, et aucun client refusé ne reçoit « votre espace est
+ * ouvert » avant que TIM ait tranché.
+ *
+ * L'activation déclenche l'invitation et coche l'étape (hooks de
+ * ClientPortalAccounts) : ce hook-ci ne fait qu'accorder le droit.
+ */
+const openPortalOnGo: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
+  const wasDone = ((previousDoc?.steps ?? []) as RunStep[]).find((s) => s.key === "validation-admin");
+  const isDone = ((doc?.steps ?? []) as RunStep[]).find((s) => s.key === "validation-admin");
+  if (!isDone || isStepDone(wasDone ?? {}) || !isStepDone(isDone)) return doc;
+
+  const clientId = idOf(doc?.client);
+  if (clientId == null) return doc;
+
+  try {
+    const existing = await req.payload.find({
+      collection: "client-portal-accounts",
+      where: { client: { equals: clientId } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    });
+    const account = existing.docs[0] as { id: number | string; active?: boolean } | undefined;
+
+    if (account) {
+      if (account.active !== false) return doc; // déjà ouvert
+      await req.payload.update({
+        collection: "client-portal-accounts",
+        id: account.id,
+        data: { active: true },
+        overrideAccess: true,
+      });
+      return doc;
+    }
+
+    // Aucune ligne : parcours créé hors du modal de démarrage. On ouvre sur
+    // l'adresse de la fiche plutôt que d'attendre une saisie que personne ne
+    // sait devoir faire — et si elle manque, on le DIT.
+    const client = await findOne<{ email?: string }>(req, "partner-clients", clientId);
+    if (!client?.email) {
+      req.payload.logger.warn(
+        `[parcours] Go validé pour le client ${clientId}, mais aucune adresse : espace client non ouvert.`,
+      );
+      return doc;
+    }
+    await req.payload.create({
+      collection: "client-portal-accounts",
+      data: { client: Number(clientId), email: client.email, active: true },
+      overrideAccess: true,
+    });
+  } catch (err) {
+    req.payload.logger.error(`[parcours] ouverture de l'espace client ${clientId} échouée : ${err}`);
+  }
+  return doc;
+};
+
+/**
+ * Passe la main à TIM quand le partenaire demande le contrat.
+ *
+ * Le partenaire fait le devis, TIM rédige le contrat : valider l'étape
+ * « Demande de contrat à TIM » EST la demande. L'envoi était déclaré dans le
+ * modèle (enveloppe affichée sur la ligne) mais aucun code ne le déclenchait —
+ * la validation ne faisait donc rien d'autre que cocher une case.
+ */
+const notifyContractNeeded: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
+  const wasDone = ((previousDoc?.steps ?? []) as RunStep[]).find((s) => s.key === "demande-contrat");
+  const isDone = ((doc?.steps ?? []) as RunStep[]).find((s) => s.key === "demande-contrat");
+  if (!isDone || isStepDone(wasDone ?? {}) || !isStepDone(isDone)) return doc;
+
+  const clientId = idOf(doc?.client);
+  const partnerId = idOf(doc?.partner);
+  const client = clientId != null
+    ? await findOne<{ companyName?: string }>(req, "partner-clients", clientId)
+    : null;
+  const partner = partnerId != null
+    ? await findOne<{ displayName?: string }>(req, "partners", partnerId)
+    : null;
+
+  await notifyAdminsContractNeeded(
+    req.payload,
+    { id: doc.id },
+    {
+      clientId: clientId ?? undefined,
+      clientName: client?.companyName ?? null,
+      partnerName: partner?.displayName ?? null,
+    },
+  );
+
+  await markEmailSent(req.payload, doc.id, (doc?.emails ?? []) as RunEmail[], "demande-contrat-tim");
+  return doc;
+};
+
+/**
  * Prévient TIM qu'une phase de test attend son Go / No-Go.
  *
  * À la création uniquement : c'est le moment où la décision est demandée. Le
@@ -706,11 +850,19 @@ export const JourneyRuns: CollectionConfig = {
       defaultSessionLocation,
       guardStructuralEdits,
       guardAdminSteps,
+      guardSystemSteps,
       armAutoSteps,
       computeState,
       computeDisplayName,
     ],
-    afterChange: [syncSessionCalendar, syncClientStatus, notifyNewRequest, notifyQuoteNeeded],
+    afterChange: [
+      syncSessionCalendar,
+      syncClientStatus,
+      notifyNewRequest,
+      notifyQuoteNeeded,
+      notifyContractNeeded,
+      openPortalOnGo,
+    ],
   },
   fields: [
     // Barre d'étapes : l'écran principal de la fiche (valider une étape, voir

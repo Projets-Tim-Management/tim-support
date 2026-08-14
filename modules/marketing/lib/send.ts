@@ -118,6 +118,42 @@ export async function sendJourneyEmail(
 }
 
 /**
+ * Marque un envoi comme parti, pour les alertes INTERNES (destinataires admin)
+ * qui ne passent pas par `sendJourneyEmail`.
+ *
+ * Sans ce marquage, la ligne resterait « à envoyer » sur la fiche : l'écran
+ * annoncerait un message en attente alors qu'il est déjà dans les boîtes.
+ */
+export async function markJourneyEmailSent(
+  payload: Payload,
+  runId: number | string,
+  key: string,
+): Promise<void> {
+  try {
+    const fresh = (await payload.findByID({
+      collection: "journey-runs",
+      id: runId,
+      depth: 0,
+      overrideAccess: true,
+    })) as { emails?: RunEmailRow[] } | null;
+
+    const rows = fresh?.emails ?? [];
+    if (!rows.some((e) => e.key === key && !e.sentAt)) return;
+
+    await payload.update({
+      collection: "journey-runs",
+      id: runId,
+      data: {
+        emails: rows.map((e) => (e.key === key ? { ...e, sentAt: new Date().toISOString() } : e)),
+      } as never,
+      overrideAccess: true,
+    });
+  } catch {
+    // Marquage secondaire : l'e-mail, lui, est bien parti.
+  }
+}
+
+/**
  * Raccourci pour les hooks : « ce client vient de faire X, envoie-lui Y ».
  *
  * Silencieux par construction — comme `armAutoStep`. Aucun parcours ouvert, ou

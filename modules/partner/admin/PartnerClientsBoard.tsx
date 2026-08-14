@@ -29,6 +29,7 @@ type PartnerRef = { societe?: string; name?: string; email?: string } | number |
 type ClientDoc = {
   id: number | string;
   companyName?: string;
+  email?: string;
   clientStatus?: string;
   caPaye?: number;
   signatureDate?: string;
@@ -118,6 +119,9 @@ export function PartnerClientsBoard() {
         // Mesuré : 298 ms / 41 Ko → 131 ms / 2 Ko.
         const fields = [
           "companyName",
+          // Pré-remplit le modal de démarrage : l'adresse est déjà sur la fiche,
+          // la faire retaper depuis le Kanban n'apporte rien qu'une faute de frappe.
+          "email",
           "clientStatus",
           "caPaye",
           "signatureDate",
@@ -356,6 +360,7 @@ export function PartnerClientsBoard() {
       {startingTest && (
         <StartTestModal
           client={{ id: startingTest.id, companyName: startingTest.companyName }}
+          defaultEmail={startingTest.email}
           onCancel={() => setStartingTest(null)}
           onDone={() => {
             const client = startingTest;

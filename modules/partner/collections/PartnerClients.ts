@@ -1,4 +1,5 @@
 import type {
+  CollectionAfterChangeHook,
   CollectionBeforeChangeHook,
   CollectionBeforeDeleteHook,
   CollectionConfig,
@@ -10,6 +11,7 @@ import { adminOnlyField, hasAdminRole, isAdmin, metierOwnedAccess, partnerIdOf }
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { validatePhone } from "@/core/lib/validators";
 import { requireTestSchedule } from "@/modules/marketing/hooks/requireTestSchedule";
+import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
 import { ONBOARDING_STATUS_OPTIONS } from "@/modules/marketing/lib/onboarding";
 import { CLIENT_STATUS_OPTIONS, CLIENT_STATUS_RANK } from "@/modules/partner/lib/clientStatus";
 import { round2 } from "@/modules/partner/lib/format";
@@ -211,6 +213,30 @@ const deleteClientContacts: CollectionBeforeDeleteHook = async ({ req, id }) => 
 };
 
 /**
+ * Deux étapes du parcours se constatent ICI, sur la fiche client — et nulle part
+ * ailleurs : le dossier de démarrage passé à « Transmis » et la date de
+ * signature du contrat.
+ *
+ * C'est le principe posé pour tout le parcours : une étape se coche par le
+ * GESTE qui la réalise, jamais par une case à part. Sans ce hook, l'admin qui
+ * enregistre la signature devrait encore aller cocher « Contrat signé » dans la
+ * phase de test — deux endroits pour un seul fait, donc tôt ou tard deux
+ * versions de la vérité.
+ *
+ * Seule la TRANSITION compte : on n'arme que si le champ vient de changer, pour
+ * qu'un simple réenregistrement de la fiche ne relance rien.
+ */
+const armJourneySteps: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
+  if (doc?.onboardingStatus === "transmis" && previousDoc?.onboardingStatus !== "transmis") {
+    await armAutoStep(req.payload, doc.id, "dossier-demarrage");
+  }
+  if (doc?.signatureDate && !previousDoc?.signatureDate) {
+    await armAutoStep(req.payload, doc.id, "signature");
+  }
+  return doc;
+};
+
+/**
  * Champs quantité/prix cachés : la SAISIE se fait via le tableau custom
  * (LicencesTable), mais les valeurs sont stockées dans ces vrais champs (liés
  * au tableau par useField). `hidden` = présent dans l'état + en base, non rendu.
@@ -305,6 +331,8 @@ export const PartnerClients: CollectionConfig = {
     // requireTestSchedule en TÊTE : le passage « En test » est refusé avant tout
     // calcul, plutôt que d'échouer à mi-chemin sur une fiche déjà recalculée.
     beforeChange: [requireTestSchedule, enforcePartnerField(), setStatusRank, computeCA],
+    // Les faits saisis ici cochent les étapes du parcours correspondantes.
+    afterChange: [armJourneySteps],
     // Supprime les contacts liés avant de supprimer le client (cf. deleteClientContacts).
     beforeDelete: [deleteClientContacts],
   },

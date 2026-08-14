@@ -23,7 +23,11 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
   const { id, savedDocumentData } = useDocumentInfo();
   const [asking, setAsking] = useState(false);
 
-  const companyName = (savedDocumentData as { companyName?: string } | undefined)?.companyName;
+  // L'adresse de la fiche pré-remplit le modal : elle est déjà connue, la
+  // redemander au démarrage était une saisie pour rien (et une occasion de
+  // faute de frappe sur l'adresse qui portera tout le parcours).
+  const saved = savedDocumentData as { companyName?: string; email?: string } | undefined;
+  const companyName = saved?.companyName;
 
   const onChange = useCallback(
     (next: string) => {
@@ -57,6 +61,7 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
       {asking && id && (
         <StartTestModal
           client={{ id, companyName }}
+          defaultEmail={saved?.email}
           onCancel={() => setAsking(false)}
           onDone={() => {
             setAsking(false);

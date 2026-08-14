@@ -2,15 +2,18 @@ import { describe, expect, it } from "vitest";
 import { bookingModeOf, generateSlots, resolveRules } from "@/modules/marketing/lib/scheduling";
 import { generatePassword, suggestUsername } from "@/modules/marketing/lib/credentials";
 import {
-  AUTO_TRIGGERS,
   NEVER_AUTO_VALIDATE,
   PHASE_DE_TEST_EMAILS,
   PHASE_DE_TEST_STEPS,
+  SYSTEM_STEPS,
+  canAutoValidate,
   computeEmailSchedule,
   isAdminStep,
+  isManualStep,
   isSessionBeforeStart,
   isStepDone,
   isStepPending,
+  isSystemStep,
 } from "@/modules/marketing/lib/journey";
 
 const paris = (iso: string) =>
@@ -218,7 +221,45 @@ describe("étapes réservées à TIM", () => {
   });
 
   it("aucun déclencheur automatique n'est déclaré pour le Go / No-Go", () => {
-    expect(AUTO_TRIGGERS["validation-admin"]).toBeUndefined();
+    expect(SYSTEM_STEPS["validation-admin"]).toBeUndefined();
+  });
+});
+
+describe("qui coche quoi : constat système contre déclaration humaine", () => {
+  it("une étape constatée par le système ne se coche pas à la main", () => {
+    for (const key of ["compte-espace-client", "provisionnement", "signature", "dossier-demarrage"]) {
+      expect(isSystemStep(key)).toBe(true);
+      expect(isManualStep({ key })).toBe(false);
+    }
+  });
+
+  it("les étapes réalisées par un humain gardent leur validation", () => {
+    for (const key of ["validation-admin", "prise-en-main", "releve-j2", "bilan", "devis", "demande-contrat", "contrat", "mise-en-production"]) {
+      expect(isSystemStep(key)).toBe(false);
+      expect(isManualStep({ key })).toBe(true);
+    }
+  });
+
+  it("la table de code prime sur le drapeau recopié dans un parcours ancien", () => {
+    // Parcours lancé avant la règle : sa copie d'étape dit « manuelle ».
+    expect(canAutoValidate({ key: "provisionnement", autoValidate: false })).toBe(true);
+    // Et inversement : le Go/No-Go ne s'automatise pas, quoi que dise la copie.
+    expect(canAutoValidate({ key: "validation-admin", autoValidate: true })).toBe(false);
+  });
+
+  it("chaque étape constatée dit ce qu'on doit faire pour qu'elle se coche", () => {
+    for (const [key, def] of Object.entries(SYSTEM_STEPS)) {
+      expect(def.trigger, key).toBeTruthy();
+      // « demande » est le seul fait qu'on ne refait pas : il naît avec le parcours.
+      if (key !== "demande") expect(def.action ?? def.wait, key).toBeTruthy();
+    }
+  });
+
+  it("toute étape constatée l'est par un fait que le modèle déclare auto", () => {
+    for (const key of Object.keys(SYSTEM_STEPS)) {
+      const step = PHASE_DE_TEST_STEPS.find((s) => s.key === key);
+      expect(step?.autoValidate, key).toBe(true);
+    }
   });
 });
 
