@@ -190,11 +190,12 @@ export default function AccessList({ groups }: { groups: Group[] }) {
   const total = groups.reduce((n, g) => n + g.accesses.length, 0);
 
   return (
-    // Le TABLEAU est borné, pas la page : une ligne tient en trois colonnes
-    // courtes, et l'étirer sur un grand écran mettrait vingt centimètres de vide
-    // entre le nom et son mot de passe — c'est justement l'association des deux
-    // qu'on vient lire. Le reste de l'écran garde la largeur de l'espace client.
-    <div className={`max-w-3xl${printing?.id ? " acces--solo" : ""}`}>
+    // Le TABLEAU est borné et centré, pas la page : une ligne tient en trois
+    // colonnes courtes, et l'étirer sur un grand écran mettrait vingt
+    // centimètres de vide entre le nom et son mot de passe — c'est justement
+    // l'association des deux qu'on vient lire. Le reste de l'écran (titre,
+    // avertissement) garde la largeur de l'espace client.
+    <div className={`mx-auto max-w-3xl${printing?.id ? " acces--solo" : ""}`}>
       <div className="mb-5 flex flex-wrap items-center gap-3 print:hidden">
         <button
           type="button"
