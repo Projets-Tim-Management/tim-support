@@ -1,4 +1,4 @@
-import type { Payload } from "payload";
+import type { Payload, PayloadRequest } from "payload";
 
 /**
  * Arme la validation automatique d'une étape depuis un autre module.
@@ -9,6 +9,16 @@ import type { Payload } from "payload";
  *
  * Silencieux par construction : aucun parcours ouvert, ou une écriture qui
  * échoue, ne doit jamais faire échouer le geste métier qui l'a déclenchée.
+ *
+ * ⚠️ `req` : à passer OBLIGATOIREMENT quand l'appel vient d'un hook. Sans lui,
+ * la lecture et l'écriture se font hors de la transaction en cours — on lit donc
+ * un état périmé (la modification qui nous a déclenchés n'est pas encore
+ * commitée), et on tente d'écrire une ligne que cette même transaction
+ * verrouille. Résultat : interblocage, la requête tourne jusqu'au délai puis tout
+ * est annulé. C'est l'incident du 24/08/2026 sur « Dossier vérifié par TIM ».
+ *
+ * Depuis une route HTTP, en revanche, il n'y a pas de transaction ouverte :
+ * l'omettre est correct.
  */
 const OPEN = ["preparation", "en-cours"];
 
@@ -30,6 +40,7 @@ export async function armAutoStep(
   payload: Payload,
   client: unknown,
   stepKey: string,
+  req?: PayloadRequest,
 ): Promise<void> {
   const clientId = idOf(client);
   if (clientId == null) return;
@@ -41,6 +52,7 @@ export async function armAutoStep(
       limit: 1,
       depth: 0,
       overrideAccess: true,
+      req,
     });
     const run = runs.docs[0];
     if (!run) return;
@@ -60,6 +72,7 @@ export async function armAutoStep(
       // `autoSteps` est un champ virtuel lu puis vidé par armAutoSteps.
       data: { autoSteps: [stepKey] } as never,
       overrideAccess: true,
+      req,
     });
   } catch (err) {
     payload.logger.error(`[parcours] armement automatique de « ${stepKey} » échoué : ${err}`);

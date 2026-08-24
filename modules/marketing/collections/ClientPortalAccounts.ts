@@ -80,7 +80,7 @@ export const ClientPortalAccounts: CollectionConfig = {
           (operation === "create" || previousDoc?.active === false);
         if (!opened) return doc;
 
-        await armAutoStep(req.payload, clientId, "compte-espace-client");
+        await armAutoStep(req.payload, clientId, "compte-espace-client", req);
 
         // PREMIER message du parcours : sans lui, le client dispose d'un espace
         // dont il ignore l'existence. L'échec est silencieux côté métier — un

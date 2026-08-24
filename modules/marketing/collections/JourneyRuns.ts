@@ -788,6 +788,11 @@ const lockDossierOnValidation: CollectionAfterChangeHook = async ({ doc, previou
       id: clientId,
       data: { onboardingStatus: "valide" },
       overrideAccess: true,
+      // `req` : indispensable. Sans lui cette écriture sort de la transaction en
+      // cours, et le hook du client qui suit va vouloir réarmer l'étape sur CE
+      // parcours — dont la ligne est encore verrouillée par la transaction qui
+      // nous a appelés. La requête se bloque, puis tout est annulé.
+      req,
     });
     req.payload.logger.info(`[parcours] dossier du client ${clientId} verrouillé (vérifié par TIM).`);
   } catch (err) {
@@ -835,6 +840,10 @@ const openPortalOnGo: CollectionAfterChangeHook = async ({ doc, previousDoc, req
           id: account.id,
           data: { active: true },
           overrideAccess: true,
+          // Cet accès va, par ses propres hooks, cocher une étape de CE
+          // parcours. Hors transaction, il tenterait de verrouiller une ligne
+          // que la nôtre tient encore : la requête se bloquerait.
+          req,
         });
         return doc;
       }
@@ -846,7 +855,7 @@ const openPortalOnGo: CollectionAfterChangeHook = async ({ doc, previousDoc, req
       // pas « l'accès existe » mais « le client a reçu son invitation pour ce
       // parcours ». `sendJourneyEmail` se garde lui-même du doublon : il ne
       // renvoie rien si la ligne d'envoi de CE parcours porte déjà un `sentAt`.
-      await armAutoStep(req.payload, clientId, "compte-espace-client");
+      await armAutoStep(req.payload, clientId, "compte-espace-client", req);
       const sent = await sendJourneyEmailForClient(
         req.payload,
         clientId,
@@ -874,6 +883,7 @@ const openPortalOnGo: CollectionAfterChangeHook = async ({ doc, previousDoc, req
       collection: "client-portal-accounts",
       data: { client: Number(clientId), email: client.email, active: true },
       overrideAccess: true,
+      req, // même raison qu'au-dessus : la création coche une étape d'ici.
     });
   } catch (err) {
     req.payload.logger.error(`[parcours] ouverture de l'espace client ${clientId} échouée : ${err}`);
