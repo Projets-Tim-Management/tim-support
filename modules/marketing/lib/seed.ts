@@ -2,6 +2,7 @@ import type { Payload } from "payload";
 
 import {
   DEFAULT_DURATION_WEEKS,
+  mergeRunSteps,
   DEFAULT_SEND_HOUR,
   PHASE_DE_TEST_EMAILS,
   PHASE_DE_TEST_KEY,
@@ -33,11 +34,15 @@ import {
 // v16 : alerte à TIM quand un créneau est réservé (« Prise en main calée »).
 // v17 : nouvelle étape « Dossier vérifié par TIM » — la valider verrouille la
 // saisie du client, geste qui vivait jusque-là dans un menu de la fiche client.
+// v19 : les étapes du modèle sont enfin RÉCONCILIÉES avec le code (ajout,
+// retrait, ordre). Sans ça, les v17 et v18 ci-dessous n'avaient aucun effet sur
+// un modèle déjà en place : l'étape supprimée y restait, la nouvelle n'y entrait
+// pas, et les parcours en cours recopiaient fidèlement ce modèle périmé.
 // v18 : suppression de « Validation du client (démarrage du test) ». Elle
 // demandait au client de confirmer ce qu'il venait de déclarer lui-même dans son
 // espace, et ne déclenchait rien. Une case qui bloque sans rien produire finit
 // cochée machinalement — et dévalue les validations qui, elles, comptent.
-const SEED_VERSION = 18;
+const SEED_VERSION = 19;
 
 const stepSeed = () =>
   PHASE_DE_TEST_STEPS.map((s) => ({
@@ -137,13 +142,30 @@ export async function seedJourneys(payload: Payload): Promise<void> {
     // ── Parcours déjà en place : mise à niveau minimale ──────────────────────
     if ((journey.seedVersion ?? 0) >= SEED_VERSION) return;
 
+    // Les ÉTAPES du modèle sont réconciliées avec le code : ajoutées, retirées,
+    // remises dans l'ordre. Jusqu'ici on ne rafraîchissait que le `detail` des
+    // étapes déjà présentes — une étape supprimée du code restait donc dans le
+    // modèle indéfiniment, et une étape ajoutée n'y arrivait jamais. Les
+    // parcours en cours, qui se réconcilient avec ce modèle, héritaient de
+    // l'erreur : ils continuaient d'afficher une étape que plus rien ne pilote.
+    //
+    // Même fonction que pour les parcours (`mergeRunSteps`), pour la raison
+    // habituelle : deux réconciliations écrites séparément divergent.
+    const merged = mergeRunSteps(PHASE_DE_TEST_STEPS, journey.steps ?? []) ?? journey.steps ?? [];
+
     const defaults = new Map(PHASE_DE_TEST_STEPS.map((s) => [s.key, s]));
-    const steps = (journey.steps ?? []).map((s) => {
+    const steps = merged.map((s) => {
       const def = s.key ? defaults.get(s.key) : undefined;
+      // `state` n'existe que sur un PARCOURS : le modèle n'a pas d'avancement.
+      // `mergeRunSteps` en pose un sur les étapes qu'elle ajoute ; on l'écarte.
+      const rest = { ...(s as Record<string, unknown>) };
+      delete rest.state;
       // `detail` et `autoValidate` sont livrés avec le code : le premier est de
       // la documentation, le second une règle de fonctionnement. Ni l'un ni
       // l'autre n'est un réglage que l'équipe personnalise dans l'admin.
-      return def ? { ...s, detail: def.detail, autoValidate: Boolean(def.autoValidate) } : s;
+      return def
+        ? { ...rest, detail: def.detail, autoValidate: Boolean(def.autoValidate) }
+        : rest;
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
