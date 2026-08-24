@@ -31,6 +31,7 @@ import * as migration_20260824_120211_switch_licences_to_contacts from './202608
 import * as migration_20260824_124928_add_tim_access_on_contacts from './20260824_124928_add_tim_access_on_contacts';
 import * as migration_20260824_125724_drop_unused_tim_code from './20260824_125724_drop_unused_tim_code';
 import * as migration_20260824_160545_drop_credentials_tables from './20260824_160545_drop_credentials_tables';
+import * as migration_20260824_173559_add_session_anchor from './20260824_173559_add_session_anchor';
 
 export const migrations = [
   {
@@ -196,6 +197,11 @@ export const migrations = [
   {
     up: migration_20260824_160545_drop_credentials_tables.up,
     down: migration_20260824_160545_drop_credentials_tables.down,
-    name: '20260824_160545_drop_credentials_tables'
+    name: '20260824_160545_drop_credentials_tables',
+  },
+  {
+    up: migration_20260824_173559_add_session_anchor.up,
+    down: migration_20260824_173559_add_session_anchor.down,
+    name: '20260824_173559_add_session_anchor'
   },
 ];

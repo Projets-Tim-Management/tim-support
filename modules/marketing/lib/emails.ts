@@ -695,6 +695,72 @@ const creneauConfirme = (ctx: JourneyEmailContext): BuiltEmail => {
   };
 };
 
+/**
+ * Rappel la veille du créneau, à 17 h.
+ *
+ * Il ne redit pas ce que la confirmation disait déjà : il sert à ce que le
+ * rendez-vous soit tenu. Donc l'heure, le lien, et ce qu'il faut avoir sous la
+ * main — parce qu'une session où l'on découvre qu'il manque le dossier ou que
+ * personne n'a le bon ordinateur est une session perdue pour tout le monde.
+ */
+const rappelCreneau = (ctx: JourneyEmailContext): BuiltEmail => {
+  const when = frDateTime(ctx.sessionAt);
+  const link = ctx.sessionLink?.trim() || null;
+  return {
+    subject: "Votre session de prise en main, c'est demain",
+    text: [
+      hello(ctx),
+      "",
+      when ? `Votre session de prise en main a lieu ${when}.` : "Votre session de prise en main a lieu demain.",
+      "Comptez 45 minutes.",
+      ctx.sessionModality ? `Où   : ${ctx.sessionModality}` : "",
+      link ? `Lien : ${link}` : "",
+      "",
+      ...(attendeeLines(ctx).length
+        ? ["Attendus à cette session :", ...attendeeLines(ctx).map((l) => `  • ${l}`), ""]
+        : []),
+      "Pour que la séance serve à quelque chose :",
+      "  • être devant un ordinateur, pas seulement un téléphone ;",
+      "  • avoir sous la main un chantier en cours et deux ou trois salariés à saisir.",
+      "",
+      "Un empêchement ? Répondez à cet e-mail, on replacera le rendez-vous.",
+      textSignature(),
+    ]
+      .filter((l) => l !== "")
+      .join("\n"),
+    html: shell({
+      heading: "C'est demain",
+      preheader: when ? `Votre session de prise en main : ${when}.` : "Votre session de prise en main a lieu demain.",
+      bodyHtml:
+        paragraph(hello(ctx)) +
+        callout(
+          [
+            when ? `<strong>${when}</strong>` : "<strong>Demain</strong>",
+            "45 minutes",
+            ctx.sessionModality ? escape(ctx.sessionModality) : null,
+          ]
+            .filter(Boolean)
+            .join("<br>"),
+        ) +
+        (link ? button("Rejoindre la visio", link) : "") +
+        (attendeeLines(ctx).length
+          ? paragraph(
+              `<strong>Attendus à cette session</strong><br>${attendeeLines(ctx).map(escape).join("<br>")}`,
+            )
+          : "") +
+        paragraph(
+          "<strong>Pour que la séance serve à quelque chose</strong><br>" +
+            "Être devant un ordinateur, pas seulement un téléphone.<br>" +
+            "Avoir sous la main un chantier en cours et deux ou trois salariés à saisir.",
+        ) +
+        paragraph(
+          `<span style="color:${MUTED};font-size:14px;">Un empêchement&nbsp;? Répondez à cet e-mail, on replacera le rendez-vous.</span>`,
+        ) +
+        signature(),
+    }),
+  };
+};
+
 // ─── Messages au PARTENAIRE ──────────────────────────────────────────────────
 
 const creneauReserve = (ctx: JourneyEmailContext): BuiltEmail => {
@@ -819,6 +885,7 @@ export const JOURNEY_EMAILS: Record<
   "dernier-jour": dernierJour,
   decision,
   "creneau-confirme": creneauConfirme,
+  "rappel-creneau": rappelCreneau,
   "creneau-reserve": creneauReserve,
   "recap-partenaire": recapPartenaire,
 };

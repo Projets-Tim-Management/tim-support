@@ -9,6 +9,7 @@ import {
   SYSTEM_STEPS,
   canAutoValidate,
   computeEmailSchedule,
+  stepDueDate,
   isAdminStep,
   isManualStep,
   isSessionBeforeStart,
@@ -548,5 +549,53 @@ describe("le MODÈLE en base suit le code, pas seulement les parcours", () => {
   it("le modèle livré avec le code ne contient plus l'étape supprimée", () => {
     expect(PHASE_DE_TEST_STEPS.some((s) => s.key === "validation-client")).toBe(false);
     expect(PHASE_DE_TEST_STEPS.some((s) => s.key === "validation-dossier")).toBe(true);
+  });
+});
+
+describe("rappel « c'est demain », la veille du créneau à 17 h", () => {
+  const mail = PHASE_DE_TEST_EMAILS.find((e) => e.key === "rappel-creneau")!;
+
+  it("s'ancre sur le CRÉNEAU et non sur le démarrage du test", () => {
+    // La distinction est tout l'objet de cet envoi : le client choisit son
+    // heure, souvent une semaine avant le lundi de démarrage. Un rappel ancré
+    // sur « debut » tomberait n'importe quand par rapport au rendez-vous.
+    expect(mail.anchor).toBe("session");
+    expect(mail.offsetDays).toBe(-1);
+    expect(mail.sendHour).toBe("17:00");
+    expect(mail.audience).toBe("client");
+  });
+
+  it("tombe la veille du créneau, quelle que soit la date de démarrage", () => {
+    const due = stepDueDate(mail, "2026-09-07", "2026-10-05", "2026-08-31T14:00:00.000Z");
+    expect(due?.slice(0, 10)).toBe("2026-08-30");
+  });
+
+  it("n'a AUCUNE date tant qu'aucun créneau n'est réservé", () => {
+    // Pas de date = pas d'envoi. C'est ce qui évite un « c'est demain » adressé
+    // à quelqu'un qui n'a jamais pris de rendez-vous.
+    expect(stepDueDate(mail, "2026-09-07", "2026-10-05", null)).toBeNull();
+    const [planned] = computeEmailSchedule([{ ...mail, overridden: false, scheduledAt: null }], "2026-09-07", "2026-10-05", null);
+    expect(planned.scheduledAt).toBeNull();
+  });
+
+  it("est programmé à 17 h de Paris le jour où le créneau est posé", () => {
+    const [planned] = computeEmailSchedule(
+      [{ ...mail, overridden: false, scheduledAt: null }],
+      "2026-09-07",
+      "2026-10-05",
+      "2026-08-31T09:30:00.000Z",
+    );
+    // Fin août, Paris est à UTC+2 : 17 h locales = 15 h UTC.
+    expect(planned.scheduledAt).toBe("2026-08-30T15:00:00.000Z");
+  });
+
+  it("une date reprise à la main n'est pas écrasée par le calcul", () => {
+    const [planned] = computeEmailSchedule(
+      [{ ...mail, overridden: true, scheduledAt: "2026-08-29T10:00:00.000Z" }],
+      "2026-09-07",
+      "2026-10-05",
+      "2026-08-31T09:30:00.000Z",
+    );
+    expect(planned.scheduledAt).toBe("2026-08-29T10:00:00.000Z");
   });
 });

@@ -525,6 +525,11 @@ const computeState: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
     (data?.emails ?? originalDoc?.emails ?? []) as RunEmail[],
     startDate,
     endDate,
+    // Le rappel de la veille s'accroche au créneau, pas au démarrage : sans
+    // cette date il n'a pas d'échéance, donc il ne part pas. Il en reçoit une
+    // dès que le client réserve — la réservation enregistre le parcours, ce
+    // hook tourne, et l'envoi se programme tout seul.
+    (data?.sessionAt ?? originalDoc?.sessionAt) as string | null | undefined,
   );
 
   // Une date reprise à la main reste dans la fenêtre de son étape. L'écran pose

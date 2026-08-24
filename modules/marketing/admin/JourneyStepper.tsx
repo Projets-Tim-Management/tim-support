@@ -152,7 +152,8 @@ export function JourneyStepper() {
    * (`steps.0.key`, `steps.0.state`…) : on remonte les lignes tant qu'une clé
    * existe, plutôt que de dépendre de la structure interne des `rows`.
    */
-  const { steps, mails, startDate, durationWeeks, extraDays, status, clientId } = useFormFields(([fields]) => {
+  const { steps, mails, startDate, sessionAt, durationWeeks, extraDays, status, clientId } =
+    useFormFields(([fields]) => {
     const collected: StepView[] = [];
     for (let i = 0; fields[`steps.${i}.key`] !== undefined; i += 1) {
       collected.push({
@@ -198,6 +199,9 @@ export function JourneyStepper() {
       steps: collected,
       mails,
       startDate: (fields.startDate?.value as string | undefined) ?? null,
+      // Le rappel de la veille s'ancre sur le créneau : sans cette date, son
+      // échéance calculée serait vide et le « rétablir » l'effacerait.
+      sessionAt: (fields.sessionAt?.value as string | undefined) ?? null,
       durationWeeks: Number(fields.durationWeeks?.value ?? 0) || null,
       extraDays: extra,
       status: (fields.status?.value as string | undefined) ?? "preparation",
@@ -489,6 +493,7 @@ export function JourneyStepper() {
                                 [{ ...m, overridden: false }],
                                 startDate,
                                 endDate,
+                                sessionAt,
                               )[0]?.scheduledAt ?? null
                             }
                             // Bornée par les étapes voisines : un envoi ne doit

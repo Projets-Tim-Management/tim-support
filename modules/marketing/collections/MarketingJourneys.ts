@@ -188,7 +188,10 @@ export const MarketingJourneys: CollectionConfig = {
               defaultValue: 0,
               admin: {
                 width: "50%",
-                condition: (_, sibling) => sibling?.anchor === "debut" || sibling?.anchor === "fin",
+                // Le décalage a du sens dès qu'il y a une date de référence — le
+                // démarrage, la fin, ou désormais le créneau de prise en main.
+                condition: (_, sibling) =>
+                  ["debut", "fin", "session"].includes(String(sibling?.anchor ?? "")),
                 description: "Négatif = avant l'ancrage. Ex. -7 = une semaine avant.",
               },
             },
@@ -249,7 +252,10 @@ export const MarketingJourneys: CollectionConfig = {
               defaultValue: 0,
               admin: {
                 width: "33%",
-                condition: (_, sibling) => sibling?.anchor === "debut" || sibling?.anchor === "fin",
+                // Le décalage a du sens dès qu'il y a une date de référence — le
+                // démarrage, la fin, ou désormais le créneau de prise en main.
+                condition: (_, sibling) =>
+                  ["debut", "fin", "session"].includes(String(sibling?.anchor ?? "")),
               },
             },
             {
