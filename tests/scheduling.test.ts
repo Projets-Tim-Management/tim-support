@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { bookingModeOf, generateSlots, resolveRules } from "@/modules/marketing/lib/scheduling";
 import { PORTAL_SECTIONS, validateRow } from "@/modules/marketing/lib/portal-sections";
 import { generatePassword } from "@/modules/marketing/lib/credentials";
+import { buildTimAccessEmail } from "@/modules/marketing/lib/emails";
 import {
   NEVER_AUTO_VALIDATE,
   PHASE_DE_TEST_EMAILS,
@@ -597,5 +598,40 @@ describe("rappel « c'est demain », la veille du créneau à 17 h", () => {
       "2026-08-31T09:30:00.000Z",
     );
     expect(planned.scheduledAt).toBe("2026-08-29T10:00:00.000Z");
+  });
+});
+
+describe("e-mail « vos accès TIM » envoyé à une personne", () => {
+  const base = { login: "jean@exemple.fr", password: "094220", clientName: "SOUVET VMB" };
+
+  it("porte l'adresse du logiciel, quel que soit le profil", () => {
+    const mail = buildTimAccessEmail({ ...base, profileKey: "admin" });
+    expect(mail.text).toContain("https://app.tim-management.co/");
+    expect(mail.html).toContain("https://app.tim-management.co/");
+  });
+
+  it("propose l'application mobile à ceux qui sont sur le terrain", () => {
+    // Le pointage se saisit au pied du chantier, sur un téléphone.
+    for (const profileKey of ["conducteur", "chefChantier", "chefEquipe", "compagnon"]) {
+      const mail = buildTimAccessEmail({ ...base, profileKey });
+      expect(mail.text, profileKey).toContain("play.google.com");
+      expect(mail.text, profileKey).toContain("apps.apple.com");
+      expect(mail.html, profileKey).toContain("Disponible sur Google Play");
+    }
+  });
+
+  it("ne la propose PAS à l'administrateur : il paramètre, il ne pointe pas", () => {
+    const mail = buildTimAccessEmail({ ...base, profileKey: "admin" });
+    expect(mail.text).not.toContain("play.google.com");
+    expect(mail.html).not.toContain("App Store");
+  });
+
+  it("contient l'identifiant et le mot de passe, dans les deux versions", () => {
+    const mail = buildTimAccessEmail({ ...base, firstName: "Jean", profileKey: "compagnon" });
+    for (const version of [mail.text, mail.html]) {
+      expect(version).toContain("jean@exemple.fr");
+      expect(version).toContain("094220");
+    }
+    expect(mail.text).toContain("Bonjour Jean,");
   });
 });

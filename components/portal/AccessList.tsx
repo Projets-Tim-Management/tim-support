@@ -38,32 +38,39 @@ export default function AccessList({ accesses }: { accesses: Access[] }) {
   const [sent, setSent] = useState<Record<string, Sent>>({});
 
   /**
-   * Fiche à imprimer seule. `null` = toutes.
+   * Impression en cours. `null` = aucune ; `{ id: null }` = toute la liste ;
+   * `{ id: "12" }` = cette fiche seule.
    *
    * Un état plutôt qu'une manipulation du DOM : la ligne visée doit porter sa
    * classe AVANT que le navigateur n'ouvre l'aperçu, or React ne l'aura posée
-   * qu'au rendu suivant. On déclenche donc l'impression dans un effet, une fois
-   * l'écran à jour.
+   * qu'au rendu suivant. L'impression part donc d'un effet, une fois l'écran à
+   * jour.
+   *
+   * Les DEUX boutons passent par cet état, y compris « imprimer tout » : sans
+   * ça, une impression globale juste après une impression unitaire aurait gardé
+   * la liste en mode « une seule fiche ».
    */
-  const [solo, setSolo] = useState<string | null>(null);
+  const [printing, setPrinting] = useState<{ id: string | null } | null>(null);
 
   useEffect(() => {
-    if (solo === null) return;
+    if (!printing) return;
+
+    // Remise à zéro à la FERMETURE de l'aperçu, et à rien d'autre.
+    //
+    // Un délai de repli, ici, est un piège : Chrome tient l'aperçu ouvert aussi
+    // longtemps qu'il le faut ET répercute les changements du DOM en direct.
+    // Retirer la classe au bout de quelques secondes faisait donc réapparaître
+    // toutes les lignes dans l'aperçu déjà affiché — l'impression unitaire
+    // rendait la page entière. Si `afterprint` n'est jamais émis, l'état reste
+    // posé sans aucune conséquence visible : ces classes ne servent qu'à
+    // l'impression, l'écran ne bouge pas.
+    const done = () => setPrinting(null);
+    window.addEventListener("afterprint", done, { once: true });
 
     window.print();
 
-    // Retour à l'état normal une fois l'aperçu refermé. Le délai de repli existe
-    // parce que `afterprint` n'est pas émis partout (Safari) : une page qui
-    // resterait amputée de ses lignes serait pire que pas de bouton du tout.
-    const restore = () => setSolo(null);
-    window.addEventListener("afterprint", restore, { once: true });
-    const timer = window.setTimeout(restore, 3000);
-
-    return () => {
-      window.removeEventListener("afterprint", restore);
-      window.clearTimeout(timer);
-    };
-  }, [solo]);
+    return () => window.removeEventListener("afterprint", done);
+  }, [printing]);
 
   const sendOne = async (a: Access) => {
     const key = String(a.id);
@@ -108,7 +115,7 @@ export default function AccessList({ accesses }: { accesses: Access[] }) {
       <div className="mb-4 flex flex-wrap items-center gap-3 print:hidden">
         <button
           type="button"
-          onClick={() => window.print()}
+          onClick={() => setPrinting({ id: null })}
           className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
         >
           <IconPrinter className="h-4 w-4" />
@@ -121,7 +128,7 @@ export default function AccessList({ accesses }: { accesses: Access[] }) {
 
       <ul
         className={`divide-y divide-border rounded-lg border border-border bg-white${
-          solo ? " acces--solo" : ""
+          printing?.id ? " acces--solo" : ""
         }`}
       >
         {accesses.map((a) => {
@@ -131,7 +138,7 @@ export default function AccessList({ accesses }: { accesses: Access[] }) {
             <li
               key={key}
               className={`acces-ligne flex flex-wrap items-center gap-x-6 gap-y-2 p-4${
-                solo === key ? " acces-ligne--solo" : ""
+                printing?.id === key ? " acces-ligne--solo" : ""
               }`}
             >
               <div className="min-w-[12rem] flex-1">
@@ -153,7 +160,7 @@ export default function AccessList({ accesses }: { accesses: Access[] }) {
               <div className="flex items-center gap-2 print:hidden">
                 <button
                   type="button"
-                  onClick={() => setSolo(key)}
+                  onClick={() => setPrinting({ id: key })}
                   title={`Imprimer la fiche de ${fullName(a)}`}
                   aria-label={`Imprimer la fiche de ${fullName(a)}`}
                   className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted transition hover:border-primary hover:text-primary"

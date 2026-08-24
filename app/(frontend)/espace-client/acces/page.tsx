@@ -85,7 +85,11 @@ export default async function AccesPage() {
   }));
 
   return (
-    <div className="px-6 py-10 sm:px-8">
+    // Bornée, contrairement au reste de l'espace : une ligne d'accès tient en
+    // trois colonnes courtes (nom, identifiants, actions). Étalée sur un grand
+    // écran, elle sépare le nom de son mot de passe par vingt centimètres de
+    // vide — et c'est justement l'association des deux qu'on vient lire.
+    <div className="mx-auto max-w-4xl px-6 py-10 sm:px-8">
       <div className="mb-8 flex items-start justify-between gap-4 print:hidden">
         <div>
           <Link href="/espace-client/accueil" className="text-sm text-muted hover:underline">
@@ -93,16 +97,16 @@ export default async function AccesPage() {
           </Link>
           <h1 className="mt-2 text-3xl font-bold text-foreground">Mes accès TIM</h1>
           <p className="mt-2 text-muted">
-            {accesses.length} accès, dans l&apos;ordre des profils. Imprimez-les tous d&apos;un coup,
+            {accesses.length}&nbsp;accès, dans l&apos;ordre des profils. Imprimez-les tous d&apos;un coup,
             ou fiche par fiche — et envoyez les siens à quelqu&apos;un qui n&apos;est pas sur place.
           </p>
         </div>
       </div>
 
       <p className="mb-6 rounded-md bg-processing-bg px-4 py-3 text-sm text-processing-text print:hidden">
-        Ces identifiants sont confidentiels et ne s&apos;affichent qu&apos;ici, une fois connecté.
-        L&apos;envoi par e-mail part de TIM et va&nbsp;toujours à l&apos;adresse déclarée pour la
-        personne concernée&nbsp;: vérifiez-la avant d&apos;envoyer.
+        Ces identifiants sont confidentiels. Vous pouvez les imprimer, ou les envoyer par e-mail
+        à la personne concernée&nbsp;: l&apos;envoi part de TIM et va toujours à l&apos;adresse
+        déclarée pour elle&nbsp;— vérifiez-la avant d&apos;envoyer.
       </p>
 
       {accesses.length === 0 ? (

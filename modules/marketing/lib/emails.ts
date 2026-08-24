@@ -256,7 +256,7 @@ const dossierRecu = (ctx: JourneyEmailContext): BuiltEmail => {
       "",
       "Votre dossier de démarrage nous est bien parvenu. Merci.",
       "",
-      `Nous préparons vos accès${start ? ` pour le ${start}` : ""}. Vous les recevrez le matin du démarrage, prêts à être imprimés et distribués à vos équipes.`,
+      `Nous préparons vos accès${start ? ` pour le ${start}` : ""}. Vous les recevrez le matin du démarrage, prêts à être distribués à vos équipes.`,
       "",
       "Rien à faire de votre côté d'ici là.",
       textSignature(),
@@ -268,7 +268,7 @@ const dossierRecu = (ctx: JourneyEmailContext): BuiltEmail => {
         paragraph(hello(ctx)) +
         paragraph("Votre dossier de démarrage nous est bien parvenu. Merci.") +
         paragraph(
-          `Nous préparons vos accès${start ? ` pour le <strong>${start}</strong>` : ""}. Vous les recevrez le matin du démarrage, prêts à être imprimés et distribués à vos équipes.`,
+          `Nous préparons vos accès${start ? ` pour le <strong>${start}</strong>` : ""}. Vous les recevrez le matin du démarrage, prêts à être distribués à vos équipes.`,
         ) +
         callout("Rien à faire de votre côté d'ici là.") +
         signature(),
@@ -414,7 +414,7 @@ const accesPrets = (ctx: JourneyEmailContext): BuiltEmail => {
       "",
       "C'est vous qui les distribuez — vous savez mieux que nous qui doit commencer par quoi.",
       "",
-      "Dans votre espace client, chaque personne a sa fiche : identifiant et code. Vous pouvez les imprimer et les découper pour les remettre en réunion de chantier.",
+      "Dans votre espace client, chaque personne a sa ligne : identifiant et mot de passe. Imprimez-les pour les remettre en main propre, ou envoyez à chacun les siens par e-mail.",
       "",
       "Les identifiants ne sont pas dans cet e-mail : ils ne s'affichent qu'une fois connecté.",
       "",
@@ -423,7 +423,7 @@ const accesPrets = (ctx: JourneyEmailContext): BuiltEmail => {
     ].join("\n"),
     html: shell({
       heading: "Vos accès TIM sont prêts",
-      preheader: "À imprimer et à distribuer à vos équipes.",
+      preheader: "À imprimer ou à envoyer à vos équipes.",
       bodyHtml:
         paragraph(hello(ctx)) +
         paragraph(
@@ -433,11 +433,11 @@ const accesPrets = (ctx: JourneyEmailContext): BuiltEmail => {
           "C'est vous qui les distribuez — vous savez mieux que nous qui doit commencer par quoi.",
         ) +
         callout(
-          "Dans votre espace client, chaque personne a sa fiche : identifiant et code. Imprimez la page, découpez, remettez en réunion de chantier.",
+          "Dans votre espace client, chaque personne a sa ligne : identifiant et mot de passe. Imprimez-les pour les remettre en main propre, ou envoyez à chacun les siens par e-mail.",
         ) +
-        button("Voir et imprimer mes accès", url) +
+        button("Voir et distribuer mes accès", url) +
         paragraph(
-          `<span style="color:${MUTED};font-size:14px;">Les identifiants ne figurent pas dans cet e-mail : ils ne s'affichent qu'une fois connecté.</span>`,
+          `<span style="color:${MUTED};font-size:14px;">Les identifiants ne figurent pas dans CE message : ils ne s'affichent qu'une fois connecté à votre espace, d'où vous pourrez les envoyer à chacun.</span>`,
         ) +
         signature(),
     }),
@@ -883,16 +883,48 @@ const recapPartenaire = (ctx: JourneyEmailContext): BuiltEmail => {
  * client, et va TOUJOURS à l'adresse déclarée pour cette personne — jamais à
  * une adresse saisie au moment de l'envoi.
  */
+/** Le logiciel TIM lui-même — là où ces identifiants servent. */
+const TIM_APP_URL = "https://app.tim-management.co/";
+const TIM_ANDROID_URL =
+  "https://play.google.com/store/apps/details?id=com.timmanagement.app";
+const TIM_IOS_URL = "https://apps.apple.com/fr/app/tim-management/id1565369001";
+
+/**
+ * Profils qui travaillent sur le terrain, et à qui l'application mobile est
+ * donc utile : c'est sur un téléphone, au pied du chantier, que le pointage se
+ * saisit. L'administrateur reste sur le navigateur — il paramètre, il ne pointe
+ * pas.
+ *
+ * Le chef d'équipe y figure au même titre que le chef de chantier : il est sur
+ * site comme les autres. À retirer d'un mot s'il ne doit pas l'avoir.
+ */
+const MOBILE_PROFILES = new Set(["conducteur", "chefChantier", "chefEquipe", "compagnon"]);
+
+/**
+ * Badges officiels des deux magasins.
+ *
+ * Servis par Google et Apple, qui les maintiennent aux bonnes dimensions et
+ * dans la bonne langue. La plupart des messageries bloquent les images tant que
+ * le destinataire ne les autorise pas : le texte de remplacement porte donc le
+ * nom du magasin, et le lien reste cliquable même sans image.
+ */
+const PLAY_BADGE =
+  "https://play.google.com/intl/fr_fr/badges/static/images/badges/fr_badge_web_generic.png";
+const APPSTORE_BADGE =
+  "https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/fr-fr?size=250x83";
+
 export const buildTimAccessEmail = (args: {
   firstName?: string | null;
   lastName?: string | null;
   login: string;
   password: string;
   profileLabel?: string | null;
+  profileKey?: string | null;
   clientName?: string | null;
 }): BuiltEmail => {
   const who = args.firstName?.trim() ? `Bonjour ${escape(args.firstName.trim())},` : "Bonjour,";
   const societe = args.clientName?.trim();
+  const mobile = MOBILE_PROFILES.has(args.profileKey ?? "");
 
   return {
     subject: "Vos accès au logiciel TIM",
@@ -906,6 +938,16 @@ export const buildTimAccessEmail = (args: {
       "",
       `Identifiant   : ${args.login}`,
       `Mot de passe  : ${args.password}`,
+      "",
+      `Connexion : ${TIM_APP_URL}`,
+      ...(mobile
+        ? [
+            "",
+            "Sur le chantier, l'application mobile :",
+            `  Android   : ${TIM_ANDROID_URL}`,
+            `  iPhone    : ${TIM_IOS_URL}`,
+          ]
+        : []),
       "",
       "Ce mot de passe est personnel : ne le transmettez à personne.",
       "Si vous n'attendiez pas ce message, prévenez votre responsable.",
@@ -932,6 +974,16 @@ export const buildTimAccessEmail = (args: {
             .filter(Boolean)
             .join("<br>"),
         ) +
+        button("Se connecter à TIM", TIM_APP_URL) +
+        (mobile
+          ? paragraph(
+              "<strong>Sur le chantier, l'application mobile</strong><br>" +
+                `<a href="${TIM_ANDROID_URL}" style="display:inline-block;margin:8px 8px 0 0;">` +
+                `<img src="${PLAY_BADGE}" alt="Disponible sur Google Play" height="44" style="height:44px;border:0;"></a>` +
+                `<a href="${TIM_IOS_URL}" style="display:inline-block;margin:8px 0 0 0;">` +
+                `<img src="${APPSTORE_BADGE}" alt="Télécharger dans l'App Store" height="44" style="height:44px;border:0;"></a>`,
+            )
+          : "") +
         paragraph(
           `<span style="color:${MUTED};font-size:14px;">Ce mot de passe est personnel&nbsp;: ne le transmettez à personne. Si vous n'attendiez pas ce message, prévenez votre responsable.</span>`,
         ) +

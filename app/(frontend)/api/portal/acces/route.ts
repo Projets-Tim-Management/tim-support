@@ -55,6 +55,9 @@ export async function POST(req: Request) {
     login: personne.email,
     password: personne.timPassword,
     profileLabel: profil?.label ?? null,
+    // La CLÉ en plus du libellé : c'est elle qui décide si l'application mobile
+    // est proposée. Comparer un libellé traduisible serait fragile.
+    profileKey: personne.licenceProfile,
     clientName: ctx.client.companyName,
   });
 
