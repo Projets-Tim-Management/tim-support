@@ -96,7 +96,7 @@ const MILESTONE_HINTS: Record<string, { label: string; hint: string }> = {
   },
   "remise-acces": {
     label: "Accès distribués",
-    hint: "Vous remettez leurs identifiants à vos utilisateurs — un par personne, à imprimer depuis votre espace.",
+    hint: "Vous remettez leurs identifiants à vos utilisateurs — un par personne, à imprimer ou à envoyer depuis votre espace.",
   },
   bilan: {
     label: "Bilan du test",

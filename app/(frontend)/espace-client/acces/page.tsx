@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import AccessList, { type Access, type Group } from "@/components/portal/AccessList";
 import { payloadClient } from "@/core/payload-client";
 import { readTimAccesses } from "@/modules/marketing/lib/credential-secrets";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
@@ -16,6 +17,21 @@ const PROFILE_LABEL: Record<string, string> = Object.fromEntries(
   LICENCE_PROFILE_OPTIONS.map((p) => [p.value, p.label]),
 );
 
+/**
+ * Rang d'un profil dans la hiérarchie — l'ordre de la grille tarifaire
+ * (administrateur, conducteur, chef de chantier, chef d'équipe, compagnon).
+ *
+ * C'est l'ordre dans lequel on prévient les gens : l'administrateur d'abord,
+ * parce que c'est lui qui paramètre et qui répondra aux questions des autres.
+ * Un profil inconnu — ou absent — passe en fin de liste plutôt que de fausser
+ * le classement.
+ */
+const PROFILE_RANK = new Map<string, number>(
+  LICENCE_PROFILE_OPTIONS.map((p, i) => [p.value as string, i]),
+);
+const rank = (profile?: string | null): number =>
+  PROFILE_RANK.get(profile ?? "") ?? LICENCE_PROFILE_OPTIONS.length;
+
 type Credential = {
   id: number | string;
   firstName?: string | null;
@@ -26,16 +42,17 @@ type Credential = {
 };
 
 /**
- * « Mes accès » — une vignette par utilisateur, à imprimer et à découper.
+ * « Mes accès » — la liste des utilisateurs, dans l'ordre des profils.
  *
- * C'est le client qui distribue les accès à ses équipes : beaucoup de compagnons
- * n'ont pas d'adresse e-mail professionnelle, et un identifiant remis en main
- * propre en réunion de chantier arrive à destination. D'où le format « fiches à
- * découper » plutôt qu'un tableau.
+ * C'est le client qui distribue les accès à ses équipes, et il le fait de deux
+ * façons selon la personne : sur papier pour ceux qu'il voit (beaucoup de
+ * compagnons n'ont pas d'adresse professionnelle, un papier tendu en réunion de
+ * chantier arrive à destination), par e-mail pour ceux qui sont en déplacement.
+ * Les deux gestes sont donc offerts sur chaque ligne, et pour toute la liste.
  *
- * Ces identifiants ne transitent JAMAIS par e-mail : ils ne s'affichent que
- * derrière une session ouverte, et la lecture est filtrée sur l'entreprise du
- * cookie signé.
+ * La lecture est filtrée sur l'entreprise du cookie signé, jamais sur un
+ * identifiant venu de l'URL. Les mots de passe sont chiffrés au repos et
+ * masqués par l'API : ils ne sont déchiffrés qu'ici, derrière une session.
  */
 export default async function AccesPage() {
   const ctx = await getPortalClient();
@@ -47,9 +64,43 @@ export default async function AccesPage() {
   // chercher précisément ce qu'il doit distribuer à ses équipes.
   // Les accès vivent désormais sur les UTILISATEURS déclarés : les comptes sont
   // créés dans TIM, on ne conserve ici que ce qui se distribue aux équipes.
-  const credentials = ((await readTimAccesses(payload, ctx.client.id)) as Credential[]).filter(
-    (c) => c.timPassword,
-  );
+  const credentials = ((await readTimAccesses(payload, ctx.client.id)) as Credential[])
+    .filter((c) => c.timPassword)
+    // Par profil, puis par nom : deux chefs de chantier se suivent dans l'ordre
+    // de l'annuaire, ce qui aide à cocher une liste papier.
+    .sort(
+      (a, b) =>
+        rank(a.licenceProfile) - rank(b.licenceProfile) ||
+        (a.lastName ?? "").localeCompare(b.lastName ?? "", "fr") ||
+        (a.firstName ?? "").localeCompare(b.firstName ?? "", "fr"),
+    );
+
+  /**
+   * Regroupement par profil, dans l'ordre de la hiérarchie.
+   *
+   * Une liste continue de quinze lignes oblige à lire chaque intitulé pour
+   * savoir où l'on en est. Les sections donnent la réponse d'un coup d'œil, et
+   * surtout elles correspondent à la façon dont on distribue : on prévient les
+   * conducteurs, puis les chefs de chantier, puis les compagnons.
+   */
+  const groups: Group[] = [];
+  for (const c of credentials) {
+    const label = c.licenceProfile
+      ? (PROFILE_LABEL[c.licenceProfile] ?? c.licenceProfile)
+      : "Profil non précisé";
+    // Le tri les a déjà rassemblés : le dernier groupe est forcément le bon.
+    const last = groups[groups.length - 1];
+    const acces: Access = {
+      id: c.id,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      profileLabel: label,
+      email: c.email,
+      password: c.timPassword,
+    };
+    if (last && last.label === label) last.accesses.push(acces);
+    else groups.push({ label, accesses: [acces] });
+  }
 
   return (
     <div className="px-6 py-10 sm:px-8">
@@ -60,15 +111,16 @@ export default async function AccesPage() {
           </Link>
           <h1 className="mt-2 text-3xl font-bold text-foreground">Mes accès TIM</h1>
           <p className="mt-2 text-muted">
-            {credentials.length} accès. Imprimez la page&nbsp;: chaque encadré se découpe et se remet
-            à la personne concernée.
+            {credentials.length}&nbsp;accès, regroupés par profil. Imprimez-les tous d&apos;un coup,
+            ou fiche par fiche — et envoyez les siens à quelqu&apos;un qui n&apos;est pas sur place.
           </p>
         </div>
       </div>
 
       <p className="mb-6 rounded-md bg-processing-bg px-4 py-3 text-sm text-processing-text print:hidden">
-        Ces identifiants sont confidentiels. Ils ne vous sont jamais envoyés par e-mail&nbsp;: ils ne
-        s&apos;affichent qu&apos;ici, une fois connecté.
+        Ces identifiants sont confidentiels. Vous pouvez les imprimer, ou les envoyer par e-mail
+        à la personne concernée&nbsp;: l&apos;envoi part de TIM et va toujours à l&apos;adresse
+        déclarée pour elle&nbsp;— vérifiez-la avant d&apos;envoyer.
       </p>
 
       {credentials.length === 0 ? (
@@ -76,34 +128,9 @@ export default async function AccesPage() {
           Vos accès ne sont pas encore prêts. Nous vous prévenons dès qu&apos;ils le sont.
         </p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {credentials.map((c) => (
-            <article
-              key={String(c.id)}
-              className="rounded-lg border border-dashed border-border bg-white p-4 break-inside-avoid"
-            >
-              <p className="font-semibold text-foreground">
-                {[c.firstName, c.lastName].filter(Boolean).join(" ")}
-              </p>
-              {c.licenceProfile && (
-                <p className="text-xs text-muted">{PROFILE_LABEL[c.licenceProfile] ?? c.licenceProfile}</p>
-              )}
-              <dl className="mt-3 space-y-1 text-sm">
-                {c.email && (
-                  <div className="flex gap-2">
-                    <dt className="w-28 shrink-0 text-muted">Identifiant</dt>
-                    <dd className="break-all font-mono text-foreground">{c.email}</dd>
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <dt className="w-28 shrink-0 text-muted">Mot de passe</dt>
-                  <dd className="font-mono text-foreground">{c.timPassword}</dd>
-                </div>
-              </dl>
-            </article>
-          ))}
-        </div>
+        <AccessList groups={groups} />
       )}
+
     </div>
   );
 }

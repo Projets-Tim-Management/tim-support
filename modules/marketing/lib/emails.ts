@@ -256,7 +256,7 @@ const dossierRecu = (ctx: JourneyEmailContext): BuiltEmail => {
       "",
       "Votre dossier de démarrage nous est bien parvenu. Merci.",
       "",
-      `Nous préparons vos accès${start ? ` pour le ${start}` : ""}. Vous les recevrez le matin du démarrage, prêts à être imprimés et distribués à vos équipes.`,
+      `Nous préparons vos accès${start ? ` pour le ${start}` : ""}. Vous les recevrez le matin du démarrage, prêts à être distribués à vos équipes.`,
       "",
       "Rien à faire de votre côté d'ici là.",
       textSignature(),
@@ -268,7 +268,7 @@ const dossierRecu = (ctx: JourneyEmailContext): BuiltEmail => {
         paragraph(hello(ctx)) +
         paragraph("Votre dossier de démarrage nous est bien parvenu. Merci.") +
         paragraph(
-          `Nous préparons vos accès${start ? ` pour le <strong>${start}</strong>` : ""}. Vous les recevrez le matin du démarrage, prêts à être imprimés et distribués à vos équipes.`,
+          `Nous préparons vos accès${start ? ` pour le <strong>${start}</strong>` : ""}. Vous les recevrez le matin du démarrage, prêts à être distribués à vos équipes.`,
         ) +
         callout("Rien à faire de votre côté d'ici là.") +
         signature(),
@@ -414,7 +414,7 @@ const accesPrets = (ctx: JourneyEmailContext): BuiltEmail => {
       "",
       "C'est vous qui les distribuez — vous savez mieux que nous qui doit commencer par quoi.",
       "",
-      "Dans votre espace client, chaque personne a sa fiche : identifiant et code. Vous pouvez les imprimer et les découper pour les remettre en réunion de chantier.",
+      "Dans votre espace client, chaque personne a sa ligne : identifiant et mot de passe. Imprimez-les pour les remettre en main propre, ou envoyez à chacun les siens par e-mail.",
       "",
       "Les identifiants ne sont pas dans cet e-mail : ils ne s'affichent qu'une fois connecté.",
       "",
@@ -423,7 +423,7 @@ const accesPrets = (ctx: JourneyEmailContext): BuiltEmail => {
     ].join("\n"),
     html: shell({
       heading: "Vos accès TIM sont prêts",
-      preheader: "À imprimer et à distribuer à vos équipes.",
+      preheader: "À imprimer ou à envoyer à vos équipes.",
       bodyHtml:
         paragraph(hello(ctx)) +
         paragraph(
@@ -433,11 +433,11 @@ const accesPrets = (ctx: JourneyEmailContext): BuiltEmail => {
           "C'est vous qui les distribuez — vous savez mieux que nous qui doit commencer par quoi.",
         ) +
         callout(
-          "Dans votre espace client, chaque personne a sa fiche : identifiant et code. Imprimez la page, découpez, remettez en réunion de chantier.",
+          "Dans votre espace client, chaque personne a sa ligne : identifiant et mot de passe. Imprimez-les pour les remettre en main propre, ou envoyez à chacun les siens par e-mail.",
         ) +
-        button("Voir et imprimer mes accès", url) +
+        button("Voir et distribuer mes accès", url) +
         paragraph(
-          `<span style="color:${MUTED};font-size:14px;">Les identifiants ne figurent pas dans cet e-mail : ils ne s'affichent qu'une fois connecté.</span>`,
+          `<span style="color:${MUTED};font-size:14px;">Les identifiants ne figurent pas dans CE message : ils ne s'affichent qu'une fois connecté à votre espace, d'où vous pourrez les envoyer à chacun.</span>`,
         ) +
         signature(),
     }),
@@ -868,6 +868,141 @@ const recapPartenaire = (ctx: JourneyEmailContext): BuiltEmail => {
  * ne sont pas ici : ils vivent dans `notify.ts`, avec leur enveloppe sobre et
  * leurs données de décision.
  */
+/**
+ * Accès TIM d'UNE personne, envoyé à son adresse.
+ *
+ * Envoyé par TIM, jamais par le client : c'est notre nom sur l'expéditeur, donc
+ * notre responsabilité que le message ressemble à ce qu'il est et pas à une
+ * tentative d'hameçonnage — d'où le nom de l'entreprise en toutes lettres et
+ * aucune demande de cliquer quoi que ce soit pour « vérifier » son compte.
+ *
+ * ⚠️ Ce message contient un mot de passe en clair. C'est un compromis assumé :
+ * la remise en main propre reste la voie recommandée (la page « Mes accès »
+ * s'imprime et se découpe), mais un compagnon en déplacement n'a personne pour
+ * lui tendre un papier. L'envoi est donc déclenché ligne par ligne, par le
+ * client, et va TOUJOURS à l'adresse déclarée pour cette personne — jamais à
+ * une adresse saisie au moment de l'envoi.
+ */
+/** Le logiciel TIM lui-même — là où ces identifiants servent. */
+const TIM_APP_URL = "https://app.tim-management.co/";
+const TIM_ANDROID_URL =
+  "https://play.google.com/store/apps/details?id=com.timmanagement.app";
+const TIM_IOS_URL = "https://apps.apple.com/fr/app/tim-management/id1565369001";
+
+/**
+ * Qui accède à quoi. Les deux listes ne se recoupent qu'en partie, et c'est le
+ * cœur du message : proposer une porte fermée est pire que ne rien proposer.
+ *
+ *  - le NAVIGATEUR est réservé à l'administrateur et au conducteur de travaux :
+ *    ce sont eux qui paramètrent et qui suivent. Les autres n'y ont tout
+ *    simplement pas de compte — leur envoyer « Se connecter à TIM » les
+ *    enverrait se heurter à un refus, et douter de leurs identifiants ;
+ *  - l'APPLICATION MOBILE va à tous ceux qui sont sur le terrain, conducteur
+ *    compris : c'est sur un téléphone, au pied du chantier, que le pointage se
+ *    saisit.
+ *
+ * Un profil inconnu reçoit le lien web, comme un administrateur : c'est le cas
+ * d'un compte de direction créé hors nomenclature, et le priver du lien serait
+ * plus gênant que l'inverse.
+ */
+const WEB_PROFILES = new Set(["admin", "conducteur"]);
+const MOBILE_PROFILES = new Set(["conducteur", "chefChantier", "chefEquipe", "compagnon"]);
+
+/**
+ * Badges officiels des deux magasins.
+ *
+ * Servis par Google et Apple, qui les maintiennent aux bonnes dimensions et
+ * dans la bonne langue. La plupart des messageries bloquent les images tant que
+ * le destinataire ne les autorise pas : le texte de remplacement porte donc le
+ * nom du magasin, et le lien reste cliquable même sans image.
+ */
+const PLAY_BADGE =
+  "https://play.google.com/intl/fr_fr/badges/static/images/badges/fr_badge_web_generic.png";
+const APPSTORE_BADGE =
+  "https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/fr-fr?size=250x83";
+
+export const buildTimAccessEmail = (args: {
+  firstName?: string | null;
+  lastName?: string | null;
+  login: string;
+  password: string;
+  profileLabel?: string | null;
+  profileKey?: string | null;
+  clientName?: string | null;
+}): BuiltEmail => {
+  const who = args.firstName?.trim() ? `Bonjour ${escape(args.firstName.trim())},` : "Bonjour,";
+  const societe = args.clientName?.trim();
+  const mobile = MOBILE_PROFILES.has(args.profileKey ?? "");
+  const web = !args.profileKey || WEB_PROFILES.has(args.profileKey);
+
+  return {
+    subject: "Vos accès au logiciel TIM",
+    text: [
+      args.firstName?.trim() ? `Bonjour ${args.firstName.trim()},` : "Bonjour,",
+      "",
+      societe
+        ? `${societe} vous a ouvert un accès au logiciel TIM.`
+        : "Un accès au logiciel TIM vous a été ouvert.",
+      args.profileLabel ? `Profil : ${args.profileLabel}` : "",
+      "",
+      `Identifiant   : ${args.login}`,
+      `Mot de passe  : ${args.password}`,
+      "",
+      ...(web ? [`Connexion : ${TIM_APP_URL}`] : []),
+      ...(mobile
+        ? [
+            "",
+            web
+              ? "Sur le chantier, l'application mobile :"
+              : "Votre accès se fait depuis l'application mobile :",
+            `  Android   : ${TIM_ANDROID_URL}`,
+            `  iPhone    : ${TIM_IOS_URL}`,
+          ]
+        : []),
+      "",
+      "Ce mot de passe est personnel : ne le transmettez à personne.",
+      "Si vous n'attendiez pas ce message, prévenez votre responsable.",
+      textSignature(),
+    ]
+      .filter((l) => l !== "")
+      .join("\n"),
+    html: shell({
+      heading: "Vos accès au logiciel TIM",
+      preheader: "Votre identifiant et votre mot de passe.",
+      bodyHtml:
+        paragraph(who) +
+        paragraph(
+          societe
+            ? `<strong>${escape(societe)}</strong> vous a ouvert un accès au logiciel TIM.`
+            : "Un accès au logiciel TIM vous a été ouvert.",
+        ) +
+        callout(
+          [
+            args.profileLabel ? `${escape(args.profileLabel)}` : null,
+            `Identifiant&nbsp;: <strong>${escape(args.login)}</strong>`,
+            `Mot de passe&nbsp;: <strong>${escape(args.password)}</strong>`,
+          ]
+            .filter(Boolean)
+            .join("<br>"),
+        ) +
+        (web ? button("Se connecter à TIM", TIM_APP_URL) : "") +
+        (mobile
+          ? paragraph(
+              `<strong>${web ? "Sur le chantier, l'application mobile" : "Votre accès se fait depuis l'application mobile"}</strong><br>` +
+                `<a href="${TIM_ANDROID_URL}" style="display:inline-block;margin:8px 8px 0 0;">` +
+                `<img src="${PLAY_BADGE}" alt="Disponible sur Google Play" height="44" style="height:44px;border:0;"></a>` +
+                `<a href="${TIM_IOS_URL}" style="display:inline-block;margin:8px 0 0 0;">` +
+                `<img src="${APPSTORE_BADGE}" alt="Télécharger dans l'App Store" height="44" style="height:44px;border:0;"></a>`,
+            )
+          : "") +
+        paragraph(
+          `<span style="color:${MUTED};font-size:14px;">Ce mot de passe est personnel&nbsp;: ne le transmettez à personne. Si vous n'attendiez pas ce message, prévenez votre responsable.</span>`,
+        ) +
+        signature(),
+    }),
+  };
+};
+
 export const JOURNEY_EMAILS: Record<
   string,
   (ctx: JourneyEmailContext) => BuiltEmail

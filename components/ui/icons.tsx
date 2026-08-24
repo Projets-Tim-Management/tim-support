@@ -112,3 +112,51 @@ export const IconMachine = ({ className }: IconProps) => (
     <path d="M11 13l5-6M16 7l3 3-2.5 2.5" />
   </Svg>
 );
+
+/** Enveloppe — envoyer ses accès à une personne, à son adresse. */
+export const IconMail = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+    <path d="m2 7 10 6 10-6" />
+  </Svg>
+);
+
+/** Imprimante — la fiche à découper et à remettre en main propre. */
+export const IconPrinter = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <path d="M6 9V3h12v6" />
+    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+    <rect x="6" y="14" width="12" height="8" rx="1" />
+  </Svg>
+);
+
+/** Sablier / horloge — un envoi en cours, ou une attente. */
+export const IconSpinner = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <path d="M12 3a9 9 0 1 0 9 9" />
+  </Svg>
+);
+
+/** Jalons reliés — le parcours d'apprentissage, étape par étape. */
+export const IconRoute = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <circle cx="6" cy="19" r="3" />
+    <circle cx="18" cy="5" r="3" />
+    <path d="M9 19h4a4 4 0 0 0 4-4V9" />
+  </Svg>
+);
+
+/** Livre ouvert — la documentation des fonctionnalités. */
+export const IconBook = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <path d="M12 6.5C10.5 5 8.5 4.5 4 4.5V18c4.5 0 6.5.5 8 2 1.5-1.5 3.5-2 8-2V4.5c-4.5 0-6.5.5-8 2Z" />
+    <path d="M12 6.5V20" />
+  </Svg>
+);
+
+/** Bulle — poser une question à l'équipe. */
+export const IconChat = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-6.5A8 8 0 0 1 11 4h2a8 8 0 0 1 8 8Z" />
+  </Svg>
+);

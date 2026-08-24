@@ -6,7 +6,16 @@ import { payloadClient } from "@/core/payload-client";
 import LogoUpload from "@/components/portal/LogoUpload";
 import TestTimeline from "@/components/portal/TestTimeline";
 import PortalLogout from "@/components/portal/PortalLogout";
-import { IconCalendar, IconCheck, IconClipboard, IconKey } from "@/components/ui/icons";
+import {
+  IconBook,
+  IconCalendar,
+  IconChat,
+  IconCheck,
+  IconClipboard,
+  IconKey,
+  IconRoute,
+} from "@/components/ui/icons";
+import { getFeatures } from "@/modules/editorial/lib/content";
 import { isStepDone } from "@/modules/marketing/lib/journey";
 import { PORTAL_SECTIONS } from "@/modules/marketing/lib/portal-sections";
 import { portalTimeline } from "@/modules/marketing/lib/portal-timeline";
@@ -182,6 +191,10 @@ export default async function AccueilPage() {
         ? "Commencez par réserver votre session de prise en main : le reste suit."
         : "Il vous reste votre dossier de démarrage à compléter.";
 
+  // Le nombre de fonctionnalités documentées, comme sur la page d'accueil
+  // publique : annoncer un chiffre faux serait pire que ne pas en annoncer.
+  const featureCount = (await getFeatures()).length;
+
   return (
     <div className="px-6 py-10 sm:px-8">
       <header className="mb-8 flex items-start justify-between gap-4">
@@ -340,6 +353,73 @@ export default async function AccueilPage() {
           );
         })}
       </div>
+
+      {/* ─── Pour aller plus loin ────────────────────────────────────────────
+          Affichée SEULEMENT une fois les accès disponibles, et c'est tout le
+          propos : ces trois liens parlent de se servir de TIM. Tant que le
+          client n'a pas ses identifiants, « Suivre un parcours » l'envoie
+          apprendre des gestes qu'il ne peut pas encore faire, et « Demander de
+          l'assistance » lui propose de l'aide sur un logiciel où il n'est pas
+          entré. Avant, ce qui compte est ce qu'on attend de LUI — son créneau,
+          son dossier ; après, c'est de commencer à s'en servir.
+
+          Icônes en trait plutôt que les emojis de la page publique : l'espace
+          client a été refait avec ce jeu d'icônes, et deux styles sur le même
+          écran se voient tout de suite. */}
+      {credentialCount > 0 && (
+      <section className="mt-12 border-t border-border pt-8">
+        <h2 className="text-lg font-semibold text-foreground">Pour aller plus loin</h2>
+        <p className="mt-1 text-sm text-muted">
+          Le centre d&apos;aide reste ouvert pendant et après votre test.
+        </p>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            {
+              href: "/parcours",
+              Icon: IconRoute,
+              title: "Suivre un parcours",
+              text: "Apprenez les bases étape par étape, selon votre profil utilisateur.",
+              cta: "Démarrer",
+            },
+            {
+              href: "/features",
+              Icon: IconBook,
+              title: "Parcourir la documentation",
+              text: `${featureCount} fonctionnalité${featureCount > 1 ? "s" : ""} documentée${featureCount > 1 ? "s" : ""}, organisée${featureCount > 1 ? "s" : ""} par thème.`,
+              cta: "Explorer",
+            },
+            {
+              href: "/contact?type=assistance",
+              Icon: IconChat,
+              title: "Demander de l'assistance",
+              text: "Une question ou un problème ? Décrivez-le et joignez vos captures d'écran.",
+              cta: "Contacter le support",
+            },
+          ].map(({ href, Icon, title, text, cta }) => (
+            <Link
+              key={href}
+              href={href}
+              className="group flex flex-col gap-3 rounded-lg border border-border bg-white p-6 transition hover:border-primary hover:shadow-sm"
+            >
+              <span
+                className="flex h-11 w-11 items-center justify-center rounded-lg bg-surface text-muted transition group-hover:bg-primary-light group-hover:text-primary"
+                aria-hidden
+              >
+                <Icon className="h-6 w-6" />
+              </span>
+              <div>
+                <h3 className="font-semibold text-foreground transition-colors group-hover:text-primary">
+                  {title}
+                </h3>
+                <p className="mt-1 text-sm text-muted">{text}</p>
+              </div>
+              <span className="mt-auto pt-2 text-sm font-semibold text-primary">{cta} →</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+      )}
     </div>
   );
 }

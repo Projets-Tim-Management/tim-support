@@ -237,3 +237,52 @@ body {
     margin-left: 1.5rem;
   }
 }
+
+/* ── Impression des accès TIM ──────────────────────────────────────────────
+   La page « Mes accès » sert à distribuer : on imprime, on découpe, on remet.
+
+   Deux gestes, deux états. Sans classe, tout s'imprime. Avec `acces--solo`,
+   seule la ligne marquée `acces-ligne--solo` reste — et la SECTION qui la
+   contient, pour que le profil parte avec le papier : une fiche remise sans
+   « Chef de chantier » dessus ne dit plus à quoi elle donne accès.
+
+   Masquer plutôt qu'ouvrir une fenêtre séparée : celle-ci perdrait les styles,
+   se ferait bloquer par les navigateurs, et il faudrait maintenir deux mises en
+   page pour le même contenu.
+
+   `break-inside: avoid` empêche qu'une fiche soit coupée par un saut de page —
+   une moitié d'identifiant ne se remet à personne. */
+@media print {
+  /* Le châssis du site n'a rien à faire sur une feuille : ni bandeau de
+     navigation, ni pied de page avec ses liens et ses mentions légales. Une
+     fiche d'accès se remet en main propre — l'encre et le papier qu'ils
+     consomment ne servent à personne, et sur une impression unitaire le pied de
+     page pouvait même occuper plus de place que la fiche.
+
+     Posé sur les balises `header`/`footer` plutôt que sur des classes : c'est
+     vrai de toutes les pages du site, pas seulement de celle des accès, et ça
+     reste vrai si le pied de page est réécrit. */
+  header,
+  footer {
+    display: none !important;
+  }
+
+  .acces--solo .acces-ligne {
+    display: none;
+  }
+
+  .acces--solo .acces-ligne--solo {
+    display: flex;
+  }
+
+  /* Les autres sections disparaissent en entier, cadre et titre compris : sans
+     ça, l'impression d'une fiche sortait quatre rectangles vides surmontés de
+     leur intitulé. */
+  .acces--solo section:not(:has(.acces-ligne--solo)) {
+    display: none;
+  }
+
+  .acces-ligne {
+    break-inside: avoid;
+  }
+}
