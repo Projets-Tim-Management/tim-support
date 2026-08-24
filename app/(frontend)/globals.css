@@ -253,6 +253,20 @@ body {
    `break-inside: avoid` empêche qu'une fiche soit coupée par un saut de page —
    une moitié d'identifiant ne se remet à personne. */
 @media print {
+  /* Le châssis du site n'a rien à faire sur une feuille : ni bandeau de
+     navigation, ni pied de page avec ses liens et ses mentions légales. Une
+     fiche d'accès se remet en main propre — l'encre et le papier qu'ils
+     consomment ne servent à personne, et sur une impression unitaire le pied de
+     page pouvait même occuper plus de place que la fiche.
+
+     Posé sur les balises `header`/`footer` plutôt que sur des classes : c'est
+     vrai de toutes les pages du site, pas seulement de celle des accès, et ça
+     reste vrai si le pied de page est réécrit. */
+  header,
+  footer {
+    display: none !important;
+  }
+
   .acces--solo .acces-ligne {
     display: none;
   }
