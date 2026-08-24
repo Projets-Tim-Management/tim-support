@@ -72,3 +72,44 @@ export function decideEmail(
 export const ACCESS_EMAIL_KEY = "acces-prets";
 
 export const accessEmailReady = (credentialCount: number): boolean => credentialCount > 0;
+
+/**
+ * Les envois qui dépendent d'un FAIT, pas seulement d'une date.
+ *
+ * Une relance n'a de sens que tant que la chose reste à faire. Envoyée après
+ * coup, elle ne se contente pas d'être inutile : elle apprend au client que nos
+ * messages ne regardent pas ce qu'il a fait, et lui donne une bonne raison de ne
+ * plus lire les suivants. La même règle vaut pour l'invitation initiale — un
+ * client qui a réservé dès le premier jour n'a pas à recevoir « réservez votre
+ * créneau » une semaine plus tard.
+ *
+ * Table plutôt que `if` dans le cron : c'est ici qu'on lit, d'un coup d'œil, ce
+ * que chaque message exige pour partir.
+ */
+export type SendFacts = {
+  /** Créneau de prise en main réservé (date ISO) ou non. */
+  sessionAt?: string | null;
+  /** État du dossier de démarrage côté fiche client. */
+  onboardingStatus?: string | null;
+  /** Nombre d'accès de test créés. */
+  credentialCount?: number;
+};
+
+const DOSSIER_DONE = ["transmis", "valide"];
+
+export const SEND_CONDITIONS: Record<string, (f: SendFacts) => boolean> = {
+  // Invitation et relance : inutiles dès qu'un créneau existe.
+  "prise-en-main": (f) => !f.sessionAt,
+  "relance-creneau": (f) => !f.sessionAt,
+  // Relance dossier : inutile dès qu'il est transmis (a fortiori validé).
+  "relance-dossier": (f) => !DOSSIER_DONE.includes(f.onboardingStatus ?? ""),
+  // Remise des accès : ils doivent exister (règle historique, reprise ici).
+  [ACCESS_EMAIL_KEY]: (f) => accessEmailReady(f.credentialCount ?? 0),
+};
+
+/**
+ * L'envoi est-il encore justifié ? `true` pour tout message sans condition —
+ * l'absence de règle ne doit jamais bloquer un envoi.
+ */
+export const shouldStillSend = (key: string | null | undefined, facts: SendFacts): boolean =>
+  key && SEND_CONDITIONS[key] ? SEND_CONDITIONS[key](facts) : true;

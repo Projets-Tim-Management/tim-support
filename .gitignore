@@ -32,4 +32,8 @@ yarn-error.log*
 # l'original : rien à récupérer, mais un doublon d'une collection Payload parti
 # dans un commit créerait un slug en double. Ignorés ici, et exclus du typecheck
 # (tsconfig.json) pour qu'ils ne cassent pas non plus un build.
+#
+# ⚠ Le motif diffère de celui de tsconfig.json, et ce n'est pas un oubli : git
+# accepte les classes de caractères, TypeScript non — il ne connaît que `*`, `?`
+# et `**/`, et traite « [0-9] » au pied de la lettre. Là-bas, c'est « * ?.* ».
 * [0-9].*

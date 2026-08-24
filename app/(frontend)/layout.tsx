@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Header from "@/components/layout/Header";
+import ConditionalHeader from "@/components/layout/ConditionalHeader";
 import ConditionalFooter from "@/components/layout/ConditionalFooter";
 import HelpFab from "@/components/ui/HelpFab";
 
@@ -29,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className="flex flex-col min-h-screen bg-white">
-        <Header />
+        <ConditionalHeader />
         <main className="flex-1">{children}</main>
         <ConditionalFooter />
         <HelpFab />

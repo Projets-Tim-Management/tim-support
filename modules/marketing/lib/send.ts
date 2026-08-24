@@ -46,9 +46,14 @@ export async function findOpenRun(
 /**
  * Envoie un message du parcours.
  *
- * Le destinataire est DÉDUIT du public de l'envoi (client ou partenaire), jamais
- * passé par l'appelant : c'est ce qui garantit qu'un message destiné au
- * partenaire ne parte pas au client parce qu'un appelant s'est trompé.
+ * Le destinataire PRINCIPAL est DÉDUIT du public de l'envoi (client ou
+ * partenaire), jamais passé par l'appelant : c'est ce qui garantit qu'un message
+ * destiné au partenaire ne parte pas au client parce qu'un appelant s'est
+ * trompé.
+ *
+ * `alsoTo` ne remplace jamais ce destinataire, il s'y AJOUTE. C'est ce qui
+ * permet de servir les personnes déclarées pour une session — la personne
+ * formée, ses invités — sans jamais priver de sa copie le contact qui a réservé.
  */
 export async function sendJourneyEmail(
   payload: Payload,
@@ -59,9 +64,11 @@ export async function sendJourneyEmail(
     extra?: Partial<JourneyEmailContext>;
     /** Réenvoi volontaire : passe outre le garde-fou « déjà envoyé ». */
     force?: boolean;
+    /** Destinataires SUPPLÉMENTAIRES, en plus de celui déduit du public. */
+    alsoTo?: (string | null | undefined)[];
   },
 ): Promise<SendResult> {
-  const { run, key, extra, force } = args;
+  const { run, key, extra, force, alsoTo } = args;
 
   const template = JOURNEY_EMAILS[key];
   if (!template) return { sent: false, reason: "no_template" };
@@ -78,8 +85,21 @@ export async function sendJourneyEmail(
   if (row?.sentAt && !force) return { sent: false, reason: "already_sent" };
 
   const { ctx, clientEmail, partnerEmail } = await buildJourneyContext(payload, fresh);
-  const to = row?.audience === "partenaire" ? partnerEmail : clientEmail;
-  if (!to) return { sent: false, reason: "no_recipient" };
+  const main = row?.audience === "partenaire" ? partnerEmail : clientEmail;
+
+  // Dédoublonnage insensible à la casse : la personne formée est très souvent
+  // celle qui a reçu l'invitation à l'espace client, et certains serveurs
+  // refusent une liste qui répète la même adresse.
+  const seen = new Set<string>();
+  const recipients: string[] = [];
+  for (const raw of [main, ...(alsoTo ?? [])]) {
+    const address = raw?.trim();
+    if (!address || seen.has(address.toLowerCase())) continue;
+    seen.add(address.toLowerCase());
+    recipients.push(address);
+  }
+  if (recipients.length === 0) return { sent: false, reason: "no_recipient" };
+  const to = recipients.join(",");
 
   const built = template({ ...ctx, ...extra });
 

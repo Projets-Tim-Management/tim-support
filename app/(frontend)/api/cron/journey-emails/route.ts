@@ -4,10 +4,12 @@ import { payloadClient } from "@/core/payload-client";
 import {
   ACCESS_EMAIL_KEY,
   CLOSED_STATUSES,
-  accessEmailReady,
+  SEND_CONDITIONS,
   decideEmail,
+  shouldStillSend,
   type DueReason,
   type ScheduledEmail,
+  type SendFacts,
 } from "@/modules/marketing/lib/due-emails";
 import { hasTemplate } from "@/modules/marketing/lib/emails";
 import { notifyAdminsAccessMissing } from "@/modules/marketing/lib/notify";
@@ -62,6 +64,38 @@ const idOf = (ref: unknown): number | string | null => {
   return ref as number | string;
 };
 
+/**
+ * Les faits dont dépendent les envois conditionnels, lus en une fois.
+ *
+ * Le créneau vit sur le parcours, l'état du dossier sur la fiche client, les
+ * accès se comptent : trois sources, une seule lecture par parcours concerné.
+ */
+async function gatherFacts(
+  payload: Awaited<ReturnType<typeof payloadClient>>,
+  run: Run,
+  clientId: number | string,
+): Promise<SendFacts> {
+  const [client, credentials] = await Promise.all([
+    payload
+      .findByID({ collection: "partner-clients", id: clientId, depth: 0, overrideAccess: true })
+      .catch(() => null) as Promise<{ onboardingStatus?: string } | null>,
+    payload
+      .count({
+        collection: "client-credentials",
+        where: { client: { equals: clientId } },
+        overrideAccess: true,
+      })
+      .then((r) => r.totalDocs)
+      .catch(() => 0),
+  ]);
+
+  return {
+    sessionAt: (run as { sessionAt?: string | null }).sessionAt ?? null,
+    onboardingStatus: client?.onboardingStatus ?? null,
+    credentialCount: credentials,
+  };
+}
+
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
@@ -114,26 +148,27 @@ export async function GET(req: Request) {
         continue;
       }
 
-      // La remise des accès annonce des identifiants : ils doivent exister.
-      if (mail.key === ACCESS_EMAIL_KEY && clientId != null) {
-        const count = await payload
-          .count({
-            collection: "client-credentials",
-            where: { client: { equals: clientId } },
-            overrideAccess: true,
-          })
-          .then((r) => r.totalDocs)
-          .catch(() => 0);
+      // Certains envois dépendent d'un FAIT et pas seulement d'une date : une
+      // relance sur un dossier déjà transmis, ou « vos accès sont prêts » sans
+      // aucun identifiant créé, se retournent contre nous. Les faits ne sont lus
+      // que pour les messages qui en dépendent — inutile d'interroger la base
+      // pour un conseil d'usage.
+      if (mail.key && SEND_CONDITIONS[mail.key] && clientId != null) {
+        const facts = await gatherFacts(payload, run, clientId);
 
-        if (!accessEmailReady(count)) {
-          note("credentials_missing");
-          if (!dry) {
-            const client = clientId
-              ? ((await payload
-                  .findByID({ collection: "partner-clients", id: clientId, depth: 0, overrideAccess: true })
-                  .catch(() => null)) as { companyName?: string } | null)
-              : null;
-            await notifyAdminsAccessMissing(payload, run, client?.companyName);
+        if (!shouldStillSend(mail.key, facts)) {
+          note(`${mail.key}:sans_objet`);
+          // Le seul cas où l'inaction demande une alerte : le jour du démarrage
+          // sans aucun accès créé. Une relance sans objet, elle, est une bonne
+          // nouvelle — le client a fait ce qu'on attendait.
+          if (mail.key === ACCESS_EMAIL_KEY) {
+            note("credentials_missing");
+            if (!dry) {
+              const client = (await payload
+                .findByID({ collection: "partner-clients", id: clientId, depth: 0, overrideAccess: true })
+                .catch(() => null)) as { companyName?: string } | null;
+              await notifyAdminsAccessMissing(payload, run, client?.companyName);
+            }
           }
           continue;
         }

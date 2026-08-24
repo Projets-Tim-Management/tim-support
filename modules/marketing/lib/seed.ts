@@ -26,7 +26,12 @@ import {
 // signature) se fait sur la fiche client et les coche désormais lui-même.
 // v13 : l'espace client n'est plus « créé » par personne — l'adresse est posée au
 // démarrage, et le Go/No-Go de TIM ouvre l'accès et envoie l'invitation.
-const SEED_VERSION = 13;
+// v14 : deux relances client (créneau à −4 j, dossier à −3 j), envoyées seulement
+// si la chose n'est toujours pas faite.
+// v15 : confirmation au CLIENT du créneau qu'il vient de réserver — il n'était
+// prévenu que par l'invitation d'agenda du partenaire, quand elle existait.
+// v16 : alerte à TIM quand un créneau est réservé (« Prise en main calée »).
+const SEED_VERSION = 16;
 
 const stepSeed = () =>
   PHASE_DE_TEST_STEPS.map((s) => ({

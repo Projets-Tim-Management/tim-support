@@ -18,19 +18,19 @@ import { generatePassword, suggestUsername } from "@/modules/marketing/lib/crede
  * réinitialiser les douze premières.
  */
 
-type Employee = {
+type PortalUser = {
   id: number | string;
   firstName?: string;
   lastName?: string;
   licenceProfile?: string;
-  isUser?: boolean;
 };
 
 type Credential = {
   id: number | string;
   username?: string;
   password?: string;
-  employee?: number | string | { id?: number | string };
+  /** Utilisateur déclaré dont cet accès découle. */
+  contact?: number | string | { id?: number | string };
 };
 
 const idOf = (ref: unknown): string =>
@@ -43,8 +43,11 @@ async function context(req: Request, clientId: string | null) {
 
   const [employees, credentials] = await Promise.all([
     payload.find({
-      collection: "client-employees",
-      where: { client: { equals: Number(clientId) }, isUser: { equals: true } },
+      // Les utilisateurs déclarés par le client, et non plus les salariés cochés
+      // « Accès TIM » : une seule liste décide des comptes à créer et des
+      // licences facturées.
+      collection: "client-contacts",
+      where: { client: { equals: Number(clientId) } },
       limit: 500,
       depth: 0,
       overrideAccess: true,
@@ -61,7 +64,7 @@ async function context(req: Request, clientId: string | null) {
   return {
     payload,
     ok: true as const,
-    users: employees.docs as Employee[],
+    users: employees.docs as PortalUser[],
     existing: credentials.docs as Credential[],
   };
 }
@@ -71,7 +74,7 @@ export async function GET(req: Request) {
   const ctx = await context(req, clientId);
   if (!ctx.ok) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
-  const linked = new Set(ctx.existing.map((c) => idOf(c.employee)).filter(Boolean));
+  const linked = new Set(ctx.existing.map((c) => idOf(c.contact)).filter(Boolean));
   const missing = ctx.users.filter((u) => !linked.has(String(u.id)));
 
   return NextResponse.json({
@@ -96,22 +99,22 @@ export async function POST(req: Request) {
   const ctx = await context(req, clientId ?? null);
   if (!ctx.ok) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
-  const linked = new Set(ctx.existing.map((c) => idOf(c.employee)).filter(Boolean));
+  const linked = new Set(ctx.existing.map((c) => idOf(c.contact)).filter(Boolean));
   const taken = new Set(ctx.existing.map((c) => c.username ?? "").filter(Boolean));
   const missing = ctx.users.filter((u) => !linked.has(String(u.id)));
 
-  for (const employee of missing) {
-    const username = suggestUsername(employee.firstName, employee.lastName, taken);
+  for (const user of missing) {
+    const username = suggestUsername(user.firstName, user.lastName, taken);
     taken.add(username);
 
     await ctx.payload.create({
       collection: "client-credentials",
       data: {
         client: Number(clientId),
-        employee: Number(employee.id),
-        firstName: employee.firstName ?? "—",
-        lastName: employee.lastName ?? "—",
-        licenceProfile: employee.licenceProfile,
+        contact: Number(user.id),
+        firstName: user.firstName ?? "—",
+        lastName: user.lastName ?? "—",
+        licenceProfile: user.licenceProfile,
         username,
         // Proposé, pas imposé : l'admin le remplace par celui réellement créé
         // dans l'application TIM si elle en impose un autre.

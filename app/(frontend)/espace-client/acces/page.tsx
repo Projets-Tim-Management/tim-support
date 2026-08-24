@@ -48,7 +48,7 @@ export default async function AccesPage() {
   const credentials = (await readClientCredentials(payload, ctx.client.id)) as Credential[];
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
+    <div className="px-6 py-10 sm:px-8">
       <div className="mb-8 flex items-start justify-between gap-4 print:hidden">
         <div>
           <Link href="/espace-client/accueil" className="text-sm text-muted hover:underline">

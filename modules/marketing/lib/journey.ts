@@ -712,6 +712,26 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
       "Code à 6 chiffres, valable 15 minutes et utilisable une seule fois. Aucun mot de passe.",
   },
   {
+    key: "creneau-confirme",
+    subject: "Votre session de prise en main est réservée",
+    audience: "client",
+    anchor: "aucun",
+    stepKey: "rdv-prise-en-main",
+    trigger: "À la réservation du créneau, pour le client",
+    detail:
+      "Confirme au client l'horaire qu'il vient de choisir, avec la modalité et le lien de visio s'il y en a un. Sans lui, réserver ne produit aucun accusé de réception.",
+  },
+  {
+    key: "creneau-reserve-tim",
+    subject: "Prise en main calée",
+    audience: "tim",
+    anchor: "aucun",
+    stepKey: "rdv-prise-en-main",
+    trigger: "À la réservation du créneau, pour TIM",
+    detail:
+      "Prévient l'équipe qu'une session est calée, avec sa date et les participants annoncés. C'est l'étape qui décide de la première semaine du test.",
+  },
+  {
     key: "creneau-reserve",
     subject: "Votre client a réservé son créneau",
     audience: "partenaire",
@@ -759,6 +779,29 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     trigger: "Quand le partenaire demande le contrat",
     detail:
       "Le partenaire fait le devis, TIM rédige le contrat : cet envoi est le passage de relais, avec le devis joint.",
+  },
+
+  // ── Relances (client) ─────────────────────────────────────────────────────
+  // Elles ne partent QUE si la chose n'est toujours pas faite (voir
+  // SEND_CONDITIONS) : une relance qui arrive après coup décrédibilise toutes
+  // les suivantes, et apprend au client à ne plus les lire.
+  {
+    key: "relance-creneau",
+    subject: "Il reste à réserver votre session de prise en main",
+    audience: "client",
+    anchor: "debut",
+    offsetDays: -4,
+    detail:
+      "Relance sur le créneau de prise en main, envoyée seulement si aucun rendez-vous n'est réservé. Passé le démarrage, cette session ne rattrape plus la première semaine.",
+  },
+  {
+    key: "relance-dossier",
+    subject: "Votre dossier de démarrage nous manque",
+    audience: "client",
+    anchor: "debut",
+    offsetDays: -3,
+    detail:
+      "Relance sur le dossier de démarrage, envoyée seulement s'il n'a pas été transmis. Sans lui, les accès ne peuvent pas être créés à temps pour le lundi de démarrage.",
   },
 
   // ── Séquence datée (client) ───────────────────────────────────────────────

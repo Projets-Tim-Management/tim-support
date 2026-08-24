@@ -155,14 +155,16 @@ const derivePartnerFromClient: CollectionBeforeChangeHook = async ({ data, origi
 /**
  * À la création : copie des étapes du modèle dans le parcours, à l'état
  * « à faire ». La durée par défaut du modèle sert de valeur initiale.
+ *
+ * Ensuite, à chaque enregistrement : COMPLÈTE les envois que le modèle a gagnés
+ * depuis. Sans ça, un message ajouté au modèle aujourd'hui n'existerait que pour
+ * les tests lancés demain.
  */
-const snapshotSteps: CollectionBeforeChangeHook = async ({ data, originalDoc, operation, req }) => {
-  const hasSteps = Boolean((data?.steps ?? originalDoc?.steps ?? []).length);
-  const hasEmails = Boolean((data?.emails ?? originalDoc?.emails ?? []).length);
-  // À la création, tout est à copier. Sur un parcours existant, on ne complète
-  // que ce qui MANQUE : les envois ont été ajoutés après coup, et les parcours
-  // déjà lancés doivent en hériter sans qu'on touche à leurs étapes.
-  if (operation !== "create" && hasSteps && hasEmails) return data;
+const snapshotSteps: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
+  const currentSteps = (data?.steps ?? originalDoc?.steps ?? []) as RunStep[];
+  const currentEmails = (data?.emails ?? originalDoc?.emails ?? []) as RunEmail[];
+  const hasSteps = Boolean(currentSteps.length);
+  const hasEmails = Boolean(currentEmails.length);
 
   const journeyId = idOf(data?.journey ?? originalDoc?.journey);
   if (journeyId == null) return data;
@@ -196,12 +198,20 @@ const snapshotSteps: CollectionBeforeChangeHook = async ({ data, originalDoc, op
     overridden: false,
   }));
 
+  // Envois AJOUTÉS au modèle après le lancement de ce parcours-ci : sans ce
+  // rattrapage, une relance créée aujourd'hui ne partirait que pour les tests
+  // démarrés demain — c'est-à-dire jamais pour ceux qui en ont besoin
+  // maintenant. Les lignes en place ne sont pas touchées : leur date a pu être
+  // reprise à la main, et leur `sentAt` est la mémoire de ce qui est parti.
+  const known = new Set(currentEmails.map((e) => e.key));
+  const missing = emails.filter((e) => !known.has(e.key as string));
+
   return {
     ...data,
     // Les étapes en place NE SONT PAS réécrites : leur avancement est la donnée
     // la plus précieuse du parcours. Seul un parcours qui n'en a pas en reçoit.
     ...(hasSteps ? {} : { steps }),
-    ...(hasEmails ? {} : { emails }),
+    ...(hasEmails ? (missing.length ? { emails: [...currentEmails, ...missing] } : {}) : { emails }),
     durationWeeks: data?.durationWeeks ?? originalDoc?.durationWeeks ?? journey.defaultDurationWeeks ?? DEFAULT_DURATION_WEEKS,
   };
 };
@@ -973,6 +983,71 @@ export const JourneyRuns: CollectionConfig = {
                 date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" },
                 description:
                   "Réservé par le client depuis son espace, ou saisi ici à la main. Obligatoirement avant le lundi de démarrage. Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.",
+              },
+            },
+            {
+              // QUI sera là, déclaré par le client au moment de réserver.
+              //
+              // Le compte de l'espace client donne une adresse, pas une personne :
+              // l'administrateur formé n'est pas forcément le contact qui a reçu
+              // l'invitation. Le partenaire prépare sa session en sachant à qui il
+              // s'adresse, et l'événement d'agenda invite les bonnes personnes.
+              type: "collapsible",
+              label: "Participants annoncés",
+              admin: { initCollapsed: true },
+              fields: [
+                {
+                  type: "row",
+                  fields: [
+                    { name: "attendeeFirstName", type: "text", label: "Prénom", admin: { width: "33%" } },
+                    { name: "attendeeLastName", type: "text", label: "Nom", admin: { width: "33%" } },
+                    {
+                      name: "attendeeRole",
+                      type: "text",
+                      label: "Rôle dans l'entreprise",
+                      admin: { width: "34%", description: "Tel que le client l'a saisi." },
+                    },
+                  ],
+                },
+                {
+                  name: "attendeeEmail",
+                  type: "email",
+                  label: "Adresse de la personne formée",
+                  admin: {
+                    description:
+                      "Pré-remplie avec celle de l'espace client, modifiable par le client si ce n'est pas lui qui suit la session.",
+                  },
+                },
+                {
+                  name: "sessionGuests",
+                  type: "array",
+                  label: "Invités supplémentaires",
+                  labels: { singular: "Invité", plural: "Invités" },
+                  admin: {
+                    description:
+                      "Ajoutés par le client. Ils reçoivent l'invitation d'agenda au même titre que la personne formée.",
+                  },
+                  fields: [
+                    {
+                      type: "row",
+                      fields: [
+                        { name: "email", type: "email", label: "Adresse e-mail", required: true, admin: { width: "60%" } },
+                        { name: "name", type: "text", label: "Nom (facultatif)", admin: { width: "40%" } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              // Relance de la confirmation : le partenaire anime la session,
+              // c'est lui qui reçoit l'appel « je n'ai rien reçu ».
+              name: "sessionInviteResend",
+              type: "ui",
+              admin: {
+                components: {
+                  Field: "/modules/marketing/admin/SessionInviteResend#SessionInviteResend",
+                },
               },
             },
             {

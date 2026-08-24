@@ -15,7 +15,10 @@ export default async function EspaceClientPage() {
   if (await getPortalSession()) redirect("/espace-client/accueil");
 
   return (
-    <div className="mx-auto max-w-md px-6 py-16">
+    // Écran volontairement étroit, contrairement au reste de l'espace : un
+    // formulaire de deux champs étalé sur tout l'écran n'aiderait personne.
+    // Le logo, lui, vient du châssis commun (layout.tsx).
+    <div className="mx-auto max-w-md px-6 py-10">
       <header className="mb-8">
         <h1 className="text-3xl font-bold text-foreground">Espace client</h1>
         <p className="mt-2 text-muted">

@@ -656,9 +656,25 @@ export const PartnerClients: CollectionConfig = {
         {
           label: "Dossier de démarrage",
           description:
-            "Les éléments que le client remplit avant le démarrage du test : effectif, chantiers, matériel. Le comptage des salariés « Accès TIM » alimente le tableau des licences.",
+            "Les éléments que le client remplit avant le démarrage du test : logo, utilisateurs, effectif, chantiers, matériel. Le comptage des UTILISATEURS déclarés alimente le tableau des licences.",
           admin: { condition: hasTestPhase },
           fields: [
+            {
+              // Déposé par le CLIENT depuis son espace, récupéré par TIM pour
+              // habiller son compte de test. C'est la seule pièce du dossier
+              // qu'on ne peut pas ressaisir à sa place : ni le SIREN ni l'INSEE
+              // ne donnent le fichier.
+              name: "logo",
+              type: "upload",
+              relationTo: "media",
+              label: "Logo de l'entreprise",
+              admin: {
+                description:
+                  "Déposé par le client depuis son espace. Téléchargez-le pour l'ajouter à son compte de test.",
+                custom: { accept: "image/*", noun: "un logo" },
+                components: { Field: "/admin/fields/DirectUpload#default" },
+              },
+            },
             {
               name: "onboardingRecap",
               type: "ui",
@@ -701,7 +717,7 @@ export const PartnerClients: CollectionConfig = {
               admin: {
                 allowCreate: true,
                 description:
-                  "Tout l'effectif. Cochez « Accès TIM » sur ceux qui consomment une licence — eux seuls comptent dans le devis.",
+                  "Tout l'effectif du client : pointage, planning, chantiers. Les licences, elles, se déclarent dans les CONTACTS — un salarié n'est pas un utilisateur.",
                 defaultColumns: ["matricule", "firstName", "lastName", "poste", "isUser", "licenceProfile"],
               },
             },
@@ -773,7 +789,7 @@ export const PartnerClients: CollectionConfig = {
               },
             },
             {
-              // Génère les accès depuis les salariés « Accès TIM » du dossier :
+              // Génère les accès depuis les UTILISATEURS déclarés par le client :
               // sans ça, TIM retape à la main ce que le client a déjà déclaré.
               name: "credentialsGenerator",
               type: "ui",

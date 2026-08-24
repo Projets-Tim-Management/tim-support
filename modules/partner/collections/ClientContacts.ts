@@ -1,3 +1,4 @@
+import { LICENCE_PROFILE_OPTIONS } from "@/modules/marketing/lib/onboarding";
 import type { CollectionBeforeChangeHook, CollectionConfig } from "payload";
 
 import { metierOwnedAccess } from "@/core/access";
@@ -94,6 +95,16 @@ export const ClientContacts: CollectionConfig = {
     {
       type: "row",
       fields: [
+        {
+          // Profil de licence : c'est LUI qui décide du compte à créer et de la
+          // ligne du devis. Une liste fermée, reprise de la grille tarifaire —
+          // le dossier et la facturation ne peuvent donc pas diverger.
+          name: "licenceProfile",
+          type: "select",
+          label: "Profil de licence",
+          options: LICENCE_PROFILE_OPTIONS,
+          admin: { description: "Décide du compte TIM créé pour cette personne." },
+        },
         {
           name: "role",
           type: "text",

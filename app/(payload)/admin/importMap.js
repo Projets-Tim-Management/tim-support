@@ -67,6 +67,7 @@ import { RewardStockCell as RewardStockCell_313b5a94900b9c722f8a2af8605c469a } f
 import { default as default_d78fb9bf342cb6b769b2c45ebb7c851d } from '../../../modules/partner/admin/RewardsCatalog'
 import { RewardOrderBalance as RewardOrderBalance_21383d1a7f3c464032bdb799d5d3261b } from '../../../modules/partner/admin/RewardOrderBalance'
 import { JourneyStepper as JourneyStepper_b2b52607ae35e0bd1477c73fad0aa444 } from '../../../modules/marketing/admin/JourneyStepper'
+import { SessionInviteResend as SessionInviteResend_ff5d7c2af04ba757845cb600d52cb087 } from '../../../modules/marketing/admin/SessionInviteResend'
 import { JourneyStepRowLabel as JourneyStepRowLabel_02522917a685fae4d72c3fe2c8b03722 } from '../../../modules/marketing/admin/JourneyStepRowLabel'
 import { JourneyEmailRowLabel as JourneyEmailRowLabel_2a7e629310745e0192957a9f1db82354 } from '../../../modules/marketing/admin/JourneyEmailRowLabel'
 import { AdminOnlyTabs as AdminOnlyTabs_7f44b13f20fa34f65e1be48236cbac4a } from '../../../modules/marketing/admin/AdminOnlyTabs'
@@ -156,6 +157,7 @@ export const importMap = {
   "/modules/partner/admin/RewardsCatalog#default": default_d78fb9bf342cb6b769b2c45ebb7c851d,
   "/modules/partner/admin/RewardOrderBalance#RewardOrderBalance": RewardOrderBalance_21383d1a7f3c464032bdb799d5d3261b,
   "/modules/marketing/admin/JourneyStepper#JourneyStepper": JourneyStepper_b2b52607ae35e0bd1477c73fad0aa444,
+  "/modules/marketing/admin/SessionInviteResend#SessionInviteResend": SessionInviteResend_ff5d7c2af04ba757845cb600d52cb087,
   "/modules/marketing/admin/JourneyStepRowLabel#JourneyStepRowLabel": JourneyStepRowLabel_02522917a685fae4d72c3fe2c8b03722,
   "/modules/marketing/admin/JourneyEmailRowLabel#JourneyEmailRowLabel": JourneyEmailRowLabel_2a7e629310745e0192957a9f1db82354,
   "/modules/marketing/admin/AdminOnlyTabs#AdminOnlyTabs": AdminOnlyTabs_7f44b13f20fa34f65e1be48236cbac4a,

@@ -269,6 +269,26 @@ export interface JourneyRun {
    * Réservé par le client depuis son espace, ou saisi ici à la main. Obligatoirement avant le lundi de démarrage. Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.
    */
   sessionAt?: string | null;
+  attendeeFirstName?: string | null;
+  attendeeLastName?: string | null;
+  /**
+   * Tel que le client l'a saisi.
+   */
+  attendeeRole?: string | null;
+  /**
+   * Pré-remplie avec celle de l'espace client, modifiable par le client si ce n'est pas lui qui suit la session.
+   */
+  attendeeEmail?: string | null;
+  /**
+   * Ajoutés par le client. Ils reçoivent l'invitation d'agenda au même titre que la personne formée.
+   */
+  sessionGuests?:
+    | {
+        email: string;
+        name?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   sessionEventId?: string | null;
   extensions?:
     | {
@@ -664,12 +684,16 @@ export interface PartnerClient {
    */
   contractDocument?: (number | null) | Media;
   /**
+   * Déposé par le client depuis son espace. Téléchargez-le pour l'ajouter à son compte de test.
+   */
+  logo?: (number | null) | Media;
+  /**
    * « Transmis » = le client a fini sa saisie ; « Validé » = TIM a contrôlé.
    */
   onboardingStatus?: ('en-cours' | 'transmis' | 'valide') | null;
   onboardingSubmittedAt?: string | null;
   /**
-   * Tout l'effectif. Cochez « Accès TIM » sur ceux qui consomment une licence — eux seuls comptent dans le devis.
+   * Tout l'effectif du client : pointage, planning, chantiers. Les licences, elles, se déclarent dans les CONTACTS — un salarié n'est pas un utilisateur.
    */
   employees?: {
     docs?: (number | ClientEmployee)[];
@@ -1122,9 +1146,13 @@ export interface ClientCredential {
    */
   password: string;
   /**
-   * Facultatif — relie l'accès à la ligne du dossier de démarrage.
+   * Historique : les accès générés avant que les utilisateurs se déclarent à part étaient reliés à une ligne de l'effectif.
    */
   employee?: (number | null) | ClientEmployee;
+  /**
+   * Ligne d'« Utilisateurs TIM » dont cet accès découle.
+   */
+  contact?: (number | null) | ClientContact;
   /**
    * Renseigné par le client quand il a remis l'accès à la personne.
    */
@@ -1143,6 +1171,10 @@ export interface ClientContact {
   client: number | PartnerClient;
   firstName?: string | null;
   lastName?: string | null;
+  /**
+   * Décide du compte TIM créé pour cette personne.
+   */
+  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon') | null;
   role?: string | null;
   email?: string | null;
   phone?: string | null;
@@ -2049,6 +2081,7 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   paymentTerms?: T;
   signatureDate?: T;
   contractDocument?: T;
+  logo?: T;
   onboardingStatus?: T;
   onboardingSubmittedAt?: T;
   employees?: T;
@@ -2088,6 +2121,7 @@ export interface ClientContactsSelect<T extends boolean = true> {
   client?: T;
   firstName?: T;
   lastName?: T;
+  licenceProfile?: T;
   role?: T;
   email?: T;
   phone?: T;
@@ -2192,6 +2226,17 @@ export interface JourneyRunsSelect<T extends boolean = true> {
   sessionLink?: T;
   sessionLocation?: T;
   sessionAt?: T;
+  attendeeFirstName?: T;
+  attendeeLastName?: T;
+  attendeeRole?: T;
+  attendeeEmail?: T;
+  sessionGuests?:
+    | T
+    | {
+        email?: T;
+        name?: T;
+        id?: T;
+      };
   sessionEventId?: T;
   extensions?:
     | T
@@ -2406,6 +2451,7 @@ export interface ClientCredentialsSelect<T extends boolean = true> {
   username?: T;
   password?: T;
   employee?: T;
+  contact?: T;
   deliveredAt?: T;
   partner?: T;
   displayName?: T;

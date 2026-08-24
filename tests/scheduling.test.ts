@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bookingModeOf, generateSlots, resolveRules } from "@/modules/marketing/lib/scheduling";
+import { PORTAL_SECTIONS, validateRow } from "@/modules/marketing/lib/portal-sections";
 import { generatePassword, suggestUsername } from "@/modules/marketing/lib/credentials";
 import {
   NEVER_AUTO_VALIDATE,
@@ -401,5 +402,31 @@ describe("heure d'envoi des e-mails", () => {
     expect(def?.anchor).toBe("debut");
     expect(def?.offsetDays).toBe(0);
     expect(def?.sendHour).toBe("08:00");
+  });
+});
+
+describe("validation d'une ligne du dossier de démarrage", () => {
+  const admin = PORTAL_SECTIONS.find((s) => s.key === "administrateur")!;
+
+  it("une adresse mal formée est refusée, une bonne passe", () => {
+    const base = { firstName: "Louise", lastName: "Martin" };
+    expect(validateRow(admin, { ...base, email: "louise(at)souvet.fr" }).email).toBeTruthy();
+    expect(validateRow(admin, { ...base, email: "louise@souvet.fr" }).email).toBeUndefined();
+  });
+
+  it("un téléphone est contrôlé comme dans le back-office", () => {
+    const base = { firstName: "Louise", lastName: "Martin", email: "louise@souvet.fr" };
+    expect(validateRow(admin, { ...base, phone: "06 12 34 56 78" }).phone).toBeUndefined();
+    expect(validateRow(admin, { ...base, phone: "+33 6 12 34 56 78" }).phone).toBeUndefined();
+    expect(validateRow(admin, { ...base, phone: "appelez-moi" }).phone).toBeTruthy();
+    // Vide reste vide : le téléphone n'est pas obligatoire ici.
+    expect(validateRow(admin, base).phone).toBeUndefined();
+  });
+
+  it("un champ vide obligatoire est signalé, un facultatif non", () => {
+    const errors = validateRow(admin, {});
+    expect(errors.firstName).toBeTruthy();
+    expect(errors.email).toBeTruthy();
+    expect(errors.phone).toBeUndefined();
   });
 });

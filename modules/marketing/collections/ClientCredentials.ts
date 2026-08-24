@@ -123,7 +123,22 @@ export const ClientCredentials: CollectionConfig = {
       label: "Salarié concerné",
       admin: {
         allowCreate: false,
-        description: "Facultatif — relie l'accès à la ligne du dossier de démarrage.",
+        description:
+          "Historique : les accès générés avant que les utilisateurs se déclarent à part étaient reliés à une ligne de l'effectif.",
+      },
+    },
+    {
+      // Ce lien remplace `employee` : les accès découlent désormais des
+      // UTILISATEURS déclarés, pas des salariés cochés. Il sert au
+      // dédoublonnage — sans lui, relancer la génération recréerait tout.
+      name: "contact",
+      type: "relationship",
+      relationTo: "client-contacts",
+      label: "Utilisateur déclaré",
+      index: true,
+      admin: {
+        allowCreate: false,
+        description: "Ligne d'« Utilisateurs TIM » dont cet accès découle.",
       },
     },
     {

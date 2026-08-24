@@ -1,3 +1,4 @@
+import { validatePhone } from "@/core/lib/validators";
 import {
   CACES_TYPES,
   CONTRACT_NEEDS_END_DATE,
@@ -73,19 +74,33 @@ export const fieldRequired = (field: PortalField, row: Record<string, unknown>):
 export const PORTAL_SECTIONS: PortalSection[] = [
   {
     key: "administrateur",
-    label: "Administrateur",
-    singular: "administrateur",
+    label: "Utilisateurs TIM",
+    singular: "utilisateur",
     collection: "client-contacts",
     min: 1,
+    // La clé reste « administrateur » : elle est dans l'URL des pages du dossier
+    // et dans la table des icônes. Le libellé, lui, décrit ce que la section est
+    // devenue — une liste d'utilisateurs avec leur profil de licence, et non plus
+    // la seule personne à contacter.
     intro:
-      "La personne qui administrera TIM chez vous. C'est elle que nous contactons pour tout ce qui concerne votre test.",
-    columns: ["firstName", "lastName", "email"],
+      "Les personnes qui utiliseront TIM chez vous, avec leur profil de licence. Nous créons leurs accès à partir de cette liste ; vous les récupérez dans votre espace et vous les leur remettez vous-même.",
+    columns: ["firstName", "lastName", "email", "licenceProfile"],
     fields: [
       { name: "firstName", label: "Prénom", type: "text", required: true, half: true },
       { name: "lastName", label: "Nom", type: "text", required: true, half: true },
       { name: "email", label: "Adresse e-mail", type: "email", required: true, half: true },
       { name: "phone", label: "Téléphone", type: "tel", half: true, placeholder: "+33 6 12 34 56 78" },
-      { name: "role", label: "Fonction", type: "text", placeholder: "Dirigeant, DAF, responsable travaux…" },
+      {
+        // Profil de licence, et non plus une « fonction » en texte libre : c'est
+        // cette valeur qui décide du compte TIM à créer et de la ligne du devis.
+        // Liste fermée reprise de la grille tarifaire, donc aucun écart possible
+        // entre ce que le client déclare et ce qu'on facture.
+        name: "licenceProfile",
+        label: "Profil de licence",
+        type: "select",
+        required: true,
+        options: LICENCE_PROFILE_OPTIONS,
+      },
     ],
   },
   {
@@ -95,8 +110,8 @@ export const PORTAL_SECTIONS: PortalSection[] = [
     collection: "client-employees",
     min: 1,
     intro:
-      "Tout votre effectif entre dans TIM (pointage, planning, affectation aux chantiers). Cochez « Accès TIM » uniquement sur les personnes qui utiliseront le logiciel : ce sont elles qui consomment une licence.",
-    columns: ["matricule", "firstName", "lastName", "poste", "isUser"],
+      "Tout votre effectif entre dans TIM : pointage, planning, affectation aux chantiers. Les personnes qui utiliseront le logiciel se déclarent à part, dans « Utilisateurs TIM ».",
+    columns: ["matricule", "firstName", "lastName", "poste"],
     fields: [
       {
         name: "matricule",
@@ -117,29 +132,10 @@ export const PORTAL_SECTIONS: PortalSection[] = [
         hint: "Le métier réel, pas le profil de licence.",
       },
       { name: "address", label: "Adresse", type: "text", half: true },
-      {
-        name: "isUser",
-        label: "Accès TIM (consomme une licence)",
-        type: "checkbox",
-      },
-      {
-        name: "licenceProfile",
-        label: "Priorité",
-        type: "select",
-        options: LICENCE_PROFILE_OPTIONS,
-        requiredIf: { field: "isUser", truthy: true },
-        showIf: { field: "isUser", truthy: true },
-        half: true,
-        hint: "Le profil de licence de cette personne.",
-      },
-      {
-        name: "email",
-        label: "Adresse e-mail",
-        type: "email",
-        requiredIf: { field: "isUser", truthy: true },
-        half: true,
-        hint: "Obligatoire pour un utilisateur : c'est son identifiant de connexion.",
-      },
+      // Ni « Accès TIM », ni « Priorité », ni adresse e-mail ici : les licences se
+      // déclarent dans « Utilisateurs TIM », avec leur profil. Deux endroits pour
+      // dire la même chose donnaient deux comptages possibles — et donc deux
+      // devis possibles. Les champs restent en base, seule la saisie déménage.
       { name: "phone", label: "Téléphone", type: "tel", half: true },
       { name: "nationality", label: "Nationalité", type: "select", options: COUNTRIES, half: true },
       { name: "birthDate", label: "Date de naissance", type: "date", half: true },
@@ -262,6 +258,14 @@ export const validateRow = (
 
     if (field.type === "email" && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(value))) {
       errors[field.name] = "Adresse e-mail invalide.";
+    }
+
+    // Téléphone : même règle que les fiches du back-office (validatePhone), pour
+    // qu'un numéro accepté ici ne soit pas refusé là-bas. Un contrôle de saisie
+    // qui diverge d'un écran à l'autre est pire que pas de contrôle du tout.
+    if (field.type === "tel") {
+      const verdict = validatePhone(value);
+      if (verdict !== true) errors[field.name] = verdict;
     }
   }
 

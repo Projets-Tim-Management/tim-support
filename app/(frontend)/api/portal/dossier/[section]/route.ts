@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
+import { isDossierLocked } from "@/modules/marketing/lib/onboarding";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
 import { sectionByKey, validateRow, type PortalSection } from "@/modules/marketing/lib/portal-sections";
 
@@ -16,7 +17,7 @@ import { sectionByKey, validateRow, type PortalSection } from "@/modules/marketi
  *  3. un dossier transmis ou validé est en lecture seule.
  */
 
-const CLOSED_DOSSIER = ["transmis", "valide"];
+// La règle vit dans onboarding.ts, partagée avec les écrans.
 
 /** Ne garde que les champs du registre : rien d'autre n'atteint la base. */
 const pick = (section: PortalSection, body: Record<string, unknown>): Record<string, unknown> => {
@@ -46,14 +47,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ section
     overrideAccess: true,
   });
 
-  return NextResponse.json({ docs: res.docs, locked: CLOSED_DOSSIER.includes(ctx.client.onboardingStatus ?? "") });
+  return NextResponse.json({ docs: res.docs, locked: isDossierLocked(ctx.client.onboardingStatus) });
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ section: string }> }) {
   const ctx = await getPortalClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  if (CLOSED_DOSSIER.includes(ctx.client.onboardingStatus ?? "")) {
+  if (isDossierLocked(ctx.client.onboardingStatus)) {
     return NextResponse.json({ error: "locked" }, { status: 409 });
   }
 
@@ -86,21 +87,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ section
 
   try {
     // Le client est FORCÉ depuis la session, quoi qu'annonce le corps.
-    const doc = id
-      ? await payload.update({
-          collection,
-          // Le `where` (et non l'id seul) garantit qu'on ne modifie qu'une ligne
-          // appartenant à CE client, même si l'id vient d'ailleurs.
-          where: { id: { equals: id }, client: { equals: clientId } },
-          data: data as any,
-          overrideAccess: true,
-        })
-      : await payload.create({
-          collection,
-          data: { ...data, client: clientId } as any,
-          overrideAccess: true,
-        });
+    if (!id) {
+      const doc = await payload.create({
+        collection,
+        data: { ...data, client: clientId } as any,
+        overrideAccess: true,
+      });
+      return NextResponse.json({ ok: true, doc });
+    }
+
+    // Mise à jour PAR LOT (`where` et non l'id seul) : c'est ce qui garantit
+    // qu'on ne modifie qu'une ligne appartenant à CE client, même si l'id vient
+    // d'ailleurs. En contrepartie elle renvoie `{ docs, errors }` et NON un
+    // document — le confondre avec une ligne vidait l'écran de ses valeurs.
+    const result = await payload.update({
+      collection,
+      where: { id: { equals: id }, client: { equals: clientId } },
+      data: data as any,
+      overrideAccess: true,
+    });
     /* eslint-enable @typescript-eslint/no-explicit-any */
+
+    const doc = result.docs?.[0];
+    // Aucune ligne touchée : l'id n'appartient pas à ce client, ou n'existe
+    // plus. Répondre « ok » laisserait croire à un enregistrement.
+    if (!doc) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
 
     return NextResponse.json({ ok: true, doc });
   } catch (err) {
@@ -115,7 +128,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ secti
   const ctx = await getPortalClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  if (CLOSED_DOSSIER.includes(ctx.client.onboardingStatus ?? "")) {
+  if (isDossierLocked(ctx.client.onboardingStatus)) {
     return NextResponse.json({ error: "locked" }, { status: 409 });
   }
 

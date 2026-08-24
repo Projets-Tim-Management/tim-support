@@ -62,7 +62,7 @@ export function CredentialsGenerator() {
     return (
       <p className="jr-prev jr-prev--off">
         Aucun utilisateur déclaré dans le dossier de démarrage. Les accès se génèrent à partir des
-        salariés cochés « Accès TIM ».
+        utilisateurs déclarés par le client.
       </p>
     );
   }

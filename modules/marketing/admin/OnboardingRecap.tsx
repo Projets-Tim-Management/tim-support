@@ -78,19 +78,19 @@ export function OnboardingRecap() {
 
     (async () => {
       try {
-        // Les salariés sont chargés en entier (et non comptés) : il faut le
-        // détail par profil de licence, qu'aucun compteur serveur ne donne.
+        // Les UTILISATEURS déclarés sont chargés en entier (et non comptés) : il
+        // faut le détail par profil de licence, qu'aucun compteur serveur ne
+        // donne. C'est cette liste qui alimente les comptes à créer et le devis.
         const empRes = await fetch(
-          `/payload-api/client-employees?where[client][equals]=${id}&limit=1000&depth=0`,
+          `/payload-api/client-contacts?where[client][equals]=${id}&limit=1000&depth=0`,
           { credentials: "include" },
         );
         const empData = empRes.ok ? await empRes.json() : { docs: [] };
-        const docs = (empData?.docs ?? []) as { isUser?: boolean; licenceProfile?: string }[];
+        const docs = (empData?.docs ?? []) as { licenceProfile?: string }[];
 
         const byProfile: Record<string, number> = {};
         let users = 0;
         for (const e of docs) {
-          if (!e.isUser) continue;
           users += 1;
           const key = e.licenceProfile ?? "—";
           byProfile[key] = (byProfile[key] ?? 0) + 1;

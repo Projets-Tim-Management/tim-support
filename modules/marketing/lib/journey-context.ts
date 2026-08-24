@@ -22,6 +22,11 @@ export type JourneyRunLike = {
   sessionMode?: string | null;
   sessionLink?: string | null;
   sessionLocation?: string | null;
+  attendeeFirstName?: string | null;
+  attendeeLastName?: string | null;
+  attendeeRole?: string | null;
+  attendeeEmail?: string | null;
+  sessionGuests?: { email?: string | null; name?: string | null }[] | null;
   steps?: { key?: string; anchor?: string; offsetDays?: number }[];
 };
 
@@ -101,6 +106,16 @@ export async function buildJourneyContext(
       endDate: run.endDate ?? null,
       sessionAt: run.sessionAt ?? null,
       sessionModality: sessionSummary(run as never),
+      sessionLink: run.sessionLink ?? null,
+      sessionAttendee: run.attendeeFirstName || run.attendeeEmail
+        ? {
+            firstName: run.attendeeFirstName ?? null,
+            lastName: run.attendeeLastName ?? null,
+            role: run.attendeeRole ?? null,
+            email: run.attendeeEmail ?? null,
+          }
+        : null,
+      sessionGuests: run.sessionGuests ?? null,
       credentialCount: credentials as number,
       dossierDeadline,
     },
