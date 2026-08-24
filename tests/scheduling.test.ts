@@ -516,3 +516,37 @@ describe("un parcours en cours reçoit les étapes ajoutées au modèle", () => 
     ).toBeNull();
   });
 });
+
+describe("le MODÈLE en base suit le code, pas seulement les parcours", () => {
+  // Le piège du 24/08/2026 : la mise à niveau du modèle ne rafraîchissait que
+  // le `detail` des étapes déjà présentes. Une étape supprimée du code y restait
+  // pour toujours, une étape ajoutée n'y entrait jamais — et les parcours, qui
+  // se réconcilient avec CE modèle, recopiaient fidèlement l'erreur. Le site
+  // affichait donc une étape que plus aucune ligne de code ne pilotait.
+
+  it("retire du modèle une étape que le code ne connaît plus", () => {
+    const enBase = [
+      { key: "demande", detail: "d" },
+      { key: "validation-client", label: "Validation du client (démarrage du test)" },
+    ];
+    const out = mergeRunSteps([{ key: "demande", detail: "d" }], enBase)!;
+    expect(out.map((s) => s.key)).toEqual(["demande"]);
+  });
+
+  it("insère dans le modèle une étape ajoutée au code, à sa place", () => {
+    const out = mergeRunSteps(
+      [{ key: "dossier-demarrage" }, { key: "validation-dossier" }, { key: "provisionnement" }],
+      [{ key: "dossier-demarrage" }, { key: "provisionnement" }],
+    )!;
+    expect(out.map((s) => s.key)).toEqual([
+      "dossier-demarrage",
+      "validation-dossier",
+      "provisionnement",
+    ]);
+  });
+
+  it("le modèle livré avec le code ne contient plus l'étape supprimée", () => {
+    expect(PHASE_DE_TEST_STEPS.some((s) => s.key === "validation-client")).toBe(false);
+    expect(PHASE_DE_TEST_STEPS.some((s) => s.key === "validation-dossier")).toBe(true);
+  });
+});
