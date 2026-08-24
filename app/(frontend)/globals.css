@@ -241,9 +241,10 @@ body {
 /* ── Impression des accès TIM ──────────────────────────────────────────────
    La page « Mes accès » sert à distribuer : on imprime, on découpe, on remet.
 
-   Deux gestes, deux états. Sans classe, tout s'imprime. Avec `acces--solo` sur
-   la liste, seule la ligne marquée `acces-ligne--solo` reste visible : le
-   navigateur n'imprime qu'une fiche, sans que la page à l'écran bouge.
+   Deux gestes, deux états. Sans classe, tout s'imprime. Avec `acces--solo`,
+   seule la ligne marquée `acces-ligne--solo` reste — et la SECTION qui la
+   contient, pour que le profil parte avec le papier : une fiche remise sans
+   « Chef de chantier » dessus ne dit plus à quoi elle donne accès.
 
    Masquer plutôt qu'ouvrir une fenêtre séparée : celle-ci perdrait les styles,
    se ferait bloquer par les navigateurs, et il faudrait maintenir deux mises en
@@ -258,6 +259,13 @@ body {
 
   .acces--solo .acces-ligne--solo {
     display: flex;
+  }
+
+  /* Les autres sections disparaissent en entier, cadre et titre compris : sans
+     ça, l'impression d'une fiche sortait quatre rectangles vides surmontés de
+     leur intitulé. */
+  .acces--solo section:not(:has(.acces-ligne--solo)) {
+    display: none;
   }
 
   .acces-ligne {

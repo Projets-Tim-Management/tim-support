@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import AccessList, { type Access } from "@/components/portal/AccessList";
+import AccessList, { type Access, type Group } from "@/components/portal/AccessList";
 import { payloadClient } from "@/core/payload-client";
 import { readTimAccesses } from "@/modules/marketing/lib/credential-secrets";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
@@ -75,21 +75,35 @@ export default async function AccesPage() {
         (a.firstName ?? "").localeCompare(b.firstName ?? "", "fr"),
     );
 
-  const accesses: Access[] = credentials.map((c) => ({
-    id: c.id,
-    firstName: c.firstName,
-    lastName: c.lastName,
-    profileLabel: c.licenceProfile ? (PROFILE_LABEL[c.licenceProfile] ?? c.licenceProfile) : null,
-    email: c.email,
-    password: c.timPassword,
-  }));
+  /**
+   * Regroupement par profil, dans l'ordre de la hiérarchie.
+   *
+   * Une liste continue de quinze lignes oblige à lire chaque intitulé pour
+   * savoir où l'on en est. Les sections donnent la réponse d'un coup d'œil, et
+   * surtout elles correspondent à la façon dont on distribue : on prévient les
+   * conducteurs, puis les chefs de chantier, puis les compagnons.
+   */
+  const groups: Group[] = [];
+  for (const c of credentials) {
+    const label = c.licenceProfile
+      ? (PROFILE_LABEL[c.licenceProfile] ?? c.licenceProfile)
+      : "Profil non précisé";
+    // Le tri les a déjà rassemblés : le dernier groupe est forcément le bon.
+    const last = groups[groups.length - 1];
+    const acces: Access = {
+      id: c.id,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      profileLabel: label,
+      email: c.email,
+      password: c.timPassword,
+    };
+    if (last && last.label === label) last.accesses.push(acces);
+    else groups.push({ label, accesses: [acces] });
+  }
 
   return (
-    // Bornée, contrairement au reste de l'espace : une ligne d'accès tient en
-    // trois colonnes courtes (nom, identifiants, actions). Étalée sur un grand
-    // écran, elle sépare le nom de son mot de passe par vingt centimètres de
-    // vide — et c'est justement l'association des deux qu'on vient lire.
-    <div className="mx-auto max-w-4xl px-6 py-10 sm:px-8">
+    <div className="px-6 py-10 sm:px-8">
       <div className="mb-8 flex items-start justify-between gap-4 print:hidden">
         <div>
           <Link href="/espace-client/accueil" className="text-sm text-muted hover:underline">
@@ -97,7 +111,7 @@ export default async function AccesPage() {
           </Link>
           <h1 className="mt-2 text-3xl font-bold text-foreground">Mes accès TIM</h1>
           <p className="mt-2 text-muted">
-            {accesses.length}&nbsp;accès, dans l&apos;ordre des profils. Imprimez-les tous d&apos;un coup,
+            {credentials.length}&nbsp;accès, regroupés par profil. Imprimez-les tous d&apos;un coup,
             ou fiche par fiche — et envoyez les siens à quelqu&apos;un qui n&apos;est pas sur place.
           </p>
         </div>
@@ -109,12 +123,12 @@ export default async function AccesPage() {
         déclarée pour elle&nbsp;— vérifiez-la avant d&apos;envoyer.
       </p>
 
-      {accesses.length === 0 ? (
+      {credentials.length === 0 ? (
         <p className="text-muted">
           Vos accès ne sont pas encore prêts. Nous vous prévenons dès qu&apos;ils le sont.
         </p>
       ) : (
-        <AccessList accesses={accesses} />
+        <AccessList groups={groups} />
       )}
 
     </div>

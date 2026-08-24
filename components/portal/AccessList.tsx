@@ -5,12 +5,14 @@ import { useEffect, useState } from "react";
 import { IconCheck, IconCross, IconMail, IconPrinter, IconSpinner } from "@/components/ui/icons";
 
 /**
- * « Mes accès TIM » — une ligne par utilisateur, dans l'ordre des profils.
+ * « Mes accès TIM » — les utilisateurs, regroupés par profil.
  *
  * Les vignettes en grille traitaient un administrateur et un compagnon comme
- * deux objets équivalents, alors que la hiérarchie des profils est précisément
- * ce qui aide à distribuer : on descend la liste dans l'ordre où l'on prévient
- * les gens. D'où une liste ordonnée, et le tri fait côté serveur.
+ * deux objets équivalents, dans l'ordre où la base les rendait. Or la hiérarchie
+ * des profils est ce qui structure la distribution : on prévient l'admin, puis
+ * les conducteurs, puis les chefs de chantier. D'où des sections plutôt qu'une
+ * liste continue — avec quinze lignes d'affilée, il faut lire chaque intitulé
+ * pour savoir où l'on en est.
  *
  * Deux gestes par ligne, parce que les deux situations existent :
  *  - IMPRIMER, pour la remise en main propre — beaucoup de compagnons n'ont pas
@@ -29,12 +31,14 @@ export type Access = {
   password?: string | null;
 };
 
+export type Group = { label: string; accesses: Access[] };
+
 type Sent = { state: "sending" } | { state: "ok"; to: string } | { state: "ko"; message: string };
 
 const fullName = (a: Access) =>
   [a.firstName, a.lastName].filter(Boolean).join(" ").trim() || "Utilisateur";
 
-export default function AccessList({ accesses }: { accesses: Access[] }) {
+export default function AccessList({ groups }: { groups: Group[] }) {
   const [sent, setSent] = useState<Record<string, Sent>>({});
 
   /**
@@ -62,8 +66,7 @@ export default function AccessList({ accesses }: { accesses: Access[] }) {
     // Retirer la classe au bout de quelques secondes faisait donc réapparaître
     // toutes les lignes dans l'aperçu déjà affiché — l'impression unitaire
     // rendait la page entière. Si `afterprint` n'est jamais émis, l'état reste
-    // posé sans aucune conséquence visible : ces classes ne servent qu'à
-    // l'impression, l'écran ne bouge pas.
+    // posé sans conséquence visible : ces classes ne servent qu'à l'impression.
     const done = () => setPrinting(null);
     window.addEventListener("afterprint", done, { once: true });
 
@@ -82,9 +85,7 @@ export default function AccessList({ accesses }: { accesses: Access[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: a.id }),
       });
-      const body = (await res.json().catch(() => null)) as
-        | { to?: string; error?: string }
-        | null;
+      const body = (await res.json().catch(() => null)) as { to?: string; error?: string } | null;
 
       if (!res.ok) {
         // Chaque refus a sa raison, et elles n'appellent pas la même réaction :
@@ -108,106 +109,119 @@ export default function AccessList({ accesses }: { accesses: Access[] }) {
     }
   };
 
+  const row = (a: Access) => {
+    const key = String(a.id);
+    const status = sent[key];
+    return (
+      <li
+        key={key}
+        className={`acces-ligne flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3${
+          printing?.id === key ? " acces-ligne--solo" : ""
+        }`}
+      >
+        <span className="min-w-[9rem] flex-1 font-semibold text-foreground">{fullName(a)}</span>
+
+        <dl className="flex shrink-0 flex-col gap-1 text-sm">
+          <div className="flex gap-2">
+            <dt className="w-24 shrink-0 text-muted">Identifiant</dt>
+            {/* L'adresse ne se coupe pas : un identifiant réparti sur deux
+                lignes se recopie de travers, et c'est précisément ce qu'on vient
+                lire. La colonne s'élargit, ou la page défile — jamais l'adresse
+                qui se scinde. */}
+            <dd className="font-mono whitespace-nowrap text-foreground">{a.email ?? "—"}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-24 shrink-0 text-muted">Mot de passe</dt>
+            <dd className="font-mono whitespace-nowrap text-foreground">{a.password}</dd>
+          </div>
+        </dl>
+
+        <div className="flex shrink-0 items-center gap-2 print:hidden">
+          <button
+            type="button"
+            onClick={() => setPrinting({ id: key })}
+            title={`Imprimer la fiche de ${fullName(a)}`}
+            aria-label={`Imprimer la fiche de ${fullName(a)}`}
+            className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted transition hover:border-primary hover:text-primary"
+          >
+            <IconPrinter className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void sendOne(a)}
+            disabled={status?.state === "sending" || !a.email}
+            title={
+              a.email
+                ? `Envoyer ses accès à ${a.email}`
+                : "Aucune adresse e-mail pour cette personne"
+            }
+            aria-label={`Envoyer ses accès par e-mail à ${fullName(a)}`}
+            className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {status?.state === "sending" ? (
+              <IconSpinner className="h-4 w-4 animate-spin" />
+            ) : status?.state === "ok" ? (
+              <IconCheck className="h-4 w-4 text-success-text" />
+            ) : status?.state === "ko" ? (
+              <IconCross className="h-4 w-4 text-danger-text" />
+            ) : (
+              <IconMail className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+
+        {/* Le résultat sous la ligne concernée, pas dans un bandeau global :
+            avec dix utilisateurs, « envoyé » en haut de page ne dit pas à qui. */}
+        {status && status.state !== "sending" && (
+          <p
+            className={`w-full text-sm print:hidden ${
+              status.state === "ok" ? "text-success-text" : "text-danger-text"
+            }`}
+            role="status"
+          >
+            {status.state === "ok" ? `Accès envoyés à ${status.to}.` : status.message}
+          </p>
+        )}
+      </li>
+    );
+  };
+
+  const total = groups.reduce((n, g) => n + g.accesses.length, 0);
+
   return (
-    <>
-      {/* Barre d'actions : imprimer TOUT reste le geste principal — on prépare
-          la distribution d'un coup, puis on découpe. */}
-      <div className="mb-4 flex flex-wrap items-center gap-3 print:hidden">
+    // Le TABLEAU est borné, pas la page : une ligne tient en trois colonnes
+    // courtes, et l'étirer sur un grand écran mettrait vingt centimètres de vide
+    // entre le nom et son mot de passe — c'est justement l'association des deux
+    // qu'on vient lire. Le reste de l'écran garde la largeur de l'espace client.
+    <div className={`max-w-3xl${printing?.id ? " acces--solo" : ""}`}>
+      <div className="mb-5 flex flex-wrap items-center gap-3 print:hidden">
         <button
           type="button"
           onClick={() => setPrinting({ id: null })}
           className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
         >
           <IconPrinter className="h-4 w-4" />
-          Imprimer toutes les fiches
+          Imprimer les {total} fiches
         </button>
-        <span className="text-sm text-muted">
-          ou imprimez une fiche à la fois avec l&apos;icône de chaque ligne.
-        </span>
+        <span className="text-sm text-muted">ou une seule, avec l&apos;icône de sa ligne.</span>
       </div>
 
-      <ul
-        className={`divide-y divide-border rounded-lg border border-border bg-white${
-          printing?.id ? " acces--solo" : ""
-        }`}
-      >
-        {accesses.map((a) => {
-          const key = String(a.id);
-          const status = sent[key];
-          return (
-            <li
-              key={key}
-              className={`acces-ligne flex flex-wrap items-center gap-x-6 gap-y-2 p-4${
-                printing?.id === key ? " acces-ligne--solo" : ""
-              }`}
-            >
-              <div className="min-w-[12rem] flex-1">
-                <p className="font-semibold text-foreground">{fullName(a)}</p>
-                {a.profileLabel && <p className="text-xs text-muted">{a.profileLabel}</p>}
-              </div>
-
-              <dl className="flex min-w-[16rem] flex-1 flex-col gap-1 text-sm">
-                <div className="flex gap-2">
-                  <dt className="w-28 shrink-0 text-muted">Identifiant</dt>
-                  <dd className="break-all font-mono text-foreground">{a.email ?? "—"}</dd>
-                </div>
-                <div className="flex gap-2">
-                  <dt className="w-28 shrink-0 text-muted">Mot de passe</dt>
-                  <dd className="font-mono text-foreground">{a.password}</dd>
-                </div>
-              </dl>
-
-              <div className="flex items-center gap-2 print:hidden">
-                <button
-                  type="button"
-                  onClick={() => setPrinting({ id: key })}
-                  title={`Imprimer la fiche de ${fullName(a)}`}
-                  aria-label={`Imprimer la fiche de ${fullName(a)}`}
-                  className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted transition hover:border-primary hover:text-primary"
-                >
-                  <IconPrinter className="h-4 w-4" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => void sendOne(a)}
-                  disabled={status?.state === "sending" || !a.email}
-                  title={
-                    a.email
-                      ? `Envoyer ses accès à ${a.email}`
-                      : "Aucune adresse e-mail pour cette personne"
-                  }
-                  aria-label={`Envoyer ses accès par e-mail à ${fullName(a)}`}
-                  className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {status?.state === "sending" ? (
-                    <IconSpinner className="h-4 w-4 animate-spin" />
-                  ) : status?.state === "ok" ? (
-                    <IconCheck className="h-4 w-4 text-success-text" />
-                  ) : status?.state === "ko" ? (
-                    <IconCross className="h-4 w-4 text-danger-text" />
-                  ) : (
-                    <IconMail className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-
-              {/* Le résultat sous la ligne concernée, pas dans un bandeau global :
-                  avec dix utilisateurs, « envoyé » en haut de page ne dit pas à qui. */}
-              {status && status.state !== "sending" && (
-                <p
-                  className={`w-full text-sm print:hidden ${
-                    status.state === "ok" ? "text-success-text" : "text-danger-text"
-                  }`}
-                  role="status"
-                >
-                  {status.state === "ok" ? `Accès envoyés à ${status.to}.` : status.message}
-                </p>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </>
+      <div className="space-y-6">
+        {groups.map((g) => (
+          <section key={g.label}>
+            <h2 className="acces-groupe__titre mb-2 text-xs font-semibold tracking-wide text-muted uppercase">
+              {g.label}
+              <span className="ml-2 font-normal normal-case">
+                · {g.accesses.length} {g.accesses.length > 1 ? "personnes" : "personne"}
+              </span>
+            </h2>
+            <ul className="divide-y divide-border rounded-lg border border-border bg-white">
+              {g.accesses.map(row)}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </div>
   );
 }
