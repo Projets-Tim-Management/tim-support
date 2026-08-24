@@ -51,6 +51,10 @@ export const JOURNEY_ANCHORS = [
   { value: "debut", label: "Par rapport au démarrage" },
   { value: "milieu", label: "À mi-parcours" },
   { value: "fin", label: "Par rapport à la fin" },
+  // Le créneau de prise en main n'est pas le démarrage du test : le client
+  // choisit son jour et son heure, souvent une semaine avant. Un rappel calé
+  // sur le démarrage tomberait donc à côté.
+  { value: "session", label: "Par rapport au créneau de prise en main" },
 ] as const;
 
 export type JourneyAnchor = (typeof JOURNEY_ANCHORS)[number]["value"];
@@ -868,6 +872,20 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
       "Relance sur le créneau de prise en main, envoyée seulement si aucun rendez-vous n'est réservé. Passé le démarrage, cette session ne rattrape plus la première semaine.",
   },
   {
+    key: "rappel-creneau",
+    subject: "Votre session de prise en main, c'est demain",
+    audience: "client",
+    anchor: "session",
+    offsetDays: -1,
+    // 17 h : la veille en fin de journée, quand on organise le lendemain. Le
+    // matin même, il est trop tard pour prévenir un collègue ou déplacer une
+    // visite de chantier ; le matin de la veille, on l'aura oublié à 17 h.
+    sendHour: "17:00",
+    trigger: "la veille du créneau réservé, à 17 h",
+    detail:
+      "Rappel au client et à ses invités, la veille de la session. Sans créneau réservé, il n'a pas de date et ne part pas — c'est la réservation qui lui en donne une.",
+  },
+  {
     key: "relance-dossier",
     subject: "Votre dossier de démarrage nous manque",
     audience: "client",
@@ -1082,9 +1100,15 @@ export const stepDueDate = (
   step: { anchor?: string | null; offsetDays?: number | null },
   startDate?: string | null,
   endDate?: string | null,
+  sessionAt?: string | null,
 ): string | null => {
   const offset = step.offsetDays ?? 0;
   switch (step.anchor) {
+    // Tant qu'aucun créneau n'est réservé, il n'y a rien à quoi s'accrocher :
+    // `null` vaut « pas de date », donc « ne pas envoyer ». Le rappel apparaît
+    // tout seul le jour où le client choisit son heure.
+    case "session":
+      return sessionAt ? addDays(sessionAt, offset) : null;
     case "debut":
       return startDate ? addDays(startDate, offset) : null;
     case "fin":
@@ -1136,10 +1160,15 @@ export function computeEmailSchedule<
     overridden?: boolean | null;
     sendHour?: string | null;
   },
->(emails: E[], startDate?: string | null, endDate?: string | null): E[] {
+>(
+  emails: E[],
+  startDate?: string | null,
+  endDate?: string | null,
+  sessionAt?: string | null,
+): E[] {
   return emails.map((mail) => {
     if (mail.overridden) return mail;
-    const due = stepDueDate(mail, startDate, endDate);
+    const due = stepDueDate(mail, startDate, endDate, sessionAt);
     // Une date d'ancrage tombe à minuit : on y pose l'heure d'envoi voulue.
     return {
       ...mail,

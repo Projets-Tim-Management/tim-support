@@ -34,6 +34,9 @@ import {
 // v16 : alerte à TIM quand un créneau est réservé (« Prise en main calée »).
 // v17 : nouvelle étape « Dossier vérifié par TIM » — la valider verrouille la
 // saisie du client, geste qui vivait jusque-là dans un menu de la fiche client.
+// v20 : rappel « c'est demain » la veille du créneau à 17 h, au client ET aux
+// personnes attendues. Premier envoi ancré sur la SESSION et non sur le début
+// du test — le client choisit son heure, souvent une semaine avant.
 // v19 : les étapes du modèle sont enfin RÉCONCILIÉES avec le code (ajout,
 // retrait, ordre). Sans ça, les v17 et v18 ci-dessous n'avaient aucun effet sur
 // un modèle déjà en place : l'étape supprimée y restait, la nouvelle n'y entrait
@@ -42,7 +45,7 @@ import {
 // demandait au client de confirmer ce qu'il venait de déclarer lui-même dans son
 // espace, et ne déclenchait rien. Une case qui bloque sans rien produire finit
 // cochée machinalement — et dévalue les validations qui, elles, comptent.
-const SEED_VERSION = 19;
+const SEED_VERSION = 20;
 
 const stepSeed = () =>
   PHASE_DE_TEST_STEPS.map((s) => ({

@@ -45,6 +45,9 @@ type Run = {
   displayName?: string | null;
   currentStepLabel?: string | null;
   emails?: ScheduledEmail[];
+  /** Personnes attendues à la session : destinataires des rappels de créneau. */
+  attendeeEmail?: string | null;
+  sessionGuests?: { email?: string | null }[] | null;
 };
 
 /**
@@ -98,6 +101,12 @@ async function gatherFacts(
     credentialCount: credentials,
   };
 }
+
+/**
+ * Envois qui concernent la session de prise en main, et doivent donc atteindre
+ * les personnes attendues — pas seulement le titulaire du compte client.
+ */
+const SESSION_EMAIL_KEYS = new Set(["rappel-creneau"]);
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -182,7 +191,22 @@ export async function GET(req: Request) {
         continue;
       }
 
-      const result = await sendJourneyEmail(payload, { run, key: mail.key! });
+      const result = await sendJourneyEmail(payload, {
+        run,
+        key: mail.key!,
+        // Les envois qui parlent de la SESSION vont aussi à ceux qui y sont
+        // attendus. Le compte du client n'est pas toujours celui qui se
+        // connectera : un rappel envoyé au seul signataire manque exactement
+        // les gens qu'il doit faire venir.
+        ...(SESSION_EMAIL_KEYS.has(mail.key!)
+          ? {
+              alsoTo: [
+                run.attendeeEmail,
+                ...((run.sessionGuests ?? []) as { email?: string | null }[]).map((g) => g?.email),
+              ],
+            }
+          : {}),
+      });
       if (result.sent) sent.push(`${run.id}:${mail.key}`);
       else {
         failed.push(`${run.id}:${mail.key} (${result.reason})`);

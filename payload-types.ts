@@ -317,7 +317,7 @@ export interface JourneyRun {
         actor?: ('partenaire' | 'admin' | 'client') | null;
         phase?: ('avant-test' | 'pendant-test' | 'sortie-test') | null;
         detail?: string | null;
-        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin') | null;
+        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session') | null;
         offsetDays?: number | null;
         doneAt?: string | null;
         doneBy?: (number | null) | User;
@@ -1206,7 +1206,7 @@ export interface MarketingJourney {
          * Sans effet si aucun fait observable n'est associé à cette étape. Les étapes que le logiciel sait constater (voir SYSTEM_STEPS) se valident seules de toute façon : cette règle vit dans le code, pas dans cette case.
          */
         autoValidate?: boolean | null;
-        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin') | null;
+        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session') | null;
         /**
          * Négatif = avant l'ancrage. Ex. -7 = une semaine avant.
          */
@@ -1222,7 +1222,7 @@ export interface MarketingJourney {
         key: string;
         subject: string;
         audience?: ('client' | 'tim' | 'partenaire') | null;
-        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin') | null;
+        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session') | null;
         offsetDays?: number | null;
         /**
          * Heure de Paris. Une date sans heure partirait à minuit.
