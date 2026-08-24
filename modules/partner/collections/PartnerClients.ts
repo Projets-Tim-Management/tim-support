@@ -271,15 +271,15 @@ const deleteClientChildren: CollectionBeforeDeleteHook = async ({ req, id }) => 
  */
 const armJourneySteps: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
   if (doc?.onboardingStatus === "transmis" && previousDoc?.onboardingStatus !== "transmis") {
-    await armAutoStep(req.payload, doc.id, "dossier-demarrage");
+    await armAutoStep(req.payload, doc.id, "dossier-demarrage", req);
   }
   // Dossier passé à « Validé » depuis la fiche : l'étape du parcours suit, pour
   // qu'il n'existe jamais deux vérités sur le même fait.
   if (doc?.onboardingStatus === "valide" && previousDoc?.onboardingStatus !== "valide") {
-    await armAutoStep(req.payload, doc.id, "validation-dossier");
+    await armAutoStep(req.payload, doc.id, "validation-dossier", req);
   }
   if (doc?.signatureDate && !previousDoc?.signatureDate) {
-    await armAutoStep(req.payload, doc.id, "signature");
+    await armAutoStep(req.payload, doc.id, "signature", req);
   }
   return doc;
 };
