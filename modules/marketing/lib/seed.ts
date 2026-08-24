@@ -31,7 +31,13 @@ import {
 // v15 : confirmation au CLIENT du créneau qu'il vient de réserver — il n'était
 // prévenu que par l'invitation d'agenda du partenaire, quand elle existait.
 // v16 : alerte à TIM quand un créneau est réservé (« Prise en main calée »).
-const SEED_VERSION = 16;
+// v17 : nouvelle étape « Dossier vérifié par TIM » — la valider verrouille la
+// saisie du client, geste qui vivait jusque-là dans un menu de la fiche client.
+// v18 : suppression de « Validation du client (démarrage du test) ». Elle
+// demandait au client de confirmer ce qu'il venait de déclarer lui-même dans son
+// espace, et ne déclenchait rien. Une case qui bloque sans rien produire finit
+// cochée machinalement — et dévalue les validations qui, elles, comptent.
+const SEED_VERSION = 18;
 
 const stepSeed = () =>
   PHASE_DE_TEST_STEPS.map((s) => ({

@@ -32,6 +32,7 @@ import {
   AUTO_VALIDATE_DELAY_HOURS,
   NEVER_AUTO_VALIDATE,
   canAutoValidate,
+  mergeRunSteps,
   clampMailDate,
   computeEmailSchedule,
   computeEndDate,
@@ -206,14 +207,84 @@ const snapshotSteps: CollectionBeforeChangeHook = async ({ data, originalDoc, re
   const known = new Set(currentEmails.map((e) => e.key));
   const missing = emails.filter((e) => !known.has(e.key as string));
 
+  // Étapes ajoutées, retirées ou re-documentées depuis le lancement de CE
+  // parcours : la règle vit dans journey.ts, où elle est vérifiable.
+  const mergedSteps = mergeRunSteps(steps, currentSteps);
+
   return {
     ...data,
-    // Les étapes en place NE SONT PAS réécrites : leur avancement est la donnée
-    // la plus précieuse du parcours. Seul un parcours qui n'en a pas en reçoit.
-    ...(hasSteps ? {} : { steps }),
+    ...(hasSteps ? (mergedSteps ? { steps: mergedSteps } : {}) : { steps }),
     ...(hasEmails ? (missing.length ? { emails: [...currentEmails, ...missing] } : {}) : { emails }),
     durationWeeks: data?.durationWeeks ?? originalDoc?.durationWeeks ?? journey.defaultDurationWeeks ?? DEFAULT_DURATION_WEEKS,
   };
+};
+
+/**
+ * Rattrape les étapes dont le FAIT est déjà vrai mais qui n'ont jamais été
+ * armées.
+ *
+ * Une étape « constatée » s'arme au moment où le fait se produit — un accès
+ * ouvert, un dossier transmis, des mots de passe générés. Si ce câblage n'existe
+ * pas encore, ou change, ou tombe en panne une fois, l'étape reste « à faire »
+ * pour toujours : elle n'a pas de bouton, et le fait ne se reproduira pas. Le
+ * parcours est alors bloqué sans que personne ne puisse le débloquer.
+ *
+ * Ce hook relit donc la réalité à CHAQUE enregistrement du parcours et arme ce
+ * qui doit l'être. Un simple « Sauvegarder » suffit à remettre un parcours
+ * d'aplomb, quelle que soit la raison du décrochage.
+ *
+ * Il n'écrit jamais rien lui-même : il alimente le canal `autoSteps`, que le
+ * hook suivant consomme — donc aucune écriture supplémentaire, aucune boucle.
+ */
+const reconcileFacts: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
+  const steps = (data?.steps ?? originalDoc?.steps ?? []) as RunStep[];
+  if (!steps.length) return data;
+
+  // Rien à rattraper si toutes les étapes constatées sont déjà acquises.
+  const pending = steps.filter(
+    (s) => s.key && SYSTEM_STEPS[s.key] && (s.state ?? "a-faire") === "a-faire",
+  );
+  if (!pending.length) return data;
+
+  const clientId = idOf(data?.client ?? originalDoc?.client);
+  if (clientId == null) return data;
+
+  const [client, account, accesses] = await Promise.all([
+    findOne<{ onboardingStatus?: string; signatureDate?: string }>(req, "partner-clients", clientId),
+    req.payload
+      .find({
+        collection: "client-portal-accounts",
+        where: { client: { equals: clientId } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      })
+      .then((r) => r.docs[0] as { active?: boolean } | undefined)
+      .catch(() => undefined),
+    req.payload
+      .count({
+        collection: "client-contacts",
+        where: { client: { equals: clientId }, timPassword: { exists: true } },
+        overrideAccess: true,
+      })
+      .then((r) => r.totalDocs)
+      .catch(() => 0),
+  ]);
+
+  const sessionAt = data?.sessionAt ?? originalDoc?.sessionAt;
+  const acquis: Record<string, boolean> = {
+    "compte-espace-client": Boolean(account) && account?.active !== false,
+    "rdv-prise-en-main": Boolean(sessionAt),
+    "dossier-demarrage": ["transmis", "valide"].includes(client?.onboardingStatus ?? ""),
+    provisionnement: accesses > 0,
+    signature: Boolean(client?.signatureDate),
+  };
+
+  const rattrape = pending.map((s) => s.key!).filter((key) => acquis[key]);
+  if (!rattrape.length) return data;
+
+  req.payload.logger.info(`[parcours] rattrapage : ${rattrape.join(", ")}.`);
+  return { ...data, autoSteps: [...((data?.autoSteps as string[]) ?? []), ...rattrape] };
 };
 
 /**
@@ -693,6 +764,39 @@ const notifyQuoteNeeded: CollectionAfterChangeHook = async ({ doc, previousDoc, 
 };
 
 /**
+ * Valider « Dossier vérifié par TIM » VERROUILLE le dossier du client.
+ *
+ * Le geste et son effet au même endroit : cocher l'étape passe l'état du dossier
+ * à « Validé », ce qui ferme la saisie côté client. Auparavant il fallait aller
+ * changer un menu déroulant à l'autre bout de la fiche — personne n'y pensait, et
+ * le client restait indéfiniment « en attente de validation ».
+ */
+const lockDossierOnValidation: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
+  const wasDone = ((previousDoc?.steps ?? []) as RunStep[]).find((s) => s.key === "validation-dossier");
+  const isDone = ((doc?.steps ?? []) as RunStep[]).find((s) => s.key === "validation-dossier");
+  if (!isDone || isStepDone(wasDone ?? {}) || !isStepDone(isDone)) return doc;
+
+  const clientId = idOf(doc?.client);
+  if (clientId == null) return doc;
+
+  const client = await findOne<{ onboardingStatus?: string }>(req, "partner-clients", clientId);
+  if (client?.onboardingStatus === "valide") return doc;
+
+  try {
+    await req.payload.update({
+      collection: "partner-clients",
+      id: clientId,
+      data: { onboardingStatus: "valide" },
+      overrideAccess: true,
+    });
+    req.payload.logger.info(`[parcours] dossier du client ${clientId} verrouillé (vérifié par TIM).`);
+  } catch (err) {
+    req.payload.logger.error(`[parcours] verrouillage du dossier ${clientId} échoué : ${err}`);
+  }
+  return doc;
+};
+
+/**
  * Le Go de TIM OUVRE l'espace client. C'est tout ce qu'il y avait à « créer ».
  *
  * L'adresse est connue depuis le démarrage (elle porte toute la séquence) ; il
@@ -886,6 +990,7 @@ export const JourneyRuns: CollectionConfig = {
       guardStructuralEdits,
       guardAdminSteps,
       guardSystemSteps,
+      reconcileFacts,
       armAutoSteps,
       computeState,
       computeDisplayName,
@@ -897,6 +1002,7 @@ export const JourneyRuns: CollectionConfig = {
       notifyQuoteNeeded,
       notifyContractNeeded,
       openPortalOnGo,
+      lockDossierOnValidation,
     ],
   },
   fields: [

@@ -374,7 +374,11 @@ export function JourneyStepper() {
                           la coche. Il vit DANS la ligne et non dans la colonne
                           des boutons, calibrée pour deux icônes : « Ouvrir
                           l'accès → » y débordait par-dessus l'échéance. */}
-                      {!closed && !pending && !isDone && isCurrent && system && (
+                      {/* Affiché sur TOUTE étape constatée non acquise, et plus
+                          seulement sur l'étape en cours : quand le parcours
+                          bloque plus haut, on doit quand même pouvoir voir ce
+                          qu'attend une étape plus bas — et aller le faire. */}
+                      {!closed && !pending && !isDone && system && (
                         <Tooltip
                           className="jr-step__todo"
                           interactive

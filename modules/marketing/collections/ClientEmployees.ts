@@ -20,11 +20,17 @@ import {
  * Salariés d'un client — section « Salariés » du dossier de démarrage.
  *
  * ⚠️ Un salarié n'est PAS un utilisateur. L'effectif entier entre dans TIM
- * (pointage, planning, affectation chantier) ; seuls ceux dont « Accès TIM »
- * est coché consomment une LICENCE. Une entreprise de 40 salariés peut n'avoir
- * que 12 utilisateurs — et le devis porte sur les 12. C'est la distinction que
- * le fichier Excel d'origine ne faisait pas, et la raison n°1 de passer en
- * interne : le comptage par profil alimente directement le tableau des licences.
+ * (pointage, planning, affectation chantier) ; une entreprise de 40 salariés
+ * peut n'avoir que 12 utilisateurs — et le devis porte sur les 12. C'est la
+ * distinction que le fichier Excel d'origine ne faisait pas, et la raison n°1 de
+ * passer en interne.
+ *
+ * Les LICENCES ne se déclarent plus ici : elles vivent sur les utilisateurs du
+ * client (« Utilisateurs TIM »), qui sont aussi ceux qui portent un accès au
+ * logiciel. Les champs « Accès TIM » et « Profil de licence » ci-dessous ne sont
+ * donc plus proposés à la saisie nulle part — ni dans l'espace client, ni dans
+ * la console de préparation — et ne restent que pour lire les dossiers remplis
+ * avant ce changement. Plus rien ne les compte.
  */
 
 /** Titre lisible (drawer + colonnes) : prénom + nom, repli matricule. */

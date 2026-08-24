@@ -74,9 +74,32 @@ const isBlank = (row: Row, fields: PortalField[]) =>
 export default function SectionEditor({
   section,
   locked: initialLocked,
+  endpoint = "/api/portal/dossier",
+  query = "",
+  admin = false,
+  reloadToken = 0,
 }: {
   section: PortalSection;
   locked: boolean;
+  /**
+   * Deux portes mènent à ces tableaux : l'espace client et le back-office. Le
+   * composant est le même — sinon les deux écrans divergeraient au premier
+   * correctif — seule l'adresse change, avec ses propres règles d'accès.
+   */
+  endpoint?: string;
+  /** Paramètres d'URL de la porte admin (`?clientId=…`). */
+  query?: string;
+  /** Côté TIM : les colonnes réservées apparaissent (le mot de passe TIM). */
+  admin?: boolean;
+  /**
+   * Change de valeur pour faire relire les lignes au serveur.
+   *
+   * L'appelant peut modifier ces lignes par un autre chemin que la grille — la
+   * génération des mots de passe, par exemple. Recharger la page entière
+   * rafraîchirait bien le tableau, mais au prix de tout le reste : l'écran
+   * quitté, le plein écran perdu, le message de résultat effacé avant d'être lu.
+   */
+  reloadToken?: number;
 }) {
   const [rows, setRows] = useState<LocalRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,11 +127,16 @@ export default function SectionEditor({
    */
   const rowsRef = useRef<LocalRow[]>([]);
 
-  const fields = section.fields;
+  // Les colonnes réservées à TIM n'existent pas dans le tableau du client : il
+  // les LIT sur sa page d'accès, il ne les saisit jamais.
+  const fields = useMemo(
+    () => section.fields.filter((f) => admin || !f.adminOnly),
+    [section.fields, admin],
+  );
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/portal/dossier/${section.key}`, { credentials: "include" });
+      const res = await fetch(`${endpoint}/${section.key}${query}`, { credentials: "include" });
       if (!res.ok) throw new Error();
       const data = await res.json();
       setRows([
@@ -121,7 +149,10 @@ export default function SectionEditor({
     } finally {
       setLoading(false);
     }
-  }, [section.key]);
+    // `reloadToken` ne sert à rien dans le corps : il n'est là que pour refaire
+    // la lecture quand l'appelant le change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section.key, endpoint, query, reloadToken]);
 
   useEffect(() => {
     void load();
@@ -159,7 +190,7 @@ export default function SectionEditor({
     setSaving((s) => [...s, key]);
     setFailure(null);
     try {
-      const res = await fetch(`/api/portal/dossier/${section.key}`, {
+      const res = await fetch(`${endpoint}/${section.key}${query}`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -283,7 +314,7 @@ export default function SectionEditor({
       return;
     }
     try {
-      await fetch(`/api/portal/dossier/${section.key}?id=${id}`, {
+      await fetch(`${endpoint}/${section.key}${query}${query ? "&" : "?"}id=${id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -403,6 +434,18 @@ export default function SectionEditor({
                     const disabled = locked || !visible;
                     const common = {
                       disabled,
+                      // Côté TIM, chaque valeur part vers le logiciel : un clic
+                      // sélectionne la case entière, il ne reste qu'à copier.
+                      // Côté client, ce serait une gêne — on saisit, on ne
+                      // recopie pas.
+                      // `select()` n'existe que sur un champ de saisie : un
+                      // `<select>` reçoit le même gestionnaire, d'où le garde.
+                      ...(admin
+                        ? {
+                            onFocus: (e: React.FocusEvent<HTMLElement>) =>
+                              (e.target as HTMLInputElement).select?.(),
+                          }
+                        : {}),
                       title: rowErrors[field.name] ?? (visible ? undefined : "Sans objet ici"),
                       className: cellClass(invalid, disabled, field.type === "select"),
                       onPaste: (e: React.ClipboardEvent) => paste(e, _key, fieldIndex),
@@ -440,6 +483,13 @@ export default function SectionEditor({
                         )}
                         {!visible ? (
                           <span className="block px-3 py-2 text-sm text-muted">—</span>
+                        ) : field.readOnly ? (
+                          // Valeur produite par le logiciel : on la montre, on
+                          // ne la saisit pas. La rendre éditable inviterait à
+                          // corriger à la main un code qui vit ailleurs.
+                          <span className="block px-3 py-2 text-sm text-foreground">
+                            {String(row[field.name] ?? "") || <span className="text-muted">—</span>}
+                          </span>
                         ) : field.type === "checkbox" ? (
                           <span className="flex items-center justify-center py-2">
                             <input

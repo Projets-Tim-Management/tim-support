@@ -87,8 +87,6 @@ export interface Config {
     'client-vehicles': ClientVehicle;
     'client-machines': ClientMachine;
     'client-portal-accounts': ClientPortalAccount;
-    'client-credentials': ClientCredential;
-    'credential-reveals': CredentialReveal;
     'calendar-connections': CalendarConnection;
     media: Media;
     users: User;
@@ -108,7 +106,6 @@ export interface Config {
       vehicles: 'client-vehicles';
       machines: 'client-machines';
       portalAccounts: 'client-portal-accounts';
-      credentials: 'client-credentials';
       contacts: 'client-contacts';
     };
     'journey-runs': {
@@ -136,8 +133,6 @@ export interface Config {
     'client-vehicles': ClientVehiclesSelect<false> | ClientVehiclesSelect<true>;
     'client-machines': ClientMachinesSelect<false> | ClientMachinesSelect<true>;
     'client-portal-accounts': ClientPortalAccountsSelect<false> | ClientPortalAccountsSelect<true>;
-    'client-credentials': ClientCredentialsSelect<false> | ClientCredentialsSelect<true>;
-    'credential-reveals': CredentialRevealsSelect<false> | CredentialRevealsSelect<true>;
     'calendar-connections': CalendarConnectionsSelect<false> | CalendarConnectionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
@@ -724,14 +719,6 @@ export interface PartnerClient {
     totalDocs?: number;
   };
   /**
-   * Les comptes TIM créés pour les utilisateurs. Le client les consulte et les imprime depuis son espace — ils ne partent jamais par e-mail.
-   */
-  credentials?: {
-    docs?: (number | ClientCredential)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
    * Enregistrez d'abord la fiche client, puis cliquez « Créer un Contact » pour ajouter les personnes à contacter chez ce client.
    */
   contacts?: {
@@ -1129,41 +1116,6 @@ export interface ClientPortalAccount {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "client-credentials".
- */
-export interface ClientCredential {
-  id: number;
-  client: number | PartnerClient;
-  firstName: string;
-  lastName: string;
-  licenceProfile: 'admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon';
-  /**
-   * Tel qu'il a été créé dans TIM.
-   */
-  username: string;
-  /**
-   * Chiffré. Utilisez « Révéler » pour l'afficher, ou consultez l'espace client.
-   */
-  password: string;
-  /**
-   * Historique : les accès générés avant que les utilisateurs se déclarent à part étaient reliés à une ligne de l'effectif.
-   */
-  employee?: (number | null) | ClientEmployee;
-  /**
-   * Ligne d'« Utilisateurs TIM » dont cet accès découle.
-   */
-  contact?: (number | null) | ClientContact;
-  /**
-   * Renseigné par le client quand il a remis l'accès à la personne.
-   */
-  deliveredAt?: string | null;
-  partner?: (number | null) | Partner;
-  displayName?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "client-contacts".
  */
 export interface ClientContact {
@@ -1175,6 +1127,10 @@ export interface ClientContact {
    * Décide du compte TIM créé pour cette personne.
    */
   licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon') | null;
+  /**
+   * Généré une fois puis FIGÉ : le client l'a distribué à ses équipes, le changer casserait des connexions.
+   */
+  timPassword?: string | null;
   role?: string | null;
   email?: string | null;
   phone?: string | null;
@@ -1631,26 +1587,6 @@ export interface RewardOrder {
   createdAt: string;
 }
 /**
- * Journal des consultations de mots de passe. Lecture seule : chaque ligne est une demande d'affichage.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "credential-reveals".
- */
-export interface CredentialReveal {
-  id: number;
-  user: number | User;
-  client: number | PartnerClient;
-  codeHash: string;
-  expiresAt: string;
-  attempts?: number | null;
-  /**
-   * Vide = code demandé mais jamais confirmé.
-   */
-  usedAt?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "calendar-connections".
  */
@@ -1774,14 +1710,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'client-portal-accounts';
         value: number | ClientPortalAccount;
-      } | null)
-    | ({
-        relationTo: 'client-credentials';
-        value: number | ClientCredential;
-      } | null)
-    | ({
-        relationTo: 'credential-reveals';
-        value: number | CredentialReveal;
       } | null)
     | ({
         relationTo: 'calendar-connections';
@@ -2089,7 +2017,6 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   vehicles?: T;
   machines?: T;
   portalAccounts?: T;
-  credentials?: T;
   contacts?: T;
   history?:
     | T
@@ -2122,6 +2049,7 @@ export interface ClientContactsSelect<T extends boolean = true> {
   firstName?: T;
   lastName?: T;
   licenceProfile?: T;
+  timPassword?: T;
   role?: T;
   email?: T;
   phone?: T;
@@ -2436,39 +2364,6 @@ export interface ClientPortalAccountsSelect<T extends boolean = true> {
   requestCount?: T;
   requestWindowStart?: T;
   partner?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "client-credentials_select".
- */
-export interface ClientCredentialsSelect<T extends boolean = true> {
-  client?: T;
-  firstName?: T;
-  lastName?: T;
-  licenceProfile?: T;
-  username?: T;
-  password?: T;
-  employee?: T;
-  contact?: T;
-  deliveredAt?: T;
-  partner?: T;
-  displayName?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "credential-reveals_select".
- */
-export interface CredentialRevealsSelect<T extends boolean = true> {
-  user?: T;
-  client?: T;
-  codeHash?: T;
-  expiresAt?: T;
-  attempts?: T;
-  usedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

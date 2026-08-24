@@ -36,6 +36,14 @@ export type PortalField = {
   placeholder?: string;
   hint?: string;
   half?: boolean;
+  /**
+   * Colonne réservée à TIM : absente du tableau de l'espace client, présente
+   * dans celui du back-office. Le client la LIT ailleurs (sa page d'accès), il
+   * ne la saisit jamais.
+   */
+  adminOnly?: boolean;
+  /** Valeur produite par le logiciel : affichée, jamais éditable. */
+  readOnly?: boolean;
 };
 
 export type PortalSection = {
@@ -90,6 +98,20 @@ export const PORTAL_SECTIONS: PortalSection[] = [
       { name: "lastName", label: "Nom", type: "text", required: true, half: true },
       { name: "email", label: "Adresse e-mail", type: "email", required: true, half: true },
       { name: "phone", label: "Téléphone", type: "tel", half: true, placeholder: "+33 6 12 34 56 78" },
+      {
+        // Généré par TIM, lu par le client sur sa page d'accès. Il vit dans la
+        // même table que l'utilisateur : les comptes sont créés DANS TIM, on ne
+        // stocke ici que ce qui doit être distribué aux équipes.
+        //
+        // L'identifiant de connexion est l'ADRESSE E-MAIL ci-dessus : rien à
+        // générer de ce côté, et une chose de moins à recopier sur une fiche
+        // qu'un chef d'équipe lira sur un chantier.
+        name: "timPassword",
+        label: "Mot de passe TIM",
+        type: "text",
+        adminOnly: true,
+        readOnly: true,
+      },
       {
         // Profil de licence, et non plus une « fonction » en texte libre : c'est
         // cette valeur qui décide du compte TIM à créer et de la ligne du devis.

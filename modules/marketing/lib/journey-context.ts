@@ -77,8 +77,8 @@ export async function buildJourneyContext(
     clientId != null
       ? payload
           .count({
-            collection: "client-credentials",
-            where: { client: { equals: clientId } },
+            collection: "client-contacts",
+            where: { client: { equals: clientId }, timPassword: { exists: true } },
             overrideAccess: true,
           })
           .then((r) => r.totalDocs)

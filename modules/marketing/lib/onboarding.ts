@@ -146,7 +146,7 @@ export const ONBOARDING_SECTIONS = [
     label: "Salariés",
     collection: "client-employees",
     min: 1,
-    hint: "Tout l'effectif. Cocher « Accès TIM » sur ceux qui consomment une licence.",
+    hint: "Tout l'effectif : pointage, planning, chantiers. Les licences se déclarent à part, dans « Utilisateurs TIM ».",
   },
   {
     key: "chantiers",

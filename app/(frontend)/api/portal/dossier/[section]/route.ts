@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { payloadClient } from "@/core/payload-client";
 import { isDossierLocked } from "@/modules/marketing/lib/onboarding";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
-import { sectionByKey, validateRow, type PortalSection } from "@/modules/marketing/lib/portal-sections";
+import { deleteRow, listRows, saveRow } from "@/modules/marketing/lib/dossier-rows";
+import { sectionByKey } from "@/modules/marketing/lib/portal-sections";
 
 /**
  * Lecture et écriture d'une section du dossier de démarrage, depuis l'espace
@@ -19,17 +20,6 @@ import { sectionByKey, validateRow, type PortalSection } from "@/modules/marketi
 
 // La règle vit dans onboarding.ts, partagée avec les écrans.
 
-/** Ne garde que les champs du registre : rien d'autre n'atteint la base. */
-const pick = (section: PortalSection, body: Record<string, unknown>): Record<string, unknown> => {
-  const out: Record<string, unknown> = {};
-  for (const field of section.fields) {
-    if (!(field.name in body)) continue;
-    const value = body[field.name];
-    out[field.name] = value === "" ? null : value;
-  }
-  return out;
-};
-
 export async function GET(_req: Request, { params }: { params: Promise<{ section: string }> }) {
   const ctx = await getPortalClient();
   if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -38,16 +28,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ section
   if (!section) return NextResponse.json({ error: "unknown_section" }, { status: 404 });
 
   const payload = await payloadClient();
-  const res = await payload.find({
-    collection: section.collection as "client-employees",
-    where: { client: { equals: ctx.client.id } },
-    limit: 1000,
-    depth: 0,
-    sort: "createdAt",
-    overrideAccess: true,
+  return NextResponse.json({
+    docs: await listRows(payload, section, ctx.client.id),
+    locked: isDossierLocked(ctx.client.onboardingStatus),
   });
-
-  return NextResponse.json({ docs: res.docs, locked: isDossierLocked(ctx.client.onboardingStatus) });
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ section: string }> }) {
@@ -68,60 +52,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ section
     return NextResponse.json({ error: "bad_body" }, { status: 400 });
   }
 
-  const data = pick(section, body);
-  const errors = validateRow(section, data);
-  if (Object.keys(errors).length) return NextResponse.json({ errors }, { status: 422 });
-
   const payload = await payloadClient();
-  const id = body.id;
-
-  // La collection est choisie à l'exécution (registre des sections) : TypeScript
-  // ne peut pas prouver la forme des données pour une section quelconque. La
-  // garantie ne vient donc pas du typage mais de `pick` (liste blanche de
-  // champs) et `validateRow` (obligatoires), qui viennent de tourner ci-dessus.
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const collection = section.collection as any;
-  // `Number` et non un cast : les identifiants Postgres sont numériques, alors
-  // que la session les transporte en chaîne (jeton signé).
-  const clientId = Number(ctx.client.id);
-
-  try {
-    // Le client est FORCÉ depuis la session, quoi qu'annonce le corps.
-    if (!id) {
-      const doc = await payload.create({
-        collection,
-        data: { ...data, client: clientId } as any,
-        overrideAccess: true,
-      });
-      return NextResponse.json({ ok: true, doc });
-    }
-
-    // Mise à jour PAR LOT (`where` et non l'id seul) : c'est ce qui garantit
-    // qu'on ne modifie qu'une ligne appartenant à CE client, même si l'id vient
-    // d'ailleurs. En contrepartie elle renvoie `{ docs, errors }` et NON un
-    // document — le confondre avec une ligne vidait l'écran de ses valeurs.
-    const result = await payload.update({
-      collection,
-      where: { id: { equals: id }, client: { equals: clientId } },
-      data: data as any,
-      overrideAccess: true,
+  // Le client est FORCÉ depuis la session, quoi qu'annonce le corps.
+  const result = await saveRow(payload, section, ctx.client.id, body);
+  if (!result.ok) {
+    return NextResponse.json(result.errors ? { errors: result.errors } : { error: "not_found" }, {
+      status: result.status,
     });
-    /* eslint-enable @typescript-eslint/no-explicit-any */
-
-    const doc = result.docs?.[0];
-    // Aucune ligne touchée : l'id n'appartient pas à ce client, ou n'existe
-    // plus. Répondre « ok » laisserait croire à un enregistrement.
-    if (!doc) {
-      return NextResponse.json({ error: "not_found" }, { status: 404 });
-    }
-
-    return NextResponse.json({ ok: true, doc });
-  } catch (err) {
-    return NextResponse.json(
-      { error: "save_failed", message: err instanceof Error ? err.message : "Enregistrement impossible." },
-      { status: 400 },
-    );
   }
+  return NextResponse.json({ ok: true, doc: result.doc });
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ section: string }> }) {
@@ -139,12 +78,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ secti
   if (!id) return NextResponse.json({ error: "missing_id" }, { status: 400 });
 
   const payload = await payloadClient();
-  await payload.delete({
-    collection: section.collection as "client-employees",
-    // Même précaution qu'à la mise à jour : la suppression est bornée au client.
-    where: { id: { equals: id }, client: { equals: ctx.client.id } },
-    overrideAccess: true,
-  });
+  // Même précaution qu'à la mise à jour : la suppression est bornée au client.
+  await deleteRow(payload, section, ctx.client.id, id);
 
   return NextResponse.json({ ok: true });
 }

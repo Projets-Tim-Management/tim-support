@@ -28,6 +28,9 @@ import * as migration_20260813_092355_add_reference_lists_and_reveals from './20
 import * as migration_20260824_094754_add_client_logo from './20260824_094754_add_client_logo';
 import * as migration_20260824_110312_add_session_attendees from './20260824_110312_add_session_attendees';
 import * as migration_20260824_120211_switch_licences_to_contacts from './20260824_120211_switch_licences_to_contacts';
+import * as migration_20260824_124928_add_tim_access_on_contacts from './20260824_124928_add_tim_access_on_contacts';
+import * as migration_20260824_125724_drop_unused_tim_code from './20260824_125724_drop_unused_tim_code';
+import * as migration_20260824_160545_drop_credentials_tables from './20260824_160545_drop_credentials_tables';
 
 export const migrations = [
   {
@@ -178,6 +181,21 @@ export const migrations = [
   {
     up: migration_20260824_120211_switch_licences_to_contacts.up,
     down: migration_20260824_120211_switch_licences_to_contacts.down,
-    name: '20260824_120211_switch_licences_to_contacts'
+    name: '20260824_120211_switch_licences_to_contacts',
+  },
+  {
+    up: migration_20260824_124928_add_tim_access_on_contacts.up,
+    down: migration_20260824_124928_add_tim_access_on_contacts.down,
+    name: '20260824_124928_add_tim_access_on_contacts',
+  },
+  {
+    up: migration_20260824_125724_drop_unused_tim_code.up,
+    down: migration_20260824_125724_drop_unused_tim_code.down,
+    name: '20260824_125724_drop_unused_tim_code',
+  },
+  {
+    up: migration_20260824_160545_drop_credentials_tables.up,
+    down: migration_20260824_160545_drop_credentials_tables.down,
+    name: '20260824_160545_drop_credentials_tables'
   },
 ];

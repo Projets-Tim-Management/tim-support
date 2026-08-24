@@ -416,17 +416,24 @@ export function buildDossierToCheckEmail(
       "À contrôler avant de créer les comptes : cohérence des licences déclarées,",
       "identités des salariés, chantiers renseignés.",
       "",
-      `${adminUrl(`/collections/journey-runs/${run.id}`)}`,
+      "Le dossier est copiable tableau par tableau depuis l'onglet « Préparation des accès » :",
+      ctx.clientId
+        ? adminUrl(`/collections/partner-clients/${ctx.clientId}`)
+        : adminUrl(`/collections/journey-runs/${run.id}`),
     ].join("\n"),
     html: internalNotice({
       heading: "Dossier de démarrage à vérifier",
       rows,
       message:
         "À contrôler avant de créer les comptes : cohérence des licences déclarées, identités des salariés, chantiers renseignés.",
-      cta: { label: "Ouvrir la phase de test", url: adminUrl(`/collections/journey-runs/${run.id}`) },
-      links: ctx.clientId
-        ? [{ label: "Fiche client", url: adminUrl(`/collections/partner-clients/${ctx.clientId}`) }]
-        : [],
+      // Le bouton mène à la FICHE CLIENT, pas à la phase de test : le travail qui
+      // suit ce message est de recopier le dossier dans TIM et de créer les
+      // accès, et c'est là que ça se fait (onglet « Préparation des accès »).
+      // Le parcours ne sert qu'à suivre l'avancement.
+      cta: ctx.clientId
+        ? { label: "Préparer les accès", url: adminUrl(`/collections/partner-clients/${ctx.clientId}`) }
+        : { label: "Ouvrir la phase de test", url: adminUrl(`/collections/journey-runs/${run.id}`) },
+      links: [{ label: "Phase de test", url: adminUrl(`/collections/journey-runs/${run.id}`) }],
     }),
   };
 }

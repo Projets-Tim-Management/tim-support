@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { payloadClient } from "@/core/payload-client";
-import { readClientCredentials } from "@/modules/marketing/lib/credential-secrets";
+import { readTimAccesses } from "@/modules/marketing/lib/credential-secrets";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
 import { LICENCE_PROFILE_OPTIONS } from "@/modules/marketing/lib/onboarding";
 
@@ -21,8 +21,8 @@ type Credential = {
   firstName?: string | null;
   lastName?: string | null;
   licenceProfile?: string | null;
-  username?: string | null;
-  password?: string | null;
+  timPassword?: string | null;
+  email?: string | null;
 };
 
 /**
@@ -45,7 +45,11 @@ export default async function AccesPage() {
   // Lecture déchiffrée : les mots de passe sont chiffrés au repos et masqués par
   // l'API. Ici le client est déjà authentifié (code à usage unique) et vient
   // chercher précisément ce qu'il doit distribuer à ses équipes.
-  const credentials = (await readClientCredentials(payload, ctx.client.id)) as Credential[];
+  // Les accès vivent désormais sur les UTILISATEURS déclarés : les comptes sont
+  // créés dans TIM, on ne conserve ici que ce qui se distribue aux équipes.
+  const credentials = ((await readTimAccesses(payload, ctx.client.id)) as Credential[]).filter(
+    (c) => c.timPassword,
+  );
 
   return (
     <div className="px-6 py-10 sm:px-8">
@@ -85,13 +89,15 @@ export default async function AccesPage() {
                 <p className="text-xs text-muted">{PROFILE_LABEL[c.licenceProfile] ?? c.licenceProfile}</p>
               )}
               <dl className="mt-3 space-y-1 text-sm">
+                {c.email && (
+                  <div className="flex gap-2">
+                    <dt className="w-28 shrink-0 text-muted">Identifiant</dt>
+                    <dd className="break-all font-mono text-foreground">{c.email}</dd>
+                  </div>
+                )}
                 <div className="flex gap-2">
-                  <dt className="w-24 shrink-0 text-muted">Identifiant</dt>
-                  <dd className="font-mono text-foreground">{c.username}</dd>
-                </div>
-                <div className="flex gap-2">
-                  <dt className="w-24 shrink-0 text-muted">Mot de passe</dt>
-                  <dd className="font-mono text-foreground">{c.password}</dd>
+                  <dt className="w-28 shrink-0 text-muted">Mot de passe</dt>
+                  <dd className="font-mono text-foreground">{c.timPassword}</dd>
                 </div>
               </dl>
             </article>

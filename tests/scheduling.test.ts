@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bookingModeOf, generateSlots, resolveRules } from "@/modules/marketing/lib/scheduling";
 import { PORTAL_SECTIONS, validateRow } from "@/modules/marketing/lib/portal-sections";
-import { generatePassword, suggestUsername } from "@/modules/marketing/lib/credentials";
+import { generatePassword } from "@/modules/marketing/lib/credentials";
 import {
   NEVER_AUTO_VALIDATE,
   PHASE_DE_TEST_EMAILS,
@@ -15,6 +15,8 @@ import {
   isStepDone,
   isStepPending,
   isSystemStep,
+  mergeRunSteps,
+  STEP_VALIDATION_EFFECT,
 } from "@/modules/marketing/lib/journey";
 
 const paris = (iso: string) =>
@@ -317,23 +319,7 @@ describe("prise en main : pré-formation avant le démarrage", () => {
   });
 });
 
-describe("accès de test générés depuis le dossier", () => {
-  it("propose prenom.nom, sans accent ni ponctuation", () => {
-    expect(suggestUsername("Jean-Éric", "Dupré")).toBe("jeaneric.dupre");
-    expect(suggestUsername("Léa", "O'Brien")).toBe("lea.obrien");
-  });
-
-  it("suffixe un identifiant déjà pris au lieu d'écraser", () => {
-    const taken = new Set(["jean.martin"]);
-    expect(suggestUsername("Jean", "Martin", taken)).toBe("jean.martin2");
-    taken.add("jean.martin2");
-    expect(suggestUsername("Jean", "Martin", taken)).toBe("jean.martin3");
-  });
-
-  it("retombe sur un identifiant utilisable si le nom manque", () => {
-    expect(suggestUsername(null, null)).toBe("utilisateur");
-  });
-
+describe("mots de passe des accès TIM", () => {
   it("produit un code à 6 chiffres, sans aucune lettre", () => {
     for (let i = 0; i < 200; i += 1) {
       const pwd = generatePassword();
@@ -428,5 +414,105 @@ describe("validation d'une ligne du dossier de démarrage", () => {
     expect(errors.firstName).toBeTruthy();
     expect(errors.email).toBeTruthy();
     expect(errors.phone).toBeUndefined();
+  });
+});
+
+describe("l'étape « Dossier vérifié par TIM »", () => {
+  const step = PHASE_DE_TEST_STEPS.find((s) => s.key === "validation-dossier")!;
+
+  it("existe, appartient à TIM, et tombe entre le dossier et le provisionnement", () => {
+    expect(step.actor).toBe("admin");
+    const at = (key: string) => PHASE_DE_TEST_STEPS.find((s) => s.key === key)!.offsetDays!;
+    expect(step.offsetDays!).toBeGreaterThan(at("dossier-demarrage"));
+    expect(step.offsetDays!).toBeLessThan(at("provisionnement"));
+  });
+
+  it("garde son bouton : ce n'est pas un constat du système", () => {
+    // `autoValidate` lui permet d'être cochée si l'état est posé depuis la fiche,
+    // mais elle n'est PAS dans SYSTEM_STEPS : la valider reste un geste.
+    expect(isSystemStep("validation-dossier")).toBe(false);
+    expect(isManualStep(step)).toBe(false); // autoValidate → armable
+    expect(canAutoValidate(step)).toBe(true);
+  });
+
+  it("annonce ce qu'elle déclenche : le verrouillage", () => {
+    expect(STEP_VALIDATION_EFFECT["validation-dossier"]).toMatch(/verrouille/i);
+  });
+});
+
+describe("un parcours en cours reçoit les étapes ajoutées au modèle", () => {
+  // La VRAIE fonction, celle que le parcours appelle : une logique recopiée ici
+  // resterait verte pendant que le code se casse à côté.
+
+  it("insère la nouvelle étape À SA PLACE, sans toucher aux états acquis", () => {
+    const out = mergeRunSteps(
+      [{ key: "a" }, { key: "neuve" }, { key: "b" }],
+      [
+        { key: "a", state: "fait" },
+        { key: "b", state: "auto" },
+      ],
+    )!;
+    expect(out.map((s) => s.key)).toEqual(["a", "neuve", "b"]);
+    expect(out.map((s) => s.state)).toEqual(["fait", "a-faire", "auto"]);
+  });
+
+  it("ne perd pas une étape retirée du modèle SI elle porte un avancement", () => {
+    // Le modèle apporte une étape neuve : la fusion a donc bien lieu, et c'est
+    // le seul cas où l'oubli serait possible. Sans cette étape neuve la fonction
+    // renverrait `null` — « rien à réécrire » — et l'orpheline survivrait sans
+    // rien prouver.
+    const out = mergeRunSteps(
+      [{ key: "a" }, { key: "neuve" }],
+      [
+        { key: "a", state: "fait" },
+        { key: "ancienne", state: "fait" },
+      ],
+    )!;
+    expect(out.map((s) => s.key)).toEqual(["a", "neuve", "ancienne"]);
+  });
+
+  it("mais retire une étape supprimée du modèle qui n'a jamais été touchée", () => {
+    // Une case encore « à faire » n'est qu'une case vide : la garder n'encombre
+    // que l'écran et réclame un clic pour rien.
+    const out = mergeRunSteps(
+      [{ key: "a" }],
+      [
+        { key: "a", state: "fait" },
+        { key: "abandonnee", state: "a-faire" },
+      ],
+    )!;
+    expect(out.map((s) => s.key)).toEqual(["a"]);
+  });
+
+  it("garde une étape retirée qui porte une NOTE, même jamais cochée", () => {
+    // « à faire » + une note = quelqu'un a écrit quelque chose. La supprimer
+    // effacerait un mot laissé pour l'équipe.
+    const out = mergeRunSteps(
+      [{ key: "a" }, { key: "neuve" }],
+      [
+        { key: "a", state: "fait" },
+        { key: "abandonnee", state: "a-faire", note: "client injoignable" },
+      ],
+    )!;
+    expect(out.map((s) => s.key)).toEqual(["a", "neuve", "abandonnee"]);
+  });
+
+  it("rafraîchit le DÉTAIL depuis le modèle, sans toucher à l'avancement", () => {
+    // Le détail décrit le fonctionnement du moment ; figé, il envoie chercher
+    // une case qui n'existe plus.
+    const out = mergeRunSteps(
+      [{ key: "a", detail: "le geste a déménagé" }],
+      [{ key: "a", state: "fait", doneAt: "2026-08-01", detail: "ancien texte" }],
+    )!;
+    expect(out[0].detail).toBe("le geste a déménagé");
+    expect(out[0].state).toBe("fait");
+    expect(out[0].doneAt).toBe("2026-08-01");
+  });
+
+  it("ne renvoie RIEN à réécrire quand le parcours est déjà conforme", () => {
+    // Sans ce court-circuit, chaque enregistrement réécrirait la liste entière.
+    expect(
+      mergeRunSteps([{ key: "a", detail: "d" }], [{ key: "a", state: "fait", detail: "d" }]),
+    ).toBeNull();
   });
 });

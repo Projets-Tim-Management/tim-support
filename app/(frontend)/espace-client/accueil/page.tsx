@@ -53,9 +53,13 @@ export default async function AccueilPage() {
       depth: 0,
       overrideAccess: true,
     }),
+    // Les accès prêts = les utilisateurs qui ont un mot de passe. L'ancienne
+    // collection « accès de test » n'est plus alimentée : compter dessus laissait
+    // la carte sur « nous les préparons » indéfiniment, et le client n'atteignait
+    // jamais ses identifiants.
     payload.count({
-      collection: "client-credentials",
-      where: { client: { equals: client.id } },
+      collection: "client-contacts",
+      where: { client: { equals: client.id }, timPassword: { exists: true } },
       overrideAccess: true,
     }),
     // Le prénom du contact, pour l'accueillir par son nom. Lu depuis la SESSION

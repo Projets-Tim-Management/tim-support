@@ -81,8 +81,11 @@ async function gatherFacts(
       .catch(() => null) as Promise<{ onboardingStatus?: string } | null>,
     payload
       .count({
-        collection: "client-credentials",
-        where: { client: { equals: clientId } },
+        // Les accès prêts se comptent sur les utilisateurs qui ont un mot de
+        // passe : sans ça, « Vos accès TIM sont prêts » ne partait jamais et TIM
+        // recevait chaque matin de démarrage une fausse alerte « accès manquants ».
+        collection: "client-contacts",
+        where: { client: { equals: clientId }, timPassword: { exists: true } },
         overrideAccess: true,
       })
       .then((r) => r.totalDocs)
