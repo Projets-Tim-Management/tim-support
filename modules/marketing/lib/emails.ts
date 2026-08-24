@@ -868,6 +868,78 @@ const recapPartenaire = (ctx: JourneyEmailContext): BuiltEmail => {
  * ne sont pas ici : ils vivent dans `notify.ts`, avec leur enveloppe sobre et
  * leurs données de décision.
  */
+/**
+ * Accès TIM d'UNE personne, envoyé à son adresse.
+ *
+ * Envoyé par TIM, jamais par le client : c'est notre nom sur l'expéditeur, donc
+ * notre responsabilité que le message ressemble à ce qu'il est et pas à une
+ * tentative d'hameçonnage — d'où le nom de l'entreprise en toutes lettres et
+ * aucune demande de cliquer quoi que ce soit pour « vérifier » son compte.
+ *
+ * ⚠️ Ce message contient un mot de passe en clair. C'est un compromis assumé :
+ * la remise en main propre reste la voie recommandée (la page « Mes accès »
+ * s'imprime et se découpe), mais un compagnon en déplacement n'a personne pour
+ * lui tendre un papier. L'envoi est donc déclenché ligne par ligne, par le
+ * client, et va TOUJOURS à l'adresse déclarée pour cette personne — jamais à
+ * une adresse saisie au moment de l'envoi.
+ */
+export const buildTimAccessEmail = (args: {
+  firstName?: string | null;
+  lastName?: string | null;
+  login: string;
+  password: string;
+  profileLabel?: string | null;
+  clientName?: string | null;
+}): BuiltEmail => {
+  const who = args.firstName?.trim() ? `Bonjour ${escape(args.firstName.trim())},` : "Bonjour,";
+  const societe = args.clientName?.trim();
+
+  return {
+    subject: "Vos accès au logiciel TIM",
+    text: [
+      args.firstName?.trim() ? `Bonjour ${args.firstName.trim()},` : "Bonjour,",
+      "",
+      societe
+        ? `${societe} vous a ouvert un accès au logiciel TIM.`
+        : "Un accès au logiciel TIM vous a été ouvert.",
+      args.profileLabel ? `Profil : ${args.profileLabel}` : "",
+      "",
+      `Identifiant   : ${args.login}`,
+      `Mot de passe  : ${args.password}`,
+      "",
+      "Ce mot de passe est personnel : ne le transmettez à personne.",
+      "Si vous n'attendiez pas ce message, prévenez votre responsable.",
+      textSignature(),
+    ]
+      .filter((l) => l !== "")
+      .join("\n"),
+    html: shell({
+      heading: "Vos accès au logiciel TIM",
+      preheader: "Votre identifiant et votre mot de passe.",
+      bodyHtml:
+        paragraph(who) +
+        paragraph(
+          societe
+            ? `<strong>${escape(societe)}</strong> vous a ouvert un accès au logiciel TIM.`
+            : "Un accès au logiciel TIM vous a été ouvert.",
+        ) +
+        callout(
+          [
+            args.profileLabel ? `${escape(args.profileLabel)}` : null,
+            `Identifiant&nbsp;: <strong>${escape(args.login)}</strong>`,
+            `Mot de passe&nbsp;: <strong>${escape(args.password)}</strong>`,
+          ]
+            .filter(Boolean)
+            .join("<br>"),
+        ) +
+        paragraph(
+          `<span style="color:${MUTED};font-size:14px;">Ce mot de passe est personnel&nbsp;: ne le transmettez à personne. Si vous n'attendiez pas ce message, prévenez votre responsable.</span>`,
+        ) +
+        signature(),
+    }),
+  };
+};
+
 export const JOURNEY_EMAILS: Record<
   string,
   (ctx: JourneyEmailContext) => BuiltEmail
