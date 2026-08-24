@@ -355,14 +355,18 @@ export default async function AccueilPage() {
       </div>
 
       {/* ─── Pour aller plus loin ────────────────────────────────────────────
-          Sous les cartes du parcours, et pas au-dessus : tant que le test n'a
-          pas démarré, ce qui compte est ce qu'on attend du client. Ces trois
-          liens sont ce vers quoi il se tourne ENSUITE — apprendre, chercher,
-          demander — et ils mènent au centre d'aide, qui existe déjà.
+          Affichée SEULEMENT une fois les accès disponibles, et c'est tout le
+          propos : ces trois liens parlent de se servir de TIM. Tant que le
+          client n'a pas ses identifiants, « Suivre un parcours » l'envoie
+          apprendre des gestes qu'il ne peut pas encore faire, et « Demander de
+          l'assistance » lui propose de l'aide sur un logiciel où il n'est pas
+          entré. Avant, ce qui compte est ce qu'on attend de LUI — son créneau,
+          son dossier ; après, c'est de commencer à s'en servir.
 
           Icônes en trait plutôt que les emojis de la page publique : l'espace
           client a été refait avec ce jeu d'icônes, et deux styles sur le même
           écran se voient tout de suite. */}
+      {credentialCount > 0 && (
       <section className="mt-12 border-t border-border pt-8">
         <h2 className="text-lg font-semibold text-foreground">Pour aller plus loin</h2>
         <p className="mt-1 text-sm text-muted">
@@ -415,6 +419,7 @@ export default async function AccueilPage() {
           ))}
         </div>
       </section>
+      )}
     </div>
   );
 }
