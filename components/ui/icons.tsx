@@ -136,3 +136,27 @@ export const IconSpinner = ({ className }: IconProps) => (
     <path d="M12 3a9 9 0 1 0 9 9" />
   </Svg>
 );
+
+/** Jalons reliés — le parcours d'apprentissage, étape par étape. */
+export const IconRoute = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <circle cx="6" cy="19" r="3" />
+    <circle cx="18" cy="5" r="3" />
+    <path d="M9 19h4a4 4 0 0 0 4-4V9" />
+  </Svg>
+);
+
+/** Livre ouvert — la documentation des fonctionnalités. */
+export const IconBook = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <path d="M12 6.5C10.5 5 8.5 4.5 4 4.5V18c4.5 0 6.5.5 8 2 1.5-1.5 3.5-2 8-2V4.5c-4.5 0-6.5.5-8 2Z" />
+    <path d="M12 6.5V20" />
+  </Svg>
+);
+
+/** Bulle — poser une question à l'équipe. */
+export const IconChat = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-6.5A8 8 0 0 1 11 4h2a8 8 0 0 1 8 8Z" />
+  </Svg>
+);
