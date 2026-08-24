@@ -890,14 +890,22 @@ const TIM_ANDROID_URL =
 const TIM_IOS_URL = "https://apps.apple.com/fr/app/tim-management/id1565369001";
 
 /**
- * Profils qui travaillent sur le terrain, et à qui l'application mobile est
- * donc utile : c'est sur un téléphone, au pied du chantier, que le pointage se
- * saisit. L'administrateur reste sur le navigateur — il paramètre, il ne pointe
- * pas.
+ * Qui accède à quoi. Les deux listes ne se recoupent qu'en partie, et c'est le
+ * cœur du message : proposer une porte fermée est pire que ne rien proposer.
  *
- * Le chef d'équipe y figure au même titre que le chef de chantier : il est sur
- * site comme les autres. À retirer d'un mot s'il ne doit pas l'avoir.
+ *  - le NAVIGATEUR est réservé à l'administrateur et au conducteur de travaux :
+ *    ce sont eux qui paramètrent et qui suivent. Les autres n'y ont tout
+ *    simplement pas de compte — leur envoyer « Se connecter à TIM » les
+ *    enverrait se heurter à un refus, et douter de leurs identifiants ;
+ *  - l'APPLICATION MOBILE va à tous ceux qui sont sur le terrain, conducteur
+ *    compris : c'est sur un téléphone, au pied du chantier, que le pointage se
+ *    saisit.
+ *
+ * Un profil inconnu reçoit le lien web, comme un administrateur : c'est le cas
+ * d'un compte de direction créé hors nomenclature, et le priver du lien serait
+ * plus gênant que l'inverse.
  */
+const WEB_PROFILES = new Set(["admin", "conducteur"]);
 const MOBILE_PROFILES = new Set(["conducteur", "chefChantier", "chefEquipe", "compagnon"]);
 
 /**
@@ -925,6 +933,7 @@ export const buildTimAccessEmail = (args: {
   const who = args.firstName?.trim() ? `Bonjour ${escape(args.firstName.trim())},` : "Bonjour,";
   const societe = args.clientName?.trim();
   const mobile = MOBILE_PROFILES.has(args.profileKey ?? "");
+  const web = !args.profileKey || WEB_PROFILES.has(args.profileKey);
 
   return {
     subject: "Vos accès au logiciel TIM",
@@ -939,11 +948,13 @@ export const buildTimAccessEmail = (args: {
       `Identifiant   : ${args.login}`,
       `Mot de passe  : ${args.password}`,
       "",
-      `Connexion : ${TIM_APP_URL}`,
+      ...(web ? [`Connexion : ${TIM_APP_URL}`] : []),
       ...(mobile
         ? [
             "",
-            "Sur le chantier, l'application mobile :",
+            web
+              ? "Sur le chantier, l'application mobile :"
+              : "Votre accès se fait depuis l'application mobile :",
             `  Android   : ${TIM_ANDROID_URL}`,
             `  iPhone    : ${TIM_IOS_URL}`,
           ]
@@ -974,10 +985,10 @@ export const buildTimAccessEmail = (args: {
             .filter(Boolean)
             .join("<br>"),
         ) +
-        button("Se connecter à TIM", TIM_APP_URL) +
+        (web ? button("Se connecter à TIM", TIM_APP_URL) : "") +
         (mobile
           ? paragraph(
-              "<strong>Sur le chantier, l'application mobile</strong><br>" +
+              `<strong>${web ? "Sur le chantier, l'application mobile" : "Votre accès se fait depuis l'application mobile"}</strong><br>` +
                 `<a href="${TIM_ANDROID_URL}" style="display:inline-block;margin:8px 8px 0 0;">` +
                 `<img src="${PLAY_BADGE}" alt="Disponible sur Google Play" height="44" style="height:44px;border:0;"></a>` +
                 `<a href="${TIM_IOS_URL}" style="display:inline-block;margin:8px 0 0 0;">` +

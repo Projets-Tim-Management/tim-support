@@ -119,9 +119,14 @@ export default function AccessList({ groups }: { groups: Group[] }) {
           printing?.id === key ? " acces-ligne--solo" : ""
         }`}
       >
-        <span className="min-w-[9rem] flex-1 font-semibold text-foreground">{fullName(a)}</span>
+        {/* Largeurs FIXES et non proportionnelles : c'est ce qui aligne les
+            colonnes d'une ligne à l'autre, et surtout d'une section à l'autre.
+            Avec un nom élastique, « Identifiant » se décalait de trois
+            centimètres entre « Charlie Piancatelli » et « Thomas Piancatelli »,
+            et l'œil ne pouvait plus descendre la colonne d'un trait. */}
+        <span className="w-44 shrink-0 font-semibold text-foreground">{fullName(a)}</span>
 
-        <dl className="flex shrink-0 flex-col gap-1 text-sm">
+        <dl className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
           <div className="flex gap-2">
             <dt className="w-24 shrink-0 text-muted">Identifiant</dt>
             {/* L'adresse ne se coupe pas : un identifiant réparti sur deux

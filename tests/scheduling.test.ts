@@ -604,10 +604,22 @@ describe("rappel « c'est demain », la veille du créneau à 17 h", () => {
 describe("e-mail « vos accès TIM » envoyé à une personne", () => {
   const base = { login: "jean@exemple.fr", password: "094220", clientName: "SOUVET VMB" };
 
-  it("porte l'adresse du logiciel, quel que soit le profil", () => {
-    const mail = buildTimAccessEmail({ ...base, profileKey: "admin" });
-    expect(mail.text).toContain("https://app.tim-management.co/");
-    expect(mail.html).toContain("https://app.tim-management.co/");
+  it("donne le lien du logiciel à ceux qui ont un accès web", () => {
+    for (const profileKey of ["admin", "conducteur"]) {
+      const mail = buildTimAccessEmail({ ...base, profileKey });
+      expect(mail.text, profileKey).toContain("https://app.tim-management.co/");
+      expect(mail.html, profileKey).toContain("Se connecter à TIM");
+    }
+  });
+
+  it("ne le donne PAS à ceux qui n'en ont pas", () => {
+    // Proposer une porte fermée est pire que ne rien proposer : la personne se
+    // heurte à un refus et doute de ses identifiants.
+    for (const profileKey of ["chefChantier", "chefEquipe", "compagnon"]) {
+      const mail = buildTimAccessEmail({ ...base, profileKey });
+      expect(mail.text, profileKey).not.toContain("app.tim-management.co");
+      expect(mail.html, profileKey).not.toContain("Se connecter à TIM");
+    }
   });
 
   it("propose l'application mobile à ceux qui sont sur le terrain", () => {
@@ -620,7 +632,14 @@ describe("e-mail « vos accès TIM » envoyé à une personne", () => {
     }
   });
 
-  it("ne la propose PAS à l'administrateur : il paramètre, il ne pointe pas", () => {
+  it("dit à ceux qui n'ont que le mobile que c'est LEUR porte d'entrée", () => {
+    const chef = buildTimAccessEmail({ ...base, profileKey: "chefChantier" });
+    expect(chef.text).toContain("Votre accès se fait depuis l'application mobile");
+    const conducteur = buildTimAccessEmail({ ...base, profileKey: "conducteur" });
+    expect(conducteur.text).toContain("Sur le chantier, l'application mobile");
+  });
+
+  it("ne propose PAS l'application à l'administrateur : il paramètre, il ne pointe pas", () => {
     const mail = buildTimAccessEmail({ ...base, profileKey: "admin" });
     expect(mail.text).not.toContain("play.google.com");
     expect(mail.html).not.toContain("App Store");
