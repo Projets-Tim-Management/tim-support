@@ -1,3 +1,5 @@
+import { PASSWORD_MASK, encryptPasswordValue } from "@/modules/marketing/lib/credential-secrets";
+import { LICENCE_PROFILE_OPTIONS } from "@/modules/marketing/lib/onboarding";
 import type { CollectionBeforeChangeHook, CollectionConfig } from "payload";
 
 import { metierOwnedAccess } from "@/core/access";
@@ -94,6 +96,48 @@ export const ClientContacts: CollectionConfig = {
     {
       type: "row",
       fields: [
+        {
+          // Profil de licence : c'est LUI qui décide du compte à créer et de la
+          // ligne du devis. Une liste fermée, reprise de la grille tarifaire —
+          // le dossier et la facturation ne peuvent donc pas diverger.
+          name: "licenceProfile",
+          type: "select",
+          label: "Profil de licence",
+          options: LICENCE_PROFILE_OPTIONS,
+          admin: { description: "Décide du compte TIM créé pour cette personne." },
+        },
+        {
+          // ── Accès au logiciel TIM ──────────────────────────────────────
+          // Les comptes sont créés DANS TIM, pas ici : on ne stocke que ce que
+          // le client doit pouvoir relire et imprimer pour ses équipes.
+          // L'identifiant de connexion est l'adresse e-mail ci-dessus.
+          name: "timPassword",
+          type: "text",
+          label: "Mot de passe TIM",
+          hooks: {
+            // Chiffré à l'écriture, masqué à la lecture — comme les accès de
+            // test. Le masque doit revenir intact à l'écriture suivante, sinon
+            // enregistrer la fiche sans y toucher remplacerait le mot de passe
+            // par des points.
+            beforeChange: [
+              ({ value, originalDoc, req }) =>
+                encryptPasswordValue(value, {
+                  payload: req.payload,
+                  id: originalDoc?.id,
+                  // La cible est explicite : sans elle, le masque serait relu
+                  // dans les accès de test et le mot de passe effacé.
+                  collection: "client-contacts",
+                  field: "timPassword",
+                }),
+            ],
+            afterRead: [({ value }) => (value ? PASSWORD_MASK : value)],
+          },
+          admin: {
+            readOnly: true,
+            description:
+              "Généré une fois puis FIGÉ : le client l'a distribué à ses équipes, le changer casserait des connexions.",
+          },
+        },
         {
           name: "role",
           type: "text",

@@ -38,7 +38,18 @@ export type JourneyEmailContext = {
   partnerName?: string | null;
   /** Modalité de la session : « en visio », « sur site — 12 rue… ». */
   sessionModality?: string | null;
+  /** Lien de visio, quand la session s'y tient. Le nommer vaut mieux que le
+   *  résumer : un client qui reçoit « lien fourni » cherche encore le lien. */
+  sessionLink?: string | null;
   sessionAt?: string | null;
+  /**
+   * Qui suivra la session, déclaré par le client en réservant. Le partenaire
+   * prépare sa session en sachant à qui il s'adresse — « une entreprise » ne se
+   * prépare pas.
+   */
+  sessionAttendee?: { firstName?: string | null; lastName?: string | null; role?: string | null; email?: string | null } | null;
+  /** Invités supplémentaires, conviés à l'agenda au même titre. */
+  sessionGuests?: { email?: string | null; name?: string | null }[] | null;
   startDate?: string | null;
   endDate?: string | null;
   durationWeeks?: number | null;
@@ -265,6 +276,95 @@ const dossierRecu = (ctx: JourneyEmailContext): BuiltEmail => {
   };
 };
 
+/**
+ * Relance : le créneau de prise en main n'est toujours pas réservé.
+ *
+ * Ton différent de l'invitation initiale — on ne réexplique pas ce qu'est la
+ * session, on dit ce qu'il en coûte de ne pas l'avoir. Un client qui n'a pas
+ * réagi au premier message ne réagira pas au même message répété.
+ */
+const relanceCreneau = (ctx: JourneyEmailContext): BuiltEmail => {
+  const start = frDate(ctx.startDate);
+  const url = `${PORTAL}/prise-en-main`;
+  return {
+    subject: "Il reste à réserver votre session de prise en main",
+    text: [
+      hello(ctx),
+      "",
+      `Votre test démarre${start ? ` le ${start}` : " dans quelques jours"}, et nous n'avons pas encore de créneau pour votre session de prise en main.`,
+      "",
+      "45 minutes avec l'administrateur de votre compte — celui qui pilotera TIM au quotidien.",
+      "Les entreprises qui la font démarrent vraiment dès la première semaine ; les autres passent la leur à chercher comment faire.",
+      "",
+      "Il reste des créneaux :",
+      url,
+      textSignature(),
+    ].join("\n"),
+    html: shell({
+      heading: "Il reste à réserver votre session de prise en main",
+      preheader: "45 minutes, avant le démarrage — il reste des créneaux.",
+      bodyHtml:
+        paragraph(hello(ctx)) +
+        paragraph(
+          `Votre test démarre${start ? ` le <strong>${start}</strong>` : " dans quelques jours"}, et nous n'avons pas encore de créneau pour votre session de prise en main.`,
+        ) +
+        paragraph(
+          "<strong>45 minutes</strong> avec l'administrateur de votre compte, celui qui pilotera TIM au quotidien.",
+        ) +
+        button("Choisir mon créneau", url) +
+        paragraph(
+          `<span style="color:${MUTED};font-size:14px;">Les entreprises qui font cette session démarrent dès la première semaine. Les autres passent la leur à chercher comment faire.</span>`,
+        ) +
+        signature(),
+    }),
+  };
+};
+
+/**
+ * Relance : le dossier de démarrage n'est pas transmis.
+ *
+ * Le message dit la CONSÉQUENCE, pas la consigne : sans dossier, pas de comptes
+ * créés le lundi matin. C'est ce qui fait agir, pas un rappel de règlement.
+ */
+const relanceDossier = (ctx: JourneyEmailContext): BuiltEmail => {
+  const start = frDate(ctx.startDate);
+  // Pas de date limite ici, contrairement à l'invitation : la relance part APRÈS
+  // l'échéance annoncée (−3 j contre −5 j). Lui répéter « à compléter avant le
+  // 26 » le 28 la décrédibiliserait. Le repère utile est devenu le démarrage.
+  const url = `${PORTAL}/dossier`;
+  return {
+    subject: "Votre dossier de démarrage nous manque",
+    text: [
+      hello(ctx),
+      "",
+      "Nous n'avons pas encore reçu votre dossier de démarrage : vos salariés, vos chantiers, et votre matériel si vous en suivez.",
+      "",
+      `C'est ce qui nous permet de créer les comptes de vos équipes${start ? ` pour le ${start}` : " pour le démarrage"}. Sans lui, vos accès ne seront pas prêts le jour J.`,
+      "",
+      "Vous pouvez le remplir en plusieurs fois, il s'enregistre au fur et à mesure :",
+      url,
+      textSignature(),
+    ].join("\n"),
+    html: shell({
+      heading: "Votre dossier de démarrage nous manque",
+      preheader: "Sans lui, vos accès ne seront pas prêts pour le démarrage.",
+      bodyHtml:
+        paragraph(hello(ctx)) +
+        paragraph(
+          "Nous n'avons pas encore reçu votre dossier de démarrage : vos salariés, vos chantiers, et votre matériel si vous en suivez.",
+        ) +
+        paragraph(
+          `C'est ce qui nous permet de créer les comptes de vos équipes${start ? ` pour le <strong>${start}</strong>` : " pour le démarrage"}. Sans lui, vos accès ne seront pas prêts le jour J.`,
+        ) +
+        button("Compléter mon dossier", url) +
+        paragraph(
+          `<span style="color:${MUTED};font-size:14px;">Vous pouvez le remplir en plusieurs fois : chaque section s'enregistre au fur et à mesure.</span>`,
+        ) +
+        signature(),
+    }),
+  };
+};
+
 const priseEnMain = (ctx: JourneyEmailContext): BuiltEmail => {
   const start = frDate(ctx.startDate);
   const url = `${PORTAL}/prise-en-main`;
@@ -275,7 +375,7 @@ const priseEnMain = (ctx: JourneyEmailContext): BuiltEmail => {
       "",
       `Votre phase de test démarre${start ? ` le ${start}` : " bientôt"}. D'ici là, une seule chose à caler : la session de prise en main${ctx.sessionModality ? `, ${ctx.sessionModality}` : ""}.`,
       "",
-      "45 minutes, avec vos conducteurs et vos chefs de chantier.",
+      "45 minutes, avec l'administrateur de votre compte — celui qui pilotera TIM au quotidien.",
       "",
       "Elle doit avoir lieu AVANT le démarrage : c'est une préparation, pas un rattrapage.",
       "",
@@ -291,7 +391,7 @@ const priseEnMain = (ctx: JourneyEmailContext): BuiltEmail => {
           `Votre phase de test démarre${start ? ` le <strong>${start}</strong>` : " bientôt"}. D'ici là, une seule chose à caler : la session de prise en main${ctx.sessionModality ? `, ${escape(ctx.sessionModality)}` : ""}.`,
         ) +
         paragraph(
-          "<strong>45 minutes</strong>, avec vos conducteurs et vos chefs de chantier.",
+          "<strong>45 minutes</strong>, avec l'administrateur de votre compte, celui qui pilotera TIM au quotidien.",
         ) +
         button("Choisir mon créneau", url) +
         paragraph(
@@ -508,6 +608,93 @@ const decision = (ctx: JourneyEmailContext): BuiltEmail => ({
   }),
 });
 
+/**
+ * Les participants annoncés, en lignes lisibles.
+ *
+ * Une seule fonction pour les deux messages : le partenaire et le client doivent
+ * voir exactement la même liste, sinon l'un des deux se présentera avec une
+ * information que l'autre n'a pas.
+ */
+function attendeeLines(ctx: JourneyEmailContext): string[] {
+  const a = ctx.sessionAttendee;
+  const lines: string[] = [];
+
+  if (a) {
+    const who = [a.firstName, a.lastName].filter(Boolean).join(" ").trim();
+    const parts = [who || a.email, a.role ? `(${a.role})` : null, a.email && who ? `— ${a.email}` : null];
+    lines.push(parts.filter(Boolean).join(" "));
+  }
+
+  for (const g of ctx.sessionGuests ?? []) {
+    if (!g?.email) continue;
+    lines.push(g.name ? `${g.name} — ${g.email}` : g.email);
+  }
+  return lines;
+}
+
+/**
+ * Confirmation au CLIENT du créneau qu'il vient de réserver.
+ *
+ * Il n'existait pas : seul le partenaire était prévenu, et le client n'était
+ * qu'un invité de l'événement d'agenda — donc prévenu uniquement si le
+ * partenaire avait connecté son calendrier. Réserver un rendez-vous et ne rien
+ * recevoir laisse un doute que rien ne lève, et pousse à réserver deux fois.
+ *
+ * Le lien de visio est écrit EN TOUTES LETTRES quand il existe : « lien fourni »
+ * oblige le client à le chercher ailleurs, le jour même, cinq minutes avant.
+ */
+const creneauConfirme = (ctx: JourneyEmailContext): BuiltEmail => {
+  const when = frDateTime(ctx.sessionAt);
+  const link = ctx.sessionLink?.trim() || null;
+  return {
+    subject: "Votre session de prise en main est réservée",
+    text: [
+      hello(ctx),
+      "",
+      "Votre session de prise en main est confirmée.",
+      "",
+      when ? `Quand : ${when}` : "",
+      `Durée : 45 minutes`,
+      ctx.sessionModality ? `Où    : ${ctx.sessionModality}` : "",
+      link ? `Lien  : ${link}` : "",
+      "",
+      ...(attendeeLines(ctx).length
+        ? ["Invités à cette session :", ...attendeeLines(ctx).map((l) => `  • ${l}`), ""]
+        : []),
+      "Besoin de déplacer ce rendez-vous ? Répondez simplement à cet e-mail.",
+      textSignature(),
+    ]
+      .filter((l) => l !== "")
+      .join("\n"),
+    html: shell({
+      heading: "Votre session de prise en main est réservée",
+      preheader: when ? `C'est calé : ${when}.` : "C'est calé.",
+      bodyHtml:
+        paragraph(hello(ctx)) +
+        paragraph("Votre session de prise en main est confirmée.") +
+        callout(
+          [
+            when ? `<strong>${when}</strong>` : null,
+            "45 minutes",
+            ctx.sessionModality ? escape(ctx.sessionModality) : null,
+          ]
+            .filter(Boolean)
+            .join("<br>"),
+        ) +
+        (link ? button("Rejoindre la visio", link) : "") +
+        (attendeeLines(ctx).length
+          ? paragraph(
+              `<strong>Invités à cette session</strong><br>${attendeeLines(ctx).map(escape).join("<br>")}`,
+            )
+          : "") +
+        paragraph(
+          `<span style="color:${MUTED};font-size:14px;">Besoin de déplacer ce rendez-vous&nbsp;? Répondez simplement à cet e-mail.</span>`,
+        ) +
+        signature(),
+    }),
+  };
+};
+
 // ─── Messages au PARTENAIRE ──────────────────────────────────────────────────
 
 const creneauReserve = (ctx: JourneyEmailContext): BuiltEmail => {
@@ -520,7 +707,10 @@ const creneauReserve = (ctx: JourneyEmailContext): BuiltEmail => {
       when ? `Quand : ${when}` : "",
       ctx.sessionModality ? `Où   : ${ctx.sessionModality}` : "",
       "",
-      "Le rendez-vous est dans votre agenda. Pensez à demander la présence des conducteurs et des chefs de chantier : c'est eux qui feront tourner l'outil.",
+      ...(attendeeLines(ctx).length
+        ? ["Seront présents :", ...attendeeLines(ctx).map((l) => `  • ${l}`), ""]
+        : []),
+      "Le rendez-vous est dans votre agenda. Assurez-vous que l'administrateur du compte sera bien là : c'est lui qu'on forme, et lui qui fera tourner l'outil ensuite.",
     ]
       .filter(Boolean)
       .join("\n"),
@@ -539,8 +729,13 @@ const creneauReserve = (ctx: JourneyEmailContext): BuiltEmail => {
             .filter(Boolean)
             .join("<br>"),
         ) +
+        (attendeeLines(ctx).length
+          ? paragraph(
+              `<strong>Seront présents</strong><br>${attendeeLines(ctx).map(escape).join("<br>")}`,
+            )
+          : "") +
         paragraph(
-          "Le rendez-vous est dans votre agenda. Pensez à demander la présence des <strong>conducteurs et des chefs de chantier</strong> : ce sont eux qui feront tourner l'outil.",
+          "Le rendez-vous est dans votre agenda. Assurez-vous que <strong>l'administrateur du compte</strong> sera bien là : c'est lui qu'on forme, et lui qui fera tourner l'outil ensuite.",
         ),
     }),
   };
@@ -614,6 +809,8 @@ export const JOURNEY_EMAILS: Record<
   "invitation-espace-client": invitationEspaceClient,
   "code-connexion": codeConnexion,
   "dossier-recu": dossierRecu,
+  "relance-creneau": relanceCreneau,
+  "relance-dossier": relanceDossier,
   "prise-en-main": priseEnMain,
   "acces-prets": accesPrets,
   "suivi-chantier": suiviChantier,
@@ -621,6 +818,7 @@ export const JOURNEY_EMAILS: Record<
   "fin-proche": finProche,
   "dernier-jour": dernierJour,
   decision,
+  "creneau-confirme": creneauConfirme,
   "creneau-reserve": creneauReserve,
   "recap-partenaire": recapPartenaire,
 };

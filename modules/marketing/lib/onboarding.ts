@@ -109,6 +109,23 @@ export const ONBOARDING_STATUS_OPTIONS = ONBOARDING_STATUSES.map(({ label, value
   value,
 }));
 
+/**
+ * Statuts qui FERMENT le dossier à la modification par le client.
+ *
+ * « Transmis » n'en fait pas partie, et c'est le point : transmettre annonce que
+ * le dossier est prêt, ce n'est pas un engagement irrévocable. Tant que TIM ne
+ * l'a pas validé, un oubli — un salarié, un chantier ouvert entre-temps — se
+ * corrige depuis l'espace client. Le verrouiller à la transmission obligeait à
+ * passer par un e-mail pour changer une ligne.
+ *
+ * Une seule liste, lue par l'écran ET par l'API : deux définitions finiraient
+ * par diverger, et l'une des deux laisserait passer ce que l'autre refuse.
+ */
+export const DOSSIER_LOCKED_STATUSES = ["valide"];
+
+export const isDossierLocked = (status?: string | null): boolean =>
+  DOSSIER_LOCKED_STATUSES.includes(status ?? "");
+
 export const onboardingStatusMeta = (value?: string | null) =>
   ONBOARDING_STATUSES.find((s) => s.value === value);
 
@@ -129,7 +146,7 @@ export const ONBOARDING_SECTIONS = [
     label: "Salariés",
     collection: "client-employees",
     min: 1,
-    hint: "Tout l'effectif. Cocher « Accès TIM » sur ceux qui consomment une licence.",
+    hint: "Tout l'effectif : pointage, planning, chantiers. Les licences se déclarent à part, dans « Utilisateurs TIM ».",
   },
   {
     key: "chantiers",

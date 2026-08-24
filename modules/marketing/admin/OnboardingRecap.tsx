@@ -10,13 +10,13 @@ import { PROFILS, type ProfilKey } from "@/modules/partner/lib/pricing";
  *
  * Deux rôles :
  *  1. dire d'un coup d'œil ce qui est rempli et ce qui manque (les 5 sections) ;
- *  2. faire le pont SALARIÉS → LICENCES, qui est la vraie raison d'avoir sorti
- *     ce dossier d'un fichier Excel.
+ *  2. faire le pont UTILISATEURS → LICENCES, qui est la vraie raison d'avoir
+ *     sorti ce dossier d'un fichier Excel.
  *
- * ⚠️ Le compteur ne compte QUE les salariés dont « Accès TIM » est coché : 40
+ * ⚠️ Le compteur ne compte QUE les UTILISATEURS déclarés, pas l'effectif : 40
  * salariés peuvent ne donner que 12 licences. Le report dans le tableau des
  * licences est un BOUTON, jamais automatique — le partenaire a pu négocier un
- * périmètre différent de l'effectif déclaré, et son chiffrage prime.
+ * périmètre différent de ce que le client a déclaré, et son chiffrage prime.
  */
 
 type Counts = {
@@ -25,7 +25,7 @@ type Counts = {
   sites: number;
   vehicles: number;
   machines: number;
-  /** Salariés « Accès TIM » par profil de licence. */
+  /** Utilisateurs déclarés, par profil de licence. */
   byProfile: Record<string, number>;
   users: number;
 };
@@ -78,26 +78,31 @@ export function OnboardingRecap() {
 
     (async () => {
       try {
-        // Les salariés sont chargés en entier (et non comptés) : il faut le
-        // détail par profil de licence, qu'aucun compteur serveur ne donne.
+        // Les UTILISATEURS déclarés sont chargés en entier (et non comptés) : il
+        // faut le détail par profil de licence, qu'aucun compteur serveur ne
+        // donne. C'est cette liste qui alimente les comptes à créer et le devis.
         const empRes = await fetch(
-          `/payload-api/client-employees?where[client][equals]=${id}&limit=1000&depth=0`,
+          `/payload-api/client-contacts?where[client][equals]=${id}&limit=1000&depth=0`,
           { credentials: "include" },
         );
         const empData = empRes.ok ? await empRes.json() : { docs: [] };
-        const docs = (empData?.docs ?? []) as { isUser?: boolean; licenceProfile?: string }[];
+        const docs = (empData?.docs ?? []) as { licenceProfile?: string }[];
 
         const byProfile: Record<string, number> = {};
         let users = 0;
         for (const e of docs) {
-          if (!e.isUser) continue;
           users += 1;
           const key = e.licenceProfile ?? "—";
           byProfile[key] = (byProfile[key] ?? 0) + 1;
         }
 
-        const [contacts, sites, vehicles, machines] = await Promise.all([
+        // L'EFFECTIF se compte à part, sur sa propre table. Le déduire du
+        // chargement ci-dessus afficherait le nombre d'utilisateurs en face de
+        // « Salariés » — soit exactement la confusion que ce panneau existe pour
+        // dissiper, et une section « Salariés » cochée alors qu'elle est vide.
+        const [contacts, employees, sites, vehicles, machines] = await Promise.all([
           countDocs("client-contacts", id),
+          countDocs("client-employees", id),
           countDocs("client-sites", id),
           countDocs("client-vehicles", id),
           countDocs("client-machines", id),
@@ -106,7 +111,7 @@ export function OnboardingRecap() {
         if (!cancelled) {
           setCounts({
             contacts,
-            employees: Number(empData?.totalDocs ?? docs.length),
+            employees,
             sites,
             vehicles,
             machines,
@@ -190,7 +195,8 @@ export function OnboardingRecap() {
           <span className="jr-onb__sep">·</span>
           <strong>{counts.users}</strong> utilisateur{counts.users > 1 ? "s" : ""}
           <span className="jr-onb__hint">
-            un salarié n&apos;est pas un utilisateur : seuls les « Accès TIM » consomment une licence
+            un salarié n&apos;est pas un utilisateur : seuls les utilisateurs déclarés consomment
+            une licence
           </span>
         </p>
 

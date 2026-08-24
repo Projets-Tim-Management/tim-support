@@ -1562,3 +1562,243 @@
   font-size: 0.8125rem;
   color: var(--tim-danger, #c0392b);
 }
+
+/* ─── Console de préparation des accès (fiche client) ─────────────────────────
+   Le tableau du dossier est le composant de l'ESPACE CLIENT, réutilisé tel quel
+   pour que les deux écrans ne divergent jamais. Mais l'admin Payload ne charge
+   pas Tailwind : ses classes utilitaires n'y produisent rien, d'où des champs
+   empilés et des icônes à leur taille brute. Cette feuille rhabille donc le
+   composant avec les jetons du back-office — c'est le prix de la réutilisation,
+   et il est plus faible que celui de deux tableaux à maintenir. */
+.jr-prep__block {
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  overflow: hidden;
+}
+
+.jr-prep__head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--tim-border);
+  background: var(--tim-surface);
+}
+
+.jr-prep__title {
+  margin: 0;
+  flex-shrink: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+
+.jr-prep__count {
+  margin-right: auto;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--tim-muted);
+}
+
+.jr-prep__body {
+  padding: 0.875rem 1rem;
+  /* Quatorze colonnes pour les salariés ne tiennent pas dans un onglet : on
+     assume le défilement plutôt que de les tasser jusqu'à l'illisible. */
+  overflow-x: auto;
+}
+
+/* ── Le tableau lui-même ──────────────────────────────────────────────────── */
+.jr-prep__body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  background: var(--tim-white);
+}
+
+.jr-prep__body thead tr { background: var(--tim-surface); }
+
+.jr-prep__body th {
+  /* L'en-tête reste visible en descendant : à la quarantième ligne de salariés,
+     on ne sait plus quelle colonne on lit. */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--tim-surface);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--tim-foreground);
+  border-bottom: 1px solid var(--tim-border);
+}
+
+.jr-prep__body td {
+  position: relative;          /* ancre la pastille de validité */
+  padding: 0;
+  border-bottom: 1px solid var(--tim-elevation-100);
+  border-left: 1px solid var(--tim-elevation-100);
+  vertical-align: middle;
+}
+
+.jr-prep__body td:first-child,
+.jr-prep__body th:first-child { border-left: 0; }
+
+.jr-prep__body tr:last-child td { border-bottom: 0; }
+
+/* Les cases : sans bordure propre, elles forment une grille continue. */
+.jr-prep__body td input[type="text"],
+.jr-prep__body td input[type="email"],
+.jr-prep__body td input[type="tel"],
+.jr-prep__body td input[type="number"],
+.jr-prep__body td select {
+  width: 100%;
+  min-width: 8rem;
+  padding: 0.4375rem 1.5rem 0.4375rem 0.625rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+  box-shadow: none;
+}
+
+.jr-prep__body td input:focus,
+.jr-prep__body td select:focus {
+  outline: 0;
+  background: var(--tim-primary-light);
+}
+
+.jr-prep__body td input[type="checkbox"] {
+  width: auto;
+  min-width: 0;
+  margin: 0.5rem auto;
+  display: block;
+}
+
+/* Pastille de validité : sans Tailwind, il faut lui donner sa taille et sa
+   place. Le SVG brut ferait sinon 24 px de haut au milieu de la ligne. */
+.jr-prep__body td > span[title] > svg,
+.jr-prep__body td svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.jr-prep__body td > span[aria-label] {
+  position: absolute;
+  right: 0.375rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* Le texte des cases non éditables (code et mot de passe TIM). */
+.jr-prep__body td > span:not([aria-label]) {
+  display: block;
+  padding: 0.4375rem 0.625rem;
+  color: var(--tim-foreground);
+}
+
+/* Colonne d'action (retrait de ligne) et numéro de ligne. */
+.jr-prep__body td button {
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--tim-muted);
+  cursor: pointer;
+}
+
+.jr-prep__body td button:hover { color: var(--tim-primary); }
+
+.jr-prep__body > div > p,
+.jr-prep__body > p {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+
+.jr-btn--small {
+  flex-shrink: 0;
+  padding: 0.3125rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+/* Barre de la console : rappel du geste, et bascule plein écran. */
+.jr-prep__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.jr-prep__hint {
+  margin: 0 auto 0 0;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+
+/* Plein écran : la vue document de Payload borne la largeur et réserve une
+   colonne de droite. Or cet écran sert à recopier quatorze colonnes dans un
+   autre logiciel — c'est le seul endroit du back-office où la place prime sur
+   l'intégration.
+
+   La barre est SORTIE du flux de défilement (colonne flex : barre figée, zone
+   défilante en dessous) plutôt que « collée » : en `sticky`, elle dépendait du
+   conteneur de défilement et des niveaux d'empilement du back-office, et les
+   en-têtes de tableau lui passaient devant. */
+.jr-prep--full {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: var(--tim-white);
+}
+
+.jr-prep--full .jr-prep__bar {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--tim-border);
+  background: var(--tim-white);
+}
+
+.jr-prep--full .jr-prep__sections {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem 3rem;
+}
+
+body.tim-prep-fullscreen {
+  overflow: hidden;
+}
+
+body.tim-prep-fullscreen .tim-topbar,
+body.tim-prep-fullscreen .nav,
+body.tim-prep-fullscreen .step-nav,
+/* La barre d'actions du document est `sticky` avec un niveau d'empilement
+   propre : masquée aussi, sinon elle réapparaît par-dessus la console. */
+body.tim-prep-fullscreen .doc-controls {
+  display: none !important;
+}
+
+/* État du dossier, dans la barre de la console. */
+.jr-prep__state {
+  font-size: 0.75rem;
+  font-weight: 600;
+  /* Jetons de l'ADMIN (styles/_tokens.scss) et non ceux du front : les deux
+     palettes ne portent pas les mêmes noms, et une couleur en dur ici finirait
+     par diverger du reste du back-office. */
+  color: var(--tim-amber);
+  background: var(--tim-amber-bg);
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--tim-radius-sm);
+  white-space: nowrap;
+}
+
+.jr-prep__state--ok {
+  color: var(--tim-green);
+  background: var(--tim-green-bg);
+}

@@ -34,15 +34,17 @@ const looksEncrypted = (v: string): boolean => /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\
  */
 async function rawStoredPassword(
   payload: Payload,
+  collection: string,
   id: number | string,
+  field: string,
 ): Promise<string | null> {
   try {
     const doc = (await payload.db.findOne({
-      collection: "client-credentials",
+      collection,
       where: { id: { equals: id } },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any)) as { password?: string } | null;
-    return doc?.password ?? null;
+    } as any)) as Record<string, unknown> | null;
+    return (doc?.[field] as string) ?? null;
   } catch {
     return null;
   }
@@ -63,14 +65,29 @@ async function rawStoredPassword(
  */
 export const encryptPasswordValue = async (
   value: unknown,
-  ctx?: { payload?: Payload; id?: number | string },
+  ctx?: {
+    payload?: Payload;
+    id?: number | string;
+    /**
+     * OÙ relire la valeur stockée. OBLIGATOIRE, et sans valeur par défaut : un
+     * repli sur une collection précise a déjà produit le pire des bugs de ce
+     * dispositif — chercher le mot de passe dans la mauvaise table, ne rien
+     * trouver, et enregistrer le MASQUE à la place. Le mot de passe distribué
+     * aux équipes remplacé par six points, en silence. Mieux vaut que l'appelant
+     * soit obligé de le dire.
+     */
+    collection: string;
+    field: string;
+  },
 ): Promise<string | null | undefined> => {
   if (value == null || value === "") return value as null | undefined;
   const v = String(value);
 
   if (v === PASSWORD_MASK) {
     if (!ctx?.payload || ctx.id == null) return undefined; // rien à restituer
-    return (await rawStoredPassword(ctx.payload, ctx.id)) ?? undefined;
+    return (
+      (await rawStoredPassword(ctx.payload, ctx.collection, ctx.id, ctx.field)) ?? undefined
+    );
   }
 
   if (looksEncrypted(v) && decryptSecret(v) !== null) return v; // déjà chiffré
@@ -86,33 +103,30 @@ export const readPassword = (stored?: string | null): string | null => {
   return clear ?? stored;
 };
 
-export type PlainCredential = {
+/**
+ * Les accès TIM des UTILISATEURS déclarés, déchiffrés.
+ *
+ * Les comptes sont créés dans TIM ; on ne conserve ici que ce que le client doit
+ * pouvoir relire et imprimer pour ses équipes — son identifiant (l'adresse
+ * e-mail) et son mot de passe.
+ *
+ * Comme au-dessus : aucun contrôle d'accès ici, il appartient à l'appelant.
+ */
+export type PlainTimAccess = {
   id: number | string;
-  firstName?: string | null;
-  lastName?: string | null;
-  licenceProfile?: string | null;
-  username?: string | null;
-  password: string | null;
-  deliveredAt?: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  licenceProfile: string | null;
+  timPassword: string | null;
 };
 
-/**
- * Accès d'un client, mots de passe EN CLAIR.
- *
- * Lecture directe via `payload.db` : passer par l'API appliquerait le hook de
- * masquage, qui est précisément ce qu'on veut contourner ici — en connaissance
- * de cause, dans un chemin serveur contrôlé.
- *
- * Chaque appelant doit avoir vérifié SES droits avant d'appeler : cette fonction
- * ne fait aucun contrôle d'accès, et c'est volontaire — elle sert autant la
- * route du portail (session client) que celle du back-office (code confirmé).
- */
-export async function readClientCredentials(
+export async function readTimAccesses(
   payload: Payload,
   clientId: number | string,
-): Promise<PlainCredential[]> {
+): Promise<PlainTimAccess[]> {
   const res = await payload.db.find({
-    collection: "client-credentials",
+    collection: "client-contacts",
     where: { client: { equals: clientId } },
     limit: 200,
     sort: "lastName",
@@ -124,9 +138,8 @@ export async function readClientCredentials(
     id: d.id as number | string,
     firstName: (d.firstName as string) ?? null,
     lastName: (d.lastName as string) ?? null,
+    email: (d.email as string) ?? null,
     licenceProfile: (d.licenceProfile as string) ?? null,
-    username: (d.username as string) ?? null,
-    password: readPassword(d.password as string | null),
-    deliveredAt: (d.deliveredAt as string) ?? null,
+    timPassword: readPassword(d.timPassword as string | null),
   }));
 }

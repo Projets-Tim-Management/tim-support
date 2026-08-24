@@ -87,8 +87,6 @@ export interface Config {
     'client-vehicles': ClientVehicle;
     'client-machines': ClientMachine;
     'client-portal-accounts': ClientPortalAccount;
-    'client-credentials': ClientCredential;
-    'credential-reveals': CredentialReveal;
     'calendar-connections': CalendarConnection;
     media: Media;
     users: User;
@@ -108,7 +106,6 @@ export interface Config {
       vehicles: 'client-vehicles';
       machines: 'client-machines';
       portalAccounts: 'client-portal-accounts';
-      credentials: 'client-credentials';
       contacts: 'client-contacts';
     };
     'journey-runs': {
@@ -136,8 +133,6 @@ export interface Config {
     'client-vehicles': ClientVehiclesSelect<false> | ClientVehiclesSelect<true>;
     'client-machines': ClientMachinesSelect<false> | ClientMachinesSelect<true>;
     'client-portal-accounts': ClientPortalAccountsSelect<false> | ClientPortalAccountsSelect<true>;
-    'client-credentials': ClientCredentialsSelect<false> | ClientCredentialsSelect<true>;
-    'credential-reveals': CredentialRevealsSelect<false> | CredentialRevealsSelect<true>;
     'calendar-connections': CalendarConnectionsSelect<false> | CalendarConnectionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
@@ -269,6 +264,26 @@ export interface JourneyRun {
    * Réservé par le client depuis son espace, ou saisi ici à la main. Obligatoirement avant le lundi de démarrage. Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.
    */
   sessionAt?: string | null;
+  attendeeFirstName?: string | null;
+  attendeeLastName?: string | null;
+  /**
+   * Tel que le client l'a saisi.
+   */
+  attendeeRole?: string | null;
+  /**
+   * Pré-remplie avec celle de l'espace client, modifiable par le client si ce n'est pas lui qui suit la session.
+   */
+  attendeeEmail?: string | null;
+  /**
+   * Ajoutés par le client. Ils reçoivent l'invitation d'agenda au même titre que la personne formée.
+   */
+  sessionGuests?:
+    | {
+        email: string;
+        name?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   sessionEventId?: string | null;
   extensions?:
     | {
@@ -664,12 +679,16 @@ export interface PartnerClient {
    */
   contractDocument?: (number | null) | Media;
   /**
+   * Déposé par le client depuis son espace. Téléchargez-le pour l'ajouter à son compte de test.
+   */
+  logo?: (number | null) | Media;
+  /**
    * « Transmis » = le client a fini sa saisie ; « Validé » = TIM a contrôlé.
    */
   onboardingStatus?: ('en-cours' | 'transmis' | 'valide') | null;
   onboardingSubmittedAt?: string | null;
   /**
-   * Tout l'effectif. Cochez « Accès TIM » sur ceux qui consomment une licence — eux seuls comptent dans le devis.
+   * Tout l'effectif du client : pointage, planning, chantiers. Les licences, elles, se déclarent dans les CONTACTS — un salarié n'est pas un utilisateur.
    */
   employees?: {
     docs?: (number | ClientEmployee)[];
@@ -696,14 +715,6 @@ export interface PartnerClient {
    */
   portalAccounts?: {
     docs?: (number | ClientPortalAccount)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Les comptes TIM créés pour les utilisateurs. Le client les consulte et les imprime depuis son espace — ils ne partent jamais par e-mail.
-   */
-  credentials?: {
-    docs?: (number | ClientCredential)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -1105,37 +1116,6 @@ export interface ClientPortalAccount {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "client-credentials".
- */
-export interface ClientCredential {
-  id: number;
-  client: number | PartnerClient;
-  firstName: string;
-  lastName: string;
-  licenceProfile: 'admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon';
-  /**
-   * Tel qu'il a été créé dans TIM.
-   */
-  username: string;
-  /**
-   * Chiffré. Utilisez « Révéler » pour l'afficher, ou consultez l'espace client.
-   */
-  password: string;
-  /**
-   * Facultatif — relie l'accès à la ligne du dossier de démarrage.
-   */
-  employee?: (number | null) | ClientEmployee;
-  /**
-   * Renseigné par le client quand il a remis l'accès à la personne.
-   */
-  deliveredAt?: string | null;
-  partner?: (number | null) | Partner;
-  displayName?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "client-contacts".
  */
 export interface ClientContact {
@@ -1143,6 +1123,14 @@ export interface ClientContact {
   client: number | PartnerClient;
   firstName?: string | null;
   lastName?: string | null;
+  /**
+   * Décide du compte TIM créé pour cette personne.
+   */
+  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon') | null;
+  /**
+   * Généré une fois puis FIGÉ : le client l'a distribué à ses équipes, le changer casserait des connexions.
+   */
+  timPassword?: string | null;
   role?: string | null;
   email?: string | null;
   phone?: string | null;
@@ -1599,26 +1587,6 @@ export interface RewardOrder {
   createdAt: string;
 }
 /**
- * Journal des consultations de mots de passe. Lecture seule : chaque ligne est une demande d'affichage.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "credential-reveals".
- */
-export interface CredentialReveal {
-  id: number;
-  user: number | User;
-  client: number | PartnerClient;
-  codeHash: string;
-  expiresAt: string;
-  attempts?: number | null;
-  /**
-   * Vide = code demandé mais jamais confirmé.
-   */
-  usedAt?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "calendar-connections".
  */
@@ -1742,14 +1710,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'client-portal-accounts';
         value: number | ClientPortalAccount;
-      } | null)
-    | ({
-        relationTo: 'client-credentials';
-        value: number | ClientCredential;
-      } | null)
-    | ({
-        relationTo: 'credential-reveals';
-        value: number | CredentialReveal;
       } | null)
     | ({
         relationTo: 'calendar-connections';
@@ -2049,6 +2009,7 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   paymentTerms?: T;
   signatureDate?: T;
   contractDocument?: T;
+  logo?: T;
   onboardingStatus?: T;
   onboardingSubmittedAt?: T;
   employees?: T;
@@ -2056,7 +2017,6 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   vehicles?: T;
   machines?: T;
   portalAccounts?: T;
-  credentials?: T;
   contacts?: T;
   history?:
     | T
@@ -2088,6 +2048,8 @@ export interface ClientContactsSelect<T extends boolean = true> {
   client?: T;
   firstName?: T;
   lastName?: T;
+  licenceProfile?: T;
+  timPassword?: T;
   role?: T;
   email?: T;
   phone?: T;
@@ -2192,6 +2154,17 @@ export interface JourneyRunsSelect<T extends boolean = true> {
   sessionLink?: T;
   sessionLocation?: T;
   sessionAt?: T;
+  attendeeFirstName?: T;
+  attendeeLastName?: T;
+  attendeeRole?: T;
+  attendeeEmail?: T;
+  sessionGuests?:
+    | T
+    | {
+        email?: T;
+        name?: T;
+        id?: T;
+      };
   sessionEventId?: T;
   extensions?:
     | T
@@ -2391,38 +2364,6 @@ export interface ClientPortalAccountsSelect<T extends boolean = true> {
   requestCount?: T;
   requestWindowStart?: T;
   partner?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "client-credentials_select".
- */
-export interface ClientCredentialsSelect<T extends boolean = true> {
-  client?: T;
-  firstName?: T;
-  lastName?: T;
-  licenceProfile?: T;
-  username?: T;
-  password?: T;
-  employee?: T;
-  deliveredAt?: T;
-  partner?: T;
-  displayName?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "credential-reveals_select".
- */
-export interface CredentialRevealsSelect<T extends boolean = true> {
-  user?: T;
-  client?: T;
-  codeHash?: T;
-  expiresAt?: T;
-  attempts?: T;
-  usedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

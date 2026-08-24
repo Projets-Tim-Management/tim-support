@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { SEND_CONDITIONS, shouldStillSend, type SendFacts } from "@/modules/marketing/lib/due-emails";
+import { hasTemplate } from "@/modules/marketing/lib/emails";
+import { PHASE_DE_TEST_EMAILS } from "@/modules/marketing/lib/journey";
+
 
 import {
   ACCESS_EMAIL_KEY,
@@ -99,5 +103,46 @@ describe("remise des accès", () => {
 
   it("porte bien la clé attendue par le cron", () => {
     expect(ACCESS_EMAIL_KEY).toBe("acces-prets");
+  });
+});
+
+describe("relances : elles ne partent que si la chose reste à faire", () => {
+  const rien: SendFacts = { sessionAt: null, onboardingStatus: "en-cours", credentialCount: 0 };
+
+  it("relance créneau : envoyée sans rendez-vous, retenue dès qu'il y en a un", () => {
+    expect(shouldStillSend("relance-creneau", rien)).toBe(true);
+    expect(shouldStillSend("relance-creneau", { ...rien, sessionAt: "2026-08-27T13:00:00.000Z" })).toBe(false);
+  });
+
+  it("l'invitation initiale suit la même règle que sa relance", () => {
+    // Un client qui réserve dès le premier jour ne doit pas recevoir
+    // « réservez votre créneau » une semaine plus tard.
+    expect(shouldStillSend("prise-en-main", { ...rien, sessionAt: "2026-08-27T13:00:00.000Z" })).toBe(false);
+    expect(shouldStillSend("prise-en-main", rien)).toBe(true);
+  });
+
+  it("relance dossier : retenue dès qu'il est transmis, et a fortiori validé", () => {
+    expect(shouldStillSend("relance-dossier", rien)).toBe(true);
+    expect(shouldStillSend("relance-dossier", { ...rien, onboardingStatus: "transmis" })).toBe(false);
+    expect(shouldStillSend("relance-dossier", { ...rien, onboardingStatus: "valide" })).toBe(false);
+  });
+
+  it("la remise des accès reste conditionnée à leur existence", () => {
+    expect(shouldStillSend("acces-prets", rien)).toBe(false);
+    expect(shouldStillSend("acces-prets", { ...rien, credentialCount: 12 })).toBe(true);
+  });
+
+  it("un message sans condition part toujours : l'absence de règle ne bloque rien", () => {
+    expect(shouldStillSend("check-in", rien)).toBe(true);
+    expect(shouldStillSend("fin-proche", rien)).toBe(true);
+    expect(shouldStillSend(null, rien)).toBe(true);
+  });
+
+  it("chaque relance déclarée dans le modèle a bien sa condition ET son gabarit", () => {
+    for (const key of ["relance-creneau", "relance-dossier"]) {
+      expect(PHASE_DE_TEST_EMAILS.some((e) => e.key === key), key).toBe(true);
+      expect(SEND_CONDITIONS[key], key).toBeTypeOf("function");
+      expect(hasTemplate(key), key).toBe(true);
+    }
   });
 });

@@ -216,13 +216,11 @@ const computeCommissionMonthly: FieldHook = async ({ data, req, siblingData }) =
  * c'est un nettoyage d'intégrité, pas une action d'utilisateur.
  */
 const CLIENT_CHILDREN = [
-  "client-credentials",
   "client-employees",
   "client-sites",
   "client-vehicles",
   "client-machines",
   "client-portal-accounts",
-  "credential-reveals",
   "journey-runs",
   "client-contacts",
 ] as const;
@@ -274,6 +272,11 @@ const deleteClientChildren: CollectionBeforeDeleteHook = async ({ req, id }) => 
 const armJourneySteps: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
   if (doc?.onboardingStatus === "transmis" && previousDoc?.onboardingStatus !== "transmis") {
     await armAutoStep(req.payload, doc.id, "dossier-demarrage");
+  }
+  // Dossier passé à « Validé » depuis la fiche : l'étape du parcours suit, pour
+  // qu'il n'existe jamais deux vérités sur le même fait.
+  if (doc?.onboardingStatus === "valide" && previousDoc?.onboardingStatus !== "valide") {
+    await armAutoStep(req.payload, doc.id, "validation-dossier");
   }
   if (doc?.signatureDate && !previousDoc?.signatureDate) {
     await armAutoStep(req.payload, doc.id, "signature");
@@ -656,9 +659,25 @@ export const PartnerClients: CollectionConfig = {
         {
           label: "Dossier de démarrage",
           description:
-            "Les éléments que le client remplit avant le démarrage du test : effectif, chantiers, matériel. Le comptage des salariés « Accès TIM » alimente le tableau des licences.",
+            "Les éléments que le client remplit avant le démarrage du test : logo, utilisateurs, effectif, chantiers, matériel. Le comptage des UTILISATEURS déclarés alimente le tableau des licences.",
           admin: { condition: hasTestPhase },
           fields: [
+            {
+              // Déposé par le CLIENT depuis son espace, récupéré par TIM pour
+              // habiller son compte de test. C'est la seule pièce du dossier
+              // qu'on ne peut pas ressaisir à sa place : ni le SIREN ni l'INSEE
+              // ne donnent le fichier.
+              name: "logo",
+              type: "upload",
+              relationTo: "media",
+              label: "Logo de l'entreprise",
+              admin: {
+                description:
+                  "Déposé par le client depuis son espace. Téléchargez-le pour l'ajouter à son compte de test.",
+                custom: { accept: "image/*", noun: "un logo" },
+                components: { Field: "/admin/fields/DirectUpload#default" },
+              },
+            },
             {
               name: "onboardingRecap",
               type: "ui",
@@ -701,7 +720,7 @@ export const PartnerClients: CollectionConfig = {
               admin: {
                 allowCreate: true,
                 description:
-                  "Tout l'effectif. Cochez « Accès TIM » sur ceux qui consomment une licence — eux seuls comptent dans le devis.",
+                  "Tout l'effectif du client : pointage, planning, chantiers. Les licences, elles, se déclarent dans les CONTACTS — un salarié n'est pas un utilisateur.",
                 defaultColumns: ["matricule", "firstName", "lastName", "poste", "isUser", "licenceProfile"],
               },
             },
@@ -740,11 +759,31 @@ export const PartnerClients: CollectionConfig = {
             },
           ],
         },
-        // ── Espace client : connexion du client + accès applicatifs de test ──
+        // ── Préparation : le poste de travail de TIM ────────────────────────
+        // Recréer le client dans le logiciel demandait d'ouvrir cinq tableaux
+        // repliés et de cliquer chaque ligne pour la lire. Ici tout est à plat,
+        // copiable d'un bouton, avec les mots de passe en face des utilisateurs.
+        {
+          label: "Préparation des accès",
+          description:
+            "Tout ce qu'il faut pour recréer ce client dans TIM : le dossier qu'il a rempli, copiable tableau par tableau, et les identifiants à compléter avec ceux réellement créés.",
+          admin: { condition: hasTestPhase },
+          fields: [
+            {
+              name: "preparationConsole",
+              type: "ui",
+              admin: {
+                components: {
+                  Field: "/modules/marketing/admin/PreparationConsole#PreparationConsole",
+                },
+              },
+            },
+          ],
+        },
         {
           label: "Espace client",
           description:
-            "Le compte qui permet au client de se connecter (code à usage unique, session 24 h), et les identifiants TIM qu'il distribue lui-même à ses équipes. Création réservée aux admins.",
+            "Le compte qui permet au client de se connecter à l'espace support : code à usage unique, session de 24 h. Rien d'autre — les accès au logiciel TIM vivent dans l'onglet « Préparation des accès », sur la ligne de chaque utilisateur.",
           admin: { condition: hasTestPhase },
           fields: [
             {
@@ -770,41 +809,6 @@ export const PartnerClients: CollectionConfig = {
                 description:
                   "Un seul compte par client : l'e-mail du référent. Aucun mot de passe — un code à 6 chiffres lui est envoyé à chaque connexion.",
                 defaultColumns: ["email", "firstName", "lastName", "active", "lastLoginAt"],
-              },
-            },
-            {
-              // Génère les accès depuis les salariés « Accès TIM » du dossier :
-              // sans ça, TIM retape à la main ce que le client a déjà déclaré.
-              name: "credentialsGenerator",
-              type: "ui",
-              admin: {
-                components: {
-                  Field: "/modules/marketing/admin/CredentialsGenerator#CredentialsGenerator",
-                },
-              },
-            },
-            {
-              // Les mots de passe sont chiffrés et masqués dans la liste
-              // ci-dessous : c'est ici qu'on les affiche, après confirmation.
-              name: "credentialsReveal",
-              type: "ui",
-              admin: {
-                components: {
-                  Field: "/modules/marketing/admin/RevealCredentials#RevealCredentials",
-                },
-              },
-            },
-            {
-              name: "credentials",
-              type: "join",
-              collection: "client-credentials",
-              on: "client",
-              label: "Accès de test à remettre",
-              admin: {
-                allowCreate: true,
-                description:
-                  "Les comptes TIM créés pour les utilisateurs. Le client les consulte et les imprime depuis son espace — ils ne partent jamais par e-mail.",
-                defaultColumns: ["firstName", "lastName", "licenceProfile", "username", "deliveredAt"],
               },
             },
           ],

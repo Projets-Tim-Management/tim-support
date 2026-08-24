@@ -71,6 +71,19 @@ const frDate = (iso?: string | null) =>
     ? new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })
     : "à définir";
 
+/** Jour ET heure, en heure de Paris : pour un rendez-vous, la date seule ne dit rien. */
+const frDateTime = (iso?: string | null) =>
+  iso
+    ? new Date(iso).toLocaleString("fr-FR", {
+        timeZone: "Europe/Paris",
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+
 export type TestRequestContext = {
   client: {
     id?: number | string;
@@ -403,17 +416,24 @@ export function buildDossierToCheckEmail(
       "À contrôler avant de créer les comptes : cohérence des licences déclarées,",
       "identités des salariés, chantiers renseignés.",
       "",
-      `${adminUrl(`/collections/journey-runs/${run.id}`)}`,
+      "Le dossier est copiable tableau par tableau depuis l'onglet « Préparation des accès » :",
+      ctx.clientId
+        ? adminUrl(`/collections/partner-clients/${ctx.clientId}`)
+        : adminUrl(`/collections/journey-runs/${run.id}`),
     ].join("\n"),
     html: internalNotice({
       heading: "Dossier de démarrage à vérifier",
       rows,
       message:
         "À contrôler avant de créer les comptes : cohérence des licences déclarées, identités des salariés, chantiers renseignés.",
-      cta: { label: "Ouvrir la phase de test", url: adminUrl(`/collections/journey-runs/${run.id}`) },
-      links: ctx.clientId
-        ? [{ label: "Fiche client", url: adminUrl(`/collections/partner-clients/${ctx.clientId}`) }]
-        : [],
+      // Le bouton mène à la FICHE CLIENT, pas à la phase de test : le travail qui
+      // suit ce message est de recopier le dossier dans TIM et de créer les
+      // accès, et c'est là que ça se fait (onglet « Préparation des accès »).
+      // Le parcours ne sert qu'à suivre l'avancement.
+      cta: ctx.clientId
+        ? { label: "Préparer les accès", url: adminUrl(`/collections/partner-clients/${ctx.clientId}`) }
+        : { label: "Ouvrir la phase de test", url: adminUrl(`/collections/journey-runs/${run.id}`) },
+      links: [{ label: "Phase de test", url: adminUrl(`/collections/journey-runs/${run.id}`) }],
     }),
   };
 }
@@ -495,6 +515,71 @@ export async function notifyAdminsDossierToCheck(
     payload.logger.info(`[parcours] dossier à vérifier notifié à ${to.length} admin(s).`);
   } catch (err) {
     payload.logger.error(`[parcours] notification « dossier à vérifier » échouée : ${err}`);
+  }
+}
+
+/**
+ * Un client vient de réserver sa session de prise en main.
+ *
+ * L'équipe l'apprenait en ouvrant la fiche, c'est-à-dire souvent après coup. Or
+ * c'est l'étape qui décide de la première semaine du test : savoir qu'elle est
+ * calée — et avec qui — permet de s'en occuper avant, pas de le constater après.
+ */
+export async function notifyAdminsSessionBooked(
+  payload: Payload,
+  run: { id: number | string },
+  ctx: SimpleNoticeContext & {
+    when?: string | null;
+    modality?: string | null;
+    attendees?: string[];
+  },
+): Promise<void> {
+  try {
+    const to = await adminEmails(payload);
+    if (to.length === 0) {
+      payload.logger.warn("[parcours] aucune adresse admin : créneau réservé non notifié.");
+      return;
+    }
+
+    const client = ctx.clientName ?? "Un client";
+    const when = ctx.when ? frDateTime(ctx.when) : null;
+    const people = (ctx.attendees ?? []).filter((a) => a && a.trim() && !a.startsWith(" —"));
+    const url = adminUrl(`/collections/journey-runs/${run.id}`);
+
+    await payload.sendEmail({
+      to: to.join(","),
+      subject: `Prise en main calée — ${client}`,
+      text: [
+        `${client} a réservé sa session de prise en main.`,
+        "",
+        when ? `Quand : ${when}` : "",
+        ctx.modality ? `Où    : ${ctx.modality}` : "",
+        ctx.partnerName ? `Anime : ${ctx.partnerName}` : "",
+        "",
+        ...(people.length ? ["Participants annoncés :", ...people.map((p) => `  • ${p}`), ""] : []),
+        url,
+      ]
+        .filter((l) => l !== "")
+        .join("\n"),
+      html: internalNotice({
+        heading: "Prise en main calée",
+        rows: [
+          ["Client", escape(client)],
+          ...(when ? ([["Quand", escape(when)]] as [string, string][]) : []),
+          ...(ctx.modality ? ([["Où", escape(ctx.modality)]] as [string, string][]) : []),
+          ...(ctx.partnerName ? ([["Animée par", escape(ctx.partnerName)]] as [string, string][]) : []),
+        ],
+        message: people.length
+          ? `Participants annoncés : ${people.map(escape).join(" · ")}`
+          : "Aucun participant n'a été déclaré au moment de la réservation.",
+        cta: { label: "Ouvrir la phase de test", url },
+        links: ctx.clientId
+          ? [{ label: "Fiche client", url: adminUrl(`/collections/partner-clients/${ctx.clientId}`) }]
+          : [],
+      }),
+    });
+  } catch (err) {
+    payload.logger.error(`[parcours] notification « prise en main calée » échouée : ${err}`);
   }
 }
 

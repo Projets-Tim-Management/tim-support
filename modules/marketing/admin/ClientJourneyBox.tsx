@@ -39,6 +39,7 @@ export function ClientJourneyBox() {
   const [loading, setLoading] = useState(true);
   const [asking, setAsking] = useState(false);
   const [justStarted, setJustStarted] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   // Adresse de la fiche : pré-remplit le modal plutôt que de la faire retaper.
   const saved = savedDocumentData as { companyName?: string; email?: string } | undefined;
@@ -54,23 +55,33 @@ export function ClientJourneyBox() {
    * l'enregistrement de la fiche confirme, sans écrire derrière le dos d'un
    * formulaire qui peut avoir d'autres modifications en cours.
    */
-  /** Lit le parcours du client sans toucher à l'état — sert aussi de revérification. */
-  const fetchRun = useCallback(async (): Promise<Run | null> => {
-    if (!id) return null;
+  /**
+   * Lit le parcours du client sans toucher à l'état — sert aussi de revérification.
+   *
+   * « Aucun parcours » et « lecture impossible » sont deux réponses DIFFÉRENTES,
+   * et les confondre a un coût : une panne s'affichait en « Aucune phase de
+   * test », avec le bouton qui invite à en démarrer une — donc à en créer une
+   * seconde pour un client qui en a déjà une.
+   */
+  const fetchRun = useCallback(async (): Promise<{ ok: boolean; run: Run | null }> => {
+    if (!id) return { ok: true, run: null };
     try {
       const res = await fetch(
         `/payload-api/journey-runs?where[client][equals]=${id}&limit=1&depth=0&sort=-createdAt`,
         { credentials: "include" },
       );
-      const data = res.ok ? await res.json() : null;
-      return (data?.docs?.[0] as Run) ?? null;
+      if (!res.ok) return { ok: false, run: null };
+      const data = await res.json();
+      return { ok: true, run: (data?.docs?.[0] as Run) ?? null };
     } catch {
-      return null;
+      return { ok: false, run: null };
     }
   }, [id]);
 
   const reload = useCallback(async () => {
-    setRun(await fetchRun());
+    const res = await fetchRun();
+    setFailed(!res.ok);
+    setRun(res.run);
     setLoading(false);
   }, [fetchRun]);
 
@@ -104,7 +115,14 @@ export function ClientJourneyBox() {
       // revérifie avant d'ouvrir, sinon deux modals s'empileraient.
       const fresh = await fetchRun();
       if (cancelled) return;
-      if (fresh) setRun(fresh);
+      // Lecture en échec : on n'ouvre PAS le modal. Proposer de démarrer une
+      // phase de test parce qu'on n'a pas su lire celle qui existe est le pire
+      // enchaînement possible ici.
+      if (!fresh.ok) {
+        setFailed(true);
+        return;
+      }
+      if (fresh.run) setRun(fresh.run);
       else setAsking(true);
     })();
     return () => {
@@ -135,6 +153,21 @@ export function ClientJourneyBox() {
   // Fiche jamais enregistrée : pas d'id, donc rien à rattacher.
   if (!id) return null;
   if (loading) return <div className="jr-box jr-box--loading">Phase de test…</div>;
+
+  // Lecture impossible : on le DIT, et on ne propose surtout pas d'en démarrer
+  // une — ce serait offrir de dupliquer ce qu'on n'a pas réussi à lire.
+  if (failed) {
+    return (
+      <div className="jr-box">
+        <h4 className="jr-box__title">Phase de test</h4>
+        <p className="jr-box__empty">
+          Impossible de lire la phase de test de ce client. Rechargez la page&nbsp;; si le problème
+          persiste, prévenez l&apos;équipe technique — ce n&apos;est pas forcément qu&apos;il n&apos;y
+          en a pas.
+        </p>
+      </div>
+    );
+  }
 
   if (!run) {
     return (

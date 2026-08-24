@@ -79,7 +79,11 @@ export async function GET(req: Request) {
       : null,
     run.client
       ? payload
-          .count({ collection: "client-credentials", where: { client: { equals: run.client } }, overrideAccess: true })
+          .count({
+            collection: "client-contacts",
+            where: { client: { equals: run.client }, timPassword: { exists: true } },
+            overrideAccess: true,
+          })
           .then((r) => r.totalDocs)
           .catch(() => 0)
       : Promise.resolve(0),

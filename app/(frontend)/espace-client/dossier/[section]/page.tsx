@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import SectionEditor from "@/components/portal/SectionEditor";
 import { sectionByKey } from "@/modules/marketing/lib/portal-sections";
+import { isDossierLocked } from "@/modules/marketing/lib/onboarding";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
 
 export const metadata: Metadata = {
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const LOCKED = ["transmis", "valide"];
+
 
 export default async function SectionPage({ params }: { params: Promise<{ section: string }> }) {
   const ctx = await getPortalClient();
@@ -21,7 +22,7 @@ export default async function SectionPage({ params }: { params: Promise<{ sectio
   if (!section) notFound();
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
+    <div className="px-6 py-10 sm:px-8">
       <Link href="/espace-client/dossier" className="text-sm text-muted hover:underline">
         ← Dossier de démarrage
       </Link>
@@ -33,7 +34,7 @@ export default async function SectionPage({ params }: { params: Promise<{ sectio
 
       <SectionEditor
         section={section}
-        locked={LOCKED.includes(ctx.client.onboardingStatus ?? "")}
+        locked={isDossierLocked(ctx.client.onboardingStatus)}
       />
     </div>
   );

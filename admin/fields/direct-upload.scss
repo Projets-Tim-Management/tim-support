@@ -97,3 +97,27 @@
 .direct-upload__remove:hover {
   background: var(--tim-danger-text);
 }
+
+/* Lien de téléchargement, posé au bas de la vignette — visible au survol pour
+   ne pas encombrer la grille, mais toujours atteignable au clavier. */
+.direct-upload__dl {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.1875rem 0;
+  border-radius: 0 0 var(--tim-radius-sm) var(--tim-radius-sm);
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.direct-upload__thumb:hover .direct-upload__dl,
+.direct-upload__dl:focus-visible {
+  opacity: 1;
+}

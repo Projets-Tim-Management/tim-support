@@ -135,6 +135,24 @@ export default function DirectUpload(props: any) {
                   <span className="direct-upload__doc-name">{m.filename ?? "fichier"}</span>
                 </span>
               )}
+              {/* Récupérer le fichier était impossible autrement qu'au clic
+                  droit : un logo client à reposer dans son compte de test, un
+                  contrat signé à archiver, ça se télécharge. Sur un stockage
+                  distant (Vercel Blob), le navigateur ouvre l'onglet plutôt que
+                  d'enregistrer — `download` ne vaut qu'en même origine. */}
+              {m.url && (
+                <a
+                  className="direct-upload__dl"
+                  href={m.url}
+                  download={m.filename ?? true}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`Télécharger ${m.filename ?? "le fichier"}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Télécharger
+                </a>
+              )}
               {!readOnly && (
                 <button
                   type="button"

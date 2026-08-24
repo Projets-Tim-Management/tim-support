@@ -15,8 +15,9 @@ import {
  */
 
 const CLEAR = "094220";
-const fakePayload = (stored: string | null) =>
-  ({ db: { findOne: async () => (stored ? { password: stored } : null) } }) as never;
+/** Le champ relu est celui que l'appelant DÉSIGNE : la fausse base le respecte. */
+const fakePayload = (stored: string | null, field = "timPassword") =>
+  ({ db: { findOne: async () => (stored ? { [field]: stored } : null) } }) as never;
 
 beforeAll(() => {
   process.env.PAYLOAD_SECRET = "secret-de-test-pour-les-acces";
@@ -40,13 +41,25 @@ describe("écriture", () => {
     // Sans ça, enregistrer la fiche sans y toucher remplace le mot de passe par
     // des points — perte définitive et silencieuse.
     const stored = (await encryptPasswordValue(CLEAR)) as string;
-    const after = await encryptPasswordValue(PASSWORD_MASK, { payload: fakePayload(stored), id: 1 });
+    const after = await encryptPasswordValue(PASSWORD_MASK, {
+      payload: fakePayload(stored),
+      id: 1,
+      // La cible est désormais exigée : c'est elle qui a manqué le jour où le
+      // masque a été relu dans la mauvaise table.
+      collection: "client-contacts",
+      field: "timPassword",
+    });
     expect(after).toBe(stored);
     expect(readPassword(after as string)).toBe(CLEAR);
   });
 
   it("n'invente rien si le masque arrive sans valeur stockée", async () => {
-    const after = await encryptPasswordValue(PASSWORD_MASK, { payload: fakePayload(null), id: 1 });
+    const after = await encryptPasswordValue(PASSWORD_MASK, {
+      payload: fakePayload(null),
+      id: 1,
+      collection: "client-contacts",
+      field: "timPassword",
+    });
     expect(after).toBeUndefined();
   });
 

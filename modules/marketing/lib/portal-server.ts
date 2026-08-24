@@ -21,6 +21,8 @@ export type PortalClient = {
   id: number | string;
   companyName?: string;
   onboardingStatus?: string;
+  /** Logo déposé par le client — peuplé (depth 1) pour disposer de son `url`. */
+  logo?: { url?: string | null } | number | string | null;
 };
 
 /** Session + entreprise rattachée. Null si non connecté ou client introuvable. */
@@ -36,7 +38,9 @@ export const getPortalClient = async (): Promise<{
     const client = (await payload.findByID({
       collection: "partner-clients",
       id: session.cid,
-      depth: 0,
+      // depth 1 : le logo doit arriver PEUPLÉ, sinon on n'a qu'un id et rien à
+      // afficher. Un seul lien à résoudre, le coût est négligeable.
+      depth: 1,
       overrideAccess: true,
     })) as PortalClient;
     return client ? { session, client } : null;

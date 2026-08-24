@@ -54,9 +54,27 @@ describe("gabarits d'e-mails du parcours", () => {
   });
 
   it("couvre tous les envois client et partenaire déclarés", () => {
-    const interne = new Set(["demande-recue", "devis-a-rediger", "dossier-a-verifier", "demande-contrat-tim"]);
-    const attendus = PHASE_DE_TEST_EMAILS.filter((e) => !interne.has(e.key)).map((e) => e.key);
+    // Les alertes à destination de TIM sont construites dans notify.ts, pas ici :
+    // elles se reconnaissent à leur PUBLIC, ce qui évite d'entretenir une liste
+    // de clés qu'on oublie d'allonger — c'est déjà arrivé.
+    const attendus = PHASE_DE_TEST_EMAILS.filter((e) => e.audience !== "tim").map((e) => e.key);
     for (const key of attendus) expect(JOURNEY_EMAILS, key).toHaveProperty(key);
+  });
+
+  it("chaque alerte interne a bien un expéditeur, même sans gabarit ici", () => {
+    // Le pendant du test précédent : une alerte TIM déclarée dans le modèle mais
+    // qu'aucun code n'envoie affiche une enveloppe sur l'étape et ne part jamais.
+    // C'est arrivé deux fois ; la liste ci-dessous est vérifiée à la main.
+    const envoyees = new Set([
+      "demande-recue",
+      "devis-a-rediger",
+      "dossier-a-verifier",
+      "demande-contrat-tim",
+      "creneau-reserve-tim",
+    ]);
+    for (const e of PHASE_DE_TEST_EMAILS.filter((m) => m.audience === "tim")) {
+      expect(envoyees, e.key).toContain(e.key);
+    }
   });
 
   it("un seul bouton d'action par message", () => {
@@ -105,5 +123,91 @@ describe("signature des e-mails", () => {
       expect(text, key).not.toMatch(/\bje (lis|voulais|vous propose)\b/i);
       expect(text, key).not.toMatch(/dites-le-moi/i);
     }
+  });
+});
+
+describe("confirmation du créneau au client", () => {
+  const base = {
+    clientName: "SOUVET VMB",
+    contactFirstName: "Charlie",
+    sessionAt: "2026-08-27T11:00:00.000Z",
+    sessionModality: "en visio (lien fourni)",
+  };
+
+  it("annonce l'horaire et la durée", () => {
+    const mail = JOURNEY_EMAILS["creneau-confirme"](base);
+    expect(mail.subject).toContain("réservée");
+    expect(mail.text).toContain("45 minutes");
+    expect(mail.text).toMatch(/27 août/);
+  });
+
+  it("écrit le lien de visio EN TOUTES LETTRES quand il existe", () => {
+    const url = "https://meet.google.com/abc-defg-hij";
+    const mail = JOURNEY_EMAILS["creneau-confirme"]({ ...base, sessionLink: url });
+    expect(mail.text).toContain(url);
+    expect(mail.html).toContain(url);
+  });
+
+  it("sans lien, aucun bouton vide ni ligne « Lien : »", () => {
+    const mail = JOURNEY_EMAILS["creneau-confirme"](base);
+    expect(mail.text).not.toContain("Lien  :");
+    expect(mail.html).not.toContain("Rejoindre la visio");
+  });
+
+  it("ne parle jamais de conducteurs ni de chefs de chantier", () => {
+    // La confirmation ne rappelle plus qui doit être formé : elle LISTE qui le
+    // sera, puisque le client vient de le déclarer. Le rappel reste dans
+    // l'invitation et la relance, où il sert encore à quelque chose.
+    const mail = JOURNEY_EMAILS["creneau-confirme"](base);
+    expect(`${mail.text}${mail.html}`).not.toMatch(/conducteur|chef de chantier/i);
+  });
+
+  it("le rappel « c'est l'administrateur qu'on forme » reste dans l'invitation", () => {
+    for (const key of ["prise-en-main", "relance-creneau"]) {
+      const mail = JOURNEY_EMAILS[key](base);
+      expect(mail.text, key).toContain("administrateur de votre compte");
+    }
+  });
+});
+
+describe("participants annoncés dans les e-mails de créneau", () => {
+  const ctx = {
+    clientName: "SOUVET VMB",
+    contactFirstName: "Charlie",
+    sessionAt: "2026-08-27T11:00:00.000Z",
+    sessionModality: "en visio (lien fourni)",
+    sessionAttendee: {
+      firstName: "Louise",
+      lastName: "Martin",
+      role: "Responsable d'exploitation",
+      email: "louise@souvet.fr",
+    },
+    sessionGuests: [{ email: "paul@souvet.fr", name: "Paul Souvet" }, { email: "compta@souvet.fr" }],
+  };
+
+  it("le partenaire reçoit la liste complète des présents", () => {
+    const mail = JOURNEY_EMAILS["creneau-reserve"](ctx);
+    for (const attendu of ["Louise Martin", "Responsable d'exploitation", "louise@souvet.fr", "Paul Souvet", "compta@souvet.fr"]) {
+      expect(mail.text, attendu).toContain(attendu);
+      expect(mail.html, attendu).toContain(attendu);
+    }
+  });
+
+  it("le client retrouve la même liste, pour vérifier qui est convié", () => {
+    const mail = JOURNEY_EMAILS["creneau-confirme"](ctx);
+    expect(mail.text).toContain("Louise Martin");
+    expect(mail.text).toContain("compta@souvet.fr");
+  });
+
+  it("un invité sans nom est listé par son adresse, sans ligne vide", () => {
+    const mail = JOURNEY_EMAILS["creneau-reserve"](ctx);
+    expect(mail.text).not.toMatch(/•\s*$/m);
+    expect(mail.text).toContain("• compta@souvet.fr");
+  });
+
+  it("sans participant déclaré, aucune section « Seront présents » vide", () => {
+    const mail = JOURNEY_EMAILS["creneau-reserve"]({ ...ctx, sessionAttendee: null, sessionGuests: null });
+    expect(mail.text).not.toContain("Seront présents");
+    expect(mail.html).not.toContain("Seront présents");
   });
 });

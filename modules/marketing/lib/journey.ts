@@ -314,11 +314,11 @@ export const SYSTEM_STEPS: Record<string, SystemStepDef> = {
     wait: "Le client remplit son dossier depuis son espace",
   },
   provisionnement: {
-    trigger: "quand les accès de test sont créés",
+    trigger: "quand les mots de passe des utilisateurs sont générés",
     action: {
-      label: "Créer les accès",
+      label: "Préparer les accès",
       on: "client",
-      hint: "Fiche client, onglet « Espace client » : générez les identifiants depuis les salariés du dossier de démarrage.",
+      hint: "Fiche client, onglet « Préparation des accès » : recopiez le dossier dans TIM, puis générez les mots de passe des utilisateurs.",
     },
   },
   signature: {
@@ -333,6 +333,73 @@ export const SYSTEM_STEPS: Record<string, SystemStepDef> = {
 };
 
 /** L'étape se coche-t-elle sur constat du système (donc jamais à la main) ? */
+/**
+ * Réconcilie les étapes d'un parcours EN COURS avec le modèle courant.
+ *
+ * Un parcours est une copie du modèle, figée à son lancement : c'est ce qui
+ * permet d'ajuster une échéance pour un client sans toucher aux autres. Mais une
+ * étape ajoutée au modèle aujourd'hui n'existerait alors que pour les tests
+ * démarrés demain — les parcours en cours ne la verraient jamais, et l'écran
+ * renverrait vers une étape introuvable.
+ *
+ * La liste est donc reconstruite dans l'ORDRE DU MODÈLE, chaque étape déjà
+ * présente reprise telle quelle : son état, sa date et sa note sont la donnée la
+ * plus précieuse du parcours et ne sont jamais réécrits. Seul le DÉTAIL est
+ * rafraîchi — c'est de la documentation livrée avec le code, et figée elle
+ * décrit un mécanisme disparu, envoyant chercher au mauvais endroit.
+ *
+ * Une étape RETIRÉE du modèle disparaît, mais seulement si personne n'y a
+ * touché : une case encore « à faire » n'est qu'une case vide, tandis
+ * qu'effacer la trace d'un travail accompli n'est pas du ménage.
+ *
+ * Renvoie `null` quand il n'y a rien à changer — l'appelant laisse alors les
+ * étapes en place plutôt que de réécrire une liste identique.
+ *
+ * Vit ici, et non dans le hook qui l'utilise, pour être vérifiable : la même
+ * fonction sert au parcours et aux tests, là où une logique recopiée dans un
+ * test peut rester verte pendant que le vrai code se casse.
+ */
+export type MergeableStep = {
+  key?: string | null;
+  detail?: unknown;
+  state?: string | null;
+  doneAt?: unknown;
+  note?: unknown;
+  [k: string]: unknown;
+};
+
+export const mergeRunSteps = (
+  modelSteps: MergeableStep[],
+  runSteps: MergeableStep[],
+): MergeableStep[] | null => {
+  const byKey = new Map(runSteps.map((s) => [s.key, s]));
+  const modelKeys = new Set(modelSteps.map((s) => s.key));
+  const details = new Map(modelSteps.map((s) => [s.key, s.detail]));
+
+  const missing = modelSteps.some((s) => !byKey.has(s.key));
+  const staleDetails = runSteps.some(
+    (s) => s.key && details.has(s.key) && details.get(s.key) !== s.detail,
+  );
+
+  const orphans = runSteps.filter((s) => !modelKeys.has(s.key));
+  const toDrop = new Set(
+    orphans.filter((s) => (s.state ?? "a-faire") === "a-faire" && !s.doneAt && !s.note),
+  );
+
+  if (!missing && !staleDetails && toDrop.size === 0) return null;
+
+  return [
+    ...modelSteps.map((modelStep) => {
+      const existing = byKey.get(modelStep.key);
+      if (!existing) return { ...modelStep, state: "a-faire" };
+      return existing.key && details.has(existing.key)
+        ? { ...existing, detail: details.get(existing.key) }
+        : existing;
+    }),
+    ...orphans.filter((s) => !toDrop.has(s)),
+  ];
+};
+
 export const isSystemStep = (key?: string | null): boolean =>
   Boolean(key && key in SYSTEM_STEPS);
 
@@ -373,6 +440,8 @@ export const isManualStep = (step: {
 export const STEP_VALIDATION_EFFECT: Record<string, string> = {
   "validation-admin":
     "Ouvre l'espace client et lui envoie son invitation. Rien n'est parti au client avant ce Go.",
+  "validation-dossier":
+    "Verrouille le dossier : le client ne pourra plus le modifier depuis son espace.",
   decision: "Déclenche l'alerte « devis à rédiger » aux admins TIM — sauf en cas d'abandon.",
   "demande-contrat": "Déclenche l'alerte « contrat à établir » aux admins TIM.",
   "mise-en-production": "Clôt le parcours : le client passe « Actif » et la facturation démarre.",
@@ -447,16 +516,20 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
     offsetDays: -5,
   },
   {
-    key: "validation-client",
-    label: "Validation du client (démarrage du test)",
-    actor: "client",
+    // Étape de TIM, entre la transmission du dossier et la création des comptes.
+    // `autoValidate` sans figurer dans SYSTEM_STEPS : elle garde son bouton — la
+    // valider EST le geste — mais se coche aussi toute seule si quelqu'un passe
+    // l'état du dossier à « Validé » depuis la fiche. Deux chemins, un seul état.
+    key: "validation-dossier",
+    autoValidate: true,
+    label: "Dossier vérifié par TIM",
+    actor: "admin",
     phase: "avant-test",
     detail:
-      "Accord sur le périmètre de licences, la durée et la gratuité des licences de test. Le comptage des salariés « Accès TIM » alimente directement le devis.",
+      "Contrôle du dossier transmis : cohérence des utilisateurs déclarés, identités des salariés, chantiers renseignés. Valider VERROUILLE la saisie du client — il ne pourra plus rien modifier sans passer par vous.",
     anchor: "debut",
-    offsetDays: -2,
+    offsetDays: -4,
   },
-
   // ── Bloc B — Pendant le test ──────────────────────────────────────────────
   {
     key: "provisionnement",
@@ -465,7 +538,7 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
     actor: "admin",
     phase: "pendant-test",
     detail:
-      "Comptes créés par profil de licence, depuis l'onglet « Espace client » de la fiche. À terminer le vendredi précédent. L'étape se coche dès que le premier identifiant existe.",
+      "Les comptes sont créés dans TIM à partir du dossier du client (onglet « Préparation des accès »). À terminer le vendredi précédent. L'étape se coche dès que les mots de passe sont générés.",
     anchor: "debut",
     offsetDays: -1,
   },
@@ -712,6 +785,26 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
       "Code à 6 chiffres, valable 15 minutes et utilisable une seule fois. Aucun mot de passe.",
   },
   {
+    key: "creneau-confirme",
+    subject: "Votre session de prise en main est réservée",
+    audience: "client",
+    anchor: "aucun",
+    stepKey: "rdv-prise-en-main",
+    trigger: "À la réservation du créneau, pour le client",
+    detail:
+      "Confirme au client l'horaire qu'il vient de choisir, avec la modalité et le lien de visio s'il y en a un. Sans lui, réserver ne produit aucun accusé de réception.",
+  },
+  {
+    key: "creneau-reserve-tim",
+    subject: "Prise en main calée",
+    audience: "tim",
+    anchor: "aucun",
+    stepKey: "rdv-prise-en-main",
+    trigger: "À la réservation du créneau, pour TIM",
+    detail:
+      "Prévient l'équipe qu'une session est calée, avec sa date et les participants annoncés. C'est l'étape qui décide de la première semaine du test.",
+  },
+  {
     key: "creneau-reserve",
     subject: "Votre client a réservé son créneau",
     audience: "partenaire",
@@ -759,6 +852,29 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     trigger: "Quand le partenaire demande le contrat",
     detail:
       "Le partenaire fait le devis, TIM rédige le contrat : cet envoi est le passage de relais, avec le devis joint.",
+  },
+
+  // ── Relances (client) ─────────────────────────────────────────────────────
+  // Elles ne partent QUE si la chose n'est toujours pas faite (voir
+  // SEND_CONDITIONS) : une relance qui arrive après coup décrédibilise toutes
+  // les suivantes, et apprend au client à ne plus les lire.
+  {
+    key: "relance-creneau",
+    subject: "Il reste à réserver votre session de prise en main",
+    audience: "client",
+    anchor: "debut",
+    offsetDays: -4,
+    detail:
+      "Relance sur le créneau de prise en main, envoyée seulement si aucun rendez-vous n'est réservé. Passé le démarrage, cette session ne rattrape plus la première semaine.",
+  },
+  {
+    key: "relance-dossier",
+    subject: "Votre dossier de démarrage nous manque",
+    audience: "client",
+    anchor: "debut",
+    offsetDays: -3,
+    detail:
+      "Relance sur le dossier de démarrage, envoyée seulement s'il n'a pas été transmis. Sans lui, les accès ne peuvent pas être créés à temps pour le lundi de démarrage.",
   },
 
   // ── Séquence datée (client) ───────────────────────────────────────────────

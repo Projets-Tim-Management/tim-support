@@ -125,7 +125,23 @@ export async function syncSessionEvent(
     description: "Session de prise en main de 45 minutes, avant le démarrage de la phase de test.",
     start: at,
     end: new Date(Date.parse(at) + rules.durationMin * 60_000).toISOString(),
-    attendees: attendee ? [attendee] : [],
+    // La personne formée, puis les invités déclarés. L'adresse de l'espace
+    // client ne sert que de repli : celle saisie au moment de réserver prime,
+    // parce que l'administrateur formé n'est pas forcément le contact qui a reçu
+    // l'invitation. Dédoublonnage en minuscules — le même invité saisi deux fois
+    // fait échouer certains fournisseurs d'agenda.
+    attendees: [
+      ...new Set(
+        [
+          (run as { attendeeEmail?: string | null }).attendeeEmail?.trim() || attendee,
+          ...(((run as { sessionGuests?: { email?: string | null }[] }).sessionGuests ?? [])
+            .map((g) => g?.email?.trim())
+            .filter(Boolean) as string[]),
+        ]
+          .filter(Boolean)
+          .map((e) => (e as string).toLowerCase()),
+      ),
+    ],
     online,
     location: run.sessionLocation ?? undefined,
     // Unique par parcours ET par créneau : réutiliser l'identifiant d'une

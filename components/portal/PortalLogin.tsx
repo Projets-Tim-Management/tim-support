@@ -12,6 +12,32 @@ import { useState } from "react";
  * il reprend mot pour mot ce que renvoie l'API, qui ne dit jamais si l'adresse
  * est connue.
  */
+/**
+ * Au-delà, on considère que le serveur ne répondra pas.
+ *
+ * Sans cette limite, `fetch` attend indéfiniment : une base injoignable laissait
+ * le bouton sur « Envoi… » pour toujours, sans message, sans recours — le seul
+ * état d'interface dont l'utilisateur ne peut pas sortir. Vingt secondes, c'est
+ * bien plus qu'il n'en faut pour poser un code et envoyer un e-mail, et assez
+ * peu pour qu'on comprenne vite que quelque chose ne va pas.
+ */
+const TIMEOUT_MS = 20_000;
+
+const postJson = async (url: string, body: unknown): Promise<Response> => {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), TIMEOUT_MS);
+  try {
+    return await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: abort.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 export default function PortalLogin() {
   const router = useRouter();
   const [step, setStep] = useState<"email" | "code">("email");
@@ -26,11 +52,7 @@ export default function PortalLogin() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/portal/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
+      const res = await postJson("/api/portal/request", { email });
       const body = await res.json();
       if (res.status === 429) {
         setError("Trop de demandes. Réessayez dans une heure.");
@@ -40,8 +62,14 @@ export default function PortalLogin() {
         setNotice(body?.message ?? null);
         setStep("code");
       }
-    } catch {
-      setError("Connexion impossible. Vérifiez votre réseau.");
+    } catch (err) {
+      // Un abandon sur délai n'est pas une panne de réseau : dire « vérifiez
+      // votre connexion » enverrait le client chercher un problème chez lui.
+      setError(
+        (err as Error)?.name === "AbortError"
+          ? "Le serveur ne répond pas. Réessayez dans un instant."
+          : "Connexion impossible. Vérifiez votre réseau.",
+      );
     } finally {
       setBusy(false);
     }
@@ -52,19 +80,19 @@ export default function PortalLogin() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/portal/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code }),
-      });
+      const res = await postJson("/api/portal/verify", { email, code });
       if (!res.ok) {
         setError("Code incorrect ou expiré. Demandez-en un nouveau si besoin.");
         return;
       }
       router.replace("/espace-client/accueil");
       router.refresh();
-    } catch {
-      setError("Connexion impossible. Vérifiez votre réseau.");
+    } catch (err) {
+      setError(
+        (err as Error)?.name === "AbortError"
+          ? "Le serveur ne répond pas. Réessayez dans un instant."
+          : "Connexion impossible. Vérifiez votre réseau.",
+      );
     } finally {
       setBusy(false);
     }
