@@ -313,7 +313,7 @@ export const SYSTEM_STEPS: Record<string, SystemStepDef> = {
     action: {
       label: "Marquer transmis",
       on: "client",
-      hint: "Fiche client, onglet « Dossier de démarrage » : passez l'état à « Transmis » si le client vous l'a fourni autrement que par son espace.",
+      hint: "Fiche client, onglet « Dossier & accès » : passez l'état à « Transmis » si le client vous l'a fourni autrement que par son espace.",
     },
     wait: "Le client remplit son dossier depuis son espace",
   },
@@ -322,7 +322,7 @@ export const SYSTEM_STEPS: Record<string, SystemStepDef> = {
     action: {
       label: "Préparer les accès",
       on: "client",
-      hint: "Fiche client, onglet « Préparation des accès » : recopiez le dossier dans TIM, puis générez les mots de passe des utilisateurs.",
+      hint: "Fiche client, onglet « Dossier & accès » : recopiez le dossier dans TIM, puis générez les mots de passe des utilisateurs.",
     },
   },
   signature: {
@@ -542,7 +542,7 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
     actor: "admin",
     phase: "pendant-test",
     detail:
-      "Les comptes sont créés dans TIM à partir du dossier du client (onglet « Préparation des accès »). À terminer le vendredi précédent. L'étape se coche dès que les mots de passe sont générés.",
+      "Les comptes sont créés dans TIM à partir du dossier du client (onglet « Dossier & accès »). À terminer le vendredi précédent. L'étape se coche dès que les mots de passe sont générés.",
     anchor: "debut",
     offsetDays: -1,
   },
@@ -986,6 +986,41 @@ export const isMonday = (value?: string | Date | null): boolean => {
   if (!value) return false;
   const d = value instanceof Date ? value : new Date(value);
   return !Number.isNaN(d.getTime()) && d.getUTCDay() === 1;
+};
+
+/**
+ * Premier lundi situé à au moins `leadDays` jours d'aujourd'hui.
+ *
+ * Sans délai, c'est le prochain lundi. Avec un délai, c'est le premier lundi qui
+ * laisse le temps de faire la préparation : sinon les étapes d'avant-test
+ * (ancrées à début −14 j, −10 j, −7 j…) naîtraient déjà en retard.
+ *
+ * Partagé entre le modal de démarrage et la variable `{{premier_lundi}}` des
+ * modèles d'e-mail : annoncer au client une date que l'écran de démarrage
+ * refuserait ensuite serait la pire des incohérences.
+ *
+ * Calcul entièrement en UTC : passer par l'heure locale décalerait la liste d'un
+ * jour en soirée sur un fuseau à l'est de Greenwich.
+ */
+export const firstStartableMonday = (leadDays = 0): string => {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  d.setUTCDate(d.getUTCDate() + Math.max(0, leadDays));
+  d.setUTCDate(d.getUTCDate() + ((8 - d.getUTCDay()) % 7));
+  return d.toISOString().slice(0, 10);
+};
+
+/**
+ * Délai de préparation exigé par un modèle de parcours : le plus grand décalage
+ * NÉGATIF de ses étapes ancrées au démarrage. Lu dans le modèle plutôt qu'écrit
+ * en dur — décaler une étape d'avant-test décale le premier lundi démarrable.
+ */
+export const leadDaysOf = (steps: { anchor?: string | null; offsetDays?: number | null }[]): number => {
+  const offsets = steps
+    .filter((s) => s.anchor === "debut" && typeof s.offsetDays === "number")
+    .map((s) => s.offsetDays as number);
+  const min = offsets.length ? Math.min(...offsets) : 0;
+  return min < 0 ? -min : 0;
 };
 
 /** Durée par défaut d'une phase de test, en semaines (lundi → lundi). */

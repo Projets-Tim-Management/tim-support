@@ -1036,11 +1036,15 @@
 .tim-archive__btn--ghost:hover {
   background: var(--tim-surface);
 }
-.tim-archive__btn--danger {
+/* `--danger` (archivage) et `--primary` (début de contrat) partagent l'habillage :
+   même bouton d'action, deux intentions — le libellé porte le sens. */
+.tim-archive__btn--danger,
+.tim-archive__btn--primary {
   background: var(--tim-primary);
   color: var(--tim-white);
 }
-.tim-archive__btn--danger:hover {
+.tim-archive__btn--danger:hover,
+.tim-archive__btn--primary:hover {
   background: var(--tim-primary-dark);
 }
 .tim-archive__btn:disabled {
@@ -1696,4 +1700,197 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
 .tim-insee__meta {
   font-size: 0.78rem;
   color: var(--tim-muted);
+}
+
+
+/* ─── Aperçu de la signature d'e-mail (SignaturePreview) ─────────────────────
+   Le cadre imite une fenêtre de messagerie : la signature doit être jugée sur
+   fond blanc, comme elle sera reçue. */
+.tim-sig {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.tim-sig__label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+.tim-sig__box {
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: #ffffff;
+  overflow-x: auto;
+}
+.tim-sig__empty,
+.tim-sig__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+}
+
+/* ─── Échéances des tâches sur une carte du Kanban ───────────────────────────
+   Le tableau dit où en est chaque affaire ; ces lignes disent ce qu'il reste à
+   faire — la seule information qui décide de la journée. Deux au plus par carte :
+   au-delà, la colonne devient une liste de tâches et ne se balaie plus. */
+.tim-kanban__tasks {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0 0;
+  border-top: 1px dashed var(--tim-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.tim-kanban__task {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.76rem;
+  color: var(--tim-foreground);
+}
+.tim-kanban__task-ico {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--tim-amber);
+}
+.tim-kanban__task-ico svg {
+  width: 13px;
+  height: 13px;
+}
+/* Le nom se tronque, l'échéance jamais : c'est elle qui dit s'il faut agir. */
+.tim-kanban__task-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tim-kanban__task-flag {
+  margin-right: 0.2rem;
+  color: var(--tim-red);
+}
+.tim-kanban__task-due {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+.tim-kanban__task-due.is-late {
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+}
+.tim-kanban__task--more {
+  color: var(--tim-muted);
+  font-size: 0.72rem;
+}
+
+/* ─── Bouton « Créer un … » d'un tableau de relations ────────────────────────
+   Payload le rend en lien discret, à droite d'un en-tête vide : sur un onglet
+   « Contact » encore sans ligne, rien n'indiquait par où commencer.
+
+   Il prend donc l'habillage du bouton « Ajouter un client » (`.tim-add-client`),
+   déjà en place sur la fiche partenaire : un seul geste d'ajout, une seule
+   apparence dans tout le back-office.
+
+   Ne s'applique QUE là où le lien natif est utilisé : sur la fiche partenaire il
+   reste masqué, remplacé par notre propre bouton (voir plus haut). */
+.relationship-table__add-new,
+.relationship-table__add-new-polymorphic .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.12s ease;
+}
+.relationship-table__add-new:hover,
+.relationship-table__add-new-polymorphic .btn:hover {
+  background: var(--tim-primary-dark);
+  color: var(--tim-white);
+}
+/* Payload colore le libellé indépendamment du lien : sans ça, le texte restait
+   sombre sur le fond rouge. */
+.relationship-table__add-new .btn__label,
+.relationship-table__add-new-polymorphic .btn__label {
+  color: var(--tim-white);
+}
+/* Un tableau vide : l'en-tête ne porte que ce bouton, autant lui laisser de
+   l'air plutôt que de le coller au tableau. */
+.relationship-table__header {
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
+/* ─── Recherche du Kanban ────────────────────────────────────────────────────
+   Filtre LOCAL sur les fiches déjà chargées : société, raison sociale, e-mail,
+   nom et prénom des contacts. Une requête par frappe n'apporterait que de la
+   latence — tout est déjà en mémoire. */
+.tim-kanban__search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: min(28rem, 100%);
+  margin-bottom: 0.85rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  color: var(--tim-muted);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.tim-kanban__search:focus-within {
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px var(--tim-primary-light);
+}
+.tim-kanban__search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--tim-foreground);
+}
+/* La croix native de `type="search"` fait doublon avec la nôtre, et son style
+   n'est pas pilotable. */
+.tim-kanban__search-input::-webkit-search-cancel-button {
+  display: none;
+}
+/* « 3 / 37 » : on sait tout de suite si la recherche a mordu, sans compter les
+   cartes dans dix colonnes. */
+.tim-kanban__search-count {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--tim-muted);
+  font-variant-numeric: tabular-nums;
+}
+.tim-kanban__search-clear {
+  flex: 0 0 auto;
+  padding: 0 0.2rem;
+  border: 0;
+  background: none;
+  color: var(--tim-muted);
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.tim-kanban__search-clear:hover {
+  color: var(--tim-foreground);
 }

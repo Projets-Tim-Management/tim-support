@@ -7,7 +7,7 @@ import { PartnerClientsStatusTabs } from "./PartnerClientsStatusTabs";
 
 /**
  * En-tête de la liste « Opportunités » (slot `beforeListTable`) : bascule
- * entre le TABLEAU natif Payload et une vue KANBAN par statut.
+ * entre une vue KANBAN par statut et le TABLEAU natif Payload.
  *
  * - Mode tableau : on affiche les onglets de statut (pré-filtrage) au-dessus du
  *   tableau natif, inchangé.
@@ -24,9 +24,18 @@ const BODY_CLASS = "tim-clients-kanban";
 type View = "table" | "kanban";
 
 export function PartnerClientsViewSwitcher() {
-  // Vue par défaut = Tableau (colonnes CA / commission, ligne de total, tri par
-  // statut) ; le Kanban reste à un clic. Puis relecture du choix mémorisé.
-  const [view, setView] = useState<View>("table");
+  /**
+   * Vue par défaut = KANBAN.
+   *
+   * C'est la question qu'on se pose en ouvrant cet écran : où en est chaque
+   * affaire, et qu'est-ce qui est prévu ? Le tableau répond à une autre — combien
+   * ça représente — et reste à un clic, avec ses colonnes CA / commission et sa
+   * ligne de total.
+   *
+   * Le rendu initial reste sur cette valeur avant relecture du choix mémorisé :
+   * partir du tableau ferait clignoter l'écran pour qui a choisi le Kanban.
+   */
+  const [view, setView] = useState<View>("kanban");
 
   useEffect(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -45,19 +54,6 @@ export function PartnerClientsViewSwitcher() {
         <button
           type="button"
           role="tab"
-          aria-selected={view === "table"}
-          className={`tim-view-switch__btn${view === "table" ? " tim-view-switch__btn--active" : ""}`}
-          onClick={() => setView("table")}
-        >
-          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
-            <path d="M2 6.5h12M2 10h12M6 6.5v7" strokeLinecap="round" />
-          </svg>
-          Tableau
-        </button>
-        <button
-          type="button"
-          role="tab"
           aria-selected={view === "kanban"}
           className={`tim-view-switch__btn${view === "kanban" ? " tim-view-switch__btn--active" : ""}`}
           onClick={() => setView("kanban")}
@@ -68,6 +64,19 @@ export function PartnerClientsViewSwitcher() {
             <rect x="11" y="2.5" width="3.5" height="11" rx="1" />
           </svg>
           Kanban
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === "table"}
+          className={`tim-view-switch__btn${view === "table" ? " tim-view-switch__btn--active" : ""}`}
+          onClick={() => setView("table")}
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
+            <path d="M2 6.5h12M2 10h12M6 6.5v7" strokeLinecap="round" />
+          </svg>
+          Tableau
         </button>
       </div>
 

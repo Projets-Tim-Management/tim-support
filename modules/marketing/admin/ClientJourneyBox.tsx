@@ -50,7 +50,7 @@ export function ClientJourneyBox() {
    * la fiche bascule sur « En test ».
    *
    * Ce second geste n'est pas cosmétique — c'est le statut qui ouvre les onglets
-   * « Dossier de démarrage » et « Espace client ». Il est posé dans le
+   * « Dossier & accès » et « Espace client ». Il est posé dans le
    * FORMULAIRE et non en base : les onglets apparaissent tout de suite, et
    * l'enregistrement de la fiche confirme, sans écrire derrière le dos d'un
    * formulaire qui peut avoir d'autres modifications en cours.
@@ -141,7 +141,9 @@ export function ClientJourneyBox() {
       dispatchFields({
         type: "UPDATE",
         path: "clientStatus",
-        value: savedStatus && savedStatus !== "en-test" ? savedStatus : "en-cours",
+        // Sans statut enregistré (fiche neuve), on revient à l'étape de pipeline
+        // la plus plausible pour une affaire sur le point de tester.
+        value: savedStatus && savedStatus !== "en-test" ? savedStatus : "en-qualification",
       });
     }
   }, [dispatchFields, formStatus, savedStatus]);
@@ -203,7 +205,7 @@ export function ClientJourneyBox() {
       {justStarted && (
         <p className="jr-box__notice">
           Phase créée et client passé « En test ». <strong>Enregistrez la fiche</strong> pour
-          confirmer — les onglets « Dossier de démarrage » et « Espace client » sont apparus.
+          confirmer — les onglets « Dossier & accès » et « Espace client » sont apparus.
         </p>
       )}
 

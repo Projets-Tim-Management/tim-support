@@ -13,8 +13,17 @@ import { validatePhone } from "@/core/lib/validators";
 import { requireTestSchedule } from "@/modules/marketing/hooks/requireTestSchedule";
 import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
 import { ONBOARDING_STATUS_OPTIONS } from "@/modules/marketing/lib/onboarding";
-import { CLIENT_STATUS_OPTIONS, CLIENT_STATUS_RANK } from "@/modules/partner/lib/clientStatus";
+import {
+  CLIENT_STATUS_OPTIONS,
+  CLIENT_STATUS_RANK,
+  DEFAULT_CLIENT_STATUS,
+  hasContractPhase,
+  isPipelineStatus,
+  needsEndDate,
+} from "@/modules/partner/lib/clientStatus";
 import { round2 } from "@/modules/partner/lib/format";
+import { requireContractStart } from "@/modules/partner/hooks/requireContractStart";
+import { journalEntries, logActivity } from "@/modules/partner/lib/journal";
 import {
   computeClientCA,
   isBillableClient,
@@ -140,7 +149,7 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
  * aurait mal trié toutes les fiches non ré-enregistrées.
  */
 const setStatusRank: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
-  const status = (data?.clientStatus ?? originalDoc?.clientStatus ?? "prospect") as string;
+  const status = (data?.clientStatus ?? originalDoc?.clientStatus ?? DEFAULT_CLIENT_STATUS) as string;
   return { ...data, statusRank: CLIENT_STATUS_RANK[status] ?? 9 };
 };
 
@@ -159,10 +168,11 @@ const computeCommissionMonthly: FieldHook = async ({ data, req, siblingData }) =
   const doc = (siblingData ?? data ?? {}) as {
     caPaye?: number;
     clientStatus?: string;
+    contractStartDate?: string | null;
     partner?: unknown;
   };
   const caPaye = Number(doc.caPaye ?? 0);
-  if (!caPaye || !isBillableClient(doc.clientStatus)) return 0;
+  if (!caPaye || !isBillableClient(doc)) return 0;
 
   const ref = doc.partner;
   const partnerId = ref && typeof ref === "object" ? (ref as { id?: unknown }).id : ref;
@@ -216,6 +226,7 @@ const computeCommissionMonthly: FieldHook = async ({ data, req, siblingData }) =
  * c'est un nettoyage d'intégrité, pas une action d'utilisateur.
  */
 const CLIENT_CHILDREN = [
+  "client-activities",
   "client-employees",
   "client-sites",
   "client-vehicles",
@@ -269,6 +280,21 @@ const deleteClientChildren: CollectionBeforeDeleteHook = async ({ req, id }) => 
  * Seule la TRANSITION compte : on n'arme que si le champ vient de changer, pour
  * qu'un simple réenregistrement de la fiche ne relance rien.
  */
+/**
+ * Journal automatique : chaque fait marquant laisse une ligne dans l'historique
+ * de l'opportunité (voir journalEntries pour ce qui compte comme un fait).
+ *
+ * `void` volontaire ? Non : on attend, pour que la trace parte dans la MÊME
+ * transaction que le changement. Une trace qui survit à un enregistrement annulé
+ * raconterait quelque chose qui n'a pas eu lieu.
+ */
+const writeJournal: CollectionAfterChangeHook = async ({ doc, previousDoc, operation, req }) => {
+  for (const entry of journalEntries(doc, previousDoc, operation)) {
+    await logActivity(req.payload, { client: doc.id, ...entry, req });
+  }
+  return doc;
+};
+
 const armJourneySteps: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
   if (doc?.onboardingStatus === "transmis" && previousDoc?.onboardingStatus !== "transmis") {
     await armAutoStep(req.payload, doc.id, "dossier-demarrage", req);
@@ -299,9 +325,23 @@ const armJourneySteps: CollectionAfterChangeHook = async ({ doc, previousDoc, re
  * date la phase), et on les GARDE ensuite : les données du dossier survivent au
  * test, y compris sur un client devenu actif ou résilié.
  */
-const AVANT_TEST = ["prospect", "en-cours"];
 const hasTestPhase = (data?: { clientStatus?: string }): boolean =>
-  !AVANT_TEST.includes(data?.clientStatus ?? "prospect");
+  !isPipelineStatus(data?.clientStatus ?? DEFAULT_CLIENT_STATUS);
+
+/**
+ * Onglet « Contrat client » : réservé aux affaires GAGNÉES (et à ce qu'elles
+ * deviennent — résiliées, archivées).
+ *
+ * Tant qu'on négocie, il n'y a pas de contrat à décrire : mode de paiement,
+ * date de signature et document signé n'ont aucun objet. Une affaire perdue n'en
+ * a jamais eu non plus. L'onglet apparaît dès la bascule en « Gagnée » — au
+ * moment exact où le modal réclame la date de début de contrat.
+ *
+ * « Facturation client » suit une autre règle : toujours visible, mais rangé en
+ * DERNIER. Ses champs (SIREN, adresse) se collectent parfois dès la négociation.
+ */
+const hasContract = (data?: { clientStatus?: string }): boolean =>
+  hasContractPhase(data?.clientStatus ?? DEFAULT_CLIENT_STATUS);
 
 const hiddenNum = (name: string, def: number): Field => ({
   name,
@@ -378,9 +418,15 @@ export const PartnerClients: CollectionConfig = {
   hooks: {
     // requireTestSchedule en TÊTE : le passage « En test » est refusé avant tout
     // calcul, plutôt que d'échouer à mi-chemin sur une fiche déjà recalculée.
-    beforeChange: [requireTestSchedule, enforcePartnerField(), setStatusRank, computeCA],
+    beforeChange: [
+      requireTestSchedule,
+      requireContractStart,
+      enforcePartnerField(),
+      setStatusRank,
+      computeCA,
+    ],
     // Les faits saisis ici cochent les étapes du parcours correspondantes.
-    afterChange: [armJourneySteps],
+    afterChange: [armJourneySteps, writeJournal],
     // Vide ce qui n'existe que par ce client avant de le supprimer, sans quoi
     // Postgres refuse la suppression (cf. deleteClientChildren).
     beforeDelete: [deleteClientChildren],
@@ -390,6 +436,19 @@ export const PartnerClients: CollectionConfig = {
     // « Entreprise cliente », raison sociale, SIREN, TVA et adresse d'un coup.
     // Masquée dès qu'« Entreprise cliente » est renseignée ; réapparaît si on
     // efface ce champ (permet de relancer une recherche).
+    /**
+     * TÊTE DE FICHE : deux champs, et c'est tout.
+     *
+     * Ce qui QUALIFIE l'opportunité (statut, apporteur, provenance, identifiant
+     * Brevo, date de fin) est passé dans la COLONNE LATÉRALE. Empilés en pleine
+     * largeur, ces champs poussaient les onglets sous la ligne de flottaison :
+     * il fallait faire défiler pour atteindre l'historique, c'est-à-dire l'écran
+     * qu'on vient consulter.
+     *
+     * Dans la barre latérale, ils restent visibles DEPUIS N'IMPORTE QUEL ONGLET —
+     * le statut sous les yeux pendant qu'on saisit des licences, ce que la
+     * disposition précédente ne permettait pas.
+     */
     {
       name: "inseeLookup",
       type: "ui",
@@ -399,10 +458,52 @@ export const PartnerClients: CollectionConfig = {
       },
     },
     {
-      name: "companyName",
-      type: "text",
-      label: "Entreprise cliente",
-      required: true,
+      type: "row",
+      fields: [
+        {
+          name: "companyName",
+          type: "text",
+          label: "Entreprise cliente",
+          required: true,
+          admin: { width: "50%" },
+        },
+        {
+          // En tête de fiche et non dans « Facturation client » : cet onglet est
+          // rangé en dernier, et le champ est REQUIS à la publication. C'est
+          // d'ailleurs son premier usage — écrire à la personne bien avant de
+          // lui envoyer une facture.
+          name: "email",
+          type: "email",
+          label: "Adresse e-mail",
+          required: true,
+          admin: { width: "50%", description: "Contact, puis envoi des factures." },
+        },
+      ],
+    },
+
+    // ─── Colonne latérale ────────────────────────────────────────────────────
+    {
+      // Nommé `clientStatus` (et non `status`) pour éviter la collision de
+      // nom d'enum avec le champ `_status` des brouillons dans la table de
+      // versions (les deux se réduiraient à « ..._version_status »).
+      name: "clientStatus",
+      type: "select",
+      label: "Statut",
+      // Une opportunité naît « Nouvelle » : la mettre « Gagnée » d'office ferait
+      // entrer un client dans le CA et les commissions dès sa création.
+      defaultValue: DEFAULT_CLIENT_STATUS,
+      admin: {
+        position: "sidebar",
+        components: {
+          // En tableau : pastille colorée (même code couleur que le Kanban).
+          Cell: "/modules/partner/admin/ClientStatusCell#ClientStatusCell",
+          // Dans le formulaire : champ custom qui intercepte le passage à
+          // « En test » (modal de démarrage) et à « Gagnée » (date de début de
+          // contrat) — les mêmes que ceux du Kanban.
+          Field: "/modules/marketing/admin/ClientStatusField#ClientStatusField",
+        },
+      },
+      options: CLIENT_STATUS_OPTIONS,
     },
     {
       name: "partner",
@@ -420,6 +521,7 @@ export const PartnerClients: CollectionConfig = {
       //    choix via le menu déroulant.
       access: { create: adminOnlyField, update: adminOnlyField },
       admin: {
+        position: "sidebar",
         allowEdit: false,
         allowCreate: false,
       },
@@ -434,117 +536,81 @@ export const PartnerClients: CollectionConfig = {
       },
     },
     {
-      // Nommé `clientStatus` (et non `status`) pour éviter la collision de
-      // nom d'enum avec le champ `_status` des brouillons dans la table de
-      // versions (les deux se réduiraient à « ..._version_status »).
-      // (La « Date de signature » vit désormais dans l'onglet « Contrat client ».)
-      name: "clientStatus",
-      type: "select",
-      label: "Statut",
-      // Une opportunité naît PROSPECT : la mettre « Actif » d'office ferait
-      // entrer un client dans le CA et les commissions dès sa création.
-      defaultValue: "prospect",
-      admin: {
-        width: "50%",
-        components: {
-          // En tableau : pastille colorée (même code couleur que le Kanban).
-          Cell: "/modules/partner/admin/ClientStatusCell#ClientStatusCell",
-          // Dans le formulaire : champ custom qui intercepte le passage à
-          // « En test » pour ouvrir le modal de démarrage (date + contact +
-          // aperçu des étapes) — le même que celui du Kanban.
-          Field: "/modules/marketing/admin/ClientStatusField#ClientStatusField",
-        },
-      },
-      options: CLIENT_STATUS_OPTIONS,
-    },
-    {
       name: "resiliationDate",
       type: "date",
       label: "Date de fin de contrat",
       admin: {
+        position: "sidebar",
         date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
         // Visible dès que le contrat est terminé : client résilié OU archivé.
-        condition: (data) => data?.clientStatus === "resilie" || data?.clientStatus === "archive",
-        description:
-          "Fin du contrat / de l'abonnement mensuel — la commission du partenaire s'arrête à cette date.",
+        condition: (data) => needsEndDate(data?.clientStatus),
+        description: "La commission du partenaire s'arrête à cette date.",
       },
     },
+    {
+      // Un lead du site vitrine n'a pas la même fraîcheur qu'une fiche saisie à
+      // la main : on le dit, plutôt que de laisser deviner.
+      name: "source",
+      type: "select",
+      label: "Provenance",
+      defaultValue: "manuelle",
+      options: [
+        { label: "Saisie manuelle", value: "manuelle" },
+        { label: "Site vitrine (Brevo)", value: "site-vitrine" },
+      ],
+      admin: { position: "sidebar", readOnly: true },
+    },
+    {
+      // Identifiant de l'opportunité Brevo dont vient ce lead. C'est la CLÉ
+      // ANTI-DOUBLON de l'import : sans elle, chaque passage du cron recréerait
+      // les mêmes fiches. Indexé (une lecture par lead traité), unique (deux
+      // fiches ne peuvent pas revendiquer la même opportunité Brevo).
+      name: "brevoDealId",
+      type: "text",
+      label: "Opportunité Brevo",
+      index: true,
+      unique: true,
+      admin: { position: "sidebar", readOnly: true, condition: (data) => Boolean(data?.brevoDealId) },
+    },
 
-    // ─── Onglets : contrat / facturation / licences ──────────────────────────
+    // ─── Onglets : historique, facturation, licences, contrat, démarrage ─────
     {
       type: "tabs",
       tabs: [
+        // ── Historique : ce qu'on a fait, et ce qui reste à faire ───────────
+        // EN PREMIER, c'est-à-dire l'onglet ouvert par défaut. Sur un lead, les
+        // onglets d'après-signature sont masqués et les autres ne font que
+        // décrire un état ; l'historique, lui, dit où on en est et ce qui reste
+        // à faire — la première chose qu'on veut voir en ouvrant une fiche.
         {
-          label: "Facturation client",
-          description:
-            "Éléments comptables du client, pour que TIM puisse le facturer. L'e-mail est requis (envoi des factures électroniques).",
+          // Sans description : l'onglet montre déjà ce qu'il contient, et cette
+          // ligne poussait la chronologie vers le bas à chaque ouverture.
+          label: "Historique",
           fields: [
             {
-              type: "row",
-              fields: [
-                {
-                  name: "raisonSociale",
-                  type: "text",
-                  label: "Raison sociale",
-                  admin: { width: "50%", description: "Nom officiel de l'entreprise (pour la facture)." },
-                },
-                {
-                  name: "siren",
-                  type: "text",
-                  label: "SIREN",
-                  admin: { width: "50%", placeholder: "9 chiffres" },
-                },
-              ],
+              // Ce que le lead a demandé sur le site (besoins cochés, date de
+              // réception). Sa place est ICI : c'est le premier événement de la
+              // vie de l'opportunité, pas une propriété de son en-tête — et il
+              // n'existe que pour les fiches venues du site vitrine.
+              //
+              // En lecture seule : c'est une trace de ce qui est arrivé, pas une
+              // note de travail. La retoucher effacerait la demande d'origine.
+              name: "leadNotes",
+              type: "textarea",
+              label: "Demande du lead",
+              admin: {
+                readOnly: true,
+                condition: (data) => Boolean(data?.leadNotes),
+                description: "Repris du formulaire du site vitrine.",
+              },
             },
             {
-              type: "row",
-              fields: [
-                {
-                  name: "vatNumber",
-                  type: "text",
-                  label: "Numéro de TVA",
-                  admin: { width: "50%", placeholder: "FR + 11 chiffres" },
-                },
-                {
-                  name: "email",
-                  type: "email",
-                  label: "Adresse e-mail",
-                  required: true,
-                  admin: { width: "50%", description: "Requis — envoi des factures." },
-                },
-              ],
+              name: "historyBoard",
+              type: "ui",
+              admin: {
+                components: { Field: "/modules/partner/admin/ClientHistory#ClientHistory" },
+              },
             },
-            {
-              type: "row",
-              fields: [
-                { name: "billingAddress", type: "text", label: "Adresse de facturation", admin: { width: "50%" } },
-                {
-                  name: "billingAddressComplement",
-                  type: "text",
-                  label: "Complément (facturation)",
-                  admin: { width: "50%" },
-                },
-              ],
-            },
-            {
-              type: "row",
-              fields: [
-                {
-                  name: "phone",
-                  type: "text",
-                  label: "Numéro de téléphone",
-                  validate: validatePhone,
-                  admin: { width: "50%", placeholder: "+33 6 12 34 56 78" },
-                },
-                {
-                  name: "recipient",
-                  type: "text",
-                  label: "Destinataire",
-                  admin: { width: "50%", description: "Nom du destinataire de la facture (optionnel)." },
-                },
-              ],
-            },
-            { name: "billingRemarks", type: "textarea", label: "Remarques", admin: { description: "Optionnel." } },
           ],
         },
         {
@@ -588,6 +654,7 @@ export const PartnerClients: CollectionConfig = {
         // ── Contrat client (métier + admin) — en dernier ────────────────────
         {
           label: "Contrat client",
+          admin: { condition: hasContract },
           description:
             "Mode de paiement, conditions et contrat signé avec le client apporté.",
           fields: [
@@ -637,6 +704,23 @@ export const PartnerClients: CollectionConfig = {
                   label: "Date de signature",
                   admin: { width: "50%", date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" } },
                 },
+                {
+                  // Signature et début de contrat sont deux dates différentes :
+                  // on signe en mars pour un abonnement qui court au 1er avril.
+                  // C'est CELLE-CI qui déclenche la facturation des licences
+                  // (voir isBillableClient) — d'où sa présence dès la bascule en
+                  // « Gagnée », demandée par le Kanban et le champ « Statut ».
+                  name: "contractStartDate",
+                  type: "date",
+                  label: "Date de début de contrat",
+                  index: true,
+                  admin: {
+                    width: "50%",
+                    date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
+                    description:
+                      "Début de l'abonnement mensuel : le CA et la commission ne comptent qu'à partir de cette date.",
+                  },
+                },
               ],
             },
             {
@@ -652,14 +736,19 @@ export const PartnerClients: CollectionConfig = {
             },
           ],
         },
-        // ── Dossier de démarrage : ce que le client remplit avant son test ──
-        // Remplace le fichier Excel « éléments de l'entreprise » (5 sections).
-        // L'Administrateur n'est PAS dupliqué ici : c'est l'onglet « Contact »
-        // ci-dessous, qui existait déjà — un contact client reste un contact.
+        // ── Dossier & accès : le poste de travail de TIM ────────────────────
+        // Fusion de deux onglets qui montraient LES MÊMES données. « Dossier de
+        // démarrage » listait salariés, chantiers, véhicules et engins en champs
+        // `join` (une ligne à la fois, dans un tiroir) ; la console les affiche
+        // à plat, éditables en tableau, en plein écran, avec les mots de passe
+        // en face des utilisateurs — c'est-à-dire faits pour recopier dans TIM.
+        // Deux écrans pour une même vérité, c'était un de trop.
+        //
+        // Ce qui n'existait QUE dans l'ancien onglet a été remonté ici : le logo,
+        // l'état du dossier (il coche l'étape du parcours et déclenche la
+        // relance) et sa date de transmission.
         {
-          label: "Dossier de démarrage",
-          description:
-            "Les éléments que le client remplit avant le démarrage du test : logo, utilisateurs, effectif, chantiers, matériel. Le comptage des UTILISATEURS déclarés alimente le tableau des licences.",
+          label: "Dossier & accès",
           admin: { condition: hasTestPhase },
           fields: [
             {
@@ -711,64 +800,6 @@ export const PartnerClients: CollectionConfig = {
                 },
               ],
             },
-            {
-              name: "employees",
-              type: "join",
-              collection: "client-employees",
-              on: "client",
-              label: "Salariés",
-              admin: {
-                allowCreate: true,
-                description:
-                  "Tout l'effectif du client : pointage, planning, chantiers. Les licences, elles, se déclarent dans les CONTACTS — un salarié n'est pas un utilisateur.",
-                defaultColumns: ["matricule", "firstName", "lastName", "poste", "isUser", "licenceProfile"],
-              },
-            },
-            {
-              name: "sites",
-              type: "join",
-              collection: "client-sites",
-              on: "client",
-              label: "Chantiers",
-              admin: {
-                allowCreate: true,
-                defaultColumns: ["name", "address", "startDate", "endDate", "zone"],
-              },
-            },
-            {
-              name: "vehicles",
-              type: "join",
-              collection: "client-vehicles",
-              on: "client",
-              label: "Véhicules",
-              admin: {
-                allowCreate: true,
-                defaultColumns: ["brand", "year", "plate", "insuranceDate", "licenseTypes"],
-              },
-            },
-            {
-              name: "machines",
-              type: "join",
-              collection: "client-machines",
-              on: "client",
-              label: "Engins",
-              admin: {
-                allowCreate: true,
-                defaultColumns: ["brand", "year", "serial", "insuranceDate", "cacesTypes"],
-              },
-            },
-          ],
-        },
-        // ── Préparation : le poste de travail de TIM ────────────────────────
-        // Recréer le client dans le logiciel demandait d'ouvrir cinq tableaux
-        // repliés et de cliquer chaque ligne pour la lire. Ici tout est à plat,
-        // copiable d'un bouton, avec les mots de passe en face des utilisateurs.
-        {
-          label: "Préparation des accès",
-          description:
-            "Tout ce qu'il faut pour recréer ce client dans TIM : le dossier qu'il a rempli, copiable tableau par tableau, et les identifiants à compléter avec ceux réellement créés.",
-          admin: { condition: hasTestPhase },
-          fields: [
             {
               name: "preparationConsole",
               type: "ui",
@@ -829,13 +860,79 @@ export const PartnerClients: CollectionConfig = {
               label: false,
               admin: {
                 allowCreate: true,
-                // Payload masque le bouton « Créer » tant que le client n'a pas
-                // d'id (un contact se rattache à un client existant) → on l'explique.
-                description:
-                  "Enregistrez d'abord la fiche client, puis cliquez « Créer un Contact » pour ajouter les personnes à contacter chez ce client.",
                 defaultColumns: ["firstName", "lastName", "role", "email", "phone"],
               },
             },
+          ],
+        },
+        // Toujours visible, mais EN DERNIER : sur un lead, ces champs comptables
+        // n'ont pas encore d'objet — ils ne doivent donc pas occuper le début de
+        // la fiche. Ils restent accessibles pour qui a déjà l'information (un
+        // SIREN, une adresse de facturation collectés pendant la négociation).
+        {
+          label: "Facturation client",
+          description:
+            "Éléments comptables du client, pour que TIM puisse le facturer. L'e-mail est requis (envoi des factures électroniques).",
+          fields: [
+            {
+              type: "row",
+              fields: [
+                {
+                  name: "raisonSociale",
+                  type: "text",
+                  label: "Raison sociale",
+                  admin: { width: "50%", description: "Nom officiel de l'entreprise (pour la facture)." },
+                },
+                {
+                  name: "siren",
+                  type: "text",
+                  label: "SIREN",
+                  admin: { width: "50%", placeholder: "9 chiffres" },
+                },
+              ],
+            },
+            {
+              type: "row",
+              fields: [
+                {
+                  name: "vatNumber",
+                  type: "text",
+                  label: "Numéro de TVA",
+                  admin: { width: "50%", placeholder: "FR + 11 chiffres" },
+                },
+              ],
+            },
+            {
+              type: "row",
+              fields: [
+                { name: "billingAddress", type: "text", label: "Adresse de facturation", admin: { width: "50%" } },
+                {
+                  name: "billingAddressComplement",
+                  type: "text",
+                  label: "Complément (facturation)",
+                  admin: { width: "50%" },
+                },
+              ],
+            },
+            {
+              type: "row",
+              fields: [
+                {
+                  name: "phone",
+                  type: "text",
+                  label: "Numéro de téléphone",
+                  validate: validatePhone,
+                  admin: { width: "50%", placeholder: "+33 6 12 34 56 78" },
+                },
+                {
+                  name: "recipient",
+                  type: "text",
+                  label: "Destinataire",
+                  admin: { width: "50%", description: "Nom du destinataire de la facture (optionnel)." },
+                },
+              ],
+            },
+            { name: "billingRemarks", type: "textarea", label: "Remarques", admin: { description: "Optionnel." } },
           ],
         },
       ],

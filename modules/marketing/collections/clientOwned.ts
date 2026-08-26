@@ -22,6 +22,11 @@ export const setPartnerFromClient: CollectionBeforeChangeHook = async ({ data, r
       id: clientId as string | number,
       depth: 0,
       overrideAccess: true,
+      // ⚠️ `req` transmis = MÊME transaction. Sans lui, la lecture se fait sur
+      // une connexion à part : à la CRÉATION d'un client, sa ligne n'y est pas
+      // encore visible, `partner` restait donc vide — et l'enregistrement
+      // devenait invisible pour le partenaire propriétaire (scoping RBAC).
+      req,
     });
     const p = (client as { partner?: unknown })?.partner;
     data.partner = p != null && typeof p === "object" ? (p as { id: unknown }).id : p;

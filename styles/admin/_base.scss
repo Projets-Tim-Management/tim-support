@@ -184,6 +184,25 @@ input[type="checkbox"]:checked {
   background: var(--tim-white);
 }
 
+/* ─── Colonne latérale d'une fiche : collée au défilement ────────────────────
+   Payload la déclare `position: sticky` avec
+   `top: var(--sidebar-wrap-top, var(--doc-controls-height))` — mais
+   `--doc-controls-height` n'est définie NULLE PART (ni par Payload, ni ici). La
+   valeur de repli étant invalide, `top` retombait sur `auto` et le collage ne
+   se produisait jamais : la colonne défilait avec la page.
+
+   On fournit donc la variable prévue pour ça. La hauteur suit, sinon la colonne
+   dépasse sous l'écran et son propre défilement interne devient inatteignable.
+
+   Décalage = barre du haut + bandeau « Enregistrer », qui sont tous deux collés
+   au-dessus (voir `.doc-controls` ci-dessus) : sans les compter, la colonne se
+   calerait DERRIÈRE eux. */
+.document-fields__sidebar-wrap {
+  --tim-doc-offset: calc(var(--app-header-height, 3.5rem) + 4.25rem);
+  --sidebar-wrap-top: var(--tim-doc-offset);
+  --sidebar-wrap-height: calc(100vh - var(--tim-doc-offset));
+}
+
 /* Bouton « Enregistrer le mot de passe » rendu (par portail) DANS la barre de
    contrôles de la boîte mot de passe, à côté du bouton « Annuler ». */
 .tim-pwd-save {
@@ -341,4 +360,148 @@ input[type="checkbox"]:checked {
    le bouton « Filtres » entier côté partenaire. L'admin garde les filtres. */
 .tim-not-admin .list-controls__toggle-where {
   display: none !important;
+}
+
+/* ─── Onglets de fiche (tabs-field) ──────────────────────────────────────────
+   MÊME habillage que la bascule « Kanban / Tableau » (`.tim-view-switch`) : un
+   rail clair qui épouse son contenu, l'élément actif en carte blanche. Deux
+   contrôles qui font la même chose — choisir une vue — doivent se ressembler ;
+   en inventer un second langage n'aurait servi qu'à hésiter.
+
+   Le style natif de Payload jouait sur l'OPACITÉ : les onglets inactifs étaient
+   le même texte à 50 %, ternes sans être discrets, et la zone cliquable se
+   limitait au texte.
+
+   Global à tout le back-office : ces onglets sont les mêmes partout. */
+
+/* Payload sort le bloc d'onglets des gouttières de la page
+   (`margin: 0 calc(var(--gutter-h) * -1)`) et ne les rend qu'au CONTENU : la
+   barre commençait donc une gouttière à gauche du reste du formulaire, avec du
+   gris dans le vide avant le premier onglet. On la réaligne sur le contenu. */
+.tabs-field {
+  margin-left: 0;
+  margin-right: 0;
+}
+.tabs-field__content-wrap {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* LE FOND EST SUR LE CONTENEUR, pas sur la piste qui glisse dedans.
+   Porté par `.tabs-field__tabs` (l'élément qui défile), il partait avec le
+   défilement : le dernier onglet se retrouvait hors du cadre arrondi, et la
+   barre de défilement passait en travers des libellés. Sur le conteneur, le
+   cadre reste en place et les onglets défilent À L'INTÉRIEUR. */
+.tabs-field__tabs-wrap {
+  display: inline-flex;
+  max-width: 100%;
+  margin-bottom: 1.25rem;
+  padding: 0.2rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+  vertical-align: middle;
+  /* Le rail défile plutôt que de passer à la ligne : huit onglets ne doivent
+     pas devenir deux rangées qui repoussent le contenu. Barre MASQUÉE — le
+     conteneur fait la hauteur des onglets, elle s'y superposerait. Molette,
+     trackpad et clavier continuent de fonctionner. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tabs-field__tabs-wrap::-webkit-scrollbar {
+  display: none;
+}
+
+/* La piste : plus de fond ni de cadre, ils sont sur le conteneur. */
+.tabs-field__tabs {
+  display: inline-flex;
+  gap: 0.15rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  min-width: 0;
+  width: max-content;
+  vertical-align: middle;
+}
+/* Payload encadre les onglets de DEUX cales d'une gouttière
+   (`.tabs-field__tabs:before, :after { width: var(--gutter-h) }`) : du vide gris
+   avant le premier onglet et après le dernier. Les deux sautent — un contrôle
+   segmenté commence à son premier élément. */
+.tabs-field__tabs:before,
+.tabs-field__tabs:after {
+  display: none;
+}
+
+/* ⚠️ À REMETTRE avant toute autre règle de `display` sur les onglets.
+   Payload masque les onglets conditionnels avec `--hidden { display: none }`,
+   mais ses styles vivent dans `@layer payload-default` : nos règles, hors
+   couche, l'emportent QUELLE QUE SOIT la spécificité. Le `display: inline-flex`
+   ci-dessous rendait donc visibles des onglets que la fiche masque selon son
+   statut — « Contrat client » sur une affaire non gagnée, le dossier de
+   démarrage sur un simple lead. */
+.tabs-field__tab-button--hidden,
+.tabs-field__tab--hidden {
+  display: none !important;
+}
+
+.tabs-field__tab-button {
+  display: inline-flex;
+  align-items: center;
+  /* Espace entre l'icône (injectée par le provider TabIcons) et le libellé. */
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.4rem 0.95rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: var(--tim-muted);
+  /* L'opacité native ternit le texte au lieu de le hiérarchiser : on pilote la
+     couleur, ce qui garde un contraste lisible sur les onglets inactifs. */
+  opacity: 1;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.tabs-field__tab-button:hover {
+  opacity: 1;
+  color: var(--tim-foreground);
+}
+/* Le soulignement natif n'a plus lieu d'être : la carte blanche marque l'onglet
+   actif. On neutralise les trois états, sinon un trait flotte sous la pastille. */
+.tabs-field__tab-button:after,
+.tabs-field__tab-button:hover:after,
+.tabs-field__tab-button--active:after {
+  display: none !important;
+}
+.tabs-field__tab-button--active {
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 8%, transparent);
+}
+/* L'icône suit la couleur du libellé (`currentColor`) : grise sur un onglet au
+   repos, foncée sur l'onglet ouvert. Elle situe sans capter le regard. */
+.tim-tab-ico {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.tim-tab-ico svg {
+  display: block;
+}
+/* Règle propre pour l'état actif : `:hover` sur la classe de base l'emporterait
+   sinon (spécificité), et l'onglet actif perdrait sa carte au survol. */
+.tabs-field__tab-button--active:hover {
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+}
+/* Un onglet en erreur reste repérable sans soulignement : c'est sa couleur qui
+   le signale, et son liseré quand il est ouvert. */
+.tabs-field__tab-button--has-error {
+  color: var(--tim-danger-text);
+}
+.tabs-field__tab-button--has-error.tabs-field__tab-button--active {
+  color: var(--tim-danger-text);
+  box-shadow: 0 0 0 1px var(--tim-danger-text);
 }

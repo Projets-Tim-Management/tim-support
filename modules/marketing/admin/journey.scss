@@ -756,6 +756,25 @@
 
 /* Select « Statut » de la fiche client (champ custom qui intercepte « En test »).
    Calé sur l'apparence des champs Payload pour ne pas détonner dans le formulaire. */
+.jr-status-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+/* La pastille est POSÉE SUR le select (position absolue) : dans un flux normal
+   elle mangerait la largeur, et la barre latérale n'en a pas à revendre. */
+.jr-status-dot {
+  position: absolute;
+  left: 0.6rem;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.jr-status-wrap .jr-status-select {
+  padding-left: 1.6rem;
+}
+
 .jr-status-select {
   width: 100%;
   padding: 0.5rem 0.625rem;

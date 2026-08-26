@@ -207,19 +207,9 @@
   font-size: 0.85rem;
 }
 
-/* ─── Onglets : onglet actif bien marqué (contraste) ─────────────────────────
-   S'applique à tous les onglets de l'admin (features, etc.) — plus lisible. */
-.tabs-field__tab-button {
-  font-weight: 600;
-  color: var(--tim-muted);
-}
-/* Onglet actif : neutre (plus de rouge), juste un peu plus foncé + soulignage
-   sobre pour se repérer. */
-.tabs-field__tab-button--active {
-  color: var(--tim-foreground);
-  font-weight: 700;
-  border-bottom: 2px solid var(--tim-foreground);
-}
+/* Les onglets sont désormais habillés en contrôle segmenté dans `_base.scss`.
+   Les règles qui vivaient ici (soulignement de l'onglet actif) sont retirées :
+   importées APRÈS `_base`, elles ajoutaient un trait sous la carte blanche. */
 
 /* ─── « Image à la une » : vignette encadrée dans la sidebar ─────────────────
    Présentation en carte : grande prévisualisation, cadre net, état vide clair. */

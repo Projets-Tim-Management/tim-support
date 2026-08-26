@@ -81,9 +81,6 @@ export function PreparationConsole() {
   return (
     <div className={fullscreen ? "jr-prep jr-prep--full" : "jr-prep"}>
       <div className="jr-prep__bar">
-        <p className="jr-prep__hint">
-          Cliquez dans une case pour la sélectionner, puis copiez-la vers TIM.
-        </p>
         {/* L'ÉTAT du dossier, pas le geste : celui-ci est une étape du parcours
             (« Dossier vérifié par TIM »). Un même fait validé à deux endroits
             finit toujours par diverger — on montre ici, on coche là-bas. */}

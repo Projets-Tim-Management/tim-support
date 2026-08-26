@@ -43,6 +43,10 @@
   --tim-green:     #15803d;  --tim-green-bg:  #e3f5e9; /* résolu             */
   --tim-red:       #c0261b;  --tim-red-bg:    #fde8e6; /* urgent             */
   --tim-gray:      #6b7280;  --tim-gray-bg:   #f3f4f6; /* basse              */
+  /* Pipeline commercial (étapes ajoutées avec les colonnes Brevo) */
+  --tim-teal:      #0f766e;  --tim-teal-bg:   #ddf3f0; /* en qualification   */
+  --tim-indigo:    #4338ca;  --tim-indigo-bg: #e6e7fc; /* démo programmée    */
+  --tim-rose:      #9f1239;  --tim-rose-bg:   #fce7ef; /* perdue             */
 
   /* ─── Plateformes (badge bleu identique au front) ─────────────────────────*/
   --tim-platform-bg:          #dae6ff; /* fond du badge (texte = --tim-info) */

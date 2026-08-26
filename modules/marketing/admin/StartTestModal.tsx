@@ -12,7 +12,9 @@ import {
   JOURNEY_PHASES,
   attachEmailsToSteps,
   computeEndDate,
+  firstStartableMonday,
   isMonday,
+  leadDaysOf,
   stepDueDate,
   stepTooltip,
 } from "@/modules/marketing/lib/journey";
@@ -55,22 +57,6 @@ const ACTOR_LABEL: Record<string, string> = Object.fromEntries(
 );
 
 const DURATIONS = [2, 4, 6, 8];
-
-/**
- * Premier lundi situé à au moins `leadDays` jours d'aujourd'hui.
- *
- * Sans délai, c'est le prochain lundi. Avec un délai, c'est le premier lundi qui
- * laisse le temps de faire la préparation : sinon les étapes d'avant-test
- * (ancrées à début −14 j, −10 j, −7 j…) naîtraient déjà en retard.
- * Calcul entièrement en UTC.
- */
-const firstMondayISO = (leadDays = 0): string => {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-  d.setUTCDate(d.getUTCDate() + Math.max(0, leadDays));
-  d.setUTCDate(d.getUTCDate() + ((8 - d.getUTCDay()) % 7));
-  return d.toISOString().slice(0, 10);
-};
 
 const fmt = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }) : "—";
@@ -124,7 +110,7 @@ export function StartTestModal({
   onCancel: () => void;
   onDone: (info: { startDate: string }) => void;
 }) {
-  const [startDate, setStartDate] = useState(firstMondayISO());
+  const [startDate, setStartDate] = useState(firstStartableMonday());
   const [weeks, setWeeks] = useState(4);
   const [email, setEmail] = useState(defaultEmail ?? "");
   const [steps, setSteps] = useState<JourneyStep[]>([]);
@@ -169,15 +155,9 @@ export function StartTestModal({
    * décaler une étape d'avant-test décale automatiquement le premier lundi
    * démarrable.
    */
-  const leadDays = useMemo(() => {
-    const offsets = steps
-      .filter((s) => s.anchor === "debut" && typeof s.offsetDays === "number")
-      .map((s) => s.offsetDays as number);
-    const min = offsets.length ? Math.min(...offsets) : 0;
-    return min < 0 ? -min : 0;
-  }, [steps]);
+  const leadDays = useMemo(() => leadDaysOf(steps), [steps]);
 
-  const minStart = useMemo(() => firstMondayISO(leadDays), [leadDays]);
+  const minStart = useMemo(() => firstStartableMonday(leadDays), [leadDays]);
 
   // Les étapes arrivent après le premier rendu : dès qu'on connaît le délai de
   // préparation, on repousse une date devenue invalide.
