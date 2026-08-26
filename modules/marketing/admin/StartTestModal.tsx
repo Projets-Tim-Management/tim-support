@@ -15,6 +15,7 @@ import {
   firstStartableMonday,
   isMonday,
   leadDaysOf,
+  prepDaysAvailable,
   stepDueDate,
   stepTooltip,
 } from "@/modules/marketing/lib/journey";
@@ -159,16 +160,31 @@ export function StartTestModal({
 
   const minStart = useMemo(() => firstStartableMonday(leadDays), [leadDays]);
 
-  // Les étapes arrivent après le premier rendu : dès qu'on connaît le délai de
-  // préparation, on repousse une date devenue invalide.
+  // Les étapes arrivent après le premier rendu : la date proposée par défaut
+  // suit le délai de préparation. On ne repousse QUE la valeur par défaut —
+  // un lundi choisi à la main est un choix, on ne le corrige pas dans son dos.
+  const [startTouched, setStartTouched] = useState(false);
   useEffect(() => {
+    if (startTouched) return;
     setStartDate((current) => (current && current < minStart ? minStart : current));
-  }, [minStart]);
+  }, [minStart, startTouched]);
+
+  /**
+   * Démarrage plus proche que le délai de préparation.
+   *
+   * Autorisé : c'est une décision commerciale. Mais les étapes d'avant-test
+   * seront RESSERRÉES pour tenir dans le temps restant (voir
+   * `compressLeadOffsets`, appliqué à l'enregistrement du parcours), et on le
+   * dit avant de valider — pas après.
+   */
+  const prepDays = useMemo(() => prepDaysAvailable(`${startDate}T00:00:00Z`), [startDate]);
+  const tight = leadDays > 0 && startDate < minStart;
 
   const startISO = startDate ? new Date(`${startDate}T00:00:00Z`).toISOString() : null;
   const endISO = computeEndDate(startISO, weeks, 0);
   const mondayOk = isMonday(`${startDate}T00:00:00Z`);
-  const startOk = mondayOk && startDate >= minStart;
+  // Seul un démarrage PASSÉ reste refusé : « démarrer hier » n'a pas de sens.
+  const startOk = mondayOk && startDate >= new Date().toISOString().slice(0, 10);
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
 
   const dated = useMemo(
@@ -326,14 +342,25 @@ export function StartTestModal({
             Démarrage du test
             <MondayPicker
               value={startDate}
-              onChange={setStartDate}
+              onChange={(next) => {
+                setStartTouched(true);
+                setStartDate(next);
+              }}
               minDate={minStart}
               minReason={
                 leadDays > 0
-                  ? `La préparation demande ${leadDays} jours (demande, validation, dossier de démarrage) : les lundis trop proches placeraient déjà ces étapes en retard.`
+                  ? `Le parcours prévoit ${leadDays} jours de préparation (demande, validation, dossier de démarrage). Un lundi plus proche reste possible : les étapes d'avant-test seront resserrées.`
                   : undefined
               }
             />
+            {tight && (
+              <p className="jr-modal__warn" role="alert">
+                <strong>Préparation réduite à {prepDays} jour{prepDays > 1 ? "s" : ""}</strong> au
+                lieu de {leadDays}. Les étapes d&apos;avant-test — demande, validation, dossier de
+                démarrage, accès — seront resserrées pour tenir dans ce délai, et aucune ne sera
+                datée dans le passé. À vous de vérifier que le client suivra.
+              </p>
+            )}
           </div>
 
           <div className="jr-modal__side">

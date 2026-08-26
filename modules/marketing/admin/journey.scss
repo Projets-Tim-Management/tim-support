@@ -1821,3 +1821,26 @@ body.tim-prep-fullscreen .doc-controls {
   color: var(--tim-green);
   background: var(--tim-green-bg);
 }
+
+/* Lundi plus proche que le délai de préparation : choisissable, mais signalé.
+   Ni grisé (il reste cliquable) ni neutre (ce n'est pas anodin) — ambré, comme
+   tout ce qui demande une décision consciente dans le back-office. */
+.jr-cal__row--tight .jr-cal__rel {
+  color: var(--tim-amber);
+  font-weight: 700;
+}
+
+/* Avertissement du modal de démarrage : ce que change un départ anticipé. */
+.jr-modal__warn {
+  margin: 0.6rem 0 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--tim-amber);
+  border-radius: var(--tim-radius);
+  background: var(--tim-amber-bg);
+  color: var(--tim-foreground);
+  font-size: 0.83rem;
+  line-height: 1.55;
+}
+.jr-modal__warn strong {
+  color: var(--tim-amber);
+}

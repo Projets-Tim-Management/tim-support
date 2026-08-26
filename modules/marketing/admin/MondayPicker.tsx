@@ -24,6 +24,8 @@ const HORIZON = 26;
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
 /** Écart lisible par rapport à aujourd'hui, pour situer un lundi d'un coup d'œil. */
 const relative = (weeksFromNow: number): string => {
   if (weeksFromNow <= 0) return "cette semaine";
@@ -39,9 +41,16 @@ export function MondayPicker({
 }: {
   value: string;
   onChange: (next: string) => void;
-  /** Premier lundi réellement démarrable (`yyyy-mm-dd`). Les précédents sont inertes. */
+  /**
+   * Premier lundi qui laisse tout le temps de préparation prévu (`yyyy-mm-dd`).
+   *
+   * Les lundis ANTÉRIEURS restent CHOISISSABLES : démarrer plus tôt est une
+   * décision commerciale légitime — un client pressé, une démo qui a convaincu.
+   * On les marque « préparation réduite » et l'appelant affiche ce que ça
+   * implique ; on ne décide pas à sa place.
+   */
   minDate?: string;
-  /** Pourquoi les lundis trop proches sont écartés — affiché sous la liste. */
+  /** Ce que change un démarrage anticipé — affiché sous la liste. */
   minReason?: string;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -84,9 +93,12 @@ export function MondayPicker({
           const newMonth = monthLabel !== currentMonth;
           if (newMonth) currentMonth = monthLabel;
           const selected = key === value;
-          // Un lundi trop proche laisserait des étapes de préparation dans le
-          // passé : il reste visible (pour situer le calendrier) mais inerte.
-          const tooSoon = Boolean(minDate) && key < minDate!;
+          // Lundi plus proche que le délai de préparation : autorisé, mais
+          // signalé — les étapes d'avant-test seront resserrées.
+          const tight = Boolean(minDate) && key < minDate!;
+          // Un lundi DÉJÀ PASSÉ, lui, n'a pas de sens : une phase de test ne
+          // démarre pas hier.
+          const past = key < todayISO();
 
           return (
             <div key={key}>
@@ -96,19 +108,20 @@ export function MondayPicker({
                 role="option"
                 aria-selected={selected}
                 data-selected={selected}
-                disabled={tooSoon}
+                disabled={past}
                 onClick={() => onChange(key)}
                 className={[
                   "jr-cal__row",
                   selected && "jr-cal__row--sel",
-                  tooSoon && "jr-cal__row--off",
+                  past && "jr-cal__row--off",
+                  tight && !past && "jr-cal__row--tight",
                 ]
                   .filter(Boolean)
                   .join(" ")}
               >
                 <span className="jr-cal__day">Lundi {date.getUTCDate()}</span>
                 <span className="jr-cal__rel">
-                  {tooSoon ? "trop tôt" : weeks >= 0 ? relative(weeks) : null}
+                  {past ? "passé" : tight ? "préparation réduite" : weeks >= 0 ? relative(weeks) : null}
                 </span>
               </button>
             </div>

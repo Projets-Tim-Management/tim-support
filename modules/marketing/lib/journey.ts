@@ -1010,18 +1010,94 @@ export const firstStartableMonday = (leadDays = 0): string => {
   return d.toISOString().slice(0, 10);
 };
 
+
+/**
+ * Jours de préparation RÉELLEMENT disponibles avant un démarrage donné.
+ *
+ * Compté en jours de calendrier, jamais négatif : un démarrage passé ou fixé
+ * aujourd'hui laisse zéro jour, pas « moins trois ».
+ */
+export const prepDaysAvailable = (startDate: string, now: Date = new Date()): number => {
+  const start = new Date(startDate);
+  if (Number.isNaN(start.getTime())) return 0;
+  const day = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.max(0, Math.round((day(start) - today) / DAY_MS));
+};
+
+/**
+ * Élément daté par rapport au démarrage : une étape comme un e-mail.
+ *
+ * Champs en `unknown` : ces objets viennent de la base, où Payload les type
+ * largement (index signature). On les lit défensivement plutôt que de forcer un
+ * cast au point d'appel — un cast qui masquerait justement les valeurs
+ * inattendues que ce code doit ignorer.
+ */
+type Anchored = {
+  anchor?: unknown;
+  offsetDays?: unknown;
+  /**
+   * Signature d'index volontaire : sans elle, TypeScript refuse tout objet qui
+   * ne déclare pas explicitement `anchor` — la « vérification des types
+   * faibles ». Or les étapes remontées de la base portent ces champs via leur
+   * propre signature d'index.
+   */
+  [k: string]: unknown;
+};
+
 /**
  * Délai de préparation exigé par un modèle de parcours : le plus grand décalage
  * NÉGATIF de ses étapes ancrées au démarrage. Lu dans le modèle plutôt qu'écrit
  * en dur — décaler une étape d'avant-test décale le premier lundi démarrable.
  */
-export const leadDaysOf = (steps: { anchor?: string | null; offsetDays?: number | null }[]): number => {
+export const leadDaysOf = (steps: Anchored[]): number => {
   const offsets = steps
     .filter((s) => s.anchor === "debut" && typeof s.offsetDays === "number")
     .map((s) => s.offsetDays as number);
   const min = offsets.length ? Math.min(...offsets) : 0;
   return min < 0 ? -min : 0;
 };
+
+
+/**
+ * RESSERRE les étapes d'avant-test quand on démarre plus tôt que prévu.
+ *
+ * Le parcours réclame `leadDays` jours de préparation (l'étape la plus en
+ * amont). Forcer un lundi plus proche est un choix légitime — un client pressé,
+ * une démo qui a convaincu — mais laisser les décalages d'origine daterait la
+ * moitié des étapes DANS LE PASSÉ : elles naîtraient en retard, et les e-mails
+ * correspondants seraient abandonnés pour cause d'échéance dépassée.
+ *
+ * On applique donc le même facteur de réduction à tous les décalages négatifs
+ * ancrés au démarrage : `-14, -10, -7, -1` sur 14 jours devient `-7, -5, -4, -1`
+ * sur 7. L'ORDRE est préservé, la dernière étape reste avant le démarrage, et
+ * aucune ne tombe avant aujourd'hui.
+ *
+ * Pur : c'est la règle, pas son application. Les décalages positifs (pendant et
+ * après le test) ne sont jamais touchés — le test dure ce qu'il dure.
+ */
+export function compressLeadOffsets<T extends Anchored>(
+  items: T[],
+  startDate: string,
+  now: Date = new Date(),
+): T[] {
+  const required = leadDaysOf(items);
+  if (!required) return items;
+  const available = prepDaysAvailable(startDate, now);
+  if (available >= required) return items;
+
+  const factor = available / required;
+  return items.map((item) => {
+    const offset = typeof item.offsetDays === "number" ? item.offsetDays : 0;
+    if (item.anchor !== "debut" || offset >= 0) return item;
+    // `Math.ceil` sur la valeur négative rapproche du démarrage sans jamais le
+    // dépasser ; le minimum à 1 jour garde une étape « la veille » distincte du
+    // jour J tant qu'il reste au moins un jour.
+    const scaled = Math.ceil(offset * factor);
+    const bounded = available > 0 ? Math.max(-available, Math.min(-1, scaled)) : 0;
+    return { ...item, offsetDays: bounded };
+  });
+}
 
 /** Durée par défaut d'une phase de test, en semaines (lundi → lundi). */
 export const DEFAULT_DURATION_WEEKS = 4;
