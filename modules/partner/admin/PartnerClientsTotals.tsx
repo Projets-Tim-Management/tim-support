@@ -17,7 +17,12 @@ import { isBillableClient } from "@/modules/partner/lib/pricing";
  * un total faux dès la 2ᵉ page.
  */
 
-type Row = { caPaye?: number; commissionMonthly?: number; clientStatus?: string };
+type Row = {
+  caPaye?: number;
+  commissionMonthly?: number;
+  clientStatus?: string;
+  contractStartDate?: string | null;
+};
 
 export function PartnerClientsTotals() {
   const { data, query } = useListQuery();
@@ -45,7 +50,15 @@ export function PartnerClientsTotals() {
           // calculé à la lecture depuis le taux de la fiche partenaire — sans le
           // lien, le hook ne trouve pas le taux et renvoie 0, donc un total faux.
           // Mesuré : 166 ms / 23 Ko → 22 ms / 1 Ko.
-          select: { caPaye: true, commissionMonthly: true, clientStatus: true, partner: true },
+          // `contractStartDate` : la facturation ne démarre qu'à cette date, la
+          // somme serait fausse sans elle (voir isBillableClient).
+          select: {
+            caPaye: true,
+            commissionMonthly: true,
+            clientStatus: true,
+            contractStartDate: true,
+            partner: true,
+          },
           ...(clauses.length ? { where: { and: clauses } } : {}),
         },
         { addQueryPrefix: true },
@@ -66,9 +79,10 @@ export function PartnerClientsTotals() {
 
   if (!rows || !data) return null;
 
-  // Seuls les clients ACTIFS sont facturés (voir isBillableClient) : additionner
-  // les prospects ou les résiliés donnerait un CA « / mois » jamais encaissé.
-  const actifs = rows.filter((r) => isBillableClient(r.clientStatus));
+  // Seules les affaires GAGNÉES dont le contrat a commencé sont facturées (voir
+  // isBillableClient) : additionner les leads du pipeline, les contrats à venir
+  // ou les résiliés donnerait un CA « / mois » jamais encaissé.
+  const actifs = rows.filter((r) => isBillableClient(r));
   const ca = round2(actifs.reduce((s, r) => s + (r.caPaye ?? 0), 0));
   const commission = round2(actifs.reduce((s, r) => s + (r.commissionMonthly ?? 0), 0));
 

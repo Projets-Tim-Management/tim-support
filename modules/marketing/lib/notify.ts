@@ -3,7 +3,7 @@ import type { Payload } from "payload";
 import { ROLES } from "@/core/access";
 import { eur } from "@/modules/partner/lib/format";
 import { PROFILS } from "@/modules/partner/lib/pricing";
-import { escape, internalNotice } from "@/core/lib/email-template";
+import { adminUrl, escape, internalNotice } from "@/core/lib/email-template";
 
 /**
  * Notifications internes du parcours — envoyées sur événement, pas par le cron.
@@ -26,10 +26,6 @@ import { escape, internalNotice } from "@/core/lib/email-template";
 /** Message prêt à partir — ou à afficher en aperçu. */
 export type BuiltEmail = { subject: string; text: string; html: string };
 
-const adminUrl = (path: string): string => {
-  const base = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3001").replace(/\/$/, "");
-  return `${base}/admin${path}`;
-};
 
 /**
  * Adresses de tous les admins et super-admins, SANS DOUBLON.
@@ -416,7 +412,7 @@ export function buildDossierToCheckEmail(
       "À contrôler avant de créer les comptes : cohérence des licences déclarées,",
       "identités des salariés, chantiers renseignés.",
       "",
-      "Le dossier est copiable tableau par tableau depuis l'onglet « Préparation des accès » :",
+      "Le dossier est copiable tableau par tableau depuis l'onglet « Dossier & accès » :",
       ctx.clientId
         ? adminUrl(`/collections/partner-clients/${ctx.clientId}`)
         : adminUrl(`/collections/journey-runs/${run.id}`),
@@ -428,7 +424,7 @@ export function buildDossierToCheckEmail(
         "À contrôler avant de créer les comptes : cohérence des licences déclarées, identités des salariés, chantiers renseignés.",
       // Le bouton mène à la FICHE CLIENT, pas à la phase de test : le travail qui
       // suit ce message est de recopier le dossier dans TIM et de créer les
-      // accès, et c'est là que ça se fait (onglet « Préparation des accès »).
+      // accès, et c'est là que ça se fait (onglet « Dossier & accès »).
       // Le parcours ne sert qu'à suivre l'avancement.
       cta: ctx.clientId
         ? { label: "Préparer les accès", url: adminUrl(`/collections/partner-clients/${ctx.clientId}`) }

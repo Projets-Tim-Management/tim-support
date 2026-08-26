@@ -1,0 +1,1686 @@
+/* ─── Onglet « Historique » d'une opportunité (ClientHistory) ─────────────────
+   Une colonne : barre d'actions, composeur, tâches ouvertes, chronologie.
+   Toutes les couleurs viennent des tokens (styles/_tokens.scss). */
+
+.tim-history {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 780px;
+}
+
+/* Barre d'actions : un bouton par geste (Note, Appel, Réunion, Tâche, E-mail) */
+.tim-history__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.tim-history__action {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.tim-history__action:hover {
+  background: var(--tim-surface);
+}
+/* L'icône garde la couleur de son type (bleu pour l'e-mail, ambre pour la
+   tâche…) : le même code couleur que les pastilles de la chronologie, donc un
+   repère commun entre « ce que je vais faire » et « ce qui a été fait ». */
+.tim-history__action-icon {
+  display: inline-flex;
+}
+.tim-history__action:hover .tim-history__action-icon {
+  transform: scale(1.05);
+}
+
+.tim-history__error {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--tim-radius);
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+/* ─── Sections ───────────────────────────────────────────────────────────── */
+.tim-history__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.tim-history__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.tim-history__title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+.tim-history__empty {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--tim-muted);
+}
+/* Premier historique : on dit ce qui viendra s'y afficher, plutôt qu'un simple
+   « aucun résultat » qui laisse penser à une erreur. */
+.tim-history__blank {
+  padding: 1.6rem 1.2rem;
+  border: 1px dashed var(--tim-border);
+  border-radius: var(--tim-radius);
+  text-align: center;
+}
+.tim-history__blank-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.tim-history__blank-text {
+  margin: 0 auto;
+  max-width: 32rem;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--tim-muted);
+}
+
+/* Filtres par nature : le compteur dit s'il y a quelque chose à voir AVANT de
+   cliquer — un filtre qui mène à une liste vide est une déception gratuite. */
+.tim-history__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.tim-history__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  color: var(--tim-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+/* Compteur en pastille RONDE : à un ou deux chiffres, un rectangle arrondi
+   paraissait de travers à côté du libellé. `min-width` = `height` garde le
+   cercle jusqu'à trois chiffres, puis il s'allonge proprement. */
+.tim-history__filter span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+.tim-history__filter:hover {
+  color: var(--tim-foreground);
+  background: var(--tim-surface);
+}
+.tim-history__filter.is-on {
+  background: var(--tim-foreground);
+  color: var(--tim-white);
+}
+.tim-history__filter.is-on span {
+  background: color-mix(in srgb, var(--tim-white) 25%, transparent);
+  color: var(--tim-white);
+}
+
+/* ─── Tâches ouvertes ────────────────────────────────────────────────────── */
+.tim-history__tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.tim-history__task {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--tim-border);
+  border-left: 3px solid var(--tim-amber);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.tim-history__task-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tim-history__task-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-history__flag {
+  margin-right: 0.35rem;
+  color: var(--tim-red);
+}
+.tim-history__task-note {
+  font-size: 0.84rem;
+  color: var(--tim-muted);
+  white-space: pre-wrap;
+}
+.tim-history__due {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+.tim-history__due--late {
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+}
+
+/* ─── Chronologie ────────────────────────────────────────────────────────── */
+.tim-history__day {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+/* En-tête de jour COLLANT : en faisant défiler un historique fourni, on sait
+   toujours de quel jour on parle. */
+.tim-history__day-label {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0.5rem 0 0;
+  padding: 0.25rem 0;
+  background: var(--tim-white);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+.tim-history__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* Le rail : un trait continu derrière les pastilles, tiré par chaque ligne.
+   Il relie les événements d'une journée au lieu d'aligner des cartes isolées. */
+.tim-history__item {
+  position: relative;
+  display: flex;
+  gap: 0.75rem;
+  padding: 0 0 0.85rem;
+}
+/* Le trait part du CENTRE de la pastille (moitié de sa largeur) et démarre
+   sous elle : ces deux valeurs suivent sa taille, sinon le rail se décale. */
+.tim-history__item::before {
+  content: "";
+  position: absolute;
+  left: 1.07rem;
+  top: 2.15rem;
+  bottom: 0;
+  width: 1px;
+  background: var(--tim-border);
+}
+.tim-history__item:last-child::before {
+  display: none;
+}
+.tim-history__dot {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Assez de fond autour du trait de l'icône pour que la couleur se lise :
+     à 1,75 rem, le glyphe touchait presque le bord du rond. */
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 50%;
+  border: 2px solid var(--tim-white);
+}
+.tim-history__card {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.tim-history__item-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+}
+.tim-history__item-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-history__hour {
+  flex: 0 0 auto;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  font-variant-numeric: tabular-nums;
+}
+.tim-history__done {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--tim-green-bg);
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--tim-green);
+}
+/* Le JOURNAL est du contexte, pas du contenu : une ligne, sans cadre, pour ne
+   pas concurrencer une note qu'on a pris le temps d'écrire. */
+.tim-history__item--system .tim-history__card {
+  border: 0;
+  background: none;
+  padding: 0.45rem 0;
+}
+.tim-history__item--system .tim-history__item-title {
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+.tim-history__item-text {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--tim-foreground);
+  white-space: pre-wrap;
+}
+.tim-history__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.7rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+/* Séparateur en losange entre les informations de pied : plus lisible qu'un
+   point médian noyé dans du texte gris. */
+.tim-history__meta > * + *::before {
+  content: "◆";
+  margin-right: 0.55rem;
+  font-size: 0.5rem;
+  vertical-align: middle;
+  opacity: 0.5;
+}
+.tim-history__attachment {
+  color: var(--tim-blue);
+  font-weight: 700;
+  text-decoration: none;
+}
+.tim-history__attachment:hover {
+  text-decoration: underline;
+}
+
+/* Notes mises en forme dans la chronologie. Les tailles restent proches du
+   texte courant : un titre de note ne doit pas concurrencer les titres de la
+   page — il structure un paragraphe, il n'ouvre pas une section. */
+.tim-history__item-rich {
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--tim-foreground);
+}
+.tim-history__item-rich > *:first-child {
+  margin-top: 0;
+}
+.tim-history__item-rich > *:last-child {
+  margin-bottom: 0;
+}
+.tim-history__item-rich p {
+  margin: 0 0 0.4rem;
+}
+.tim-history__item-rich h3 {
+  margin: 0.6rem 0 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.tim-history__item-rich h4 {
+  margin: 0.5rem 0 0.2rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-history__item-rich ul,
+.tim-history__item-rich ol {
+  margin: 0.25rem 0 0.5rem;
+  padding-left: 1.15rem;
+}
+.tim-history__item-rich li {
+  margin: 0.1rem 0;
+}
+.tim-history__item-rich strong {
+  font-weight: 800;
+}
+
+/* ─── Drawer de saisie (ActivityDrawer) ──────────────────────────────────────
+   Panneau à droite, page assombrie, en-tête coloré selon le geste, corps qui
+   défile, actions fixes en bas. C'est l'écran le plus utilisé de la fiche : la
+   saisie doit y être agréable. */
+
+@keyframes tim-adrawer-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes tim-adrawer-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.tim-adrawer {
+  position: fixed;
+  inset: 0;
+  /* Au-dessus de l'échelle Payload (popup 60, modal 30, nav 20) et du drawer
+     mission (200), sous le modal d'archivage (300). */
+  z-index: 250;
+  display: flex;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--tim-foreground) 42%, transparent);
+  backdrop-filter: blur(2px);
+  animation: tim-adrawer-fade 0.16s ease-out;
+}
+.tim-adrawer__panel {
+  display: flex;
+  flex-direction: column;
+  /* Élargi : le composeur d'e-mail porte expéditeur, jetons de destinataires,
+     modèles, signature et pièces jointes. */
+  width: min(720px, 96vw);
+  height: 100%;
+  background: var(--tim-white);
+  box-shadow: -12px 0 40px -16px color-mix(in srgb, var(--tim-foreground) 55%, transparent);
+  animation: tim-adrawer-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* Une animation d'entrée est un confort, jamais une condition d'accès. */
+@media (prefers-reduced-motion: reduce) {
+  .tim-adrawer,
+  .tim-adrawer__panel {
+    animation: none;
+  }
+}
+
+/* En-tête teinté de la couleur du geste : on sait dans quel drawer on est sans
+   lire le titre — même code couleur que les boutons et la chronologie. */
+.tim-adrawer__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1.15rem 1.35rem;
+  border-bottom: 1px solid var(--tim-border);
+}
+.tim-adrawer__head-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--tim-white);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--tim-foreground) 18%, transparent);
+}
+.tim-adrawer__head-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tim-adrawer__title {
+  margin: 0 0 0.15rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.tim-adrawer__hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--tim-foreground);
+  opacity: 0.72;
+}
+.tim-adrawer__close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  padding: 0.35rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: none;
+  color: var(--tim-foreground);
+  opacity: 0.6;
+  cursor: pointer;
+}
+.tim-adrawer__close:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--tim-white) 60%, transparent);
+  opacity: 1;
+}
+
+.tim-adrawer__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1.25rem 1.35rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+.tim-adrawer__error {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--tim-radius);
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.tim-adrawer__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.tim-adrawer__label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+.tim-adrawer__opt {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+.tim-adrawer__input,
+.tim-adrawer__textarea {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-weight: 500;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.tim-adrawer__textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+.tim-adrawer__input:focus,
+.tim-adrawer__textarea:focus {
+  outline: none;
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px var(--tim-primary-light);
+}
+.tim-adrawer__count {
+  align-self: flex-end;
+  font-size: 0.72rem;
+  color: var(--tim-muted);
+}
+/* Date en toutes lettres : « mardi 26 août, 09:00 » se relit d'un coup d'œil là
+   où « 2026-08-26T09:00 » demande un effort. */
+.tim-adrawer__echo {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  text-transform: capitalize;
+}
+.tim-adrawer__warn {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--tim-red);
+}
+
+/* Pastilles : nature de la tâche et raccourcis d'échéance. */
+.tim-adrawer__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+/* Types de tâche : UNE seule ligne qui défile. En passant à la ligne, les sept
+   pastilles occupaient trois rangs et repoussaient l'échéance hors de l'écran. */
+.tim-adrawer__chips--scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 0.3rem;
+}
+/* `is-left` / `is-right` sont posées par useScrollEdges quand il reste vraiment
+   quelque chose de ce côté : jamais de voile sur une pastille visible. */
+.tim-adrawer__chips--scroll.is-right {
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent 100%);
+}
+.tim-adrawer__chips--scroll.is-left {
+  mask-image: linear-gradient(to right, transparent 0, #000 2.5rem);
+}
+.tim-adrawer__chips--scroll.is-left.is-right {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 2.5rem,
+    #000 calc(100% - 2.5rem),
+    transparent 100%
+  );
+}
+.tim-adrawer__chips--scroll::-webkit-scrollbar {
+  height: 5px;
+}
+.tim-adrawer__chips--scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--tim-border);
+}
+.tim-adrawer__chips--scroll .tim-adrawer__chip {
+  flex: 0 0 auto;
+}
+.tim-adrawer__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 999px;
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.tim-adrawer__chip:hover {
+  background: var(--tim-surface);
+}
+.tim-adrawer__chip--on {
+  background: var(--tim-primary);
+  border-color: var(--tim-primary);
+  color: var(--tim-white);
+}
+/* Le survol d'une pastille SÉLECTIONNÉE doit garder son fond.
+   `.tim-adrawer__chip:hover` (classe + pseudo-classe) l'emporte sur
+   `.tim-adrawer__chip--on` (classe simple) quel que soit l'ordre : sans cette
+   règle, le fond redevenait clair pendant que le texte restait blanc. */
+.tim-adrawer__chip--on:hover {
+  background: var(--tim-primary-dark);
+  border-color: var(--tim-primary-dark);
+  color: var(--tim-white);
+}
+
+/* Destinataires : un jeton par adresse, retirable. */
+.tim-adrawer__tokens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.tim-adrawer__tokens:focus-within {
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px var(--tim-primary-light);
+}
+.tim-adrawer__token {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--tim-blue-bg);
+  color: var(--tim-blue);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.tim-adrawer__token--bad {
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+}
+.tim-adrawer__token button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.65;
+}
+.tim-adrawer__token button:hover {
+  opacity: 1;
+}
+.tim-adrawer__token-input {
+  flex: 1 1 8rem;
+  min-width: 8rem;
+  border: 0;
+  outline: none;
+  padding: 0.25rem;
+  font: inherit;
+  font-weight: 500;
+  color: var(--tim-foreground);
+  background: transparent;
+}
+
+/* Bloc « quand » d'une tâche : échéance, rappel, priorité tiennent ensemble. */
+.tim-adrawer__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+}
+.tim-adrawer__row {
+  display: flex;
+  gap: 0.75rem;
+}
+.tim-adrawer__row > .tim-adrawer__field {
+  flex: 1 1 0;
+}
+
+/* Interrupteurs (rappel, priorité, signature), au format de ceux de Brevo. */
+.tim-adrawer__switch-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.tim-adrawer__switch {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--tim-gray);
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+.tim-adrawer__switch--on {
+  background: var(--tim-primary);
+}
+.tim-adrawer__switch-knob {
+  display: block;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-left: 0.15rem;
+  border-radius: 50%;
+  background: var(--tim-white);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 35%, transparent);
+  transition: transform 0.16s ease;
+}
+.tim-adrawer__switch--on .tim-adrawer__switch-knob {
+  transform: translateX(1.1rem);
+}
+.tim-adrawer__switch-label {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+
+.tim-adrawer__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding: 0.9rem 1.35rem;
+  border-top: 1px solid var(--tim-border);
+  background: var(--tim-white);
+  box-shadow: 0 -6px 16px -12px color-mix(in srgb, var(--tim-foreground) 45%, transparent);
+}
+.tim-adrawer__btn {
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.tim-adrawer__btn:hover:not(:disabled) {
+  background: var(--tim-surface);
+}
+.tim-adrawer__btn--primary {
+  background: var(--tim-primary);
+  border-color: var(--tim-primary);
+  color: var(--tim-white);
+}
+.tim-adrawer__btn--primary:hover:not(:disabled) {
+  background: var(--tim-primary-dark);
+}
+.tim-adrawer__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ─── Éditeur de note (RichNoteEditor) ───────────────────────────────────────
+   Pas de barre fixe : la mise en forme se fait à la frappe (# , - , 1. ) ou par
+   la bulle flottante qui apparaît sur une sélection. */
+.tim-rte {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.tim-rte:focus-within {
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px var(--tim-primary-light);
+}
+.tim-rte__area {
+  padding: 0.7rem 0.75rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--tim-foreground);
+  outline: none;
+}
+/* Texte d'invite d'un `contenteditable` : pas de `placeholder` natif. */
+.tim-rte__area--empty::before {
+  content: attr(data-placeholder);
+  color: var(--tim-muted);
+  pointer-events: none;
+}
+.tim-rte__area p {
+  margin: 0 0 0.5rem;
+}
+.tim-rte__area h3 {
+  margin: 0.7rem 0 0.3rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+.tim-rte__area h4 {
+  margin: 0.6rem 0 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.tim-rte__area ul,
+.tim-rte__area ol {
+  margin: 0.3rem 0 0.6rem;
+  padding-left: 1.3rem;
+}
+.tim-rte__area li {
+  margin: 0.15rem 0;
+}
+.tim-rte__area strong {
+  font-weight: 800;
+}
+
+/* Sans barre visible, les raccourcis doivent s'apprendre quelque part : cette
+   ligne ne s'affiche que sur une note vide, puis disparaît pour de bon. */
+.tim-rte__tip {
+  margin: 0;
+  padding: 0 0.75rem 0.6rem;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--tim-muted);
+}
+.tim-rte__tip strong {
+  color: var(--tim-foreground);
+  font-weight: 800;
+}
+
+/* ─── Bulle de mise en forme (portail sur <body>) ────────────────────────────
+   Sombre, comme celle de Notion : elle se pose SUR le texte, un fond clair s'y
+   confondrait. `translate` la centre au-dessus de la sélection. */
+.tim-rte__bubble {
+  position: fixed;
+  z-index: 260; /* au-dessus du drawer (250) */
+  transform: translate(-50%, calc(-100% - 8px));
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.25rem;
+  border-radius: 10px;
+  background: #22242c;
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.45);
+  animation: tim-adrawer-fade 0.12s ease-out;
+}
+.tim-rte__block {
+  position: relative;
+}
+.tim-rte__block-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tim-rte__block-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.tim-rte__chev {
+  opacity: 0.6;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.tim-rte__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 11rem;
+  padding: 0.25rem;
+  border-radius: 10px;
+  background: #22242c;
+  box-shadow: 0 10px 28px -6px rgba(0, 0, 0, 0.5);
+}
+.tim-rte__menu-item {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: #ffffff;
+  font-size: 0.83rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.tim-rte__menu-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.tim-rte__menu-item.is-on {
+  color: var(--tim-primary);
+}
+.tim-rte__sep {
+  width: 1px;
+  height: 1.1rem;
+  margin: 0 0.15rem;
+  background: rgba(255, 255, 255, 0.18);
+}
+.tim-rte__mark {
+  min-width: 1.9rem;
+  height: 1.9rem;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: #ffffff;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.tim-rte__mark:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+/* Chaque bouton PORTE sa mise en forme : un libellé qui montre ce qu'il fait
+   n'a pas besoin d'être appris. */
+.tim-rte__mark--bold {
+  font-weight: 900;
+}
+.tim-rte__mark--italic {
+  font-style: italic;
+  font-family: Georgia, serif;
+}
+/* Format déjà actif sur la sélection. */
+.tim-rte__mark.is-on {
+  color: var(--tim-primary);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ─── Composeur d'e-mail : expéditeur, copies, modèles ───────────────────────*/
+.tim-adrawer__from {
+  padding: 0.4rem 0.6rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  color: var(--tim-foreground);
+  font-size: 0.82rem;
+  font-weight: 600;
+  align-self: flex-start;
+}
+/* « Cc Cci » se pose AU BOUT du libellé « À » : replié par défaut, neuf envois
+   sur dix n'ont pas de copie — mais toujours à portée de clic. */
+.tim-adrawer__label-after {
+  float: right;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.tim-adrawer__link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--tim-primary);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tim-adrawer__link:hover {
+  text-decoration: underline;
+}
+.tim-adrawer__tpl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.tim-adrawer__tpl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tim-adrawer__tpl-btn:hover {
+  background: var(--tim-surface);
+}
+.tim-adrawer__save-tpl {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.tim-adrawer__save-tpl .tim-adrawer__input {
+  flex: 1 1 auto;
+}
+.tim-adrawer__note {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tim-green);
+}
+
+/* ─── Mise en conformité de l'adresse d'expédition (SenderSetup) ─────────────
+   Remplace le composeur tant que l'e-mail ne peut pas partir de l'adresse du
+   partenaire. Deux étapes numérotées, cochées à mesure. */
+.tim-setup__loading {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--tim-muted);
+}
+.tim-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.tim-setup__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.tim-setup__intro {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--tim-muted);
+}
+.tim-setup__step {
+  display: flex;
+  gap: 0.7rem;
+  padding: 0.85rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.tim-setup__step.is-done {
+  border-color: var(--tim-green);
+  background: var(--tim-green-bg);
+}
+.tim-setup__num {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--tim-foreground);
+  color: var(--tim-white);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.tim-setup__step.is-done .tim-setup__num {
+  background: var(--tim-green);
+}
+.tim-setup__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.tim-setup__step-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.tim-setup__hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--tim-muted);
+}
+.tim-setup__btn {
+  align-self: flex-start;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--tim-primary);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.83rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tim-setup__btn:hover:not(:disabled) {
+  background: var(--tim-primary-dark);
+}
+.tim-setup__btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.tim-setup__msg {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--tim-radius);
+  background: var(--tim-blue-bg);
+  color: var(--tim-blue);
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+/* Les 3 enregistrements DNS. La VALEUR est ce qu'on copie : elle a droit à
+   toute la largeur restante, et se coupe plutôt que de déborder. */
+.tim-setup__dns {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+.tim-setup__dns th {
+  padding: 0.3rem 0.4rem 0.3rem 0;
+  text-align: left;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--tim-muted);
+}
+.tim-setup__dns td {
+  padding: 0.4rem 0.4rem 0.4rem 0;
+  border-top: 1px solid var(--tim-border);
+  vertical-align: top;
+}
+.tim-setup__dns tr.is-ok {
+  color: var(--tim-green);
+}
+.tim-setup__rec {
+  display: inline-block;
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  background: var(--tim-slate-bg);
+  color: var(--tim-slate);
+  font-weight: 800;
+}
+.tim-setup__rec-label {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--tim-muted);
+}
+.tim-setup__mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+}
+.tim-setup__value {
+  max-width: 16rem;
+}
+.tim-setup__ok {
+  font-weight: 700;
+  color: var(--tim-green);
+}
+.tim-setup__copy {
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 4px;
+  background: var(--tim-white);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+  cursor: pointer;
+}
+.tim-setup__copy:hover {
+  background: var(--tim-surface);
+}
+/* Le troisième chemin, dit franchement : ne rien configurer et écrire depuis sa
+   propre messagerie. Le cacher ferait perdre du temps à qui n'en veut pas. */
+.tim-setup__alt {
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--tim-muted);
+}
+
+/* ─── Liste des modèles, déployée par-dessus le composeur ───────────────────*/
+.tim-adrawer__tpl-wrap {
+  position: relative;
+}
+.tim-tpl {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  /* Au-dessus des champs qu'elle recouvre, sous la bulle de mise en forme (260)
+     et la fenêtre d'écriture d'un modèle (270). */
+  z-index: 30;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  box-shadow: 0 16px 36px -14px color-mix(in srgb, var(--tim-foreground) 55%, transparent);
+  overflow: hidden;
+  animation: tim-adrawer-fade 0.12s ease-out;
+}
+.tim-tpl__search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--tim-border);
+  color: var(--tim-muted);
+}
+.tim-tpl__input {
+  flex: 1 1 auto;
+  border: 0;
+  outline: none;
+  font: inherit;
+  font-size: 0.86rem;
+  color: var(--tim-foreground);
+  background: transparent;
+}
+.tim-tpl__new {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--tim-primary);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tim-tpl__new:hover {
+  background: var(--tim-primary-dark);
+}
+.tim-tpl__error {
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.tim-tpl__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  /* Recouvrir permet enfin de la faire grande : ~6 modèles d'un coup d'œil,
+     là où le flux n'en laissait voir qu'un seul. */
+  max-height: 26rem;
+  overflow-y: auto;
+}
+/* Le modèle lui-même est un bouton (l'utiliser) ; ses actions restent à droite —
+   le geste principal occupe toute la surface. */
+.tim-tpl__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.6rem 0.7rem;
+  border-bottom: 1px solid var(--tim-border);
+}
+.tim-tpl__item.is-on {
+  background: var(--tim-surface);
+}
+.tim-tpl__use {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.tim-tpl__name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+/* Pastille des modèles fournis : ils ne s'éditent pas, autant le dire avant le
+   clic plutôt qu'au moment où le bouton « Modifier » manque. */
+.tim-tpl__badge {
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  background: var(--tim-blue-bg);
+  color: var(--tim-blue);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.tim-tpl__subject {
+  font-size: 0.78rem;
+  color: var(--tim-foreground);
+}
+.tim-tpl__preview {
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: var(--tim-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tim-tpl__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.tim-tpl__mini {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+  cursor: pointer;
+}
+.tim-tpl__mini:hover {
+  background: var(--tim-surface);
+}
+.tim-tpl__mini--danger {
+  border-color: var(--tim-red);
+  background: var(--tim-red);
+  color: var(--tim-white);
+}
+/* Même raison que ci-dessus : sans règle propre, le survol rendait le bouton
+   « Oui » blanc sur blanc — au moment précis où l'on confirme une suppression. */
+.tim-tpl__mini--danger:hover {
+  background: color-mix(in srgb, var(--tim-red) 85%, #000);
+  color: var(--tim-white);
+}
+.tim-tpl__confirm {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tim-red);
+}
+.tim-tpl__empty {
+  padding: 1.1rem 0.7rem;
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+  text-align: center;
+}
+.tim-tpl__foot {
+  padding: 0.4rem 0.7rem;
+  background: var(--tim-surface);
+  font-size: 0.7rem;
+  color: var(--tim-muted);
+}
+.tim-tpl__foot kbd {
+  padding: 0.05rem 0.28rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 4px;
+  background: var(--tim-white);
+  font-family: inherit;
+  font-size: 0.68rem;
+}
+
+/* ─── Fenêtre d'écriture d'un modèle (la SEULE modale des modèles) ───────────*/
+.tim-tplm {
+  position: fixed;
+  inset: 0;
+  z-index: 270; /* au-dessus du drawer (250) et de la bulle de mise en forme (260) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: color-mix(in srgb, var(--tim-foreground) 45%, transparent);
+  animation: tim-adrawer-fade 0.14s ease-out;
+}
+.tim-tplm__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, 96vw);
+  max-height: min(84vh, 46rem);
+  background: var(--tim-white);
+  border-radius: var(--tim-radius);
+  box-shadow: 0 20px 50px -18px color-mix(in srgb, var(--tim-foreground) 60%, transparent);
+  overflow: hidden;
+}
+.tim-tplm__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--tim-border);
+}
+.tim-tplm__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.tim-tplm__close {
+  padding: 0.25rem 0.45rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: none;
+  color: var(--tim-muted);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.tim-tplm__close:hover {
+  background: var(--tim-surface);
+  color: var(--tim-foreground);
+}
+.tim-tplm__error {
+  margin: 0;
+  padding: 0.6rem 1.2rem;
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.tim-tplm__input {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+}
+.tim-tplm__input:focus {
+  outline: none;
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px var(--tim-primary-light);
+}
+
+/* ── Écriture d'un modèle ─────────────────────────────────────────────────── */
+.tim-tplm__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.1rem 1.2rem;
+  overflow-y: auto;
+}
+.tim-tplm__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.tim-tplm__label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+.tim-tplm__vars {
+  font-size: 0.74rem;
+  line-height: 1.6;
+  color: var(--tim-muted);
+}
+.tim-tplm__vars code {
+  padding: 0.05rem 0.25rem;
+  border-radius: 4px;
+  background: var(--tim-surface);
+  font-size: 0.72rem;
+  color: var(--tim-foreground);
+}
+.tim-tplm__form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+.tim-tplm__btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tim-tplm__btn:hover:not(:disabled) {
+  background: var(--tim-surface);
+}
+.tim-tplm__btn--primary {
+  background: var(--tim-primary);
+  border-color: var(--tim-primary);
+  color: var(--tim-white);
+}
+.tim-tplm__btn--primary:hover:not(:disabled) {
+  background: var(--tim-primary-dark);
+}
+.tim-tplm__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ─── Signature dans le composeur ────────────────────────────────────────────
+   Affichée DANS le cadre du message, sous la zone de saisie : on la voit là où
+   elle sera. Elle n'est pour autant pas éditable — ce n'est pas du texte du
+   message, c'est ce que l'envoi y ajoutera. */
+.tim-rte__signature {
+  padding: 0 0.75rem 0.8rem;
+  overflow-x: auto;
+  /* Rappel discret qu'on ne la modifie pas ici : elle se change sur la fiche
+     partenaire, une seule fois pour tous les e-mails. */
+  cursor: default;
+  user-select: none;
+}
+.tim-rte__signature table {
+  margin-top: 12px !important;
+}
+.tim-adrawer__sig-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: -0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  cursor: pointer;
+}
+
+/* ─── Pièces jointes du composeur ────────────────────────────────────────────
+   Un jeton par fichier, retirable — le même langage que les destinataires. Le
+   fichier est TÉLÉVERSÉ dès qu'on le choisit : on sait tout de suite s'il passe,
+   plutôt qu'au moment d'envoyer. */
+.tim-adrawer__files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  margin-top: -0.4rem;
+}
+.tim-adrawer__files-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  width: 100%;
+}
+.tim-adrawer__files-list:empty {
+  display: none;
+}
+.tim-adrawer__file {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.4rem 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: var(--tim-slate-bg);
+  color: var(--tim-slate);
+  font-size: 0.78rem;
+  font-weight: 700;
+  max-width: 100%;
+}
+.tim-adrawer__file-size {
+  font-weight: 500;
+  opacity: 0.75;
+}
+.tim-adrawer__file button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.65;
+}
+.tim-adrawer__file button:hover {
+  opacity: 1;
+}
+.tim-adrawer__file-add {
+  cursor: pointer;
+}
+.tim-adrawer__file-hint {
+  font-size: 0.72rem;
+  color: var(--tim-muted);
+}
+
+/* ─── Corriger / retirer une entrée ──────────────────────────────────────────
+   Discret au repos, révélé au survol de la ligne : les actions ne doivent pas
+   concurrencer le contenu, mais rester à un geste. Toujours visibles au clavier
+   (`focus-within`) — une action qu'on ne peut atteindre qu'à la souris n'existe
+   pas pour qui navigue au clavier. */
+.tim-history__row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  align-self: flex-start;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.tim-history__card:hover .tim-history__row-actions,
+.tim-history__card:focus-within .tim-history__row-actions,
+.tim-history__task:hover .tim-history__row-actions,
+.tim-history__task:focus-within .tim-history__row-actions {
+  opacity: 1;
+}
+/* Une confirmation en cours reste visible même si la souris s'éloigne : sinon
+   la question disparaît sans réponse. */
+.tim-history__row-actions:has(.tim-history__mini--danger) {
+  opacity: 1;
+}
+.tim-history__mini {
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+  cursor: pointer;
+}
+.tim-history__mini:hover {
+  background: var(--tim-surface);
+  color: var(--tim-foreground);
+}
+.tim-history__mini--danger {
+  border-color: var(--tim-red);
+  background: var(--tim-red);
+  color: var(--tim-white);
+}
+/* Règle propre : sinon `.tim-history__mini:hover` l'emporte (spécificité) et le
+   bouton devient blanc sur blanc. */
+.tim-history__mini--danger:hover {
+  background: color-mix(in srgb, var(--tim-red) 85%, #000);
+  color: var(--tim-white);
+}
+.tim-history__confirm {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tim-red);
+}
+/* Les actions d'une entrée se posent en haut à droite de sa carte. */
+.tim-history__card {
+  position: relative;
+}
+.tim-history__card > .tim-history__row-actions {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  background: var(--tim-white);
+}
+
+/* ─── « À faire » : le seul bloc qui demande une action ──────────────────────
+   Fond ambré léger, la couleur des tâches partout ailleurs (pastilles, icônes,
+   liseré). En ouvrant une fiche on doit voir en un coup d'œil s'il y a quelque
+   chose à faire — le reste de l'écran raconte ce qui s'est passé, lui seul dit
+   ce qui reste.
+
+   Les cartes intérieures restent blanches : c'est le contraste avec le fond qui
+   les fait ressortir. */
+.tim-history__section--todo {
+  padding: 0.85rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--tim-amber) 25%, transparent);
+  border-radius: var(--tim-radius);
+  background: var(--tim-amber-bg);
+}
+.tim-history__title--todo {
+  color: var(--tim-amber);
+}

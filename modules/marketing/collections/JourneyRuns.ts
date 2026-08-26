@@ -671,8 +671,27 @@ const syncClientStatus: CollectionAfterChangeHook = async ({ doc, previousDoc, r
   const clientId = idOf(doc?.client);
   if (!target || clientId == null) return doc;
 
-  const client = await findOne<{ clientStatus?: string }>(req, "partner-clients", clientId);
+  const client = await findOne<{ clientStatus?: string; contractStartDate?: string | null }>(
+    req,
+    "partner-clients",
+    clientId,
+  );
   if (client?.clientStatus === target) return doc;
+
+  /**
+   * Affaire gagnée : c'est la date de début de contrat qui déclenche le calcul
+   * des licences (voir isBillableClient). Sans elle, le client passerait
+   * « Gagnée » à zéro euro sans que rien ne l'explique.
+   *
+   * Par défaut, le contrat commence à la FIN de la phase de test : c'est le jour
+   * où le client cesse d'essayer et commence à payer. À défaut de date de fin
+   * (parcours sans calendrier), aujourd'hui. Une date déjà posée à la main n'est
+   * jamais écrasée.
+   */
+  const contractStart =
+    target === "actif" && !client?.contractStartDate
+      ? ((doc?.endDate as string | undefined) ?? new Date().toISOString())
+      : null;
 
   // C'est le parcours qui pilote le statut : il ne doit pas se heurter au
   // garde-fou « pas de test sans date » (requireTestSchedule), qui protège les
@@ -685,7 +704,10 @@ const syncClientStatus: CollectionAfterChangeHook = async ({ doc, previousDoc, r
     await req.payload.update({
       collection: "partner-clients",
       id: clientId,
-      data: { clientStatus: target },
+      data: {
+        clientStatus: target,
+        ...(contractStart ? { contractStartDate: contractStart } : {}),
+      },
       overrideAccess: true,
       req,
     });

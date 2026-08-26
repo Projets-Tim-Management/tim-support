@@ -32,6 +32,14 @@ import * as migration_20260824_124928_add_tim_access_on_contacts from './2026082
 import * as migration_20260824_125724_drop_unused_tim_code from './20260824_125724_drop_unused_tim_code';
 import * as migration_20260824_160545_drop_credentials_tables from './20260824_160545_drop_credentials_tables';
 import * as migration_20260824_173559_add_session_anchor from './20260824_173559_add_session_anchor';
+import * as migration_20260825_180214_add_brevo_pipeline from './20260825_180214_add_brevo_pipeline';
+import * as migration_20260825_184156_add_client_activities from './20260825_184156_add_client_activities';
+import * as migration_20260825_185452_add_task_kind from './20260825_185452_add_task_kind';
+import * as migration_20260825_185947_drop_activity_call_meeting from './20260825_185947_drop_activity_call_meeting';
+import * as migration_20260825_193258_add_email_templates from './20260825_193258_add_email_templates';
+import * as migration_20260825_200521_add_partner_signature from './20260825_200521_add_partner_signature';
+import * as migration_20260825_202137_add_template_scope from './20260825_202137_add_template_scope';
+import * as migration_20260825_202444_add_activity_attachments from './20260825_202444_add_activity_attachments';
 
 export const migrations = [
   {
@@ -202,6 +210,46 @@ export const migrations = [
   {
     up: migration_20260824_173559_add_session_anchor.up,
     down: migration_20260824_173559_add_session_anchor.down,
-    name: '20260824_173559_add_session_anchor'
+    name: '20260824_173559_add_session_anchor',
+  },
+  {
+    up: migration_20260825_180214_add_brevo_pipeline.up,
+    down: migration_20260825_180214_add_brevo_pipeline.down,
+    name: '20260825_180214_add_brevo_pipeline',
+  },
+  {
+    up: migration_20260825_184156_add_client_activities.up,
+    down: migration_20260825_184156_add_client_activities.down,
+    name: '20260825_184156_add_client_activities',
+  },
+  {
+    up: migration_20260825_185452_add_task_kind.up,
+    down: migration_20260825_185452_add_task_kind.down,
+    name: '20260825_185452_add_task_kind',
+  },
+  {
+    up: migration_20260825_185947_drop_activity_call_meeting.up,
+    down: migration_20260825_185947_drop_activity_call_meeting.down,
+    name: '20260825_185947_drop_activity_call_meeting',
+  },
+  {
+    up: migration_20260825_193258_add_email_templates.up,
+    down: migration_20260825_193258_add_email_templates.down,
+    name: '20260825_193258_add_email_templates',
+  },
+  {
+    up: migration_20260825_200521_add_partner_signature.up,
+    down: migration_20260825_200521_add_partner_signature.down,
+    name: '20260825_200521_add_partner_signature',
+  },
+  {
+    up: migration_20260825_202137_add_template_scope.up,
+    down: migration_20260825_202137_add_template_scope.down,
+    name: '20260825_202137_add_template_scope',
+  },
+  {
+    up: migration_20260825_202444_add_activity_attachments.up,
+    down: migration_20260825_202444_add_activity_attachments.down,
+    name: '20260825_202444_add_activity_attachments'
   },
 ];

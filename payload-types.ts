@@ -75,6 +75,8 @@ export interface Config {
     partners: Partner;
     'partner-clients': PartnerClient;
     'client-contacts': ClientContact;
+    'client-activities': ClientActivity;
+    'email-templates': EmailTemplate;
     'point-transactions': PointTransaction;
     missions: Mission;
     'mission-submissions': MissionSubmission;
@@ -101,10 +103,6 @@ export interface Config {
       ledger: 'point-transactions';
     };
     'partner-clients': {
-      employees: 'client-employees';
-      sites: 'client-sites';
-      vehicles: 'client-vehicles';
-      machines: 'client-machines';
       portalAccounts: 'client-portal-accounts';
       contacts: 'client-contacts';
     };
@@ -121,6 +119,8 @@ export interface Config {
     partners: PartnersSelect<false> | PartnersSelect<true>;
     'partner-clients': PartnerClientsSelect<false> | PartnerClientsSelect<true>;
     'client-contacts': ClientContactsSelect<false> | ClientContactsSelect<true>;
+    'client-activities': ClientActivitiesSelect<false> | ClientActivitiesSelect<true>;
+    'email-templates': EmailTemplatesSelect<false> | EmailTemplatesSelect<true>;
     'point-transactions': PointTransactionsSelect<false> | PointTransactionsSelect<true>;
     missions: MissionsSelect<false> | MissionsSelect<true>;
     'mission-submissions': MissionSubmissionsSelect<false> | MissionSubmissionsSelect<true>;
@@ -490,6 +490,17 @@ export interface Partner {
    */
   contractAttachments?: (number | Media)[] | null;
   contractNotes?: string | null;
+  signatureJobTitle?: string | null;
+  /**
+   * Affichée à côté de la fonction.
+   */
+  signatureCompany?: string | null;
+  signaturePhone?: string | null;
+  signatureWebsite?: string | null;
+  /**
+   * Affichée en rond à gauche de la signature. À défaut, la photo de profil est utilisée.
+   */
+  signaturePhoto?: (number | null) | Media;
   scheduling?: {
     /**
      * Décoché, le client ne voit aucun créneau et le rendez-vous se cale hors de l'outil.
@@ -629,33 +640,35 @@ export interface Partner {
 export interface PartnerClient {
   id: number;
   companyName: string;
-  partner: number | Partner;
-  clientStatus?: ('prospect' | 'en-cours' | 'en-test' | 'actif' | 'resilie' | 'archive') | null;
   /**
-   * Fin du contrat / de l'abonnement mensuel — la commission du partenaire s'arrête à cette date.
-   */
-  resiliationDate?: string | null;
-  /**
-   * Nom officiel de l'entreprise (pour la facture).
-   */
-  raisonSociale?: string | null;
-  siren?: string | null;
-  vatNumber?: string | null;
-  /**
-   * Requis — envoi des factures.
+   * Contact, puis envoi des factures.
    */
   email: string;
-  billingAddress?: string | null;
-  billingAddressComplement?: string | null;
-  phone?: string | null;
+  clientStatus?:
+    | (
+        | 'nouvelle'
+        | 'en-qualification'
+        | 'demo-programmee'
+        | 'attente-engagement'
+        | 'attente-longue'
+        | 'en-test'
+        | 'actif'
+        | 'perdue'
+        | 'resilie'
+        | 'archive'
+      )
+    | null;
+  partner: number | Partner;
   /**
-   * Nom du destinataire de la facture (optionnel).
+   * La commission du partenaire s'arrête à cette date.
    */
-  recipient?: string | null;
+  resiliationDate?: string | null;
+  source?: ('manuelle' | 'site-vitrine') | null;
+  brevoDealId?: string | null;
   /**
-   * Optionnel.
+   * Repris du formulaire du site vitrine.
    */
-  billingRemarks?: string | null;
+  leadNotes?: string | null;
   licences?: {
     adminQty?: number | null;
     adminPrice?: number | null;
@@ -675,6 +688,10 @@ export interface PartnerClient {
   paymentTerms?: ('1er-du-mois' | '7j' | '15j' | '30j' | '45j' | '60j') | null;
   signatureDate?: string | null;
   /**
+   * Début de l'abonnement mensuel : le CA et la commission ne comptent qu'à partir de cette date.
+   */
+  contractStartDate?: string | null;
+  /**
    * PDF du contrat signé avec le client.
    */
   contractDocument?: (number | null) | Media;
@@ -688,29 +705,6 @@ export interface PartnerClient {
   onboardingStatus?: ('en-cours' | 'transmis' | 'valide') | null;
   onboardingSubmittedAt?: string | null;
   /**
-   * Tout l'effectif du client : pointage, planning, chantiers. Les licences, elles, se déclarent dans les CONTACTS — un salarié n'est pas un utilisateur.
-   */
-  employees?: {
-    docs?: (number | ClientEmployee)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  sites?: {
-    docs?: (number | ClientSite)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  vehicles?: {
-    docs?: (number | ClientVehicle)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  machines?: {
-    docs?: (number | ClientMachine)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
    * Un seul compte par client : l'e-mail du référent. Aucun mot de passe — un code à 6 chiffres lui est envoyé à chaque connexion.
    */
   portalAccounts?: {
@@ -718,14 +712,28 @@ export interface PartnerClient {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  /**
-   * Enregistrez d'abord la fiche client, puis cliquez « Créer un Contact » pour ajouter les personnes à contacter chez ce client.
-   */
   contacts?: {
     docs?: (number | ClientContact)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
+  /**
+   * Nom officiel de l'entreprise (pour la facture).
+   */
+  raisonSociale?: string | null;
+  siren?: string | null;
+  vatNumber?: string | null;
+  billingAddress?: string | null;
+  billingAddressComplement?: string | null;
+  phone?: string | null;
+  /**
+   * Nom du destinataire de la facture (optionnel).
+   */
+  recipient?: string | null;
+  /**
+   * Optionnel.
+   */
+  billingRemarks?: string | null;
   history?:
     | {
         at?: string | null;
@@ -755,337 +763,6 @@ export interface PartnerClient {
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "client-employees".
- */
-export interface ClientEmployee {
-  id: number;
-  client: number | PartnerClient;
-  /**
-   * Généré automatiquement si laissé vide.
-   */
-  matricule?: string | null;
-  firstName: string;
-  lastName: string;
-  /**
-   * L'entité qui emploie ce salarié (un client peut regrouper plusieurs sociétés).
-   */
-  company: string;
-  /**
-   * Le métier réel — à ne pas confondre avec la priorité (profil de licence).
-   */
-  poste?: string | null;
-  isUser?: boolean | null;
-  /**
-   * Profil de licence — détermine le prix dans le devis.
-   */
-  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon') | null;
-  /**
-   * Requise pour les utilisateurs ; facultative pour les autres salariés.
-   */
-  email?: string | null;
-  phone?: string | null;
-  address?: string | null;
-  nationality?:
-    | (
-        | 'FR'
-        | 'AF'
-        | 'ZA'
-        | 'AL'
-        | 'DZ'
-        | 'DE'
-        | 'AD'
-        | 'AO'
-        | 'AG'
-        | 'SA'
-        | 'AR'
-        | 'AM'
-        | 'AU'
-        | 'AT'
-        | 'AZ'
-        | 'BS'
-        | 'BH'
-        | 'BD'
-        | 'BB'
-        | 'BE'
-        | 'BZ'
-        | 'BJ'
-        | 'BT'
-        | 'BY'
-        | 'BO'
-        | 'BA'
-        | 'BW'
-        | 'BR'
-        | 'BN'
-        | 'BG'
-        | 'BF'
-        | 'BI'
-        | 'KH'
-        | 'CM'
-        | 'CA'
-        | 'CV'
-        | 'CL'
-        | 'CN'
-        | 'CY'
-        | 'CO'
-        | 'KM'
-        | 'CG'
-        | 'CD'
-        | 'KP'
-        | 'KR'
-        | 'CR'
-        | 'CI'
-        | 'HR'
-        | 'CU'
-        | 'DK'
-        | 'DJ'
-        | 'DM'
-        | 'EG'
-        | 'AE'
-        | 'EC'
-        | 'ER'
-        | 'ES'
-        | 'EE'
-        | 'SZ'
-        | 'VA'
-        | 'US'
-        | 'ET'
-        | 'FJ'
-        | 'FI'
-        | 'GA'
-        | 'GM'
-        | 'GE'
-        | 'GH'
-        | 'GR'
-        | 'GD'
-        | 'GT'
-        | 'GN'
-        | 'GQ'
-        | 'GW'
-        | 'GY'
-        | 'HT'
-        | 'HN'
-        | 'HU'
-        | 'SB'
-        | 'IN'
-        | 'ID'
-        | 'IQ'
-        | 'IR'
-        | 'IE'
-        | 'IS'
-        | 'IL'
-        | 'IT'
-        | 'JM'
-        | 'JP'
-        | 'JO'
-        | 'KZ'
-        | 'KE'
-        | 'KG'
-        | 'KI'
-        | 'KW'
-        | 'LA'
-        | 'LS'
-        | 'LV'
-        | 'LB'
-        | 'LR'
-        | 'LY'
-        | 'LI'
-        | 'LT'
-        | 'LU'
-        | 'MK'
-        | 'MG'
-        | 'MY'
-        | 'MW'
-        | 'MV'
-        | 'ML'
-        | 'MT'
-        | 'MA'
-        | 'MU'
-        | 'MR'
-        | 'MX'
-        | 'FM'
-        | 'MD'
-        | 'MC'
-        | 'MN'
-        | 'ME'
-        | 'MZ'
-        | 'MM'
-        | 'NA'
-        | 'NR'
-        | 'NP'
-        | 'NI'
-        | 'NE'
-        | 'NG'
-        | 'NO'
-        | 'NZ'
-        | 'OM'
-        | 'UG'
-        | 'UZ'
-        | 'PK'
-        | 'PW'
-        | 'PA'
-        | 'PG'
-        | 'PY'
-        | 'NL'
-        | 'PE'
-        | 'PH'
-        | 'PL'
-        | 'PT'
-        | 'QA'
-        | 'RO'
-        | 'GB'
-        | 'RU'
-        | 'RW'
-        | 'KN'
-        | 'SM'
-        | 'VC'
-        | 'LC'
-        | 'SV'
-        | 'WS'
-        | 'ST'
-        | 'SN'
-        | 'RS'
-        | 'SC'
-        | 'SL'
-        | 'SG'
-        | 'SK'
-        | 'SI'
-        | 'SO'
-        | 'SD'
-        | 'SS'
-        | 'LK'
-        | 'SE'
-        | 'CH'
-        | 'SR'
-        | 'SY'
-        | 'TJ'
-        | 'TZ'
-        | 'TD'
-        | 'CZ'
-        | 'TH'
-        | 'TL'
-        | 'TG'
-        | 'TO'
-        | 'TT'
-        | 'TN'
-        | 'TM'
-        | 'TR'
-        | 'TV'
-        | 'UA'
-        | 'UY'
-        | 'VU'
-        | 'VE'
-        | 'VN'
-        | 'YE'
-        | 'ZM'
-        | 'ZW'
-      )
-    | null;
-  birthDate?: string | null;
-  contractType?: ('cdi' | 'cdd' | 'interim' | 'apprentissage' | 'stage' | 'sous-traitant') | null;
-  contractEndDate?: string | null;
-  partner?: (number | null) | Partner;
-  displayName?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "client-sites".
- */
-export interface ClientSite {
-  id: number;
-  client: number | PartnerClient;
-  name: string;
-  /**
-   * La référence interne du client.
-   */
-  code: string;
-  address: string;
-  startDate: string;
-  /**
-   * Fin prévisionnelle si la date exacte n'est pas connue.
-   */
-  endDate: string;
-  /**
-   * Découpage interne du chantier. Facultatif.
-   */
-  zone?:
-    | ('zone-1' | 'zone-2' | 'zone-3' | 'zone-4' | 'zone-5' | 'zone-6' | 'zone-7' | 'zone-8' | 'zone-9' | 'zone-10')
-    | null;
-  partner?: (number | null) | Partner;
-  displayName?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "client-vehicles".
- */
-export interface ClientVehicle {
-  id: number;
-  client: number | PartnerClient;
-  brand: string;
-  year: number;
-  plate: string;
-  /**
-   * Échéance du contrat.
-   */
-  insuranceDate: string;
-  /**
-   * Permis nécessaires pour conduire ce véhicule.
-   */
-  licenseTypes: ('b' | 'be' | 'c1' | 'c1e' | 'c' | 'ce' | 'd' | 'de')[];
-  partner?: (number | null) | Partner;
-  displayName?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "client-machines".
- */
-export interface ClientMachine {
-  id: number;
-  client: number | PartnerClient;
-  brand: string;
-  year: number;
-  /**
-   * Plaque si l'engin en a une, sinon n° de série.
-   */
-  serial: string;
-  /**
-   * Échéance du contrat.
-   */
-  insuranceDate: string;
-  /**
-   * Certification nécessaire pour conduire cet engin.
-   */
-  cacesTypes: (
-    | 'r482-a'
-    | 'r482-b1'
-    | 'r482-b2'
-    | 'r482-c1'
-    | 'r482-c2'
-    | 'r482-c3'
-    | 'r482-d'
-    | 'r482-e'
-    | 'r482-f'
-    | 'r482-g'
-    | 'r486-a'
-    | 'r486-b'
-    | 'r486-c'
-    | 'r489-1'
-    | 'r489-3'
-    | 'r489-5'
-    | 'r490'
-  )[];
-  partner?: (number | null) | Partner;
-  displayName?: string | null;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1447,6 +1124,71 @@ export interface Parcour {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * Notes, e-mails, tâches et journal automatique des opportunités.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-activities".
+ */
+export interface ClientActivity {
+  id: number;
+  client: number | PartnerClient;
+  type: 'note' | 'email' | 'tache' | 'systeme';
+  /**
+   * Quand le fait a eu lieu (pas quand il a été saisi).
+   */
+  occurredAt?: string | null;
+  /**
+   * Nom de la tâche, objet de l'e-mail, sujet de l'appel.
+   */
+  title?: string | null;
+  content?: string | null;
+  /**
+   * Ce qu'il faudra faire : appeler, écrire, se voir…
+   */
+  taskKind?: ('a-faire' | 'appel' | 'email' | 'reunion' | 'dejeuner' | 'echeance' | 'linkedin') | null;
+  dueDate?: string | null;
+  /**
+   * Un e-mail part à cette heure-là. Vide = pas de rappel.
+   */
+  reminderAt?: string | null;
+  highPriority?: boolean | null;
+  done?: boolean | null;
+  doneAt?: string | null;
+  reminderSentAt?: string | null;
+  recipients?: string | null;
+  attachments?: (number | Media)[] | null;
+  author?: (number | null) | User;
+  partner?: (number | null) | Partner;
+  displayName?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Messages types réutilisables lors d'un envoi depuis une opportunité. Variables disponibles : {{entreprise}}, {{contact}}, {{prenom}}, {{email}}, {{partenaire}}, {{tarifs}}, {{premier_lundi}}.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "email-templates".
+ */
+export interface EmailTemplate {
+  id: number;
+  /**
+   * Ce qui s'affiche dans la liste de choix. Ex. « Relance sans retour ».
+   */
+  name: string;
+  subject: string;
+  /**
+   * Markdown : **gras**, *italique*, # Titre, - liste. Les variables sont remplacées à l'insertion.
+   */
+  body: string;
+  scope?: ('partenaire' | 'tim') | null;
+  /**
+   * Le modèle n'est proposé que sur les opportunités de ce partenaire.
+   */
+  partner?: (number | null) | Partner;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "missions".
  */
@@ -1588,6 +1330,337 @@ export interface RewardOrder {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-employees".
+ */
+export interface ClientEmployee {
+  id: number;
+  client: number | PartnerClient;
+  /**
+   * Généré automatiquement si laissé vide.
+   */
+  matricule?: string | null;
+  firstName: string;
+  lastName: string;
+  /**
+   * L'entité qui emploie ce salarié (un client peut regrouper plusieurs sociétés).
+   */
+  company: string;
+  /**
+   * Le métier réel — à ne pas confondre avec la priorité (profil de licence).
+   */
+  poste?: string | null;
+  isUser?: boolean | null;
+  /**
+   * Profil de licence — détermine le prix dans le devis.
+   */
+  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon') | null;
+  /**
+   * Requise pour les utilisateurs ; facultative pour les autres salariés.
+   */
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  nationality?:
+    | (
+        | 'FR'
+        | 'AF'
+        | 'ZA'
+        | 'AL'
+        | 'DZ'
+        | 'DE'
+        | 'AD'
+        | 'AO'
+        | 'AG'
+        | 'SA'
+        | 'AR'
+        | 'AM'
+        | 'AU'
+        | 'AT'
+        | 'AZ'
+        | 'BS'
+        | 'BH'
+        | 'BD'
+        | 'BB'
+        | 'BE'
+        | 'BZ'
+        | 'BJ'
+        | 'BT'
+        | 'BY'
+        | 'BO'
+        | 'BA'
+        | 'BW'
+        | 'BR'
+        | 'BN'
+        | 'BG'
+        | 'BF'
+        | 'BI'
+        | 'KH'
+        | 'CM'
+        | 'CA'
+        | 'CV'
+        | 'CL'
+        | 'CN'
+        | 'CY'
+        | 'CO'
+        | 'KM'
+        | 'CG'
+        | 'CD'
+        | 'KP'
+        | 'KR'
+        | 'CR'
+        | 'CI'
+        | 'HR'
+        | 'CU'
+        | 'DK'
+        | 'DJ'
+        | 'DM'
+        | 'EG'
+        | 'AE'
+        | 'EC'
+        | 'ER'
+        | 'ES'
+        | 'EE'
+        | 'SZ'
+        | 'VA'
+        | 'US'
+        | 'ET'
+        | 'FJ'
+        | 'FI'
+        | 'GA'
+        | 'GM'
+        | 'GE'
+        | 'GH'
+        | 'GR'
+        | 'GD'
+        | 'GT'
+        | 'GN'
+        | 'GQ'
+        | 'GW'
+        | 'GY'
+        | 'HT'
+        | 'HN'
+        | 'HU'
+        | 'SB'
+        | 'IN'
+        | 'ID'
+        | 'IQ'
+        | 'IR'
+        | 'IE'
+        | 'IS'
+        | 'IL'
+        | 'IT'
+        | 'JM'
+        | 'JP'
+        | 'JO'
+        | 'KZ'
+        | 'KE'
+        | 'KG'
+        | 'KI'
+        | 'KW'
+        | 'LA'
+        | 'LS'
+        | 'LV'
+        | 'LB'
+        | 'LR'
+        | 'LY'
+        | 'LI'
+        | 'LT'
+        | 'LU'
+        | 'MK'
+        | 'MG'
+        | 'MY'
+        | 'MW'
+        | 'MV'
+        | 'ML'
+        | 'MT'
+        | 'MA'
+        | 'MU'
+        | 'MR'
+        | 'MX'
+        | 'FM'
+        | 'MD'
+        | 'MC'
+        | 'MN'
+        | 'ME'
+        | 'MZ'
+        | 'MM'
+        | 'NA'
+        | 'NR'
+        | 'NP'
+        | 'NI'
+        | 'NE'
+        | 'NG'
+        | 'NO'
+        | 'NZ'
+        | 'OM'
+        | 'UG'
+        | 'UZ'
+        | 'PK'
+        | 'PW'
+        | 'PA'
+        | 'PG'
+        | 'PY'
+        | 'NL'
+        | 'PE'
+        | 'PH'
+        | 'PL'
+        | 'PT'
+        | 'QA'
+        | 'RO'
+        | 'GB'
+        | 'RU'
+        | 'RW'
+        | 'KN'
+        | 'SM'
+        | 'VC'
+        | 'LC'
+        | 'SV'
+        | 'WS'
+        | 'ST'
+        | 'SN'
+        | 'RS'
+        | 'SC'
+        | 'SL'
+        | 'SG'
+        | 'SK'
+        | 'SI'
+        | 'SO'
+        | 'SD'
+        | 'SS'
+        | 'LK'
+        | 'SE'
+        | 'CH'
+        | 'SR'
+        | 'SY'
+        | 'TJ'
+        | 'TZ'
+        | 'TD'
+        | 'CZ'
+        | 'TH'
+        | 'TL'
+        | 'TG'
+        | 'TO'
+        | 'TT'
+        | 'TN'
+        | 'TM'
+        | 'TR'
+        | 'TV'
+        | 'UA'
+        | 'UY'
+        | 'VU'
+        | 'VE'
+        | 'VN'
+        | 'YE'
+        | 'ZM'
+        | 'ZW'
+      )
+    | null;
+  birthDate?: string | null;
+  contractType?: ('cdi' | 'cdd' | 'interim' | 'apprentissage' | 'stage' | 'sous-traitant') | null;
+  contractEndDate?: string | null;
+  partner?: (number | null) | Partner;
+  displayName?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-sites".
+ */
+export interface ClientSite {
+  id: number;
+  client: number | PartnerClient;
+  name: string;
+  /**
+   * La référence interne du client.
+   */
+  code: string;
+  address: string;
+  startDate: string;
+  /**
+   * Fin prévisionnelle si la date exacte n'est pas connue.
+   */
+  endDate: string;
+  /**
+   * Découpage interne du chantier. Facultatif.
+   */
+  zone?:
+    | ('zone-1' | 'zone-2' | 'zone-3' | 'zone-4' | 'zone-5' | 'zone-6' | 'zone-7' | 'zone-8' | 'zone-9' | 'zone-10')
+    | null;
+  partner?: (number | null) | Partner;
+  displayName?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-vehicles".
+ */
+export interface ClientVehicle {
+  id: number;
+  client: number | PartnerClient;
+  brand: string;
+  year: number;
+  plate: string;
+  /**
+   * Échéance du contrat.
+   */
+  insuranceDate: string;
+  /**
+   * Permis nécessaires pour conduire ce véhicule.
+   */
+  licenseTypes: ('b' | 'be' | 'c1' | 'c1e' | 'c' | 'ce' | 'd' | 'de')[];
+  partner?: (number | null) | Partner;
+  displayName?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-machines".
+ */
+export interface ClientMachine {
+  id: number;
+  client: number | PartnerClient;
+  brand: string;
+  year: number;
+  /**
+   * Plaque si l'engin en a une, sinon n° de série.
+   */
+  serial: string;
+  /**
+   * Échéance du contrat.
+   */
+  insuranceDate: string;
+  /**
+   * Certification nécessaire pour conduire cet engin.
+   */
+  cacesTypes: (
+    | 'r482-a'
+    | 'r482-b1'
+    | 'r482-b2'
+    | 'r482-c1'
+    | 'r482-c2'
+    | 'r482-c3'
+    | 'r482-d'
+    | 'r482-e'
+    | 'r482-f'
+    | 'r482-g'
+    | 'r486-a'
+    | 'r486-b'
+    | 'r486-c'
+    | 'r489-1'
+    | 'r489-3'
+    | 'r489-5'
+    | 'r490'
+  )[];
+  partner?: (number | null) | Partner;
+  displayName?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "calendar-connections".
  */
 export interface CalendarConnection {
@@ -1662,6 +1735,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'client-contacts';
         value: number | ClientContact;
+      } | null)
+    | ({
+        relationTo: 'client-activities';
+        value: number | ClientActivity;
+      } | null)
+    | ({
+        relationTo: 'email-templates';
+        value: number | EmailTemplate;
       } | null)
     | ({
         relationTo: 'point-transactions';
@@ -1945,6 +2026,11 @@ export interface PartnersSelect<T extends boolean = true> {
   contractDocument?: T;
   contractAttachments?: T;
   contractNotes?: T;
+  signatureJobTitle?: T;
+  signatureCompany?: T;
+  signaturePhone?: T;
+  signatureWebsite?: T;
+  signaturePhoto?: T;
   scheduling?:
     | T
     | {
@@ -1979,18 +2065,13 @@ export interface PartnersSelect<T extends boolean = true> {
  */
 export interface PartnerClientsSelect<T extends boolean = true> {
   companyName?: T;
-  partner?: T;
-  clientStatus?: T;
-  resiliationDate?: T;
-  raisonSociale?: T;
-  siren?: T;
-  vatNumber?: T;
   email?: T;
-  billingAddress?: T;
-  billingAddressComplement?: T;
-  phone?: T;
-  recipient?: T;
-  billingRemarks?: T;
+  clientStatus?: T;
+  partner?: T;
+  resiliationDate?: T;
+  source?: T;
+  brevoDealId?: T;
+  leadNotes?: T;
   licences?:
     | T
     | {
@@ -2008,16 +2089,21 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   paymentMethod?: T;
   paymentTerms?: T;
   signatureDate?: T;
+  contractStartDate?: T;
   contractDocument?: T;
   logo?: T;
   onboardingStatus?: T;
   onboardingSubmittedAt?: T;
-  employees?: T;
-  sites?: T;
-  vehicles?: T;
-  machines?: T;
   portalAccounts?: T;
   contacts?: T;
+  raisonSociale?: T;
+  siren?: T;
+  vatNumber?: T;
+  billingAddress?: T;
+  billingAddressComplement?: T;
+  phone?: T;
+  recipient?: T;
+  billingRemarks?: T;
   history?:
     | T
     | {
@@ -2055,6 +2141,44 @@ export interface ClientContactsSelect<T extends boolean = true> {
   phone?: T;
   partner?: T;
   displayName?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-activities_select".
+ */
+export interface ClientActivitiesSelect<T extends boolean = true> {
+  client?: T;
+  type?: T;
+  occurredAt?: T;
+  title?: T;
+  content?: T;
+  taskKind?: T;
+  dueDate?: T;
+  reminderAt?: T;
+  highPriority?: T;
+  done?: T;
+  doneAt?: T;
+  reminderSentAt?: T;
+  recipients?: T;
+  attachments?: T;
+  author?: T;
+  partner?: T;
+  displayName?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "email-templates_select".
+ */
+export interface EmailTemplatesSelect<T extends boolean = true> {
+  name?: T;
+  subject?: T;
+  body?: T;
+  scope?: T;
+  partner?: T;
   updatedAt?: T;
   createdAt?: T;
 }

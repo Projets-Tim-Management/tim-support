@@ -29,6 +29,15 @@ export const FONT =
   "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://support.tim-management.co";
+
+/**
+ * Lien vers un écran du back-office, depuis un e-mail.
+ *
+ * Partagé : chaque module qui le redéfinissait repartait de la même variable
+ * d'environnement, avec sa propre valeur de repli — trois copies, trois
+ * occasions de diverger le jour où le domaine change.
+ */
+export const adminUrl = (path: string): string => `${SITE_URL.replace(/\/$/, "")}/admin${path}`;
 const REPLY_ENABLED = Boolean(process.env.REPLY_DOMAIN);
 
 const LOGO_URL =

@@ -36,6 +36,7 @@ import { DocSectionRowLabel as DocSectionRowLabel_67e1bc4d7225aec381db547c4b4a72
 import { FeatureImport as FeatureImport_0cbeb25d32bc0babbecc520b3ac7820e } from '../../../modules/editorial/admin/FeatureImport'
 import { default as default_7e85f5cff101ba7e7585712dd2365fa1 } from '../../../modules/editorial/admin/ParcoursListView'
 import { ContractModelAutofill as ContractModelAutofill_efe650ce4b81695b55d0f3c26a9c1118 } from '../../../modules/partner/admin/ContractModelAutofill'
+import { SignaturePreview as SignaturePreview_a3d02792a93a9df9993e8e3ed30ceea2 } from '../../../modules/partner/admin/SignaturePreview'
 import { PartnerAccessManager as PartnerAccessManager_a9d284710faa2b19d5b2a4bb9cc2406b } from '../../../modules/partner/admin/PartnerAccessManager'
 import { CalendarConnect as CalendarConnect_55aecac0d9432d3f191394aadf330c49 } from '../../../modules/marketing/admin/CalendarConnect'
 import { SchedulingPreview as SchedulingPreview_d0e8bca074a50278bcb0a4901c728235 } from '../../../modules/marketing/admin/SchedulingPreview'
@@ -46,6 +47,7 @@ import { default as default_8a9381e16c061227fc1bf73c50e6e581 } from '../../../mo
 import { InseeLookup as InseeLookup_408c5271613c1beb0676cb0c9b2b5bf9 } from '../../../modules/partner/admin/InseeLookup'
 import { ClientStatusCell as ClientStatusCell_358b486afee2c4532aca3d72ba0365eb } from '../../../modules/partner/admin/ClientStatusCell'
 import { ClientStatusField as ClientStatusField_4cf9c5082e5cc09e6363544e31423ee7 } from '../../../modules/marketing/admin/ClientStatusField'
+import { ClientHistory as ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1 } from '../../../modules/partner/admin/ClientHistory'
 import { LicencesTable as LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338 } from '../../../modules/partner/admin/LicencesTable'
 import { PartnerClientHistory as PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2 } from '../../../modules/partner/admin/PartnerClientHistory'
 import { OnboardingRecap as OnboardingRecap_d713ec8857fdf2ef0b320360e45593af } from '../../../modules/marketing/admin/OnboardingRecap'
@@ -80,6 +82,7 @@ import { Icon as Icon_48a75e37b0630d5b8c8066e180c0e6ef } from '../../../admin/gr
 import { Logo as Logo_88541c286955dbac4d90fb5ed606381c } from '../../../admin/graphics/Logo'
 import { default as default_055834be697654d564715e5f4ed084b8 } from '../../../admin/providers/RoleBodyClass'
 import { default as default_0c7a18af881eb624fa2c205ee8033462 } from '../../../admin/providers/RowClick'
+import { default as default_a0b3dc6cbedf342b789cbfbfb6915cb5 } from '../../../admin/providers/TabIcons'
 import { VercelBlobClientUploadHandler as VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e } from '@payloadcms/storage-vercel-blob/client'
 import { default as default_a8bdfd6ec46ed48bd1e9402d58bf4c34 } from '../../../admin/dashboard/DashboardView'
 import { default as default_6971e0609c24bbf2339323e60b70e021 } from '../../../modules/support/admin/NotificationsView'
@@ -125,6 +128,7 @@ export const importMap = {
   "/modules/editorial/admin/FeatureImport#FeatureImport": FeatureImport_0cbeb25d32bc0babbecc520b3ac7820e,
   "/modules/editorial/admin/ParcoursListView#default": default_7e85f5cff101ba7e7585712dd2365fa1,
   "/modules/partner/admin/ContractModelAutofill#ContractModelAutofill": ContractModelAutofill_efe650ce4b81695b55d0f3c26a9c1118,
+  "/modules/partner/admin/SignaturePreview#SignaturePreview": SignaturePreview_a3d02792a93a9df9993e8e3ed30ceea2,
   "/modules/partner/admin/PartnerAccessManager#PartnerAccessManager": PartnerAccessManager_a9d284710faa2b19d5b2a4bb9cc2406b,
   "/modules/marketing/admin/CalendarConnect#CalendarConnect": CalendarConnect_55aecac0d9432d3f191394aadf330c49,
   "/modules/marketing/admin/SchedulingPreview#SchedulingPreview": SchedulingPreview_d0e8bca074a50278bcb0a4901c728235,
@@ -135,6 +139,7 @@ export const importMap = {
   "/modules/partner/admin/InseeLookup#InseeLookup": InseeLookup_408c5271613c1beb0676cb0c9b2b5bf9,
   "/modules/partner/admin/ClientStatusCell#ClientStatusCell": ClientStatusCell_358b486afee2c4532aca3d72ba0365eb,
   "/modules/marketing/admin/ClientStatusField#ClientStatusField": ClientStatusField_4cf9c5082e5cc09e6363544e31423ee7,
+  "/modules/partner/admin/ClientHistory#ClientHistory": ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1,
   "/modules/partner/admin/LicencesTable#LicencesTable": LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338,
   "/modules/partner/admin/PartnerClientHistory#PartnerClientHistory": PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2,
   "/modules/marketing/admin/OnboardingRecap#OnboardingRecap": OnboardingRecap_d713ec8857fdf2ef0b320360e45593af,
@@ -169,6 +174,7 @@ export const importMap = {
   "/admin/graphics/Logo#Logo": Logo_88541c286955dbac4d90fb5ed606381c,
   "/admin/providers/RoleBodyClass#default": default_055834be697654d564715e5f4ed084b8,
   "/admin/providers/RowClick#default": default_0c7a18af881eb624fa2c205ee8033462,
+  "/admin/providers/TabIcons#default": default_a0b3dc6cbedf342b789cbfbfb6915cb5,
   "@payloadcms/storage-vercel-blob/client#VercelBlobClientUploadHandler": VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e,
   "/admin/dashboard/DashboardView#default": default_a8bdfd6ec46ed48bd1e9402d58bf4c34,
   "/modules/support/admin/NotificationsView#default": default_6971e0609c24bbf2339323e60b70e021,

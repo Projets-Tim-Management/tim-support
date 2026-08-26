@@ -654,7 +654,10 @@ export default function SectionEditor({
         </ul>
       )}
 
-      {!locked && (
+      {/* Mode d'emploi du tableau : conservé pour le CLIENT, qui le découvre, et
+          retiré côté TIM, qui s'en sert tous les jours — la consigne y devenait
+          une ligne de bruit répétée sous chaque tableau. */}
+      {!locked && !admin && (
         <p className="mt-3 text-sm text-muted">
           Saisissez directement dans le tableau. Une ligne s&apos;enregistre quand vous en sortez —
           vous pouvez circuler librement d&apos;une case à l&apos;autre. La dernière ligne, vide, sert

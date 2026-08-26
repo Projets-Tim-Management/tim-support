@@ -17,6 +17,8 @@ import { Features } from "./modules/editorial/collections/Features";
 import { Parcours } from "./modules/editorial/collections/Parcours";
 import { Partners } from "./modules/partner/collections/Partners";
 import { PartnerClients } from "./modules/partner/collections/PartnerClients";
+import { ClientActivities } from "./modules/partner/collections/ClientActivities";
+import { EmailTemplates } from "./modules/partner/collections/EmailTemplates";
 import { ClientContacts } from "./modules/partner/collections/ClientContacts";
 import { PointTransactions } from "./modules/partner/collections/PointTransactions";
 import { Missions } from "./modules/partner/collections/Missions";
@@ -141,6 +143,8 @@ export default buildConfig({
         "/admin/providers/RoleBodyClass#default",
         // Clic sur toute la largeur d'une ligne de liste → ouvre la fiche.
         "/admin/providers/RowClick#default",
+        // Icône devant chaque onglet de fiche (reconnue par son libellé).
+        "/admin/providers/TabIcons#default",
       ],
       graphics: {
         Logo: "/admin/graphics/Logo#Logo",
@@ -186,6 +190,12 @@ export default buildConfig({
       Partners,
       PartnerClients,
       ClientContacts, // caché du menu (admin.hidden) — géré via le join de la fiche client
+      // Historique des opportunités : édité depuis l'onglet « Historique » de la
+      // fiche, mais listable globalement (retrouver ses tâches en cours).
+      // Les deux sont CACHÉES du menu (admin.hidden) : l'historique se gère dans
+      // l'onglet d'une opportunité, les modèles dans le drawer d'envoi.
+      ClientActivities,
+      EmailTemplates,
       PointTransactions,
       // Missions
       Missions,

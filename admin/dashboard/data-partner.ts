@@ -93,7 +93,18 @@ type Doc = Record<string, any>;
  * avec le gris entre les deux, ΔE 8.7. L'ordre du pipeline reste inchangé partout
  * ailleurs (Kanban, onglets, champ) : ici l'ordre n'est que présentationnel.
  */
-const DONUT_ORDER = ["prospect", "en-cours", "en-test", "actif", "archive", "resilie"];
+const DONUT_ORDER = [
+  "nouvelle",
+  "en-qualification",
+  "demo-programmee",
+  "attente-engagement",
+  "attente-longue",
+  "en-test",
+  "actif",
+  "archive",
+  "resilie",
+  "perdue",
+];
 
 /** 1er du mois, en UTC, décalé de `back` mois. */
 function monthStart(back: number): Date {
@@ -174,6 +185,7 @@ export async function getPartnerMetrics(
               clientStatus: true,
               caPaye: true,
               signatureDate: true,
+              contractStartDate: true,
               resiliationDate: true,
               history: true,
             },
@@ -217,7 +229,7 @@ export async function getPartnerMetrics(
   let clientsMetrics: PartnerClientsMetrics | null = null;
 
   if (isMetier) {
-    const actifs = clients.filter((c) => isBillableClient(c.clientStatus));
+    const actifs = clients.filter((c) => isBillableClient(c));
     const caMonthly = actifs.reduce((s, c) => s + (Number(c.caPaye) || 0), 0);
     const commissionRate = Number((partner as Doc | null)?.commissionRate) || 0;
     const since12 = monthStart(11).getTime();

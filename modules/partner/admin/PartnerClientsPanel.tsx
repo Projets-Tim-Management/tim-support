@@ -16,7 +16,7 @@ import { isBillableClient } from "@/modules/partner/lib/pricing";
  * `join` natif (drawer/modal, sans changement de page).
  */
 
-type Client = { caPaye?: number; clientStatus?: string };
+type Client = { caPaye?: number; clientStatus?: string; contractStartDate?: string | null };
 
 export function PartnerClientsPanel() {
   const { id } = useDocumentInfo();
@@ -70,9 +70,10 @@ export function PartnerClientsPanel() {
     );
   }
 
-  // Seuls les clients ACTIFS comptent (voir isBillableClient) : un prospect ou
-  // un client en cours a déjà des licences saisies mais ne paie pas encore.
-  const actifs = clients.filter((c) => isBillableClient(c.clientStatus));
+  // Seules les affaires gagnées AU CONTRAT COMMENCÉ comptent (voir
+  // isBillableClient) : un lead du pipeline a déjà des licences saisies mais ne
+  // paie pas encore, et un contrat signé pour le mois prochain non plus.
+  const actifs = clients.filter((c) => isBillableClient(c));
   const caActif = actifs.reduce((s, c) => s + (c.caPaye ?? 0), 0);
   const commissionMensuelle = round2((caActif * rate) / 100);
 

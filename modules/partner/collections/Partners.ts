@@ -434,6 +434,80 @@ export const Partners: CollectionConfig = {
           ],
         },
 
+        // ─── Signature d'e-mail ────────────────────────────────────────────
+        // Ajoutée automatiquement au bas des messages envoyés depuis une
+        // opportunité. Décrite en CHAMPS et non en HTML : une signature saisie
+        // à la main finit par contenir des polices absentes et des tableaux
+        // cassés sur mobile — et changer un numéro obligerait à rouvrir chaque
+        // modèle d'e-mail.
+        {
+          label: "Signature e-mail",
+          description:
+            "Apparaît au bas des e-mails envoyés depuis une opportunité. Inutile de la recopier dans vos modèles.",
+          fields: [
+            {
+              type: "row",
+              fields: [
+                {
+                  name: "signatureJobTitle",
+                  type: "text",
+                  label: "Fonction",
+                  admin: { width: "50%", placeholder: "Co-fondateur" },
+                },
+                {
+                  name: "signatureCompany",
+                  type: "text",
+                  label: "Entreprise",
+                  admin: {
+                    width: "50%",
+                    placeholder: "TIM – Management",
+                    description: "Affichée à côté de la fonction.",
+                  },
+                },
+              ],
+            },
+            {
+              type: "row",
+              fields: [
+                {
+                  name: "signaturePhone",
+                  type: "text",
+                  label: "Téléphone",
+                  validate: validatePhone,
+                  admin: { width: "50%", placeholder: "06 50 46 75 48" },
+                },
+                {
+                  name: "signatureWebsite",
+                  type: "text",
+                  label: "Site web",
+                  admin: { width: "50%", placeholder: "tim-management.co" },
+                },
+              ],
+            },
+            {
+              name: "signaturePhoto",
+              type: "upload",
+              relationTo: "media",
+              label: "Photo / logo",
+              admin: {
+                description:
+                  "Affichée en rond à gauche de la signature. À défaut, la photo de profil est utilisée.",
+                custom: { accept: "image/*", noun: "une image" },
+                components: { Field: "/admin/fields/DirectUpload#default" },
+              },
+            },
+            {
+              name: "signaturePreview",
+              type: "ui",
+              admin: {
+                components: {
+                  Field: "/modules/partner/admin/SignaturePreview#SignaturePreview",
+                },
+              },
+            },
+          ],
+        },
+
         // ── Accès back-office (tous les partenaires) ────────────────────────
         // Compte de connexion lié à la fiche : l'email = le champ « Email » de la
         // fiche (forcé) ; ici on ne définit que le mot de passe. Provisioning via

@@ -254,7 +254,15 @@ export async function getDashboardData(req: PayloadRequest): Promise<DashboardDa
         .find({
           ...opts,
           collection: "partner-clients",
-          where: { clientStatus: { equals: "actif" } },
+          // Affaires GAGNÉES dont le contrat a déjà commencé — même règle que
+          // `isBillableClient`, transposée en `where` : un contrat qui démarre le
+          // mois prochain ne doit pas gonfler le CA « / mois » d'aujourd'hui.
+          where: {
+            and: [
+              { clientStatus: { equals: "actif" } },
+              { contractStartDate: { less_than_equal: new Date().toISOString() } },
+            ],
+          },
           limit: 8000,
           pagination: false,
           select: { caPaye: true, partner: true },
