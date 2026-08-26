@@ -18,6 +18,7 @@ import {
 import { syncSessionEvent } from "@/modules/marketing/lib/session-calendar";
 import {
   DEFAULT_DURATION_WEEKS,
+  compressLeadOffsets,
   JOURNEY_ACTORS,
   JOURNEY_ANCHORS,
   JOURNEY_PHASES,
@@ -211,10 +212,63 @@ const snapshotSteps: CollectionBeforeChangeHook = async ({ data, originalDoc, re
   // parcours : la règle vit dans journey.ts, où elle est vérifiable.
   const mergedSteps = mergeRunSteps(steps, currentSteps);
 
+  /**
+   * Démarrage plus proche que le délai de préparation : on RESSERRE les étapes
+   * et les envois d'avant-test au lieu de les dater dans le passé.
+   *
+   * Appliqué ici, au plus près de l'écriture : quelle que soit la porte — modal
+   * de démarrage, API, correction d'une date à la main — un parcours ne peut pas
+   * porter d'échéances déjà dépassées. La règle elle-même vit dans journey.ts,
+   * où elle est pure et testée.
+   *
+   * Deux pièges que ce bloc évite :
+   *
+   *  1. Un parcours DÉJÀ LANCÉ dont on repousse la date. Sans réécriture, ses
+   *     étapes gardaient un calendrier resserré alors qu'il y a de nouveau du
+   *     temps devant. On repart donc TOUJOURS des décalages du MODÈLE, jamais
+   *     de ceux déjà stockés — sinon un resserrement s'appliquerait sur un autre,
+   *     et le calendrier se refermerait un peu plus à chaque changement de date.
+   *
+   *  2. Les étapes ne sont réécrites QUE si le modèle a bougé ou si la date a
+   *     changé. Un simple « Enregistrer » ne doit pas retoucher un calendrier
+   *     que quelqu'un a ajusté à la main.
+   */
+  const start = (data?.startDate ?? null) as string | null;
+  const startChanged = Boolean(start) && start !== ((originalDoc?.startDate ?? null) as string | null);
+
+  /** Décalages d'origine, par clé : la seule référence qui ne dérive pas. */
+  const modelOffsets = new Map<string, unknown>();
+  for (const item of [...(journey.steps ?? []), ...(journey.emails ?? [])]) {
+    const k = (item as { key?: string }).key;
+    if (k) modelOffsets.set(k, (item as { offsetDays?: unknown }).offsetDays);
+  }
+
+  const fit = <T extends { key?: unknown; anchor?: unknown; offsetDays?: unknown; [k: string]: unknown }>(
+    items: T[],
+  ): T[] => {
+    if (!startChanged || !start) return items;
+    const fromModel = items.map((item) => {
+      const k = typeof item.key === "string" ? item.key : null;
+      return k && modelOffsets.has(k) ? { ...item, offsetDays: modelOffsets.get(k) } : item;
+    });
+    return compressLeadOffsets(fromModel, start);
+  };
+
+  // Réécriture nécessaire ? Modèle enrichi, ou date de démarrage déplacée.
+  const stepsChanged = !hasSteps || Boolean(mergedSteps) || startChanged;
+  const emailsChanged = !hasEmails || missing.length > 0 || startChanged;
+  // Cast : les trois sources décrivent la même forme, elles ne diffèrent que
+  // sur la nullabilité de `key` (`string | null` côté fusion, `string` côté
+  // modèle). Les unir sans cela ferait échouer l'inférence sur le premier membre.
+  const outSteps = (hasSteps ? (mergedSteps ?? currentSteps) : steps) as RunStep[];
+  const outEmails = (
+    hasEmails ? (missing.length ? [...currentEmails, ...missing] : currentEmails) : emails
+  ) as RunEmail[];
+
   return {
     ...data,
-    ...(hasSteps ? (mergedSteps ? { steps: mergedSteps } : {}) : { steps }),
-    ...(hasEmails ? (missing.length ? { emails: [...currentEmails, ...missing] } : {}) : { emails }),
+    ...(stepsChanged ? { steps: fit(outSteps) } : {}),
+    ...(emailsChanged ? { emails: fit(outEmails) } : {}),
     durationWeeks: data?.durationWeeks ?? originalDoc?.durationWeeks ?? journey.defaultDurationWeeks ?? DEFAULT_DURATION_WEEKS,
   };
 };
