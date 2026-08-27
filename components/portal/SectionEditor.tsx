@@ -513,56 +513,6 @@ export default function SectionEditor({
                               </option>
                             ))}
                           </select>
-                        ) : field.type === "multiselect" ? (
-                          // Plusieurs valeurs dans une case : un menu déroulant
-                          // natif (`<details>`) plutôt qu'une liste multiple, que
-                          // personne ne sait manipuler sans se tromper.
-                          <details className="group relative">
-                            <summary
-                              className={`cursor-pointer list-none py-2 pl-3 pr-7 text-sm ${
-                                invalid ? "bg-danger-bg" : ""
-                              } ${disabled ? "text-muted" : "text-foreground"}`}
-                            >
-                              {((row[field.name] as string[] | undefined) ?? []).length
-                                ? (row[field.name] as string[])
-                                    .map((v) => field.options?.find((o) => o.value === v)?.label ?? v)
-                                    .join(", ")
-                                : "—"}
-                            </summary>
-                            <div className="absolute z-20 mt-1 max-h-56 w-56 overflow-y-auto rounded-md border border-border bg-white p-2 shadow-lg">
-                              {field.options?.map((o) => {
-                                const list = (row[field.name] as string[] | undefined) ?? [];
-                                return (
-                                  <label key={o.value} className="flex items-center gap-2 px-1 py-1 text-sm">
-                                    <input
-                                      type="checkbox"
-                                      checked={list.includes(o.value)}
-                                      disabled={disabled}
-                                      onChange={(e) =>
-                                        setCell(
-                                          _key,
-                                          field.name,
-                                          e.target.checked
-                                            ? [...list, o.value]
-                                            : list.filter((v) => v !== o.value),
-                                        )
-                                      }
-                                    />
-                                    {o.label}
-                                  </label>
-                                );
-                              })}
-                              <button
-                                type="button"
-                                className="mt-1 w-full rounded-md bg-surface px-2 py-1 text-xs font-semibold text-foreground"
-                                onClick={(e) => {
-                                  (e.currentTarget.closest("details") as HTMLDetailsElement).open = false;
-                                }}
-                              >
-                                Fermer
-                              </button>
-                            </div>
-                          </details>
                         ) : field.type === "date" ? (
                           // Saisie TEXTE et non `type="date"` : le champ natif
                           // est segmenté, donc ni copiable ni collable. Ici on

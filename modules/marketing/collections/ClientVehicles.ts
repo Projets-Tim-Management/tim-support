@@ -10,7 +10,7 @@ import {
   setPartnerFromClient,
   yearField,
 } from "@/modules/marketing/collections/clientOwned";
-import { LICENSE_TYPES, isValidPlate, normalizePlate } from "@/modules/marketing/lib/onboarding";
+import { isValidPlate, normalizePlate } from "@/modules/marketing/lib/onboarding";
 
 /**
  * Véhicules d'un client — section « Véhicules » du dossier de démarrage.
@@ -68,13 +68,28 @@ export const ClientVehicles: CollectionConfig = {
       fields: [
         insuranceDateField,
         {
+          /**
+           * Texte LIBRE, et non plus une liste fermée.
+           *
+           * La liste couvrait les permis routiers français (B, C1E, CE…). Elle
+           * laissait donc dehors tout ce qui existe à côté : permis étrangers,
+           * autorisations de conduite internes, mentions particulières. Un
+           * client qui ne trouvait pas son cas ne pouvait pas passer outre — le
+           * champ étant obligatoire, c'est le dossier de démarrage entier qui
+           * restait bloqué (signalé par un client le 27/08/2026).
+           *
+           * Ce champ décrit la réalité du client, pas une nomenclature que nous
+           * lui imposons.
+           */
           name: "licenseTypes",
-          type: "select",
-          hasMany: true,
+          type: "text",
           label: "Type de permis",
           required: true,
-          options: [...LICENSE_TYPES],
-          admin: { width: "75%", description: "Permis nécessaires pour conduire ce véhicule." },
+          admin: {
+            width: "75%",
+            placeholder: "B, C1E",
+            description: "Permis nécessaires pour conduire ce véhicule.",
+          },
         },
       ],
     },

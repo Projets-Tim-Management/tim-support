@@ -10,7 +10,6 @@ import {
   setPartnerFromClient,
   yearField,
 } from "@/modules/marketing/collections/clientOwned";
-import { CACES_TYPES } from "@/modules/marketing/lib/onboarding";
 
 /**
  * Engins d'un client — section « Engins » du dossier de démarrage.
@@ -66,13 +65,18 @@ export const ClientMachines: CollectionConfig = {
       fields: [
         insuranceDateField,
         {
+          // Texte libre, pour la même raison que les permis : la liste des
+          // recommandations CACES ne couvre pas les autorisations de conduite
+          // internes ni les certifications étrangères. Voir ClientVehicles.
           name: "cacesTypes",
-          type: "select",
-          hasMany: true,
+          type: "text",
           label: "Type de CACES",
           required: true,
-          options: [...CACES_TYPES],
-          admin: { width: "75%", description: "Certification nécessaire pour conduire cet engin." },
+          admin: {
+            width: "75%",
+            placeholder: "R482 B1, R489 3",
+            description: "Certification nécessaire pour conduire cet engin.",
+          },
         },
       ],
     },

@@ -1635,7 +1635,7 @@ export interface ClientVehicle {
   /**
    * Permis nécessaires pour conduire ce véhicule.
    */
-  licenseTypes: ('b' | 'be' | 'c1' | 'c1e' | 'c' | 'ce' | 'd' | 'de')[];
+  licenseTypes: string;
   partner?: (number | null) | Partner;
   displayName?: string | null;
   updatedAt: string;
@@ -1661,25 +1661,7 @@ export interface ClientMachine {
   /**
    * Certification nécessaire pour conduire cet engin.
    */
-  cacesTypes: (
-    | 'r482-a'
-    | 'r482-b1'
-    | 'r482-b2'
-    | 'r482-c1'
-    | 'r482-c2'
-    | 'r482-c3'
-    | 'r482-d'
-    | 'r482-e'
-    | 'r482-f'
-    | 'r482-g'
-    | 'r486-a'
-    | 'r486-b'
-    | 'r486-c'
-    | 'r489-1'
-    | 'r489-3'
-    | 'r489-5'
-    | 'r490'
-  )[];
+  cacesTypes: string;
   partner?: (number | null) | Partner;
   displayName?: string | null;
   updatedAt: string;
