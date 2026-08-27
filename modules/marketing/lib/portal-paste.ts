@@ -87,22 +87,6 @@ export const coerceCell = (field: PortalField, raw: string): unknown => {
       );
       return match?.value ?? "";
     }
-    case "multiselect": {
-      if (!text) return [];
-      return text
-        .split(/[;,]/)
-        .map((part) => part.trim())
-        .filter(Boolean)
-        .map((part) => {
-          const match = field.options?.find(
-            (o) =>
-              o.value.toLowerCase() === part.toLowerCase() ||
-              o.label.toLowerCase() === part.toLowerCase(),
-          );
-          return match?.value;
-        })
-        .filter((v): v is string => Boolean(v));
-    }
     default:
       return text;
   }

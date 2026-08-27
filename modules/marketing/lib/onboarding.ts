@@ -37,18 +37,6 @@ export const CONTRACT_TYPES = [
 export const CONTRACT_NEEDS_END_DATE = (value?: string | null): boolean =>
   Boolean(value) && value !== "cdi";
 
-// ─── Véhicules ───────────────────────────────────────────────────────────────
-export const LICENSE_TYPES = [
-  { label: "B — voiture", value: "b" },
-  { label: "BE — voiture + remorque", value: "be" },
-  { label: "C1 — poids lourd léger", value: "c1" },
-  { label: "C1E — C1 + remorque", value: "c1e" },
-  { label: "C — poids lourd", value: "c" },
-  { label: "CE — poids lourd + remorque", value: "ce" },
-  { label: "D — transport en commun", value: "d" },
-  { label: "DE — transport en commun + remorque", value: "de" },
-] as const;
-
 /**
  * Plaque française : 2 lettres, 3 chiffres, 2 lettres. Normalisée en majuscules
  * avec tirets à l'enregistrement, pour que « ab123cd » et « AB-123-CD » soient
@@ -65,32 +53,6 @@ export const normalizePlate = (value?: string | null): string | undefined => {
 
 export const isValidPlate = (value?: string | null): boolean =>
   !value || PLATE_RE.test(normalizePlate(value) ?? "");
-
-// ─── Engins ──────────────────────────────────────────────────────────────────
-/**
- * CACES — recommandations R482 (engins de chantier), R486 (nacelles),
- * R489 (chariots), R490 (grues auxiliaires). Liste volontairement limitée aux
- * catégories réellement rencontrées en BTP.
- */
-export const CACES_TYPES = [
-  { label: "R482 A — compacts", value: "r482-a" },
-  { label: "R482 B1 — pelles > 6 t", value: "r482-b1" },
-  { label: "R482 B2 — engins de forage", value: "r482-b2" },
-  { label: "R482 C1 — chargeuses > 6 t", value: "r482-c1" },
-  { label: "R482 C2 — bouteurs", value: "r482-c2" },
-  { label: "R482 C3 — niveleuses", value: "r482-c3" },
-  { label: "R482 D — compacteurs", value: "r482-d" },
-  { label: "R482 E — tombereaux", value: "r482-e" },
-  { label: "R482 F — chariots de chantier", value: "r482-f" },
-  { label: "R482 G — conduite hors production", value: "r482-g" },
-  { label: "R486 A — nacelles verticales", value: "r486-a" },
-  { label: "R486 B — nacelles multidirectionnelles", value: "r486-b" },
-  { label: "R486 C — hors production", value: "r486-c" },
-  { label: "R489 1A/1B — transpalettes, gerbeurs", value: "r489-1" },
-  { label: "R489 3 — chariots élévateurs frontaux", value: "r489-3" },
-  { label: "R489 5 — chariots à mât rétractable", value: "r489-5" },
-  { label: "R490 — grues de chargement", value: "r490" },
-] as const;
 
 // ─── Statut du dossier ───────────────────────────────────────────────────────
 export const ONBOARDING_STATUSES = [

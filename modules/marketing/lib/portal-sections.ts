@@ -1,10 +1,8 @@
 import { validatePhone } from "@/core/lib/validators";
 import {
-  CACES_TYPES,
   CONTRACT_NEEDS_END_DATE,
   CONTRACT_TYPES,
   LICENCE_PROFILE_OPTIONS,
-  LICENSE_TYPES,
 } from "@/modules/marketing/lib/onboarding";
 import { COUNTRIES, SITE_ZONES } from "@/modules/marketing/lib/reference-lists";
 
@@ -21,7 +19,7 @@ import { COUNTRIES, SITE_ZONES } from "@/modules/marketing/lib/reference-lists";
  * Payload correspondantes.
  */
 
-export type PortalFieldType = "text" | "email" | "tel" | "date" | "number" | "select" | "multiselect" | "checkbox";
+export type PortalFieldType = "text" | "email" | "tel" | "date" | "number" | "select" | "checkbox";
 
 export type PortalField = {
   name: string;
@@ -222,7 +220,7 @@ export const PORTAL_SECTIONS: PortalSection[] = [
       { name: "year", label: "Année", type: "number", required: true, half: true },
       { name: "plate", label: "Immatriculation", type: "text", required: true, half: true, placeholder: "AB-123-CD" },
       { name: "insuranceDate", label: "Date d'assurance", type: "date", required: true, half: true },
-      { name: "licenseTypes", label: "Type de permis", type: "multiselect", options: LICENSE_TYPES, required: true },
+      { name: "licenseTypes", label: "Type de permis", type: "text", required: true, placeholder: "B, C1E" },
     ],
   },
   {
@@ -245,7 +243,7 @@ export const PORTAL_SECTIONS: PortalSection[] = [
         hint: "La plaque si l'engin en a une, sinon le numéro de série.",
       },
       { name: "insuranceDate", label: "Date d'assurance", type: "date", required: true, half: true },
-      { name: "cacesTypes", label: "Type de CACES", type: "multiselect", options: CACES_TYPES, required: true },
+      { name: "cacesTypes", label: "Type de CACES", type: "text", required: true, placeholder: "R482 B1, R489 3" },
     ],
   },
 ];

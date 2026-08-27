@@ -82,10 +82,13 @@ describe("conversion vers le type du champ", () => {
     expect(coerceCell(annee, " 2 019 ")).toBe(2019);
   });
 
-  it("un choix multiple se sépare par virgule ou point-virgule", () => {
+  it("un permis collé reste tel quel : la saisie est libre", () => {
+    // Le champ était une liste fermée de permis français. Un client dont le
+    // permis n'y figurait pas ne pouvait rien saisir, et le champ étant
+    // obligatoire, tout son dossier restait bloqué.
     const permis = field(vehicules, "licenseTypes");
-    const out = coerceCell(permis, `${permis.options![0].label}; ${permis.options![1].label}`);
-    expect(out).toEqual([permis.options![0].value, permis.options![1].value]);
+    expect(coerceCell(permis, "Permis marocain catégorie C")).toBe("Permis marocain catégorie C");
+    expect(coerceCell(permis, "B, C1E")).toBe("B, C1E");
   });
 
   it("une date collée devient une date, pas du texte", () => {
