@@ -1,4 +1,4 @@
-import type { CollectionConfig, Field } from "payload";
+import type { CollectionBeforeChangeHook, CollectionConfig, Field } from "payload";
 
 import { isAdmin, metierScoped } from "@/core/access";
 
@@ -23,6 +23,34 @@ const secret = (name: string): Field =>
     admin: { hidden: true },
   }) as Field;
 
+/**
+ * Un seul agenda peut recevoir les rendez-vous.
+ *
+ * La règle était énoncée dans la documentation et respectée par l'interface,
+ * mais rien ne la faisait tenir en base : la connexion initiale a pu en marquer
+ * deux, et `targetConnection` retenant le premier, les invitations sont parties
+ * du mauvais agenda pendant des semaines sans que rien ne le signale.
+ *
+ * En cas de conflit, c'est le choix le PLUS RÉCENT qui gagne : celui qui vient
+ * d'être coché est forcément l'intention de l'utilisateur, l'autre est un
+ * reliquat.
+ */
+const singleTarget: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
+  const calendars = data?.calendars as { calendarId?: string; target?: boolean }[] | undefined;
+  if (!Array.isArray(calendars)) return data;
+  const targets = calendars.filter((c) => c?.target);
+  if (targets.length <= 1) return data;
+
+  const before = new Set(
+    ((originalDoc?.calendars ?? []) as { calendarId?: string; target?: boolean }[])
+      .filter((c) => c?.target)
+      .map((c) => c.calendarId),
+  );
+  const winner = targets.find((c) => !before.has(c.calendarId)) ?? targets[0];
+  for (const c of calendars) c.target = c === winner;
+  return data;
+};
+
 export const CalendarConnections: CollectionConfig = {
   slug: "calendar-connections",
   labels: { singular: "Agenda connecté", plural: "Agendas connectés" },
@@ -33,6 +61,7 @@ export const CalendarConnections: CollectionConfig = {
     hidden: true,
   },
   disableDuplicate: true,
+  hooks: { beforeChange: [singleTarget] },
   access: {
     // Le partenaire voit SES connexions ; la création passe par le flux OAuth
     // (route serveur, en overrideAccess), jamais par un POST direct.
@@ -89,6 +118,10 @@ export const CalendarConnections: CollectionConfig = {
           type: "checkbox",
           label: "Reçoit les rendez-vous",
           defaultValue: false,
+          admin: {
+            description:
+              "Un seul agenda, celui d'où partiront les invitations : c'est son nom que le client verra comme organisateur.",
+          },
         },
       ],
     },

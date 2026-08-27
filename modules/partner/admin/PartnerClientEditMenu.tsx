@@ -9,9 +9,10 @@ import { ARCHIVE_MODAL_SLUG } from "./ArchiveClientModal";
 /**
  * Item « Archiver / Désarchiver » du menu 3-points natif (editMenuItems).
  *
- * Archiver arrête l'abonnement mensuel → il faut une DATE DE FIN DE CONTRAT
- * (`resiliationDate`). Si elle est déjà renseignée, on archive directement ;
- * sinon on ouvre un modal de confirmation qui la demande (voir ArchiveClientModal).
+ * Archiver arrête l'abonnement mensuel : il faut une DATE DE FIN DE CONTRAT et,
+ * depuis l'ajout du motif obligatoire, la RAISON du départ. L'archivage passe
+ * donc TOUJOURS par le modal de clôture (voir ArchiveClientModal) — archiver
+ * d'un clic produirait un refus du serveur que personne ne saurait expliquer.
  * Désarchiver efface la date de fin et rend la fiche à l'état d'où elle vient :
  * « Gagnée » si un contrat avait commencé, sinon retour dans le pipeline. Une
  * opportunité archivée avant d'avoir signé n'a jamais eu de contrat — la
@@ -29,7 +30,6 @@ export function PartnerClientEditMenu() {
   const { submit } = useForm();
   const { openModal } = useModal();
   const status = useField<string>({ path: "clientStatus" });
-  const resiliation = useField<string>({ path: "resiliationDate" });
   const contractStart = useField<string>({ path: "contractStartDate" });
 
   if (!id) return null; // uniquement sur un client déjà enregistré
@@ -53,11 +53,7 @@ export function PartnerClientEditMenu() {
       void doSubmit(contractStart.value ? "actif" : "en-qualification", { resiliationDate: null });
       return;
     }
-    if (resiliation.value) {
-      void doSubmit("archive"); // date de fin déjà renseignée → archivage direct
-    } else {
-      openModal(ARCHIVE_MODAL_SLUG); // sinon → confirmation + saisie de la date
-    }
+    openModal(ARCHIVE_MODAL_SLUG);
   };
 
   return (

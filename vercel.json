@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/journey-emails",
-      "schedule": "0 7 * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/brevo-leads",
@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/task-digest",
       "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/cron/calendar-health",
+      "schedule": "15 7 * * *"
     }
   ]
 }

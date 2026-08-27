@@ -40,6 +40,7 @@ import * as migration_20260825_193258_add_email_templates from './20260825_19325
 import * as migration_20260825_200521_add_partner_signature from './20260825_200521_add_partner_signature';
 import * as migration_20260825_202137_add_template_scope from './20260825_202137_add_template_scope';
 import * as migration_20260825_202444_add_activity_attachments from './20260825_202444_add_activity_attachments';
+import * as migration_20260827_162151_add_loss_reason from './20260827_162151_add_loss_reason';
 
 export const migrations = [
   {
@@ -250,6 +251,11 @@ export const migrations = [
   {
     up: migration_20260825_202444_add_activity_attachments.up,
     down: migration_20260825_202444_add_activity_attachments.down,
-    name: '20260825_202444_add_activity_attachments'
+    name: '20260825_202444_add_activity_attachments',
+  },
+  {
+    up: migration_20260827_162151_add_loss_reason.up,
+    down: migration_20260827_162151_add_loss_reason.down,
+    name: '20260827_162151_add_loss_reason'
   },
 ];

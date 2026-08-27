@@ -23,6 +23,8 @@ import {
 } from "@/modules/partner/lib/clientStatus";
 import { round2 } from "@/modules/partner/lib/format";
 import { requireContractStart } from "@/modules/partner/hooks/requireContractStart";
+import { requireLossReason } from "@/modules/partner/hooks/requireLossReason";
+import { LOSS_REASON_OPTIONS, needsLossReason } from "@/modules/partner/lib/lossReason";
 import { journalEntries, logActivity } from "@/modules/partner/lib/journal";
 import {
   computeClientCA,
@@ -421,6 +423,7 @@ export const PartnerClients: CollectionConfig = {
     beforeChange: [
       requireTestSchedule,
       requireContractStart,
+      requireLossReason,
       enforcePartnerField(),
       setStatusRank,
       computeCA,
@@ -533,6 +536,32 @@ export const PartnerClients: CollectionConfig = {
         if (own != null && !hasAdminRole(req?.user)) return own;
         const p = req?.searchParams?.get?.("partner");
         return p ? p : undefined;
+      },
+    },
+    {
+      // ── Pourquoi ça s'arrête ─────────────────────────────────────────────
+      // Renseigné au moment du geste (modal), modifiable ensuite. Sans motif,
+      // une affaire perdue ne dit rien : on constate un chiffre qui baisse sans
+      // savoir quoi corriger.
+      name: "lossReason",
+      type: "select",
+      label: "Motif",
+      options: LOSS_REASON_OPTIONS,
+      index: true,
+      admin: {
+        position: "sidebar",
+        condition: (data) => needsLossReason(data?.clientStatus),
+        description: "Pourquoi l'affaire s'est arrêtée.",
+      },
+    },
+    {
+      name: "lossReasonDetail",
+      type: "textarea",
+      label: "Précision",
+      admin: {
+        position: "sidebar",
+        condition: (data) => needsLossReason(data?.clientStatus),
+        description: "Facultatif — ce que le motif ne dit pas.",
       },
     },
     {
