@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 
 import { readState } from "@/core/lib/secrets";
 import { payloadClient } from "@/core/payload-client";
-import { getProvider, redirectUri, tokenFields } from "@/modules/marketing/lib/calendar";
+import {
+  getProvider,
+  redirectUri,
+  targetCalendarIndex,
+  tokenFields,
+} from "@/modules/marketing/lib/calendar";
 
 /**
  * GET /api/calendar/callback — retour du consentement.
@@ -61,11 +66,12 @@ export async function GET(req: Request) {
     // Le premier agenda connecté reçoit les rendez-vous par défaut : sans cible,
     // aucun événement ne serait créé et le partenaire ne comprendrait pas pourquoi.
     const isFirst = !previous;
+    const chosen = isFirst ? targetCalendarIndex(calendars) : -1;
     const rows = calendars.map((c, i) => ({
       calendarId: c.id,
       name: c.name,
       busy: true,
-      target: isFirst && (c.primary || i === 0),
+      target: i === chosen,
     }));
 
     const identity = {

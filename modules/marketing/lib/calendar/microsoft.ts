@@ -26,9 +26,21 @@ const API = "https://graph.microsoft.com/v1.0";
 
 const SCOPES = ["offline_access", "openid", "email", "Calendars.ReadWrite"];
 
+/**
+ * Délai maximal d'un appel à l'agenda.
+ *
+ * `fetch` n'expire pas tout seul : une requête qui reste sans réponse suspend
+ * l'enregistrement qui l'a déclenchée, sans jamais échouer. Douze secondes,
+ * c'est très au-delà d'un appel normal (quelques centaines de millisecondes) et
+ * très en deçà du seuil où l'utilisateur croit l'application bloquée.
+ */
+const CALL_TIMEOUT_MS = 12_000;
+
 async function api<T>(accessToken: string, path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     ...init,
+    // Après `...init` : le délai ne doit pas pouvoir être écrasé par l'appelant.
+    signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
@@ -226,6 +238,7 @@ export const microsoftProvider: CalendarProvider = {
 
   async deleteEvent(accessToken, _calendarId, eventId): Promise<void> {
     const res = await fetch(`${API}/me/events/${encodeURIComponent(eventId)}`, {
+    signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
       method: "DELETE",
       headers: { Authorization: `Bearer ${accessToken}` },
     });

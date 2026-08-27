@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Payload } from "payload";
 
 import { accessTokenFor, getProvider, targetConnection } from "@/modules/marketing/lib/calendar";
@@ -71,6 +72,23 @@ async function companyName(payload: Payload, clientId: number | string): Promise
   return (doc as { companyName?: string } | null)?.companyName;
 }
 
+/**
+ * Écrit le résultat d'une synchronisation sur le parcours.
+ *
+ * Deux appelants — le hook du parcours et le bouton « Mettre à l'agenda » —
+ * écrivaient les mêmes deux champs, chacun avec sa règle. L'un ne touchait au
+ * champ que s'il était renseigné, l'autre traduisait « inconnu » en « vide » :
+ * la même réponse pouvait donc, selon le chemin, conserver ou EFFACER un
+ * identifiant d'événement valide.
+ *
+ * `undefined` veut dire « je n'en sais rien, n'y touche pas » ; `null` veut dire
+ * « il n'y en a plus ». La différence est écrite une fois, ici.
+ */
+export const sessionSyncPatch = (result: SessionSyncResult): Record<string, unknown> => ({
+  ...(result.sessionEventId !== undefined ? { sessionEventId: result.sessionEventId } : {}),
+  ...(result.sessionLink !== undefined ? { sessionLink: result.sessionLink } : {}),
+});
+
 export async function syncSessionEvent(
   payload: Payload,
   run: Run,
@@ -86,12 +104,33 @@ export async function syncSessionEvent(
   if (!changed && (!at || eventId)) return NOTHING;
   if (!partnerId) return NOTHING;
 
+  /**
+   * Chaque abandon est DIT.
+   *
+   * Ces trois sorties étaient muettes : un créneau réservé sans lien de visio ne
+   * laissait aucune trace, ni dans l'interface ni dans les journaux. Impossible
+   * de savoir, après coup, s'il manquait un agenda, un agenda désigné ou un
+   * jeton valide — donc impossible de le réparer.
+   */
   const target = await targetConnection(payload, partnerId);
-  if (!target) return NOTHING; // aucun agenda désigné : le champ reste manuel
+  if (!target) {
+    payload.logger.warn(
+      `[agenda] parcours ${run.id} : créneau enregistré sans événement — aucun agenda connecté ` +
+        `ou aucun agenda désigné comme cible pour le partenaire ${partnerId}.`,
+    );
+    return NOTHING;
+  }
 
   const provider = getProvider(target.connection.provider);
   const token = provider ? await accessTokenFor(payload, target.connection) : null;
-  if (!provider || !token) return NOTHING;
+  if (!provider || !token) {
+    payload.logger.warn(
+      `[agenda] parcours ${run.id} : créneau enregistré sans événement — connexion ` +
+        `${target.connection.id} (${target.connection.provider}) inutilisable, jeton non renouvelable. ` +
+        `Le partenaire doit reconnecter son agenda.`,
+    );
+    return NOTHING;
+  }
 
   // ── Annulation ────────────────────────────────────────────────────────────
   if (!at) {
@@ -144,17 +183,56 @@ export async function syncSessionEvent(
     ],
     online,
     location: run.sessionLocation ?? undefined,
-    // Unique par parcours ET par créneau : réutiliser l'identifiant d'une
-    // demande de conférence existante casse les accès des participants.
-    requestId: `run-${run.id}-${Date.parse(at)}`,
+    /**
+     * Identifiant de demande de conférence, NEUF à chaque création.
+     *
+     * Il était dérivé du parcours et du créneau, donc identique d'une fois sur
+     * l'autre. Google traite deux demandes de même identifiant comme une seule :
+     * recréer un événement sur le même créneau — après une suppression, ou après
+     * un événement introuvable — pouvait rendre la conférence détruite, c'est-à-
+     * dire un lien Meet mort transmis au client.
+     *
+     * Le déterminisme servait à ne pas créer deux conférences pour un même
+     * rendez-vous. Ce rôle est désormais tenu par `findEvent`, qui retrouve
+     * l'événement réel au lieu de parier sur un identifiant.
+     */
+    requestId: `run-${run.id}-${randomUUID()}`,
+    // Stable sur toute la vie du parcours, à la différence de `requestId` :
+    // c'est ce qui permet de retrouver l'événement même après un report.
+    runKey: `run-${run.id}`,
   };
 
+  /**
+   * Avant de créer, on VÉRIFIE qu'on n'a pas déjà créé.
+   *
+   * Créer l'événement et enregistrer son identifiant sont deux gestes séparés :
+   * entre les deux, le processus peut mourir (serveur redémarré, requête
+   * interrompue). L'événement existe alors chez le fournisseur sans que TIM le
+   * sache, et l'essai suivant en fabrique un second — deux invitations pour le
+   * même rendez-vous, deux liens de visio, chez le client. Vu en vrai le
+   * 27/08/2026 sur le parcours Frapose.
+   *
+   * On adopte l'orphelin plutôt que d'en créer un jumeau : la suite le met à
+   * jour, donc l'horaire et les invités redeviennent justes.
+   */
+  let known = eventId;
+  if (!known && provider.findEvent) {
+    const orphan = await provider.findEvent(token, target.calendarId, input.runKey).catch(() => null);
+    if (orphan) {
+      known = orphan.eventId;
+      payload.logger.warn(
+        `[agenda] parcours ${run.id} : événement ${orphan.eventId} retrouvé dans l'agenda alors ` +
+          `qu'il n'était pas enregistré. Adopté au lieu d'en créer un doublon.`,
+      );
+    }
+  }
+
   try {
-    const result = eventId
-      ? await provider.updateEvent(token, eventId, input)
+    const result = known
+      ? await provider.updateEvent(token, known, input)
       : await provider.createEvent(token, input);
     payload.logger.info(
-      `[agenda] événement du parcours ${run.id} ${eventId ? "déplacé" : "créé"}${
+      `[agenda] événement du parcours ${run.id} ${known ? "déplacé" : "créé"}${
         result.meetingUrl ? " (lien de visio obtenu)" : ""
       }.`,
     );
@@ -163,14 +241,32 @@ export async function syncSessionEvent(
       // Sur place : pas de lien à afficher, et un lien résiduel enverrait le
       // client en visio alors qu'on l'attend sur le chantier.
       sessionLink: online ? (result.meetingUrl ?? null) : null,
-      action: eventId ? "updated" : "created",
+      action: known ? "updated" : "created",
     };
   } catch (err) {
     payload.logger.error(`[agenda] mise à jour de l'événement échouée : ${err}`);
-    // L'événement a disparu de l'agenda côté fournisseur : on oublie son
-    // identifiant, sinon toutes les tentatives suivantes échoueraient dessus.
-    if (eventId && /\(40[34]\)|\(410\)/.test(String(err))) {
-      return { sessionEventId: null, action: "none" };
+    /**
+     * L'événement visé n'existe plus là où on le cherchait — effacé à la main,
+     * ou déplacé sur un autre agenda. Oublier son identifiant ne suffit pas :
+     * le créneau resterait sans événement jusqu'au prochain enregistrement, et
+     * personne ne saurait qu'il faut en refaire un. On en recrée un tout de
+     * suite, dans le même passage.
+     */
+    if (known && /\(40[34]\)|\(410\)/.test(String(err))) {
+      try {
+        const fresh = await provider.createEvent(token, input);
+        payload.logger.warn(
+          `[agenda] parcours ${run.id} : événement ${known} introuvable, remplacé par ${fresh.eventId}.`,
+        );
+        return {
+          sessionEventId: fresh.eventId,
+          sessionLink: online ? (fresh.meetingUrl ?? null) : null,
+          action: "created",
+        };
+      } catch (again) {
+        payload.logger.error(`[agenda] recréation de l'événement échouée : ${again}`);
+        return { sessionEventId: null, action: "none" };
+      }
     }
     return NOTHING;
   }

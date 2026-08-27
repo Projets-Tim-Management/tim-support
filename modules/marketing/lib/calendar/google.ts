@@ -31,9 +31,21 @@ const SCOPES = [
   "email",
 ];
 
+/**
+ * Délai maximal d'un appel à l'agenda.
+ *
+ * `fetch` n'expire pas tout seul : une requête qui reste sans réponse suspend
+ * l'enregistrement qui l'a déclenchée, sans jamais échouer. Douze secondes,
+ * c'est très au-delà d'un appel normal (quelques centaines de millisecondes) et
+ * très en deçà du seuil où l'utilisateur croit l'application bloquée.
+ */
+const CALL_TIMEOUT_MS = 12_000;
+
 async function api<T>(accessToken: string, path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     ...init,
+    // Après `...init` : le délai ne doit pas pouvoir être écrasé par l'appelant.
+    signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
@@ -67,6 +79,22 @@ const toTokens = (body: Record<string, unknown>): OAuthTokens => ({
   refreshToken: typeof body.refresh_token === "string" ? body.refresh_token : undefined,
   expiresAt: Date.now() + Number(body.expires_in ?? 3600) * 1000,
   accountEmail: emailFromIdToken(body.id_token),
+});
+
+/**
+ * Corps commun d'un événement : ce que création et déplacement écrivent tous
+ * les deux à l'identique. Seule la conférence les distingue — l'une la demande,
+ * l'autre se garde bien d'y toucher.
+ */
+const eventBody = (input: EventInput): Record<string, unknown> => ({
+  summary: input.summary,
+  description: input.description,
+  start: { dateTime: input.start },
+  end: { dateTime: input.end },
+  attendees: input.attendees.map((email) => ({ email })),
+  // Marque de rattachement au parcours : invisible du client, cherchable par
+  // l'API (voir `findEvent`).
+  ...(input.runKey ? { extendedProperties: { private: { timRun: input.runKey } } } : {}),
 });
 
 export const googleProvider: CalendarProvider = {
@@ -141,13 +169,7 @@ export const googleProvider: CalendarProvider = {
   },
 
   async createEvent(accessToken, input: EventInput): Promise<CreatedEvent> {
-    const body: Record<string, unknown> = {
-      summary: input.summary,
-      description: input.description,
-      start: { dateTime: input.start },
-      end: { dateTime: input.end },
-      attendees: input.attendees.map((email) => ({ email })),
-    };
+    const body = eventBody(input);
 
     if (input.online) {
       // `requestId` unique par événement : réutiliser une conférence existante
@@ -192,13 +214,7 @@ export const googleProvider: CalendarProvider = {
     // alors la conférence existante. Un PUT l'effacerait, et le lien Meet déjà
     // envoyé au client cesserait de fonctionner — le pire résultat possible pour
     // un simple report d'horaire.
-    const body: Record<string, unknown> = {
-      summary: input.summary,
-      description: input.description,
-      start: { dateTime: input.start },
-      end: { dateTime: input.end },
-      attendees: input.attendees.map((email) => ({ email })),
-    };
+    const body = eventBody(input);
 
     // Passage visio → sur place : la conférence n'a plus lieu d'être, et la
     // laisser inviterait le client à s'y connecter au lieu de se déplacer.
@@ -246,10 +262,28 @@ export const googleProvider: CalendarProvider = {
     return { eventId: updated.id, meetingUrl, htmlLink: updated.htmlLink };
   },
 
+  async findEvent(accessToken, calendarId, runKey): Promise<CreatedEvent | null> {
+    const path =
+      `/calendars/${encodeURIComponent(calendarId)}/events` +
+      `?privateExtendedProperty=${encodeURIComponent(`timRun=${runKey}`)}` +
+      `&singleEvents=true&showDeleted=false&maxResults=5`;
+    // Un échec de recherche ne doit pas bloquer la suite : on retombe alors sur
+    // le comportement d'avant, création simple.
+    const res = await api<{
+      items?: { id: string; status?: string; hangoutLink?: string; htmlLink?: string }[];
+    }>(accessToken, path).catch(() => null);
+    const found = res?.items?.find((e) => e.status !== "cancelled");
+    return found ? { eventId: found.id, meetingUrl: found.hangoutLink, htmlLink: found.htmlLink } : null;
+  },
+
   async deleteEvent(accessToken, calendarId, eventId): Promise<void> {
     const res = await fetch(
       `${API}/calendars/${encodeURIComponent(calendarId)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`,
-      { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } },
+      {
+        signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
     );
     // 204 attendu ; 404/410 = déjà supprimé, ce qui est le résultat visé.
     if (res.ok || GONE.has(res.status)) return;

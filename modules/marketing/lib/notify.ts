@@ -40,7 +40,7 @@ export type BuiltEmail = { subject: string; text: string; html: string };
  * Comparaison en minuscules et sans espaces : deux comptes distincts écrits
  * « Jean@… » et « jean@… » sont la même boîte aux lettres.
  */
-async function adminEmails(payload: Payload): Promise<string[]> {
+export async function adminEmails(payload: Payload): Promise<string[]> {
   const res = await payload.find({
     collection: "users",
     where: { roles: { in: [ROLES.admin, ROLES.superAdmin] } },

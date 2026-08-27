@@ -1753,15 +1753,28 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
   font-size: 0.76rem;
   color: var(--tim-foreground);
 }
-.tim-kanban__task-ico {
+/* Pastille de NATURE : icône + mot sur fond teinté (couleurs posées en ligne
+   depuis `taskKindMeta`). Elle porte la couleur ; le nom de la tâche reste
+   neutre à côté — teinter tout la ligne rendait les cartes tapageuses, teinter
+   la seule icône laissait le mot en gris. */
+.tim-kanban__task-kind {
   flex: 0 0 auto;
   display: inline-flex;
-  color: var(--tim-amber);
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
-.tim-kanban__task-ico svg {
-  width: 13px;
-  height: 13px;
+.tim-kanban__task-kind svg {
+  width: 11px;
+  height: 11px;
 }
+/* Pastille colorée selon la NATURE de la tâche (appel, e-mail, réunion…) : la
+   couleur est posée en ligne depuis `taskKindMeta`, une seule table partagée
+   avec l'historique. Le fond teinté la détache du texte de la carte. */
 /* Le nom se tronque, l'échéance jamais : c'est elle qui dit s'il faut agir. */
 .tim-kanban__task-title {
   flex: 1 1 auto;
@@ -1774,11 +1787,13 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
   margin-right: 0.2rem;
   color: var(--tim-red);
 }
+/* L'échéance dit QUAND, la teinte dit QUOI : deux axes, deux codes. Fond blanc
+   pour rester lisible sur n'importe quelle teinte de ligne. */
 .tim-kanban__task-due {
   flex: 0 0 auto;
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
-  background: var(--tim-surface);
+  background: var(--tim-white);
   font-size: 0.7rem;
   font-weight: 800;
   color: var(--tim-muted);
@@ -1789,7 +1804,10 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
   color: var(--tim-red);
 }
 .tim-kanban__task--more {
+  padding: 0;
+  background: none;
   color: var(--tim-muted);
+  font-weight: 500;
   font-size: 0.72rem;
 }
 
@@ -1893,4 +1911,197 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
 }
 .tim-kanban__search-clear:hover {
   color: var(--tim-foreground);
+}
+
+/* ─── Motif de clôture (LossReasonModal) ─────────────────────────────────────
+   Les motifs sont des PASTILLES et non une liste déroulante : dix choix tiennent
+   à l'écran, on les compare d'un regard au lieu de les dérouler un par un. */
+.tim-loss__reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 1rem;
+}
+.tim-loss__reason {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 999px;
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.tim-loss__reason:hover {
+  background: var(--tim-surface);
+}
+.tim-loss__reason.is-on {
+  background: var(--tim-primary);
+  border-color: var(--tim-primary);
+  color: var(--tim-white);
+}
+/* Règle propre à l'état sélectionné : `:hover` sur la classe de base
+   l'emporterait sinon, et la pastille deviendrait blanche sur blanc. */
+.tim-loss__reason.is-on:hover {
+  background: var(--tim-primary-dark);
+  border-color: var(--tim-primary-dark);
+  color: var(--tim-white);
+}
+.tim-loss__opt {
+  font-weight: 500;
+  color: var(--tim-muted);
+}
+.tim-loss__detail {
+  margin-bottom: 1rem;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.5;
+}
+.tim-loss__error {
+  margin: 0.6rem 0 0;
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+  font-size: 0.83rem;
+  font-weight: 600;
+}
+
+/* ─── Avancement d'une phase de test sur une carte du Kanban ─────────────────
+   L'étape en cours vit dans une INFOBULLE : sur une carte, son libellé prenait
+   une ligne entière pour une information qu'on ne consulte qu'occasionnellement.
+   Ce qui reste visible est ce qui déclenche une action — l'attente côté
+   partenaire, et si elle est levée. */
+.tim-kanban__run {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--tim-border);
+  font-size: 0.72rem;
+}
+/* Gris : c'est un complément d'information, pas un signal. Ce qui doit attirer
+   l'œil sur cette ligne, c'est l'attente côté partenaire, juste à côté. */
+.tim-kanban__run-info {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  background: var(--tim-surface);
+  border: 1px solid var(--tim-border);
+  color: var(--tim-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  font-style: italic;
+  cursor: help;
+}
+.tim-kanban__run-info:hover,
+.tim-kanban__run-info:focus-visible {
+  background: var(--tim-elevation-100, var(--tim-border));
+  color: var(--tim-foreground);
+  outline: none;
+}
+
+/* Infobulle rendue par PORTAIL (coordonnées d'écran) : dans la carte, le
+   défilement vertical de la colonne l'aurait coupée. Elle apparaît AU SURVOL,
+   sans le délai d'une à deux secondes de l'attribut `title` natif. */
+.tim-kanban__tip {
+  position: fixed;
+  z-index: 260;
+  transform: translate(-50%, calc(-100% - 8px));
+  max-width: 20rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-tooltip-bg);
+  color: var(--tim-tooltip-text);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  font-weight: 600;
+  pointer-events: none;
+  box-shadow: 0 6px 18px -6px rgba(0, 0, 0, 0.45);
+}
+/* Attente côté partenaire. Rouge quand c'est LUI qui bloque le parcours,
+   ambre quand son tour viendra plus loin : deux urgences différentes. */
+.tim-kanban__run-todo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+  font-weight: 800;
+  white-space: nowrap;
+}
+.tim-kanban__run-todo.is-blocking {
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+}
+.tim-kanban__run-done {
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--tim-green-bg);
+  color: var(--tim-green);
+  font-weight: 800;
+  white-space: nowrap;
+}
+.tim-kanban__run-count {
+  font-weight: 700;
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Rendez-vous de prise en main, sur la carte ─────────────────────────────
+   Une date à laquelle quelqu'un doit être présent : elle ne peut pas vivre
+   uniquement dans la fiche du parcours, trois clics plus loin. */
+.tim-kanban__session {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.45rem;
+  border-radius: 5px;
+  background: var(--tim-indigo-bg);
+  font-size: 0.74rem;
+}
+.tim-kanban__session-when {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 800;
+  color: var(--tim-indigo);
+  text-transform: capitalize;
+}
+.tim-kanban__session-link {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--tim-white);
+  color: var(--tim-indigo);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+.tim-kanban__session-link:hover {
+  text-decoration: underline;
+}
+/* Visio sans lien : ce n'est pas un détail — le jour venu, personne ne sait où
+   se connecter. On le signale là où la date s'affiche. */
+.tim-kanban__session-warn {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: help;
+  white-space: nowrap;
 }

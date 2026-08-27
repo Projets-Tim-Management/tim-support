@@ -253,7 +253,7 @@ export interface JourneyRun {
    */
   sessionMode?: ('visio' | 'sur-place') | null;
   /**
-   * Créé automatiquement (Google Meet ou Teams) au moment où le client réserve son créneau depuis son espace, si l'agenda du partenaire est connecté. Tant qu'aucun créneau n'est réservé, ce champ reste vide — vous pouvez y coller un lien à la main.
+   * Créé avec l'événement d'agenda, quand le client réserve son créneau. Modifiable à la main.
    */
   sessionLink?: string | null;
   /**
@@ -659,6 +659,32 @@ export interface PartnerClient {
       )
     | null;
   partner: number | Partner;
+  /**
+   * Pourquoi l'affaire s'est arrêtée.
+   */
+  lossReason?:
+    | (
+        | 'prix'
+        | 'fonctionnalites'
+        | 'concurrent'
+        | 'budget'
+        | 'cessation'
+        | 'autre'
+        | 'sans-reponse'
+        | 'pas-le-moment'
+        | 'besoin-different'
+        | 'solution-interne'
+        | 'test-non-concluant'
+        | 'peu-utilise'
+        | 'complexite'
+        | 'support'
+        | 'reorganisation'
+      )
+    | null;
+  /**
+   * Facultatif — ce que le motif ne dit pas.
+   */
+  lossReasonDetail?: string | null;
   /**
    * La commission du partenaire s'arrête à cette date.
    */
@@ -1673,6 +1699,9 @@ export interface CalendarConnection {
         calendarId: string;
         name?: string | null;
         busy?: boolean | null;
+        /**
+         * Un seul agenda, celui d'où partiront les invitations : c'est son nom que le client verra comme organisateur.
+         */
         target?: boolean | null;
         id?: string | null;
       }[]
@@ -2068,6 +2097,8 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   email?: T;
   clientStatus?: T;
   partner?: T;
+  lossReason?: T;
+  lossReasonDetail?: T;
   resiliationDate?: T;
   source?: T;
   brevoDealId?: T;

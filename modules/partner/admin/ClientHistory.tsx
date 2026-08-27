@@ -9,7 +9,13 @@ import {
   type DraftKind,
 } from "@/modules/partner/admin/ActivityDrawer";
 import { ActivityIcon } from "@/modules/partner/admin/ActivityIcons";
-import { ACTIVITY_KINDS, MANUAL_KINDS, activityKind, taskKindLabel } from "@/modules/partner/lib/activity";
+import {
+  ACTIVITY_KINDS,
+  MANUAL_KINDS,
+  activityKind,
+  taskKindLabel,
+  taskKindMeta,
+} from "@/modules/partner/lib/activity";
 import { PARIS_TZ, dayKey } from "@/core/lib/dates";
 import { firstStartableMonday, leadDaysOf } from "@/modules/marketing/lib/journey";
 import { tarifsMarkdown } from "@/modules/partner/lib/pricing";
@@ -493,7 +499,11 @@ export function ClientHistory() {
             {tasks.map((t) => {
               const rel = relativeDue(t.dueDate);
               return (
-                <li key={t.id} className="tim-history__task">
+                <li
+                  key={t.id}
+                  className="tim-history__task"
+                  style={{ borderLeftColor: taskKindMeta(t.taskKind).color }}
+                >
                   <input
                     type="checkbox"
                     checked={false}
@@ -507,7 +517,13 @@ export function ClientHistory() {
                           ⚑
                         </span>
                       )}
-                      {t.title || taskKindLabel(t.taskKind) || "Tâche"}
+                      <span
+                        className="tim-history__task-kind"
+                        style={taskKindMeta(t.taskKind)}
+                      >
+                        {taskKindLabel(t.taskKind) ?? "Tâche"}
+                      </span>
+                      {t.title && t.title !== taskKindLabel(t.taskKind) ? t.title : null}
                     </span>
                     {t.content && <span className="tim-history__task-note">{t.content}</span>}
                   </span>
@@ -628,10 +644,16 @@ export function ClientHistory() {
                     key={a.id}
                     className={`tim-history__item${system ? " tim-history__item--system" : ""}`}
                   >
+                    {/* Une tâche porte la couleur de SA nature, la même que dans
+                        le Kanban : un appel est turquoise des deux côtés. */}
                     <span
                       className="tim-history__dot"
-                      style={{ color: k?.color, background: k?.bg }}
-                      title={k?.label}
+                      style={
+                        a.type === "tache"
+                          ? taskKindMeta(a.taskKind)
+                          : { color: k?.color, background: k?.bg }
+                      }
+                      title={a.type === "tache" ? (taskKindLabel(a.taskKind) ?? k?.label) : k?.label}
                     >
                       <ActivityIcon kind={iconKind} />
                     </span>

@@ -1312,6 +1312,67 @@
   color: var(--tim-green);
 }
 
+/* ─── Créneau sans événement d'agenda (rattrapage) ───────────────────────────
+   Fond ambre : ce n'est pas une action de routine, c'est une anomalie à
+   corriger. Le bloc disparaît dès que l'événement existe. */
+
+.jr-evt {
+  margin-bottom: 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--tim-amber);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-amber-bg);
+}
+
+.jr-evt__text {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--tim-amber);
+}
+
+.jr-evt__btn {
+  padding: 0.4375rem 0.875rem;
+  border: 1px solid var(--tim-amber);
+  border-radius: var(--tim-radius-sm);
+  background: transparent;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--tim-amber);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.jr-evt__btn:hover:not(:disabled) {
+  background: var(--tim-amber);
+  color: var(--tim-white);
+}
+
+.jr-evt__btn:disabled { opacity: 0.6; cursor: progress; }
+
+/* Confirmation : l'anomalie est réparée, le fond d'alerte n'a plus lieu d'être. */
+.jr-evt--done {
+  border-color: var(--tim-green);
+  background: var(--tim-surface);
+}
+
+.jr-evt--done .jr-evt__ok { margin-top: 0; }
+.jr-evt--done .jr-evt__text { margin: 0.375rem 0 0; color: var(--tim-muted); }
+
+.jr-evt__ok {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tim-green);
+}
+
+.jr-evt__err {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tim-danger-text);
+}
+
 /* ─── Pastilles d'envoi sur une étape ────────────────────────────────────────
    Cliquables : elles ouvrent l'aperçu du message exact qui partira. */
 .jr-step__mails {

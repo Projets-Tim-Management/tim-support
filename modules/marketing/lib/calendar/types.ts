@@ -51,6 +51,12 @@ export type EventInput = {
   location?: string;
   /** Identifiant stable de la demande de conférence (exigé par Google). */
   requestId: string;
+  /**
+   * Clé de rattachement de l'événement au parcours, écrite DANS l'événement
+   * chez le fournisseur. Elle permet de retrouver un événement dont on aurait
+   * perdu l'identifiant — voir `findEvent`.
+   */
+  runKey?: string;
 };
 
 export interface CalendarProvider {
@@ -73,6 +79,19 @@ export interface CalendarProvider {
    * main dans l'agenda) n'est pas une erreur — le but est qu'il ne soit plus là.
    */
   deleteEvent(accessToken: string, calendarId: string, eventId: string): Promise<void>;
+  /**
+   * Retrouve un événement par sa clé de parcours.
+   *
+   * POURQUOI. Créer l'événement et enregistrer son identifiant sont deux gestes
+   * distincts : entre les deux, le processus peut mourir. L'événement existe
+   * alors chez le fournisseur sans que TIM le sache, et la tentative suivante en
+   * crée un SECOND — deux invitations pour le même rendez-vous, deux liens de
+   * visio différents, chez le client. C'est arrivé le 27/08/2026.
+   *
+   * Facultatif : un fournisseur qui ne sait pas chercher ainsi reste utilisable,
+   * il perd seulement ce garde-fou.
+   */
+  findEvent?(accessToken: string, calendarId: string, runKey: string): Promise<CreatedEvent | null>;
 }
 
 /** Le fournisseur est-il configuré côté environnement ? */
@@ -93,6 +112,12 @@ export async function postForm(url: string, params: Record<string, string>): Pro
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(params).toString(),
+    /**
+     * Le RAFRAÎCHISSEMENT du jeton précède chaque appel d'agenda : sans délai,
+     * c'est lui qui suspendait l'enregistrement, avant même d'avoir touché au
+     * calendrier. Dix secondes suffisent pour un échange de jetons.
+     */
+    signal: AbortSignal.timeout(10_000),
   });
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {

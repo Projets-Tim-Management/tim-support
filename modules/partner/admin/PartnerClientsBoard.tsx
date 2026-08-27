@@ -7,12 +7,15 @@ import { createPortal } from "react-dom";
 
 import { StartTestModal } from "@/modules/marketing/admin/StartTestModal";
 import { ActivityIcon } from "@/modules/partner/admin/ActivityIcons";
-import { taskKindLabel } from "@/modules/partner/lib/activity";
+import { LossReasonModal, type LossOutcome } from "@/modules/partner/admin/LossReasonModal";
+import { taskKindLabel, taskKindMeta } from "@/modules/partner/lib/activity";
 import {
   CLIENT_STATUSES,
   DEFAULT_CLIENT_STATUS,
   needsEndDate,
 } from "@/modules/partner/lib/clientStatus";
+import { needsLossReason } from "@/modules/partner/lib/lossReason";
+import { isStepDone } from "@/modules/marketing/lib/journey";
 import { eur } from "@/modules/partner/lib/format";
 
 /**
@@ -44,6 +47,8 @@ type ClientDoc = {
   signatureDate?: string;
   contractStartDate?: string | null;
   resiliationDate?: string | null;
+  lossReason?: string | null;
+  lossReasonDetail?: string | null;
   updatedAt?: string;
   _status?: string;
   partner?: PartnerRef;
@@ -55,12 +60,27 @@ const COLUMNS = CLIENT_STATUSES;
 
 /**
  * Ce que le dépôt sur une colonne doit demander avant d'être appliqué :
- * `fin` = date de fin de contrat (résilié / archivé), `contrat` = date de début
- * (« Gagnée »). Les deux passent par le même modal, avec le bon libellé.
+ * `cloture` = pourquoi l'affaire s'arrête (et sa date de fin s'il y en a une),
+ * `contrat` = date de début (« Gagnée »).
  */
-type AskKind = "fin" | "contrat";
+type AskKind = "cloture" | "contrat";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
+
+/** « mer. 2 sept. à 09:00 » — un rendez-vous se lit en entier, jour compris. */
+const sessionWhen = (iso: string): string => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("fr-FR", {
+    timeZone: "Europe/Paris",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 
 /** Minuscules sans accents : « Rénové » et « renove » doivent se rencontrer. */
 const normalize = (s: string): string =>
@@ -70,6 +90,27 @@ const normalize = (s: string): string =>
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
+
+/**
+ * Où en est la phase de test d'un client, et QUI doit agir.
+ *
+ * Une carte « En phase de test » ne disait que le statut : le test dure quatre
+ * semaines, on ne savait pas s'il fallait faire quelque chose. L'étape en cours
+ * et son acteur répondent aux deux questions d'un coup d'œil.
+ */
+type RunProgress = {
+  /** Étape en cours — dans l'infobulle, pas sur la carte. */
+  label: string;
+  done: number;
+  total: number;
+  /** Créneau de prise en main retenu par le client (ISO). */
+  sessionAt?: string | null;
+  sessionMode?: string | null;
+  /** Lien de visio — absent tant qu'aucun agenda n'a produit d'événement. */
+  sessionLink?: string | null;
+  /** Le parcours attend-il quelque chose du PARTENAIRE, et l'a-t-il fait ? */
+  partner: { total: number; done: number; blocking: boolean };
+};
 
 /** Tâche ouverte d'un client, telle qu'elle s'affiche sur sa carte. */
 type OpenTask = {
@@ -173,6 +214,23 @@ export function PartnerClientsBoard() {
    * d'ouvrir.
    */
   const [tasksByClient, setTasksByClient] = useState<Record<string, OpenTask[]>>({});
+  /** Avancement de la phase de test, par client. */
+  const [runByClient, setRunByClient] = useState<Record<string, RunProgress>>({});
+  /**
+   * Infobulle survolée, en coordonnées d'ÉCRAN.
+   *
+   * Rendue par portail plutôt qu'en CSS dans la carte : le corps d'une colonne
+   * défile verticalement (`overflow-y: auto`), une bulle positionnée à
+   * l'intérieur y serait tout simplement coupée. Et l'attribut `title` du
+   * navigateur, lui, met une à deux secondes à apparaître — trop long pour une
+   * information qu'on vient chercher d'un coup d'œil.
+   */
+  const [tip, setTip] = useState<{ text: string; top: number; left: number } | null>(null);
+
+  const showTip = useCallback((e: React.MouseEvent<HTMLElement>, text: string) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setTip({ text, top: r.top, left: r.left + r.width / 2 });
+  }, []);
   /**
    * Contacts par client, pour chercher « Nathanaele » ou « Coutansais ».
    *
@@ -221,6 +279,72 @@ export function PartnerClientsBoard() {
         if (!cancelled) setError("Chargement des clients impossible.");
       } finally {
         if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Phases de test EN COURS, tous clients confondus — une requête pour tout le
+  // tableau, comme les tâches.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const qs =
+          "?where[status][equals]=en-cours&limit=200&depth=0" +
+          "&select[client]=true&select[currentStepKey]=true&select[currentStepLabel]=true" +
+          "&select[stepsDone]=true&select[stepsTotal]=true&select[steps]=true" +
+          "&select[sessionAt]=true&select[sessionMode]=true&select[sessionLink]=true";
+        const res = await fetch(`/payload-api/journey-runs${qs}`, { credentials: "include" });
+        const json = res.ok ? await res.json() : { docs: [] };
+        if (cancelled) return;
+        const map: Record<string, RunProgress> = {};
+        for (const run of (json?.docs ?? []) as {
+          client?: number | string | { id?: number | string };
+          currentStepKey?: string | null;
+          currentStepLabel?: string | null;
+          stepsDone?: number;
+          stepsTotal?: number;
+          steps?: { key?: string; actor?: string; state?: string }[];
+          sessionAt?: string | null;
+          sessionMode?: string | null;
+          sessionLink?: string | null;
+        }[]) {
+          const ref = run.client;
+          const cid = ref && typeof ref === "object" ? ref.id : ref;
+          if (cid == null || !run.currentStepLabel) continue;
+          // L'acteur est lu dans les étapes DU PARCOURS, pas dans le modèle :
+          // une étape réattribuée sur ce test-ci doit être dite telle qu'elle est.
+          /**
+           * Ce qui revient au PARTENAIRE dans ce parcours.
+           *
+           * `blocking` = c'est SON étape qui bloque le parcours en ce moment.
+           * Les autres attentes — TIM, client — ne le concernent pas : les
+           * afficher sur sa carte reviendrait à lui demander d'agir sur ce
+           * qu'il ne peut pas faire.
+           */
+          const steps = run.steps ?? [];
+          const mine = steps.filter((st) => st.actor === "partenaire");
+          map[String(cid)] = {
+            label: run.currentStepLabel,
+            done: run.stepsDone ?? 0,
+            total: run.stepsTotal ?? 0,
+            sessionAt: run.sessionAt ?? null,
+            sessionMode: run.sessionMode ?? null,
+            sessionLink: run.sessionLink ?? null,
+            partner: {
+              total: mine.length,
+              done: mine.filter((st) => isStepDone(st as never)).length,
+              blocking:
+                steps.find((st) => st.key === run.currentStepKey)?.actor === "partenaire",
+            },
+          };
+        }
+        setRunByClient(map);
+      } catch {
+        // Sans avancement, la carte reste utilisable : c'est un plus.
       }
     })();
     return () => {
@@ -317,12 +441,41 @@ export function PartnerClientsBoard() {
     });
   }, [clients, contactsByClient, search]);
 
+  /**
+   * Échéance la plus proche d'un client, en millisecondes.
+   *
+   * `Infinity` quand il n'a aucune tâche datée : ces fiches passent en fin de
+   * colonne. Les tâches arrivent déjà triées par échéance (tri de la requête),
+   * la première est donc la plus proche.
+   */
+  const nextDueOf = useCallback(
+    (id: number | string): number => {
+      const due = tasksByClient[String(id)]?.[0]?.dueDate;
+      const t = due ? Date.parse(due) : NaN;
+      return Number.isNaN(t) ? Number.POSITIVE_INFINITY : t;
+    },
+    [tasksByClient],
+  );
+
   const byStatus = useMemo(() => {
     const map: Record<string, ClientDoc[]> = {};
     for (const col of COLUMNS) map[col.value] = [];
     for (const c of filtered) (map[c.clientStatus ?? DEFAULT_CLIENT_STATUS] ??= []).push(c);
+
+    /**
+     * Dans chaque colonne : ce qui est À FAIRE LE PLUS TÔT arrive en premier —
+     * les retards d'abord, puisque leur date est déjà passée.
+     *
+     * Une colonne triée par date de création demande de lire quinze cartes pour
+     * trouver celle qui presse. Les fiches sans tâche datée ne disparaissent pas
+     * pour autant : elles suivent, dans leur ordre d'origine (le tri de
+     * JavaScript est stable), c'est-à-dire les actifs d'abord.
+     */
+    for (const col of Object.keys(map)) {
+      map[col] = map[col].slice().sort((a, b) => nextDueOf(a.id) - nextDueOf(b.id));
+    }
     return map;
-  }, [filtered]);
+  }, [filtered, nextDueOf]);
 
   /** Applique le changement de statut (optimiste + rollback en cas d'échec). */
   const applyMove = useCallback(
@@ -364,9 +517,11 @@ export function PartnerClientsBoard() {
       const client = clients.find((c) => String(c.id) === id);
       if (!client || (client.clientStatus ?? DEFAULT_CLIENT_STATUS) === status) return;
 
-      if (needsEndDate(status)) {
+      if (needsLossReason(status)) {
+        // Perdue, résilié, archivé : on demande POURQUOI — et la date de fin
+        // quand le contrat s'arrête. Un seul écran pour un seul geste.
         setPendingDate(client.resiliationDate?.slice(0, 10) || todayISO());
-        setPending({ client, status, kind: "fin" });
+        setPending({ client, status, kind: "cloture" });
       } else if (status === "en-test") {
         // Passer « En test » n'est pas un simple changement de statut : c'est le
         // démarrage du parcours. Le modal collecte la date et le contact, et
@@ -386,20 +541,32 @@ export function PartnerClientsBoard() {
     [clients, applyMove],
   );
 
+  /** « Gagnée » : seule la date de début est demandée. */
   const confirmPending = useCallback(() => {
     if (!pending || !pendingDate) return;
     const iso = new Date(pendingDate).toISOString();
-    void applyMove(
-      pending.client,
-      pending.status,
-      pending.kind === "contrat"
-        ? // Un contrat qui (re)commence efface la date de fin : les deux ne
-          // peuvent pas être vraies en même temps.
-          { contractStartDate: iso, resiliationDate: null }
-        : { resiliationDate: iso },
-    );
+    // Un contrat qui (re)commence efface la date de fin : les deux ne peuvent
+    // pas être vraies en même temps.
+    void applyMove(pending.client, pending.status, {
+      contractStartDate: iso,
+      resiliationDate: null,
+    });
     setPending(null);
   }, [pending, pendingDate, applyMove]);
+
+  /** Clôture : motif obligatoire, date de fin quand le contrat s'arrête. */
+  const confirmClosure = useCallback(
+    (outcome: LossOutcome) => {
+      if (!pending) return;
+      void applyMove(pending.client, pending.status, {
+        lossReason: outcome.reason,
+        lossReasonDetail: outcome.detail || null,
+        ...(outcome.endDate ? { resiliationDate: outcome.endDate } : {}),
+      });
+      setPending(null);
+    },
+    [pending, applyMove],
+  );
 
   const openClient = (id: number | string) =>
     router.push(`${adminRoute}/collections/partner-clients/${id}`);
@@ -407,7 +574,7 @@ export function PartnerClientsBoard() {
   if (loading) return <p className="tim-kanban__msg">Chargement du tableau…</p>;
 
   return (
-    <div className="tim-kanban-wrap">
+    <div>
       {/* Recherche : société, raison sociale, e-mail, nom et prénom des contacts.
           Le filtre est LOCAL — les fiches sont déjà chargées, une requête par
           frappe n'apporterait qu'une latence. */}
@@ -492,6 +659,7 @@ export function PartnerClientsBoard() {
               <div className="tim-kanban__col-body">
                 {cards.map((c) => {
                   const apporteur = apporteurLabel(c.partner);
+                  const run = runByClient[String(c.id)];
                   const ended = needsEndDate(col.value);
                   const won = col.value === "actif";
                   const footDate = frDate(
@@ -528,6 +696,98 @@ export function PartnerClientsBoard() {
                         Dernière activité : {relativeActivity(c.updatedAt)}
                       </div>
 
+                      {/* Où en est la phase de test, et QUI doit agir. Affiché
+                          au-dessus des tâches : c'est l'échéance qui structure
+                          les quatre semaines, les tâches s'y raccrochent. */}
+                      {/* Le RENDEZ-VOUS de prise en main : une date à laquelle
+                          quelqu'un doit être présent. Il n'apparaissait que dans
+                          la fiche du parcours — trois clics plus loin. */}
+                      {run?.sessionAt && (
+                        <div className="tim-kanban__session">
+                          <span className="tim-kanban__session-when">
+                            {sessionWhen(run.sessionAt)}
+                          </span>
+                          {run.sessionMode !== "sur-place" &&
+                            (run.sessionLink ? (
+                              <a
+                                className="tim-kanban__session-link"
+                                href={run.sessionLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                visio
+                              </a>
+                            ) : (
+                              <span
+                                className="tim-kanban__session-warn"
+                                onMouseEnter={(e) =>
+                                  showTip(
+                                    e,
+                                    "Rendez-vous en visio sans lien : l'agenda du partenaire n'a pas créé d'événement. Ajoutez un lien à la main dans le parcours, ou reconnectez l'agenda.",
+                                  )
+                                }
+                                onMouseLeave={() => setTip(null)}
+                              >
+                                lien manquant
+                              </span>
+                            ))}
+                        </div>
+                      )}
+
+                      {run && (
+                        <div className="tim-kanban__run">
+                          {/* L'étape en cours tient dans une infobulle : sur une
+                              carte, son libellé prenait une ligne pour une
+                              information qu'on ne consulte qu'occasionnellement. */}
+                          <span
+                            className="tim-kanban__run-info"
+                            tabIndex={0}
+                            role="note"
+                            aria-label={`Étape en cours : ${run.label}, ${run.done} sur ${run.total} étapes`}
+                            onMouseEnter={(e) =>
+                              showTip(e, `Étape en cours : ${run.label} — ${run.done}/${run.total} étapes`)
+                            }
+                            onMouseLeave={() => setTip(null)}
+                            onFocus={(e) =>
+                              showTip(
+                                e as unknown as React.MouseEvent<HTMLElement>,
+                                `Étape en cours : ${run.label} — ${run.done}/${run.total} étapes`,
+                              )
+                            }
+                            onBlur={() => setTip(null)}
+                          >
+                            i
+                          </span>
+
+                          {/* Ce qui se voit sans survol : ce que le PARTENAIRE
+                              doit faire, et s'il l'a fait. */}
+                          {run.partner.total > 0 &&
+                            (run.partner.done < run.partner.total ? (
+                              <span
+                                className={`tim-kanban__run-todo${run.partner.blocking ? " is-blocking" : ""}`}
+                                title={
+                                  run.partner.blocking
+                                    ? `Le parcours attend le partenaire : ${run.label}`
+                                    : "Le partenaire a encore des étapes à réaliser plus loin dans le parcours"
+                                }
+                              >
+                                {run.partner.blocking ? "Action partenaire" : "Partenaire à venir"}
+                                <span className="tim-kanban__run-count">
+                                  {run.partner.done}/{run.partner.total}
+                                </span>
+                              </span>
+                            ) : (
+                              <span
+                                className="tim-kanban__run-done"
+                                title="Le partenaire a réalisé toutes ses étapes"
+                              >
+                                Partenaire à jour
+                              </span>
+                            ))}
+                        </div>
+                      )}
+
                       {/* Ce qui est PRÉVU sur ce client. Le Kanban dit déjà où en
                           est chaque affaire ; il manquait ce qu'il reste à faire —
                           la seule information qui décide de la journée. Deux
@@ -537,15 +797,31 @@ export function PartnerClientsBoard() {
                         <ul className="tim-kanban__tasks">
                           {tasksByClient[String(c.id)].slice(0, 2).map((t) => {
                             const due = dueLabel(t.dueDate);
+                            // Couleur de la NATURE de la tâche : on reconnaît un
+                            // appel d'un envoi d'e-mail sans lire la ligne.
+                            const tint = taskKindMeta(t.taskKind);
                             return (
                               <li key={t.id} className="tim-kanban__task">
-                                <span className="tim-kanban__task-ico">
+                                {/* Pastille de NATURE : icône + mot, sur fond
+                                    teinté. Le nom de la tâche reste neutre à
+                                    côté — c'est un contenu, pas une catégorie. */}
+                                <span
+                                  className="tim-kanban__task-kind"
+                                  style={{ background: tint.bg, color: tint.color }}
+                                >
                                   <ActivityIcon kind={t.taskKind ?? "tache"} />
+                                  {taskKindLabel(t.taskKind) ?? "Tâche"}
                                 </span>
-                                <span className="tim-kanban__task-title">
-                                  {t.highPriority && <span className="tim-kanban__task-flag">⚑</span>}
-                                  {t.title || taskKindLabel(t.taskKind) || "Tâche"}
-                                </span>
+                                {/* Nom omis s'il ne fait que répéter la nature
+                                    (une tâche créée sans le renommer). */}
+                                {t.title && t.title !== taskKindLabel(t.taskKind) && (
+                                  <span className="tim-kanban__task-title">
+                                    {t.highPriority && (
+                                      <span className="tim-kanban__task-flag">⚑</span>
+                                    )}
+                                    {t.title}
+                                  </span>
+                                )}
                                 {due && (
                                   <span
                                     className={`tim-kanban__task-due${due.late ? " is-late" : ""}`}
@@ -586,10 +862,31 @@ export function PartnerClientsBoard() {
         })}
       </div>
 
+      {tip &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="tim-kanban__tip" style={{ top: tip.top, left: tip.left }} role="tooltip">
+            {tip.text}
+          </div>,
+          document.body,
+        )}
+
       {/* Modals rendus par PORTAIL sur <body> : à l'intérieur du tableau, leur
           z-index reste prisonnier du contexte d'empilement de la vue et ils
           passent sous la barre latérale et la barre du haut. */}
-      {pending &&
+      {/* Clôture d'une affaire : le motif, et la date de fin s'il y en a une.
+          Écran partagé avec la fiche — deux copies auraient divergé. */}
+      {pending?.kind === "cloture" && (
+        <LossReasonModal
+          status={pending.status}
+          companyName={pending.client.companyName}
+          defaultDate={pendingDate}
+          onCancel={() => setPending(null)}
+          onConfirm={confirmClosure}
+        />
+      )}
+
+      {pending?.kind === "contrat" &&
         typeof document !== "undefined" &&
         createPortal(
           <div className="tim-kanban__modal-overlay" onClick={() => setPending(null)}>
@@ -599,12 +896,11 @@ export function PartnerClientsBoard() {
                 {COLUMNS.find((c) => c.value === pending.status)?.label}{" "}»
               </h3>
               <p className="tim-kanban__modal-text">
-                {pending.kind === "contrat"
-                  ? "Indiquez la date de début de contrat — le calcul des licences mensuelles (CA et commission) démarre à cette date."
-                  : "Indiquez la date de fin de contrat — la commission du partenaire s'arrête à cette date."}
+                Indiquez la date de début de contrat — le calcul des licences mensuelles (CA
+                et commission) démarre à cette date.
               </p>
               <label className="tim-kanban__modal-label">
-                {pending.kind === "contrat" ? "Date de début de contrat" : "Date de fin de contrat"}
+                Date de début de contrat
                 <input
                   type="date"
                   value={pendingDate}

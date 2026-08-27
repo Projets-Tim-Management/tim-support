@@ -5,11 +5,13 @@ import { useCallback, useState } from "react";
 
 import { StartTestModal } from "@/modules/marketing/admin/StartTestModal";
 import { ContractStartModal } from "@/modules/partner/admin/ContractStartModal";
+import { LossReasonModal } from "@/modules/partner/admin/LossReasonModal";
 import {
   CLIENT_STATUSES,
   DEFAULT_CLIENT_STATUS,
   clientStatusMeta,
 } from "@/modules/partner/lib/clientStatus";
+import { needsLossReason } from "@/modules/partner/lib/lossReason";
 
 /**
  * Champ « Statut » de la fiche client.
@@ -24,6 +26,9 @@ import {
  *  - « Gagnée » enclenche l'abonnement mensuel, qui a besoin d'une date de début
  *    de contrat (requireContractStart). On la demande dans le geste plutôt que
  *    de laisser l'utilisateur découvrir un client gagné à zéro euro.
+ *  - « Perdue », « Résilié » et « Archivé » ferment l'opportunité : on demande
+ *    POURQUOI (requireLossReason). Personne ne revient renseigner un motif trois
+ *    semaines plus tard.
  *
  * Les modals sont les mêmes que ceux du Kanban : un seul écran par geste, quel
  * que soit l'endroit d'où on l'enclenche.
@@ -38,6 +43,11 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
   const { id, savedDocumentData } = useDocumentInfo();
   const [asking, setAsking] = useState(false);
   const [askingContract, setAskingContract] = useState(false);
+  /** Statut de clôture en attente de motif (`perdue`, `resilie`, `archive`). */
+  const [askingLoss, setAskingLoss] = useState<string | null>(null);
+  const { setValue: setLossReason } = useField<string>({ path: "lossReason" });
+  const { setValue: setLossDetail } = useField<string>({ path: "lossReasonDetail" });
+  const { setValue: setEndDate } = useField<string>({ path: "resiliationDate" });
 
   // L'adresse de la fiche pré-remplit le modal : elle est déjà connue, la
   // redemander au démarrage était une saisie pour rien (et une occasion de
@@ -59,9 +69,14 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
         setAskingContract(true);
         return;
       }
+      // Clôture : le motif se demande maintenant, pas après.
+      if (needsLossReason(next) && value !== next) {
+        setAskingLoss(next);
+        return;
+      }
       setValue(next);
     },
-    [contractStart, id, setValue, value],
+    [contractStart, setValue, value, id],
   );
 
   return (
@@ -89,6 +104,23 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
           ))}
         </select>
       </div>
+
+      {askingLoss && (
+        <LossReasonModal
+          status={askingLoss}
+          companyName={companyName}
+          onCancel={() => setAskingLoss(null)}
+          onConfirm={(outcome) => {
+            // Posé dans le FORMULAIRE : l'enregistrement confirme. Le serveur
+            // refuserait de toute façon un statut de clôture sans motif.
+            setLossReason(outcome.reason);
+            setLossDetail(outcome.detail);
+            if (outcome.endDate) setEndDate(outcome.endDate);
+            setValue(askingLoss);
+            setAskingLoss(null);
+          }}
+        />
+      )}
 
       {askingContract && (
         <ContractStartModal

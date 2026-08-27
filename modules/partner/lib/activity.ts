@@ -39,19 +39,31 @@ export const ACTIVITY_KINDS: ActivityKind[] = [
  * faire (un appel à passer), pas ce qui a eu lieu (un appel passé).
  */
 export const TASK_KINDS = [
-  { value: "a-faire", label: "À faire" },
-  { value: "appel", label: "Appel" },
-  { value: "email", label: "E-mail" },
-  { value: "reunion", label: "Réunion" },
-  { value: "dejeuner", label: "Déjeuner" },
-  { value: "echeance", label: "Échéance" },
-  { value: "linkedin", label: "LinkedIn" },
+  { value: "a-faire", label: "À faire", color: "var(--tim-slate)", bg: "var(--tim-slate-bg)" },
+  { value: "appel", label: "Appel", color: "var(--tim-teal)", bg: "var(--tim-teal-bg)" },
+  { value: "email", label: "E-mail", color: "var(--tim-blue)", bg: "var(--tim-blue-bg)" },
+  { value: "reunion", label: "Réunion", color: "var(--tim-indigo)", bg: "var(--tim-indigo-bg)" },
+  { value: "dejeuner", label: "Déjeuner", color: "var(--tim-amber)", bg: "var(--tim-amber-bg)" },
+  { value: "echeance", label: "Échéance", color: "var(--tim-red)", bg: "var(--tim-red-bg)" },
+  { value: "linkedin", label: "LinkedIn", color: "var(--tim-purple)", bg: "var(--tim-purple-bg)" },
 ] as const;
 
 export const TASK_KIND_OPTIONS = TASK_KINDS.map(({ label, value }) => ({ label, value }));
 
 export const taskKindLabel = (value?: string | null): string | undefined =>
   TASK_KINDS.find((k) => k.value === value)?.label;
+
+/**
+ * Couleurs d'une nature de tâche — une seule table pour tous les écrans.
+ *
+ * Un appel est turquoise dans le Kanban comme dans l'historique : c'est ce qui
+ * permet de reconnaître ce qui attend sans lire. Repli sur « À faire » pour une
+ * tâche sans nature (les tâches créées avant l'ajout du champ).
+ */
+export const taskKindMeta = (value?: string | null): { color: string; bg: string } => {
+  const found = TASK_KINDS.find((k) => k.value === value);
+  return { color: found?.color ?? TASK_KINDS[0].color, bg: found?.bg ?? TASK_KINDS[0].bg };
+};
 
 export const ACTIVITY_OPTIONS = ACTIVITY_KINDS.map(({ label, value }) => ({ label, value }));
 

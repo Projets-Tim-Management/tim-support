@@ -159,13 +159,15 @@
   flex-direction: column;
   gap: 0.4rem;
 }
+/* Liseré de la couleur de la NATURE de la tâche, posé en ligne (voir
+   `taskKindMeta`). La valeur ci-dessous n'est qu'un repli si la couleur manque. */
 .tim-history__task {
   display: flex;
   align-items: flex-start;
   gap: 0.6rem;
   padding: 0.7rem 0.85rem;
   border: 1px solid var(--tim-border);
-  border-left: 3px solid var(--tim-amber);
+  border-left: 3px solid var(--tim-slate);
   border-radius: var(--tim-radius);
   background: var(--tim-white);
 }
@@ -1683,4 +1685,16 @@
 }
 .tim-history__title--todo {
   color: var(--tim-amber);
+}
+
+/* Pastille de nature d'une tâche ouverte — même langage que le Kanban : la
+   couleur porte la CATÉGORIE, le nom de la tâche reste neutre à côté. */
+.tim-history__task-kind {
+  display: inline-block;
+  margin-right: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  vertical-align: 1px;
 }

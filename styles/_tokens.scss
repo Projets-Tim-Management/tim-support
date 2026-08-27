@@ -49,6 +49,11 @@
   --tim-rose:      #9f1239;  --tim-rose-bg:   #fce7ef; /* perdue             */
 
   /* ─── Plateformes (badge bleu identique au front) ─────────────────────────*/
+  /* Infobulle : fond sombre volontairement hors palette claire — une bulle qui
+     reprendrait les tons de la page se confondrait avec elle. */
+  --tim-tooltip-bg:           #22242c;
+  --tim-tooltip-text:         #ffffff;
+
   --tim-platform-bg:          #dae6ff; /* fond du badge (texte = --tim-info) */
   --tim-platform-text-strong: #2f6ca8; /* survol du bouton retirer           */
 

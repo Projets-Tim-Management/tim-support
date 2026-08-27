@@ -287,6 +287,23 @@ export default buildConfig({
             user: process.env.BREVO_SMTP_USER || "",
             pass: process.env.BREVO_SMTP_KEY,
           },
+          /**
+           * ÉCHOUER VITE plutôt qu'attendre.
+           *
+           * Sans ces trois valeurs, nodemailer applique ses défauts : 30 s pour
+           * l'accueil du serveur, 120 s pour la connexion et 600 s pour le
+           * socket. Un envoi qui traîne — relais qui régule, sortie SMTP
+           * ralentie côté serverless — bloquait donc la requête qui l'avait
+           * déclenché jusqu'à DIX MINUTES sans jamais échouer. C'est ce qui
+           * faisait qu'une validation d'étape mettait 5 à 10 minutes.
+           *
+           * Dix secondes suffisent : le relais Brevo répond en moins de 100 ms
+           * quand il va bien. Au-delà, mieux vaut une erreur journalisée qu'un
+           * écran figé.
+           */
+          connectionTimeout: 10_000,
+          greetingTimeout: 10_000,
+          socketTimeout: 15_000,
         },
       })
     : undefined,

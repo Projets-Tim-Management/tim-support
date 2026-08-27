@@ -7,6 +7,7 @@ import type {
 } from "payload";
 
 import { adminOnlyField, hasAdminRole, isAdmin, metierOwnedAccess } from "@/core/access";
+import { afterResponse } from "@/core/lib/after-response";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
 import { sendJourneyEmailForClient } from "@/modules/marketing/lib/send";
@@ -15,7 +16,7 @@ import {
   notifyAdminsQuoteNeeded,
   notifyAdminsTestRequested,
 } from "@/modules/marketing/lib/notify";
-import { syncSessionEvent } from "@/modules/marketing/lib/session-calendar";
+import { sessionSyncPatch, syncSessionEvent } from "@/modules/marketing/lib/session-calendar";
 import {
   DEFAULT_DURATION_WEEKS,
   compressLeadOffsets,
@@ -685,10 +686,7 @@ const syncSessionCalendar: CollectionAfterChangeHook = async ({ doc, previousDoc
     await req.payload.update({
       collection: "journey-runs",
       id: doc.id,
-      data: {
-        ...(result.sessionEventId !== undefined ? { sessionEventId: result.sessionEventId } : {}),
-        ...(result.sessionLink !== undefined ? { sessionLink: result.sessionLink } : {}),
-      },
+      data: sessionSyncPatch(result),
       overrideAccess: true,
       req,
     });
@@ -831,13 +829,19 @@ const notifyQuoteNeeded: CollectionAfterChangeHook = async ({ doc, previousDoc, 
     ? await findOne<{ displayName?: string; email?: string }>(req, "partners", partnerId)
     : null;
 
-  await notifyAdminsQuoteNeeded(
-    req.payload,
-    { id: doc.id, endDate: doc.endDate },
-    {
-      client: client ? { id: clientId ?? undefined, ...client } : null,
-      partner: partner ? { id: partnerId ?? undefined, ...partner } : null,
-    },
+  // Notification APRÈS la réponse : celui qui a cliqué n'attend pas qu'un
+  // e-mail parte, il attend son écran. Voir core/lib/after-response.ts.
+  afterResponse(
+    () =>
+      notifyAdminsQuoteNeeded(
+        req.payload,
+        { id: doc.id, endDate: doc.endDate },
+        {
+          client: client ? { id: clientId ?? undefined, ...client } : null,
+          partner: partner ? { id: partnerId ?? undefined, ...partner } : null,
+        },
+      ),
+    (e) => req.payload.logger.error(`[parcours] alerte « devis à rédiger » échouée : ${e}`),
   );
 
   await markEmailSent(req.payload, doc.id, (doc?.emails ?? []) as RunEmail[], "devis-a-rediger");
@@ -994,14 +998,18 @@ const notifyContractNeeded: CollectionAfterChangeHook = async ({ doc, previousDo
     ? await findOne<{ displayName?: string }>(req, "partners", partnerId)
     : null;
 
-  await notifyAdminsContractNeeded(
-    req.payload,
-    { id: doc.id },
-    {
-      clientId: clientId ?? undefined,
-      clientName: client?.companyName ?? null,
-      partnerName: partner?.displayName ?? null,
-    },
+  afterResponse(
+    () =>
+      notifyAdminsContractNeeded(
+        req.payload,
+        { id: doc.id },
+        {
+          clientId: clientId ?? undefined,
+          clientName: client?.companyName ?? null,
+          partnerName: partner?.displayName ?? null,
+        },
+      ),
+    (e) => req.payload.logger.error(`[parcours] alerte « contrat à établir » échouée : ${e}`),
   );
 
   await markEmailSent(req.payload, doc.id, (doc?.emails ?? []) as RunEmail[], "demande-contrat-tim");
@@ -1038,14 +1046,18 @@ const notifyNewRequest: CollectionAfterChangeHook = async ({ doc, operation, req
   const checklist = ((doc?.steps ?? []) as RunStep[]).find((s) => s.key === "validation-admin")
     ?.detail as string | undefined;
 
-  await notifyAdminsTestRequested(
-    req.payload,
-    { id: doc.id, startDate: doc.startDate, endDate: doc.endDate },
-    {
-      client: client ? { id: clientId ?? undefined, ...client } : null,
-      partner: partner ? { id: partnerId ?? undefined, ...partner } : null,
-      checklist,
-    },
+  afterResponse(
+    () =>
+      notifyAdminsTestRequested(
+        req.payload,
+        { id: doc.id, startDate: doc.startDate, endDate: doc.endDate },
+        {
+          client: client ? { id: clientId ?? undefined, ...client } : null,
+          partner: partner ? { id: partnerId ?? undefined, ...partner } : null,
+          checklist,
+        },
+      ),
+    (e) => req.payload.logger.error(`[parcours] alerte « phase de test demandée » échouée : ${e}`),
   );
 
   await markEmailSent(req.payload, doc.id, (doc?.emails ?? []) as RunEmail[], "demande-recue");
@@ -1144,13 +1156,11 @@ export const JourneyRuns: CollectionConfig = {
                     width: "70%",
                     condition: (_, sibling) => sibling?.sessionMode !== "sur-place",
                     placeholder: "https://meet.google.com/…",
-                    // La description précédente annonçait un lien « généré dès
-                    // que l'agenda est connecté » : c'est faux, et ça se paie en
-                    // confusion. Le lien naît AVEC l'événement d'agenda, donc à
-                    // la réservation du créneau — connecter un agenda ne crée
-                    // rien par soi-même.
+                    // Court volontairement : le diagnostic et le remède vivent
+                    // désormais dans l'encart de rattrapage juste dessous, qui
+                    // n'apparaît que le jour où il y a quelque chose à dire.
                     description:
-                      "Créé automatiquement (Google Meet ou Teams) au moment où le client réserve son créneau depuis son espace, si l'agenda du partenaire est connecté. Tant qu'aucun créneau n'est réservé, ce champ reste vide — vous pouvez y coller un lien à la main.",
+                      "Créé avec l'événement d'agenda, quand le client réserve son créneau. Modifiable à la main.",
                   },
                 },
                 {
@@ -1164,6 +1174,18 @@ export const JourneyRuns: CollectionConfig = {
                   },
                 },
               ],
+            },
+            {
+              // Rattrapage d'un créneau resté sans événement d'agenda. Pleine
+              // largeur, juste sous le lien de visio : c'est là que l'œil
+              // cherche quand le lien manque.
+              name: "sessionEventAction",
+              type: "ui",
+              admin: {
+                components: {
+                  Field: "/modules/marketing/admin/SessionEventButton#SessionEventButton",
+                },
+              },
             },
             {
               name: "sessionAt",

@@ -91,15 +91,30 @@ async function currentSlots(
   const from = new Date().toISOString();
   const to = new Date(Date.now() + resolved.horizonDays * 86_400_000).toISOString();
 
-  // Indisponibilités réelles du partenaire. `busyForPartner` ne lève jamais :
-  // un agenda muet fait retomber sur les règles seules plutôt que de bloquer.
-  const busy = run.partner ? await busyForPartner(payload, run.partner, from, to) : [];
+  const busy = run.partner
+    ? await busyForPartner(payload, run.partner, from, to)
+    : { periods: [], reliable: true };
+
+  /**
+   * Agenda illisible ⇒ AUCUN créneau.
+   *
+   * On ne propose pas une heure dont on ne sait pas si elle est libre. Un
+   * créneau affiché est une promesse tenue par le partenaire ; la tenir à
+   * l'aveugle, c'est lui poser un client sur un rendez-vous déjà pris — et il
+   * le découvre trop tard pour déplacer quoi que ce soit.
+   *
+   * Le client n'a pas à comprendre pourquoi : il voit une prise de rendez-vous
+   * momentanément indisponible et une invitation à nous écrire, ce qui est
+   * vrai et actionnable. Côté TIM, l'incident est journalisé et la surveillance
+   * quotidienne des agendas le remonte.
+   */
+  if (!busy.reliable) return [];
 
   return generateSlots({
     rules: rules as never,
     nowMs: Date.now(),
     taken,
-    busy,
+    busy: busy.periods,
     // Inutile de proposer un créneau après le démarrage du test : la session
     // sert justement à le préparer.
     until: run.startDate,

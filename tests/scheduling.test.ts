@@ -1,9 +1,12 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { bookingModeOf, generateSlots, resolveRules } from "@/modules/marketing/lib/scheduling";
+import { mergeBusyReadings, targetCalendarIndex } from "@/modules/marketing/lib/calendar/index";
 import { PORTAL_SECTIONS, validateRow } from "@/modules/marketing/lib/portal-sections";
 import { generatePassword } from "@/modules/marketing/lib/credentials";
 import { buildTimAccessEmail } from "@/modules/marketing/lib/emails";
 import {
+  DEFAULT_SEND_HOUR,
   NEVER_AUTO_VALIDATE,
   PHASE_DE_TEST_EMAILS,
   PHASE_DE_TEST_STEPS,
@@ -652,5 +655,99 @@ describe("e-mail « vos accès TIM » envoyé à une personne", () => {
       expect(version).toContain("094220");
     }
     expect(mail.text).toContain("Bonjour Jean,");
+  });
+});
+
+/**
+ * L'heure d'envoi d'un message n'existe que si le cron passe à cette heure-là.
+ *
+ * Le rappel « c'est demain » est calé à 17 h la veille. Avec un cron quotidien à
+ * 7 h UTC, il n'était pas envoyé ce jour-là : il attendait le passage suivant et
+ * partait le MATIN DE LA SESSION, en annonçant au client qu'elle avait lieu
+ * « demain ». Le message était juste, la cadence le rendait faux.
+ *
+ * Ce test lie les deux : ajouter une heure d'envoi sans cadence pour la servir
+ * casse la suite plutôt que le client.
+ */
+describe("cadence du cron face aux heures d'envoi", () => {
+  const cron = (JSON.parse(
+    readFileSync(new URL("../vercel.json", import.meta.url), "utf8"),
+  ) as { crons: { path: string; schedule: string }[] }).crons.find(
+    (c) => c.path === "/api/cron/journey-emails",
+  );
+
+  it("passe toutes les heures", () => {
+    expect(cron).toBeDefined();
+    const [, hours] = cron!.schedule.split(" ");
+    expect(hours).toBe("*");
+  });
+
+  it("couvre chaque heure d'envoi déclarée dans les parcours", () => {
+    const hours = new Set(
+      PHASE_DE_TEST_EMAILS.map((e) => e.sendHour ?? DEFAULT_SEND_HOUR),
+    );
+    // Une heure fixe côté cron ne servirait qu'une seule de ces valeurs.
+    expect(hours.size).toBeGreaterThan(1);
+    const [, cronHours] = cron!.schedule.split(" ");
+    expect(cronHours).toBe("*");
+  });
+});
+
+/**
+ * Un agenda receveur, et un seul.
+ *
+ * L'ancienne règle `c.primary || i === 0` en désignait deux dès que l'agenda
+ * principal n'était pas en tête : le client recevait alors ses invitations d'un
+ * agenda secondaire, au nom de quelqu'un d'autre.
+ */
+describe("agenda qui reçoit les rendez-vous", () => {
+  it("retient l'agenda principal, où qu'il soit dans la liste", () => {
+    const cals = [{ primary: false }, { primary: true }, { primary: false }];
+    expect(targetCalendarIndex(cals)).toBe(1);
+  });
+
+  it("retient le premier quand aucun n'est principal", () => {
+    expect(targetCalendarIndex([{ primary: false }, { primary: false }])).toBe(0);
+  });
+
+  it("n'en désigne aucun sur une liste vide", () => {
+    expect(targetCalendarIndex([])).toBe(-1);
+  });
+
+  it("n'en désigne jamais deux", () => {
+    const cals = [{ primary: false }, { primary: true }];
+    const chosen = targetCalendarIndex(cals);
+    expect(cals.filter((_, i) => i === chosen)).toHaveLength(1);
+  });
+});
+
+/**
+ * « Je ne sais pas » vaut « occupé ».
+ *
+ * Une lecture d'agenda partielle ne doit jamais passer pour complète : c'est
+ * l'agenda muet qui porte le rendez-vous qu'on ne verra pas.
+ */
+describe("fiabilité de la lecture des agendas", () => {
+  const p = (start: string, end: string) => ({ start, end });
+
+  it("reste fiable quand tous les agendas répondent", () => {
+    const r = mergeBusyReadings([
+      { periods: [p("2026-09-02T07:00:00Z", "2026-09-02T08:00:00Z")], reliable: true },
+      { periods: [], reliable: true },
+    ]);
+    expect(r.reliable).toBe(true);
+    expect(r.periods).toHaveLength(1);
+  });
+
+  it("devient douteuse dès qu'un seul agenda est illisible", () => {
+    const r = mergeBusyReadings([
+      { periods: [p("2026-09-02T07:00:00Z", "2026-09-02T08:00:00Z")], reliable: true },
+      { periods: [], reliable: false },
+    ]);
+    expect(r.reliable).toBe(false);
+  });
+
+  it("est fiable sans aucun agenda connecté : il n'y avait rien à lire", () => {
+    expect(mergeBusyReadings([]).reliable).toBe(true);
   });
 });

@@ -120,6 +120,48 @@ export default function SlotPicker() {
     void load();
   }, [load]);
 
+  /**
+   * La liste se rafraîchit toute seule tant que l'écran est ouvert.
+   *
+   * Elle n'était lue qu'au chargement. Un prospect arrivé à 17 h 55 voyait
+   * encore, à 18 h 05, un créneau que le partenaire venait d'occuper à la main :
+   * il saisissait son nom, ses invités, et se faisait refuser au dernier clic.
+   * Le contrôle serveur empêchait le doublon, mais l'écran continuait d'afficher
+   * une promesse périmée — et c'est l'affichage qui fait perdre le temps.
+   *
+   * Deux déclencheurs, aucun coûteux : le retour sur l'onglet (le cas courant —
+   * on ouvre la page, on va chercher son agenda, on revient) et une relecture
+   * périodique pour la page laissée ouverte. Rien ne tourne quand l'onglet est
+   * masqué : inutile d'interroger l'agenda de quelqu'un qui ne regarde pas.
+   */
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    const timer = window.setInterval(refresh, 120_000);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      window.clearInterval(timer);
+    };
+  }, [load]);
+
+  /**
+   * Le créneau choisi vient de disparaître : on le dit MAINTENANT.
+   *
+   * Le laisser sélectionné pendant que le formulaire se remplit ne fait que
+   * repousser le refus à la dernière seconde, quand tout est saisi. Mieux vaut
+   * une interruption nette et tôt.
+   */
+  useEffect(() => {
+    if (!slot || !data?.slots) return;
+    if (data.slots.includes(slot)) return;
+    setSlot(null);
+    setError("Ce créneau vient d'être pris. Choisissez-en un autre.");
+  }, [data, slot]);
+
   const byDay = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const s of data?.slots ?? []) {
