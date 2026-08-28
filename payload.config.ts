@@ -150,6 +150,9 @@ export default buildConfig({
         Logo: "/admin/graphics/Logo#Logo",
         Icon: "/admin/graphics/Icon#Icon",
       },
+      // Écran de connexion : attributs que les gestionnaires de mots de passe
+      // attendent, et bouton pour relire ce qu'on tape. Voir admin/login/.
+      afterLogin: ["/admin/login/LoginEnhancements#default"],
       // Menu latéral custom : groupes à 2 niveaux (sous-groupes repliables),
       // structure définie dans admin/nav/nav-structure.ts.
       Nav: "/admin/nav/CustomNav#default",

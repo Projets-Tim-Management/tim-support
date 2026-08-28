@@ -261,7 +261,7 @@ export interface JourneyRun {
    */
   sessionLocation?: string | null;
   /**
-   * Réservé par le client depuis son espace, ou saisi ici à la main. Obligatoirement avant le lundi de démarrage. Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.
+   * Réservé par le client depuis son espace, ou saisi ici à la main. Au plus tard le lundi de démarrage. Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.
    */
   sessionAt?: string | null;
   attendeeFirstName?: string | null;
@@ -514,68 +514,23 @@ export interface Partner {
      * Le client sera renvoyé vers ce lien. La date retenue ne remonte pas automatiquement dans TIM : renseignez-la sur la phase de test si vous voulez la suivre.
      */
     bookingUrl?: string | null;
-    weekdays?: ('1' | '2' | '3' | '4' | '5' | '6' | '7')[] | null;
-    startTime?:
-      | (
-          | '07:00'
-          | '07:30'
-          | '08:00'
-          | '08:30'
-          | '09:00'
-          | '09:30'
-          | '10:00'
-          | '10:30'
-          | '11:00'
-          | '11:30'
-          | '12:00'
-          | '12:30'
-          | '13:00'
-          | '13:30'
-          | '14:00'
-          | '14:30'
-          | '15:00'
-          | '15:30'
-          | '16:00'
-          | '16:30'
-          | '17:00'
-          | '17:30'
-          | '18:00'
-          | '18:30'
-          | '19:00'
-          | '19:30'
-          | '20:00'
-        )
+    hours?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
       | null;
-    endTime?:
-      | (
-          | '07:00'
-          | '07:30'
-          | '08:00'
-          | '08:30'
-          | '09:00'
-          | '09:30'
-          | '10:00'
-          | '10:30'
-          | '11:00'
-          | '11:30'
-          | '12:00'
-          | '12:30'
-          | '13:00'
-          | '13:30'
-          | '14:00'
-          | '14:30'
-          | '15:00'
-          | '15:30'
-          | '16:00'
-          | '16:30'
-          | '17:00'
-          | '17:30'
-          | '18:00'
-          | '18:30'
-          | '19:00'
-          | '19:30'
-          | '20:00'
-        )
+    dateOverrides?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
       | null;
     durationMin?: number | null;
     /**
@@ -2048,9 +2003,8 @@ export interface PartnersSelect<T extends boolean = true> {
         enabled?: T;
         mode?: T;
         bookingUrl?: T;
-        weekdays?: T;
-        startTime?: T;
-        endTime?: T;
+        hours?: T;
+        dateOverrides?: T;
         durationMin?: T;
         bufferMin?: T;
         minNoticeHours?: T;

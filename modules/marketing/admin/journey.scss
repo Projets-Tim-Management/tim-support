@@ -1905,3 +1905,146 @@ body.tim-prep-fullscreen .doc-controls {
 .jr-modal__warn strong {
   color: var(--tim-amber);
 }
+
+/* ─── Disponibilités du partenaire (semaine type + exceptions) ───────────────
+   Deux cadres empilés. Chaque jour tient sur une ligne : initiale, plages,
+   actions. Les plages s'empilent quand il y en a plusieurs — c'est la seule
+   dimension qui varie, tout le reste garde sa place d'un jour à l'autre. */
+
+.tim-avail { display: flex; flex-direction: column; gap: 1.25rem; }
+
+.tim-avail__block {
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+
+.tim-avail__head { margin-bottom: 0.875rem; }
+
+.tim-avail__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+
+.tim-avail__hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--tim-muted);
+}
+
+.tim-avail__days,
+.tim-avail__dates { margin: 0; padding: 0; list-style: none; }
+
+.tim-avail__day,
+.tim-avail__date {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--tim-elevation-100);
+}
+
+.tim-avail__day:first-child,
+.tim-avail__date:first-child { border-top: 0; }
+
+/* Pastille du jour : largeur fixe, pour que les plages s'alignent d'une ligne
+   à l'autre quel que soit le jour. */
+.tim-avail__initial {
+  flex: 0 0 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-top: 0.2rem;
+  border-radius: 999px;
+  background: var(--tim-elevation-150);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+
+.tim-avail__ranges {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.tim-avail__range { display: flex; align-items: center; gap: 0.375rem; }
+
+.tim-avail__dash { color: var(--tim-muted); }
+
+.tim-avail__time {
+  min-width: 5.5rem;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+}
+
+.tim-avail__off,
+.tim-avail__empty {
+  padding: 0.35rem 0;
+  font-size: 0.8125rem;
+  color: var(--tim-muted);
+}
+
+.tim-avail__day-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.15rem;
+}
+
+.tim-avail__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: transparent;
+  color: var(--tim-muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.tim-avail__icon:hover { background: var(--tim-elevation-100); color: var(--tim-foreground); }
+
+.tim-avail__date-input {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+}
+
+.tim-avail__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+  cursor: pointer;
+}
+
+.tim-avail__add:hover { border-color: var(--tim-primary); color: var(--tim-primary); }

@@ -14,7 +14,7 @@
 
 export const TIMEZONE = "Europe/Paris";
 
-/** Jours ouvrés par défaut : lundi → vendredi (1 = lundi, 7 = dimanche, ISO). */
+/** Jours de la semaine, en numérotation ISO (1 = lundi, 7 = dimanche). */
 export const WEEKDAY_OPTIONS = [
   { label: "Lundi", value: "1" },
   { label: "Mardi", value: "2" },
@@ -25,14 +25,51 @@ export const WEEKDAY_OPTIONS = [
   { label: "Dimanche", value: "7" },
 ] as const;
 
-export const DEFAULT_WEEKDAYS = ["1", "2", "3", "4", "5"];
+/** Initiale affichée devant chaque jour dans l'éditeur de disponibilités. */
+export const WEEKDAY_INITIALS: Record<string, string> = {
+  "1": "L", "2": "M", "3": "M", "4": "J", "5": "V", "6": "S", "7": "D",
+};
 
 /** Heures proposées, par demi-heure — évite un champ libre à valider. */
-export const HOUR_OPTIONS = Array.from({ length: 27 }, (_, i) => {
-  const minutes = 7 * 60 + i * 30; // 07:00 → 20:00
+export const HOUR_OPTIONS = Array.from({ length: 33 }, (_, i) => {
+  const minutes = 6 * 60 + i * 30; // 06:00 → 22:00
   const label = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
   return { label, value: label };
 });
+
+/**
+ * Une plage de disponibilité, en heure locale : « 09:00 » → « 12:00 ».
+ */
+export type TimeRange = { start: string; end: string };
+
+/**
+ * Disponibilités hebdomadaires : pour chaque jour ISO, ses plages.
+ *
+ * Un jour ABSENT ou à liste vide est un jour non travaillé. C'est ce qui
+ * remplace l'ancien couple « jours cochés + une plage horaire commune » : ce
+ * modèle-là ne savait pas dire « lundi matin seulement », alors que c'est la
+ * situation ordinaire de quelqu'un qui a aussi un métier à exercer.
+ */
+export type WeeklyHours = Record<string, TimeRange[]>;
+
+/**
+ * Exception à une date précise — congé, jour férié, journée déplacée.
+ *
+ * `ranges: []` ferme la journée. Sinon, ces plages REMPLACENT celles du jour de
+ * semaine correspondant : une exception n'ajoute jamais, elle se substitue.
+ * Sans quoi « je travaille exceptionnellement le samedi matin » et « ce lundi-là
+ * je ne suis là que le matin » ne pourraient pas s'exprimer tous les deux.
+ */
+export type DateOverride = { date: string; ranges: TimeRange[] };
+
+/** Semaine par défaut : lundi → vendredi, 9 h – 18 h. */
+export const DEFAULT_HOURS: WeeklyHours = {
+  "1": [{ start: "09:00", end: "18:00" }],
+  "2": [{ start: "09:00", end: "18:00" }],
+  "3": [{ start: "09:00", end: "18:00" }],
+  "4": [{ start: "09:00", end: "18:00" }],
+  "5": [{ start: "09:00", end: "18:00" }],
+};
 
 /**
  * Comment le client réserve sa session.
@@ -58,9 +95,10 @@ export type SchedulingRules = {
   enabled?: boolean | null;
   mode?: string | null;
   bookingUrl?: string | null;
-  weekdays?: string[] | null;
-  startTime?: string | null;
-  endTime?: string | null;
+  /** Disponibilités par jour de semaine. Vide = on retombe sur DEFAULT_HOURS. */
+  hours?: WeeklyHours | null;
+  /** Exceptions datées, prioritaires sur la semaine type. */
+  dateOverrides?: DateOverride[] | null;
   durationMin?: number | null;
   bufferMin?: number | null;
   minNoticeHours?: number | null;
@@ -73,9 +111,8 @@ export type SchedulingRules = {
  * conserverait les `| null`, ce qui obligerait à re-tester partout en aval.
  */
 export type ResolvedRules = {
-  weekdays: string[];
-  startTime: string;
-  endTime: string;
+  hours: WeeklyHours;
+  dateOverrides: DateOverride[];
   durationMin: number;
   bufferMin: number;
   minNoticeHours: number;
@@ -83,9 +120,8 @@ export type ResolvedRules = {
 };
 
 export const DEFAULT_RULES: ResolvedRules = {
-  weekdays: DEFAULT_WEEKDAYS,
-  startTime: "09:00",
-  endTime: "18:00",
+  hours: DEFAULT_HOURS,
+  dateOverrides: [],
   durationMin: 45,
   bufferMin: 15,
   minNoticeHours: 24,
@@ -96,16 +132,93 @@ export const DEFAULT_RULES: ResolvedRules = {
 const num = (value: unknown, fallback: number, min: number): number =>
   typeof value === "number" && Number.isFinite(value) && value >= min ? value : fallback;
 
+/** « HH:MM » → minutes depuis minuit, ou null si la forme ne tient pas. */
+export const parseTime = (value?: string | null): number | null => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(value ?? "").trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+};
+
+/**
+ * Nettoie une liste de plages : formes valides, fin après début, tri, puis
+ * FUSION des chevauchements.
+ *
+ * Sans la fusion, « 09:00–12:00 » et « 11:00–13:00 » saisies toutes les deux
+ * produiraient deux fois le créneau de 11 h. On ne refuse pas la saisie — un
+ * partenaire qui se corrige ne doit pas être bloqué —, on la rend cohérente.
+ */
+export const normalizeRanges = (ranges?: TimeRange[] | null): TimeRange[] => {
+  const parsed = (ranges ?? [])
+    .map((r) => ({ start: parseTime(r?.start), end: parseTime(r?.end) }))
+    .filter((r): r is { start: number; end: number } => r.start !== null && r.end !== null && r.end > r.start)
+    .sort((a, b) => a.start - b.start);
+
+  const merged: { start: number; end: number }[] = [];
+  for (const range of parsed) {
+    const last = merged[merged.length - 1];
+    if (last && range.start <= last.end) last.end = Math.max(last.end, range.end);
+    else merged.push({ ...range });
+  }
+
+  const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  return merged.map((r) => ({ start: fmt(r.start), end: fmt(r.end) }));
+};
+
+/**
+ * Semaine effective.
+ *
+ * Le repli sur la semaine par défaut ne vaut QUE pour un partenaire qui n'a
+ * jamais rien réglé — champ absent ou objet vide. Dès qu'il a saisi quelque
+ * chose, on s'en tient à ce qu'il a dit, même si le nettoyage n'en laisse rien.
+ *
+ * La nuance a du poids : replier une saisie devenue invalide sur « lundi à
+ * vendredi, 9 h – 18 h » reviendrait à publier au nom du partenaire des
+ * disponibilités qu'il n'a jamais annoncées. Mieux vaut ne rien proposer — il le
+ * voit immédiatement dans l'aperçu, juste sous l'éditeur.
+ */
+export const resolveHours = (hours?: WeeklyHours | null): WeeklyHours => {
+  if (!hours || Object.keys(hours).length === 0) return DEFAULT_HOURS;
+  const clean: WeeklyHours = {};
+  for (const { value } of WEEKDAY_OPTIONS) {
+    const day = normalizeRanges(hours[value]);
+    if (day.length) clean[value] = day;
+  }
+  return clean;
+};
+
 /** Complète les règles d'un partenaire avec les défauts. */
 export const resolveRules = (rules?: SchedulingRules | null): ResolvedRules => ({
-  weekdays: rules?.weekdays?.length ? rules.weekdays : DEFAULT_RULES.weekdays,
-  startTime: rules?.startTime || DEFAULT_RULES.startTime,
-  endTime: rules?.endTime || DEFAULT_RULES.endTime,
+  hours: resolveHours(rules?.hours),
+  dateOverrides: (rules?.dateOverrides ?? [])
+    .filter((o) => /^\d{4}-\d{2}-\d{2}$/.test(String(o?.date ?? "")))
+    .map((o) => ({ date: o.date, ranges: normalizeRanges(o.ranges) })),
   durationMin: num(rules?.durationMin, DEFAULT_RULES.durationMin, 5),
   bufferMin: num(rules?.bufferMin, DEFAULT_RULES.bufferMin, 0),
   minNoticeHours: num(rules?.minNoticeHours, DEFAULT_RULES.minNoticeHours, 0),
   horizonDays: num(rules?.horizonDays, DEFAULT_RULES.horizonDays, 1),
 });
+
+/**
+ * Plages ouvertes un jour donné, exceptions comprises.
+ *
+ * L'exception datée l'emporte TOUJOURS, y compris quand elle est vide : c'est
+ * ainsi qu'on ferme un jour férié tombant un mardi ouvré.
+ */
+export const rangesForDate = (
+  rules: ResolvedRules,
+  year: number,
+  month: number,
+  day: number,
+  isoDay: number,
+): TimeRange[] => {
+  const key = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const override = rules.dateOverrides.find((o) => o.date === key);
+  if (override) return override.ranges;
+  return rules.hours[String(isoDay)] ?? [];
+};
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
@@ -165,14 +278,6 @@ export const utcToZonedParts = (utcMs: number) => {
   };
 };
 
-/** « 09:30 » → 570 minutes. Renvoie null si le format n'est pas reconnu. */
-const parseTime = (value?: string | null): number | null => {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(value ?? "");
-  if (!m) return null;
-  const minutes = Number(m[1]) * 60 + Number(m[2]);
-  return minutes >= 0 && minutes < 24 * 60 ? minutes : null;
-};
-
 /** Jour ISO (1 = lundi … 7 = dimanche) d'un instant, en heure de Paris. */
 const isoWeekday = (utcMs: number): number => {
   const { year, month, day } = utcToZonedParts(utcMs);
@@ -203,12 +308,7 @@ export function generateSlots({
   until?: string | null;
 }): string[] {
   const r = resolveRules(rules);
-  const weekdays = new Set(r.weekdays);
-  const start = parseTime(r.startTime) ?? 9 * 60;
-  const end = parseTime(r.endTime) ?? 18 * 60;
   const { durationMin: duration, bufferMin: buffer, horizonDays: horizon } = r;
-
-  if (end <= start) return [];
 
   const earliest = nowMs + r.minNoticeHours * 60 * MINUTE;
   const latest = Math.min(nowMs + horizon * DAY, until ? Date.parse(until) : Infinity);
@@ -230,17 +330,25 @@ export function generateSlots({
   for (let dayOffset = 0; dayOffset <= horizon; dayOffset += 1) {
     const { year, month, day } = utcToZonedParts(nowMs + dayOffset * DAY);
     const dayStart = zonedTimeToUtc(year, month, day, 0, 0);
-    if (!weekdays.has(String(isoWeekday(dayStart)))) continue;
 
-    for (let minutes = start; minutes + duration <= end; minutes += step) {
-      const at = zonedTimeToUtc(year, month, day, Math.floor(minutes / 60), minutes % 60);
-      if (at < earliest || at > latest) continue;
-      if (takenSet.has(at)) continue;
+    // Chaque plage du jour est parcourue pour elle-même : le pas repart de son
+    // début. Sinon une matinée 08:00–09:30 et une soirée 18:30–19:00 seraient
+    // traitées comme un seul bloc de 8 h à 19 h.
+    for (const range of rangesForDate(r, year, month, day, isoWeekday(dayStart))) {
+      const from = parseTime(range.start);
+      const to = parseTime(range.end);
+      if (from === null || to === null) continue;
 
-      const ends = at + duration * MINUTE;
-      if (busyRanges.some((b) => at < b.end && ends > b.start)) continue;
+      for (let minutes = from; minutes + duration <= to; minutes += step) {
+        const at = zonedTimeToUtc(year, month, day, Math.floor(minutes / 60), minutes % 60);
+        if (at < earliest || at > latest) continue;
+        if (takenSet.has(at)) continue;
 
-      out.push(new Date(at).toISOString());
+        const ends = at + duration * MINUTE;
+        if (busyRanges.some((b) => at < b.end && ends > b.start)) continue;
+
+        out.push(new Date(at).toISOString());
+      }
     }
   }
 

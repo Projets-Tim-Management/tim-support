@@ -14,3 +14,35 @@
 @import "../modules/partner/admin/missions-catalog";
 @import "../modules/partner/admin/client-history";
 @import "../modules/marketing/admin/journey";
+
+/* ─── Écran de connexion : bouton « afficher le mot de passe » ───────────────
+   Injecté par admin/login/LoginEnhancements. Discret au repos, lisible au
+   survol : il ne doit pas concurrencer le bouton de connexion. */
+.tim-eye {
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: transparent;
+  color: var(--tim-muted);
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.tim-eye:hover {
+  background: var(--tim-elevation-100);
+  color: var(--tim-foreground);
+}
+
+.tim-eye:focus-visible {
+  outline: 2px solid var(--tim-primary);
+  outline-offset: 1px;
+}

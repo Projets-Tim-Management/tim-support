@@ -1,26 +1,23 @@
 import React from "react";
 
-import { BRAND_RED, FONT_STACK } from "./brand";
-import { Monogram } from "./Monogram";
-
 /**
- * Logo de marque affiché dans l'en-tête du back-office et sur l'écran de
- * connexion. Couleurs alignées sur le front (rouge TIM).
+ * Logo affiché sur l'écran de connexion et les pages hors session.
+ *
+ * C'est l'image de marque réelle, la même que dans le menu latéral et sur le
+ * site (`public/logo-support.webp`). Elle remplace un « TIM · Support »
+ * composé en CSS autour d'un monogramme : deux représentations d'une même
+ * marque finissent toujours par diverger, et c'est la fausse qu'on montrait à
+ * l'écran d'accueil.
  */
 export const Logo: React.FC = () => (
-  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-    <Monogram size={34} radius={9} />
-    <span
-      style={{
-        fontFamily: FONT_STACK,
-        fontWeight: 700,
-        fontSize: 20,
-        letterSpacing: "-0.01em",
-      }}
-    >
-      TIM <span style={{ color: BRAND_RED }}>·</span> Support
-    </span>
-  </div>
+  // eslint-disable-next-line @next/next/no-img-element
+  <img
+    alt="TIM support"
+    src="/logo-support.webp"
+    // Largeur bornée plutôt que fixée : l'écran de connexion est étroit sur
+    // mobile, et un logo qui déborde y est pire que pas de logo.
+    style={{ width: "100%", maxWidth: 260, height: "auto", display: "block" }}
+  />
 );
 
 export default Logo;
