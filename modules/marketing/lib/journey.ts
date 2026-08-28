@@ -16,6 +16,7 @@
  */
 
 import {
+  TIMEZONE,
   utcToZonedParts,
   zonedTimeToUtc,
 } from "@/modules/marketing/lib/scheduling";
@@ -190,24 +191,33 @@ export const SESSION_MODES = [
 export type SessionMode = (typeof SESSION_MODES)[number]["value"];
 
 /**
- * La session de prise en main doit se tenir AVANT le démarrage du test.
+ * La prise en main tombe-t-elle au plus tard le JOUR du démarrage ?
  *
  * C'est une pré-formation : elle sert à ce que les équipes sachent se servir de
  * l'outil dès le premier jour. Calée pendant le test, elle arriverait après les
  * premiers pointages — donc après le moment où elle aurait servi.
  *
- * Le jour même du démarrage est refusé : la formation doit précéder l'usage,
- * pas l'accompagner.
+ * Le jour du démarrage est désormais ACCEPTÉ. La règle le refusait, au motif que
+ * la formation doit précéder l'usage et non l'accompagner. La pratique a tranché
+ * autrement : on cale la session le lundi matin et le test démarre l'après-midi,
+ * ou le client impose sa journée. Le raisonnement restait juste à l'heure près,
+ * faux à la journée — et il bloquait un accord déjà pris avec un client
+ * (28/08/2026).
+ *
+ * On compare donc des JOURS au calendrier de Paris, pas des instants : une date
+ * de démarrage désigne une journée, pas un horaire. La comparer telle quelle
+ * revenait à refuser tout ce qui suit son minuit.
  */
-export const isSessionBeforeStart = (
+const parisDay = (iso: string): string =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE, dateStyle: "short" }).format(new Date(iso));
+
+export const isSessionNotAfterStart = (
   sessionAt?: string | null,
   startDate?: string | null,
 ): boolean => {
   if (!sessionAt || !startDate) return true; // rien à comparer
-  const at = Date.parse(sessionAt);
-  const start = Date.parse(startDate);
-  if (Number.isNaN(at) || Number.isNaN(start)) return true;
-  return at < start;
+  if (Number.isNaN(Date.parse(sessionAt)) || Number.isNaN(Date.parse(startDate))) return true;
+  return parisDay(sessionAt) <= parisDay(startDate);
 };
 
 /**

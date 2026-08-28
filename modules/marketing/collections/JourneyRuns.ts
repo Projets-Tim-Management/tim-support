@@ -40,7 +40,7 @@ import {
   computeEndDate,
   isAdminStep,
   isMonday,
-  isSessionBeforeStart,
+  isSessionNotAfterStart,
   isStepDone,
   mailDateWindow,
   stepDueDate,
@@ -673,9 +673,20 @@ const syncSessionCalendar: CollectionAfterChangeHook = async ({ doc, previousDoc
   // déplacer, et une adresse corrigée doit suivre dans l'invitation.
   const modeChanged = (previousDoc?.sessionMode ?? null) !== (doc?.sessionMode ?? null);
   const placeChanged = (previousDoc?.sessionLocation ?? null) !== (doc?.sessionLocation ?? null);
-  // Rattrapage : créneau déjà posé mais sans événement — cas d'un agenda
-  // connecté APRÈS coup. Sans ça, le lien n'arriverait jamais.
-  const missingEvent = Boolean(after) && !doc?.sessionEventId;
+  /**
+   * Rattrapage : créneau déjà posé mais sans événement — cas d'un agenda
+   * connecté APRÈS coup. Sans ça, le lien n'arriverait jamais.
+   *
+   * SAUF si un lien de visio est déjà renseigné. Il a alors été collé à la main,
+   * parce que le rendez-vous a été calé autrement — au téléphone, dans l'agenda
+   * personnel du partenaire. Créer un événement produirait un SECOND lien, qui
+   * viendrait écraser celui que le client a déjà reçu : il se connecterait à une
+   * visio où personne ne l'attend. Un lien posé à la main est une décision, pas
+   * un manque à combler.
+   *
+   * Le bouton « Mettre à l'agenda » reste disponible pour forcer, lui.
+   */
+  const missingEvent = Boolean(after) && !doc?.sessionEventId && !doc?.sessionLink;
   if (before === after && !modeChanged && !placeChanged && !missingEvent) return doc;
 
   const result = await syncSessionEvent(req.payload, doc as never, before);
@@ -1195,13 +1206,13 @@ export const JourneyRuns: CollectionConfig = {
               // ce champ se saisit aussi à la main, et rien n'empêcherait alors
               // de caler la formation après le démarrage.
               validate: (value: unknown, { data }: { data?: { startDate?: string } }) =>
-                isSessionBeforeStart(value as string, data?.startDate)
+                isSessionNotAfterStart(value as string, data?.startDate)
                   ? true
-                  : "La prise en main doit avoir lieu AVANT le démarrage du test : c'est une pré-formation, pour que les équipes soient opérationnelles dès le premier jour.",
+                  : "La prise en main ne peut pas avoir lieu APRÈS le démarrage du test : c'est une pré-formation, pour que les équipes soient opérationnelles dès le premier jour. Le jour du démarrage est accepté.",
               admin: {
                 date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" },
                 description:
-                  "Réservé par le client depuis son espace, ou saisi ici à la main. Obligatoirement avant le lundi de démarrage. Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.",
+                  "Réservé par le client depuis son espace, ou saisi ici à la main. Au plus tard le lundi de démarrage. Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.",
               },
             },
             {

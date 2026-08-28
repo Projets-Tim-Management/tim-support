@@ -42,6 +42,8 @@ import * as migration_20260825_202137_add_template_scope from './20260825_202137
 import * as migration_20260825_202444_add_activity_attachments from './20260825_202444_add_activity_attachments';
 import * as migration_20260827_162151_add_loss_reason from './20260827_162151_add_loss_reason';
 import * as migration_20260827_194113_permis_texte_libre from './20260827_194113_permis_texte_libre';
+import * as migration_20260828_145142_add_availability_json from './20260828_145142_add_availability_json';
+import * as migration_20260828_145201_drop_old_availability from './20260828_145201_drop_old_availability';
 
 export const migrations = [
   {
@@ -262,6 +264,16 @@ export const migrations = [
   {
     up: migration_20260827_194113_permis_texte_libre.up,
     down: migration_20260827_194113_permis_texte_libre.down,
-    name: '20260827_194113_permis_texte_libre'
+    name: '20260827_194113_permis_texte_libre',
+  },
+  {
+    up: migration_20260828_145142_add_availability_json.up,
+    down: migration_20260828_145142_add_availability_json.down,
+    name: '20260828_145142_add_availability_json',
+  },
+  {
+    up: migration_20260828_145201_drop_old_availability.up,
+    down: migration_20260828_145201_drop_old_availability.down,
+    name: '20260828_145201_drop_old_availability'
   },
 ];

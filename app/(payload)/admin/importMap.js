@@ -39,6 +39,7 @@ import { ContractModelAutofill as ContractModelAutofill_efe650ce4b81695b55d0f3c2
 import { SignaturePreview as SignaturePreview_a3d02792a93a9df9993e8e3ed30ceea2 } from '../../../modules/partner/admin/SignaturePreview'
 import { PartnerAccessManager as PartnerAccessManager_a9d284710faa2b19d5b2a4bb9cc2406b } from '../../../modules/partner/admin/PartnerAccessManager'
 import { CalendarConnect as CalendarConnect_55aecac0d9432d3f191394aadf330c49 } from '../../../modules/marketing/admin/CalendarConnect'
+import { AvailabilityEditor as AvailabilityEditor_fdf5762276623a73d3f223a4bbd6f925 } from '../../../modules/marketing/admin/AvailabilityEditor'
 import { SchedulingPreview as SchedulingPreview_d0e8bca074a50278bcb0a4901c728235 } from '../../../modules/marketing/admin/SchedulingPreview'
 import { PartnerClientsPanel as PartnerClientsPanel_c7863830fd24855994fff2ef0b0ebd06 } from '../../../modules/partner/admin/PartnerClientsPanel'
 import { AddClientButton as AddClientButton_ce0017323009dc202b417bbc2eca1cd0 } from '../../../modules/partner/admin/AddClientButton'
@@ -81,6 +82,7 @@ import { default as default_8224f9d0d872abe7f15fe4a0b0d49bd9 } from '../../../ad
 import { default as default_bd65fe58e0079c6c4581354ef4ec3555 } from '../../../admin/header/PartnerSwitcher'
 import { Icon as Icon_48a75e37b0630d5b8c8066e180c0e6ef } from '../../../admin/graphics/Icon'
 import { Logo as Logo_88541c286955dbac4d90fb5ed606381c } from '../../../admin/graphics/Logo'
+import { default as default_3cb4a5c74877e195c5857e84f524e351 } from '../../../admin/login/LoginEnhancements'
 import { default as default_055834be697654d564715e5f4ed084b8 } from '../../../admin/providers/RoleBodyClass'
 import { default as default_0c7a18af881eb624fa2c205ee8033462 } from '../../../admin/providers/RowClick'
 import { default as default_a0b3dc6cbedf342b789cbfbfb6915cb5 } from '../../../admin/providers/TabIcons'
@@ -132,6 +134,7 @@ export const importMap = {
   "/modules/partner/admin/SignaturePreview#SignaturePreview": SignaturePreview_a3d02792a93a9df9993e8e3ed30ceea2,
   "/modules/partner/admin/PartnerAccessManager#PartnerAccessManager": PartnerAccessManager_a9d284710faa2b19d5b2a4bb9cc2406b,
   "/modules/marketing/admin/CalendarConnect#CalendarConnect": CalendarConnect_55aecac0d9432d3f191394aadf330c49,
+  "/modules/marketing/admin/AvailabilityEditor#AvailabilityEditor": AvailabilityEditor_fdf5762276623a73d3f223a4bbd6f925,
   "/modules/marketing/admin/SchedulingPreview#SchedulingPreview": SchedulingPreview_d0e8bca074a50278bcb0a4901c728235,
   "/modules/partner/admin/PartnerClientsPanel#PartnerClientsPanel": PartnerClientsPanel_c7863830fd24855994fff2ef0b0ebd06,
   "/modules/partner/admin/AddClientButton#AddClientButton": AddClientButton_ce0017323009dc202b417bbc2eca1cd0,
@@ -174,6 +177,7 @@ export const importMap = {
   "/admin/header/PartnerSwitcher#default": default_bd65fe58e0079c6c4581354ef4ec3555,
   "/admin/graphics/Icon#Icon": Icon_48a75e37b0630d5b8c8066e180c0e6ef,
   "/admin/graphics/Logo#Logo": Logo_88541c286955dbac4d90fb5ed606381c,
+  "/admin/login/LoginEnhancements#default": default_3cb4a5c74877e195c5857e84f524e351,
   "/admin/providers/RoleBodyClass#default": default_055834be697654d564715e5f4ed084b8,
   "/admin/providers/RowClick#default": default_0c7a18af881eb624fa2c205ee8033462,
   "/admin/providers/TabIcons#default": default_a0b3dc6cbedf342b789cbfbfb6915cb5,

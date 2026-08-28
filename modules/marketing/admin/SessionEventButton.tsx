@@ -22,6 +22,7 @@ export function SessionEventButton() {
     sessionAt: fields.sessionAt?.value as string | undefined,
     eventId: fields.sessionEventId?.value as string | undefined,
     mode: fields.sessionMode?.value as string | undefined,
+    link: fields.sessionLink?.value as string | undefined,
   }));
 
   /**
@@ -34,6 +35,7 @@ export function SessionEventButton() {
   const sessionAt = (form.sessionAt ?? saved.sessionAt) as string | undefined;
   const eventId = (form.eventId ?? saved.sessionEventId) as string | undefined;
   const mode = (form.mode ?? saved.sessionMode) as string | undefined;
+  const link = (form.link ?? saved.sessionLink) as string | undefined;
 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -44,7 +46,13 @@ export function SessionEventButton() {
   // est désormais rempli — disparaître sans un mot laisserait un doute sur ce
   // qui s'est passé. L'encart reste, en confirmation, jusqu'au prochain
   // chargement de la page.
-  if (!id || !sessionAt || (eventId && !message)) return null;
+  /**
+   * Un lien déjà renseigné vaut décision : le rendez-vous a été calé autrement
+   * et le client a reçu CE lien-là. L'encart affirmait pourtant « n'a donc pas
+   * de lien de visio » sous un champ qui en affichait un, et proposait un bouton
+   * qui l'aurait remplacé. On se tait dans ce cas.
+   */
+  if (!id || !sessionAt || link || (eventId && !message)) return null;
 
   if (message) {
     return (

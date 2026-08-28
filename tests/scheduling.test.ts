@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { bookingModeOf, generateSlots, resolveRules } from "@/modules/marketing/lib/scheduling";
+import {
+  bookingModeOf,
+  generateSlots,
+  normalizeRanges,
+  resolveRules,
+} from "@/modules/marketing/lib/scheduling";
 import { mergeBusyReadings, targetCalendarIndex } from "@/modules/marketing/lib/calendar/index";
 import { PORTAL_SECTIONS, validateRow } from "@/modules/marketing/lib/portal-sections";
 import { generatePassword } from "@/modules/marketing/lib/credentials";
@@ -16,7 +21,7 @@ import {
   stepDueDate,
   isAdminStep,
   isManualStep,
-  isSessionBeforeStart,
+  isSessionNotAfterStart,
   isStepDone,
   isStepPending,
   isSystemStep,
@@ -69,8 +74,9 @@ describe("créneaux de prise en main", () => {
     expect(Math.max(...slots.map((s) => Date.parse(s)))).toBeLessThanOrEqual(Date.parse(until));
   });
 
-  it("ne produit rien si la fin précède le début", () => {
-    expect(generateSlots({ rules: { startTime: "18:00", endTime: "09:00" }, nowMs: now })).toEqual([]);
+  it("écarte une plage dont la fin précède le début", () => {
+    const rules = { hours: { "1": [{ start: "18:00", end: "09:00" }] } };
+    expect(generateSlots({ rules, nowMs: now })).toEqual([]);
   });
 
   it("espace les créneaux de durée + battement", () => {
@@ -82,7 +88,143 @@ describe("créneaux de prise en main", () => {
   it("complète les règles absentes par les défauts", () => {
     expect(resolveRules(null).durationMin).toBe(45);
     expect(resolveRules({ durationMin: 0 }).durationMin).toBe(45);
-    expect(resolveRules({ weekdays: [] }).weekdays).toHaveLength(5);
+    // Semaine vide = semaine par défaut, lundi → vendredi. Un partenaire qui
+    // efface tout par mégarde ne doit pas disparaître de l'espace client.
+    expect(Object.keys(resolveRules({ hours: {} }).hours)).toHaveLength(5);
+  });
+});
+
+/**
+ * Le cœur du nouveau modèle : plusieurs plages par jour, et des exceptions
+ * datées qui remplacent la journée.
+ */
+describe("disponibilités : plages par jour et exceptions", () => {
+  const now = Date.parse("2026-08-10T05:00:00.000Z"); // lundi 07:00 à Paris
+  const base = { durationMin: 60, bufferMin: 0, minNoticeHours: 0, horizonDays: 6 };
+  const parisHours = (slots: string[], day: string) =>
+    slots
+      .filter((s) => s.startsWith(day))
+      .map((s) =>
+        new Intl.DateTimeFormat("fr-FR", {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Europe/Paris",
+        }).format(new Date(s)),
+      );
+
+  it("propose deux blocs séparés dans la même journée", () => {
+    // Une matinée et une fin de journée : le pas repart au début de CHAQUE
+    // plage. Traitées comme un seul bloc de 08:00 à 19:00, elles auraient
+    // rempli le déjeuner de créneaux inexistants.
+    const rules = {
+      ...base,
+      hours: { "1": [{ start: "08:00", end: "10:00" }, { start: "18:00", end: "19:00" }] },
+    };
+    expect(parisHours(generateSlots({ rules, nowMs: now }), "2026-08-10")).toEqual([
+      "08:00",
+      "09:00",
+      "18:00",
+    ]);
+  });
+
+  it("ne propose rien un jour sans plage", () => {
+    const rules = { ...base, hours: { "1": [{ start: "09:00", end: "12:00" }] } };
+    const slots = generateSlots({ rules, nowMs: now });
+    expect(slots.filter((s) => s.startsWith("2026-08-11"))).toEqual([]); // mardi
+  });
+
+  it("une exception datée ferme la journée", () => {
+    const rules = {
+      ...base,
+      hours: { "1": [{ start: "09:00", end: "12:00" }] },
+      dateOverrides: [{ date: "2026-08-10", ranges: [] }],
+    };
+    expect(generateSlots({ rules, nowMs: now })).toEqual([]);
+  });
+
+  it("une exception datée remplace les horaires du jour", () => {
+    const rules = {
+      ...base,
+      hours: { "1": [{ start: "09:00", end: "12:00" }] },
+      dateOverrides: [{ date: "2026-08-10", ranges: [{ start: "14:00", end: "16:00" }] }],
+    };
+    expect(parisHours(generateSlots({ rules, nowMs: now }), "2026-08-10")).toEqual(["14:00", "15:00"]);
+  });
+
+  it("une exception peut ouvrir un jour normalement fermé", () => {
+    const rules = {
+      ...base,
+      hours: { "1": [{ start: "09:00", end: "12:00" }] },
+      dateOverrides: [{ date: "2026-08-15", ranges: [{ start: "10:00", end: "11:00" }] }], // samedi
+    };
+    expect(parisHours(generateSlots({ rules, nowMs: now }), "2026-08-15")).toEqual(["10:00"]);
+  });
+
+  it("croise les plages du partenaire avec son agenda connecté", () => {
+    // Le cas décrit par le partenaire : mardi 10 h – 12 h, et un rendez-vous
+    // déjà pris à 10 h. Il ne doit rester que le créneau suivant.
+    //
+    // Les deux filtres sont indépendants et doivent se composer : les plages
+    // disent ce qu'il PROPOSE, l'agenda ce qu'il ne peut PLUS tenir. Ne garder
+    // que l'un des deux, c'est soit annoncer des heures déjà prises, soit
+    // ignorer les disponibilités choisies.
+    const rules = {
+      durationMin: 45,
+      bufferMin: 15,
+      minNoticeHours: 0,
+      horizonDays: 2,
+      hours: { "2": [{ start: "10:00", end: "12:00" }] },
+    };
+    const mardi = "2026-08-11";
+
+    const sansAgenda = parisHours(generateSlots({ rules, nowMs: now }), mardi);
+    expect(sansAgenda).toEqual(["10:00", "11:00"]);
+
+    const avecRdv = parisHours(
+      generateSlots({
+        rules,
+        nowMs: now,
+        busy: [{ start: "2026-08-11T08:00:00.000Z", end: "2026-08-11T08:30:00.000Z" }], // 10:00–10:30 à Paris
+      }),
+      mardi,
+    );
+    expect(avecRdv).toEqual(["11:00"]);
+  });
+
+  it("écarte un créneau même si le rendez-vous ne le recouvre qu'en partie", () => {
+    // Un rendez-vous de 11 h 30 à 12 h laisse le créneau de 11 h formellement
+    // « libre » à son début, mais il déborde dessus. Le proposer reviendrait à
+    // promettre une session de 45 minutes dont un quart d'heure est déjà pris.
+    const rules = {
+      durationMin: 45,
+      bufferMin: 15,
+      minNoticeHours: 0,
+      horizonDays: 2,
+      hours: { "2": [{ start: "10:00", end: "12:00" }] },
+    };
+    const slots = generateSlots({
+      rules,
+      nowMs: now,
+      busy: [{ start: "2026-08-11T09:30:00.000Z", end: "2026-08-11T10:00:00.000Z" }], // 11:30–12:00
+    });
+    expect(parisHours(slots, "2026-08-11")).toEqual(["10:00"]);
+  });
+
+  it("fusionne deux plages qui se chevauchent au lieu de doubler les créneaux", () => {
+    expect(normalizeRanges([{ start: "09:00", end: "12:00" }, { start: "11:00", end: "13:00" }])).toEqual([
+      { start: "09:00", end: "13:00" },
+    ]);
+  });
+
+  it("écarte les plages mal formées sans faire tomber le reste", () => {
+    expect(
+      normalizeRanges([
+        { start: "nimporte", end: "12:00" },
+        { start: "25:00", end: "26:00" },
+        { start: "14:00", end: "14:00" },
+        { start: "15:00", end: "16:00" },
+      ]),
+    ).toEqual([{ start: "15:00", end: "16:00" }]);
   });
 });
 
@@ -291,26 +433,36 @@ describe("Go / No-Go : la règle s'applique aux parcours déjà armés", () => {
   });
 });
 
-describe("prise en main : pré-formation avant le démarrage", () => {
+describe("prise en main : au plus tard le jour du démarrage", () => {
   const start = "2026-08-31T00:00:00.000Z"; // lundi de démarrage
 
   it("accepte un créneau situé avant le démarrage", () => {
-    expect(isSessionBeforeStart("2026-08-28T14:00:00.000Z", start)).toBe(true);
-    expect(isSessionBeforeStart("2026-08-24T09:00:00.000Z", start)).toBe(true);
+    expect(isSessionNotAfterStart("2026-08-28T14:00:00.000Z", start)).toBe(true);
+    expect(isSessionNotAfterStart("2026-08-24T09:00:00.000Z", start)).toBe(true);
   });
 
-  it("refuse le jour même du démarrage — la formation doit précéder l'usage", () => {
-    expect(isSessionBeforeStart("2026-08-31T09:00:00.000Z", start)).toBe(false);
+  it("accepte le jour du démarrage, à toute heure", () => {
+    // Le cas qui a motivé le changement : session le lundi matin, test démarré
+    // dans la foulée. L'ancienne règle comparait 09:00 à minuit et refusait.
+    expect(isSessionNotAfterStart("2026-08-31T07:00:00.000Z", start)).toBe(true);
+    expect(isSessionNotAfterStart("2026-08-31T15:30:00.000Z", start)).toBe(true);
+  });
+
+  it("accepte la toute fin du jour de démarrage, heure de Paris", () => {
+    // 23:30 à Paris le 31/08 = 21:30 UTC. Une comparaison en UTC seul ferait
+    // basculer les soirées d'été sur le lendemain.
+    expect(isSessionNotAfterStart("2026-08-31T21:30:00.000Z", start)).toBe(true);
   });
 
   it("refuse un créneau pendant le test", () => {
-    expect(isSessionBeforeStart("2026-09-03T09:00:00.000Z", start)).toBe(false);
+    expect(isSessionNotAfterStart("2026-09-01T09:00:00.000Z", start)).toBe(false);
+    expect(isSessionNotAfterStart("2026-09-03T09:00:00.000Z", start)).toBe(false);
   });
 
   it("ne bloque rien tant qu'une des deux dates manque", () => {
-    expect(isSessionBeforeStart(null, start)).toBe(true);
-    expect(isSessionBeforeStart("2026-09-03T09:00:00.000Z", null)).toBe(true);
-    expect(isSessionBeforeStart("pas-une-date", start)).toBe(true);
+    expect(isSessionNotAfterStart(null, start)).toBe(true);
+    expect(isSessionNotAfterStart("2026-09-03T09:00:00.000Z", null)).toBe(true);
+    expect(isSessionNotAfterStart("pas-une-date", start)).toBe(true);
   });
 
   it("les créneaux proposés au client s'arrêtent au démarrage", () => {

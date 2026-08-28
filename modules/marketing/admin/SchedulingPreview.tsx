@@ -3,7 +3,12 @@
 import { useFormFields } from "@payloadcms/ui";
 import { useEffect, useMemo, useState } from "react";
 
-import { formatSlot, generateSlots } from "@/modules/marketing/lib/scheduling";
+import {
+  formatSlot,
+  generateSlots,
+  type DateOverride,
+  type WeeklyHours,
+} from "@/modules/marketing/lib/scheduling";
 
 /**
  * Aperçu des créneaux produits par les règles de disponibilité.
@@ -18,9 +23,8 @@ export function SchedulingPreview() {
     enabled: fields["scheduling.enabled"]?.value as boolean | undefined,
     mode: fields["scheduling.mode"]?.value as string | undefined,
     bookingUrl: fields["scheduling.bookingUrl"]?.value as string | undefined,
-    weekdays: fields["scheduling.weekdays"]?.value as string[] | undefined,
-    startTime: fields["scheduling.startTime"]?.value as string | undefined,
-    endTime: fields["scheduling.endTime"]?.value as string | undefined,
+    hours: fields["scheduling.hours"]?.value as WeeklyHours | undefined,
+    dateOverrides: fields["scheduling.dateOverrides"]?.value as DateOverride[] | undefined,
     durationMin: fields["scheduling.durationMin"]?.value as number | undefined,
     bufferMin: fields["scheduling.bufferMin"]?.value as number | undefined,
     minNoticeHours: fields["scheduling.minNoticeHours"]?.value as number | undefined,

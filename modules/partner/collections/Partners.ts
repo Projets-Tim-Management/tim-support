@@ -12,9 +12,6 @@ import {
 import { validatePhone } from "@/core/lib/validators";
 import {
   BOOKING_MODES,
-  DEFAULT_WEEKDAYS,
-  HOUR_OPTIONS,
-  WEEKDAY_OPTIONS,
 } from "@/modules/marketing/lib/scheduling";
 
 /**
@@ -595,34 +592,32 @@ export const Partners: CollectionConfig = {
                   },
                 },
                 {
-                  name: "weekdays",
-                  type: "select",
-                  hasMany: true,
-                  label: "Jours travaillés",
-                  defaultValue: DEFAULT_WEEKDAYS,
-                  options: [...WEEKDAY_OPTIONS],
-                  admin: { condition: (_, s) => s?.enabled !== false && s?.mode !== "lien" },
+                  /**
+                   * Disponibilités de la semaine, plage par plage.
+                   *
+                   * Remplace « jours travaillés + une plage commune », qui ne
+                   * savait pas dire « lundi matin seulement » — c'est-à-dire la
+                   * situation ordinaire de quelqu'un qui a aussi un métier à
+                   * exercer. Stocké en JSON : la forme est petite, entièrement
+                   * pilotée par l'éditeur, et jamais interrogée en base.
+                   */
+                  name: "hours",
+                  type: "json",
+                  label: false,
+                  admin: {
+                    condition: (_, s) => s?.enabled !== false && s?.mode !== "lien",
+                    components: {
+                      Field: "/modules/marketing/admin/AvailabilityEditor#AvailabilityEditor",
+                    },
+                  },
                 },
                 {
-                  type: "row",
-                  fields: [
-                    {
-                      name: "startTime",
-                      type: "select",
-                      label: "À partir de",
-                      defaultValue: "09:00",
-                      options: HOUR_OPTIONS,
-                      admin: { width: "50%", condition: (_, s) => s?.enabled !== false && s?.mode !== "lien" },
-                    },
-                    {
-                      name: "endTime",
-                      type: "select",
-                      label: "Jusqu'à",
-                      defaultValue: "18:00",
-                      options: HOUR_OPTIONS,
-                      admin: { width: "50%", condition: (_, s) => s?.enabled !== false && s?.mode !== "lien" },
-                    },
-                  ],
+                  // Exceptions datées. Champ masqué : l'éditeur ci-dessus les
+                  // écrit en même temps que la semaine type — deux cadres à
+                  // l'écran, une seule intention.
+                  name: "dateOverrides",
+                  type: "json",
+                  admin: { hidden: true },
                 },
                 {
                   type: "row",
