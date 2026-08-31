@@ -87,6 +87,22 @@ const concerne = (commande, verbe) =>
  */
 const VERS_LA_PROD = /\bpush\b[^\n]{0,120}\bmain\b/;
 
+/**
+ * Retire les corps de heredoc avant d'analyser la commande.
+ *
+ * Un message de commit rédigé en heredoc fait partie de la ligne de commande —
+ * et il PARLE souvent de ce qu'on est en train de faire. Celui de ce fichier
+ * contenait « push origin main » en toutes lettres, ce qui a déclenché
+ * l'avertissement de déploiement sur un push de branche de travail.
+ *
+ * Ce n'est pas rattrapable par une expression régulière plus fine : le texte est
+ * littéralement identique à la commande qu'on cherche. La seule distinction qui
+ * tienne est structurelle — ce qui se trouve entre `<<TAG` et la ligne `TAG` est
+ * une DONNÉE, pas une commande.
+ */
+const sansHeredoc = (commande) =>
+  commande.replace(/<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1[\s\S]*?^\t*\2$/gm, "<<…");
+
 const lireEntree = async () => {
   const morceaux = [];
   for await (const morceau of process.stdin) morceaux.push(morceau);
@@ -101,11 +117,15 @@ const main = async () => {
     return; // Entrée illisible : on se tait plutôt que de gêner.
   }
 
+  // Les corps de heredoc sont des données, pas des commandes : on analyse ce
+  // qui reste une fois qu'ils sont retirés.
+  const geste = sansHeredoc(commande);
+
   const sections = [];
-  if (concerne(commande, "commit")) sections.push(COMMIT);
-  if (concerne(commande, "push")) {
+  if (concerne(geste, "commit")) sections.push(COMMIT);
+  if (concerne(geste, "push")) {
     sections.push(PUSH);
-    if (VERS_LA_PROD.test(commande)) sections.push(PROD);
+    if (VERS_LA_PROD.test(geste)) sections.push(PROD);
   }
   if (sections.length === 0) return;
 
