@@ -2105,3 +2105,20 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
   cursor: help;
   white-space: nowrap;
 }
+
+/* Alerte bloquante sur une carte : l'espace client est ouvert mais le client
+   n'a jamais reçu son invitation. Rouge plein, contrairement aux mentions
+   secondaires : rien de ce qui suit sur la carte ne peut avancer sans ça. */
+.tim-kanban__alert {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-red-bg);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--tim-red);
+  cursor: help;
+}
