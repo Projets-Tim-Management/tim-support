@@ -846,3 +846,37 @@
 }
 
 
+
+/* Tiroir « Mettre à jour depuis un JSON », ouvert depuis le menu ⋮ de la fiche.
+   Reprend la zone de saisie du panneau d'import : c'est le même geste — coller
+   du JSON — et deux mises en forme pour un même geste se paient en hésitation. */
+.feat-json {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.25rem 0 1rem;
+}
+.feat-json__intro {
+  margin: 0;
+  color: var(--tim-foreground);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+.feat-json__textarea {
+  width: 100%;
+  min-height: 16rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  padding: 0.7rem 0.85rem;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+.feat-json__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.feat-json__actions .feat-import__copy {
+  margin-left: 0;
+}

@@ -34,6 +34,7 @@ import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { DocSectionRowLabel as DocSectionRowLabel_67e1bc4d7225aec381db547c4b4a729c } from '../../../modules/editorial/admin/DocSectionRowLabel'
 import { FeatureImport as FeatureImport_0cbeb25d32bc0babbecc520b3ac7820e } from '../../../modules/editorial/admin/FeatureImport'
+import { FeatureJsonMenu as FeatureJsonMenu_93f888e6d67e320ea8122b4b161a7229 } from '../../../modules/editorial/admin/FeatureJsonMenu'
 import { default as default_7e85f5cff101ba7e7585712dd2365fa1 } from '../../../modules/editorial/admin/ParcoursListView'
 import { ContractModelAutofill as ContractModelAutofill_efe650ce4b81695b55d0f3c26a9c1118 } from '../../../modules/partner/admin/ContractModelAutofill'
 import { SignaturePreview as SignaturePreview_a3d02792a93a9df9993e8e3ed30ceea2 } from '../../../modules/partner/admin/SignaturePreview'
@@ -129,6 +130,7 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "/modules/editorial/admin/DocSectionRowLabel#DocSectionRowLabel": DocSectionRowLabel_67e1bc4d7225aec381db547c4b4a729c,
   "/modules/editorial/admin/FeatureImport#FeatureImport": FeatureImport_0cbeb25d32bc0babbecc520b3ac7820e,
+  "/modules/editorial/admin/FeatureJsonMenu#FeatureJsonMenu": FeatureJsonMenu_93f888e6d67e320ea8122b4b161a7229,
   "/modules/editorial/admin/ParcoursListView#default": default_7e85f5cff101ba7e7585712dd2365fa1,
   "/modules/partner/admin/ContractModelAutofill#ContractModelAutofill": ContractModelAutofill_efe650ce4b81695b55d0f3c26a9c1118,
   "/modules/partner/admin/SignaturePreview#SignaturePreview": SignaturePreview_a3d02792a93a9df9993e8e3ed30ceea2,

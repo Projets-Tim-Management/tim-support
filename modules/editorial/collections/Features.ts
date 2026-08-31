@@ -2,7 +2,9 @@ import type { Block, CollectionConfig } from "payload";
 
 import { editorialAccess } from "@/core/access";
 import { slugField } from "@/core/fields/slug";
+import { exportFeatureHandler } from "@/modules/editorial/import/exportFeatureHandler";
 import { importFeatureHandler } from "@/modules/editorial/import/importFeatureHandler";
+import { mergeFeatureHandler } from "@/modules/editorial/import/mergeFeatureHandler";
 import { AVAILABILITY_OPTIONS } from "@/modules/editorial/lib/availability";
 
 /**
@@ -83,14 +85,24 @@ export const Features: CollectionConfig = {
     components: {
       // Panneau « Importer une feature depuis Claude » au-dessus de la liste.
       beforeListTable: ["/modules/editorial/admin/FeatureImport#FeatureImport"],
+      edit: {
+        // Dans le menu ⋮ plutôt qu'en boutons : gestes occasionnels, qui ne
+        // doivent pas disputer l'attention à « Publier ».
+        editMenuItems: ["/modules/editorial/admin/FeatureJsonMenu#FeatureJsonMenu"],
+      },
     },
   },
   access: editorialAccess,
   versions: { drafts: true },
-  // Import d'une feature pré-rédigée (JSON généré par Claude) → brouillon.
-  // Reçu sur POST /payload-api/features/import (voir importFeatureHandler).
   endpoints: [
+    // Import d'une feature pré-rédigée (JSON généré par Claude) → brouillon.
     { path: "/import", method: "post", handler: importFeatureHandler },
+    // Le miroir : rend une feature dans le format que l'import relit, pour
+    // reprendre une fiche existante au lieu de la réécrire.
+    { path: "/:id/export", method: "get", handler: exportFeatureHandler },
+    // Remet un JSON dans une fiche existante SANS toucher à ce qu'il ne
+    // contient pas — les visuels notamment.
+    { path: "/:id/merge", method: "post", handler: mergeFeatureHandler },
   ],
   fields: [
     // ─── Titre (colonne principale, toujours visible) ────────────────────────
