@@ -136,3 +136,23 @@
   /* Un dépôt multiple liste un échec par ligne. */
   white-space: pre-line;
 }
+
+/* Nom du fichier, sous la vignette d'une image.
+   Tronqué sur une ligne — un nom d'export tient rarement dans la largeur —
+   avec le nom entier en infobulle. */
+.direct-upload__name {
+  display: block;
+  max-width: 120px;
+  padding: 0.3rem 0.4rem;
+  border-top: 1px solid var(--tim-border);
+  overflow: hidden;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  color: var(--tim-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Aperçu unique : la vignette est plus large, le nom suit. */
+.direct-upload__grid--single .direct-upload__name {
+  max-width: 220px;
+}

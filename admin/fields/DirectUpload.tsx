@@ -125,8 +125,22 @@ export default function DirectUpload(props: any) {
           {items.map((m, i) => (
             <div key={`${m.id}-${i}`} className="direct-upload__thumb">
               {isImage(m) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={m.url} alt="" />
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={m.url} alt={m.filename ?? ""} />
+                  {/* Le NOM sous la vignette.
+                      Une image posée ne se reconnaît pas toujours à sa
+                      vignette : deux captures du même écran se ressemblent, et
+                      un GIF n'affiche que sa première image. Sans le nom, la
+                      seule façon de savoir lequel on a mis était de le
+                      télécharger. Il est tronqué à l'affichage, entier au
+                      survol — un nom de fichier tient rarement en une ligne. */}
+                  {m.filename && (
+                    <span className="direct-upload__name" title={m.filename}>
+                      {m.filename}
+                    </span>
+                  )}
+                </>
               ) : (
                 <span className="direct-upload__doc" title={m.filename}>
                   <span className="direct-upload__doc-icon" aria-hidden>
