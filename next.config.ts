@@ -16,9 +16,13 @@ const nextConfig: NextConfig = {
     cpus: 2,
   },
   /**
-   * `sharp` est chargé au démarrage par la configuration Payload (redimension
-   * des médias). C'est une bibliothèque NATIVE : à côté du JavaScript, elle
-   * embarque un `.so` compilé pour la plateforme.
+   * `sharp` est chargé par Next pour l'optimisation de ses propres images.
+   * C'est une bibliothèque NATIVE : à côté du JavaScript, elle embarque un
+   * `.so` compilé pour la plateforme.
+   *
+   * (La configuration Payload ne s'en sert PLUS : elle le chargeait pour
+   * retravailler les médias, ce qui faisait échouer les gros GIF animés. Voir
+   * payload.config.ts. Ces garde-fous restent nécessaires pour Next.)
    *
    * Next n'embarque dans la fonction déployée que les fichiers qu'il a tracés.
    * Le jour où l'application et Next ont chacun leur version de `sharp`, Next

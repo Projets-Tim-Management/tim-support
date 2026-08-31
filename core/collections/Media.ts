@@ -28,9 +28,16 @@ export const Media: CollectionConfig = {
       label: "Texte alternatif",
     },
   ],
-  // Pas de recadrage / point focal : on stocke les fichiers tels quels (dont de
-  // gros GIF animés de 200+ frames que le pipeline sharp de Payload ne doit pas
-  // tenter de retravailler — sinon échec de téléversement). Aucune imageSizes
-  // n'est définie non plus : les visuels sont servis en taille d'origine.
+  /**
+   * Fichiers stockés TELS QUELS : ni recadrage, ni point focal, ni tailles
+   * dérivées. Les visuels sont servis en taille d'origine.
+   *
+   * Ce n'est pas qu'une préférence, c'est une contrainte : les GIF de
+   * démonstration dépassent les 200 images, et les faire retravailler par la
+   * bibliothèque d'images échouait — au-delà de sa limite de pixels, puis au-delà
+   * du délai d'une fonction. La garantie ne tient d'ailleurs pas à ces trois
+   * options, mais à l'absence de `sharp` dans la configuration Payload, qui est
+   * ce qui empêche RÉELLEMENT le ré-encodage (voir payload.config.ts).
+   */
   upload: { focalPoint: false, crop: false },
 };

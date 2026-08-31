@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import sharp from "sharp";
 import { sanitizeFilename } from "payload/shared";
 
 import { isBackoffice } from "@/core/access";
-import { estTypeAnime, urlDuFichier } from "@/core/lib/media-store";
+import { urlDuFichier } from "@/core/lib/media-store";
 import { payloadClient } from "@/core/payload-client";
 
 /**
@@ -75,43 +74,6 @@ export async function POST(req: Request) {
   } catch (err) {
     payload.logger.error(`[media] relecture de « ${filename} » échouée : ${err}`);
     return NextResponse.json({ error: "read_failed" }, { status: 502 });
-  }
-
-  /**
-   * SONDAGE : le fichier est-il lisible par la bibliothèque d'images ?
-   *
-   * Payload ré-encode toute image qu'il reçoit — pour un GIF, cela veut dire
-   * décoder et réécrire ses cent soixante vignettes. Quand cela échoue, il
-   * journalise la vraie raison puis la remplace par « Il y a eu un problème
-   * lors du téléversement du fichier » : un texte qui n'apprend rien, et qui
-   * oblige à ouvrir les journaux du serveur pour savoir ce qu'on reproche au
-   * fichier.
-   *
-   * On refait donc ICI exactement son appel, pour pouvoir rapporter le motif.
-   * Le coût est réel — un second décodage — mais il n'est payé qu'une fois par
-   * envoi, et il transforme une impasse en phrase actionnable.
-   */
-  if (typeReel.startsWith("image/") && typeReel !== "image/svg+xml") {
-    try {
-      const image = sharp(donnees, estTypeAnime(typeReel) ? { animated: true } : {}).rotate();
-      await image.metadata();
-      await image.toBuffer({ resolveWithObject: true });
-    } catch (err) {
-      const motif = err instanceof Error ? err.message : String(err);
-      payload.logger.warn(`[media] « ${filename} » illisible par sharp : ${motif}`);
-      return NextResponse.json(
-        {
-          errors: [
-            {
-              message:
-                `Ce fichier n'est pas une image que le serveur sait traiter : ${motif.slice(0, 200)}. ` +
-                `Réexportez-le (par exemple en GIF standard, moins de 200 images) ou convertissez-le.`,
-            },
-          ],
-        },
-        { status: 400 },
-      );
-    }
   }
 
   const file = {
