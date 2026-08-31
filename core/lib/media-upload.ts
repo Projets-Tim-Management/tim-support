@@ -112,9 +112,12 @@ export interface MediaLite {
 
 export type Envoi = { ok: true; doc: MediaLite } | { ok: false; message: string };
 
-const API = "/payload-api";
-/** Route de jeton posée par le plugin Vercel Blob quand `clientUploads` est actif. */
-const ROUTE_JETON = `${API}/vercel-blob-client-upload-route`;
+/** Droit de dépôt sur le CDN, délivré par le serveur (avec l'écrasement). */
+const ROUTE_JETON = "/api/media/jeton";
+/** Enregistrement du média, une fois le fichier réellement déposé. */
+const ROUTE_ENREGISTREMENT = "/api/media/enregistrer";
+/** Envoi classique, quand il n'y a pas de stockage distant (dev local). */
+const ROUTE_PAYLOAD = "/payload-api/media";
 
 /** Réponse de l'API en document, ou message d'erreur exploitable. */
 async function litReponse(res: Response): Promise<Envoi> {
@@ -127,70 +130,65 @@ async function litReponse(res: Response): Promise<Envoi> {
 }
 
 /**
- * Crée le document `media` pour un fichier DÉJÀ déposé sur le CDN.
+ * Enregistre le média d'un fichier DÉJÀ déposé sur le CDN.
  *
- * Le champ `file` porte alors une DESCRIPTION en JSON, pas des octets : Payload
- * reconnaît cette forme, va rechercher le fichier sur le stockage et n'en relit
- * que ce qu'il lui faut (dimensions, type). C'est le protocole du plugin, pas
- * un détournement — voir addDataAndFileToRequest côté Payload.
+ * Le serveur reconstruit l'adresse à partir du seul nom — on ne lui transmet
+ * donc pas d'URL, qu'il irait chercher les yeux fermés.
  */
-async function creeDocument(file: File, filename: string): Promise<Envoi> {
-  const fd = new FormData();
-  fd.append(
-    "file",
-    JSON.stringify({
-      // Sa présence signale au serveur que le fichier est déjà en place.
-      clientUploadContext: { prefix: "" },
-      collectionSlug: "media",
-      filename,
-      mimeType: file.type,
-      size: file.size,
-    }),
-  );
+async function enregistre(file: File, filename: string): Promise<Envoi> {
   return litReponse(
-    await fetch(`${API}/media`, { method: "POST", body: fd, credentials: "include" }),
+    await fetch(ROUTE_ENREGISTREMENT, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename, mimeType: file.type, size: file.size }),
+    }),
   );
 }
 
 /**
  * Envoi d'un fichier, par le chemin le plus court disponible.
  *
- * 1. DIRECT AU CDN quand la route de jeton existe. Le fichier ne traverse plus
- *    la fonction serverless — c'est ce qui supprime le plafond de 4,5 Mo qu'elle
- *    impose au corps d'une requête, et qui faisait échouer les GIF de
- *    démonstration avec un « 400 » sans explication.
+ * 1. DIRECT AU CDN. Le fichier ne traverse pas la fonction serverless — c'est
+ *    ce qui supprime le plafond de 4,5 Mo qu'elle impose au corps d'une
+ *    requête, et qui faisait échouer les GIF de démonstration sur un « 400 »
+ *    sans explication. Le serveur enchaîne ensuite sur l'enregistrement.
  * 2. PAR LE SERVEUR sinon : environnement sans stockage distant configuré, où
  *    les fichiers restent sur le disque local et sont petits de toute façon.
  *
- * Le nom est assaini AVANT l'envoi, avec la même fonction que le serveur : la
- * clé déposée sur le CDN et le nom enregistré en base doivent désigner le même
- * fichier, sinon l'image est en ligne mais introuvable.
+ * Le nom est assaini AVANT le dépôt, avec la même fonction que le serveur : la
+ * clé écrite sur le CDN et le nom enregistré en base doivent désigner le même
+ * fichier, sinon l'image est en ligne et introuvable.
  */
 export async function uploadFile(file: File): Promise<Envoi> {
   const refus = refusPourTaille(file.size);
   if (refus) return { ok: false, message: refus };
 
-  const filename = sanitizeFilename(file.name);
+  let filename: string;
+  try {
+    filename = sanitizeFilename(file.name);
+  } catch {
+    return { ok: false, message: "Ce nom de fichier n'est pas exploitable." };
+  }
 
   try {
     const { upload } = await import("@vercel/blob/client");
     await upload(filename, file, {
       access: "public",
-      clientPayload: "media",
       contentType: file.type,
       handleUploadUrl: ROUTE_JETON,
     });
-    return await creeDocument(file, filename);
+    return await enregistre(file, filename);
   } catch (err) {
-    // Route absente (stockage local) → on repasse par le serveur. Toute autre
-    // panne du dépôt direct sera rattrapée là aussi, et signalée si elle
-    // persiste : mieux vaut un second essai qu'un échec sur une route manquante.
+    // Pas de stockage distant configuré → on repasse par le serveur, qui
+    // écrira sur le disque local. Une panne du dépôt direct atterrit ici aussi :
+    // mieux vaut un second essai qu'un échec sur une route absente.
     console.warn("[media] dépôt direct indisponible, envoi par le serveur :", err);
   }
 
   const fd = new FormData();
   fd.append("file", file);
   return litReponse(
-    await fetch(`${API}/media`, { method: "POST", body: fd, credentials: "include" }),
+    await fetch(ROUTE_PAYLOAD, { method: "POST", body: fd, credentials: "include" }),
   );
 }

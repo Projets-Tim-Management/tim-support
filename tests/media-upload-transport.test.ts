@@ -54,6 +54,8 @@ afterEach(() => vi.unstubAllGlobals());
 
 /** Ce que le champ `file` de la requête portait : des octets, ou une description. */
 const champFile = (i = 0) => appels[i]?.body.get("file");
+/** Corps JSON envoyé à la route d'enregistrement. */
+const decrit = (i = 0) => JSON.parse(String(appels[i]?.body));
 
 describe("envoi direct au CDN", () => {
   it("dépose le fichier sur le CDN, puis crée le document sans les octets", async () => {
@@ -63,16 +65,17 @@ describe("envoi direct au CDN", () => {
 
     expect(r).toEqual({ ok: true, doc: { id: 7, url: "https://cdn/demo.gif" } });
     expect(upload).toHaveBeenCalledTimes(1);
-    // Le fichier n'a PAS traversé la fonction : le champ porte une description.
-    const decrit = JSON.parse(String(champFile()));
-    expect(decrit).toMatchObject({
-      collectionSlug: "media",
-      filename: "demo.gif",
-      mimeType: "image/gif",
-      size: 12 * 1024 * 1024,
-    });
-    // Sa présence est ce qui dit au serveur « le fichier est déjà en place ».
-    expect(decrit.clientUploadContext).toEqual({ prefix: "" });
+    // Le fichier n'a PAS traversé la fonction : on n'envoie qu'une description.
+    expect(appels[0].url).toBe("/api/media/enregistrer");
+    expect(decrit()).toEqual({ filename: "demo.gif", mimeType: "image/gif", size: 12 * 1024 * 1024 });
+  });
+
+  it("n'envoie PAS d'URL au serveur — il la reconstruit du nom", async () => {
+    // Une adresse fournie par le navigateur ferait émettre au serveur la
+    // requête sortante de son choix : il ne reçoit que le nom.
+    upload.mockResolvedValue({ pathname: "demo.gif", url: "https://cdn/demo.gif" });
+    await uploadFile(fichier());
+    expect(Object.keys(decrit())).toEqual(["filename", "mimeType", "size"]);
   });
 
   it("dépose sous la MÊME clé que celle enregistrée en base", async () => {
@@ -85,7 +88,7 @@ describe("envoi direct au CDN", () => {
       upload.mockClear();
       appels.length = 0;
       await uploadFile(fichier(nom));
-      expect(upload.mock.calls[0][0], nom).toBe(JSON.parse(String(champFile())).filename);
+      expect(upload.mock.calls[0][0], nom).toBe(decrit().filename);
     }
   });
 
@@ -100,10 +103,11 @@ describe("envoi direct au CDN", () => {
   it("passe par la route de jeton du plugin, réservée aux comptes connectés", async () => {
     upload.mockResolvedValue({ pathname: "demo.gif" });
     await uploadFile(fichier());
+    // La route du PROJET, pas celle du plugin : c'est elle qui accorde le
+    // droit d'écraser, sans lequel un réenvoi du même nom casse l'image.
     expect(upload.mock.calls[0][2]).toMatchObject({
       access: "public",
-      clientPayload: "media",
-      handleUploadUrl: "/payload-api/vercel-blob-client-upload-route",
+      handleUploadUrl: "/api/media/jeton",
     });
   });
 });
