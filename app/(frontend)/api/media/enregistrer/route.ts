@@ -100,24 +100,24 @@ export async function POST(req: Request) {
   ).docs[0] as { id: number | string } | undefined;
 
   try {
+    /**
+     * ⚠️ On passe `user`, JAMAIS un `req` fabriqué.
+     *
+     * L'API locale construit elle-même une requête complète à partir de
+     * l'utilisateur. Lui en fournir une de fortune (`{ user }`) casse tout dès
+     * la première ligne du traitement d'image, qui lit `req.payload.config` :
+     * l'exception remontait ici et ressortait en « le serveur n'a pas pu
+     * enregistrer ce fichier », sans plus d'explication.
+     *
+     * `overrideAccess` est assumé : le droit d'ajouter un média a déjà été
+     * vérifié en tête de route. Sans lui, remplacer un fichier exigerait le
+     * rôle admin (la collection réserve `update` aux admins) alors que le
+     * déposer ne le demande pas.
+     */
+    const commun = { data: {}, file, overwriteExistingFiles: true, overrideAccess: true, user } as const;
     const doc = existant
-      ? await payload.update({
-          collection: "media",
-          id: existant.id,
-          data: {},
-          file,
-          overwriteExistingFiles: true,
-          user,
-          req: { user } as never,
-        })
-      : await payload.create({
-          collection: "media",
-          data: {},
-          file,
-          overwriteExistingFiles: true,
-          user,
-          req: { user } as never,
-        });
+      ? await payload.update({ collection: "media", id: existant.id, ...commun })
+      : await payload.create({ collection: "media", ...commun });
 
     payload.logger.info(
       `[media] « ${filename} » ${existant ? "remplacé" : "ajouté"} (${donnees.byteLength} octets).`,
@@ -125,8 +125,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ doc, remplace: Boolean(existant) });
   } catch (err) {
     payload.logger.error(`[media] enregistrement de « ${filename} » échoué : ${err}`);
+    /**
+     * La VRAIE raison, renvoyée à l'écran.
+     *
+     * Un message générique oblige à ouvrir les journaux du serveur — c'est-à-dire
+     * à ne rien savoir quand on n'y a pas accès. La route n'est ouverte qu'aux
+     * comptes du back-office : ce qu'elle divulgue, ils pouvaient déjà le lire.
+     */
+    const cause = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { errors: [{ message: "Le serveur n'a pas pu enregistrer ce fichier." }] },
+      { errors: [{ message: `Enregistrement impossible : ${cause.slice(0, 300)}` }] },
       { status: 400 },
     );
   }
