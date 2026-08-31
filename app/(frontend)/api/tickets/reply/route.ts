@@ -5,6 +5,7 @@ import { ticketReplyEmail } from "@/modules/support/lib/email";
 import { attachmentsFromForm, uploadImages } from "@/core/lib/uploads";
 import { ticketValues } from "@/modules/support/admin/ticket-meta";
 import { getSenders, ticketMailHeaders } from "@/modules/support/lib/brevo";
+import { ticketReplyTo } from "@/modules/marketing/lib/reply-routing";
 
 // Réponse du support à un ticket, déclenchée depuis la vue admin du ticket.
 // Ajoute le message (+ pièces jointes éventuelles) au fil, envoie l'e-mail au
@@ -97,9 +98,7 @@ export async function POST(req: Request) {
       to: ticket.email,
       ...from,
       ...(cc.length ? { cc } : {}),
-      ...(process.env.REPLY_DOMAIN
-        ? { replyTo: `ticket-${ticket.number}@${process.env.REPLY_DOMAIN}` }
-        : {}),
+      ...(ticketReplyTo(ticket.number) ? { replyTo: ticketReplyTo(ticket.number) } : {}),
       // Tag Brevo → l'onglet « E-mails » du ticket retrouve cet envoi.
       ...ticketMailHeaders(ticket.number as number),
       ...(emailAttachments.length ? { attachments: emailAttachments } : {}),

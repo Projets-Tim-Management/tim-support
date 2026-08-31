@@ -4,14 +4,18 @@ import { payloadClient } from "@/core/payload-client";
 import {
   ACCESS_EMAIL_KEY,
   CLOSED_STATUSES,
+  PARTNER_RECAP_KEY,
   SEND_CONDITIONS,
   decideEmail,
+  isPartnerRecapDue,
+  isRetentionAlertDue,
   shouldStillSend,
   type DueReason,
   type ScheduledEmail,
   type SendFacts,
 } from "@/modules/marketing/lib/due-emails";
 import { hasTemplate } from "@/modules/marketing/lib/emails";
+import { DEFAULT_SEND_HOUR, PHASE_DE_TEST_EMAILS } from "@/modules/marketing/lib/journey";
 import { notifyAdminsAccessMissing } from "@/modules/marketing/lib/notify";
 import { sendJourneyEmail, sendPartnerWeeklyRecap } from "@/modules/marketing/lib/send";
 
@@ -51,15 +55,13 @@ type Run = {
 };
 
 /**
- * Sommes-nous lundi à Paris ?
+ * Heure du récapitulatif hebdomadaire, lue dans le MODÈLE.
  *
- * Le jour se lit dans le fuseau de l'utilisateur, pas en UTC : le cron tourne à
- * 07:00 UTC, un calcul en UTC donnerait le bon jour ici mais deviendrait faux au
- * premier changement d'horaire d'exécution. `Intl` évite d'y penser.
+ * La déplacer se fait donc à un seul endroit, et le texte affiché au démarrage
+ * (« tous les lundis à 8 h ») ne peut pas mentir sur ce que fait le code.
  */
-const isMondayInParis = (at: Date): boolean =>
-  new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "Europe/Paris" }).format(at) ===
-  "Mon";
+const RECAP_SEND_HOUR =
+  PHASE_DE_TEST_EMAILS.find((e) => e.key === PARTNER_RECAP_KEY)?.sendHour ?? DEFAULT_SEND_HOUR;
 
 const idOf = (ref: unknown): number | string | null => {
   if (ref == null) return null;
@@ -175,7 +177,11 @@ export async function GET(req: Request) {
           // nouvelle — le client a fait ce qu'on attendait.
           if (mail.key === ACCESS_EMAIL_KEY) {
             note("credentials_missing");
-            if (!dry) {
+            // ⚠️ Une fois par jour, pas à chaque passage. Ce cron tourne toutes
+            // les heures et la rétention peut durer 36 h : sans cette condition,
+            // c'étaient trente-six fois la même alerte à tous les admins pour un
+            // seul client — de quoi apprendre à les fermer sans les lire.
+            if (!dry && isRetentionAlertDue(now, mail.scheduledAt)) {
               const client = (await payload
                 .findByID({ collection: "partner-clients", id: clientId, depth: 0, overrideAccess: true })
                 .catch(() => null)) as { companyName?: string } | null;
@@ -216,11 +222,17 @@ export async function GET(req: Request) {
   }
 
   // ── Récapitulatif hebdomadaire des partenaires (le lundi) ─────────────────
-  // Greffé sur le cron quotidien plutôt que déclaré à part : un cron de moins à
+  // Greffé sur ce cron plutôt que déclaré à part : un cron de moins à
   // surveiller, et surtout une seule exécution à comprendre quand on se demande
   // « qu'est-ce qui est parti ce matin ? ».
+  //
+  // ⚠️ Le jour ET l'heure, pas le jour seul. Ce cron passe toutes les heures
+  // depuis qu'il doit honorer les `sendHour` ; ce message-ci, lui, ne pose aucun
+  // `sentAt` (il est récurrent, le marquer l'éteindrait la semaine suivante).
+  // Le seul garde-fou contre le doublon est donc cette condition — et « sommes
+  // nous lundi ? » restait vrai vingt-quatre fois d'affilée.
   let recaps = 0;
-  if (isMondayInParis(new Date(now))) {
+  if (isPartnerRecapDue(now, RECAP_SEND_HOUR)) {
     const parPartenaire = new Map<string, Run[]>();
     for (const doc of res.docs as Run[]) {
       const pid = idOf(doc.partner);

@@ -1,9 +1,9 @@
 import type {
   CollectionAfterChangeHook,
-  Payload,
   CollectionBeforeChangeHook,
   CollectionBeforeValidateHook,
   CollectionConfig,
+  PayloadRequest,
 } from "payload";
 
 import { adminOnlyField, hasAdminRole, isAdmin, metierOwnedAccess } from "@/core/access";
@@ -492,6 +492,22 @@ const guardSystemSteps: CollectionBeforeChangeHook = ({ data, originalDoc, req }
 const STEP_OWN_FIELDS = ["state", "doneAt", "doneBy", "note"] as const;
 const EMAIL_OWN_FIELDS = ["scheduledAt", "overridden"] as const;
 
+/**
+ * Écriture faite par le LOGICIEL, qui constate un fait qu'il a lui-même produit.
+ *
+ * `sentAt` n'est pas dans EMAIL_OWN_FIELDS, et ne doit pas y entrer : un
+ * partenaire qui pourrait l'écrire depuis la fiche ferait taire un envoi sans
+ * qu'il soit jamais parti. Mais le hook qui vient d'envoyer l'e-mail, lui, a le
+ * droit de le dire — et il s'exécute sur la requête de ce partenaire, donc avec
+ * son utilisateur.
+ *
+ * D'où ce drapeau, posé sur `req.context` : il distingue « le logiciel note ce
+ * qu'il a fait » de « l'utilisateur modifie la fiche », là où `!req.user` ne
+ * suffit plus dès qu'on rejoint la transaction en cours. Il est hors d'atteinte
+ * d'un client HTTP, qui ne peut pas peupler `req.context`.
+ */
+const SYSTEM_WRITE = "journeySystemWrite";
+
 /** Reprend la ligne d'origine, en n'y appliquant que les champs autorisés. */
 function mergeAllowed<T extends Record<string, unknown>>(
   original: T,
@@ -506,10 +522,17 @@ function mergeAllowed<T extends Record<string, unknown>>(
   return out as T;
 }
 
-const guardStructuralEdits: CollectionBeforeChangeHook = ({ data, originalDoc, req }) => {
-  // Écritures SYSTÈME (routes de l'espace client, hooks) : pas d'utilisateur,
-  // et c'est le logiciel qui constate un fait. Les admins passent aussi.
+/**
+ * Exporté pour le banc de test : c'est une règle de SÉCURITÉ (qui a le droit
+ * d'écrire quoi sur les lignes du modèle), et une règle de sécurité qu'on ne
+ * peut pas exécuter dans un test finit par n'être vérifiée par personne.
+ */
+export const guardStructuralEdits: CollectionBeforeChangeHook = ({ data, originalDoc, req }) => {
+  // Écritures SYSTÈME (routes de l'espace client, hooks) : pas d'utilisateur, ou
+  // drapeau explicite quand le hook réutilise la requête de l'utilisateur. Dans
+  // les deux cas c'est le logiciel qui constate un fait. Les admins passent aussi.
   if (!req.user || hasAdminRole(req.user)) return data;
+  if ((req.context as Record<string, unknown> | undefined)?.[SYSTEM_WRITE]) return data;
   if (!originalDoc) return data;
 
   const next = { ...data };
@@ -787,24 +810,47 @@ const syncClientStatus: CollectionAfterChangeHook = async ({ doc, previousDoc, r
  * Note qu'un envoi vient de partir, pour que la séquence programmée ne le
  * refasse pas. Silencieux : un marquage raté ne doit pas annuler l'e-mail déjà
  * envoyé — au pire il partira une seconde fois, ce qui vaut mieux que jamais.
+ *
+ * ⚠️ `req` PLUTÔT que `payload`, et ce n'est pas un détail de style.
+ *
+ * Les trois appelants sont des `afterChange` de CETTE collection : la ligne du
+ * parcours est donc verrouillée par la transaction en cours. Hors transaction,
+ * cette écriture attendait un verrou que seule sa propre requête pouvait
+ * relâcher — un interblocage, jusqu'au délai, avalé par le `.catch`. À la
+ * création, pire : la ligne n'était même pas encore visible, l'update partait
+ * en « not found » immédiat.
+ *
+ * Résultat constaté en base le 31/08/2026 : `demande-recue` à `sent_at = null`
+ * sur les QUATRE parcours, alors que l'alerte était bien partie chez TIM — la
+ * barre d'étapes annonçait indéfiniment un message en attente. Les marquages
+ * faits depuis les routes API, eux, étaient tous corrects : le motif ne laissait
+ * aucun doute.
  */
 async function markEmailSent(
-  payload: Payload,
+  req: PayloadRequest,
   runId: number | string,
   emails: RunEmail[],
   key: string,
 ): Promise<void> {
   if (!emails.some((e) => e.key === key && !e.sentAt)) return;
-  await payload
-    .update({
+
+  const ctx = (req.context ?? {}) as Record<string, unknown>;
+  ctx[SYSTEM_WRITE] = true;
+  try {
+    await req.payload.update({
       collection: "journey-runs",
       id: runId,
       data: {
         emails: emails.map((e) => (e.key === key ? { ...e, sentAt: new Date().toISOString() } : e)),
       } as never,
       overrideAccess: true,
-    })
-    .catch(() => undefined);
+      req,
+    });
+  } catch (err) {
+    req.payload.logger.error(`[parcours] marquage de « ${key} » sur ${runId} échoué : ${err}`);
+  } finally {
+    delete ctx[SYSTEM_WRITE];
+  }
 }
 
 /**
@@ -855,7 +901,7 @@ const notifyQuoteNeeded: CollectionAfterChangeHook = async ({ doc, previousDoc, 
     (e) => req.payload.logger.error(`[parcours] alerte « devis à rédiger » échouée : ${e}`),
   );
 
-  await markEmailSent(req.payload, doc.id, (doc?.emails ?? []) as RunEmail[], "devis-a-rediger");
+  await markEmailSent(req, doc.id, (doc?.emails ?? []) as RunEmail[], "devis-a-rediger");
   return doc;
 };
 
@@ -956,6 +1002,8 @@ const openPortalOnGo: CollectionAfterChangeHook = async ({ doc, previousDoc, req
         req.payload,
         clientId,
         "invitation-espace-client",
+        undefined,
+        req,
       );
       if (!sent.sent && sent.reason !== "already_sent") {
         req.payload.logger.warn(
@@ -1023,7 +1071,7 @@ const notifyContractNeeded: CollectionAfterChangeHook = async ({ doc, previousDo
     (e) => req.payload.logger.error(`[parcours] alerte « contrat à établir » échouée : ${e}`),
   );
 
-  await markEmailSent(req.payload, doc.id, (doc?.emails ?? []) as RunEmail[], "demande-contrat-tim");
+  await markEmailSent(req, doc.id, (doc?.emails ?? []) as RunEmail[], "demande-contrat-tim");
   return doc;
 };
 
@@ -1071,7 +1119,7 @@ const notifyNewRequest: CollectionAfterChangeHook = async ({ doc, operation, req
     (e) => req.payload.logger.error(`[parcours] alerte « phase de test demandée » échouée : ${e}`),
   );
 
-  await markEmailSent(req.payload, doc.id, (doc?.emails ?? []) as RunEmail[], "demande-recue");
+  await markEmailSent(req, doc.id, (doc?.emails ?? []) as RunEmail[], "demande-recue");
   return doc;
 };
 

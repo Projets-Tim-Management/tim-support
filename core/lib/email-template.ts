@@ -69,8 +69,20 @@ const SOCIAL: Array<{ label: string; glyph: string; url: string }> = [
   },
 ];
 
+/**
+ * Neutralise une valeur saisie avant de la poser dans du HTML.
+ *
+ * Le guillemet compte autant que le chevron : ces gabarits interpolent aussi à
+ * l'INTÉRIEUR d'attributs (`title`, `alt`, `href`), et une valeur qui contient
+ * un guillemet y ferme l'attribut pour en ouvrir un autre. L'esperluette passe
+ * en premier, sinon elle ré-échapperait les entités produites juste après.
+ */
 export const escape = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 
 export function socialRow(): string {
   const items = SOCIAL.map(
@@ -167,20 +179,36 @@ export function refBox(label: string, value: string): string {
  * Une notification qui dit « untel attend une décision » n'a pas besoin de
  * réseaux sociaux ni de pied de page corporate — elle a besoin des faits et
  * d'un lien pour agir.
+ *
+ * ⚠️ TOUT LE TEXTE REÇU EST ÉCHAPPÉ ICI, et les appelants passent donc des
+ * valeurs BRUTES.
+ *
+ * L'échappement vivait auparavant chez chaque appelant : deux d'entre eux
+ * l'avaient, quatre l'avaient oublié, et il n'existait aucun endroit d'où le
+ * constater. Or ces messages affichent exactement ce qu'un partenaire a saisi —
+ * raison sociale, adresse de facturation, liste de contrôle. « Dupont & Fils »
+ * suffisait à produire un HTML invalide dans le message même qui sert à trancher
+ * un Go/No-Go.
+ *
+ * Les URL ne sont pas échappées : elles ne viennent jamais d'une saisie, elles
+ * sont fabriquées par `adminUrl` à partir d'identifiants.
  */
 export function internalNotice(args: {
   heading: string;
+  /** Libellé et valeur, en TEXTE BRUT — l'échappement se fait ici. */
   rows: Array<[string, string]>;
   message?: string;
   cta: { label: string; url: string };
   /** Liens secondaires en pied (fiche client, fiche partenaire…). */
   links?: Array<{ label: string; url: string }>;
 }): string {
-  const { heading, rows, message, cta, links = [] } = args;
+  const { rows, cta, links = [] } = args;
+  const heading = escape(args.heading);
+  const message = args.message ? escape(args.message) : undefined;
   const rowsHtml = rows
     .map(
       ([k, v]) =>
-        `<tr><td style="padding:3px 14px 3px 0;font-family:${FONT};font-size:13px;color:${MUTED};white-space:nowrap;vertical-align:top;">${k}</td><td style="padding:3px 0;font-family:${FONT};font-size:13px;color:${INK};">${v}</td></tr>`,
+        `<tr><td style="padding:3px 14px 3px 0;font-family:${FONT};font-size:13px;color:${MUTED};white-space:nowrap;vertical-align:top;">${escape(k)}</td><td style="padding:3px 0;font-family:${FONT};font-size:13px;color:${INK};">${escape(v)}</td></tr>`,
     )
     .join("");
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -194,11 +222,11 @@ export function internalNotice(args: {
           ? `<div style="margin:0 0 18px;padding:14px 16px;background:${OUTER};border:1px solid ${BORDER};border-radius:8px;font-family:${FONT};font-size:14px;line-height:1.55;color:${BODY};white-space:pre-wrap;">${message}</div>`
           : ""
       }
-      <a href="${cta.url}" style="display:inline-block;padding:11px 22px;background:${BRAND};border-radius:8px;color:#ffffff;font-family:${FONT};font-size:14px;font-weight:700;text-decoration:none;">${cta.label}</a>
+      <a href="${cta.url}" style="display:inline-block;padding:11px 22px;background:${BRAND};border-radius:8px;color:#ffffff;font-family:${FONT};font-size:14px;font-weight:700;text-decoration:none;">${escape(cta.label)}</a>
       ${
         links.length
           ? `<p style="margin:14px 0 0;font-family:${FONT};font-size:12px;color:${MUTED};">${links
-              .map((l) => `<a href="${l.url}" style="color:${MUTED};text-decoration:underline;">${l.label}</a>`)
+              .map((l) => `<a href="${l.url}" style="color:${MUTED};text-decoration:underline;">${escape(l.label)}</a>`)
               .join(" · ")}</p>`
           : ""
       }

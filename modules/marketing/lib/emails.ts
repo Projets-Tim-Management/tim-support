@@ -9,6 +9,9 @@ import {
   refBox,
   shell,
 } from "@/core/lib/email-template";
+// Le fuseau des créneaux, pris à sa source : c'est en heure de Paris que le
+// partenaire déclare ses disponibilités, et en UTC qu'on les stocke.
+import { TIMEZONE as PARIS } from "@/modules/marketing/lib/scheduling";
 
 /**
  * Les e-mails de la phase de test, rédigés.
@@ -86,9 +89,21 @@ const hello = (ctx: JourneyEmailContext) =>
 const company = (ctx: JourneyEmailContext) =>
   escape(ctx.clientName?.trim() || "votre entreprise");
 
+/**
+ * ⚠️ `timeZone` n'est pas décoratif : il fait la différence entre le rendez-vous
+ * du client et un autre.
+ *
+ * Les créneaux sont raisonnés en heure de Paris puis stockés en UTC (voir
+ * scheduling.ts), et les fonctions Vercel tournent en UTC. Sans fuseau explicite,
+ * une session de 10:00 était donc annoncée « 08:00 » au client et au partenaire,
+ * pendant que l'alerte interne — qui, elle, précisait Europe/Paris — affichait la
+ * bonne heure. Personne ne voyait l'écart depuis un poste réglé sur Paris : c'est
+ * pour cela que le banc de test tourne en UTC (tests/setup-tz.ts).
+ */
 const frDate = (iso?: string | null) =>
   iso
     ? new Date(iso).toLocaleDateString("fr-FR", {
+        timeZone: PARIS,
         weekday: "long",
         day: "2-digit",
         month: "long",
@@ -98,6 +113,7 @@ const frDate = (iso?: string | null) =>
 const frDateTime = (iso?: string | null) =>
   iso
     ? new Date(iso).toLocaleString("fr-FR", {
+        timeZone: PARIS,
         weekday: "long",
         day: "2-digit",
         month: "long",

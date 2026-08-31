@@ -12,6 +12,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Voir tests/setup-tz.ts : le banc tourne en UTC, comme Vercel.
+    setupFiles: ["./tests/setup-tz.ts"],
     include: ["tests/**/*.test.ts"],
   },
 });

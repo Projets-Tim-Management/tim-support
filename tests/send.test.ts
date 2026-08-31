@@ -113,3 +113,37 @@ describe("garde-fous", () => {
     expect(r).toEqual({ sent: false, reason: "no_template" });
   });
 });
+
+/**
+ * Le PUBLIC d'un envoi ne se devine pas.
+ *
+ * Le destinataire est déduit du champ `audience` de la ligne d'envoi portée par
+ * le parcours. Mais cette ligne peut manquer : un parcours lancé avant qu'un
+ * message n'entre au modèle n'en a pas, et `snapshotSteps` ne recopie le modèle
+ * qu'au prochain enregistrement. Le repli était alors « client » — de sorte
+ * qu'un message écrit POUR LE PARTENAIRE, qui parle du client à la troisième
+ * personne (« Votre client a réservé son créneau »), partait au client lui-même.
+ *
+ * Rien ne signalait l'erreur : l'envoi réussissait.
+ */
+describe("public d'un envoi dont la ligne manque au parcours", () => {
+  it("s'en remet au modèle plutôt qu'au client par défaut", async () => {
+    run = { ...run, emails: [] }; // parcours antérieur à ce message
+    const r = await sendJourneyEmail(fakePayload(), { run: run as never, key: "creneau-reserve" });
+    expect(r.sent).toBe(true);
+    expect(envoyes[0].to).toBe(PARTNER_EMAIL);
+  });
+
+  it("continue de servir les messages client, eux aussi absents de la liste", async () => {
+    run = { ...run, emails: [] };
+    const r = await sendJourneyEmail(fakePayload(), { run: run as never, key: "check-in" });
+    expect(r.sent).toBe(true);
+    expect(envoyes[0].to).toBe(CLIENT_EMAIL);
+  });
+
+  it("la ligne du parcours prime sur le modèle quand elle existe", async () => {
+    // Le modèle décrit l'intention générale ; la ligne, ce parcours-ci.
+    await sendJourneyEmail(fakePayload(), { run: run as never, key: "creneau-reserve" });
+    expect(envoyes[0].to).toBe(PARTNER_EMAIL);
+  });
+});
