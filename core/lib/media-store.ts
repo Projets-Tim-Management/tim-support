@@ -39,3 +39,18 @@ export const urlDuFichier = (jeton: string | null | undefined, filename: string)
   // Le nom est déjà assaini (aucun chemin) ; on encode ce qui doit l'être.
   return `${base}/${encodeURIComponent(filename)}`;
 };
+
+// ─── Images ──────────────────────────────────────────────────────────────────
+
+/**
+ * Types que Payload traite comme ANIMÉS, et qu'il ré-encode image par image.
+ *
+ * Repris de sa propre liste : c'est ce choix qui décide s'il ouvre le fichier
+ * avec `{ animated: true }`, donc s'il décode 160 vignettes ou une seule. Une
+ * divergence ici ferait sonder autre chose que ce qui échoue réellement.
+ */
+// Recopiée telle quelle depuis generateFileData : ni plus, ni moins.
+export const TYPES_ANIMES = ["image/avif", "image/gif", "image/webp"];
+
+export const estTypeAnime = (mimeType?: string | null): boolean =>
+  TYPES_ANIMES.includes((mimeType ?? "").toLowerCase());

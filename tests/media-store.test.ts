@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { baseDuMagasin, storeIdDepuisJeton, urlDuFichier } from "@/core/lib/media-store";
+import { TYPES_ANIMES, baseDuMagasin, estTypeAnime, storeIdDepuisJeton, urlDuFichier } from "@/core/lib/media-store";
 
 /**
  * L'adresse à laquelle le serveur relit un fichier déposé par le navigateur.
@@ -61,5 +61,25 @@ describe("URL d'un fichier", () => {
   it("renonce quand le stockage n'est pas configuré", () => {
     expect(urlDuFichier(null, "demo.gif")).toBeNull();
     expect(urlDuFichier(JETON, "")).toBeNull();
+  });
+});
+
+describe("types animés", () => {
+  it("reconnaît ceux que Payload ré-encode image par image", () => {
+    // La liste doit être LA SIENNE, ni plus ni moins : un type en trop ferait
+    // sonder un chemin qu'il ne prend pas, un type manquant laisserait passer
+    // l'échec qu'on cherche à expliquer.
+    expect(TYPES_ANIMES).toEqual(["image/avif", "image/gif", "image/webp"]);
+    expect(estTypeAnime("image/gif")).toBe(true);
+    expect(estTypeAnime("IMAGE/GIF")).toBe(true);
+  });
+
+  it("laisse les images fixes de côté", () => {
+    // Elles ne passent pas par le même chemin : les sonder autrement dirait
+    // « tout va bien » là où Payload, lui, échoue.
+    expect(estTypeAnime("image/png")).toBe(false);
+    expect(estTypeAnime("application/pdf")).toBe(false);
+    expect(estTypeAnime(undefined)).toBe(false);
+    expect(estTypeAnime(null)).toBe(false);
   });
 });
