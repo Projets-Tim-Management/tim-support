@@ -121,3 +121,18 @@
 .direct-upload__dl:focus-visible {
   opacity: 1;
 }
+
+/* Échec d'un envoi, dit à l'écran.
+   Auparavant l'erreur partait dans la console et la zone de dépôt restait
+   vide : rien ne distinguait un envoi refusé d'un clic qui n'avait pas pris. */
+.direct-upload__error {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  /* Un dépôt multiple liste un échec par ligne. */
+  white-space: pre-line;
+}

@@ -379,6 +379,24 @@ export default buildConfig({
       // (URL blob.vercel-storage.com) plutôt qu'en proxy via Payload.
       collections: { media: { disablePayloadAccessControl: true } },
       token: process.env.BLOB_READ_WRITE_TOKEN || "",
+      /**
+       * Le navigateur dépose le fichier SUR LE CDN, pas dans la fonction.
+       *
+       * Une fonction Vercel plafonne le corps d'une requête à 4,5 Mo. Au-delà,
+       * l'envoi échouait — et il échouait mal : Payload répond « 400 Problem
+       * uploading file », un libellé générique qu'il emploie pour tout ce qui
+       * rate dans son traitement d'image. Impossible d'en déduire qu'il
+       * s'agissait du poids. Les GIF de démonstration des features, qui pèsent
+       * couramment plus de 10 Mo, ne passaient donc pas : ceux qui sont en base
+       * y sont arrivés par le script d'import du 26/07/2026, jamais par le
+       * back-office.
+       *
+       * Ceci ouvre la route qui délivre un jeton de dépôt à usage unique
+       * (/payload-api/vercel-blob-client-upload-route), réservée aux comptes
+       * connectés. Le fichier va droit au CDN ; le serveur ne fait ensuite que
+       * le relire pour en tirer ses dimensions. Voir admin/fields/DirectUpload.
+       */
+      clientUploads: true,
     }),
   ],
 

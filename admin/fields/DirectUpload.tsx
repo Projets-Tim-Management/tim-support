@@ -3,6 +3,7 @@
 import { FieldLabel, useField } from "@payloadcms/ui";
 import { useEffect, useState } from "react";
 
+import { uploadFile, type MediaLite } from "@/core/lib/media-upload";
 import UploadZone from "./UploadZone";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -19,26 +20,10 @@ import UploadZone from "./UploadZone";
  * Options par champ via `admin.custom` : `{ accept, noun }`.
  */
 
-interface MediaLite {
-  id: string | number;
-  url?: string;
-  filename?: string;
-  mimeType?: string;
-}
-
 function isImage(m?: MediaLite | null): boolean {
   if (!m) return false;
   if (m.mimeType) return m.mimeType.startsWith("image/");
   return /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i.test(m.url ?? "");
-}
-
-async function uploadFile(file: File): Promise<MediaLite | null> {
-  const fd = new FormData();
-  fd.append("file", file);
-  const res = await fetch("/payload-api/media", { method: "POST", body: fd, credentials: "include" });
-  if (!res.ok) return null;
-  const json = await res.json();
-  return (json?.doc as MediaLite) ?? null;
 }
 
 async function fetchMedia(id: string | number): Promise<MediaLite | null> {
@@ -62,6 +47,14 @@ export default function DirectUpload(props: any) {
   const { value, setValue } = useField<any>({ path });
   const [items, setItems] = useState<MediaLite[]>([]);
   const [busy, setBusy] = useState(false);
+  /**
+   * L'échec du dernier envoi, en toutes lettres.
+   *
+   * Sans lui, un envoi refusé ne produisait RIEN à l'écran : la zone de dépôt
+   * restait vide, exactement comme avant le clic. On croyait à un geste raté et
+   * on recommençait, indéfiniment.
+   */
+  const [erreur, setErreur] = useState<string | null>(null);
 
   // Résout la/les valeur(s) actuelle(s) en médias pour l'aperçu.
   useEffect(() => {
@@ -88,11 +81,17 @@ export default function DirectUpload(props: any) {
     const arr = Array.from(files);
     if (arr.length === 0 || readOnly) return;
     setBusy(true);
+    setErreur(null);
     const uploaded: MediaLite[] = [];
+    const echecs: string[] = [];
     for (const f of hasMany ? arr : [arr[0]]) {
-      const doc = await uploadFile(f);
-      if (doc) uploaded.push(doc);
+      const envoi = await uploadFile(f);
+      if (envoi.ok) uploaded.push(envoi.doc);
+      // Le NOM du fichier fautif : sur un dépôt multiple, « échec » sans nom
+      // oblige à tout recommencer pour trouver lequel.
+      else echecs.push(arr.length > 1 ? `${f.name} — ${envoi.message}` : envoi.message);
     }
+    if (echecs.length) setErreur(echecs.join("\n"));
     if (uploaded.length) {
       if (hasMany) {
         const existing = Array.isArray(value) ? value : [];
@@ -105,6 +104,7 @@ export default function DirectUpload(props: any) {
   };
 
   const removeAt = (idx: number) => {
+    setErreur(null);
     if (hasMany) {
       const arr = (Array.isArray(value) ? value : []).slice();
       arr.splice(idx, 1);
@@ -166,6 +166,12 @@ export default function DirectUpload(props: any) {
             </div>
           ))}
         </div>
+      )}
+
+      {erreur && (
+        <p className="direct-upload__error" role="alert">
+          {erreur}
+        </p>
       )}
 
       {showZone && !readOnly && (
