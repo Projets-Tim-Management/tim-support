@@ -7,7 +7,6 @@ import { lexicalEditor } from "@payloadcms/richtext-lexical";
 import { vercelBlobStorage } from "@payloadcms/storage-vercel-blob";
 import { fr } from "@payloadcms/translations/languages/fr";
 import { buildConfig } from "payload";
-import sharp from "sharp";
 
 import { Users } from "./core/collections/Users";
 import { Media } from "./core/collections/Media";
@@ -379,6 +378,16 @@ export default buildConfig({
       // (URL blob.vercel-storage.com) plutôt qu'en proxy via Payload.
       collections: { media: { disablePayloadAccessControl: true } },
       token: process.env.BLOB_READ_WRITE_TOKEN || "",
+      /**
+       * Le dépôt direct sur le CDN n'est PAS celui du plugin.
+       *
+       * `clientUploads` ouvrirait sa propre route de jeton, qui n'accorde
+       * jamais le droit d'écraser — un fichier réenvoyé sous le même nom se
+       * verrait alors renommé en base sans l'être sur le CDN, et l'image
+       * deviendrait introuvable. Le projet passe donc par ses propres routes,
+       * /api/media/jeton et /api/media/enregistrer, qui accordent l'écrasement
+       * des deux côtés à la fois.
+       */
     }),
   ],
 
@@ -411,5 +420,27 @@ export default buildConfig({
     },
   }),
 
-  sharp,
+  /**
+   * PAS de `sharp` — volontairement, et c'est ce qui fait marcher les GIF.
+   *
+   * Quand Payload dispose de sharp, il RÉ-ENCODE toute image animée qu'il
+   * reçoit : il décode les cent soixante vignettes d'un GIF de démonstration
+   * puis les réécrit. Deux murs se dressent alors, et aucun ne se voit :
+   *
+   *  - la bibliothèque plafonne l'entrée à 268 Mpx (largeur × hauteur × nombre
+   *    d'images). SIX des plus gros GIF déjà en base le dépassent — ils n'y
+   *    sont que parce que le script d'import les a posés sans passer par là.
+   *    Par le back-office, l'envoi échouait sur « Il y a eu un problème lors du
+   *    téléversement du fichier », un texte qui ne désigne rien ;
+   *  - même limite levée, le ré-encodage de ces fichiers prend des MINUTES.
+   *    Une fonction Vercel expire avant.
+   *
+   * Or ce travail n'a aucune raison d'être fait : `Media` ne déclare aucune
+   * taille dérivée, ni recadrage, ni point focal — les fichiers sont servis tels
+   * quels. Les dimensions, elles, sont lues par `image-size` (paquet distinct),
+   * qui n'a pas besoin de décoder l'image.
+   *
+   * `sharp` reste installé : Next s'en sert pour l'optimisation de ses propres
+   * images, et sa version reste épinglée sur la sienne (voir next.config.ts).
+   */
 });
