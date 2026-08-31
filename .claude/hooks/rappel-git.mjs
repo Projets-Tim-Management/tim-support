@@ -73,6 +73,20 @@ PAS tout seul sur les données déjà écrites.`;
 const concerne = (commande, verbe) =>
   /\bgit\b/.test(commande) && new RegExp(`\\b${verbe}\\b`).test(commande);
 
+/**
+ * La production, c'est `main` — mais nommée SUR LA MÊME LIGNE que le push.
+ *
+ * Chercher le mot partout dans la commande était trop large : un message de
+ * commit qui parle de `main` déclenchait l'avertissement de déploiement sur un
+ * simple push de branche de travail. Or c'est exactement ainsi qu'un
+ * avertissement meurt — à force d'arriver quand il ne fallait pas, on apprend à
+ * le sauter, et il ne sert plus le jour où il compte.
+ *
+ * `[^\n]` interdit de franchir une ligne, ce qui écarte les corps de message ;
+ * la fenêtre de 120 caractères couvre `git -C "<chemin>" push origin main`.
+ */
+const VERS_LA_PROD = /\bpush\b[^\n]{0,120}\bmain\b/;
+
 const lireEntree = async () => {
   const morceaux = [];
   for await (const morceau of process.stdin) morceaux.push(morceau);
@@ -91,8 +105,7 @@ const main = async () => {
   if (concerne(commande, "commit")) sections.push(COMMIT);
   if (concerne(commande, "push")) {
     sections.push(PUSH);
-    // La production, c'est `main`. Nommée sur la ligne = on y va.
-    if (/\bmain\b/.test(commande)) sections.push(PROD);
+    if (VERS_LA_PROD.test(commande)) sections.push(PROD);
   }
   if (sections.length === 0) return;
 
