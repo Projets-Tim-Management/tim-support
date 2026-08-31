@@ -3,7 +3,7 @@ import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
-import { extractJourneyRunId } from "@/modules/marketing/lib/reply-routing";
+import { extractJourneyRunId, extractTicketNumber } from "@/modules/marketing/lib/reply-routing";
 import { SUPPORT_NOTIFY_EMAIL, ticketReplyNoticeEmail } from "@/modules/support/lib/email";
 
 // Webhook d'e-mails entrants (Brevo Inbound Parsing).
@@ -23,14 +23,6 @@ function keyIsValid(provided: string | null): boolean {
   const secret = process.env.INBOUND_SECRET ?? "";
   if (!secret || !provided || provided.length !== secret.length) return false;
   return timingSafeEqual(Buffer.from(provided), Buffer.from(secret));
-}
-
-function extractTicketNumber(recipients: string[]): number | null {
-  for (const r of recipients) {
-    const m = /ticket-(\d+)@/i.exec(r);
-    if (m) return Number(m[1]);
-  }
-  return null;
 }
 
 /** Aplati les diverses formes de destinataires Brevo en liste d'adresses. */

@@ -4,9 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "node scripts/icloud-exclude.mjs",
     "dev": "next dev -p 3001",
-    "prebuild": "node scripts/icloud-exclude.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

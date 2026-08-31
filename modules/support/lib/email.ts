@@ -110,13 +110,15 @@ export function newTicketNoticeEmail(args: {
     html: internalNotice({
       heading: `Nouveau ticket #${number}`,
       rows: [
-        ["Sujet", escape(subject)],
-        ["De", `${escape(name || "—")} &lt;${escape(email)}&gt;`],
-        ["Type", escape(type)],
-        ["Service", escape(service || "—")],
-        ["Page", escape(url || "—")],
+        // Valeurs BRUTES : `internalNotice` échappe lui-même (une seule règle,
+        // un seul endroit — voir sa documentation).
+        ["Sujet", subject],
+        ["De", `${name || "—"} <${email}>`],
+        ["Type", type],
+        ["Service", service || "—"],
+        ["Page", url || "—"],
       ],
-      message: escape(excerpt),
+      message: excerpt,
       cta: { label: "Ouvrir le ticket", url: `${SITE_URL}/admin/collections/tickets/${id}` },
     }),
     text: `Nouveau ticket #${number}\n${subject}\n\nDe : ${name || "—"} <${email}>\nType : ${type}\nService : ${service ?? "—"}\nPage : ${url || "—"}\n\n${excerpt}\n\nOuvrir : ${SITE_URL}/admin/collections/tickets/${id}`,
@@ -153,12 +155,12 @@ export function ticketReplyNoticeEmail(args: {
         : `Nouvelle réponse — ticket #${number}`,
       rows: [
         ...(journey
-          ? ([["Phase de test", escape(journey.clientName || "—")]] as Array<[string, string]>)
+          ? ([["Phase de test", journey.clientName || "—"]] as Array<[string, string]>)
           : []),
-        ["Sujet", escape(subject)],
-        ["De", `${escape(name || "—")} &lt;${escape(email)}&gt;`],
+        ["Sujet", subject],
+        ["De", `${name || "—"} <${email}>`],
       ],
-      message: escape(excerpt),
+      message: excerpt,
       cta: { label: "Ouvrir le ticket", url: ticketUrl },
       ...(runUrl ? { links: [{ label: "Voir le parcours", url: runUrl }] } : {}),
     }),

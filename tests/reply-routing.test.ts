@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { extractJourneyRunId, journeyReplyTo } from "@/modules/marketing/lib/reply-routing";
+import {
+  extractJourneyRunId,
+  extractTicketNumber,
+  journeyReplyTo,
+  ticketReplyTo,
+} from "@/modules/marketing/lib/reply-routing";
 import { ticketReplyNoticeEmail } from "@/modules/support/lib/email";
 
 const DOMAIN = process.env.REPLY_DOMAIN;
@@ -58,5 +63,36 @@ describe("alerte interne", () => {
     const mail = ticketReplyNoticeEmail(base);
     expect(mail.subject).not.toContain("Phase de test");
     expect(mail.html).not.toContain("journey-runs");
+  });
+});
+
+describe("adresse de réponse d'un ticket", () => {
+  it("porte le numéro du ticket", () => {
+    process.env.REPLY_DOMAIN = "reply.tim-management.co";
+    expect(ticketReplyTo(42)).toBe("ticket-42@reply.tim-management.co");
+  });
+
+  it("n'invente pas d'adresse quand le domaine n'est pas configuré", () => {
+    delete process.env.REPLY_DOMAIN;
+    expect(ticketReplyTo(42)).toBeUndefined();
+  });
+
+  it("n'invente pas d'adresse quand le ticket n'a pas de numéro", () => {
+    // `number` est attribué par un hook : un ticket relu juste avant peut ne pas
+    // encore le porter. On produisait alors « ticket-undefined@… » — une adresse
+    // que le webhook entrant ne sait rattacher à rien, donc une réponse client
+    // perdue. Mieux vaut aucun en-tête : elle arrive au moins au support.
+    process.env.REPLY_DOMAIN = "reply.tim-management.co";
+    expect(ticketReplyTo(undefined)).toBeUndefined();
+    expect(ticketReplyTo(null)).toBeUndefined();
+    expect(ticketReplyTo(0)).toBeUndefined();
+  });
+
+  it("est reconnue par l'extraction du webhook entrant", () => {
+    // Les deux moitiés du couple, vérifiées ensemble : une adresse produite ici
+    // doit être relue là-bas, sinon la boucle est ouverte sans qu'on le sache.
+    process.env.REPLY_DOMAIN = "reply.tim-management.co";
+    const adresse = ticketReplyTo(42)!;
+    expect(extractTicketNumber([adresse])).toBe(42);
   });
 });

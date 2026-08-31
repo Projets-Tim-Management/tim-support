@@ -34,3 +34,34 @@ export const extractJourneyRunId = (recipients: string[]): number | null => {
   }
   return null;
 };
+
+/**
+ * Adresse de réponse d'un TICKET, jumelle de la précédente.
+ *
+ * Elle était fabriquée en ligne aux deux endroits qui en posent une, sans garde
+ * sur le numéro. Or `number` est attribué par un hook : un ticket relu au mauvais
+ * moment n'en porte pas, et l'en-tête devenait « ticket-undefined@… » — une
+ * adresse que le webhook entrant ne rattache à rien. La réponse du client
+ * disparaissait, alors que sans en-tête elle serait au moins arrivée au support.
+ *
+ * `undefined` plutôt qu'une adresse approximative, donc : c'est la même règle
+ * que pour le domaine absent, et pour la même raison.
+ */
+export const ticketReplyTo = (number: number | null | undefined): string | undefined => {
+  const domain = process.env.REPLY_DOMAIN;
+  return domain && number ? `ticket-${number}@${domain}` : undefined;
+};
+
+/**
+ * Numéro de ticket porté par l'un des destinataires, s'il y en a un.
+ *
+ * Vit ici, avec la fonction qui FABRIQUE l'adresse : les deux moitiés du couple
+ * ne peuvent alors plus diverger sans que le test s'en aperçoive.
+ */
+export const extractTicketNumber = (recipients: string[]): number | null => {
+  for (const r of recipients) {
+    const m = /ticket-(\d+)@/i.exec(r);
+    if (m) return Number(m[1]);
+  }
+  return null;
+};

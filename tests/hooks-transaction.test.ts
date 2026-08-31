@@ -50,10 +50,16 @@ const collectionFiles = (): string[] => {
  * Découpage par comptage d'accolades plutôt que par expression régulière : un
  * appel contient des objets imbriqués (`data`, `where`), et un motif non
  * gourmand s'arrêterait à la première accolade fermante venue.
+ *
+ * ⚠️ Le `\s*` avant le point n'est pas cosmétique. Prettier renvoie à la ligne
+ * dès qu'un appel est chaîné (`await payload\n  .update({…})\n  .catch(…)`), et
+ * un motif exigeant `payload.update` collé laissait passer précisément les
+ * appels les plus longs — donc les plus susceptibles d'oublier `req`. C'est ce
+ * qui a laissé `markEmailSent` écrire hors transaction dans JourneyRuns.ts.
  */
 const writeCalls = (source: string): { method: string; body: string; line: number }[] => {
   const calls: { method: string; body: string; line: number }[] = [];
-  const opener = /payload\.(create|update|delete)\(\{/g;
+  const opener = /payload\s*\.\s*(create|update|delete)\(\{/g;
   let match: RegExpExecArray | null;
 
   while ((match = opener.exec(source)) !== null) {
@@ -76,6 +82,32 @@ const writeCalls = (source: string): { method: string; body: string; line: numbe
     });
   }
   return calls;
+};
+
+/** Appels d'une fonction donnée, découpés par comptage de parenthèses. */
+const callsTo = (source: string, opener: RegExp): { body: string; line: number }[] => {
+  const out: { body: string; line: number }[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = opener.exec(source)) !== null) {
+    let depth = 0;
+    let end = match.index + match[0].length - 1;
+    for (let i = end; i < source.length; i += 1) {
+      if (source[i] === "(") depth += 1;
+      else if (source[i] === ")") {
+        depth -= 1;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    out.push({
+      body: source.slice(match.index, end + 1),
+      line: source.slice(0, match.index).split("\n").length,
+    });
+  }
+  return out;
 };
 
 describe("les écritures faites depuis un hook rejoignent la transaction", () => {
@@ -103,6 +135,29 @@ describe("les écritures faites depuis un hook rejoignent la transaction", () =>
       for (const appel of appels) {
         if (/,\s*req\s*\)/.test(appel)) continue;
         coupables.push(`${file} — ${appel}`);
+      }
+    }
+
+    expect(coupables).toEqual([]);
+  });
+
+  /**
+   * Un envoi déclenché par un hook LIT avant d'écrire : le parcours, et surtout
+   * le compte d'accès qui porte l'adresse du destinataire. Hors transaction, ces
+   * lectures ne voient pas ce que la requête vient de créer — et l'envoi
+   * s'arrête sur « aucun parcours » ou « aucun destinataire », en silence.
+   *
+   * C'est la panne SOCOM FRANCE du 28/08/2026, et elle s'est rejouée une seconde
+   * fois parce que seule la première des deux lectures avait été corrigée.
+   */
+  it("les envois de parcours déclenchés par un hook passent `req`", () => {
+    const coupables: string[] = [];
+
+    for (const file of collectionFiles()) {
+      const source = readFileSync(file, "utf-8");
+      for (const call of callsTo(source, /sendJourneyEmail(?:ForClient)?\(/g)) {
+        if (/\breq\s*[,:)]/.test(call.body)) continue;
+        coupables.push(`${file}:${call.line} — envoi de parcours sans req`);
       }
     }
 

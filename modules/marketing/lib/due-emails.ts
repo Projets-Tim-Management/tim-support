@@ -113,3 +113,83 @@ export const SEND_CONDITIONS: Record<string, (f: SendFacts) => boolean> = {
  */
 export const shouldStillSend = (key: string | null | undefined, facts: SendFacts): boolean =>
   key && SEND_CONDITIONS[key] ? SEND_CONDITIONS[key](facts) : true;
+
+// ─── Cadences calées sur l'heure de Paris ────────────────────────────────────
+
+/**
+ * Jour et heure à PARIS, lus en une fois.
+ *
+ * Tout ce qui se répète ici se compare en heure locale, jamais en UTC : le
+ * décalage change deux fois par an, et une comparaison en UTC ferait glisser
+ * chaque cadence d'une heure au printemps — assez pour tomber systématiquement
+ * à côté du bon passage horaire.
+ */
+const aParis = (ms: number): { jour: string; heure: number } => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Paris",
+    weekday: "short",
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(ms));
+  return {
+    jour: parts.find((p) => p.type === "weekday")?.value ?? "",
+    heure: Number(parts.find((p) => p.type === "hour")?.value),
+  };
+};
+
+/**
+ * L'alerte qui accompagne un envoi RETENU.
+ *
+ * Le cron retient « Vos accès TIM sont prêts » tant qu'aucun identifiant
+ * n'existe, et prévient l'équipe — sans quoi la rétention serait silencieuse et
+ * personne ne créerait les comptes. Mais l'alerte partait à chaque passage :
+ * cron horaire × 36 h de rattrapage = jusqu'à trente-six e-mails à tous les
+ * admins pour un seul client. On apprend vite à les fermer sans les lire.
+ *
+ * Elle se cale donc sur l'HEURE de l'envoi qu'elle remplace : elle dit « ce
+ * message devait partir maintenant », ce qui est à la fois son sens exact et,
+ * le cron passant une fois par heure, sa garantie d'unicité — une par jour tant
+ * que la rétention dure, soit le rythme d'avant la bascule en cron horaire.
+ */
+export const isRetentionAlertDue = (
+  nowMs: number,
+  scheduledAt: string | null | undefined,
+): boolean => {
+  if (!scheduledAt) return false;
+  const prevu = Date.parse(scheduledAt);
+  if (Number.isNaN(prevu)) return false;
+
+  const maintenant = aParis(nowMs);
+  return Number.isFinite(maintenant.heure) && maintenant.heure === aParis(prevu).heure;
+};
+
+// ─── Récapitulatif hebdomadaire du partenaire ────────────────────────────────
+
+/** Clé du récapitulatif, partagée entre le modèle, le cron et le test. */
+export const PARTNER_RECAP_KEY = "recap-partenaire";
+
+/**
+ * Le seul message RÉCURRENT du parcours — et donc le seul dont la
+ * non-duplication ne peut pas reposer sur `sentAt`.
+ *
+ * Le marquer l'empêcherait de repartir la semaine suivante : c'est justement ce
+ * qui le distingue des autres. Sa cadence tient donc entièrement à cette
+ * condition, et il faut qu'elle soit exacte.
+ *
+ * ⚠️ Tester le seul JOUR ne suffit pas depuis que le cron est horaire (il l'est
+ * devenu pour honorer les `sendHour` des envois datés). « Sommes-nous lundi ? »
+ * reste vrai vingt-quatre fois, et chaque partenaire recevait vingt-quatre fois
+ * le même récapitulatif. Rien en base ne pouvait le montrer — faute, encore, de
+ * marquage.
+ *
+ * On compare donc le jour ET l'heure, en heure de PARIS. Le cron passant une
+ * fois par heure, exactement un passage par lundi satisfait la condition, quelle
+ * que soit la saison — un décalage codé en dur aurait raté six mois sur douze.
+ *
+ * @param sendHour heure déclarée dans le modèle (« HH:mm »), pour que déplacer
+ *                 le récapitulatif se fasse à un seul endroit.
+ */
+export const isPartnerRecapDue = (nowMs: number, sendHour: string): boolean => {
+  const { jour, heure } = aParis(nowMs);
+  return jour === "Mon" && Number.isFinite(heure) && heure === Number(sendHour.split(":")[0]);
+};

@@ -985,6 +985,17 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
   },
 ];
 
+/**
+ * Public déclaré d'un envoi, d'après le MODÈLE.
+ *
+ * Sert de recours quand la ligne d'envoi manque au parcours — cas d'un parcours
+ * lancé avant qu'un message n'entre au modèle. Sans lui, l'appelant devait
+ * choisir un public par défaut, et « client » envoyait au prospect des messages
+ * écrits pour son partenaire.
+ */
+export const declaredAudience = (key: string): JourneyAudience | undefined =>
+  PHASE_DE_TEST_EMAILS.find((e) => e.key === key)?.audience;
+
 /** Étape à partir de laquelle le test tourne (le client passe « En test »). */
 export const STEP_TEST_STARTS = "provisionnement";
 /** Étape qui clôt le parcours en succès (le client passe « Actif »). */

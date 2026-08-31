@@ -283,6 +283,21 @@ export default buildConfig({
     ? nodemailerAdapter({
         defaultFromAddress: process.env.EMAIL_FROM || "support@tim-management.co",
         defaultFromName: process.env.EMAIL_FROM_NAME || "TIM Support",
+        /**
+         * NE PAS ouvrir de connexion SMTP à la construction de la config.
+         *
+         * Sans ce drapeau, l'adaptateur appelle `transport.verify()` — donc une
+         * connexion complète au relais Brevo — à CHAQUE démarrage à froid d'une
+         * fonction. Y compris pour afficher une page qui n'envoie rien : la
+         * config est construite dès qu'on touche à Payload. Cela ajoute la
+         * latence d'un aller-retour SMTP au premier visiteur de chaque instance.
+         *
+         * Et ce contrôle ne protège de rien : son échec est seulement écrit dans
+         * la console par l'adaptateur, l'application démarre quand même. Les
+         * envois, eux, sont déjà protégés là où ça compte — try/catch et délais
+         * courts ci-dessous, qui font échouer vite et journalisent.
+         */
+        skipVerify: true,
         transportOptions: {
           host: process.env.BREVO_SMTP_HOST || "smtp-relay.brevo.com",
           port: Number(process.env.BREVO_SMTP_PORT || 587),

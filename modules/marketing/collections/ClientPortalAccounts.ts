@@ -87,7 +87,15 @@ export const ClientPortalAccounts: CollectionConfig = {
         // serveur SMTP qui tousse ne doit pas empêcher l'ouverture de l'accès —
         // mais il est TRACÉ : un accès ouvert dont l'invitation n'est pas partie
         // est le pire des états, tout a l'air fait et le client n'a rien reçu.
-        const sent = await sendJourneyEmailForClient(req.payload, clientId, "invitation-espace-client");
+        const sent = await sendJourneyEmailForClient(
+          req.payload,
+          clientId,
+          "invitation-espace-client",
+          undefined,
+          // La transaction en cours vient de créer le parcours : sans elle,
+          // la recherche ne le voit pas et l'invitation ne part jamais.
+          req,
+        );
         if (!sent.sent) {
           req.payload.logger.warn(
             `[parcours] accès espace client ${doc?.email} ouvert, mais invitation NON envoyée (${sent.reason}).`,

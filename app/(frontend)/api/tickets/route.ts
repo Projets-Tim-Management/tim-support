@@ -9,6 +9,7 @@ import { payloadClient } from "@/core/payload-client";
 import { attachmentsFromForm, uploadImages } from "@/core/lib/uploads";
 import { ticketValues } from "@/modules/support/admin/ticket-meta";
 import { ticketMailHeaders } from "@/modules/support/lib/brevo";
+import { ticketReplyTo } from "@/modules/marketing/lib/reply-routing";
 
 const TICKET_TYPES = ticketValues("type");
 const TICKET_SERVICES = ticketValues("service");
@@ -102,9 +103,7 @@ export async function POST(req: Request) {
           to: email,
           // Reply-To par ticket → les réponses reviennent dans le dashboard
           // (via Brevo Inbound Parsing), si REPLY_DOMAIN est configuré.
-          ...(process.env.REPLY_DOMAIN
-            ? { replyTo: `ticket-${number}@${process.env.REPLY_DOMAIN}` }
-            : {}),
+          ...(ticketReplyTo(number) ? { replyTo: ticketReplyTo(number) } : {}),
           // Tag Brevo → l'onglet « E-mails » du ticket retrouve cet envoi.
           ...ticketMailHeaders(number),
           ...ticketConfirmationEmail({ name, email, subject, number }),

@@ -3,6 +3,7 @@ import type { Payload } from "payload";
 import { ROLES } from "@/core/access";
 import { eur } from "@/modules/partner/lib/format";
 import { PROFILS } from "@/modules/partner/lib/pricing";
+import { TIMEZONE as PARIS } from "@/modules/marketing/lib/scheduling";
 import { adminUrl, escape, internalNotice } from "@/core/lib/email-template";
 
 /**
@@ -62,16 +63,29 @@ export async function adminEmails(payload: Payload): Promise<string[]> {
   return out;
 }
 
+/**
+ * Même règle que pour les gabarits client : le fuseau est explicite, toujours.
+ *
+ * Une date de démarrage stockée en fin de journée UTC se lisait la VEILLE sur
+ * un serveur en UTC — et l'alerte interne annonçait alors un jour de moins que
+ * la fiche. Le voisin `frDateTime` précisait déjà le fuseau ; celui-ci l'avait
+ * simplement oublié.
+ */
 const frDate = (iso?: string | null) =>
   iso
-    ? new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })
+    ? new Date(iso).toLocaleDateString("fr-FR", {
+        timeZone: PARIS,
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      })
     : "à définir";
 
 /** Jour ET heure, en heure de Paris : pour un rendez-vous, la date seule ne dit rien. */
 const frDateTime = (iso?: string | null) =>
   iso
     ? new Date(iso).toLocaleString("fr-FR", {
-        timeZone: "Europe/Paris",
+        timeZone: PARIS,
         weekday: "long",
         day: "2-digit",
         month: "long",
@@ -158,13 +172,13 @@ export function buildTestRequestEmail(
       ].join("\n"),
       html: `
         <div style="font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;color:#505050;line-height:1.5;max-width:560px">
-          <p><strong>${partner}</strong> demande une phase de test pour <strong>${client}</strong>.</p>
+          <p><strong>${escape(partner)}</strong> demande une phase de test pour <strong>${escape(client)}</strong>.</p>
 
           <table style="border-collapse:collapse;margin:16px 0;font-size:14px">
             ${facts
               .map(
                 ([k, v]) =>
-                  `<tr><td style="padding:3px 16px 3px 0;color:#8a8f98;white-space:nowrap">${k}</td><td><strong>${v}</strong></td></tr>`,
+                  `<tr><td style="padding:3px 16px 3px 0;color:#8a8f98;white-space:nowrap">${escape(k)}</td><td><strong>${escape(v)}</strong></td></tr>`,
               )
               .join("")}
           </table>
@@ -173,7 +187,7 @@ export function buildTestRequestEmail(
             ctx.checklist
               ? `<div style="background:#f8f9fb;border-left:3px solid #fe5464;padding:10px 14px;margin:16px 0">
                    <p style="margin:0 0 4px;font-weight:700">À vérifier avant de valider</p>
-                   <p style="margin:0;font-size:14px">${ctx.checklist}</p>
+                   <p style="margin:0;font-size:14px">${escape(ctx.checklist)}</p>
                  </div>`
               : ""
           }
@@ -305,15 +319,15 @@ export function buildQuoteEmail(
       ].join("\n"),
       html: `
         <div style="font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;color:#505050;line-height:1.5;max-width:560px">
-          <p><strong>${client}</strong> souhaite continuer après sa phase de test.</p>
+          <p><strong>${escape(client)}</strong> souhaite continuer après sa phase de test.</p>
           <p style="font-size:14px">Le devis est à établir par <strong>TIM</strong> ;
-             <strong>${partner}</strong> le transmettra au client.</p>
+             <strong>${escape(partner)}</strong> le transmettra au client.</p>
 
           <table style="border-collapse:collapse;margin:16px 0;font-size:14px">
             ${facts
               .map(
                 ([k, v]) =>
-                  `<tr><td style="padding:3px 16px 3px 0;color:#8a8f98;white-space:nowrap">${k}</td><td><strong>${v}</strong></td></tr>`,
+                  `<tr><td style="padding:3px 16px 3px 0;color:#8a8f98;white-space:nowrap">${escape(k)}</td><td><strong>${escape(v)}</strong></td></tr>`,
               )
               .join("")}
           </table>
@@ -335,7 +349,7 @@ export function buildQuoteEmail(
                       .map(
                         (l) =>
                           `<tr style="border-top:1px solid #eceef2">
-                             <td style="padding:4px 8px 4px 0">${l.label}</td>
+                             <td style="padding:4px 8px 4px 0">${escape(l.label)}</td>
                              <td align="right" style="padding:4px 8px">${l.qty}</td>
                              <td align="right" style="padding:4px 8px">${eur.format(l.price)}</td>
                              <td align="right" style="padding:4px 0 4px 8px">${eur.format(l.total)}</td>
@@ -560,13 +574,14 @@ export async function notifyAdminsSessionBooked(
       html: internalNotice({
         heading: "Prise en main calée",
         rows: [
-          ["Client", escape(client)],
-          ...(when ? ([["Quand", escape(when)]] as [string, string][]) : []),
-          ...(ctx.modality ? ([["Où", escape(ctx.modality)]] as [string, string][]) : []),
-          ...(ctx.partnerName ? ([["Animée par", escape(ctx.partnerName)]] as [string, string][]) : []),
+          // Valeurs BRUTES : `internalNotice` échappe lui-même.
+          ["Client", client],
+          ...(when ? ([["Quand", when]] as [string, string][]) : []),
+          ...(ctx.modality ? ([["Où", ctx.modality]] as [string, string][]) : []),
+          ...(ctx.partnerName ? ([["Animée par", ctx.partnerName]] as [string, string][]) : []),
         ],
         message: people.length
-          ? `Participants annoncés : ${people.map(escape).join(" · ")}`
+          ? `Participants annoncés : ${people.join(" · ")}`
           : "Aucun participant n'a été déclaré au moment de la réservation.",
         cta: { label: "Ouvrir la phase de test", url },
         links: ctx.clientId
@@ -599,7 +614,7 @@ export async function notifyAdminsAccessMissing(
     const html = internalNotice({
       heading: "Accès à créer aujourd'hui",
       rows: [
-        ["Client", escape(clientName ?? "—")],
+        ["Client", clientName ?? "—"],
         ["Démarrage", frDate(run.startDate)],
       ],
       message:

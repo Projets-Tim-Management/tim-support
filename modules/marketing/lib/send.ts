@@ -1,7 +1,8 @@
-import type { Payload } from "payload";
+import type { Payload, PayloadRequest } from "payload";
 
 import { JOURNEY_EMAILS, type JourneyEmailContext } from "@/modules/marketing/lib/emails";
 import { buildJourneyContext, type JourneyRunLike } from "@/modules/marketing/lib/journey-context";
+import { declaredAudience } from "@/modules/marketing/lib/journey";
 import { journeyReplyTo } from "@/modules/marketing/lib/reply-routing";
 
 /**
@@ -26,9 +27,22 @@ type RunEmailRow = { key?: string; sentAt?: string | null; audience?: string };
 /** Parcours OUVERT d'un client, s'il en a un. */
 const OPEN = ["preparation", "en-cours"];
 
+/**
+ * `req` n'est pas un détail : il porte la TRANSACTION en cours.
+ *
+ * Sans lui, cette recherche s'exécute hors transaction et ne voit donc pas ce
+ * qui vient d'être écrit dans la requête courante. Le démarrage d'une phase de
+ * test crée le parcours puis l'accès à l'espace client dans le même geste, à
+ * quelques centièmes de seconde d'intervalle ; le hook de l'accès cherchait
+ * alors un parcours encore invisible, concluait qu'il n'y en avait pas, et
+ * renonçait à envoyer l'invitation. Le client se retrouvait avec un espace
+ * ouvert dont il ignorait l'existence (constaté sur SOCOM FRANCE le 28/08/2026 :
+ * parcours créé à 05:21:26.313, accès à 05:21:26.740, invitation jamais partie).
+ */
 export async function findOpenRun(
   payload: Payload,
   clientId: number | string,
+  req?: PayloadRequest,
 ): Promise<JourneyRunLike | null> {
   const res = await payload
     .find({
@@ -38,6 +52,7 @@ export async function findOpenRun(
       limit: 1,
       depth: 0,
       overrideAccess: true,
+      ...(req ? { req } : {}),
     })
     .catch(() => null);
   return (res?.docs?.[0] as JourneyRunLike | undefined) ?? null;
@@ -66,9 +81,11 @@ export async function sendJourneyEmail(
     force?: boolean;
     /** Destinataires SUPPLÉMENTAIRES, en plus de celui déduit du public. */
     alsoTo?: (string | null | undefined)[];
+    /** Requête en cours, quand l'appel vient d'un hook : porte la transaction. */
+    req?: PayloadRequest;
   },
 ): Promise<SendResult> {
-  const { run, key, extra, force, alsoTo } = args;
+  const { run, key, extra, force, alsoTo, req } = args;
 
   const template = JOURNEY_EMAILS[key];
   if (!template) return { sent: false, reason: "no_template" };
@@ -76,7 +93,13 @@ export async function sendJourneyEmail(
   // On relit le parcours : `run` peut venir d'un hook et porter un état déjà
   // dépassé, or `sentAt` est précisément ce qu'on ne veut pas lire périmé.
   const fresh = (await payload
-    .findByID({ collection: "journey-runs", id: run.id, depth: 0, overrideAccess: true })
+    .findByID({
+      collection: "journey-runs",
+      id: run.id,
+      depth: 0,
+      overrideAccess: true,
+      ...(req ? { req } : {}),
+    })
     .catch(() => null)) as (JourneyRunLike & { emails?: RunEmailRow[] }) | null;
   if (!fresh) return { sent: false, reason: "no_run" };
 
@@ -84,8 +107,33 @@ export async function sendJourneyEmail(
   const row = rows.find((e) => e.key === key);
   if (row?.sentAt && !force) return { sent: false, reason: "already_sent" };
 
-  const { ctx, clientEmail, partnerEmail } = await buildJourneyContext(payload, fresh);
-  const main = row?.audience === "partenaire" ? partnerEmail : clientEmail;
+  const { ctx, clientEmail, clientEmailSource, partnerEmail } = await buildJourneyContext(
+    payload,
+    fresh,
+    req,
+  );
+
+  /**
+   * Le public vient de la LIGNE du parcours, à défaut du modèle.
+   *
+   * Jamais d'un repli sur « client » : une ligne manquante — parcours lancé
+   * avant l'ajout du message au modèle — faisait alors partir au prospect un
+   * texte écrit pour son partenaire, qui parle de lui à la troisième personne.
+   * L'envoi réussissait, donc rien ne le signalait.
+   */
+  const audience = row?.audience ?? declaredAudience(key);
+  const main = audience === "partenaire" ? partnerEmail : clientEmail;
+
+  // Le repli sur la fiche client est un RATTRAPAGE : il dit qu'aucun compte
+  // espace client n'existe pour ce parcours. Le message part — c'est mieux que
+  // le silence — mais l'anomalie doit se voir, parce que le client ne pourra pas
+  // se connecter à l'espace dont plusieurs de ces messages lui parlent.
+  if (audience !== "partenaire" && clientEmailSource === "fiche") {
+    payload.logger.warn(
+      `[parcours] « ${key} » du parcours ${fresh.id} envoyé à l'adresse de la fiche client ` +
+        `(repli) : aucun compte espace client n'existe pour ce parcours.`,
+    );
+  }
 
   // Dédoublonnage insensible à la casse : la personne formée est très souvent
   // celle qui a reçu l'invitation à l'espace client, et certains serveurs
@@ -129,6 +177,7 @@ export async function sendJourneyEmail(
           emails: rows.map((e) => (e.key === key ? { ...e, sentAt: new Date().toISOString() } : e)),
         } as never,
         overrideAccess: true,
+        ...(req ? { req } : {}),
       })
       .catch(() => undefined);
   }
@@ -148,6 +197,7 @@ export async function markJourneyEmailSent(
   payload: Payload,
   runId: number | string,
   key: string,
+  req?: PayloadRequest,
 ): Promise<void> {
   try {
     const fresh = (await payload.findByID({
@@ -155,6 +205,7 @@ export async function markJourneyEmailSent(
       id: runId,
       depth: 0,
       overrideAccess: true,
+      ...(req ? { req } : {}),
     })) as { emails?: RunEmailRow[] } | null;
 
     const rows = fresh?.emails ?? [];
@@ -167,6 +218,7 @@ export async function markJourneyEmailSent(
         emails: rows.map((e) => (e.key === key ? { ...e, sentAt: new Date().toISOString() } : e)),
       } as never,
       overrideAccess: true,
+      ...(req ? { req } : {}),
     });
   } catch {
     // Marquage secondaire : l'e-mail, lui, est bien parti.
@@ -185,11 +237,12 @@ export async function sendJourneyEmailForClient(
   clientId: number | string,
   key: string,
   extra?: Partial<JourneyEmailContext>,
+  req?: PayloadRequest,
 ): Promise<SendResult> {
   try {
-    const run = await findOpenRun(payload, clientId);
+    const run = await findOpenRun(payload, clientId, req);
     if (!run) return { sent: false, reason: "no_run" };
-    return await sendJourneyEmail(payload, { run, key, extra });
+    return await sendJourneyEmail(payload, { run, key, extra, req });
   } catch (err) {
     payload.logger.error(`[parcours] envoi de « ${key} » au client ${clientId} échoué : ${err}`);
     return { sent: false, reason: "send_failed" };

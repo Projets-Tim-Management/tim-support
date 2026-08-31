@@ -16,6 +16,7 @@ import {
 } from "@/modules/partner/lib/clientStatus";
 import { needsLossReason } from "@/modules/partner/lib/lossReason";
 import { isStepDone } from "@/modules/marketing/lib/journey";
+import { isInviteMissing, readPortalLogins } from "@/modules/marketing/lib/invite-status";
 import { eur } from "@/modules/partner/lib/format";
 
 /**
@@ -110,6 +111,15 @@ type RunProgress = {
   sessionLink?: string | null;
   /** Le parcours attend-il quelque chose du PARTENAIRE, et l'a-t-il fait ? */
   partner: { total: number; done: number; blocking: boolean };
+  /**
+   * Espace client ouvert, mais invitation jamais partie.
+   *
+   * Le pire des états : tout a l'air fait côté TIM, et le client n'a rien reçu —
+   * ni lien, ni code. Il ne peut donc pas remplir son dossier, et la relance qui
+   * suivra lui reprochera un retard dont il ignore tout. L'échec de cet envoi
+   * était jusqu'ici visible dans un seul onglet d'une seule fiche.
+   */
+  inviteMissing: boolean;
 };
 
 /** Tâche ouverte d'un client, telle qu'elle s'affiche sur sa carte. */
@@ -189,6 +199,12 @@ const IconCalendar = () => (
     <path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" strokeLinecap="round" />
   </svg>
 );
+
+/**
+ * Accès lus en une page. Nommé plutôt que recopié : la requête et sa lecture
+ * doivent parler de la MÊME limite, sinon la détection de troncature ment.
+ */
+const ACCOUNTS_LIMIT = 300;
 
 export function PartnerClientsBoard() {
   const { config } = useConfig();
@@ -293,13 +309,38 @@ export function PartnerClientsBoard() {
     (async () => {
       try {
         const qs =
-          "?where[status][equals]=en-cours&limit=200&depth=0" +
+          "?where[status][in]=preparation,en-cours&limit=200&depth=0" +
           "&select[client]=true&select[currentStepKey]=true&select[currentStepLabel]=true" +
           "&select[stepsDone]=true&select[stepsTotal]=true&select[steps]=true" +
-          "&select[sessionAt]=true&select[sessionMode]=true&select[sessionLink]=true";
-        const res = await fetch(`/payload-api/journey-runs${qs}`, { credentials: "include" });
+          "&select[sessionAt]=true&select[sessionMode]=true&select[sessionLink]=true" +
+          "&select[status]=true&select[emails]=true";
+        /**
+         * Les accès sont lus EN MÊME TEMPS que les parcours.
+         *
+         * Un client déjà entré dans son espace n'a plus besoin d'invitation,
+         * quelle que soit la trace laissée par l'envoi — il a pu recevoir son
+         * lien autrement. Sans cette lecture, l'alerte se déclencherait sur des
+         * clients parfaitement servis, et une alerte qui crie à tort finit
+         * ignorée quand elle a raison.
+         *
+         * D'où `readPortalLogins`, qui distingue « personne ne s'est connecté »
+         * de « on l'ignore » : une lecture en échec ou une liste tronquée
+         * rendait une liste vide, indiscernable de la première — et allumait
+         * l'alerte sur CHAQUE carte du tableau d'un coup.
+         */
+        const [res, accRes] = await Promise.all([
+          fetch(`/payload-api/journey-runs${qs}`, { credentials: "include" }),
+          fetch(
+            `/payload-api/client-portal-accounts?limit=${ACCOUNTS_LIMIT}&depth=0` +
+              "&select[client]=true&select[lastLoginAt]=true",
+            { credentials: "include" },
+          ),
+        ]);
         const json = res.ok ? await res.json() : { docs: [] };
+        const accJson = accRes.ok ? await accRes.json().catch(() => null) : null;
         if (cancelled) return;
+
+        const logins = readPortalLogins(accRes.ok, accJson, ACCOUNTS_LIMIT);
         const map: Record<string, RunProgress> = {};
         for (const run of (json?.docs ?? []) as {
           client?: number | string | { id?: number | string };
@@ -311,6 +352,8 @@ export function PartnerClientsBoard() {
           sessionAt?: string | null;
           sessionMode?: string | null;
           sessionLink?: string | null;
+          status?: string | null;
+          emails?: { key?: string; sentAt?: string | null }[];
         }[]) {
           const ref = run.client;
           const cid = ref && typeof ref === "object" ? ref.id : ref;
@@ -327,6 +370,20 @@ export function PartnerClientsBoard() {
            */
           const steps = run.steps ?? [];
           const mine = steps.filter((st) => st.actor === "partenaire");
+
+          /**
+           * L'accès est-il ouvert sans que l'invitation soit partie ?
+           *
+           * On le déduit de l'étape « compte-espace-client » : tant qu'elle
+           * n'est pas faite, l'invitation n'a PAS à être partie et un
+           * avertissement ne serait que du bruit. Une fois qu'elle l'est, le
+           * client est censé avoir reçu son lien et son code.
+           */
+          const accessOpen = steps.some(
+            (st) => st.key === "compte-espace-client" && isStepDone(st as never),
+          );
+          const invite = (run.emails ?? []).find((e) => e.key === "invitation-espace-client");
+
           map[String(cid)] = {
             label: run.currentStepLabel,
             done: run.stepsDone ?? 0,
@@ -340,6 +397,12 @@ export function PartnerClientsBoard() {
               blocking:
                 steps.find((st) => st.key === run.currentStepKey)?.actor === "partenaire",
             },
+            inviteMissing: isInviteMissing({
+              accessOpen,
+              invitationSentAt: invite?.sentAt,
+              clientId: cid,
+              logins,
+            }),
           };
         }
         setRunByClient(map);
@@ -695,6 +758,30 @@ export function PartnerClientsBoard() {
                       <div className="tim-kanban__activity">
                         Dernière activité : {relativeActivity(c.updatedAt)}
                       </div>
+
+                      {/* Espace ouvert, invitation jamais partie : le client
+                          n'a ni lien ni code, donc aucun moyen d'agir. Placé
+                          AVANT le rendez-vous et l'avancement : rien de ce qui
+                          suit ne peut avancer tant que c'est vrai. */}
+                      {run?.inviteMissing && (
+                        <div
+                          className="tim-kanban__alert"
+                          onMouseEnter={(e) =>
+                            showTip(
+                              e,
+                              "L'espace client est ouvert mais l'invitation n'est jamais partie : le client n'a ni lien ni code. Fiche client, onglet « Espace client » : « Renvoyer l'invitation ».",
+                            )
+                          }
+                          onMouseLeave={() => setTip(null)}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+                            <path d="M12 9v4" />
+                            <path d="M12 17h.01" />
+                          </svg>
+                          invitation non envoyée
+                        </div>
+                      )}
 
                       {/* Où en est la phase de test, et QUI doit agir. Affiché
                           au-dessus des tâches : c'est l'échéance qui structure
