@@ -45,7 +45,7 @@ import {
 // demandait au client de confirmer ce qu'il venait de déclarer lui-même dans son
 // espace, et ne déclenchait rien. Une case qui bloque sans rien produire finit
 // cochée machinalement — et dévalue les validations qui, elles, comptent.
-const SEED_VERSION = 20;
+const SEED_VERSION = 23;
 
 const stepSeed = () =>
   PHASE_DE_TEST_STEPS.map((s) => ({

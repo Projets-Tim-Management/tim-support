@@ -58,6 +58,7 @@ export function MailDateEditor({
   overridden,
   sentAt,
   readOnly,
+  sansObjet,
   window: bounds,
   onChange,
 }: {
@@ -68,6 +69,13 @@ export function MailDateEditor({
   overridden?: boolean;
   sentAt?: string | null;
   readOnly?: boolean;
+  /**
+   * Motif pour lequel cet envoi n'a plus lieu d'être (« créneau déjà
+   * réservé »). La date reste en base — annuler le créneau doit tout
+   * remettre en marche —, mais elle ne se règle plus : le cron écartera
+   * l'envoi quoi qu'on inscrive ici.
+   */
+  sansObjet?: string | null;
   /** Bornes autorisées, déduites des étapes voisines. */
   window: MailDateWindow;
   onChange: (at: string | null, overridden: boolean) => void;
@@ -106,6 +114,21 @@ export function MailDateEditor({
         title={`« ${subject} » — envoyé le ${fmtFull(sentAt)}`}
       >
         envoyé {fmtDay(sentAt)}
+      </span>
+    );
+  }
+
+  // Le fait a rendu l'envoi inutile : on le dit, plutôt que d'afficher une
+  // échéance réglable pour un message qui ne partira pas.
+  if (sansObjet) {
+    return (
+      <span
+        className="jr-maildate jr-maildate--moot"
+        title={`« ${subject} » ne partira pas — ${sansObjet}${
+          scheduledAt ? ` (était prévu le ${fmtFull(scheduledAt)})` : ""
+        }`}
+      >
+        sans objet
       </span>
     );
   }

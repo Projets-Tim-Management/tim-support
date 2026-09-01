@@ -4,6 +4,7 @@ import { JOURNEY_EMAILS, type JourneyEmailContext } from "@/modules/marketing/li
 import { buildJourneyContext, type JourneyRunLike } from "@/modules/marketing/lib/journey-context";
 import { declaredAudience } from "@/modules/marketing/lib/journey";
 import { journeyReplyTo } from "@/modules/marketing/lib/reply-routing";
+import { journeyMailHeaders } from "@/modules/support/lib/brevo";
 
 /**
  * Porte d'entrée unique des e-mails de parcours adressés au client ou au
@@ -159,6 +160,10 @@ export async function sendJourneyEmail(
       text: built.text,
       // Une réponse revient dans le logiciel, rattachée à CE parcours.
       ...(journeyReplyTo(fresh.id) ? { replyTo: journeyReplyTo(fresh.id) } : {}),
+      // Tag Brevo → l'onglet « E-mails » du parcours retrouve cet envoi et son
+      // sort réel (remis, ouvert, rejeté). Sans lui, il faudrait filtrer sur la
+      // seule adresse du client, qui remonte aussi ses tickets.
+      ...journeyMailHeaders(fresh.id),
     });
   } catch (err) {
     payload.logger.error(`[parcours] envoi de « ${key} » à ${to} échoué : ${err}`);
