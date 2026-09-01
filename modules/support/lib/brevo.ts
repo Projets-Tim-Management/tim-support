@@ -20,11 +20,25 @@ const API = "https://api.brevo.com/v3/smtp/statistics/events";
 export const ticketTag = (number: number | string) => `ticket-${number}`;
 
 /**
+ * Tag Brevo d'une phase de test.
+ *
+ * Même principe que pour les tickets, et pour la même raison : le compte Brevo
+ * est partagé, et filtrer sur la seule adresse du client remonterait aussi ses
+ * tickets et les messages de son partenaire. Le tag rattache un envoi À CE
+ * parcours, sans ambiguïté.
+ */
+export const journeyTag = (runId: number | string) => `run-${runId}`;
+
+/**
  * En-têtes à joindre à `payload.sendEmail` pour tracer l'envoi.
  * L'adaptateur nodemailer transmet `headers` tel quel au relais SMTP.
  */
 export const ticketMailHeaders = (number: number | string | undefined | null) =>
   number == null ? {} : { headers: { "X-Mailin-Tag": ticketTag(number) } };
+
+/** Idem pour un envoi de parcours. */
+export const journeyMailHeaders = (runId: number | string | undefined | null) =>
+  runId == null ? {} : { headers: { "X-Mailin-Tag": journeyTag(runId) } };
 
 export interface BrevoSender {
   id: number;
@@ -196,14 +210,59 @@ export interface BrevoEvent {
   link?: string;
 }
 
-export interface TicketEmailActivity {
-  /** Événements des e-mails tagués pour CE ticket. */
+export interface EmailActivity {
+  /** Événements des e-mails portant le tag demandé. */
   events: BrevoEvent[];
-  /** Autres e-mails envoyés à la même adresse (contexte, hors ticket). */
+  /** Autres e-mails envoyés à la même adresse (contexte). */
   otherToAddress: BrevoEvent[];
   /** `false` quand BREVO_API_KEY n'est pas configurée. */
   configured: boolean;
   error?: string;
+}
+
+/** Conservé pour le module support, dont c'est le nom historique. */
+export type TicketEmailActivity = EmailActivity;
+
+/**
+ * Activité e-mail d'un objet tagué (ticket, parcours…), plus le contexte de
+ * l'adresse. `days` est plafonné à 90 par l'API Brevo — au-delà, l'historique
+ * n'est plus consultable (limite documentée de l'endpoint).
+ *
+ * Les deux listes sont utiles et différentes : la première dit ce qui est parti
+ * POUR CET OBJET, la seconde ce que la personne a reçu par ailleurs — c'est
+ * elle qui explique un « je n'ai rien vu » quand la boîte est saturée.
+ */
+export async function getEmailActivity(
+  tag: string | null,
+  email: string | undefined | null,
+  days = 90,
+): Promise<EmailActivity> {
+  if (!process.env.BREVO_API_KEY) {
+    return { events: [], otherToAddress: [], configured: false };
+  }
+  try {
+    const base = { days: String(Math.min(days, 90)), limit: "200", sort: "desc" };
+    // ⚠️ `tags` attend le tag BRUT (`ticket-42`, `run-9`), malgré la
+    // documentation Brevo qui annonce « un tableau sérialisé ». Vérifié sur
+    // l'API : `["ticket-42"]` renvoie 0 événement, `ticket-42` les renvoie tous.
+    const [tagged, byAddress] = await Promise.all([
+      tag ? query({ ...base, tags: tag }) : Promise.resolve([]),
+      email ? query({ ...base, email, limit: "100" }) : Promise.resolve([]),
+    ]);
+    const taggedIds = new Set(tagged.map((e) => e.messageId));
+    return {
+      configured: true,
+      events: tagged,
+      otherToAddress: byAddress.filter((e) => !taggedIds.has(e.messageId)),
+    };
+  } catch (e) {
+    return {
+      events: [],
+      otherToAddress: [],
+      configured: true,
+      error: e instanceof Error ? e.message : "Appel Brevo impossible",
+    };
+  }
 }
 
 async function query(params: Record<string, string>): Promise<BrevoEvent[]> {
@@ -220,41 +279,10 @@ async function query(params: Record<string, string>): Promise<BrevoEvent[]> {
   return json.events ?? [];
 }
 
-/**
- * Activité e-mail d'un ticket. `days` est plafonné à 90 par l'API Brevo — au-delà,
- * l'historique n'est plus consultable (cf. limite documentée de l'endpoint).
- */
-export async function getTicketEmailActivity(
+/** Activité e-mail d'un ticket : le tag du ticket, plus le reste de l'adresse. */
+export const getTicketEmailActivity = (
   number: number | string | undefined | null,
   email: string | undefined | null,
   days = 90,
-): Promise<TicketEmailActivity> {
-  if (!process.env.BREVO_API_KEY) {
-    return { events: [], otherToAddress: [], configured: false };
-  }
-  try {
-    const base = { days: String(Math.min(days, 90)), limit: "200", sort: "desc" };
-    // ⚠️ `tags` attend le tag BRUT (`ticket-42`), malgré la documentation Brevo
-    // qui annonce « un tableau sérialisé ». Vérifié sur l'API : `["ticket-42"]`
-    // renvoie 0 événement, `ticket-42` les renvoie tous.
-    const [tagged, byAddress] = await Promise.all([
-      number != null ? query({ ...base, tags: ticketTag(number) }) : Promise.resolve([]),
-      email ? query({ ...base, email, limit: "50" }) : Promise.resolve([]),
-    ]);
-
-    const taggedIds = new Set(tagged.map((e) => e.messageId));
-    return {
-      configured: true,
-      events: tagged,
-      // On ne répète pas ici ce qui est déjà rattaché au ticket.
-      otherToAddress: byAddress.filter((e) => !taggedIds.has(e.messageId)),
-    };
-  } catch (e) {
-    return {
-      events: [],
-      otherToAddress: [],
-      configured: true,
-      error: e instanceof Error ? e.message : "Appel Brevo impossible",
-    };
-  }
-}
+): Promise<EmailActivity> =>
+  getEmailActivity(number == null ? null : ticketTag(number), email, days);

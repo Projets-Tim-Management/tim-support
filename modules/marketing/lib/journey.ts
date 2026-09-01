@@ -389,10 +389,23 @@ export const mergeRunSteps = (
   const byKey = new Map(runSteps.map((s) => [s.key, s]));
   const modelKeys = new Set(modelSteps.map((s) => s.key));
   const details = new Map(modelSteps.map((s) => [s.key, s.detail]));
+  /**
+   * L'ANCRAGE dit à quel repère l'échéance s'accroche — le démarrage, la fin, le
+   * créneau réservé. C'est de la structure, pas un réglage : un parcours qui
+   * garde un ancrage périmé date son étape sur le mauvais évènement, et rien à
+   * l'écran ne permet de s'en apercevoir. Le décalage l'accompagne, les deux ne
+   * voulant rien dire l'un sans l'autre.
+   */
+  const anchors = new Map(
+    modelSteps.map((s) => [s.key, { anchor: s.anchor, offsetDays: s.offsetDays }]),
+  );
 
   const missing = modelSteps.some((s) => !byKey.has(s.key));
   const staleDetails = runSteps.some(
     (s) => s.key && details.has(s.key) && details.get(s.key) !== s.detail,
+  );
+  const staleAnchors = runSteps.some(
+    (s) => s.key && anchors.has(s.key) && anchors.get(s.key)!.anchor !== s.anchor,
   );
 
   const orphans = runSteps.filter((s) => !modelKeys.has(s.key));
@@ -400,15 +413,21 @@ export const mergeRunSteps = (
     orphans.filter((s) => (s.state ?? "a-faire") === "a-faire" && !s.doneAt && !s.note),
   );
 
-  if (!missing && !staleDetails && toDrop.size === 0) return null;
+  if (!missing && !staleDetails && !staleAnchors && toDrop.size === 0) return null;
 
   return [
     ...modelSteps.map((modelStep) => {
       const existing = byKey.get(modelStep.key);
       if (!existing) return { ...modelStep, state: "a-faire" };
-      return existing.key && details.has(existing.key)
-        ? { ...existing, detail: details.get(existing.key) }
-        : existing;
+      if (!existing.key || !details.has(existing.key)) return existing;
+      const structure = anchors.get(existing.key)!;
+      return {
+        ...existing,
+        detail: details.get(existing.key),
+        // Ancrage périmé : on reprend le couple du modèle. Inchangé, on ne
+        // touche pas au décalage — il a pu être resserré pour CE parcours.
+        ...(structure.anchor !== existing.anchor ? structure : {}),
+      };
     }),
     ...orphans.filter((s) => !toDrop.has(s)),
   ];
@@ -561,7 +580,19 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
     label: "Session de prise en main réalisée",
     actor: "partenaire",
     phase: "pendant-test",
-    anchor: "debut",
+    /**
+     * Ancrée sur le CRÉNEAU réservé, pas sur le lundi de démarrage.
+     *
+     * La session se tient au plus tard le jour du démarrage, souvent la semaine
+     * d'avant (voir isSessionBeforeStart). Datée sur le démarrage, cette étape
+     * annonçait donc une session « le 14 » quand le client l'avait calée le 7 —
+     * et l'écran donnait deux dates pour le même rendez-vous.
+     *
+     * Sans créneau réservé, elle n'a pas de date : la session n'a pas de moment
+     * tant que personne ne l'a choisi. Même parti pris que le rappel de la
+     * veille, qui ne part pas tant qu'il n'y a rien à rappeler.
+     */
+    anchor: "session",
     offsetDays: 0,
   },
   {
@@ -878,6 +909,9 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "debut",
     offsetDays: -4,
+    // La relance sert le créneau : elle appartient à son étape, pas à celle
+    // dont la date la précède (elle s'affichait sous « Dossier vérifié par TIM »).
+    stepKey: "rdv-prise-en-main",
     detail:
       "Relance sur le créneau de prise en main, envoyée seulement si aucun rendez-vous n'est réservé. Passé le démarrage, cette session ne rattrape plus la première semaine.",
   },
@@ -887,6 +921,9 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "session",
     offsetDays: -1,
+    // Le rappel de la veille annonce LA session : il se lit sur sa ligne, et
+    // non sous « Provisionnement des accès », voisine par la seule date.
+    stepKey: "prise-en-main",
     // 17 h : la veille en fin de journée, quand on organise le lendemain. Le
     // matin même, il est trop tard pour prévenir un collègue ou déplacer une
     // visite de chantier ; le matin de la veille, on l'aura oublié à 17 h.
@@ -901,6 +938,11 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "debut",
     offsetDays: -3,
+    // Rattachée à l'étape qu'elle sert, pas à sa date. Sans `stepKey`, elle se
+    // rangeait sous « la dernière étape dont l'échéance la précède » : avancer
+    // la relance de trois jours la faisait changer de ligne, et elle s'est
+    // retrouvée sous « Session de prise en main réalisée » (SOCOM, 01/09/2026).
+    stepKey: "dossier-demarrage",
     detail:
       "Relance sur le dossier de démarrage, envoyée seulement s'il n'a pas été transmis. Sans lui, les accès ne peuvent pas être créés à temps pour le lundi de démarrage.",
   },
@@ -912,6 +954,9 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "debut",
     offsetDays: -7,
+    // L'invitation à réserver sert cette étape — elle y tombait déjà par sa
+    // date, mais rien ne le disait : une date déplacée l'aurait emportée ailleurs.
+    stepKey: "rdv-prise-en-main",
     detail:
       "Invite à réserver le créneau de prise en main avec le partenaire, avant le démarrage. C'est le facteur n°1 de réussite d'un test. La modalité (visio et son lien, ou adresse du site) est reprise de la fiche de la phase de test.",
   },
@@ -921,6 +966,8 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "debut",
     offsetDays: 0,
+    // Le message qui annonce les accès suit l'étape qui les crée.
+    stepKey: "provisionnement",
     // 8 h le jour du démarrage : avant l'embauche, pour que les fiches d'accès
     // puissent être imprimées et distribuées dans la matinée.
     sendHour: "08:00",
@@ -951,6 +998,8 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "fin",
     offsetDays: -5,
+    // Compte à rebours vers le bilan : c'est le jalon qu'il prépare.
+    stepKey: "bilan",
     detail: "Propose de caler le rendez-vous de bilan avec le partenaire.",
   },
   {
@@ -959,6 +1008,8 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "fin",
     offsetDays: -1,
+    // Dernier jour d'accès : même jalon que le bilan qui le précède.
+    stepKey: "bilan",
     detail:
       "Rappelle l'échéance et ce qui advient des données saisies pendant le test.",
   },
@@ -968,6 +1019,8 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "fin",
     offsetDays: 0,
+    // Le message qui recueille la décision appartient à l'étape qui la porte.
+    stepKey: "decision",
     detail:
       "Trois réponses possibles : continuer, prolonger, arrêter. Le clic renseigne la décision.",
   },
@@ -1079,6 +1132,29 @@ export const leadDaysOf = (steps: Anchored[]): number => {
   return min < 0 ? -min : 0;
 };
 
+
+/**
+ * Remet les décalages du MODÈLE sur des lignes de parcours, par clé.
+ *
+ * ⚠️ Les étapes et les envois ont chacun leur table. Ils partagent des clés —
+ * « prise-en-main » est à la fois l'étape « Session de prise en main réalisée »
+ * (le jour du démarrage) et l'e-mail « 45 minutes pour rendre votre équipe
+ * autonome » (sept jours avant). Une table commune faisait gagner le dernier
+ * inscrit : les trois parcours ouverts ont ainsi daté cette ÉTAPE une semaine
+ * avant le démarrage, entre « Provisionnement » (J−1) et « Accès distribués »
+ * (J+1). La barre affichait 13 sept., 7 sept., 15 sept.
+ *
+ * Pur : la règle, pas son application.
+ */
+export function restoreOffsets<T extends { key?: unknown; offsetDays?: unknown }>(
+  items: T[],
+  offsets: Map<string, unknown>,
+): T[] {
+  return items.map((item) => {
+    const k = typeof item.key === "string" ? item.key : null;
+    return k && offsets.has(k) ? { ...item, offsetDays: offsets.get(k) } : item;
+  });
+}
 
 /**
  * RESSERRE les étapes d'avant-test quand on démarre plus tôt que prévu.
@@ -1207,6 +1283,33 @@ export function mailDateWindow(
   }
 
   return { min: min ? startOfDay(min) : null, max: max ? endOfDay(max) : null };
+}
+
+/**
+ * Élargit la fenêtre pour qu'elle CONTIENNE la date du calendrier.
+ *
+ * Les bornes viennent des étapes voisines ; la date d'un envoi, de son propre
+ * ancrage. Les deux ne parlent pas toujours du même repère : « Votre session,
+ * c'est demain » s'ancre sur le CRÉNEAU réservé, l'étape qui l'accueille sur le
+ * lundi de démarrage. Une session tenue avant le démarrage — le cas normal —
+ * place donc le rappel avant sa propre étape, hors d'une fenêtre censée le
+ * contenir. Constaté sur trois parcours le 01/09/2026.
+ *
+ * La fenêtre borne un déplacement À LA MAIN. Elle n'a pas à déclarer illégale
+ * la date que le parcours calcule lui-même : sans cet élargissement, le premier
+ * réglage manuel d'un tel envoi le déplaçait de plusieurs jours, en silence.
+ */
+export function allowComputedDate(
+  window: MailDateWindow,
+  computedAt?: string | null,
+): MailDateWindow {
+  if (!computedAt) return window;
+  const t = Date.parse(computedAt);
+  if (Number.isNaN(t)) return window;
+  return {
+    min: window.min && t < Date.parse(window.min) ? startOfDay(computedAt) : window.min,
+    max: window.max && t > Date.parse(window.max) ? endOfDay(computedAt) : window.max,
+  };
 }
 
 /**

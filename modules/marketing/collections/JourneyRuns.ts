@@ -19,7 +19,9 @@ import {
 import { sessionSyncPatch, syncSessionEvent } from "@/modules/marketing/lib/session-calendar";
 import {
   DEFAULT_DURATION_WEEKS,
+  allowComputedDate,
   compressLeadOffsets,
+  restoreOffsets,
   JOURNEY_ACTORS,
   JOURNEY_ANCHORS,
   JOURNEY_PHASES,
@@ -209,6 +211,29 @@ const snapshotSteps: CollectionBeforeChangeHook = async ({ data, originalDoc, re
   const known = new Set(currentEmails.map((e) => e.key));
   const missing = emails.filter((e) => !known.has(e.key as string));
 
+  /**
+   * Rattachement d'un envoi à son étape, complété s'il MANQUE.
+   *
+   * Un envoi sans `stepKey` se range sous « la dernière étape dont l'échéance
+   * précède la sienne » : sa ligne change donc dès qu'on déplace sa date. La
+   * relance dossier de SOCOM a ainsi migré sous « Session de prise en main
+   * réalisée » le 01/09/2026, simplement parce qu'on l'avait avancée.
+   *
+   * Complété seulement si le parcours n'en porte pas : un rattachement choisi à
+   * la main reste le sien. Même règle que côté modèle (mergeEmails).
+   */
+  const modelStepKeys = new Map(
+    (journey.emails ?? [])
+      .filter((e) => e.key && e.stepKey)
+      .map((e) => [e.key as string, e.stepKey as string]),
+  );
+  const attached = currentEmails.map((e) =>
+    !e.stepKey && e.key && modelStepKeys.has(e.key)
+      ? { ...e, stepKey: modelStepKeys.get(e.key) }
+      : e,
+  );
+  const attachedChanged = attached.some((e, i) => e !== currentEmails[i]);
+
   // Étapes ajoutées, retirées ou re-documentées depuis le lancement de CE
   // parcours : la règle vit dans journey.ts, où elle est vérifiable.
   const mergedSteps = mergeRunSteps(steps, currentSteps);
@@ -237,39 +262,48 @@ const snapshotSteps: CollectionBeforeChangeHook = async ({ data, originalDoc, re
   const start = (data?.startDate ?? null) as string | null;
   const startChanged = Boolean(start) && start !== ((originalDoc?.startDate ?? null) as string | null);
 
-  /** Décalages d'origine, par clé : la seule référence qui ne dérive pas. */
-  const modelOffsets = new Map<string, unknown>();
-  for (const item of [...(journey.steps ?? []), ...(journey.emails ?? [])]) {
-    const k = (item as { key?: string }).key;
-    if (k) modelOffsets.set(k, (item as { offsetDays?: unknown }).offsetDays);
-  }
+  /**
+   * Décalages d'origine, par clé — DEUX tables, et pas une.
+   *
+   * Une étape et un envoi peuvent porter la même clé : « prise-en-main » est
+   * l'étape « Session de prise en main réalisée » (jour du démarrage) autant
+   * que l'e-mail qui l'annonce (sept jours avant). Une table commune donnait
+   * l'un pour l'autre.
+   */
+  const byKey = (items: unknown[]) => {
+    const out = new Map<string, unknown>();
+    for (const item of items) {
+      const k = (item as { key?: string }).key;
+      if (k) out.set(k, (item as { offsetDays?: unknown }).offsetDays);
+    }
+    return out;
+  };
+  const stepOffsets = byKey(journey.steps ?? []);
+  const mailOffsets = byKey(journey.emails ?? []);
 
   const fit = <T extends { key?: unknown; anchor?: unknown; offsetDays?: unknown; [k: string]: unknown }>(
     items: T[],
+    offsets: Map<string, unknown>,
   ): T[] => {
     if (!startChanged || !start) return items;
-    const fromModel = items.map((item) => {
-      const k = typeof item.key === "string" ? item.key : null;
-      return k && modelOffsets.has(k) ? { ...item, offsetDays: modelOffsets.get(k) } : item;
-    });
-    return compressLeadOffsets(fromModel, start);
+    return compressLeadOffsets(restoreOffsets(items, offsets), start);
   };
 
   // Réécriture nécessaire ? Modèle enrichi, ou date de démarrage déplacée.
   const stepsChanged = !hasSteps || Boolean(mergedSteps) || startChanged;
-  const emailsChanged = !hasEmails || missing.length > 0 || startChanged;
+  const emailsChanged = !hasEmails || missing.length > 0 || startChanged || attachedChanged;
   // Cast : les trois sources décrivent la même forme, elles ne diffèrent que
   // sur la nullabilité de `key` (`string | null` côté fusion, `string` côté
   // modèle). Les unir sans cela ferait échouer l'inférence sur le premier membre.
   const outSteps = (hasSteps ? (mergedSteps ?? currentSteps) : steps) as RunStep[];
   const outEmails = (
-    hasEmails ? (missing.length ? [...currentEmails, ...missing] : currentEmails) : emails
+    hasEmails ? (missing.length ? [...attached, ...missing] : attached) : emails
   ) as RunEmail[];
 
   return {
     ...data,
-    ...(stepsChanged ? { steps: fit(outSteps) } : {}),
-    ...(emailsChanged ? { emails: fit(outEmails) } : {}),
+    ...(stepsChanged ? { steps: fit(outSteps, stepOffsets) } : {}),
+    ...(emailsChanged ? { emails: fit(outEmails, mailOffsets) } : {}),
     durationWeeks: data?.durationWeeks ?? originalDoc?.durationWeeks ?? journey.defaultDurationWeeks ?? DEFAULT_DURATION_WEEKS,
   };
 };
@@ -616,11 +650,32 @@ const computeState: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
   // les traverse. La règle doit donc vivre ICI aussi, sinon elle n'existe pas.
   const dated = steps.map((s) => ({
     key: s.key,
-    due: stepDueDate(s as never, startDate, endDate),
+    // Même quatrième argument que l'écran : une étape ancrée sur le créneau
+    // (« Session de prise en main réalisée ») serait sinon sans date ici, et
+    // les fenêtres calculées de part et d'autre ne coïncideraient plus.
+    due: stepDueDate(
+      s as never,
+      startDate,
+      endDate,
+      (data?.sessionAt ?? originalDoc?.sessionAt) as string | null | undefined,
+    ),
   }));
   const bounded = emails.map((mail) => {
     if (!mail.overridden || !mail.scheduledAt) return mail;
-    const inside = clampMailDate(mail.scheduledAt, mailDateWindow(mail.stepKey as string, dated));
+    // La fenêtre est élargie à la date que le calendrier produirait pour CET
+    // envoi : elle borne une reprise à la main, elle ne condamne pas la
+    // programmation du parcours. Sans ça, un rappel ancré sur le créneau —
+    // antérieur à l'étape qui l'accueille — sautait de plusieurs jours au
+    // premier réglage manuel, sans que rien ne le signale.
+    const computedAt =
+      computeEmailSchedule(
+        [{ ...mail, overridden: false }],
+        startDate,
+        endDate,
+        (data?.sessionAt ?? originalDoc?.sessionAt) as string | null | undefined,
+      )[0]?.scheduledAt ?? null;
+    const window = allowComputedDate(mailDateWindow(mail.stepKey as string, dated), computedAt);
+    const inside = clampMailDate(mail.scheduledAt, window);
     return inside === mail.scheduledAt ? mail : { ...mail, scheduledAt: inside };
   });
 
@@ -1183,6 +1238,20 @@ export const JourneyRuns: CollectionConfig = {
               type: "ui",
               admin: {
                 components: { Field: "/modules/marketing/admin/JourneyStepper#JourneyStepper" },
+              },
+            },
+          ],
+        },
+        {
+          label: "E-mails",
+          fields: [
+            {
+              name: "emailActivity",
+              type: "ui",
+              admin: {
+                components: {
+                  Field: "/modules/marketing/admin/JourneyEmails#JourneyEmails",
+                },
               },
             },
           ],

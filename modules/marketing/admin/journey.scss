@@ -1407,6 +1407,25 @@
 /* Déjà parti : l'aperçu reste consultable, mais ce n'est plus une échéance. */
 .jr-mailbtn--sent { opacity: 0.5; }
 
+/* Accompagnement : un message qui ne sert aucun jalon — un conseil d'usage
+   envoyé pendant le test. Il se range sous l'étape que sa date précède, sans
+   lui appartenir. Contour au lieu d'un aplat : présent, mais visiblement pas
+   de la même nature que les envois d'une étape. */
+.jr-mailbtn--free {
+  background: none;
+  box-shadow: inset 0 0 0 1px currentColor;
+  opacity: 0.75;
+}
+
+/* Sans objet : le client a fait ce qu'on lui demandait, l'envoi est écarté.
+   Éteint, pas alarmant — c'est une bonne nouvelle. L'aperçu reste ouvrable :
+   savoir ce qu'on n'a PAS envoyé compte autant. */
+.jr-mailbtn--moot {
+  background: var(--tim-gray-bg);
+  color: var(--tim-gray);
+  opacity: 0.6;
+}
+
 /* ─── Date d'envoi, modifiable sur la ligne de l'étape ───────────────────────
    Elle vivait dans un onglet séparé, ce qui obligeait à retrouver de tête à
    quelle étape chaque envoi se rapportait. Enveloppe et date forment une paire :
@@ -1442,6 +1461,16 @@
 .jr-maildate--off {
   color: var(--tim-muted);
   text-decoration: line-through;
+}
+
+/* Ni une date, ni un réglage : un constat. Pas de curseur ni de survol, pour
+   qu'on ne cherche pas à cliquer sur ce qui ne se règle plus. */
+.jr-maildate--moot {
+  padding: 0.0625rem 0.3125rem;
+  font-size: 0.6875rem;
+  font-style: italic;
+  color: var(--tim-muted);
+  cursor: help;
 }
 
 .jr-maildate--sent,

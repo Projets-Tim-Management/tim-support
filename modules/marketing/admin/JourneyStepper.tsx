@@ -8,8 +8,10 @@ import { EmailPreview } from "@/modules/marketing/admin/EmailPreview";
 import { MailDateEditor } from "@/modules/marketing/admin/MailDateEditor";
 import { Tooltip } from "@/modules/marketing/admin/Tooltip";
 import { useSaveAfterDispatch } from "@/modules/marketing/admin/useSaveAfterDispatch";
+import { raisonSansObjet } from "@/modules/marketing/lib/due-emails";
 import {
   AUDIENCE_LABEL,
+  allowComputedDate,
   STEP_VALIDATION_EFFECT,
   SYSTEM_STEPS,
   attachEmailsToSteps,
@@ -212,15 +214,60 @@ export function JourneyStepper() {
 
   const clientHref = clientId != null ? `${adminRoute}/collections/partner-clients/${clientId}` : null;
 
+  /**
+   * L'état du dossier de démarrage, lu sur la FICHE CLIENT.
+   *
+   * On pourrait le déduire de l'étape « Dossier de démarrage complété », qui est
+   * dans le formulaire — mais elle se valide aussi à la main, et une étape
+   * cochée par avance ferait dire à l'écran qu'une relance est sans objet alors
+   * que le cron l'enverra. La condition d'envoi se lit à sa source.
+   */
+  const [onboardingStatus, setOnboardingStatus] = useState<string | null>(null);
+  useEffect(() => {
+    if (clientId == null) return;
+    let annule = false;
+    fetch(`/payload-api/partner-clients/${clientId}?depth=0&select[onboardingStatus]=true`, {
+      credentials: "include",
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => !annule && setOnboardingStatus((j?.onboardingStatus as string) ?? null))
+      // Sans cette lecture, les relances gardent leur affichage habituel : une
+      // information manquante ne doit pas se transformer en « sans objet ».
+      .catch(() => undefined);
+    return () => {
+      annule = true;
+    };
+  }, [clientId]);
+
+  /**
+   * Les envois que le cron écartera, et pourquoi.
+   *
+   * Même table que lui (RAISON_SANS_OBJET) : « réservez votre session » face à
+   * une session déjà calée ne part pas, et la barre d'étapes l'annonçait
+   * pourtant comme un envoi automatique à venir.
+   */
+  const sansObjet = useMemo(() => {
+    const facts = { sessionAt, onboardingStatus };
+    const out: Record<string, string> = {};
+    for (const m of mails) {
+      if (m.sentAt) continue; // déjà dans la boîte du client : c'est un fait.
+      const raison = raisonSansObjet(m.key, facts);
+      if (raison) out[m.key] = raison;
+    }
+    return out;
+  }, [mails, sessionAt, onboardingStatus]);
+
   // Envois rattachés à leur étape : par `stepKey` s'il est déclaré, sinon par
   // la date. Même règle que l'aperçu du modal de démarrage.
   const datedSteps = useMemo(
     () =>
       steps.map((s) => ({
         key: s.key,
-        due: stepDueDate(s, startDate, computeEndDate(startDate, durationWeeks, extraDays)),
+        // `sessionAt` n'est pas optionnel ici : « Session de prise en main
+        // réalisée » s'ancre dessus. Sans lui, elle n'aurait jamais d'échéance.
+        due: stepDueDate(s, startDate, computeEndDate(startDate, durationWeeks, extraDays), sessionAt),
       })),
-    [steps, startDate, durationWeeks, extraDays],
+    [steps, startDate, durationWeeks, extraDays, sessionAt],
   );
 
   const mailsByStep = useMemo(
@@ -336,7 +383,7 @@ export function JourneyStepper() {
                 const system = step.key ? SYSTEM_STEPS[step.key] : undefined;
                 const canUndo = isDone && step.index === lastDoneIndex && !system;
                 const locked = isAdminStep(step) && !isAdmin;
-                const due = stepDueDate(step, startDate, endDate);
+                const due = stepDueDate(step, startDate, endDate, sessionAt);
                 const late = !isDone && due != null && today != null && Date.parse(due) < today;
 
                 const stepMails = step.key ? (mailsByStep.get(step.key) ?? []) : [];
@@ -421,15 +468,30 @@ export function JourneyStepper() {
                           key={m.key}
                           interactive
                           content={[
-                            m.sentAt ? "E-mail envoyé" : "E-mail automatique",
+                            sansObjet[m.key]
+                              ? "Ne partira pas"
+                              : m.sentAt
+                                ? "E-mail envoyé"
+                                : m.stepKey
+                                  ? "E-mail automatique"
+                                  : "Accompagnement",
                             `À ${AUDIENCE_LABEL[m.audience ?? "client"] ?? "—"} — « ${m.subject} »`,
-                            "Cliquer pour voir le message exact qui part.",
+                            // Un envoi sans étape déclarée n'est pas attaché à
+                            // CETTE étape : il se range sous celle que sa date
+                            // précède. Le dire évite de chercher un lien qui
+                            // n'existe pas — « Le suivi de chantier, en 3 clics »
+                            // n'a rien à voir avec « Accès distribués ».
+                            !m.stepKey && !sansObjet[m.key]
+                              ? "Message calé sur une date, pas sur cette étape."
+                              : sansObjet[m.key]
+                                ? `Sans objet : ${sansObjet[m.key]}.`
+                                : "Cliquer pour voir le message exact qui part.",
                           ]}
                         >
                           <button
                             type="button"
                             aria-label={`Voir l'e-mail « ${m.subject} »`}
-                            className={`jr-mailbtn jr-mailbtn--${m.audience ?? "client"}${m.sentAt ? " jr-mailbtn--sent" : ""}`}
+                            className={`jr-mailbtn jr-mailbtn--${m.audience ?? "client"}${m.sentAt ? " jr-mailbtn--sent" : ""}${sansObjet[m.key] ? " jr-mailbtn--moot" : ""}${!m.stepKey ? " jr-mailbtn--free" : ""}`}
                             onClick={() => setPreview(m.key)}
                           >
                             <span aria-hidden>✉</span>
@@ -478,30 +540,45 @@ export function JourneyStepper() {
                         // L'étape porte un envoi daté : sa date d'envoi EST son
                         // échéance. Afficher les deux donnait deux dates pour la
                         // même chose — celle-ci a l'avantage d'être modifiable.
-                        datedMails.map((m) => (
-                          <MailDateEditor
-                            key={m.key}
-                            subject={m.subject}
-                            scheduledAt={m.scheduledAt}
-                            overridden={m.overridden}
-                            sentAt={m.sentAt}
-                            readOnly={closed}
-                            // Date que le calendrier produirait sans dérogation :
-                            // c'est la cible du « rétablir », heure comprise.
-                            computedAt={
-                              computeEmailSchedule(
-                                [{ ...m, overridden: false }],
-                                startDate,
-                                endDate,
-                                sessionAt,
-                              )[0]?.scheduledAt ?? null
-                            }
-                            // Bornée par les étapes voisines : un envoi ne doit
-                            // pas franchir la suivante ni précéder la précédente.
-                            window={mailDateWindow(step.key, datedSteps)}
-                            onChange={(at, ov) => setMailDate(m.index, at, ov)}
-                          />
-                        ))
+                        datedMails.map((m) => {
+                          // Date que le calendrier produirait sans dérogation :
+                          // c'est la cible du « rétablir », heure comprise.
+                          const computedAt =
+                            computeEmailSchedule(
+                              [{ ...m, overridden: false }],
+                              startDate,
+                              endDate,
+                              sessionAt,
+                            )[0]?.scheduledAt ?? null;
+                          return (
+                            <MailDateEditor
+                              key={m.key}
+                              subject={m.subject}
+                              scheduledAt={m.scheduledAt}
+                              overridden={m.overridden}
+                              sentAt={m.sentAt}
+                              sansObjet={sansObjet[m.key]}
+                              readOnly={closed}
+                              computedAt={computedAt}
+                              /**
+                               * Bornée par les étapes voisines de SON étape —
+                               * celle qu'il déclare, pas celle sous laquelle il
+                               * s'affiche : c'est la seule que le serveur fera
+                               * respecter. Un envoi sans étape déclarée n'est
+                               * borné par rien, ici comme là-bas.
+                               *
+                               * Élargie à sa date calculée : la fenêtre borne un
+                               * déplacement, elle ne rend pas illégal ce que le
+                               * parcours a lui-même programmé.
+                               */
+                              window={allowComputedDate(
+                                mailDateWindow(m.stepKey ?? null, datedSteps),
+                                computedAt,
+                              )}
+                              onChange={(at, ov) => setMailDate(m.index, at, ov)}
+                            />
+                          );
+                        })
                       ) : due ? (
                         // Le retard est signalé par la COULEUR (jr-step--late) :
                         // répéter « en retard » doublait la largeur de la colonne

@@ -114,6 +114,44 @@ export const SEND_CONDITIONS: Record<string, (f: SendFacts) => boolean> = {
 export const shouldStillSend = (key: string | null | undefined, facts: SendFacts): boolean =>
   key && SEND_CONDITIONS[key] ? SEND_CONDITIONS[key](facts) : true;
 
+/**
+ * Les envois ANNULÉS par le fait, et ce qu'il faut en dire à l'écran.
+ *
+ * Toutes les conditions ne se valent pas. Celles-ci sont satisfaites par une
+ * BONNE nouvelle — le client a réservé, il a transmis son dossier — et le
+ * message n'a plus lieu d'être : il ne partira jamais, et c'est très bien.
+ *
+ * `acces-prets` en est volontairement absent : sa condition n'est pas remplie
+ * parce que TIM n'a pas encore créé les accès. Le message est RETENU, pas
+ * annulé ; il repartira dès que les comptes existeront. L'afficher comme « sans
+ * objet » masquerait justement ce qu'il faut aller faire.
+ *
+ * Sans cette table, l'onglet « E-mails » annonçait « À venir » pour des messages
+ * que le cron écarte à chaque passage — puis « Non parti », en rouge, une fois
+ * l'heure passée. Constaté sur SOCOM FRANCE le 01/09/2026 : session calée en
+ * direct pour le 14/09, et deux invitations à réserver toujours affichées comme
+ * à venir.
+ */
+export const RAISON_SANS_OBJET: Record<string, string> = {
+  "prise-en-main": "créneau déjà réservé",
+  "relance-creneau": "créneau déjà réservé",
+  "relance-dossier": "dossier déjà transmis",
+};
+
+/**
+ * Pourquoi cet envoi n'a plus lieu d'être, ou `null` s'il tient toujours.
+ * Ne se prononce que sur les envois ANNULABLES (voir `RAISON_SANS_OBJET`).
+ */
+export const raisonSansObjet = (
+  key: string | null | undefined,
+  facts: SendFacts,
+): string | null => {
+  if (!key) return null;
+  const raison = RAISON_SANS_OBJET[key];
+  if (!raison) return null;
+  return shouldStillSend(key, facts) ? null : raison;
+};
+
 // ─── Cadences calées sur l'heure de Paris ────────────────────────────────────
 
 /**

@@ -2122,3 +2122,107 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
   color: var(--tim-red);
   cursor: help;
 }
+
+/* Onglet « E-mails » d'une phase de test : la séquence prévue, face à ce que
+   Brevo a constaté. Reprend la mise en forme de l'onglet des tickets — c'est la
+   même information, elle ne doit pas se lire de deux façons. */
+.jmail__intro,
+.jmail__vide {
+  margin: 0 0 0.9rem;
+  color: var(--tim-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.jmail__warn {
+  color: var(--tim-amber);
+  font-weight: 700;
+}
+.jmail__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jmail__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--tim-border);
+}
+.jmail__row--autre {
+  opacity: 0.75;
+}
+/* La ligne entière ouvre l'aperçu. Un bouton, pas une div cliquable : le
+   clavier et les lecteurs d'écran y arrivent sans qu'on ait à réinventer le
+   rôle. On lui retire l'habillage de bouton de Payload, on garde le geste. */
+.jmail__open {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+  gap: 0.6rem;
+  min-width: 0;
+  margin: -0.15rem -0.4rem;
+  padding: 0.15rem 0.4rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.jmail__open:hover,
+.jmail__open:focus-visible {
+  background: var(--tim-surface);
+}
+.jmail__open:hover .jmail__subject,
+.jmail__open:focus-visible .jmail__subject {
+  text-decoration: underline;
+}
+/* Discret au repos : la lecture de l'onglet est un balayage d'états, l'invite
+   ne doit pas la concurrencer sur chaque ligne. */
+.jmail__apercu {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 0.6rem;
+  color: var(--tim-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.jmail__open:hover .jmail__apercu,
+.jmail__open:focus-visible .jmail__apercu {
+  opacity: 1;
+}
+.jmail__badge {
+  flex: 0 0 auto;
+  min-width: 6.5rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
+}
+.jmail__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.jmail__subject {
+  color: var(--tim-foreground);
+  font-size: 0.84rem;
+}
+.jmail__meta {
+  color: var(--tim-muted);
+  font-size: 0.72rem;
+}
+.jmail__autres-titre {
+  margin: 1.2rem 0 0.2rem;
+  color: var(--tim-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
