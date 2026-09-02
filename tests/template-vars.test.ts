@@ -25,7 +25,7 @@ describe("tarifs du client", () => {
   });
 
   it("complète par le prix de base un profil demandé sans prix négocié", () => {
-    expect(tarifsMarkdown({ conducteurQty: 3 })).toBe("- Conducteur : 3 × 32 €");
+    expect(tarifsMarkdown({ conducteurQty: 3 })).toBe("- Conducteur de travaux : 3 × 32 €");
   });
 
   it("déroule toute la grille tant qu'aucune quantité n'est décidée", () => {

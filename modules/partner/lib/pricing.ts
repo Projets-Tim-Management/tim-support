@@ -53,7 +53,7 @@ export type ProfilKey = keyof typeof LICENCE_BASE_PRICES;
 /** Ordre + libellés d'affichage des profils. */
 export const PROFILS: { key: ProfilKey; label: string }[] = [
   { key: "admin", label: "Admin" },
-  { key: "conducteur", label: "Conducteur" },
+  { key: "conducteur", label: "Conducteur de travaux" },
   { key: "chefChantier", label: "Chef de chantier" },
   { key: "chefEquipe", label: "Chef d'équipe" },
   { key: "compagnon", label: "Compagnon" },

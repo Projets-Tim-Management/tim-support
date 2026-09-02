@@ -2,7 +2,8 @@ import type { Payload, PayloadRequest } from "payload";
 
 import { JOURNEY_EMAILS, type JourneyEmailContext } from "@/modules/marketing/lib/emails";
 import { buildJourneyContext, type JourneyRunLike } from "@/modules/marketing/lib/journey-context";
-import { declaredAudience } from "@/modules/marketing/lib/journey";
+import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
+import { declaredAudience, stepDoneBySending } from "@/modules/marketing/lib/journey";
 import { journeyReplyTo } from "@/modules/marketing/lib/reply-routing";
 import { journeyMailHeaders } from "@/modules/support/lib/brevo";
 
@@ -186,6 +187,18 @@ export async function sendJourneyEmail(
       })
       .catch(() => undefined);
   }
+
+  /**
+   * Certains messages SONT l'étape : le conseil d'usage parti, il n'y a rien
+   * d'autre à faire. On l'arme comme n'importe quel autre fait constaté, avec
+   * le même délai d'annulation — l'écran ne connaît ainsi qu'un seul mécanisme.
+   *
+   * Après l'envoi, jamais avant : une étape cochée pour un message qui n'est
+   * pas parti est précisément ce que l'onglet « E-mails » sert à débusquer.
+   */
+  const stepKey = stepDoneBySending(key);
+  // Le parcours est passé explicitement : le message est parti pour CELUI-LÀ.
+  if (stepKey) await armAutoStep(payload, fresh.client, stepKey, req, fresh.id);
 
   payload.logger.info(`[parcours] « ${key} » envoyé à ${to} (parcours ${fresh.id}).`);
   return { sent: true };

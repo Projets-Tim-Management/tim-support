@@ -5,8 +5,10 @@ import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import {
   clientField,
   displayNameField,
+  inspectionDateField,
   insuranceDateField,
   partnerField,
+  registrationDateField,
   setPartnerFromClient,
   yearField,
 } from "@/modules/marketing/collections/clientOwned";
@@ -66,6 +68,8 @@ export const ClientVehicles: CollectionConfig = {
     {
       type: "row",
       fields: [
+        registrationDateField,
+        inspectionDateField,
         insuranceDateField,
         {
           /**
@@ -86,7 +90,7 @@ export const ClientVehicles: CollectionConfig = {
           label: "Type de permis",
           required: true,
           admin: {
-            width: "75%",
+            width: "25%",
             placeholder: "B, C1E",
             description: "Permis nécessaires pour conduire ce véhicule.",
           },
