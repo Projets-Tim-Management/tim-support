@@ -147,3 +147,71 @@ describe("public d'un envoi dont la ligne manque au parcours", () => {
     expect(envoyes[0].to).toBe(PARTNER_EMAIL);
   });
 });
+
+/**
+ * Certains messages SONT l'étape : le conseil d'usage parti, il n'y a rien
+ * d'autre à faire. La règle est explicite (STEPS_DONE_ON_SEND) et pas déduite du
+ * seul rattachement d'un envoi — la plupart des e-mails en déclarent un sans que
+ * leur départ ne prouve quoi que ce soit.
+ */
+describe("un envoi qui vaut validation d'étape", () => {
+  /** Payload de test qui expose les parcours ouverts et retient les écritures. */
+  const payloadQuiRetient = (ecrits: Record<string, unknown>[]) =>
+    ({
+      logger: { info: () => {}, error: () => {} },
+      sendEmail: async (m: Record<string, unknown>) => {
+        envoyes.push(m);
+      },
+      findByID: async ({ collection }: { collection: string }) => {
+        if (collection === "journey-runs") return run;
+        if (collection === "partner-clients") return { companyName: "TOITURES SA" };
+        if (collection === "partners") return { displayName: "Partenaire X", email: PARTNER_EMAIL };
+        return null;
+      },
+      find: async ({ collection }: { collection: string }) => {
+        if (collection === "journey-runs") return { docs: [run] };
+        if (collection === "client-portal-accounts")
+          return { docs: [{ email: CLIENT_EMAIL, firstName: "Charlie" }] };
+        return { docs: [] };
+      },
+      count: async () => ({ totalDocs: 4 }),
+      update: async ({ data }: { data: Record<string, unknown> }) => {
+        ecrits.push(data);
+        run = { ...run, ...data };
+        return run;
+      },
+    }) as never;
+
+  beforeEach(() => {
+    run = {
+      ...(run as Record<string, unknown>),
+      emails: [
+        { key: "suivi-chantier", audience: "client", sentAt: null },
+        { key: "relance-creneau", audience: "client", sentAt: null },
+      ],
+    };
+  });
+
+  it("coche « Conseil d'usage envoyé » quand le message est parti", async () => {
+    const ecrits: Record<string, unknown>[] = [];
+    const r = await sendJourneyEmail(payloadQuiRetient(ecrits), {
+      run: run as never,
+      key: "suivi-chantier",
+    });
+    expect(r.sent).toBe(true);
+    expect(
+      ecrits.some((d) => (d.autoSteps as string[] | undefined)?.includes("conseil-suivi-chantier")),
+    ).toBe(true);
+  });
+
+  it("ne coche rien pour un message qui ne prouve rien", async () => {
+    // Envoyer « Il reste à réserver votre session » ne réserve pas le créneau :
+    // ce serait déclarer fait ce qu'on est justement en train de réclamer.
+    const ecrits: Record<string, unknown>[] = [];
+    await sendJourneyEmail(payloadQuiRetient(ecrits), {
+      run: run as never,
+      key: "relance-creneau",
+    });
+    expect(ecrits.some((d) => d.autoSteps !== undefined)).toBe(false);
+  });
+});

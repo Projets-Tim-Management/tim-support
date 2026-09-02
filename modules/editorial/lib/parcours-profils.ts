@@ -7,7 +7,7 @@
  */
 export const PARCOURS_PROFILS = [
   { value: "admin", label: "Admin" },
-  { value: "conducteur", label: "Conducteur" },
+  { value: "conducteur", label: "Conducteur de travaux" },
   { value: "chef-chantier", label: "Chef de chantier" },
   { value: "compagnon", label: "Compagnon" },
 ] as const;

@@ -45,7 +45,7 @@ import {
 // demandait au client de confirmer ce qu'il venait de déclarer lui-même dans son
 // espace, et ne déclenchait rien. Une case qui bloque sans rien produire finit
 // cochée machinalement — et dévalue les validations qui, elles, comptent.
-const SEED_VERSION = 23;
+const SEED_VERSION = 26;
 
 const stepSeed = () =>
   PHASE_DE_TEST_STEPS.map((s) => ({
@@ -81,9 +81,13 @@ type StoredEmail = { key?: string; [k: string]: unknown };
  * jamais réécrit ; ce qui relève de la DOCUMENTATION (`detail`, affiché en
  * infobulle) est livré avec le code et se rafraîchit à chaque version.
  *
- * `stepKey` est complété s'il est vide : sans lui, un envoi non daté (code de
- * connexion, accusé de réception) n'a aucune étape à laquelle s'accrocher et
- * disparaît de l'affichage.
+ * `stepKey` est ALIGNÉ sur le code, et non plus seulement complété quand il
+ * manque. Ce n'est pas un réglage d'équipe — le champ est en lecture seule —
+ * mais la structure du déroulé : l'étape qu'un message sert. Quand elle change
+ * (« Vos accès TIM sont prêts » est passé du provisionnement, travail de TIM, à
+ * la remise des accès, geste du client), un modèle figé continue d'afficher le
+ * message sous le mauvais titre — et tous les parcours qui s'y réconcilient
+ * avec lui.
  *
  * Les nouvelles clés sont ajoutées ; rien n'est jamais supprimé.
  */
@@ -94,7 +98,7 @@ const mergeEmails = (stored: StoredEmail[]): unknown[] => {
     return def
       ? {
           ...e,
-          stepKey: e.stepKey || def.stepKey,
+          stepKey: def.stepKey ?? e.stepKey,
           detail: def.detail,
           offsetDays: def.offsetDays ?? 0,
           sendHour: def.sendHour ?? DEFAULT_SEND_HOUR,

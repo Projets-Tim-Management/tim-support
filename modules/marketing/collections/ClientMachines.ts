@@ -5,8 +5,10 @@ import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import {
   clientField,
   displayNameField,
+  inspectionDateField,
   insuranceDateField,
   partnerField,
+  registrationDateField,
   setPartnerFromClient,
   yearField,
 } from "@/modules/marketing/collections/clientOwned";
@@ -63,6 +65,8 @@ export const ClientMachines: CollectionConfig = {
     {
       type: "row",
       fields: [
+        registrationDateField,
+        inspectionDateField,
         insuranceDateField,
         {
           // Texte libre, pour la même raison que les permis : la liste des
@@ -73,7 +77,7 @@ export const ClientMachines: CollectionConfig = {
           label: "Type de CACES",
           required: true,
           admin: {
-            width: "75%",
+            width: "25%",
             placeholder: "R482 B1, R489 3",
             description: "Certification nécessaire pour conduire cet engin.",
           },

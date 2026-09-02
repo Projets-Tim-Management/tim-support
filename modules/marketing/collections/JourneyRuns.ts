@@ -219,8 +219,12 @@ const snapshotSteps: CollectionBeforeChangeHook = async ({ data, originalDoc, re
    * relance dossier de SOCOM a ainsi migré sous « Session de prise en main
    * réalisée » le 01/09/2026, simplement parce qu'on l'avait avancée.
    *
-   * Complété seulement si le parcours n'en porte pas : un rattachement choisi à
-   * la main reste le sien. Même règle que côté modèle (mergeEmails).
+   * ALIGNÉ sur le modèle, pas seulement complété quand il manque : ce champ est
+   * en lecture seule dans l'admin, il n'y a donc aucun choix manuel à préserver.
+   * « Vos accès TIM sont prêts » a changé d'étape (le provisionnement est le
+   * travail de TIM ; ce message demande au client de distribuer) — un parcours
+   * qui garde l'ancienne valeur affiche le message sous le mauvais titre, ce
+   * qu'on vient précisément de corriger.
    */
   const modelStepKeys = new Map(
     (journey.emails ?? [])
@@ -228,7 +232,7 @@ const snapshotSteps: CollectionBeforeChangeHook = async ({ data, originalDoc, re
       .map((e) => [e.key as string, e.stepKey as string]),
   );
   const attached = currentEmails.map((e) =>
-    !e.stepKey && e.key && modelStepKeys.has(e.key)
+    e.key && modelStepKeys.has(e.key) && e.stepKey !== modelStepKeys.get(e.key)
       ? { ...e, stepKey: modelStepKeys.get(e.key) }
       : e,
   );

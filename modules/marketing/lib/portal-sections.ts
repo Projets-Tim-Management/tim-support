@@ -219,7 +219,12 @@ export const PORTAL_SECTIONS: PortalSection[] = [
       { name: "brand", label: "Marque du véhicule", type: "text", required: true, half: true, placeholder: "Renault Master" },
       { name: "year", label: "Année", type: "number", required: true, half: true },
       { name: "plate", label: "Immatriculation", type: "text", required: true, half: true, placeholder: "AB-123-CD" },
-      { name: "insuranceDate", label: "Date d'assurance", type: "date", required: true, half: true },
+      // Facultatives, comme la date d'assurance : elles complètent la fiche du
+      // véhicule sans conditionner son enregistrement.
+      { name: "registrationDate", label: "Carte grise", type: "date", half: true },
+      { name: "inspectionDate", label: "Contrôle technique", type: "date", half: true },
+      // Facultative : voir insuranceDateField (les deux doivent rester alignés).
+      { name: "insuranceDate", label: "Date d'assurance", type: "date", half: true },
       { name: "licenseTypes", label: "Type de permis", type: "text", required: true, placeholder: "B, C1E" },
     ],
   },
@@ -242,7 +247,12 @@ export const PORTAL_SECTIONS: PortalSection[] = [
         half: true,
         hint: "La plaque si l'engin en a une, sinon le numéro de série.",
       },
-      { name: "insuranceDate", label: "Date d'assurance", type: "date", required: true, half: true },
+      // Facultatives, comme la date d'assurance : elles complètent la fiche du
+      // véhicule sans conditionner son enregistrement.
+      { name: "registrationDate", label: "Carte grise", type: "date", half: true },
+      { name: "inspectionDate", label: "Contrôle technique", type: "date", half: true },
+      // Facultative : voir insuranceDateField (les deux doivent rester alignés).
+      { name: "insuranceDate", label: "Date d'assurance", type: "date", half: true },
       { name: "cacesTypes", label: "Type de CACES", type: "text", required: true, placeholder: "R482 B1, R489 3" },
     ],
   },

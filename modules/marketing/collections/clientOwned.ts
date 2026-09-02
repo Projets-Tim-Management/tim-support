@@ -76,14 +76,46 @@ export const yearField = (label: string): Field => ({
 });
 
 /**
+ * Date de la carte grise (délivrance du certificat d'immatriculation).
+ *
+ * FACULTATIVE, comme l'échéance d'assurance : elle complète la fiche d'un
+ * véhicule, elle ne conditionne pas son existence.
+ */
+export const registrationDateField: Field = {
+  name: "registrationDate",
+  type: "date",
+  label: "Carte grise",
+  admin: {
+    width: "25%",
+    date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
+    description: "Date du certificat d'immatriculation.",
+  },
+};
+
+/** Échéance du contrôle technique. Facultative, même raison. */
+export const inspectionDateField: Field = {
+  name: "inspectionDate",
+  type: "date",
+  label: "Contrôle technique",
+  admin: {
+    width: "25%",
+    date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
+    description: "Échéance du dernier contrôle.",
+  },
+};
+
+/**
  * Date d'échéance d'assurance. Affichée telle quelle ; une échéance dépassée est
  * signalée à la lecture par la cellule dédiée (InsuranceCell).
+ *
+ * FACULTATIVE : le client ne l'a pas toujours sous la main au moment de saisir
+ * son parc, et l'exiger bloquait l'enregistrement de la ligne entière — donc du
+ * véhicule lui-même, qui est l'information utile. Elle se complète après coup.
  */
 export const insuranceDateField: Field = {
   name: "insuranceDate",
   type: "date",
   label: "Date d'assurance",
-  required: true,
   admin: {
     width: "25%",
     date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },

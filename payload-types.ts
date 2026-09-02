@@ -1584,9 +1584,17 @@ export interface ClientVehicle {
   year: number;
   plate: string;
   /**
+   * Date du certificat d'immatriculation.
+   */
+  registrationDate?: string | null;
+  /**
+   * Échéance du dernier contrôle.
+   */
+  inspectionDate?: string | null;
+  /**
    * Échéance du contrat.
    */
-  insuranceDate: string;
+  insuranceDate?: string | null;
   /**
    * Permis nécessaires pour conduire ce véhicule.
    */
@@ -1610,9 +1618,17 @@ export interface ClientMachine {
    */
   serial: string;
   /**
+   * Date du certificat d'immatriculation.
+   */
+  registrationDate?: string | null;
+  /**
+   * Échéance du dernier contrôle.
+   */
+  inspectionDate?: string | null;
+  /**
    * Échéance du contrat.
    */
-  insuranceDate: string;
+  insuranceDate?: string | null;
   /**
    * Certification nécessaire pour conduire cet engin.
    */
@@ -2415,6 +2431,8 @@ export interface ClientVehiclesSelect<T extends boolean = true> {
   brand?: T;
   year?: T;
   plate?: T;
+  registrationDate?: T;
+  inspectionDate?: T;
   insuranceDate?: T;
   licenseTypes?: T;
   partner?: T;
@@ -2431,6 +2449,8 @@ export interface ClientMachinesSelect<T extends boolean = true> {
   brand?: T;
   year?: T;
   serial?: T;
+  registrationDate?: T;
+  inspectionDate?: T;
   insuranceDate?: T;
   cacesTypes?: T;
   partner?: T;

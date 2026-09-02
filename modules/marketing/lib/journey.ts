@@ -309,6 +309,21 @@ export const SYSTEM_STEPS: Record<string, SystemStepDef> = {
       hint: "Normalement rien à faire : le Go ouvre l'espace et envoie l'invitation. En secours, fiche client, onglet « Espace client » : cochez « Accès actif ».",
     },
   },
+  /**
+   * Constatées, jamais déclarées.
+   *
+   * Sans ça, l'écran proposerait « Déclarer cette étape faite » — et un clic
+   * affirmerait qu'un message est parti alors qu'il ne l'est pas. Un bouton ne
+   * doit exister que si le clic EST le geste : ici le geste, c'est l'envoi.
+   */
+  "conseil-suivi-chantier": {
+    trigger: "à l'envoi du message, le lendemain du démarrage",
+    wait: "Le conseil part tout seul",
+  },
+  "conseil-check-in": {
+    trigger: "à l'envoi du message, une semaine après le démarrage",
+    wait: "La prise de nouvelles part toute seule",
+  },
   "rdv-prise-en-main": {
     trigger: "quand le créneau est réservé",
     action: {
@@ -376,6 +391,7 @@ export const SYSTEM_STEPS: Record<string, SystemStepDef> = {
 export type MergeableStep = {
   key?: string | null;
   detail?: unknown;
+  phase?: unknown;
   state?: string | null;
   doneAt?: unknown;
   note?: unknown;
@@ -389,6 +405,13 @@ export const mergeRunSteps = (
   const byKey = new Map(runSteps.map((s) => [s.key, s]));
   const modelKeys = new Set(modelSteps.map((s) => s.key));
   const details = new Map(modelSteps.map((s) => [s.key, s.detail]));
+  /**
+   * Le BLOC (avant / pendant / sortie de test) est un regroupement d'affichage
+   * livré avec le code, jamais un réglage de parcours. Figé, il range une étape
+   * sous un titre qui ne lui correspond plus — « Provisionnement des accès »
+   * s'est ainsi affiché « Pendant le test » alors qu'il se fait la veille.
+   */
+  const phases = new Map(modelSteps.map((s) => [s.key, s.phase]));
   /**
    * L'ANCRAGE dit à quel repère l'échéance s'accroche — le démarrage, la fin, le
    * créneau réservé. C'est de la structure, pas un réglage : un parcours qui
@@ -404,6 +427,9 @@ export const mergeRunSteps = (
   const staleDetails = runSteps.some(
     (s) => s.key && details.has(s.key) && details.get(s.key) !== s.detail,
   );
+  const stalePhases = runSteps.some(
+    (s) => s.key && phases.has(s.key) && phases.get(s.key) !== s.phase,
+  );
   const staleAnchors = runSteps.some(
     (s) => s.key && anchors.has(s.key) && anchors.get(s.key)!.anchor !== s.anchor,
   );
@@ -413,7 +439,7 @@ export const mergeRunSteps = (
     orphans.filter((s) => (s.state ?? "a-faire") === "a-faire" && !s.doneAt && !s.note),
   );
 
-  if (!missing && !staleDetails && !staleAnchors && toDrop.size === 0) return null;
+  if (!missing && !staleDetails && !stalePhases && !staleAnchors && toDrop.size === 0) return null;
 
   return [
     ...modelSteps.map((modelStep) => {
@@ -424,6 +450,7 @@ export const mergeRunSteps = (
       return {
         ...existing,
         detail: details.get(existing.key),
+        phase: phases.get(existing.key),
         // Ancrage périmé : on reprend le couple du modèle. Inchangé, on ne
         // touche pas au décalage — il a pu être resserré pour CE parcours.
         ...(structure.anchor !== existing.anchor ? structure : {}),
@@ -431,6 +458,24 @@ export const mergeRunSteps = (
     }),
     ...orphans.filter((s) => !toDrop.has(s)),
   ];
+};
+
+/**
+ * Étapes dont l'ENVOI DU MESSAGE est le fait constaté.
+ *
+ * Il n'y a rien à faire à part écrire : quand le message part, l'étape est
+ * faite. On ne se fie pas au seul `stepKey` d'un envoi — la plupart des e-mails
+ * en déclarent un sans que leur départ ne prouve quoi que ce soit (envoyer
+ * « Il reste à réserver votre session » ne réserve pas le créneau). La liste
+ * est donc explicite, et se lit d'un coup d'œil.
+ */
+export const STEPS_DONE_ON_SEND = new Set(["conseil-suivi-chantier", "conseil-check-in"]);
+
+/** L'étape que l'envoi de cet e-mail achève, s'il y en a une. */
+export const stepDoneBySending = (emailKey?: string | null): string | null => {
+  if (!emailKey) return null;
+  const stepKey = PHASE_DE_TEST_EMAILS.find((e) => e.key === emailKey)?.stepKey;
+  return stepKey && STEPS_DONE_ON_SEND.has(stepKey) ? stepKey : null;
 };
 
 export const isSystemStep = (key?: string | null): boolean =>
@@ -569,7 +614,15 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
     autoValidate: true,
     label: "Provisionnement des accès",
     actor: "admin",
-    phase: "pendant-test",
+    /**
+     * Bloc « Avant le test », et non « Pendant ».
+     *
+     * Le provisionnement se fait la veille (début − 1) : c'est la dernière
+     * pièce de la PRÉPARATION, pas un geste du test.
+     * Le test démarre quand tout est prêt, à une date fixée — jusque-là, tout
+     * ce qui se coche est de la mise en place.
+     */
+    phase: "avant-test",
     detail:
       "Les comptes sont créés dans TIM à partir du dossier du client (onglet « Dossier & accès »). À terminer le vendredi précédent. L'étape se coche dès que les mots de passe sont générés.",
     anchor: "debut",
@@ -579,7 +632,15 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
     key: "prise-en-main",
     label: "Session de prise en main réalisée",
     actor: "partenaire",
-    phase: "pendant-test",
+    /**
+     * Bloc « Avant le test », et non « Pendant ».
+     *
+     * La session se tient au plus tard le jour du démarrage, le plus souvent
+     * la semaine d'avant : elle prépare le test, elle n'en fait pas partie.
+     * Le test démarre quand tout est prêt, à une date fixée — jusque-là, tout
+     * ce qui se coche est de la mise en place.
+     */
+    phase: "avant-test",
     /**
      * Ancrée sur le CRÉNEAU réservé, pas sur le lundi de démarrage.
      *
@@ -605,6 +666,26 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
     offsetDays: 1,
   },
   {
+    /**
+     * Un e-mail d'accompagnement EST une étape du déroulé.
+     *
+     * Il ne sert aucun jalon, mais il se passe quelque chose ce jour-là : un
+     * conseil part au client. Le ranger sous l'étape voisine lui faisait
+     * emprunter un titre qui parle d'autre chose (« Accès distribués aux
+     * utilisateurs » annonçait « Le suivi de chantier, en 3 clics »). Il a donc
+     * sa ligne, et elle se coche toute seule quand le message part.
+     */
+    key: "conseil-suivi-chantier",
+    label: "Conseil d'usage envoyé : le suivi de chantier",
+    actor: "admin",
+    phase: "pendant-test",
+    autoValidate: true,
+    detail:
+      "Premier conseil d'usage, le lendemain du démarrage : créer un chantier et y affecter une équipe. L'étape se coche à l'envoi du message.",
+    anchor: "debut",
+    offsetDays: 1,
+  },
+  {
     key: "releve-j2",
     label: "Relevé d'usage J+2",
     actor: "partenaire",
@@ -613,6 +694,18 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
       "Le partenaire se connecte au compte du client et note ce qu'il constate.",
     anchor: "debut",
     offsetDays: 2,
+  },
+  {
+    /** Même principe que « conseil-suivi-chantier » : l'envoi coche l'étape. */
+    key: "conseil-check-in",
+    label: "Prise de nouvelles envoyée",
+    actor: "admin",
+    phase: "pendant-test",
+    autoValidate: true,
+    detail:
+      "Une semaine après le démarrage : « Comment ça se passe sur le chantier ? ». L'étape se coche à l'envoi du message.",
+    anchor: "debut",
+    offsetDays: 7,
   },
   {
     key: "releve-j7",
@@ -966,8 +1059,16 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "debut",
     offsetDays: 0,
-    // Le message qui annonce les accès suit l'étape qui les crée.
-    stepKey: "provisionnement",
+    /**
+     * Rattaché à « Accès distribués aux utilisateurs », et non au
+     * provisionnement.
+     *
+     * Le provisionnement est le travail de TIM, fait la veille. CE message
+     * s'adresse au client et lui demande un geste : « c'est vous qui les
+     * distribuez ». Il appartient donc à l'étape de ce geste, celle qu'on
+     * cochera quand les équipes auront leurs identifiants.
+     */
+    stepKey: "remise-acces",
     // 8 h le jour du démarrage : avant l'embauche, pour que les fiches d'accès
     // puissent être imprimées et distribuées dans la matinée.
     sendHour: "08:00",
@@ -980,6 +1081,7 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "debut",
     offsetDays: 1,
+    stepKey: "conseil-suivi-chantier",
     detail:
       "Première fonctionnalité : créer un chantier et y affecter une équipe.",
   },
@@ -989,6 +1091,7 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "debut",
     offsetDays: 7,
+    stepKey: "conseil-check-in",
     detail:
       "Prise de nouvelles et rappel qu'on reste disponible. Sans bouton : le client répond directement à l'e-mail.",
   },

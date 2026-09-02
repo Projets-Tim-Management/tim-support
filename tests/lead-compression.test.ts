@@ -229,12 +229,12 @@ describe("restoreOffsets — étapes et envois ne partagent pas leurs décalages
  */
 describe("mergeRunSteps — l'ancrage se réconcilie avec le modèle", () => {
   const modele = [
-    { key: "prise-en-main", detail: "d", anchor: "session", offsetDays: 0 },
+    { key: "prise-en-main", detail: "d", phase: "avant-test", anchor: "session", offsetDays: 0 },
   ];
 
   it("reprend l'ancrage du modèle, et le décalage qui va avec", () => {
     const out = mergeRunSteps(modele, [
-      { key: "prise-en-main", detail: "d", anchor: "debut", offsetDays: -7, state: "a-faire" },
+      { key: "prise-en-main", detail: "d", phase: "avant-test", anchor: "debut", offsetDays: -7, state: "a-faire" },
     ]);
     expect(out?.[0]).toMatchObject({ anchor: "session", offsetDays: 0 });
   });
@@ -242,7 +242,7 @@ describe("mergeRunSteps — l'ancrage se réconcilie avec le modèle", () => {
   it("préserve ce qui appartient au parcours", () => {
     // L'état et la trace du travail fait ne sont jamais réécrits.
     const out = mergeRunSteps(modele, [
-      { key: "prise-en-main", detail: "d", anchor: "debut", offsetDays: 0, state: "fait", doneAt: "2026-08-27T09:00:00.000Z" },
+      { key: "prise-en-main", detail: "d", phase: "avant-test", anchor: "debut", offsetDays: 0, state: "fait", doneAt: "2026-08-27T09:00:00.000Z" },
     ]);
     expect(out?.[0]).toMatchObject({ state: "fait", doneAt: "2026-08-27T09:00:00.000Z" });
   });
@@ -251,16 +251,27 @@ describe("mergeRunSteps — l'ancrage se réconcilie avec le modèle", () => {
     // Il a pu être resserré pour CE parcours (démarrage anticipé) : le
     // rafraîchir effacerait ce resserrement.
     const out = mergeRunSteps(
-      [{ key: "relance", detail: "d", anchor: "debut", offsetDays: -7 }],
-      [{ key: "relance", detail: "d", anchor: "debut", offsetDays: -4, state: "a-faire" }],
+      [{ key: "relance", detail: "d", phase: "avant-test", anchor: "debut", offsetDays: -7 }],
+      [{ key: "relance", detail: "d", phase: "avant-test", anchor: "debut", offsetDays: -4, state: "a-faire" }],
     );
     expect(out).toBeNull(); // rien à changer : ni détail, ni ancrage
+  });
+
+  it("reprend aussi le BLOC d'affichage du modèle", () => {
+    // « Provisionnement des accès » se fait la veille du démarrage : il a
+    // quitté « Pendant le test » pour « Avant le test », et les parcours en
+    // cours doivent suivre — sinon la même étape se lit sous deux titres.
+    const out = mergeRunSteps(
+      [{ key: "provisionnement", detail: "d", phase: "avant-test", anchor: "debut", offsetDays: -1 }],
+      [{ key: "provisionnement", detail: "d", phase: "pendant-test", anchor: "debut", offsetDays: -1, state: "a-faire" }],
+    );
+    expect(out?.[0]).toMatchObject({ phase: "avant-test", state: "a-faire" });
   });
 
   it("rend null quand rien n'a bougé", () => {
     expect(
       mergeRunSteps(modele, [
-        { key: "prise-en-main", detail: "d", anchor: "session", offsetDays: 0, state: "a-faire" },
+        { key: "prise-en-main", detail: "d", phase: "avant-test", anchor: "session", offsetDays: 0, state: "a-faire" },
       ]),
     ).toBeNull();
   });

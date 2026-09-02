@@ -41,20 +41,36 @@ export async function armAutoStep(
   client: unknown,
   stepKey: string,
   req?: PayloadRequest,
+  /**
+   * Parcours VISÉ, quand l'appelant le connaît déjà.
+   *
+   * Sans lui, on prend le parcours ouvert le plus récent du client — ce qui
+   * convient à un module qui ne constate qu'un fait (« le dossier est
+   * transmis ») mais pas à l'envoi d'un message, qui sait pour QUEL parcours il
+   * est parti. Deux parcours ouverts pour un même client, et l'étape se
+   * cocherait sur le mauvais.
+   */
+  runId?: number | string,
 ): Promise<void> {
   const clientId = idOf(client);
-  if (clientId == null) return;
+  if (clientId == null && runId == null) return;
   try {
-    const runs = await payload.find({
-      collection: "journey-runs",
-      where: { client: { equals: clientId }, status: { in: OPEN } },
-      sort: "-createdAt",
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-      req,
-    });
-    const run = runs.docs[0];
+    const run =
+      runId != null
+        ? await payload
+            .findByID({ collection: "journey-runs", id: runId, depth: 0, overrideAccess: true, req })
+            .catch(() => null)
+        : (
+            await payload.find({
+              collection: "journey-runs",
+              where: { client: { equals: clientId }, status: { in: OPEN } },
+              sort: "-createdAt",
+              limit: 1,
+              depth: 0,
+              overrideAccess: true,
+              req,
+            })
+          ).docs[0];
     if (!run) return;
 
     // Déjà armée (ou déjà faite) : on ne réécrit pas le parcours pour rien.

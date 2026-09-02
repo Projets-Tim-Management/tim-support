@@ -27,6 +27,10 @@
   border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
   vertical-align: middle;
 }
+/* Même repère que les tableaux du dossier : la ligne où l'on saisit se grise. */
+.lic-table tbody tr:focus-within {
+  background: var(--tim-elevation-100);
+}
 .lic-table .lic-num {
   text-align: right;
   white-space: nowrap;
