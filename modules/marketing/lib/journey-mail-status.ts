@@ -1,4 +1,9 @@
-import { raisonSansObjet, type SendFacts } from "@/modules/marketing/lib/due-emails";
+import {
+  CRON_GRACE_MINUTES,
+  nextCronPass,
+  raisonSansObjet,
+  type SendFacts,
+} from "@/modules/marketing/lib/due-emails";
 
 /**
  * Croiser ce que le parcours a PRÉVU avec ce que Brevo a réellement fait.
@@ -47,6 +52,13 @@ export type Sort =
    * de 36 h de retard (voir LATE_GRACE_HOURS).
    */
   | "non-parti"
+  /**
+   * L'heure est passée, mais le cron n'est pas encore repassé.
+   *
+   * Il tourne à l'heure pile : un envoi calé à 10:30 part à 11:00. Entre les
+   * deux, tout est normal — c'est « en attente », pas « manqué ».
+   */
+  | "en-attente"
   /** Aucune date : l'envoi est déclenché par un évènement, pas par le calendrier. */
   | "non-programme"
   /**
@@ -94,6 +106,8 @@ export type EnvoiCroise = {
   date: string | null;
   /** Motif d'échec rendu par Brevo, quand il y en a un. */
   raison: string | null;
+  /** Passage du cron qui l'emportera, tant qu'il n'est pas encore passé. */
+  partA: string | null;
   ouvert: boolean;
   clics: number;
 };
@@ -182,6 +196,7 @@ export function croiserEnvois(
           key: p.key,
           subject: p.subject ?? p.key,
           audience: p.audience ?? "client",
+          partA: null,
           ...constate,
         };
       }
@@ -198,6 +213,7 @@ export function croiserEnvois(
           sort: "sans-objet" as Sort,
           date: p.scheduledAt ?? null,
           raison: sansObjet,
+          partA: null,
           ouvert: false,
           clics: 0,
         };
@@ -205,13 +221,21 @@ export function croiserEnvois(
 
       // Rien chez Brevo : on rapporte ce que le parcours en sait.
       const prevu = p.scheduledAt ? Date.parse(p.scheduledAt) : null;
+      // Le cron ne passe qu'à l'heure pile : entre l'échéance et ce passage,
+      // l'envoi est en attente, pas manqué.
+      const passage = nextCronPass(p.scheduledAt);
+      const enAttente =
+        passage !== null && maintenant < passage + CRON_GRACE_MINUTES * 60_000;
+
       const sort: Sort = p.sentAt
         ? "envoye"
         : prevu === null || Number.isNaN(prevu)
           ? "non-programme"
           : prevu > maintenant
             ? "a-venir"
-            : "non-parti";
+            : enAttente
+              ? "en-attente"
+              : "non-parti";
       return {
         key: p.key,
         subject: p.subject ?? p.key,
@@ -219,6 +243,7 @@ export function croiserEnvois(
         sort,
         date: p.sentAt ?? p.scheduledAt ?? null,
         raison: null,
+        partA: sort === "en-attente" && passage !== null ? new Date(passage).toISOString() : null,
         ouvert: false,
         clics: 0,
       };
@@ -250,6 +275,8 @@ const GROUPE: Record<Sort, 0 | 1 | 2 | 3> = {
   ouvert: 0,
   remis: 0,
   envoye: 0,
+  // Imminent : il part au prochain passage du cron, donc en tête de l'avenir.
+  "en-attente": 1,
   "a-venir": 1,
   "non-programme": 2,
   // Bon dernier, et GROUPÉS : rien à faire, rien à surveiller. Éparpillés

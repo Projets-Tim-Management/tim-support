@@ -39,14 +39,26 @@ export const ACTIVITY_KINDS: ActivityKind[] = [
  * faire (un appel à passer), pas ce qui a eu lieu (un appel passé).
  */
 export const TASK_KINDS = [
-  { value: "a-faire", label: "À faire", color: "var(--tim-slate)", bg: "var(--tim-slate-bg)" },
+  // L'appel en tête : c'est le geste le plus fréquent d'un suivi d'opportunité,
+  // et la première ligne d'une liste est celle qu'on choisit sans la lire.
   { value: "appel", label: "Appel", color: "var(--tim-teal)", bg: "var(--tim-teal-bg)" },
+  { value: "a-faire", label: "À faire", color: "var(--tim-slate)", bg: "var(--tim-slate-bg)" },
   { value: "email", label: "E-mail", color: "var(--tim-blue)", bg: "var(--tim-blue-bg)" },
   { value: "reunion", label: "Réunion", color: "var(--tim-indigo)", bg: "var(--tim-indigo-bg)" },
   { value: "dejeuner", label: "Déjeuner", color: "var(--tim-amber)", bg: "var(--tim-amber-bg)" },
-  { value: "echeance", label: "Échéance", color: "var(--tim-red)", bg: "var(--tim-red-bg)" },
+  /**
+   * GRIS, et non plus rouge.
+   *
+   * Le rouge dit le RETARD dans le Kanban (`is-late`) : une échéance rouge par
+   * nature criait l'urgence sur une tâche prévue dans trois semaines, et noyait
+   * le seul signal qui demande une action aujourd'hui.
+   */
+  { value: "echeance", label: "Échéance", color: "var(--tim-gray)", bg: "var(--tim-gray-bg)" },
   { value: "linkedin", label: "LinkedIn", color: "var(--tim-purple)", bg: "var(--tim-purple-bg)" },
 ] as const;
+
+/** Nature par défaut d'une tâche qui n'en déclare pas — indépendante de l'ORDRE. */
+const TASK_KIND_FALLBACK = TASK_KINDS.find((k) => k.value === "a-faire")!;
 
 export const TASK_KIND_OPTIONS = TASK_KINDS.map(({ label, value }) => ({ label, value }));
 
@@ -61,8 +73,11 @@ export const taskKindLabel = (value?: string | null): string | undefined =>
  * tâche sans nature (les tâches créées avant l'ajout du champ).
  */
 export const taskKindMeta = (value?: string | null): { color: string; bg: string } => {
-  const found = TASK_KINDS.find((k) => k.value === value);
-  return { color: found?.color ?? TASK_KINDS[0].color, bg: found?.bg ?? TASK_KINDS[0].bg };
+  const found = TASK_KINDS.find((k) => k.value === value) ?? TASK_KIND_FALLBACK;
+  // Repli sur « À faire » NOMMÉ, et non sur la première entrée : remonter
+  // l'appel en tête de liste aurait sinon repeint en turquoise toutes les
+  // tâches créées avant l'ajout du champ.
+  return { color: found.color, bg: found.bg };
 };
 
 export const ACTIVITY_OPTIONS = ACTIVITY_KINDS.map(({ label, value }) => ({ label, value }));
