@@ -1,7 +1,8 @@
 import { TicketConversation as TicketConversation_fb92716304d231f4c816d76a0ee726e6 } from '../../../modules/support/admin/TicketConversation'
 import { TicketReply as TicketReply_c022cd1f6b5f4560fb88ddde4de1c692 } from '../../../modules/support/admin/TicketReply'
-import { TicketEmails as TicketEmails_6e31d56b2fee4573d76ebe347c3b535e } from '../../../modules/support/admin/TicketEmails'
 import { default as default_40605f4ba1c0a526a32bc7182606996c } from '../../../admin/fields/DirectUpload'
+import { TicketDocuments as TicketDocuments_0c8f8b394f86d8e2e206721f3f2926e3 } from '../../../modules/support/admin/TicketDocuments'
+import { TicketEmails as TicketEmails_6e31d56b2fee4573d76ebe347c3b535e } from '../../../modules/support/admin/TicketEmails'
 import { ColoredCell as ColoredCell_acd47df5632d512e8adc7b1eabe7f150 } from '../../../modules/support/admin/ColoredCell'
 import { ColoredSelectField as ColoredSelectField_b4c0004ddd75d8c70b0e0808738ae1e8 } from '../../../modules/support/admin/ColoredSelectField'
 import { TicketPageSelect as TicketPageSelect_8a4a2086081c5438a7a8891c24ff25b7 } from '../../../modules/support/admin/TicketPageSelect'
@@ -97,8 +98,9 @@ import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } f
 export const importMap = {
   "/modules/support/admin/TicketConversation#TicketConversation": TicketConversation_fb92716304d231f4c816d76a0ee726e6,
   "/modules/support/admin/TicketReply#TicketReply": TicketReply_c022cd1f6b5f4560fb88ddde4de1c692,
-  "/modules/support/admin/TicketEmails#TicketEmails": TicketEmails_6e31d56b2fee4573d76ebe347c3b535e,
   "/admin/fields/DirectUpload#default": default_40605f4ba1c0a526a32bc7182606996c,
+  "/modules/support/admin/TicketDocuments#TicketDocuments": TicketDocuments_0c8f8b394f86d8e2e206721f3f2926e3,
+  "/modules/support/admin/TicketEmails#TicketEmails": TicketEmails_6e31d56b2fee4573d76ebe347c3b535e,
   "/modules/support/admin/ColoredCell#ColoredCell": ColoredCell_acd47df5632d512e8adc7b1eabe7f150,
   "/modules/support/admin/ColoredSelectField#ColoredSelectField": ColoredSelectField_b4c0004ddd75d8c70b0e0808738ae1e8,
   "/modules/support/admin/TicketPageSelect#TicketPageSelect": TicketPageSelect_8a4a2086081c5438a7a8891c24ff25b7,
