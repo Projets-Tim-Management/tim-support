@@ -2,6 +2,8 @@ import type { CollectionConfig, Condition } from "payload";
 
 import { canSupport, isAdmin } from "@/core/access";
 import { referenceNumber } from "@/core/fields/referenceNumber";
+import { stampDocuments } from "@/modules/support/hooks/documents";
+import { TICKET_RETENTION_DAYS } from "@/modules/support/lib/retention";
 import { stampResolvedAt } from "@/modules/support/hooks/resolved-at";
 
 /**
@@ -61,7 +63,7 @@ export const Tickets: CollectionConfig = {
   },
   disableDuplicate: true,
   defaultSort: "-createdAt", // les plus récents en premier
-  hooks: { beforeChange: [stampResolvedAt] },
+  hooks: { beforeChange: [stampResolvedAt, stampDocuments] },
   fields: [
     // ─── Colonne principale : deux onglets sur un ticket existant ────────────
     // « Conversation » (le fil + la réponse) et « E-mails » (ce que Brevo sait
@@ -91,6 +93,84 @@ export const Tickets: CollectionConfig = {
                   Field: "/modules/support/admin/TicketReply#TicketReply",
                 },
               },
+            },
+          ],
+        },
+        {
+          /**
+           * Pièces INTERNES de la demande : un export de configuration, une
+           * capture, un compte rendu d'appel. Distinctes des pièces jointes du
+           * fil, qui sont ce que le client a envoyé ou reçu — celles-ci sont ce
+           * que le support dépose pour lui-même.
+           *
+           * Le ticket n'est lisible que par l'équipe (canSupport) : ces
+           * documents ne sortent ni dans l'espace client, ni dans les e-mails.
+           */
+          label: "Documents",
+          fields: [
+            {
+              name: "documents",
+              type: "array",
+              label: false,
+              labels: { singular: "Document", plural: "Documents" },
+              admin: {
+                description:
+                  `Pièces internes rattachées à cette demande. Le client ne les voit pas — elles ne partent dans aucun e-mail. ` +
+                  `Comme les pièces jointes du fil, elles sont supprimées ${TICKET_RETENTION_DAYS} jours après la résolution du ticket.`,
+                components: {
+                  // Mosaïque : une pièce se reconnaît à ce qu'elle montre, pas à
+                  // un numéro de ligne. Le détail s'ouvre au clic.
+                  Field: "/modules/support/admin/TicketDocuments#TicketDocuments",
+                },
+              },
+              fields: [
+                {
+                  name: "file",
+                  type: "upload",
+                  relationTo: "media",
+                  required: true,
+                  label: "Fichier",
+                  // Même dépôt direct au CDN que les pièces jointes du fil : un
+                  // gros PDF ne transite pas par la fonction serveur.
+                  admin: { components: { Field: "/admin/fields/DirectUpload#default" } },
+                },
+                {
+                  name: "label",
+                  type: "text",
+                  label: "Intitulé",
+                  admin: {
+                    description: "Ce qu'on cherchera dans six mois. À défaut, le nom du fichier.",
+                  },
+                },
+                {
+                  name: "note",
+                  type: "textarea",
+                  label: "Note",
+                  admin: { description: "D'où vient cette pièce, ce qu'elle montre." },
+                },
+                {
+                  type: "row",
+                  fields: [
+                    {
+                      name: "addedAt",
+                      type: "date",
+                      label: "Déposé le",
+                      admin: {
+                        width: "50%",
+                        readOnly: true,
+                        date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
+                      },
+                    },
+                    {
+                      name: "addedBy",
+                      type: "relationship",
+                      relationTo: "users",
+                      label: "Déposé par",
+                      admin: { width: "50%", readOnly: true },
+                    },
+                  ],
+                },
+              ],
             },
           ],
         },

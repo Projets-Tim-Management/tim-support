@@ -181,6 +181,25 @@ export interface UserAuthOperations {
  */
 export interface Ticket {
   id: number;
+  /**
+   * Pièces internes rattachées à cette demande. Le client ne les voit pas — elles ne partent dans aucun e-mail. Comme les pièces jointes du fil, elles sont supprimées 30 jours après la résolution du ticket.
+   */
+  documents?:
+    | {
+        file: number | Media;
+        /**
+         * Ce qu'on cherchera dans six mois. À défaut, le nom du fichier.
+         */
+        label?: string | null;
+        /**
+         * D'où vient cette pièce, ce qu'elle montre.
+         */
+        note?: string | null;
+        addedAt?: string | null;
+        addedBy?: (number | null) | User;
+        id?: string | null;
+      }[]
+    | null;
   subject?: string | null;
   description?: string | null;
   messages?:
@@ -239,161 +258,6 @@ export interface Media {
   filesize?: number | null;
   width?: number | null;
   height?: number | null;
-}
-/**
- * Une ligne par client engagé dans un parcours. La barre d'étapes se pilote depuis la fiche.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "journey-runs".
- */
-export interface JourneyRun {
-  id: number;
-  /**
-   * Au choix du partenaire, selon son client.
-   */
-  sessionMode?: ('visio' | 'sur-place') | null;
-  /**
-   * Créé avec l'événement d'agenda, quand le client réserve son créneau. Modifiable à la main.
-   */
-  sessionLink?: string | null;
-  /**
-   * Pré-remplie avec l'adresse du client ; modifiable (autre site, agence…).
-   */
-  sessionLocation?: string | null;
-  /**
-   * Réservé par le client depuis son espace, ou saisi ici à la main. Au plus tard le lundi de démarrage. Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.
-   */
-  sessionAt?: string | null;
-  attendeeFirstName?: string | null;
-  attendeeLastName?: string | null;
-  /**
-   * Tel que le client l'a saisi.
-   */
-  attendeeRole?: string | null;
-  /**
-   * Pré-remplie avec celle de l'espace client, modifiable par le client si ce n'est pas lui qui suit la session.
-   */
-  attendeeEmail?: string | null;
-  /**
-   * Ajoutés par le client. Ils reçoivent l'invitation d'agenda au même titre que la personne formée.
-   */
-  sessionGuests?:
-    | {
-        email: string;
-        name?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  sessionEventId?: string | null;
-  extensions?:
-    | {
-        /**
-         * 14 = 2 semaines (la fin reste un lundi).
-         */
-        days: number;
-        at?: string | null;
-        reason?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  decision?: ('contrat' | 'prolongation' | 'abandon') | null;
-  decisionAt?: string | null;
-  /**
-   * Ce qui a manqué. Alimente l'analyse des tests perdus.
-   */
-  lostReason?: string | null;
-  tickets?: {
-    docs?: (number | Ticket)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  steps?:
-    | {
-        key: string;
-        label: string;
-        state?: ('a-faire' | 'auto' | 'fait' | 'bloque') | null;
-        autoAt?: string | null;
-        autoValidate?: boolean | null;
-        actor?: ('partenaire' | 'admin' | 'client') | null;
-        phase?: ('avant-test' | 'pendant-test' | 'sortie-test') | null;
-        detail?: string | null;
-        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session') | null;
-        offsetDays?: number | null;
-        doneAt?: string | null;
-        doneBy?: (number | null) | User;
-        note?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  emails?:
-    | {
-        key?: string | null;
-        subject?: string | null;
-        scheduledAt?: string | null;
-        /**
-         * Heure d'envoi (Paris).
-         */
-        sendHour?: string | null;
-        /**
-         * Cochée, la date ne suit plus le calendrier.
-         */
-        overridden?: boolean | null;
-        /**
-         * Renseigné à l'envoi. Un e-mail déjà parti ne repart pas.
-         */
-        sentAt?: string | null;
-        audience?: string | null;
-        anchor?: string | null;
-        offsetDays?: number | null;
-        stepKey?: string | null;
-        trigger?: string | null;
-        detail?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Dérivé des étapes. « Perdu » et « Annulé » se posent à la main et ne sont plus recalculés.
-   */
-  status?: ('preparation' | 'en-cours' | 'gagne' | 'perdu' | 'annule') | null;
-  notes?: string | null;
-  client: number | PartnerClient;
-  /**
-   * Le modèle suivi. Les étapes sont copiées à la création.
-   */
-  journey: number | MarketingJourney;
-  /**
-   * Repris automatiquement du client.
-   */
-  partner?: (number | null) | Partner;
-  /**
-   * Un lundi uniquement.
-   */
-  startDate?: string | null;
-  /**
-   * 4 = lundi → lundi.
-   */
-  durationWeeks?: number | null;
-  /**
-   * Calculée.
-   */
-  endDate?: string | null;
-  displayName?: string | null;
-  autoSteps?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  stepsTotal?: number | null;
-  stepsDone?: number | null;
-  progressPct?: number | null;
-  currentStepKey?: string | null;
-  currentStepLabel?: string | null;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -819,6 +683,161 @@ export interface PointTransaction {
    */
   ref?: string | null;
   createdBy?: (number | null) | User;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Une ligne par client engagé dans un parcours. La barre d'étapes se pilote depuis la fiche.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "journey-runs".
+ */
+export interface JourneyRun {
+  id: number;
+  /**
+   * Au choix du partenaire, selon son client.
+   */
+  sessionMode?: ('visio' | 'sur-place') | null;
+  /**
+   * Créé avec l'événement d'agenda, quand le client réserve son créneau. Modifiable à la main.
+   */
+  sessionLink?: string | null;
+  /**
+   * Pré-remplie avec l'adresse du client ; modifiable (autre site, agence…).
+   */
+  sessionLocation?: string | null;
+  /**
+   * Réservé par le client depuis son espace, ou saisi ici à la main. Au plus tard le lundi de démarrage. Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.
+   */
+  sessionAt?: string | null;
+  attendeeFirstName?: string | null;
+  attendeeLastName?: string | null;
+  /**
+   * Tel que le client l'a saisi.
+   */
+  attendeeRole?: string | null;
+  /**
+   * Pré-remplie avec celle de l'espace client, modifiable par le client si ce n'est pas lui qui suit la session.
+   */
+  attendeeEmail?: string | null;
+  /**
+   * Ajoutés par le client. Ils reçoivent l'invitation d'agenda au même titre que la personne formée.
+   */
+  sessionGuests?:
+    | {
+        email: string;
+        name?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  sessionEventId?: string | null;
+  extensions?:
+    | {
+        /**
+         * 14 = 2 semaines (la fin reste un lundi).
+         */
+        days: number;
+        at?: string | null;
+        reason?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  decision?: ('contrat' | 'prolongation' | 'abandon') | null;
+  decisionAt?: string | null;
+  /**
+   * Ce qui a manqué. Alimente l'analyse des tests perdus.
+   */
+  lostReason?: string | null;
+  tickets?: {
+    docs?: (number | Ticket)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  steps?:
+    | {
+        key: string;
+        label: string;
+        state?: ('a-faire' | 'auto' | 'fait' | 'bloque') | null;
+        autoAt?: string | null;
+        autoValidate?: boolean | null;
+        actor?: ('partenaire' | 'admin' | 'client') | null;
+        phase?: ('avant-test' | 'pendant-test' | 'sortie-test') | null;
+        detail?: string | null;
+        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session') | null;
+        offsetDays?: number | null;
+        doneAt?: string | null;
+        doneBy?: (number | null) | User;
+        note?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  emails?:
+    | {
+        key?: string | null;
+        subject?: string | null;
+        scheduledAt?: string | null;
+        /**
+         * Heure d'envoi (Paris).
+         */
+        sendHour?: string | null;
+        /**
+         * Cochée, la date ne suit plus le calendrier.
+         */
+        overridden?: boolean | null;
+        /**
+         * Renseigné à l'envoi. Un e-mail déjà parti ne repart pas.
+         */
+        sentAt?: string | null;
+        audience?: string | null;
+        anchor?: string | null;
+        offsetDays?: number | null;
+        stepKey?: string | null;
+        trigger?: string | null;
+        detail?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Dérivé des étapes. « Perdu » et « Annulé » se posent à la main et ne sont plus recalculés.
+   */
+  status?: ('preparation' | 'en-cours' | 'gagne' | 'perdu' | 'annule') | null;
+  notes?: string | null;
+  client: number | PartnerClient;
+  /**
+   * Le modèle suivi. Les étapes sont copiées à la création.
+   */
+  journey: number | MarketingJourney;
+  /**
+   * Repris automatiquement du client.
+   */
+  partner?: (number | null) | Partner;
+  /**
+   * Un lundi uniquement.
+   */
+  startDate?: string | null;
+  /**
+   * 4 = lundi → lundi.
+   */
+  durationWeeks?: number | null;
+  /**
+   * Calculée.
+   */
+  endDate?: string | null;
+  displayName?: string | null;
+  autoSteps?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  stepsTotal?: number | null;
+  stepsDone?: number | null;
+  progressPct?: number | null;
+  currentStepKey?: string | null;
+  currentStepLabel?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1833,6 +1852,16 @@ export interface PayloadMigration {
  * via the `definition` "tickets_select".
  */
 export interface TicketsSelect<T extends boolean = true> {
+  documents?:
+    | T
+    | {
+        file?: T;
+        label?: T;
+        note?: T;
+        addedAt?: T;
+        addedBy?: T;
+        id?: T;
+      };
   subject?: T;
   description?: T;
   messages?:
