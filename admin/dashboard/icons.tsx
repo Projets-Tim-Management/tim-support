@@ -35,6 +35,15 @@ export const Icons = {
       <line key="c" x1="12" y1="17" x2="12.01" y2="17" />,
     ]),
   check: () => svg(<path d="M20 6 9 17l-5-5" />),
+  /** Fait : la coche DANS son cercle — l'état se lit sans lire le texte. */
+  checkCircle: () =>
+    svg([
+      <circle key="c" cx="12" cy="12" r="9" />,
+      <path key="v" d="m8.5 12 2.5 2.5 4.5-5" />,
+    ]),
+  /** Pas encore fait : le même cercle, vide. Deux formes de même taille se
+      comparent d'un coup d'œil ; une coche présente ou absente, non. */
+  circle: () => svg(<circle cx="12" cy="12" r="9" />),
   clock: () => svg([<circle key="a" cx="12" cy="12" r="9" />, <path key="b" d="M12 7v5l3 2" />]),
   ticket: () =>
     svg(<path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1 0 4H6a2 2 0 0 1-2-2 2 2 0 0 0 0-4z" />),

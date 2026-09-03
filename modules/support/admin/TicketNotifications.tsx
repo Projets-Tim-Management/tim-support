@@ -11,7 +11,8 @@ import { NEWS, REPLIES, URGENT, countTickets } from "@/modules/support/lib/count
  *   - 💬 réponses client en attente (unreadClientReply = true) ;
  *   - 🎫 nouveaux tickets à traiter (needsAttention sans réponse client, non résolus).
  * Chaque puce est un lien vers la liste des tickets pré-filtrée ; le bandeau
- * pointe aussi vers la page Notifications complète. Compteurs lus via l'API REST
+ * pointe aussi vers la page Notifications complète. Sans rien en attente, il ne
+ * s'affiche pas du tout. Compteurs lus via l'API REST
  * Payload (même approche que TicketListFilters).
  */
 const TICKETS = "/admin/collections/tickets";
@@ -41,17 +42,15 @@ export function TicketNotifications() {
 
   const total = counts.replies + counts.news;
 
-  // Rien à traiter → message rassurant.
-  if (total === 0) {
-    return (
-      <div className="ticket-notif ticket-notif--clear">
-        <span className="ticket-notif__icon" aria-hidden>
-          ✅
-        </span>
-        <p className="ticket-notif__title">Aucun ticket en attente — tout est traité 🎉</p>
-      </div>
-    );
-  }
+  /**
+   * Rien à traiter → rien à afficher.
+   *
+   * Ce bandeau existe pour signaler ce qui attend une action. Un bandeau qui
+   * dit « il n'y a rien » occupe le haut du tableau de bord tous les jours où
+   * tout va bien : à force, on cesse de le lire, et le jour où il annonce trois
+   * tickets urgents il ressemble à celui de la veille.
+   */
+  if (total === 0) return null;
 
   return (
     <div className="ticket-notif">

@@ -848,3 +848,308 @@
   font-size: 0.74rem;
   color: var(--tim-muted);
 }
+
+/* ─── En-tête du tableau de bord : le mois, et la journée ─────────────────────
+   Deux blocs de MÊME hauteur. Le calendrier fixe ses six semaines, donc il ne
+   dicte pas une hauteur qui changerait de mois en mois ; la liste défile à
+   l'intérieur si la journée est chargée. */
+.dash-today {
+  display: grid;
+  grid-template-columns: 22rem minmax(0, 1fr);
+  gap: 1rem;
+  margin: 0 0 1.75rem;
+  /**
+   * HAUTEUR FIXE, pour les deux.
+   *
+   * Sans elle, le bloc grandissait et rétrécissait selon la journée consultée :
+   * on cliquait le 15, tout ce qui suit sur le tableau de bord sautait de
+   * plusieurs centimètres, et le calendrier lui-même se déplaçait sous le
+   * curseur. La liste défile à l'intérieur, le calendrier étale ses six
+   * semaines sur la place disponible.
+   *
+   * 21,5 rem = l'en-tête du calendrier, la ligne des jours et six semaines à
+   * l'aise. C'est le plus contraint des deux qui donne la mesure.
+   */
+  height: 21.5rem;
+
+  > * {
+    margin: 0;
+    min-height: 0;   /* sans quoi un enfant en grille refuse de rétrécir */
+  }
+}
+
+/* ─── Calendrier ─────────────────────────────────────────────────────────── */
+.dash-cal {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  overflow: hidden;
+}
+.dash-cal__head {
+  padding: 0.9rem 1.1rem 0.6rem;
+}
+.dash-cal__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.dash-cal__grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 0.1rem;
+  padding: 0.4rem 0.8rem 0.9rem;
+}
+.dash-cal__dow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+
+/* Une case = un chiffre centré, un point dessous. Le point ne touche pas le
+   chiffre : la grille reste lisible en entier, comme un agenda papier. */
+.dash-cal__day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  min-height: 2.4rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--tim-foreground);
+  cursor: pointer;
+
+  &:hover { background: var(--tim-elevation-100); }
+}
+.dash-cal__num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 999px;
+  line-height: 1;
+}
+/* Débordement du mois voisin : présent pour ne pas trouer la grille, effacé
+   pour ne pas se compter dans le mois qu'on lit. */
+.dash-cal__day--out { color: var(--tim-muted); opacity: 0.45; }
+
+/* Aujourd'hui porte la pastille pleine ; le jour CHOISI, un contour. Les deux
+   coexistent : on doit pouvoir consulter jeudi sans perdre de vue où on est. */
+.dash-cal__day--today .dash-cal__num {
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-weight: 700;
+}
+.dash-cal__day--selected .dash-cal__num {
+  box-shadow: inset 0 0 0 2px var(--tim-primary);
+  font-weight: 700;
+}
+
+.dash-cal__dot {
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: var(--tim-primary);
+}
+/* Journée entièrement traitée : le point reste, en vert. On voit ce qui a été
+   abattu, pas seulement ce qui attend. */
+.dash-cal__day--clear .dash-cal__dot { background: var(--tim-success); }
+
+/* ─── Actions planifiées ─────────────────────────────────────────────────── */
+.dash-agenda {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+  overflow: hidden;
+}
+.dash-agenda__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.9rem 1.15rem 0.6rem;
+}
+.dash-agenda__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.dash-agenda__count {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+}
+
+/* La liste défile À L'INTÉRIEUR : une journée à douze rendez-vous ne doit pas
+   pousser le reste du tableau de bord hors de l'écran. */
+.dash-agenda__body {
+  flex: 1;
+  min-height: 0;   /* la hauteur vient du bloc parent, pas du contenu */
+  overflow-y: auto;
+  padding: 0 1.15rem 1rem;
+}
+.dash-agenda__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dash-agenda__empty {
+  margin: 0.5rem 0 0.75rem;
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+}
+
+.dash-agenda__card {
+  margin-bottom: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+
+  &:last-child { margin-bottom: 0; }
+}
+/**
+ * Réalisé : la carte s'efface.
+ *
+ * Fond gris au lieu du blanc, texte atténué, titre barré. Elle reste visible —
+ * savoir ce qu'on a abattu fait partie de la lecture d'une journée — mais elle
+ * cesse de réclamer l'attention des lignes qui, elles, restent à faire.
+ */
+.dash-agenda__card--done {
+  border-color: var(--tim-elevation-100);
+  background: var(--tim-elevation-100);
+
+  .dash-agenda__what { color: var(--tim-muted); }
+  .dash-agenda__when { opacity: 0.7; }
+  .dash-chip { opacity: 0.65; }
+  /* Sauf l'étiquette « Faite » : c'est elle qu'on cherche du regard. */
+  .dash-chip--done { opacity: 1; }
+}
+
+.dash-agenda__top {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.dash-agenda__what {
+  min-width: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover { text-decoration: underline; }
+}
+.dash-agenda__card--done .dash-agenda__what { text-decoration: line-through; }
+.dash-agenda__when {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+
+/* Fait ou pas encore : deux cercles de même taille, l'un coché. Une coche
+   simplement présente ou absente se compare mal d'une carte à l'autre. */
+.dash-agenda__state {
+  display: flex;
+  align-items: center;
+  color: var(--tim-muted);
+  opacity: 0.55;
+
+  svg { width: 16px; height: 16px; }
+}
+.dash-agenda__state--done { color: var(--tim-success); opacity: 1; }
+
+/* Cochable : le rond devient une cible. Assez grand pour le pouce, et un
+   survol qui annonce ce qui va se passer — cocher ici ÉCRIT en base. */
+.dash-agenda__state--action {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: color 0.12s ease, opacity 0.12s ease, transform 0.12s ease;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--tim-success);
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.dash-agenda__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+/* Étiquettes : rayon 6 px (pas de gélule), teinte portée par la nature. */
+.dash-chip {
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dash-chip--who { background: var(--tim-elevation-100); color: var(--tim-foreground); }
+.dash-chip--soft { background: var(--tim-elevation-100); color: var(--tim-muted); }
+.dash-chip--late { background: var(--tim-red-bg); color: var(--tim-red); }
+.dash-chip--today { background: var(--tim-blue-bg); color: var(--tim-blue); }
+.dash-chip--done { background: var(--tim-green-bg); color: var(--tim-green); }
+.dash-chip--join {
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  text-decoration: none;
+
+  &:hover { background: var(--tim-primary-dark); color: var(--tim-white); }
+}
+
+/* Écran étroit : le calendrier passe au-dessus plutôt que d'écraser la liste,
+   et la hauteur redevient libre — deux blocs empilés dans 21,5 rem ne
+   laisseraient que trois lignes à la liste. */
+@media (max-width: 64rem) {
+  .dash-today {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+  .dash-agenda__body { max-height: 20rem; }
+}
+
+/* Échec d'une écriture depuis le tableau de bord. Une ligne qui revient toute
+   seule à son état passe pour un clic raté : on dit ce qui s'est passé. */
+.dash-agenda__erreur {
+  margin: 0 0 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-red-bg);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tim-red);
+}
+
+.dash-agenda__count-late { color: var(--tim-red); font-weight: 700; }

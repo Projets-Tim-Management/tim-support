@@ -468,10 +468,6 @@ $reply-status-colors: (
   border-radius: var(--tim-radius);
   background: color-mix(in srgb, var(--tim-primary) 7%, var(--tim-white));
 }
-.ticket-notif--clear {
-  border-color: color-mix(in srgb, var(--tim-success) 35%, transparent);
-  background: color-mix(in srgb, var(--tim-success) 9%, var(--tim-white));
-}
 .ticket-notif__icon {
   font-size: 1.4rem;
   line-height: 1;
