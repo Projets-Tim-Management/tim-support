@@ -8,9 +8,11 @@ import { TicketNotifications } from "@/modules/support/admin/TicketNotifications
 import HBars from "./charts/HBars";
 import Meter from "./charts/Meter";
 import { getDashboardData, getSupportMetrics } from "./data";
+import { getTodayAgenda } from "./data-agenda";
 import { getPartnerMetrics } from "./data-partner";
 import { bytes, compact, euros } from "./format";
 import { Icons } from "./icons";
+import AgendaBoard from "./AgendaBoard";
 import PartnerSection from "./PartnerSection";
 import QuickActions from "./QuickActions";
 import StatTile from "./StatTile";
@@ -83,7 +85,20 @@ export default async function DashboardView({ initPageResult }: AdminViewServerP
   }
 
   // ── Admin / super-admin : tableau de bord global complet ───────────────────
+  /**
+   * L'un APRÈS l'autre, jamais en parallèle.
+   *
+   * Le pooler Supabase plafonne à 15 clients, et `getDashboardData` sature déjà
+   * sa part en cadençant ses lectures par lots de cinq (voir data.ts). Lancer
+   * l'agenda en même temps ajoutait trois connexions par-dessus : le tableau de
+   * bord rendait un 500 sur une requête sans rapport — celle des préférences —
+   * parce qu'il ne restait plus de connexion à lui donner.
+   *
+   * Le coût est quelques dizaines de millisecondes ; le bénéfice est une page
+   * qui s'affiche.
+   */
   const d = await getDashboardData(req);
+  const agenda = await getTodayAgenda(req, adminRoute);
 
   return (
     <Gutter>
@@ -95,6 +110,11 @@ export default async function DashboardView({ initPageResult }: AdminViewServerP
           </div>
           <QuickActions adminRoute={adminRoute} />
         </header>
+
+        {/* En tête : le mois à gauche, les actions du jour à côté. Ce qui est à
+            HEURE FIXE passe avant ce qui attend — un rendez-vous manqué ne se
+            rattrape pas, un ticket si. */}
+        <AgendaBoard items={agenda.items} retard={agenda.retard} now={agenda.now} />
 
         {/* Notifications : bandeau des tickets qui demandent une action. */}
         <TicketNotifications />
