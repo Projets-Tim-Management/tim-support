@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { CRON_GRACE_MINUTES } from "@/modules/marketing/lib/due-emails";
+
 import {
   croiserEnvois,
   evenementsOrphelins,
@@ -155,6 +157,7 @@ describe("ordre de lecture", () => {
     sort,
     date,
     raison: null,
+    partA: null,
     ouvert: false,
     clics: 0,
   });
@@ -276,5 +279,71 @@ describe("croiserEnvois — envois annulés par les faits", () => {
       }),
     );
     expect(out.map((e) => e.key)).toEqual(["fin-proche", "prise-en-main"]);
+  });
+});
+
+/**
+ * Le cron passe à l'heure PILE. Entre l'échéance d'un envoi et ce passage, il
+ * n'est pas manqué : il attend. L'écran annonçait « Non parti » en rouge pour
+ * un envoi parfaitement en règle — constaté sur NATURA CREATION le 03/09/2026,
+ * six minutes après une échéance calée à 10:30.
+ */
+describe("croiserEnvois — l'attente du prochain passage du cron", () => {
+  const relance = {
+    key: "relance-dossier",
+    subject: "Votre dossier de démarrage nous manque",
+    audience: "client",
+    scheduledAt: "2026-09-03T08:30:00.000Z", // 10:30 à Paris
+    sentAt: null,
+  };
+  const passage = Date.parse("2026-09-03T09:00:00.000Z"); // 11:00 à Paris
+
+  it("dit « en attente » entre l'échéance et le passage", () => {
+    const [envoi] = croiserEnvois([relance], [], Date.parse("2026-09-03T08:36:00.000Z"));
+    expect(envoi.sort).toBe("en-attente");
+    expect(Date.parse(envoi.partA!)).toBe(passage);
+  });
+
+  it("reste « à venir » avant l'échéance", () => {
+    const [envoi] = croiserEnvois([relance], [], Date.parse("2026-09-03T08:00:00.000Z"));
+    expect(envoi.sort).toBe("a-venir");
+  });
+
+  it("tolère un cron qui démarre avec quelques minutes de retard", () => {
+    const [envoi] = croiserEnvois(
+      [relance],
+      [],
+      passage + (CRON_GRACE_MINUTES - 1) * 60_000,
+    );
+    expect(envoi.sort).toBe("en-attente");
+  });
+
+  it("bascule en « non parti » une fois le passage vraiment manqué", () => {
+    const [envoi] = croiserEnvois(
+      [relance],
+      [],
+      passage + (CRON_GRACE_MINUTES + 1) * 60_000,
+    );
+    expect(envoi.sort).toBe("non-parti");
+    expect(envoi.partA).toBeNull();
+  });
+
+  it("un envoi calé PILE à l'heure part à ce passage-là, pas au suivant", () => {
+    const pile = { ...relance, scheduledAt: "2026-09-03T08:00:00.000Z" };
+    // Une minute après : le cron de 10:00 a pu ne pas avoir fini son lot.
+    const [envoi] = croiserEnvois([pile], [], Date.parse("2026-09-03T08:01:00.000Z"));
+    expect(envoi.sort).toBe("en-attente");
+    expect(Date.parse(envoi.partA!)).toBe(Date.parse("2026-09-03T08:00:00.000Z"));
+  });
+
+  it("se range en tête de l'avenir : il part avant tous les autres", () => {
+    const out = ordonnerEnvois(
+      croiserEnvois(
+        [relance, { ...relance, key: "fin-proche", subject: "Fin proche", scheduledAt: "2026-09-20T06:00:00.000Z" }],
+        [],
+        Date.parse("2026-09-03T08:36:00.000Z"),
+      ),
+    );
+    expect(out.map((e) => e.key)).toEqual(["relance-dossier", "fin-proche"]);
   });
 });

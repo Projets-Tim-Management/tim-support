@@ -5,6 +5,7 @@ import { buildJourneyContext, type JourneyRunLike } from "@/modules/marketing/li
 import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
 import { declaredAudience, stepDoneBySending } from "@/modules/marketing/lib/journey";
 import { journeyReplyTo } from "@/modules/marketing/lib/reply-routing";
+import { withSystemWrite } from "@/modules/marketing/lib/system-write";
 import { journeyMailHeaders } from "@/modules/support/lib/brevo";
 
 /**
@@ -175,8 +176,17 @@ export async function sendJourneyEmail(
   // faire remonter une erreur qui laisserait croire le contraire — au pire le
   // message repartira une fois, ce qui vaut mieux que de croire qu'il est parti.
   if (row) {
-    await payload
-      .update({
+    /**
+     * Drapeau SYSTÈME, sans quoi le marquage est silencieusement effacé.
+     *
+     * `guardStructuralEdits` ne laisse un non-admin modifier que la date
+     * programmée et la dérogation d'un envoi : `sentAt` écrit sur la requête
+     * d'un partenaire repartait à sa valeur d'origine. L'e-mail était parti, le
+     * parcours n'en savait rien — et le garde-fou anti-doublon, qui lit
+     * justement ce champ, laissait passer un second envoi vers le client.
+     */
+    await withSystemWrite(req, () =>
+      payload.update({
         collection: "journey-runs",
         id: fresh.id,
         data: {
@@ -184,8 +194,12 @@ export async function sendJourneyEmail(
         } as never,
         overrideAccess: true,
         ...(req ? { req } : {}),
-      })
-      .catch(() => undefined);
+      }),
+    ).catch((err) =>
+      // Secondaire pour l'appelant — l'e-mail EST parti —, mais plus jamais
+      // muet : c'est cette absence de trace qui a laissé le défaut vivre.
+      payload.logger.error(`[parcours] marquage de « ${key} » sur ${fresh.id} échoué : ${err}`),
+    );
   }
 
   /**
@@ -229,17 +243,21 @@ export async function markJourneyEmailSent(
     const rows = fresh?.emails ?? [];
     if (!rows.some((e) => e.key === key && !e.sentAt)) return;
 
-    await payload.update({
-      collection: "journey-runs",
-      id: runId,
-      data: {
-        emails: rows.map((e) => (e.key === key ? { ...e, sentAt: new Date().toISOString() } : e)),
-      } as never,
-      overrideAccess: true,
-      ...(req ? { req } : {}),
-    });
-  } catch {
-    // Marquage secondaire : l'e-mail, lui, est bien parti.
+    await withSystemWrite(req, () =>
+      payload.update({
+        collection: "journey-runs",
+        id: runId,
+        data: {
+          emails: rows.map((e) => (e.key === key ? { ...e, sentAt: new Date().toISOString() } : e)),
+        } as never,
+        overrideAccess: true,
+        ...(req ? { req } : {}),
+      }),
+    );
+  } catch (err) {
+    // Secondaire — l'e-mail est parti —, mais journalisé : un marquage perdu
+    // fait réapparaître le message comme « à envoyer ».
+    payload.logger.error(`[parcours] marquage de « ${key} » sur ${runId} échoué : ${err}`);
   }
 }
 

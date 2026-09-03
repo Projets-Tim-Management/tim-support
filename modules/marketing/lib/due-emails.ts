@@ -152,6 +152,39 @@ export const raisonSansObjet = (
   return shouldStillSend(key, facts) ? null : raison;
 };
 
+/**
+ * Premier passage du cron à partir duquel un envoi peut partir.
+ *
+ * Le cron des e-mails passe à l'heure PILE (`0 * * * *`, voir vercel.json) : un
+ * message calé à 10:30 attend le passage de 11:00. Six minutes après l'heure
+ * prévue, il n'est donc pas « manqué » — il n'est simplement pas encore l'heure.
+ *
+ * Sans cette distinction, l'écran annonçait « Non parti », en rouge, pour un
+ * envoi parfaitement en règle (constaté sur NATURA CREATION le 03/09/2026).
+ */
+export const nextCronPass = (scheduledAt: string | null | undefined): number | null => {
+  if (!scheduledAt) return null;
+  const at = Date.parse(scheduledAt);
+  if (Number.isNaN(at)) return null;
+  const passage = new Date(at);
+  // Déjà pile à l'heure : c'est CE passage-là qui l'emporte, pas le suivant.
+  if (passage.getMinutes() || passage.getSeconds() || passage.getMilliseconds()) {
+    passage.setMinutes(0, 0, 0);
+    passage.setHours(passage.getHours() + 1);
+  } else {
+    passage.setMinutes(0, 0, 0);
+  }
+  return passage.getTime();
+};
+
+/**
+ * Tolérance après le passage attendu avant de parler d'envoi manqué.
+ *
+ * Un cron Vercel ne part pas à la milliseconde, et le lot met quelques instants
+ * à s'écouler. Crier au loup à 11:00:30 apprendrait à ignorer l'alerte.
+ */
+export const CRON_GRACE_MINUTES = 15;
+
 // ─── Cadences calées sur l'heure de Paris ────────────────────────────────────
 
 /**

@@ -4,6 +4,7 @@ import { FieldLabel, useDocumentInfo, useField } from "@payloadcms/ui";
 import { useCallback, useState } from "react";
 
 import { StartTestModal } from "@/modules/marketing/admin/StartTestModal";
+import { useSaveAfterDispatch } from "@/modules/marketing/admin/useSaveAfterDispatch";
 import { ContractStartModal } from "@/modules/partner/admin/ContractStartModal";
 import { LossReasonModal } from "@/modules/partner/admin/LossReasonModal";
 import {
@@ -48,6 +49,20 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
   const { setValue: setLossReason } = useField<string>({ path: "lossReason" });
   const { setValue: setLossDetail } = useField<string>({ path: "lossReasonDetail" });
   const { setValue: setEndDate } = useField<string>({ path: "resiliationDate" });
+  /**
+   * Enregistrer DANS le geste, pas après.
+   *
+   * Le modal de clôture demandait le motif, remplissait les champs… et laissait
+   * la fiche non enregistrée. On croyait l'affaire close — elle ne l'était pas,
+   * et un onglet fermé entre-temps emportait le motif avec lui. Valider un
+   * motif EST la clôture : le clic doit la produire, pas la préparer.
+   *
+   * `useSaveAfterDispatch` attend le rendu suivant avant d'enregistrer : les
+   * valeurs posées à l'instant ne sont dans l'état du formulaire qu'après le
+   * commit, et enchaîner directement enregistrerait la fiche telle qu'elle
+   * était.
+   */
+  const saveNow = useSaveAfterDispatch();
 
   // L'adresse de la fiche pré-remplit le modal : elle est déjà connue, la
   // redemander au démarrage était une saisie pour rien (et une occasion de
@@ -111,13 +126,14 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
           companyName={companyName}
           onCancel={() => setAskingLoss(null)}
           onConfirm={(outcome) => {
-            // Posé dans le FORMULAIRE : l'enregistrement confirme. Le serveur
-            // refuserait de toute façon un statut de clôture sans motif.
             setLossReason(outcome.reason);
             setLossDetail(outcome.detail);
             if (outcome.endDate) setEndDate(outcome.endDate);
             setValue(askingLoss);
             setAskingLoss(null);
+            // La fiche part en enregistrement dans la foulée : le motif saisi
+            // est déjà en base quand le modal se ferme.
+            saveNow();
           }}
         />
       )}

@@ -17,6 +17,7 @@ import {
   notifyAdminsTestRequested,
 } from "@/modules/marketing/lib/notify";
 import { sessionSyncPatch, syncSessionEvent } from "@/modules/marketing/lib/session-calendar";
+import { JOURNEY_SYSTEM_WRITE, withSystemWrite } from "@/modules/marketing/lib/system-write";
 import {
   DEFAULT_DURATION_WEEKS,
   allowComputedDate,
@@ -544,7 +545,8 @@ const EMAIL_OWN_FIELDS = ["scheduledAt", "overridden"] as const;
  * suffit plus dès qu'on rejoint la transaction en cours. Il est hors d'atteinte
  * d'un client HTTP, qui ne peut pas peupler `req.context`.
  */
-const SYSTEM_WRITE = "journeySystemWrite";
+/** Même drapeau que la fonction d'envoi partagée : deux constantes auraient fini par diverger. */
+const SYSTEM_WRITE = JOURNEY_SYSTEM_WRITE;
 
 /** Reprend la ligne d'origine, en n'y appliquant que les champs autorisés. */
 function mergeAllowed<T extends Record<string, unknown>>(
@@ -893,22 +895,20 @@ async function markEmailSent(
 ): Promise<void> {
   if (!emails.some((e) => e.key === key && !e.sentAt)) return;
 
-  const ctx = (req.context ?? {}) as Record<string, unknown>;
-  ctx[SYSTEM_WRITE] = true;
   try {
-    await req.payload.update({
-      collection: "journey-runs",
-      id: runId,
-      data: {
-        emails: emails.map((e) => (e.key === key ? { ...e, sentAt: new Date().toISOString() } : e)),
-      } as never,
-      overrideAccess: true,
-      req,
-    });
+    await withSystemWrite(req, () =>
+      req.payload.update({
+        collection: "journey-runs",
+        id: runId,
+        data: {
+          emails: emails.map((e) => (e.key === key ? { ...e, sentAt: new Date().toISOString() } : e)),
+        } as never,
+        overrideAccess: true,
+        req,
+      }),
+    );
   } catch (err) {
     req.payload.logger.error(`[parcours] marquage de « ${key} » sur ${runId} échoué : ${err}`);
-  } finally {
-    delete ctx[SYSTEM_WRITE];
   }
 }
 

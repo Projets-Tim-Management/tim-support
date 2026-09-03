@@ -29,6 +29,8 @@ const META: Record<Sort, { label: string; color: string; bg: string }> = {
   "a-venir": { label: "À venir", color: "var(--tim-gray)", bg: "var(--tim-gray-bg)" },
   // Le signal qu'aucun autre écran ne donne : l'heure est passée, rien n'est parti.
   "non-parti": { label: "Non parti", color: "var(--tim-red)", bg: "var(--tim-red-bg)" },
+  // L'heure est passée mais le cron n'est pas repassé : rien d'anormal.
+  "en-attente": { label: "En attente", color: "var(--tim-amber)", bg: "var(--tim-amber-bg)" },
   "non-programme": { label: "Sur évènement", color: "var(--tim-gray)", bg: "var(--tim-gray-bg)" },
   // Ni une alerte, ni une attente : le client a fait ce qu'on lui demandait.
   "sans-objet": { label: "Sans objet", color: "var(--tim-gray)", bg: "var(--tim-gray-bg)" },
@@ -55,6 +57,14 @@ const quand = (iso: string | null) =>
         minute: "2-digit",
       })
     : "—";
+
+/** Heure seule : « part à 11:00 » se lit mieux que la date répétée. */
+const heure = (iso: string) =>
+  new Date(iso).toLocaleTimeString("fr-FR", {
+    timeZone: "Europe/Paris",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 type Reponse = {
   configured: boolean;
@@ -132,7 +142,12 @@ export function JourneyEmails() {
                         annulé, elle dirait le contraire de la vérité. */}
                     {e.sort === "sans-objet"
                       ? `Ne partira pas — était prévu le ${quand(e.date)}`
-                      : quand(e.date)}{" "}
+                      : e.sort === "en-attente" && e.partA
+                        ? // Le cron passe à l'heure pile : dire QUAND il part
+                          // évite de chercher une panne là où il n'y a qu'une
+                          // demi-heure d'attente.
+                          `Prévu ${quand(e.date)} — part à ${heure(e.partA)}`
+                        : quand(e.date)}{" "}
                     · {AUDIENCE[e.audience] ?? e.audience}
                     {e.clics > 0 && ` · ${e.clics} clic${e.clics > 1 ? "s" : ""}`}
                     {e.raison && ` · ${e.raison}`}

@@ -1145,7 +1145,7 @@ export interface ClientActivity {
   /**
    * Ce qu'il faudra faire : appeler, écrire, se voir…
    */
-  taskKind?: ('a-faire' | 'appel' | 'email' | 'reunion' | 'dejeuner' | 'echeance' | 'linkedin') | null;
+  taskKind?: ('appel' | 'a-faire' | 'email' | 'reunion' | 'dejeuner' | 'echeance' | 'linkedin') | null;
   dueDate?: string | null;
   /**
    * Un e-mail part à cette heure-là. Vide = pas de rappel.
