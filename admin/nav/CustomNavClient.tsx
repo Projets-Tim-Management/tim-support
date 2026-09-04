@@ -11,7 +11,7 @@ import { Fragment, useState } from "react";
 import { hasAdminRole } from "@/core/access";
 
 import CollapsibleGroup from "./CollapsibleGroup";
-import { NAV_LAYOUT, isSubGroup, type NavItem } from "./nav-structure";
+import { NAV_LAYOUT, isLink, isSubGroup, type NavItem } from "./nav-structure";
 
 const baseClass = "nav";
 
@@ -146,7 +146,7 @@ export default function CustomNavClient({ groups }: Props) {
         const placed = new Set<string>();
         layout.forEach((item) => {
           if (isSubGroup(item)) item.slugs.forEach((s) => placed.add(s));
-          else placed.add(item);
+          else if (typeof item === "string") placed.add(item);
         });
         const leftovers = group.entities.filter((e) => !placed.has(e.slug));
 
@@ -162,6 +162,28 @@ export default function CustomNavClient({ groups }: Props) {
                 })}
           >
             {layout.map((item, i) => {
+              // Lien libre vers une vue custom : aucune collection derrière, donc
+              // rien à chercher dans `bySlug`. Même rendu que les autres liens —
+              // un <div> quand il est actif, avec l'indicateur, sinon un <Link>.
+              if (isLink(item)) {
+                const on = isActive(item.href);
+                const label = (
+                  <Fragment>
+                    {on && <div className={`${baseClass}__link-indicator`} />}
+                    <span className={`${baseClass}__link-label`}>{item.label}</span>
+                  </Fragment>
+                );
+                return on ? (
+                  <div key={item.href} className={`${baseClass}__link`}>
+                    {label}
+                  </div>
+                ) : (
+                  <NextLink key={item.href} className={`${baseClass}__link`} href={item.href} prefetch={false}>
+                    {label}
+                  </NextLink>
+                );
+              }
+
               if (!isSubGroup(item)) {
                 const entity = bySlug.get(item);
                 return entity ? renderLink(entity) : null;

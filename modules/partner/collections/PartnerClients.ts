@@ -583,11 +583,54 @@ export const PartnerClients: CollectionConfig = {
       type: "select",
       label: "Provenance",
       defaultValue: "manuelle",
+      /**
+       * Canal d'ACQUISITION, et non moyen technique d'arrivée : c'est ce qu'on
+       * veut lire sur une fiche et croiser dans les statistiques.
+       *
+       * `site-vitrine` est conservée pour les fiches importées de Brevo — les
+       * renommer ferait mentir l'historique, qui ne savait pas distinguer SEO
+       * et SEA. Les nouveaux leads prennent l'une des deux valeurs précises.
+       */
       options: [
         { label: "Saisie manuelle", value: "manuelle" },
-        { label: "Site vitrine (Brevo)", value: "site-vitrine" },
+        { label: "Site vitrine — SEO", value: "site-vitrine-seo" },
+        { label: "Google Ads — SEA", value: "google-ads-sea" },
+        { label: "Site vitrine (import Brevo)", value: "site-vitrine" },
       ],
       admin: { position: "sidebar", readOnly: true },
+    },
+    {
+      /**
+       * Effectif déclaré au formulaire. En TEXTE et non en liste : les tranches
+       * sont modifiables en back-office côté formulaire, et une valeur d'enum
+       * qui n'existerait pas encore ferait échouer la création du lead — donc
+       * perdre le lead pour un libellé.
+       */
+      name: "collaborateurs",
+      type: "text",
+      label: "Effectif",
+      index: true,
+      admin: {
+        position: "sidebar",
+        readOnly: true,
+        condition: (data) => Boolean(data?.collaborateurs),
+        description: "Déclaré au formulaire du site vitrine.",
+      },
+    },
+    {
+      // Soumission dont vient cette fiche. Clé anti-doublon, comme `brevoDealId`
+      // l'était pour l'import : une soumission ne peut créer qu'une opportunité.
+      name: "formSubmission",
+      type: "relationship",
+      relationTo: "form-submissions",
+      label: "Soumission",
+      index: true,
+      unique: true,
+      admin: {
+        position: "sidebar",
+        readOnly: true,
+        condition: (data) => Boolean(data?.formSubmission),
+      },
     },
     {
       // Identifiant de l'opportunité Brevo dont vient ce lead. C'est la CLÉ

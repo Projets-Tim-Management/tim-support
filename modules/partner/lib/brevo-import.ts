@@ -3,6 +3,7 @@ import type { PayloadRequest } from "payload";
 import type { PartnerClient } from "@/payload-types";
 
 import { payloadClient } from "@/core/payload-client";
+import { vitrinePartnerEmail, vitrinePartnerId } from "@/modules/partner/lib/vitrine-partner";
 import {
   buildLead,
   fetchCompany,
@@ -24,40 +25,6 @@ import {
  */
 
 type Payload = Awaited<ReturnType<typeof payloadClient>>;
-
-/** Adresse du compte qui porte les leads du site vitrine. */
-const VITRINE_EMAIL = (process.env.BREVO_LEADS_PARTNER_EMAIL ?? "cpiancatelli@tim-management.co")
-  .trim()
-  .toLowerCase();
-
-/**
- * Fiche partenaire qui reçoit les leads.
- *
- * Résolue par le LIEN STABLE compte → fiche (`users.partner`), avec repli sur
- * l'e-mail de la fiche : la même règle que partout ailleurs, pour ne pas créer
- * un second partenaire « Charlie » le jour où une adresse diverge.
- */
-export async function vitrinePartnerId(payload: Payload): Promise<number | string | null> {
-  const users = await payload.find({
-    collection: "users",
-    where: { email: { equals: VITRINE_EMAIL } },
-    limit: 1,
-    depth: 0,
-    overrideAccess: true,
-  });
-  const linked = (users.docs[0] as { partner?: unknown } | undefined)?.partner;
-  const id = linked && typeof linked === "object" ? (linked as { id?: unknown }).id : linked;
-  if (id != null) return id as number | string;
-
-  const partners = await payload.find({
-    collection: "partners",
-    where: { email: { equals: VITRINE_EMAIL } },
-    limit: 1,
-    depth: 0,
-    overrideAccess: true,
-  });
-  return (partners.docs[0]?.id as number | string | undefined) ?? null;
-}
 
 const frDate = (iso?: string) =>
   iso ? new Date(iso).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" }) : null;
@@ -101,7 +68,7 @@ export async function syncBrevoLeads(
   if (partner == null) {
     // Sans partenaire apporteur, une opportunité ne peut pas exister (champ
     // requis) : on s'arrête AVANT d'appeler Brevo, en le disant.
-    return { ...empty, reason: `partenaire_introuvable:${VITRINE_EMAIL}` };
+    return { ...empty, reason: `partenaire_introuvable:${vitrinePartnerEmail()}` };
   }
 
   // Une panne côté Brevo (clé expirée, throttling, incident) doit se VOIR : le

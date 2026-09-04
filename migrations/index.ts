@@ -46,6 +46,12 @@ import * as migration_20260828_145142_add_availability_json from './20260828_145
 import * as migration_20260828_145201_drop_old_availability from './20260828_145201_drop_old_availability';
 import * as migration_20260901_173627_vehicles_papers from './20260901_173627_vehicles_papers';
 import * as migration_20260903_050914_ticket_documents from './20260903_050914_ticket_documents';
+import * as migration_20260904_070317_add_forms from './20260904_070317_add_forms';
+import * as migration_20260904_073045_add_submission_id from './20260904_073045_add_submission_id';
+import * as migration_20260904_080651_add_channel_source from './20260904_080651_add_channel_source';
+import * as migration_20260904_082455_add_lead_fields from './20260904_082455_add_lead_fields';
+import * as migration_20260904_090936_add_loss_reason_a_qualifier from './20260904_090936_add_loss_reason_a_qualifier';
+import * as migration_20260904_100019_add_landing_path from './20260904_100019_add_landing_path';
 
 export const migrations = [
   {
@@ -286,6 +292,36 @@ export const migrations = [
   {
     up: migration_20260903_050914_ticket_documents.up,
     down: migration_20260903_050914_ticket_documents.down,
-    name: '20260903_050914_ticket_documents'
+    name: '20260903_050914_ticket_documents',
+  },
+  {
+    up: migration_20260904_070317_add_forms.up,
+    down: migration_20260904_070317_add_forms.down,
+    name: '20260904_070317_add_forms',
+  },
+  {
+    up: migration_20260904_073045_add_submission_id.up,
+    down: migration_20260904_073045_add_submission_id.down,
+    name: '20260904_073045_add_submission_id',
+  },
+  {
+    up: migration_20260904_080651_add_channel_source.up,
+    down: migration_20260904_080651_add_channel_source.down,
+    name: '20260904_080651_add_channel_source',
+  },
+  {
+    up: migration_20260904_082455_add_lead_fields.up,
+    down: migration_20260904_082455_add_lead_fields.down,
+    name: '20260904_082455_add_lead_fields',
+  },
+  {
+    up: migration_20260904_090936_add_loss_reason_a_qualifier.up,
+    down: migration_20260904_090936_add_loss_reason_a_qualifier.down,
+    name: '20260904_090936_add_loss_reason_a_qualifier',
+  },
+  {
+    up: migration_20260904_100019_add_landing_path.up,
+    down: migration_20260904_100019_add_landing_path.down,
+    name: '20260904_100019_add_landing_path'
   },
 ];

@@ -84,6 +84,8 @@ export interface Config {
     'reward-orders': RewardOrder;
     'journey-runs': JourneyRun;
     'marketing-journeys': MarketingJourney;
+    forms: Form;
+    'form-submissions': FormSubmission;
     'client-employees': ClientEmployee;
     'client-sites': ClientSite;
     'client-vehicles': ClientVehicle;
@@ -128,6 +130,8 @@ export interface Config {
     'reward-orders': RewardOrdersSelect<false> | RewardOrdersSelect<true>;
     'journey-runs': JourneyRunsSelect<false> | JourneyRunsSelect<true>;
     'marketing-journeys': MarketingJourneysSelect<false> | MarketingJourneysSelect<true>;
+    forms: FormsSelect<false> | FormsSelect<true>;
+    'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
     'client-sites': ClientSitesSelect<false> | ClientSitesSelect<true>;
     'client-vehicles': ClientVehiclesSelect<false> | ClientVehiclesSelect<true>;
@@ -494,6 +498,7 @@ export interface PartnerClient {
         | 'besoin-different'
         | 'solution-interne'
         | 'test-non-concluant'
+        | 'a-qualifier'
         | 'peu-utilise'
         | 'complexite'
         | 'support'
@@ -508,7 +513,12 @@ export interface PartnerClient {
    * La commission du partenaire s'arrête à cette date.
    */
   resiliationDate?: string | null;
-  source?: ('manuelle' | 'site-vitrine') | null;
+  source?: ('manuelle' | 'site-vitrine-seo' | 'google-ads-sea' | 'site-vitrine') | null;
+  /**
+   * Déclaré au formulaire du site vitrine.
+   */
+  collaborateurs?: string | null;
+  formSubmission?: (number | null) | FormSubmission;
   brevoDealId?: string | null;
   /**
    * Repris du formulaire du site vitrine.
@@ -608,6 +618,139 @@ export interface PartnerClient {
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
+}
+/**
+ * Ce que les visiteurs du site vitrine ont envoyé, tel qu'ils l'ont envoyé. Lecture seule.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-submissions".
+ */
+export interface FormSubmission {
+  id: number;
+  summary?: string | null;
+  form?: (number | null) | Form;
+  formIdSnapshot?: string | null;
+  submissionId?: string | null;
+  /**
+   * Valeurs postées, telles que reçues.
+   */
+  answers?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  channel?: ('seo' | 'sea') | null;
+  placement?: ('drawer' | 'page-contact' | 'lp-hero' | 'lp-section') | null;
+  /**
+   * « Clic payant » est un fait ; « landing page » est une présomption. Beaucoup de présomptions = le taggage automatique de Google Ads ne remonte plus, ou le cookie d'attribution ne tient pas.
+   */
+  channelSource?: ('clic-payant' | 'landing-page' | 'defaut') | null;
+  /**
+   * Chemin de la page qui portait le formulaire.
+   */
+  sourcePagePath?: string | null;
+  sourcePageUrl?: string | null;
+  /**
+   * Première page de la visite. Différente de « Page » quand la personne a navigué avant de remplir le formulaire.
+   */
+  landingPath?: string | null;
+  lpSlug?: string | null;
+  lpVariant?: string | null;
+  referrer?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+  utmTerm?: string | null;
+  utmContent?: string | null;
+  gclid?: string | null;
+  msclkid?: string | null;
+  client?: (number | null) | PartnerClient;
+  /**
+   * « Brouillon » signale une soumission sans e-mail exploitable : la fiche existe mais n'est pas publiée.
+   */
+  processingStatus?: ('recue' | 'opportunite' | 'brouillon' | 'echec') | null;
+  processingError?: string | null;
+  ip?: string | null;
+  sessionId?: string | null;
+  userAgent?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Les formulaires servis au site vitrine. Ce qui est saisi ici s'affiche sur le site, sans déploiement.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "forms".
+ */
+export interface Form {
+  id: number;
+  label: string;
+  /**
+   * Cité par le site vitrine et porté par chaque soumission. À ne pas modifier une fois en service.
+   */
+  formId: string;
+  /**
+   * Canal retenu quand la visite ne porte aucune trace de campagne. Un gclid ou un utm_medium=cpc réellement présent prime toujours sur cette valeur.
+   */
+  defaultChannel: 'seo' | 'sea';
+  /**
+   * L'ordre de cette liste est l'ordre d'affichage sur le site.
+   */
+  fields?:
+    | {
+        /**
+         * Identifiant du champ. Il voyage dans les soumissions déjà enregistrées : le renommer rend l'historique illisible.
+         */
+        name: string;
+        type: 'text' | 'email' | 'tel' | 'select' | 'multiselect';
+        required?: boolean | null;
+        label: string;
+        placeholder?: string | null;
+        /**
+         * Affiché sous le champ. Facultatif.
+         */
+        helpText?: string | null;
+        maxLength?: number | null;
+        countryCode?: boolean | null;
+        /**
+         * L'ordre de cette liste est l'ordre d'affichage.
+         */
+        options?:
+          | {
+              /**
+               * Stockée. À ne pas modifier.
+               */
+              value: string;
+              label: string;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Affiché à la place du formulaire une fois la demande envoyée.
+   */
+  successText: string;
+  /**
+   * Doit dire que l'envoi a ÉCHOUÉ. Celui de Brevo se terminait par la phrase de succès : un visiteur en échec croyait avoir réussi.
+   */
+  errorText: string;
+  /**
+   * Mention RGPD affichée près du bouton d'envoi, avec le lien vers la politique de confidentialité. Vide = rien ne s'affiche.
+   */
+  legalNotice?: string | null;
+  /**
+   * Décoché = le site vitrine ne peut plus le servir ni recevoir ses envois.
+   */
+  active?: boolean | null;
+  seedVersion?: number | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1774,6 +1917,14 @@ export interface PayloadLockedDocument {
         value: number | MarketingJourney;
       } | null)
     | ({
+        relationTo: 'forms';
+        value: number | Form;
+      } | null)
+    | ({
+        relationTo: 'form-submissions';
+        value: number | FormSubmission;
+      } | null)
+    | ({
         relationTo: 'client-employees';
         value: number | ClientEmployee;
       } | null)
@@ -2082,6 +2233,8 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   lossReasonDetail?: T;
   resiliationDate?: T;
   source?: T;
+  collaborateurs?: T;
+  formSubmission?: T;
   brevoDealId?: T;
   leadNotes?: T;
   licences?:
@@ -2406,6 +2559,77 @@ export interface MarketingJourneysSelect<T extends boolean = true> {
       };
   active?: T;
   seedVersion?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "forms_select".
+ */
+export interface FormsSelect<T extends boolean = true> {
+  label?: T;
+  formId?: T;
+  defaultChannel?: T;
+  fields?:
+    | T
+    | {
+        name?: T;
+        type?: T;
+        required?: T;
+        label?: T;
+        placeholder?: T;
+        helpText?: T;
+        maxLength?: T;
+        countryCode?: T;
+        options?:
+          | T
+          | {
+              value?: T;
+              label?: T;
+              id?: T;
+            };
+        id?: T;
+      };
+  successText?: T;
+  errorText?: T;
+  legalNotice?: T;
+  active?: T;
+  seedVersion?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "form-submissions_select".
+ */
+export interface FormSubmissionsSelect<T extends boolean = true> {
+  summary?: T;
+  form?: T;
+  formIdSnapshot?: T;
+  submissionId?: T;
+  answers?: T;
+  channel?: T;
+  placement?: T;
+  channelSource?: T;
+  sourcePagePath?: T;
+  sourcePageUrl?: T;
+  landingPath?: T;
+  lpSlug?: T;
+  lpVariant?: T;
+  referrer?: T;
+  utmSource?: T;
+  utmMedium?: T;
+  utmCampaign?: T;
+  utmTerm?: T;
+  utmContent?: T;
+  gclid?: T;
+  msclkid?: T;
+  client?: T;
+  processingStatus?: T;
+  processingError?: T;
+  ip?: T;
+  sessionId?: T;
+  userAgent?: T;
   updatedAt?: T;
   createdAt?: T;
 }

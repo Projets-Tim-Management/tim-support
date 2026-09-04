@@ -78,6 +78,8 @@ import { JourneyStepRowLabel as JourneyStepRowLabel_02522917a685fae4d72c3fe2c8b0
 import { JourneyEmailRowLabel as JourneyEmailRowLabel_2a7e629310745e0192957a9f1db82354 } from '../../../modules/marketing/admin/JourneyEmailRowLabel'
 import { AdminOnlyTabs as AdminOnlyTabs_7f44b13f20fa34f65e1be48236cbac4a } from '../../../modules/marketing/admin/AdminOnlyTabs'
 import { RunStatusCell as RunStatusCell_bca3b66a118f960c09383a20d2f2a00d } from '../../../modules/marketing/admin/RunStatusCell'
+import { FormOptionRowLabel as FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b } from '../../../modules/forms/admin/FormOptionRowLabel'
+import { FormFieldRowLabel as FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3 } from '../../../modules/forms/admin/FormFieldRowLabel'
 import { InsuranceCell as InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4 } from '../../../modules/marketing/admin/InsuranceCell'
 import { default as default_c08243cbb0e32dd70b45a5afb5f6cbd4 } from '../../../admin/components/SaveButton'
 import { default as default_5599fe28f2b3157f52fea861e6ba12e6 } from '../../../admin/graphics/Avatar'
@@ -92,6 +94,7 @@ import { default as default_a0b3dc6cbedf342b789cbfbfb6915cb5 } from '../../../ad
 import { VercelBlobClientUploadHandler as VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e } from '@payloadcms/storage-vercel-blob/client'
 import { default as default_a8bdfd6ec46ed48bd1e9402d58bf4c34 } from '../../../admin/dashboard/DashboardView'
 import { default as default_6971e0609c24bbf2339323e60b70e021 } from '../../../modules/support/admin/NotificationsView'
+import { default as default_9d9414930c979dbddf13d0cf7ee23f41 } from '../../../modules/forms/admin/AcquisitionView'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 /** @type import('payload').ImportMap */
@@ -176,6 +179,8 @@ export const importMap = {
   "/modules/marketing/admin/JourneyEmailRowLabel#JourneyEmailRowLabel": JourneyEmailRowLabel_2a7e629310745e0192957a9f1db82354,
   "/modules/marketing/admin/AdminOnlyTabs#AdminOnlyTabs": AdminOnlyTabs_7f44b13f20fa34f65e1be48236cbac4a,
   "/modules/marketing/admin/RunStatusCell#RunStatusCell": RunStatusCell_bca3b66a118f960c09383a20d2f2a00d,
+  "/modules/forms/admin/FormOptionRowLabel#FormOptionRowLabel": FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b,
+  "/modules/forms/admin/FormFieldRowLabel#FormFieldRowLabel": FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3,
   "/modules/marketing/admin/InsuranceCell#InsuranceCell": InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4,
   "/admin/components/SaveButton#default": default_c08243cbb0e32dd70b45a5afb5f6cbd4,
   "/admin/graphics/Avatar#default": default_5599fe28f2b3157f52fea861e6ba12e6,
@@ -190,5 +195,6 @@ export const importMap = {
   "@payloadcms/storage-vercel-blob/client#VercelBlobClientUploadHandler": VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e,
   "/admin/dashboard/DashboardView#default": default_a8bdfd6ec46ed48bd1e9402d58bf4c34,
   "/modules/support/admin/NotificationsView#default": default_6971e0609c24bbf2339323e60b70e021,
+  "/modules/forms/admin/AcquisitionView#default": default_9d9414930c979dbddf13d0cf7ee23f41,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }

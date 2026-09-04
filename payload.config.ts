@@ -25,6 +25,8 @@ import { MissionSubmissions } from "./modules/partner/collections/MissionSubmiss
 import { Rewards } from "./modules/partner/collections/Rewards";
 import { RewardOrders } from "./modules/partner/collections/RewardOrders";
 import { Tickets } from "./modules/support/collections/Tickets";
+import { Forms } from "./modules/forms/collections/Forms";
+import { FormSubmissions } from "./modules/forms/collections/FormSubmissions";
 import { MarketingJourneys } from "./modules/marketing/collections/MarketingJourneys";
 import { JourneyRuns } from "./modules/marketing/collections/JourneyRuns";
 import { ClientEmployees } from "./modules/marketing/collections/ClientEmployees";
@@ -34,6 +36,7 @@ import { ClientMachines } from "./modules/marketing/collections/ClientMachines";
 import { ClientPortalAccounts } from "./modules/marketing/collections/ClientPortalAccounts";
 import { CalendarConnections } from "./modules/marketing/collections/CalendarConnections";
 import { seedJourneys } from "./modules/marketing/lib/seed";
+import { seedForms } from "./modules/forms/lib/seed";
 import {
   hideUnlessAdmin,
   hideUnlessMetier,
@@ -78,6 +81,11 @@ const ROLE_NAV_HIDDEN: Record<string, (args: { user?: unknown }) => boolean> = {
   // admin) ; le MODÈLE de parcours reste un réglage TIM, donc admin seul.
   "journey-runs": hideUnlessMetier,
   "marketing-journeys": hideUnlessAdmin,
+  // Formulaires du site vitrine : réglage et données publics de TIM, pas d'un
+  // partenaire. Les soumissions portent en outre les coordonnées de prospects
+  // qui n'appartiennent à aucun apporteur.
+  forms: hideUnlessAdmin,
+  "form-submissions": hideUnlessAdmin,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -172,6 +180,14 @@ export default buildConfig({
           exact: true,
           meta: { title: "Notifications" },
         },
+        // Écran « Acquisition » : d'où viennent les leads du site vitrine et ce
+        // qu'ils deviennent — voir modules/forms/admin/AcquisitionView.
+        acquisition: {
+          Component: "/modules/forms/admin/AcquisitionView#default",
+          path: "/acquisition",
+          exact: true,
+          meta: { title: "Acquisition" },
+        },
       },
     },
   },
@@ -208,6 +224,9 @@ export default buildConfig({
       // Marketing (parcours : le modèle + les phases de test en cours)
       JourneyRuns,
       MarketingJourneys,
+      // Formulaires du site vitrine : la définition servie au site, et ce qu'il renvoie
+      Forms,
+      FormSubmissions,
       // Dossier de démarrage — cachées du menu (admin.hidden), gérées via les
       // champs `join` de l'onglet « Dossier de démarrage » de la fiche client.
       ClientEmployees,
@@ -360,6 +379,9 @@ export default buildConfig({
     // Crée le modèle de parcours « Phase de test » s'il n'existe pas encore.
     // Idempotent : ne réécrit jamais un parcours existant (cf. seedJourneys).
     await seedJourneys(payload);
+
+    // Idem pour les formulaires du site vitrine (cf. seedForms).
+    await seedForms(payload);
   },
 
   secret: process.env.PAYLOAD_SECRET || "",

@@ -20,8 +20,15 @@ export interface NavSubGroup {
   slugs: string[];
 }
 
-/** Un item de groupe : un slug rendu directement, ou un sous-groupe repliable. */
-export type NavItem = string | NavSubGroup;
+/** Lien libre vers une vue custom (hors collection). */
+export interface NavLink {
+  label: string;
+  /** Chemin absolu, ex. « /admin/acquisition ». */
+  href: string;
+}
+
+/** Un item de groupe : un slug, un sous-groupe repliable, ou un lien libre. */
+export type NavItem = string | NavSubGroup | NavLink;
 
 /** Layout par groupe de 1er niveau (clé = valeur exacte de `admin.group`). */
 export const NAV_LAYOUT: Record<string, NavItem[]> = {
@@ -32,7 +39,9 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
   ],
   Marketing: [
     "journey-runs",
-    { label: "Paramètres", slugs: ["marketing-journeys"] },
+    "form-submissions",
+    { label: "Acquisition", href: "/admin/acquisition" },
+    { label: "Paramètres", slugs: ["marketing-journeys", "forms"] },
   ],
   Partenaires: [
     { label: "Comptes", slugs: ["partners", "partner-clients"] },
@@ -43,5 +52,9 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
 };
 
 export function isSubGroup(item: NavItem): item is NavSubGroup {
-  return typeof item !== "string";
+  return typeof item !== "string" && "slugs" in item;
+}
+
+export function isLink(item: NavItem): item is NavLink {
+  return typeof item !== "string" && "href" in item;
 }
