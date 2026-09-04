@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   attachmentNames,
+  captureAddresses,
   cleanSubject,
   correspondents,
   direction,
@@ -106,5 +107,37 @@ describe("pièces jointes", () => {
       attachmentNames({ attachments: [{ Name: "devis.pdf" }, { name: "plan.png" }, { Name: "  " }] }),
     ).toEqual(["devis.pdf", "plan.png"]);
     expect(attachmentNames({})).toEqual([]);
+  });
+});
+
+describe("les deux formes de l'adresse de capture", () => {
+  const set = (addr?: string, domain?: string) => {
+    if (addr) process.env.EMAIL_CAPTURE_ADDRESS = addr;
+    else delete process.env.EMAIL_CAPTURE_ADDRESS;
+    if (domain) process.env.REPLY_DOMAIN = domain;
+    else delete process.env.REPLY_DOMAIN;
+  };
+
+  it("reconnaît celle qu'on tape ET celle qui arrive vraiment", () => {
+    /**
+     * Le Cci n'apparaît pas dans les en-têtes : ce qui parvient au webhook est
+     * l'adresse routée sur REPLY_DOMAIN. Ne reconnaître que la première
+     * reviendrait à ne jamais rien capturer.
+     */
+    set("suivi@tim-management.co", "reply.tim-management.co");
+    expect(captureAddresses()).toEqual([
+      "suivi@tim-management.co",
+      "suivi@reply.tim-management.co",
+    ]);
+  });
+
+  it("tient sans REPLY_DOMAIN, et se tait sans adresse", () => {
+    set("Suivi@Tim-Management.CO");
+    expect(captureAddresses()).toEqual(["suivi@tim-management.co"]);
+    set(undefined);
+    expect(captureAddresses()).toEqual([]);
+    set("pas-une-adresse");
+    expect(captureAddresses()).toEqual([]);
+    set(undefined);
   });
 });

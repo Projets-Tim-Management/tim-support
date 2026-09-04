@@ -36,6 +36,24 @@ export interface IncomingMessage {
 
 const EMAIL = /[a-z0-9._%+'-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
 
+/**
+ * Les deux formes de l'adresse de capture.
+ *
+ * Celle qu'on tape vit sur le domaine principal (`suivi@tim-management.co`),
+ * dont les MX sont chez Google ; un groupe Workspace la renvoie vers le même
+ * nom sur `REPLY_DOMAIN`, dont les MX sont chez Brevo — c'est celle-là qui
+ * arrive au webhook. On reconnaît les deux : la première apparaît dans les
+ * en-têtes le jour où quelqu'un la met en Cc au lieu de Cci, la seconde dans
+ * les destinataires d'enveloppe le reste du temps.
+ */
+export function captureAddresses(): string[] {
+  const addr = process.env.EMAIL_CAPTURE_ADDRESS?.trim().toLowerCase();
+  if (!addr?.includes("@")) return [];
+  const domain = process.env.REPLY_DOMAIN?.trim().toLowerCase();
+  const routed = domain ? `${addr.split("@")[0]}@${domain}` : null;
+  return routed && routed !== addr ? [addr, routed] : [addr];
+}
+
 /** Extrait une adresse d'une des formes possibles. `null` si elle n'en contient pas. */
 export function readAddress(value: RawAddress | null | undefined): string | null {
   if (!value) return null;
