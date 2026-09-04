@@ -57,12 +57,26 @@ export interface MailboxSummary {
   preview: string[];
   /** Où en est la reprise du passé, une fois le passage terminé. */
   backfillBefore?: string;
+  /**
+   * La fenêtre du présent a été lue ENTIÈREMENT. Sans cette garantie, avancer
+   * le curseur du présent sauterait des messages définitivement.
+   */
+  presentComplete: boolean;
   /** Le passé est entièrement rattrapé. */
   backfillDone: boolean;
 }
 
-/** Plafond par passage : une boîte de dix ans ne doit pas bloquer un cron. */
-const MAX_PER_RUN = 400;
+/**
+ * Plafond par passage.
+ *
+ * Calibré sur le DÉLAI d'une fonction Vercel (300 s), pas sur le quota Gmail :
+ * 400 messages tenaient en local mais frôlaient la limite une fois le contenu
+ * des messages retenus téléchargé. Un passage coupé en route ne perd rien — le
+ * `Message-ID` écarte les doublons au suivant — mais il ne finit jamais, et la
+ * reprise du passé n'avancerait plus. Le cron passe toutes les heures : mieux
+ * vaut deux cents messages qui aboutissent que quatre cents qui expirent.
+ */
+const MAX_PER_RUN = 200;
 
 /**
  * Largeur d'une tranche de reprise du passé.
@@ -124,6 +138,7 @@ export async function syncMailbox(
     known: 0,
     preview: [],
     backfillDone: false,
+    presentComplete: false,
   };
 
   if (connection.status === "suspendue") {
@@ -145,9 +160,10 @@ export async function syncMailbox(
   for (const w of windows) {
     if (metas.length >= max) break;
 
+    const budget = max - metas.length;
     let ids: string[];
     try {
-      ids = await listMessageIds(token.accessToken, { ...w, max: max - metas.length });
+      ids = await listMessageIds(token.accessToken, { ...w, max: budget });
     } catch (e) {
       // Une fenêtre illisible n'annule pas celles déjà lues : ce qui a été
       // trouvé est écrit, et le curseur n'avancera pas au-delà.
@@ -163,8 +179,21 @@ export async function syncMailbox(
       )),
     );
 
-    // La tranche est traitée : la reprise du passé peut descendre d'autant.
-    if (w.before) summary.backfillBefore = w.since.toISOString();
+    /**
+     * La tranche ne compte comme traitée que si on l'a lue ENTIÈREMENT.
+     *
+     * Quand le plafond du passage tombe au milieu d'une tranche, la liste est
+     * tronquée : faire descendre le curseur reviendrait à déclarer lus des
+     * messages qu'on n'a jamais vus, et ils ne reviendraient plus jamais. On
+     * préfère relire la tranche au passage suivant — la relecture ne coûte
+     * rien, le `Message-ID` écarte les doublons, l'oubli est définitif.
+     */
+    const complete = ids.length < budget;
+    if (w.before) {
+      if (complete) summary.backfillBefore = w.since.toISOString();
+    } else {
+      summary.presentComplete = complete;
+    }
   }
 
   for (const meta of metas) {
@@ -211,8 +240,13 @@ export async function syncMailbox(
   }
 
   summary.ok = !summary.error;
-  summary.backfillDone =
-    !summary.error && new Date(summary.backfillBefore ?? connection.backfillBefore ?? 0) <= floor;
+  /**
+   * « Historique complet » se dit seulement si un curseur EXISTE et a rejoint
+   * le plancher. Sans curseur, l'absence de date valait 1970 et le passage se
+   * déclarait terminé alors qu'il n'avait rien rattrapé.
+   */
+  const reached = summary.backfillBefore ?? connection.backfillBefore;
+  summary.backfillDone = !summary.error && Boolean(reached) && new Date(reached!) <= floor;
   return summary;
 }
 
@@ -238,11 +272,15 @@ export async function recordSync(
         lastError: summary.error ?? null,
         capturedCount: (connection.capturedCount ?? 0) + summary.written,
         /**
-         * Le présent n'avance QUE si le passage s'est bien terminé : sur une
-         * erreur, on préfère relire ce qu'on a déjà lu — le `Message-ID` évite
-         * le doublon — plutôt que de sauter définitivement des messages.
+         * Le présent n'avance que si sa fenêtre a été lue EN ENTIER et que le
+         * passage s'est bien terminé.
+         *
+         * Après une longue coupure, les nouveaux messages peuvent dépasser le
+         * plafond du passage : avancer le curseur reviendrait alors à déclarer
+         * lus des messages jamais vus. On préfère relire — le `Message-ID`
+         * écarte les doublons — plutôt que d'oublier définitivement.
          */
-        ...(summary.ok ? { syncedUpTo: new Date().toISOString() } : {}),
+        ...(summary.ok && summary.presentComplete ? { syncedUpTo: new Date().toISOString() } : {}),
         ...(summary.backfillBefore ? { backfillBefore: summary.backfillBefore } : {}),
       } as never,
       overrideAccess: true,
