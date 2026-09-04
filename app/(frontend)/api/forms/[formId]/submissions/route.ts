@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { payloadClient } from "@/core/payload-client";
 import { resolveChannel } from "@/modules/forms/lib/channel";
 import { createOpportunity } from "@/modules/forms/lib/create-opportunity";
+import { sendLeadEmails } from "@/modules/forms/lib/send-lead-emails";
 import { checkIngestKey, clientIp, parseAttribution } from "@/modules/forms/lib/ingest";
 import { toPublicForm } from "@/modules/forms/lib/public-schema";
 import { buildOpportunity } from "@/modules/forms/lib/to-opportunity";
@@ -150,11 +151,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
      * soumission, où quelqu'un peut le voir et rattraper la fiche à la main.
      */
     try {
-      const outcome = await createOpportunity(
-        payload,
-        buildOpportunity({ form, answers: result.answers, attribution, channel }),
-        submission.id,
-      );
+      const opportunity = buildOpportunity({ form, answers: result.answers, attribution, channel });
+      const outcome = await createOpportunity(payload, opportunity, submission.id);
+
       if (outcome.status === "echec") {
         payload.logger.error(`[formulaires] opportunité non créée (${submissionId}) : ${outcome.error}`);
         await markSubmission(payload, submission.id, { processingStatus: "echec", processingError: outcome.error });
@@ -165,6 +164,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
           `[formulaires] ${outcome.status === "rattachee" ? "soumission rattachée à" : "opportunité"} ${outcome.clientId} (${submissionId}).`,
         );
       }
+
+      // Les deux e-mails. Après l'opportunité, pour que l'alerte interne porte le
+      // lien vers la fiche — et jamais bloquants : un relais SMTP qui tousse ne
+      // doit pas faire disparaître un lead déjà enregistré.
+      await sendLeadEmails(payload, {
+        form,
+        answers: result.answers,
+        attribution,
+        channel,
+        clientId: outcome.status === "echec" ? undefined : outcome.clientId,
+        brouillon: outcome.status === "brouillon",
+      });
     } catch (e) {
       const error = (e as Error).message;
       payload.logger.error(`[formulaires] opportunité non créée (${submissionId}) : ${error}`);
