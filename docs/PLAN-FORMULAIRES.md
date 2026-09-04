@@ -4,7 +4,10 @@
 > Brevo est réduit à **l'envoi et au suivi des e-mails**, rien d'autre. Chaque lead
 > devient traçable (canal, formulaire, page, variante A/B, campagne) et entre
 > **immédiatement** dans le Kanban Opportunités, sans la latence de 24 h actuelle.
-> **Statut : cadrage terminé, rien n'est codé.** Décisions du §2 verrouillées.
+> **Statut au 04/09/2026 : étapes 1 à 9 FAITES et commitées** sur `refonte-support`
+> (non poussé). Reste l'étape 10 (coupure de Brevo — attend la mise en production
+> de la vitrine) et l'étape 11 (séquences post-perte — attend leur contenu et les
+> textes légaux). Décisions du §2 verrouillées.
 
 ## 0. Sources
 
@@ -314,7 +317,7 @@ Rappels valables pour **toutes** les étapes touchant au schéma :
   invisible dans le back-office ;
 - accès conformes à `docs/RBAC-PLAN.md` ; couleurs via les jetons de `styles/_tokens.scss`.
 
-### Étape 1 — Socle de données
+### ✅ Étape 1 — Socle de données
 Collections `forms` et `form-submissions`, accès RBAC, entrée de navigation, migration,
 types. Puis un script de semis qui crée le formulaire `demo` avec ses 9 champs, libellés,
 options et textes **exacts** (§6) — pour que la définition soit reproductible, pas saisie
@@ -323,13 +326,13 @@ options et textes **exacts** (§6) — pour que la définition soit reproductibl
 **À vérifier par l'utilisateur :** les deux collections apparaissent dans le menu ; le
 formulaire `demo` est présent avec ses 9 champs et les bons libellés.
 
-### Étape 2 — Schéma exposé — `GET /api/forms/demo`
+### ✅ Étape 2 — Schéma exposé — `GET /api/forms/demo`
 Sérialisation d'une définition en schéma JSON consommable (§5), mise en cache.
 **Tests internes :** test unitaire du sérialiseur — options avec libellés *et* valeurs
 stables, caractère requis conforme à la décision 3, aucun champ interne exposé.
 **À vérifier par l'utilisateur :** ouvrir l'URL dans un navigateur et lire le JSON.
 
-### Étape 3 — Réception — `POST /api/forms/demo/submissions`
+### ✅ Étape 3 — Réception — `POST /api/forms/demo/submissions`
 Validation serveur **dérivée du schéma** (jamais codée en dur), honeypot, rate-limit par
 IP, secret partagé avec le proxy de la vitrine, IP/UA/horodatage, enregistrement.
 **Tests internes :** champ requis manquant → `validation_error` avec le détail par champ ;
@@ -339,7 +342,7 @@ personnelle dans le corps de réponse** ; secret absent → refus.
 **À vérifier par l'utilisateur :** une commande `curl` fournie, puis la soumission visible
 en back-office avec tous ses champs.
 
-### Étape 4 — Attribution et canal
+### ✅ Étape 4 — Attribution et canal
 Enregistrement du bloc d'attribution (§4.2) et résolution du canal : un `gclid` ou
 `utm_medium=cpc` réellement présent **prime** sur le canal déclaré du formulaire.
 **Tests internes :** table de résolution du canal, y compris les cas limites (UTM vides,
@@ -347,7 +350,7 @@ Enregistrement du bloc d'attribution (§4.2) et résolution du canal : un `gclid
 **À vérifier par l'utilisateur :** deux soumissions, l'une avec `gclid`, l'autre sans →
 « Google Ads — SEA » vs « Site vitrine — SEO ».
 
-### Étape 5 — Création immédiate de l'opportunité
+### ✅ Étape 5 — Création immédiate de l'opportunité
 `partner-clients` + `client-contacts` dans la foulée de la requête. Rattachement au
 partenaire du site vitrine (`vitrinePartnerId()`), repli **brouillon** sans e-mail,
 anti-doublon par `formSubmission`, `collaborateurs` et `pays` sur la fiche, `genre` et
@@ -359,7 +362,7 @@ soumission → une seule fiche ; statut initial `nouvelle` ; canal reporté sur 
 **À vérifier par l'utilisateur :** soumettre, puis voir la carte apparaître
 **immédiatement** dans le Kanban avec son contact et ses besoins.
 
-### Étape 6 — Les deux e-mails
+### ✅ Étape 6 — Les deux e-mails
 Accusé de réception au prospect (§7.1) et alerte interne (§7.2), via le SMTP Brevo existant.
 **Tests internes :** rendu du modèle ; **dégradation propre** quand `fonction` manque et
 quand `genre` manque ; ordre des 7 liens piloté par `besoins` ; **échappement HTML** des
@@ -368,30 +371,30 @@ fait pas échouer la soumission.
 **À vérifier par l'utilisateur :** soumettre avec sa propre adresse et lire les deux
 e-mails réellement reçus.
 
-### Étape 7 — Mention d'information au point de collecte
+### ✅ Étape 7 — Mention d'information au point de collecte
 Texte servi par le schéma, avec lien vers `/politique-confidentialite` (§7.3).
 **À vérifier par l'utilisateur :** relire et valider le texte.
 
-### Étape 8 — Reprise de l'historique
+### ✅ Étape 8 — Reprise de l'historique
 Vérification des leads Brevo déjà importés, puis import des « Perdue » en brouillon avec
 le motif `a-qualifier` (§9). Migration de l'enum `lossReason`.
 **Tests internes :** mapping des étapes, motif posé, brouillon effectif, idempotence.
 **À vérifier par l'utilisateur :** exécution à blanc d'abord, relecture de la liste, puis
 exécution réelle et contrôle de la colonne « Perdue ».
 
-### Étape 9 — Écran de statistiques
+### ✅ Étape 9 — Écran de statistiques
 Leads par formulaire, page, canal, campagne ; A/B test V1 vs V2 ; motifs de perte croisés
 avec l'origine (§8). Jetons de couleur, aucune couleur en dur.
 **À vérifier par l'utilisateur :** lecture de l'écran sur des données réelles.
 
-### Étape 10 — Coupure de Brevo sur la collecte
+### ⏳ Étape 10 — Coupure de Brevo sur la collecte *(bloquée : attend la vitrine)*
 **Seulement une fois la vitrine en production.** Suppression du cron `brevo-leads`, de
 `brevo-import.ts`, `brevo-deals.ts`, de l'entrée `vercel.json` et de
 `BREVO_LEADS_PARTNER_EMAIL`. **`BREVO_API_KEY` reste** (statistiques des e-mails).
 `brevoDealId` reste en lecture.
 **À vérifier par l'utilisateur :** l'onglet « E-mails » d'un ticket fonctionne toujours.
 
-### Étape 11 — Séquences post-perte et cadre légal *(en tout dernier)*
+### ⏳ Étape 11 — Séquences post-perte et cadre légal *(bloquée : attend leur contenu)*
 Déclencheurs : `lossReason = sans-reponse` ⇒ séquence « Sans retour » ; **tout autre
 motif** ⇒ séquence « Marketing » (plusieurs mois). Avec **obligatoirement** : lien de
 désinscription, en-tête `List-Unsubscribe`, liste de suppression alimentée par les
@@ -437,3 +440,20 @@ via le schéma du §4.1 ; la vitrine pilote les pixels. À leur transmettre :
   la colonne de droite en `overflow-y: auto` devient un **prérequis**, plus une option.
 - **`tim-front.vercel.app` sert la production en `index, follow`** — duplicata indexable
   du site. Sans rapport avec les formulaires, à signaler au SEO.
+
+---
+
+## 13. Journal des écarts au plan
+
+Ce que la mise en œuvre a appris, et qui n'était pas prévisible au cadrage.
+
+| Constat | Conséquence |
+|---|---|
+| La fusion des deux formulaires (décision 10) a supprimé le moyen de distinguer SEO et SEA par le formulaire | Le canal se déduit de la visite : clic payant, puis emplacement, puis défaut — et la décision elle-même est stockée (`channelSource`) pour rester mesurable |
+| Le taggage automatique de Google Ads était **déjà actif** | Le `gclid` arrive sur chaque clic payant, quelle que soit la page. La règle « landing page = SEA » n'est qu'un filet |
+| Les paramètres du **modèle de suivi** n'atteignent pas la page avec le suivi en parallèle | Les UTM sont posés dans le **suffixe de l'URL finale**. Vérifié : la réécriture des LP conserve `gclid` et `utm_*` |
+| Une création Payload sans `_status` explicite laisse la fiche en brouillon | Le lead serait entré en base sans apparaître dans le Kanban. `_status: "published"` est désormais explicite |
+| La règle anti-doublon de l'import Brevo ne convenait pas aux formulaires | C'est la soumission qui pointe vers la fiche, jamais l'inverse. Un prospect qui revient est journalisé, pas dupliqué |
+| L'audit a trouvé un lead « Nouvelle » sans fiche | Ce n'était pas un défaut : un lead récent, que le cron quotidien rattrape seul |
+| Le nom de ce lead, `Contact_Ads_Pointage`, suit la convention du `Contact_WP` du brief | Confirmation : c'est une règle de nommage d'automation Brevo, pas un formulaire WordPress caché |
+| La navigation n'affichait que des collections | Elle accepte désormais des liens libres vers une vue custom |
