@@ -59,6 +59,7 @@ import * as migration_20260904_152828_add_signature_block from './20260904_15282
 import * as migration_20260904_154155_remove_sequence_signature from './20260904_154155_remove_sequence_signature';
 import * as migration_20260904_160912_optional_sequence_cta from './20260904_160912_optional_sequence_cta';
 import * as migration_20260904_164301_sequence_reply_and_chaining from './20260904_164301_sequence_reply_and_chaining';
+import * as migration_20260904_173847_capture_email_fields from './20260904_173847_capture_email_fields';
 
 export const migrations = [
   {
@@ -364,6 +365,11 @@ export const migrations = [
   {
     up: migration_20260904_164301_sequence_reply_and_chaining.up,
     down: migration_20260904_164301_sequence_reply_and_chaining.down,
-    name: '20260904_164301_sequence_reply_and_chaining'
+    name: '20260904_164301_sequence_reply_and_chaining',
+  },
+  {
+    up: migration_20260904_173847_capture_email_fields.up,
+    down: migration_20260904_173847_capture_email_fields.down,
+    name: '20260904_173847_capture_email_fields'
   },
 ];

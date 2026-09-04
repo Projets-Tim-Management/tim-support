@@ -1304,6 +1304,12 @@ export interface ClientActivity {
   done?: boolean | null;
   doneAt?: string | null;
   reminderSentAt?: string | null;
+  emailDirection?: ('recu' | 'envoye') | null;
+  sourceMessageId?: string | null;
+  /**
+   * Noms seulement — les fichiers ne sont pas conservés.
+   */
+  attachmentNames?: string | null;
   recipients?: string | null;
   attachments?: (number | Media)[] | null;
   author?: (number | null) | User;
@@ -2519,6 +2525,9 @@ export interface ClientActivitiesSelect<T extends boolean = true> {
   done?: T;
   doneAt?: T;
   reminderSentAt?: T;
+  emailDirection?: T;
+  sourceMessageId?: T;
+  attachmentNames?: T;
   recipients?: T;
   attachments?: T;
   author?: T;

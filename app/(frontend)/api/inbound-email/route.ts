@@ -8,6 +8,7 @@ import {
   extractSequenceRunId,
   extractTicketNumber,
 } from "@/modules/marketing/lib/reply-routing";
+import { captureEmail } from "@/modules/partner/lib/email-capture";
 import { SUPPORT_NOTIFY_EMAIL, ticketReplyNoticeEmail } from "@/modules/support/lib/email";
 
 // Webhook d'e-mails entrants (Brevo Inbound Parsing).
@@ -19,7 +20,9 @@ import { SUPPORT_NOTIFY_EMAIL, ticketReplyNoticeEmail } from "@/modules/support/
 //     l'équipe puisse intervenir au lieu de laisser dormir le message dans la
 //     boîte support ;
 //   - seq-<id>@REPLY_DOMAIN   → réponse à une séquence de relance. Inscrite sur
-//     la fiche de l'opportunité, et arrête la séquence si celle-ci le prévoit.
+//     la fiche de l'opportunité, et arrête la séquence si celle-ci le prévoit ;
+//   - l'adresse de CAPTURE (EMAIL_CAPTURE_ADDRESS, mise en copie cachée par un
+//     commercial) → l'échange remonte dans l'historique de l'opportunité.
 //
 // Protégé par une clé en query (?key=...) car Brevo ne signe pas les webhooks.
 export const dynamic = "force-dynamic";
@@ -41,6 +44,26 @@ function collectAddresses(value: unknown, out: string[]): void {
     if (typeof o.Address === "string") out.push(o.Address);
     else if (typeof o.address === "string") out.push(o.address);
   }
+}
+
+/**
+ * Les deux formes de l'adresse de capture.
+ *
+ * Celle que les commerciaux tapent vit sur le domaine principal
+ * (`suivi@tim-management.co`), dont les MX sont chez Google. Une règle de
+ * routage Workspace la renvoie vers le même nom sur `REPLY_DOMAIN`, dont les MX
+ * sont chez Brevo — c'est celle-là qui arrive ici.
+ *
+ * On reconnaît les deux : la première apparaît dans les en-têtes le jour où
+ * quelqu'un se trompe et la met en Cc au lieu de Cci, la seconde dans les
+ * destinataires d'enveloppe le reste du temps.
+ */
+function captureAddresses(): string[] {
+  const addr = process.env.EMAIL_CAPTURE_ADDRESS?.trim().toLowerCase();
+  if (!addr?.includes("@")) return [];
+  const domain = process.env.REPLY_DOMAIN?.trim().toLowerCase();
+  const routed = domain ? `${addr.split("@")[0]}@${domain}` : null;
+  return routed && routed !== addr ? [addr, routed] : [addr];
 }
 
 /** Nom affiché de l'expéditeur, quand Brevo le fournit. */
@@ -216,6 +239,50 @@ export async function POST(req: Request) {
     const seqId = number || runId ? null : extractSequenceRunId(recips);
     if (seqId) {
       await handleSequenceReply(payload, seqId, text);
+      continue;
+    }
+
+    /**
+     * Copie cachée sur l'adresse de capture : l'échange remonte sur la fiche.
+     *
+     * Après les tickets et les parcours, jamais avant : si les deux adresses
+     * sont présentes, c'est la conversation explicite qui l'emporte — le Cci
+     * n'est qu'un archivage, il ne doit pas priver le support de sa réponse.
+     */
+    const capture = captureAddresses();
+    if (capture.length && recips.some((r) => capture.includes(r.trim().toLowerCase()))) {
+      const to: string[] = [];
+      const cc: string[] = [];
+      collectAddresses(item.To, to);
+      collectAddresses(item.Cc, cc);
+      const result = await captureEmail(
+        payload,
+        {
+          from: item.From as never,
+          // Les destinataires VISIBLES seulement : `Recipients` contient
+          // l'adresse de capture, qui ne désigne personne.
+          to,
+          cc,
+          subject: typeof item.Subject === "string" ? item.Subject : undefined,
+          text,
+          attachments: (item.Attachments ?? null) as never,
+          messageId: typeof item.MessageId === "string" ? item.MessageId : undefined,
+          date: typeof item.SentAtDate === "string" ? item.SentAtDate : undefined,
+        },
+        { captureAddress: capture[0] },
+      ).catch((e) => {
+        payload.logger.error(`[capture] échange non enregistré : ${e}`);
+        return null;
+      });
+
+      if (result?.reason === "ecrit") {
+        handled++;
+        payload.logger.info(`[capture] échange rattaché à l'opportunité ${result.clientId}.`);
+      } else if (result) {
+        // Dit à voix haute : un commercial qui met l'adresse en copie et ne voit
+        // rien arriver doit pouvoir apprendre pourquoi.
+        payload.logger.info(`[capture] message ignoré (${result.reason}).`);
+      }
       continue;
     }
 
