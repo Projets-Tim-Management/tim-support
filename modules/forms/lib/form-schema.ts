@@ -1,20 +1,13 @@
 /**
  * Formulaires du site vitrine — source de vérité unique.
  *
- * Le site vitrine ne code plus ses formulaires : il lit une définition servie par
- * le support et la rend. Ce fichier décrit ce qu'une définition peut contenir, et
- * porte le contenu du formulaire livré avec le code (`DEMO_FORM`), semé au
- * démarrage puis modifiable en back-office.
- *
- * Pourquoi une définition et non du code : ajouter un champ, corriger un libellé
- * ou rendre une question facultative sont des décisions marketing qui se prenaient
- * jusqu'ici dans l'interface Brevo, sans déploiement. Les faire redescendre dans
- * une PR aurait été une régression déguisée en modernisation.
+ * Le site lit une définition servie par le support et la rend. Une définition et
+ * non du code : corriger un libellé ou rendre une question facultative sont des
+ * décisions marketing, qui se prenaient sans déploiement du temps de Brevo.
  *
  * ⚠️ Les `name` de champs et les `value` d'options sont des IDENTIFIANTS : ils
- * voyagent dans les soumissions déjà enregistrées et dans le code de la vitrine.
- * Les renommer casse la lecture de l'historique. Les LIBELLÉS, eux, se changent
- * librement — c'est tout l'intérêt.
+ * voyagent dans les soumissions déjà enregistrées. Les libellés, eux, se
+ * changent librement.
  */
 
 /** Types de champs qu'un formulaire peut déclarer. */
@@ -32,11 +25,8 @@ export type FieldType = (typeof FIELD_TYPES)[number]["value"];
 export const CHOICE_TYPES: FieldType[] = ["select", "multiselect"];
 
 /**
- * Où le formulaire était posé au moment de la soumission.
- *
- * C'est une dimension d'ATTRIBUTION, pas une propriété du formulaire : la même
- * définition est servie dans le tiroir global et dans le hero d'une landing page,
- * et c'est justement ce qu'on veut pouvoir distinguer dans les statistiques.
+ * Où le formulaire était posé. Dimension d'ATTRIBUTION, pas propriété du
+ * formulaire : la même définition sert le tiroir global et le hero d'une LP.
  */
 export const PLACEMENTS = [
   { label: "Tiroir global", value: "drawer" },
@@ -49,9 +39,7 @@ export type Placement = (typeof PLACEMENTS)[number]["value"];
 
 /**
  * Canal d'acquisition — ce que porte le champ `source` d'une opportunité.
- *
- * Volontairement court : l'utilisateur a confirmé le 04/09/2026 qu'il n'y a pas
- * d'autre canal à prévoir. Chaque valeur ajoutée ici coûte une migration d'enum.
+ * Liste fermée (décision du 04/09/2026) ; chaque valeur coûte une migration.
  */
 export const CHANNELS = [
   { label: "Site vitrine — SEO", value: "seo" },
@@ -95,38 +83,25 @@ export interface FormDef {
 export const DEMO_FORM_ID = "demo";
 
 /**
- * Le formulaire de demande de démo.
+ * Le formulaire de demande de démo — UN SEUL pour tout le site.
  *
- * UN SEUL formulaire pour tout le site — page contact, tiroir global et les deux
- * landing pages. Il y en avait deux chez Brevo, l'un privé de `besoins` et
- * `pays` ; l'utilisateur a demandé le 04/09/2026 que tous les leads reçoivent le
- * même accusé de réception, ce qui suppose les mêmes réponses, donc les mêmes
- * champs. Deux définitions identiques n'auraient été qu'une occasion de dériver.
+ * Brevo en avait deux, celui des landing pages privé de `besoins` et `pays`.
+ * Tous les leads devant recevoir le même accusé de réception (décision du
+ * 04/09/2026), ils ont les mêmes champs : deux définitions identiques n'auraient
+ * été qu'une occasion de dériver. La traçabilité repose sur les métadonnées
+ * d'attribution de chaque soumission, pas sur l'identité du formulaire.
  *
- * La traçabilité ne repose donc PAS sur l'identité du formulaire mais sur les
- * métadonnées d'attribution de chaque soumission (placement, page, variante,
- * campagne) — c'est leur rôle, et elles savent distinguer les cinq contextes
- * depuis lesquels une même landing page est atteignable.
- *
- * Libellés et options relevés sur les formulaires Brevo réels (parsing des pages
- * `sibforms.com`), à trois corrections près, toutes assumées :
- *  - « Dans quel pays se trouve votre entreprise » manquait son point
- *    d'interrogation ;
- *  - le libellé « Quel est votre nom ? » couvrait la civilité ET le nom, ce qui
- *    laissait la première sans intitulé propre ;
- *  - `JOB_TITLE` (attribut Brevo détourné) devient `company_name`, ce qu'il a
- *    toujours signifié : « Quel est le nom de votre société ? ».
+ * Libellés relevés sur les formulaires Brevo réels, à trois corrections près :
+ * le point d'interrogation manquant de « pays », la civilité qui n'avait pas
+ * d'intitulé propre, et `JOB_TITLE` → `company_name` (attribut détourné).
  */
 export const DEMO_FORM: FormDef = {
   formId: DEMO_FORM_ID,
   label: "Demande de démo",
   defaultChannel: "seo",
   successText: "Votre message a bien été envoyé.",
-  /**
-   * Volontairement différent de celui de Brevo, qui se terminait par la phrase de
-   * succès (« Nous n'avons pas pu confirmer votre inscription. Votre message a
-   * bien été envoyé. ») : un prospect dont l'envoi échouait croyait avoir réussi.
-   */
+  // Celui de Brevo se terminait par la phrase de succès : un prospect dont
+  // l'envoi échouait croyait avoir réussi.
   errorText:
     "Votre demande n'a pas pu être envoyée. Vérifiez les champs signalés, puis réessayez.",
   /** Rédigée à l'étape 7, après validation juridique. Vide = rien n'est affiché. */
@@ -231,11 +206,7 @@ export const DEMO_FORM: FormDef = {
 export const SEEDED_FORMS: FormDef[] = [DEMO_FORM];
 
 /**
- * Nom du champ leurre.
- *
- * Repris à l'identique de Brevo : c'était leur SEULE protection anti-spam, et la
- * reproduire coûte une ligne. Un robot qui remplit ce champ obtient une réponse
- * de succès sans qu'aucune ligne ne soit écrite — lui dire qu'il a été repéré
- * l'inviterait à réessayer autrement.
+ * Champ leurre, repris à l'identique de Brevo — c'était leur seule protection
+ * anti-spam. Rempli = réponse de succès, aucune écriture.
  */
 export const HONEYPOT_FIELD = "email_address_check";

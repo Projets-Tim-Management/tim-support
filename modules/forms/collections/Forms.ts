@@ -6,14 +6,11 @@ import { CHANNELS, CHOICE_TYPES, FIELD_TYPES } from "@/modules/forms/lib/form-sc
 /**
  * Définitions des formulaires du site vitrine.
  *
- * Le site ne code plus ses formulaires : il lit `GET /api/forms/<formId>` et rend
- * ce qu'il reçoit. Modifier un libellé, ajouter un champ ou rendre une question
- * facultative se fait donc ICI, sans déploiement ni des deux côtés — c'est la
- * seule façon de ne pas régresser par rapport à Brevo, où ces gestes étaient à la
- * portée du marketing.
+ * Le site lit `GET /api/forms/<formId>` et rend ce qu'il reçoit : modifier un
+ * libellé ou ajouter un champ se fait ICI, sans déploiement — comme du temps de
+ * Brevo, où ces gestes étaient à la portée du marketing.
  *
- * Réservé aux admins : un formulaire est servi publiquement sur tim-management.co,
- * ce n'est pas un réglage de partenaire.
+ * Réservé aux admins : c'est un formulaire public, pas un réglage de partenaire.
  */
 export const Forms: CollectionConfig = {
   slug: "forms",
@@ -59,10 +56,6 @@ export const Forms: CollectionConfig = {
       },
     },
     {
-      /**
-       * Les champs. L'ORDRE de cette liste est l'ordre d'affichage sur le site :
-       * la vitrine rend ce qu'elle reçoit, sans le réordonner.
-       */
       name: "fields",
       type: "array",
       label: "Champs",
@@ -156,14 +149,10 @@ export const Forms: CollectionConfig = {
         },
         {
           /**
-           * Les choix d'une liste. `value` est l'identifiant posté et stocké ;
-           * `label` est ce que voit le visiteur.
-           *
-           * Les deux sont séparés pour une raison précise : les formulaires Brevo
-           * postaient des CODES NUMÉRIQUES (`COLLABORATEURS=3` pour « 26 - 50 »),
-           * si bien qu'une soumission ne se lisait pas sans table de correspondance.
-           * Ici la valeur reste stable et parlante, et le libellé se corrige sans
-           * toucher aux soumissions passées.
+           * `value` est stocké, `label` est affiché. Les séparer évite l'écueil de
+           * Brevo, qui postait des codes numériques (`COLLABORATEURS=3` pour
+           * « 26 - 50 ») : une soumission ne se lisait pas sans table de
+           * correspondance.
            */
           name: "options",
           type: "array",

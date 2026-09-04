@@ -4,28 +4,18 @@ import { isAdmin } from "@/core/access";
 import { CHANNELS, PLACEMENTS } from "@/modules/forms/lib/form-schema";
 
 /**
- * Ce qu'un visiteur a envoyé depuis le site vitrine.
+ * Ce qu'un visiteur a envoyé depuis le site vitrine — la trace BRUTE.
  *
- * C'est la TRACE BRUTE, conservée telle qu'elle est arrivée. L'opportunité créée
- * dans la foulée en est une lecture métier : elle ne garde que ce qui a un sens
- * commercial, et l'équipe la modifie ensuite librement. La soumission, elle, ne
- * bouge plus — c'est ce qui permet de dire, six mois après, ce que la personne
- * avait réellement coché et par quelle campagne elle était arrivée.
+ * L'opportunité créée dans la foulée en est une lecture métier, que l'équipe
+ * modifie ensuite ; la soumission, elle, ne bouge plus. C'est ce qui permet de
+ * dire six mois après ce que la personne avait coché et par quelle campagne elle
+ * était arrivée. D'où l'absence d'écriture manuelle : elle est reçue, pas saisie.
  *
- * D'où l'absence d'écriture manuelle : une soumission n'est pas quelque chose
- * qu'on saisit, c'est quelque chose qu'on a reçu. Le serveur écrit en
- * `overrideAccess`, personne d'autre.
- *
- * Les dimensions d'attribution sont des CHAMPS À PART, indexés, et non un objet
- * fourre-tout : ce sont elles qui rendront les statistiques croisables (leads par
- * page, par campagne, A/B test des landing pages). Un tag concaténé ne s'agrège
- * pas — c'est exactement ce qui a rendu fragile le mapping d'étapes de Brevo.
+ * Les dimensions d'attribution sont des champs à part, indexés, et non un objet
+ * fourre-tout : un tag concaténé ne s'agrège pas.
  */
 
-/**
- * Titre lisible de la fiche. Sans lui, une liste de soumissions n'affiche que des
- * identifiants — or ce qu'on cherche, c'est une société et une personne.
- */
+/** Titre lisible : une liste d'identifiants ne dit ni la société ni la personne. */
 const buildSummary: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
   const answers = (data?.answers ?? originalDoc?.answers ?? {}) as Record<string, unknown>;
   const company = String(answers.company_name ?? "").trim();
@@ -74,11 +64,8 @@ export const FormSubmissions: CollectionConfig = {
                   admin: { width: "50%", readOnly: true },
                 },
                 {
-                  /**
-                   * Copie de l'identifiant au moment de l'envoi. La définition peut
-                   * être renommée ou supprimée ; la soumission doit rester
-                   * attribuable sans dépendre d'elle.
-                   */
+                  // Copie au moment de l'envoi : la définition peut être renommée
+                  // ou supprimée, la soumission doit rester attribuable.
                   name: "formIdSnapshot",
                   type: "text",
                   label: "Identifiant du formulaire",
@@ -86,6 +73,20 @@ export const FormSubmissions: CollectionConfig = {
                   admin: { width: "50%", readOnly: true },
                 },
               ],
+            },
+            {
+              /**
+               * Identifiant OPAQUE renvoyé au site, qui le pousse dans GA4 :
+               * il rapproche un événement de conversion de cette ligne sans faire
+               * transiter de donnée personnelle. Non séquentiel — un identifiant
+               * énumérable révélerait le volume de leads à qui sait compter.
+               */
+              name: "submissionId",
+              type: "text",
+              label: "Identifiant de soumission",
+              index: true,
+              unique: true,
+              admin: { readOnly: true },
             },
             {
               name: "answers",
@@ -142,11 +143,8 @@ export const FormSubmissions: CollectionConfig = {
                   admin: { width: "50%", readOnly: true },
                 },
                 {
-                  /**
-                   * Sans cette dimension, l'A/B test des landing pages n'est pas
-                   * mesurable : la même définition de formulaire est atteignable
-                   * depuis au moins cinq contextes (quatre URL plus l'override ?v=v2).
-                   */
+                  // Sans elle, l'A/B test des landing pages n'est pas mesurable :
+                  // la même LP est atteignable depuis au moins cinq contextes.
                   name: "lpVariant",
                   type: "text",
                   label: "Variante",

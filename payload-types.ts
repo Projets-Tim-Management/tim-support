@@ -1415,6 +1415,7 @@ export interface FormSubmission {
   summary?: string | null;
   form?: (number | null) | Form;
   formIdSnapshot?: string | null;
+  submissionId?: string | null;
   /**
    * Valeurs postées, telles que reçues.
    */
@@ -2589,6 +2590,7 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
   summary?: T;
   form?: T;
   formIdSnapshot?: T;
+  submissionId?: T;
   answers?: T;
   channel?: T;
   placement?: T;

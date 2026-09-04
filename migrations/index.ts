@@ -47,6 +47,7 @@ import * as migration_20260828_145201_drop_old_availability from './20260828_145
 import * as migration_20260901_173627_vehicles_papers from './20260901_173627_vehicles_papers';
 import * as migration_20260903_050914_ticket_documents from './20260903_050914_ticket_documents';
 import * as migration_20260904_070317_add_forms from './20260904_070317_add_forms';
+import * as migration_20260904_073045_add_submission_id from './20260904_073045_add_submission_id';
 
 export const migrations = [
   {
@@ -292,6 +293,11 @@ export const migrations = [
   {
     up: migration_20260904_070317_add_forms.up,
     down: migration_20260904_070317_add_forms.down,
-    name: '20260904_070317_add_forms'
+    name: '20260904_070317_add_forms',
+  },
+  {
+    up: migration_20260904_073045_add_submission_id.up,
+    down: migration_20260904_073045_add_submission_id.down,
+    name: '20260904_073045_add_submission_id'
   },
 ];

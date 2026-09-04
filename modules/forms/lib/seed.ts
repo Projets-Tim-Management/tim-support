@@ -5,15 +5,10 @@ import { SEEDED_FORMS } from "@/modules/forms/lib/form-schema";
 /**
  * Sème les formulaires livrés avec le code au démarrage.
  *
- * ⚠️ Base partagée dev/prod : ce fichier ne fait que CRÉER une définition absente.
- * Il ne réécrit jamais une définition existante — libellés, options, caractère
- * obligatoire et textes appartiennent à l'équipe dès qu'elle y a touché, et c'est
- * tout l'intérêt de la collection. Un semis qui « remet à jour » effacerait en
- * silence une correction faite en back-office un vendredi soir.
- *
- * `seedVersion` existe pour le jour où il faudra COMPLÉTER une définition déjà en
- * place (ajouter un champ livré avec le code). Cette mise à niveau devra alors
- * être écrite explicitement ici, champ par champ, jamais par écrasement global.
+ * ⚠️ Base partagée dev/prod : ce fichier ne fait que CRÉER une définition absente,
+ * jamais réécrire une existante — un semis qui « remet à jour » effacerait une
+ * correction faite en back-office. `seedVersion` servira le jour où il faudra
+ * compléter une définition en place, champ par champ.
  */
 const SEED_VERSION = 1;
 
