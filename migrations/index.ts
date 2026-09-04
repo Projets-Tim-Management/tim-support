@@ -49,6 +49,7 @@ import * as migration_20260903_050914_ticket_documents from './20260903_050914_t
 import * as migration_20260904_070317_add_forms from './20260904_070317_add_forms';
 import * as migration_20260904_073045_add_submission_id from './20260904_073045_add_submission_id';
 import * as migration_20260904_080651_add_channel_source from './20260904_080651_add_channel_source';
+import * as migration_20260904_082455_add_lead_fields from './20260904_082455_add_lead_fields';
 
 export const migrations = [
   {
@@ -304,6 +305,11 @@ export const migrations = [
   {
     up: migration_20260904_080651_add_channel_source.up,
     down: migration_20260904_080651_add_channel_source.down,
-    name: '20260904_080651_add_channel_source'
+    name: '20260904_080651_add_channel_source',
+  },
+  {
+    up: migration_20260904_082455_add_lead_fields.up,
+    down: migration_20260904_082455_add_lead_fields.down,
+    name: '20260904_082455_add_lead_fields'
   },
 ];

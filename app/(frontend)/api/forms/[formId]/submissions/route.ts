@@ -4,8 +4,10 @@ import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
 import { resolveChannel } from "@/modules/forms/lib/channel";
+import { createOpportunity } from "@/modules/forms/lib/create-opportunity";
 import { checkIngestKey, clientIp, parseAttribution } from "@/modules/forms/lib/ingest";
 import { toPublicForm } from "@/modules/forms/lib/public-schema";
+import { buildOpportunity } from "@/modules/forms/lib/to-opportunity";
 import { honeypotTripped, validateAnswers } from "@/modules/forms/lib/validate";
 
 /**
@@ -26,6 +28,17 @@ const HOUR_MS = 60 * 60 * 1000;
 
 const fail = (error: string, status: number, extra: Record<string, unknown> = {}) =>
   NextResponse.json({ error, ...extra }, { status, headers: { "Cache-Control": "no-store" } });
+
+/** Suite donnée à une soumission. Jamais bloquant : le lead est déjà en base. */
+async function markSubmission(
+  payload: Awaited<ReturnType<typeof payloadClient>>,
+  id: number | string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  await payload
+    .update({ collection: "form-submissions", id, data: data as never, overrideAccess: true })
+    .catch((e) => payload.logger.error(`[formulaires] marquage de ${id} échoué : ${e}`));
+}
 
 export async function POST(req: Request, { params }: { params: Promise<{ formId: string }> }) {
   const key = checkIngestKey(req);
@@ -106,7 +119,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
     );
     const submissionId = randomUUID();
 
-    await payload.create({
+    const submission = await payload.create({
       collection: "form-submissions",
       data: {
         submissionId,
@@ -128,6 +141,35 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
         attribution.sourcePagePath ?? "page inconnue"
       }.`,
     );
+
+    /**
+     * L'opportunité, dans la foulée — c'est ce qui remplace le cron quotidien.
+     *
+     * Enveloppé : la soumission EST enregistrée, et un échec ici ne doit ni
+     * répondre une erreur au visiteur, ni perdre le lead. Il est inscrit sur la
+     * soumission, où quelqu'un peut le voir et rattraper la fiche à la main.
+     */
+    try {
+      const outcome = await createOpportunity(
+        payload,
+        buildOpportunity({ form, answers: result.answers, attribution, channel }),
+        submission.id,
+      );
+      if (outcome.status === "echec") {
+        payload.logger.error(`[formulaires] opportunité non créée (${submissionId}) : ${outcome.error}`);
+        await markSubmission(payload, submission.id, { processingStatus: "echec", processingError: outcome.error });
+      } else {
+        const status = outcome.status === "rattachee" ? "opportunite" : outcome.status;
+        await markSubmission(payload, submission.id, { processingStatus: status, client: outcome.clientId });
+        payload.logger.info(
+          `[formulaires] ${outcome.status === "rattachee" ? "soumission rattachée à" : "opportunité"} ${outcome.clientId} (${submissionId}).`,
+        );
+      }
+    } catch (e) {
+      const error = (e as Error).message;
+      payload.logger.error(`[formulaires] opportunité non créée (${submissionId}) : ${error}`);
+      await markSubmission(payload, submission.id, { processingStatus: "echec", processingError: error });
+    }
 
     return NextResponse.json(
       { ok: true, submission_id: submissionId },
