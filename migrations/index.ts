@@ -52,6 +52,13 @@ import * as migration_20260904_080651_add_channel_source from './20260904_080651
 import * as migration_20260904_082455_add_lead_fields from './20260904_082455_add_lead_fields';
 import * as migration_20260904_090936_add_loss_reason_a_qualifier from './20260904_090936_add_loss_reason_a_qualifier';
 import * as migration_20260904_100019_add_landing_path from './20260904_100019_add_landing_path';
+import * as migration_20260904_125117_add_email_suppressions from './20260904_125117_add_email_suppressions';
+import * as migration_20260904_150534_add_sequences from './20260904_150534_add_sequences';
+import * as migration_20260904_151255_add_message_style from './20260904_151255_add_message_style';
+import * as migration_20260904_152828_add_signature_block from './20260904_152828_add_signature_block';
+import * as migration_20260904_154155_remove_sequence_signature from './20260904_154155_remove_sequence_signature';
+import * as migration_20260904_160912_optional_sequence_cta from './20260904_160912_optional_sequence_cta';
+import * as migration_20260904_164301_sequence_reply_and_chaining from './20260904_164301_sequence_reply_and_chaining';
 
 export const migrations = [
   {
@@ -322,6 +329,41 @@ export const migrations = [
   {
     up: migration_20260904_100019_add_landing_path.up,
     down: migration_20260904_100019_add_landing_path.down,
-    name: '20260904_100019_add_landing_path'
+    name: '20260904_100019_add_landing_path',
+  },
+  {
+    up: migration_20260904_125117_add_email_suppressions.up,
+    down: migration_20260904_125117_add_email_suppressions.down,
+    name: '20260904_125117_add_email_suppressions',
+  },
+  {
+    up: migration_20260904_150534_add_sequences.up,
+    down: migration_20260904_150534_add_sequences.down,
+    name: '20260904_150534_add_sequences',
+  },
+  {
+    up: migration_20260904_151255_add_message_style.up,
+    down: migration_20260904_151255_add_message_style.down,
+    name: '20260904_151255_add_message_style',
+  },
+  {
+    up: migration_20260904_152828_add_signature_block.up,
+    down: migration_20260904_152828_add_signature_block.down,
+    name: '20260904_152828_add_signature_block',
+  },
+  {
+    up: migration_20260904_154155_remove_sequence_signature.up,
+    down: migration_20260904_154155_remove_sequence_signature.down,
+    name: '20260904_154155_remove_sequence_signature',
+  },
+  {
+    up: migration_20260904_160912_optional_sequence_cta.up,
+    down: migration_20260904_160912_optional_sequence_cta.down,
+    name: '20260904_160912_optional_sequence_cta',
+  },
+  {
+    up: migration_20260904_164301_sequence_reply_and_chaining.up,
+    down: migration_20260904_164301_sequence_reply_and_chaining.down,
+    name: '20260904_164301_sequence_reply_and_chaining'
   },
 ];

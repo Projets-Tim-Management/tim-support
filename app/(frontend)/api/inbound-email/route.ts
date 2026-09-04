@@ -3,7 +3,11 @@ import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
-import { extractJourneyRunId, extractTicketNumber } from "@/modules/marketing/lib/reply-routing";
+import {
+  extractJourneyRunId,
+  extractSequenceRunId,
+  extractTicketNumber,
+} from "@/modules/marketing/lib/reply-routing";
 import { SUPPORT_NOTIFY_EMAIL, ticketReplyNoticeEmail } from "@/modules/support/lib/email";
 
 // Webhook d'e-mails entrants (Brevo Inbound Parsing).
@@ -13,7 +17,9 @@ import { SUPPORT_NOTIFY_EMAIL, ticketReplyNoticeEmail } from "@/modules/support/
 //   - run-<id>@REPLY_DOMAIN   → réponse à un e-mail de phase de test. Elle ouvre
 //     un ticket rattaché au parcours (ou complète celui déjà ouvert), pour que
 //     l'équipe puisse intervenir au lieu de laisser dormir le message dans la
-//     boîte support.
+//     boîte support ;
+//   - seq-<id>@REPLY_DOMAIN   → réponse à une séquence de relance. Inscrite sur
+//     la fiche de l'opportunité, et arrête la séquence si celle-ci le prévoit.
 //
 // Protégé par une clé en query (?key=...) car Brevo ne signe pas les webhooks.
 export const dynamic = "force-dynamic";
@@ -56,6 +62,107 @@ type TicketDoc = {
   messages?: { author: "client" | "support"; body: string; sentAt: string; attachments?: number[] }[];
 };
 
+/**
+ * Ce qu'une réponse à une séquence de relance provoque.
+ *
+ * Deux effets, décidés séparément :
+ *
+ *  1. La réponse est TOUJOURS inscrite sur la fiche de l'opportunité. C'est le
+ *     point le plus important : sans ça, un prospect qui écrit « finalement je
+ *     suis intéressé » disparaît dans une boîte que personne n'ouvre. Elle
+ *     devient une TÂCHE quand la séquence s'arrête (quelqu'un doit rappeler),
+ *     une simple trace quand la séquence continue.
+ *
+ *  2. La séquence s'arrête, ou non, selon SON réglage — pas selon le code. Une
+ *     relance qui demande « votre projet est-il toujours d'actualité ? » a
+ *     obtenu ce qu'elle voulait dès la première réponse. Une campagne, elle,
+ *     n'attend pas de réponse : « merci, pas pour l'instant » n'est pas une
+ *     demande de désinscription, et la couper priverait le prospect des messages
+ *     suivants sans qu'il l'ait demandé.
+ *
+ * Aucun ticket n'est créé : la personne répond à une sollicitation commerciale,
+ * pas à une demande d'assistance. Un ticket encombrerait la file du support d'un
+ * message qui appartient au commercial.
+ *
+ * Silencieux de bout en bout : une réponse tardive à une séquence supprimée ne
+ * doit pas produire d'erreur dans un webhook que Brevo réessaierait en boucle.
+ */
+async function handleSequenceReply(
+  payload: Awaited<ReturnType<typeof payloadClient>>,
+  id: number,
+  text: string,
+): Promise<void> {
+  try {
+    const run = (await payload
+      .findByID({ collection: "sequence-runs", id, depth: 0, overrideAccess: true })
+      .catch(() => null)) as {
+      status?: string;
+      client?: unknown;
+      email?: string;
+      sequence?: string;
+      sequenceLabel?: string;
+    } | null;
+    if (!run) return;
+
+    const model = (
+      await payload.find({
+        collection: "sequences",
+        where: { key: { equals: run.sequence } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      })
+    ).docs[0] as { stopOnReply?: boolean } | undefined;
+
+    // Modèle introuvable (séquence supprimée depuis) : on ARRÊTE. Continuer à
+    // écrire à quelqu'un qui a répondu, faute de savoir, est la pire des deux
+    // erreurs possibles.
+    const stop = model?.stopOnReply !== false;
+    const running = run.status === "en-cours";
+
+    if (stop && running) {
+      await payload.update({
+        collection: "sequence-runs",
+        id,
+        data: { status: "arretee", stopReason: "reponse" } as never,
+        overrideAccess: true,
+      });
+      payload.logger.info(`[séquence] ${id} arrêtée : le prospect a répondu.`);
+    }
+
+    const raw =
+      run.client && typeof run.client === "object" ? (run.client as { id?: unknown }).id : run.client;
+    const clientId = Number(raw);
+    if (!Number.isFinite(clientId)) return;
+
+    const label = run.sequenceLabel ?? "relance";
+    await payload.create({
+      collection: "client-activities",
+      data:
+        stop && running
+          ? {
+              // Une tâche, et non une note : la séquence vient de s'arrêter pour
+              // que quelqu'un reprenne la main. Personne ne reprend une note.
+              type: "tache",
+              taskKind: "email",
+              title: `Répondre à ${run.email ?? "ce prospect"} — a répondu à « ${label} »`,
+              content: text,
+              dueDate: new Date().toISOString(),
+              client: clientId,
+            }
+          : {
+              type: "email",
+              title: `Réponse à « ${label} »`,
+              content: text,
+              client: clientId,
+            },
+      overrideAccess: true,
+    });
+  } catch (err) {
+    payload.logger.error(`[séquence] réponse à ${id} non traitée : ${err}`);
+  }
+}
+
 export async function POST(req: Request) {
   // Secret dédié obligatoire (jamais de repli sur PAYLOAD_SECRET, qui ne doit
   // pas transiter en clair dans une URL de webhook).
@@ -85,8 +192,17 @@ export async function POST(req: Request) {
 
     const number = extractTicketNumber(recips);
     const runId = number ? null : extractJourneyRunId(recips);
-    if (!number && !runId) continue;
 
+    /**
+     * Réponse à une séquence de relance : on l'ARRÊTE, et on s'arrête là.
+     *
+     * Pas de ticket créé : la personne répond à une sollicitation commerciale,
+     * pas à une demande d'assistance. En faire un ticket encombrerait la file
+     * du support d'un message qui appartient au commercial — et la réponse
+     * reste lisible dans la boîte d'où part la séquence.
+     *
+     * Ce qui compte, c'est qu'elle ne reçoive plus les six messages suivants.
+     */
     const text = (
       (item.ExtractedMarkdownMessage as string) ||
       (item.RawTextBody as string) ||
@@ -96,6 +212,14 @@ export async function POST(req: Request) {
       .toString()
       .trim()
       .slice(0, 20000);
+
+    const seqId = number || runId ? null : extractSequenceRunId(recips);
+    if (seqId) {
+      await handleSequenceReply(payload, seqId, text);
+      continue;
+    }
+
+    if (!number && !runId) continue;
     if (!text) continue;
 
     // Résolution du ticket destinataire : celui visé par l'adresse, ou celui du

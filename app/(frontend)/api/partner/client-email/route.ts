@@ -4,7 +4,7 @@ import { hasAdminRole, isPartnerMetier, partnerIdOf } from "@/core/access";
 import { payloadClient } from "@/core/payload-client";
 import { SITE_URL } from "@/core/lib/email-template";
 import { markdownToHtml, markdownToPlain } from "@/modules/partner/lib/rich-text";
-import { renderSignature, signatureText } from "@/modules/partner/lib/signature";
+import { renderSignature, signatureFromPartner, signatureText } from "@/modules/partner/lib/signature";
 import { getDomainStatus, getSenders } from "@/modules/support/lib/brevo";
 
 /**
@@ -236,19 +236,7 @@ async function signatureOf(
     .catch(() => null)) as Record<string, unknown> | null;
   if (!fiche) return { html: "", text: "" };
 
-  const media = (fiche.signaturePhoto ?? fiche.avatar) as { url?: string } | null | undefined;
-  const sig = {
-    name:
-      [fiche.firstName, fiche.name].filter(Boolean).join(" ").trim() ||
-      (fiche.displayName as string) ||
-      (fiche.societe as string) ||
-      null,
-    jobTitle: (fiche.signatureJobTitle as string) ?? null,
-    company: (fiche.signatureCompany as string) ?? (fiche.societe as string) ?? null,
-    phone: (fiche.signaturePhone as string) ?? (fiche.mobile as string) ?? (fiche.phone as string) ?? null,
-    website: (fiche.signatureWebsite as string) ?? null,
-    photoUrl: media && typeof media === "object" ? (media.url ?? null) : null,
-  };
+  const sig = signatureFromPartner(fiche);
   return { html: renderSignature(sig), text: signatureText(sig) };
 }
 

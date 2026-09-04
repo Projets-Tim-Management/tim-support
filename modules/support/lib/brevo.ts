@@ -279,6 +279,50 @@ async function query(params: Record<string, string>): Promise<BrevoEvent[]> {
   return json.events ?? [];
 }
 
+/**
+ * Événements qui valent une inscription définitive sur la liste de suppression.
+ *
+ * `unsubscribed` : la personne a cliqué « se désabonner » côté Brevo.
+ * `hardBounces`  : l'adresse n'existe pas — continuer d'écrire abîme la
+ *                  réputation d'expéditeur, donc la délivrabilité de TOUT le
+ *                  reste, e-mails de tickets compris.
+ * `spam`         : une plainte. La pire des trois, et la plus coûteuse.
+ *
+ * Les rejets TEMPORAIRES (`softBounces`) n'y sont pas : une boîte pleine se
+ * vide, un serveur qui tousse repart. Les y mettre supprimerait des prospects
+ * joignables.
+ */
+export const SUPPRESSION_EVENTS = ["unsubscribed", "hardBounces", "spam"] as const;
+
+/**
+ * Tous les événements de suppression sur une fenêtre donnée, toutes campagnes
+ * confondues.
+ *
+ * `days` est plafonné à 90 par l'API Brevo. La pagination est explicite : sans
+ * elle, une journée chargée serait tronquée à la première page et des
+ * désinscriptions passeraient à la trappe — sans que rien ne le signale.
+ */
+export async function fetchSuppressionEvents(days = 7): Promise<BrevoEvent[]> {
+  if (!process.env.BREVO_API_KEY) return [];
+  const out: BrevoEvent[] = [];
+  const PAGE = 100;
+
+  for (const event of SUPPRESSION_EVENTS) {
+    for (let offset = 0; offset < 5000; offset += PAGE) {
+      const page = await query({
+        days: String(Math.min(days, 90)),
+        limit: String(PAGE),
+        offset: String(offset),
+        sort: "desc",
+        event,
+      });
+      out.push(...page);
+      if (page.length < PAGE) break;
+    }
+  }
+  return out;
+}
+
 /** Activité e-mail d'un ticket : le tag du ticket, plus le reste de l'adresse. */
 export const getTicketEmailActivity = (
   number: number | string | undefined | null,

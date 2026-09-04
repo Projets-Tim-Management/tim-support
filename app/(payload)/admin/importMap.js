@@ -50,6 +50,7 @@ import { default as default_8a9381e16c061227fc1bf73c50e6e581 } from '../../../mo
 import { InseeLookup as InseeLookup_408c5271613c1beb0676cb0c9b2b5bf9 } from '../../../modules/partner/admin/InseeLookup'
 import { ClientStatusCell as ClientStatusCell_358b486afee2c4532aca3d72ba0365eb } from '../../../modules/partner/admin/ClientStatusCell'
 import { ClientStatusField as ClientStatusField_4cf9c5082e5cc09e6363544e31423ee7 } from '../../../modules/marketing/admin/ClientStatusField'
+import { SequenceState as SequenceState_76fc64c304fa617805830e30067a8b3b } from '../../../modules/marketing/admin/SequenceState'
 import { ClientHistory as ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1 } from '../../../modules/partner/admin/ClientHistory'
 import { LicencesTable as LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338 } from '../../../modules/partner/admin/LicencesTable'
 import { PartnerClientHistory as PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2 } from '../../../modules/partner/admin/PartnerClientHistory'
@@ -78,6 +79,9 @@ import { JourneyStepRowLabel as JourneyStepRowLabel_02522917a685fae4d72c3fe2c8b0
 import { JourneyEmailRowLabel as JourneyEmailRowLabel_2a7e629310745e0192957a9f1db82354 } from '../../../modules/marketing/admin/JourneyEmailRowLabel'
 import { AdminOnlyTabs as AdminOnlyTabs_7f44b13f20fa34f65e1be48236cbac4a } from '../../../modules/marketing/admin/AdminOnlyTabs'
 import { RunStatusCell as RunStatusCell_bca3b66a118f960c09383a20d2f2a00d } from '../../../modules/marketing/admin/RunStatusCell'
+import { SequenceMessageRowLabel as SequenceMessageRowLabel_e7e48e4e23bef92699ec37deb7eff91a } from '../../../modules/marketing/admin/SequenceMessageRowLabel'
+import { SequenceMessagePreview as SequenceMessagePreview_1d83c136501c19d8287861487b154c08 } from '../../../modules/marketing/admin/SequenceMessagePreview'
+import { SequenceThemeRowLabel as SequenceThemeRowLabel_f78827f64ca8974d62621135cef1d267 } from '../../../modules/marketing/admin/SequenceThemeRowLabel'
 import { FormOptionRowLabel as FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b } from '../../../modules/forms/admin/FormOptionRowLabel'
 import { FormFieldRowLabel as FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3 } from '../../../modules/forms/admin/FormFieldRowLabel'
 import { InsuranceCell as InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4 } from '../../../modules/marketing/admin/InsuranceCell'
@@ -151,6 +155,7 @@ export const importMap = {
   "/modules/partner/admin/InseeLookup#InseeLookup": InseeLookup_408c5271613c1beb0676cb0c9b2b5bf9,
   "/modules/partner/admin/ClientStatusCell#ClientStatusCell": ClientStatusCell_358b486afee2c4532aca3d72ba0365eb,
   "/modules/marketing/admin/ClientStatusField#ClientStatusField": ClientStatusField_4cf9c5082e5cc09e6363544e31423ee7,
+  "/modules/marketing/admin/SequenceState#SequenceState": SequenceState_76fc64c304fa617805830e30067a8b3b,
   "/modules/partner/admin/ClientHistory#ClientHistory": ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1,
   "/modules/partner/admin/LicencesTable#LicencesTable": LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338,
   "/modules/partner/admin/PartnerClientHistory#PartnerClientHistory": PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2,
@@ -179,6 +184,9 @@ export const importMap = {
   "/modules/marketing/admin/JourneyEmailRowLabel#JourneyEmailRowLabel": JourneyEmailRowLabel_2a7e629310745e0192957a9f1db82354,
   "/modules/marketing/admin/AdminOnlyTabs#AdminOnlyTabs": AdminOnlyTabs_7f44b13f20fa34f65e1be48236cbac4a,
   "/modules/marketing/admin/RunStatusCell#RunStatusCell": RunStatusCell_bca3b66a118f960c09383a20d2f2a00d,
+  "/modules/marketing/admin/SequenceMessageRowLabel#SequenceMessageRowLabel": SequenceMessageRowLabel_e7e48e4e23bef92699ec37deb7eff91a,
+  "/modules/marketing/admin/SequenceMessagePreview#SequenceMessagePreview": SequenceMessagePreview_1d83c136501c19d8287861487b154c08,
+  "/modules/marketing/admin/SequenceThemeRowLabel#SequenceThemeRowLabel": SequenceThemeRowLabel_f78827f64ca8974d62621135cef1d267,
   "/modules/forms/admin/FormOptionRowLabel#FormOptionRowLabel": FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b,
   "/modules/forms/admin/FormFieldRowLabel#FormFieldRowLabel": FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3,
   "/modules/marketing/admin/InsuranceCell#InsuranceCell": InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4,

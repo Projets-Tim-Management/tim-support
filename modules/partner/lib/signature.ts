@@ -106,3 +106,30 @@ export function signatureText(sig: PartnerSignature): string {
     .filter(Boolean)
     .join("\n");
 }
+
+/**
+ * Lit une fiche partenaire et en tire la signature.
+ *
+ * La correspondance vit ICI et pas chez l'appelant : elle porte des replis
+ * (`signatureCompany` sinon `societe`, `signaturePhone` sinon le mobile, la
+ * photo de signature sinon l'avatar) qui doivent être les mêmes partout. Deux
+ * copies de cette liste finiraient par diverger, et le même partenaire
+ * signerait différemment selon l'écran d'où part le message.
+ */
+export function signatureFromPartner(fiche: Record<string, unknown> | null | undefined): PartnerSignature {
+  if (!fiche) return {};
+  const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v : null);
+  const media = (fiche.signaturePhoto ?? fiche.avatar) as { url?: string } | null | undefined;
+
+  return {
+    name:
+      [fiche.firstName, fiche.name].filter(Boolean).join(" ").trim() ||
+      str(fiche.displayName) ||
+      str(fiche.societe),
+    jobTitle: str(fiche.signatureJobTitle),
+    company: str(fiche.signatureCompany) ?? str(fiche.societe),
+    phone: str(fiche.signaturePhone) ?? str(fiche.mobile) ?? str(fiche.phone),
+    website: str(fiche.signatureWebsite),
+    photoUrl: media && typeof media === "object" ? (media.url ?? null) : null,
+  };
+}

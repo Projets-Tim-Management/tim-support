@@ -65,3 +65,25 @@ export const extractTicketNumber = (recipients: string[]): number | null => {
   }
   return null;
 };
+
+/**
+ * Adresse de réponse d'une SÉQUENCE de relance, troisième du même motif.
+ *
+ * Elle sert un objectif de plus que les deux autres : une réponse ARRÊTE la
+ * séquence. Sans elle, un prospect qui répond « merci, on rappellera en
+ * septembre » continuerait de recevoir des relances tous les deux mois — la
+ * façon la plus sûre de transformer un intérêt en agacement.
+ */
+export const sequenceReplyTo = (runId: number | string): string | undefined => {
+  const domain = process.env.REPLY_DOMAIN;
+  return domain ? `seq-${runId}@${domain}` : undefined;
+};
+
+/** Id de la séquence porté par l'un des destinataires, s'il y en a un. */
+export const extractSequenceRunId = (recipients: string[]): number | null => {
+  for (const r of recipients) {
+    const m = /seq-(\d+)@/i.exec(r);
+    if (m) return Number(m[1]);
+  }
+  return null;
+};

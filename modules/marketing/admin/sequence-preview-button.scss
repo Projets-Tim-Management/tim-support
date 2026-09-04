@@ -1,0 +1,40 @@
+/**
+ * Bouton « Voir le rendu » d'un message de séquence.
+ *
+ * Discret et à la fin de la ligne : c'est une vérification, pas l'action
+ * principale de l'écran — laquelle reste d'écrire le message.
+ */
+.seq-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-top: 0.25rem;
+
+  &__btn {
+    appearance: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--tim-foreground);
+    background: var(--tim-white);
+    border: 1px solid var(--tim-border);
+    border-radius: var(--tim-radius-sm);
+    padding: 0.375rem 0.75rem;
+
+    &:hover {
+      color: var(--tim-primary);
+      border-color: color-mix(in srgb, var(--tim-primary) 40%, var(--tim-border));
+    }
+  }
+
+  &__hint {
+    font-size: 0.75rem;
+    color: var(--tim-muted);
+  }
+}
+
+/* Seule sur sa ligne (message sans clé), la mention garde sa marge. */
+p.seq-preview__hint {
+  margin: 0.25rem 0 0;
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { renderSignature, signatureText } from "@/modules/partner/lib/signature";
+import { renderSignature, signatureFromPartner, signatureText } from "@/modules/partner/lib/signature";
 
 /**
  * Signature d'e-mail d'un partenaire.
@@ -70,5 +70,63 @@ describe("version texte", () => {
 
   it("reste vide sans nom", () => {
     expect(signatureText({ phone: "06" })).toBe("");
+  });
+});
+
+describe("fiche partenaire → signature", () => {
+  it("compose le nom à partir du prénom et du nom", () => {
+    expect(signatureFromPartner({ firstName: "Charlie", name: "Piancatelli" }).name).toBe(
+      "Charlie Piancatelli",
+    );
+  });
+
+  it("se rabat sur la société quand la personne n'est pas nommée", () => {
+    // Certains partenaires sont saisis comme une entreprise, sans interlocuteur.
+    expect(signatureFromPartner({ societe: "BTP Diffusion" }).name).toBe("BTP Diffusion");
+  });
+
+  it("reprend le mobile et l'avatar quand le bloc signature est vide", () => {
+    // Le bloc « Signature e-mail » est facultatif. Sans ces replis, un partenaire
+    // qui ne l'a pas rempli signerait sans aucune coordonnée alors que sa fiche
+    // en porte.
+    const sig = signatureFromPartner({
+      firstName: "Luis",
+      mobile: "06 11 22 33 44",
+      societe: "Toiture 34",
+      avatar: { url: "/media/luis.jpg" },
+    });
+    expect(sig.phone).toBe("06 11 22 33 44");
+    expect(sig.company).toBe("Toiture 34");
+    expect(sig.photoUrl).toBe("/media/luis.jpg");
+  });
+
+  it("laisse le bloc signature l'emporter sur la fiche", () => {
+    const sig = signatureFromPartner({
+      firstName: "Luis",
+      mobile: "06 11 22 33 44",
+      signaturePhone: "04 67 00 00 00",
+      societe: "Toiture 34",
+      signatureCompany: "Groupe Toiture",
+    });
+    expect(sig.phone).toBe("04 67 00 00 00");
+    expect(sig.company).toBe("Groupe Toiture");
+  });
+
+  it("signe le seul nom quand rien d'autre n'est renseigné", () => {
+    /**
+     * C'est le cas le plus fréquent au démarrage : la fiche existe, le bloc
+     * signature est vide. Le message doit rester signé — sans encadré de
+     * fonction, sans photo, sans ligne de coordonnées vide.
+     */
+    const html = renderSignature(signatureFromPartner({ firstName: "Luis", name: "Martin" }));
+    expect(html).toContain("Luis Martin");
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("tel:");
+    expect(html).not.toContain("border-radius:6px");
+  });
+
+  it("ne rend rien pour une fiche absente ou anonyme", () => {
+    expect(renderSignature(signatureFromPartner(null))).toBe("");
+    expect(renderSignature(signatureFromPartner({ email: "x@y.fr" }))).toBe("");
   });
 });
