@@ -105,6 +105,40 @@ export function cleanSubject(subject?: string | null): string {
   return s.replace(/^((re|ré|rép|fwd|fw|tr)\s*(\[\d+\])?\s*:\s*)+/i, "").trim();
 }
 
+/**
+ * Le message SEUL, sans le fil qu'il cite.
+ *
+ * Une réponse embarque tout l'échange précédent. Sans cette coupe, la
+ * chronologie d'une fiche afficherait dix fois la même conversation, chacune un
+ * peu plus longue que la précédente — et on ne verrait plus ce qui vient d'être
+ * écrit, qui est la seule chose qu'on venait lire.
+ *
+ * Reconnaît les marqueurs français et anglais, Gmail comme Outlook. En cas de
+ * doute on garde TOUT : un message tronqué à tort est pire qu'un message trop
+ * long, parce que rien ne le signale.
+ */
+const QUOTE_MARKERS = [
+  /^\s*le\s.+\sa\s(écrit|ecrit)\s*:/i,
+  /^\s*on\s.+\swrote\s*:/i,
+  /^\s*-{2,}\s*(message d'origine|original message|forwarded message)\s*-{2,}/i,
+  /^\s*De\s*:\s*.+$/i,
+  /^\s*From\s*:\s*.+$/i,
+  /^\s*_{5,}\s*$/,
+];
+
+export function stripQuoted(text: string): string {
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    if (QUOTE_MARKERS.some((re) => re.test(lines[i]))) {
+      const kept = lines.slice(0, i).join("\n").trim();
+      // Une citation en tête de message (un transfert commenté d'une ligne) ne
+      // doit pas tout effacer : dans ce cas on préfère garder le message entier.
+      return kept.length >= 20 ? kept : text.trim();
+    }
+  }
+  return text.trim();
+}
+
 export interface Match {
   clientId: number;
   /** L'adresse de l'opportunité qui a permis le rattachement. */
