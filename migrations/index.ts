@@ -61,6 +61,8 @@ import * as migration_20260904_160912_optional_sequence_cta from './20260904_160
 import * as migration_20260904_164301_sequence_reply_and_chaining from './20260904_164301_sequence_reply_and_chaining';
 import * as migration_20260904_173847_capture_email_fields from './20260904_173847_capture_email_fields';
 import * as migration_20260904_181924_mailbox_connections from './20260904_181924_mailbox_connections';
+import * as migration_20260904_203851_mailbox_cursors from './20260904_203851_mailbox_cursors';
+import * as migration_20260904_203907_drop_mailbox_history_id from './20260904_203907_drop_mailbox_history_id';
 
 export const migrations = [
   {
@@ -376,6 +378,16 @@ export const migrations = [
   {
     up: migration_20260904_181924_mailbox_connections.up,
     down: migration_20260904_181924_mailbox_connections.down,
-    name: '20260904_181924_mailbox_connections'
+    name: '20260904_181924_mailbox_connections',
+  },
+  {
+    up: migration_20260904_203851_mailbox_cursors.up,
+    down: migration_20260904_203851_mailbox_cursors.down,
+    name: '20260904_203851_mailbox_cursors',
+  },
+  {
+    up: migration_20260904_203907_drop_mailbox_history_id.up,
+    down: migration_20260904_203907_drop_mailbox_history_id.down,
+    name: '20260904_203907_drop_mailbox_history_id'
   },
 ];

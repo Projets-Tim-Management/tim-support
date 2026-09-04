@@ -145,10 +145,22 @@ export const MailboxConnections: CollectionConfig = {
     { name: "refreshToken", type: "text", admin: { hidden: true } },
     { name: "expiresAt", type: "date", admin: { hidden: true } },
     /**
-     * Point de reprise Gmail. Tant qu'il est absent, la prochaine lecture est
-     * une reprise complète depuis `syncSince` ; ensuite, seuls les changements
-     * survenus depuis sont demandés.
+     * Les DEUX curseurs de la lecture, et ils avancent en sens inverse.
+     *
+     * `syncedUpTo` : jusqu'où le présent est à jour. Chaque passage repart de
+     * là — avec un jour de recouvrement, parce qu'un message peut arriver
+     * pendant qu'on lit.
+     *
+     * `backfillBefore` : jusqu'où la reprise du passé est descendue. Elle
+     * remonte le temps par tranches, de `backfillBefore` vers `syncSince`, et
+     * s'arrête quand les deux se rejoignent.
+     *
+     * Deux curseurs plutôt que l'API `history` de Gmail : celle-ci ne remonte
+     * qu'une semaine en arrière et ne sert donc à rien pour reprendre un an
+     * d'historique. Des dates se lisent, se corrigent à la main, et survivent à
+     * une reconnexion.
      */
-    { name: "historyId", type: "text", admin: { hidden: true } },
+    { name: "syncedUpTo", type: "date", admin: { hidden: true } },
+    { name: "backfillBefore", type: "date", admin: { hidden: true } },
   ],
 };

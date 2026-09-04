@@ -116,10 +116,11 @@ const header = (msg: GmailMessage, name: string): string | undefined =>
  */
 export async function listMessageIds(
   accessToken: string,
-  { since, max = 2000 }: { since: Date; max?: number },
+  { since, before, max = 2000 }: { since: Date; before?: Date; max?: number },
 ): Promise<string[]> {
-  // Gmail attend `after:` au format AAAA/MM/JJ, en heure locale du compte.
-  const after = `${since.getFullYear()}/${since.getMonth() + 1}/${since.getDate()}`;
+  // Gmail attend les dates au format AAAA/MM/JJ, en heure locale du compte.
+  const day = (d: Date) => `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+  const window = `after:${day(since)}${before ? ` before:${day(before)}` : ""}`;
   /**
    * Les notifications d'agenda sont écartées ici plutôt qu'après coup.
    *
@@ -129,7 +130,7 @@ export async function listMessageIds(
    * pour les jeter ensuite reviendrait à ouvrir des messages pour rien.
    */
   const q = encodeURIComponent(
-    `after:${after} -in:chats -in:drafts -in:trash -in:spam ` +
+    `${window} -in:chats -in:drafts -in:trash -in:spam ` +
       "-from:calendar-notification@google.com -from:noreply@google.com",
   );
 

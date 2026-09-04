@@ -61,10 +61,21 @@ export async function GET(req: Request) {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresAt: new Date(tokens.expiresAt).toISOString(),
-      // Reprise complète au prochain passage : le point de reprise Gmail d'une
-      // connexion précédente ne vaut plus rien après une réautorisation.
-      historyId: null,
-      ...(existing ? {} : { syncSince: state.since, capturedCount: 0 }),
+      /**
+       * Les deux curseurs partent d'AUJOURD'HUI, et pas de `syncSince`.
+       *
+       * Sans ça, le premier passage tenterait de lire une année entière d'un
+       * coup. Le présent est à jour par définition à l'instant où l'on connecte
+       * la boîte ; le passé se rattrape ensuite, par tranches.
+       */
+      ...(existing
+        ? {}
+        : {
+            syncSince: state.since,
+            syncedUpTo: new Date().toISOString(),
+            backfillBefore: new Date().toISOString(),
+            capturedCount: 0,
+          }),
     };
 
     if (existing) {

@@ -6,6 +6,7 @@
  *   npx tsx scripts/mailbox-status.ts --ecrire     # écrit réellement sur les fiches
  *   npx tsx scripts/mailbox-status.ts --ecrire --max=60   # sur une tranche courte
  *
+ *   npx tsx scripts/mailbox-status.ts --etat      # l'état des curseurs, sans rien lire
  *   npx tsx scripts/mailbox-status.ts --voir      # relit les derniers écrits
  *   npx tsx scripts/mailbox-status.ts --refaire   # efface les échanges CAPTÉS et recommence
  *
@@ -93,8 +94,18 @@ for (const doc of conns.docs as unknown as Record<string, unknown>[]) {
     `  ${String(doc.accountEmail).padEnd(34)} ${doc.status}` +
       ` · reprise depuis ${String(doc.syncSince ?? "?").slice(0, 10)}` +
       ` · ${doc.capturedCount ?? 0} rattaché(s)` +
+      `\n${" ".repeat(4)}présent à jour jusqu'au ${String(doc.syncedUpTo ?? "—").slice(0, 10)}` +
+      ` · passé rattrapé jusqu'au ${String(doc.backfillBefore ?? "—").slice(0, 10)}` +
+      ` (objectif ${String(doc.syncSince ?? "?").slice(0, 10)})` +
       `${doc.lastError ? ` · ⚠️ ${doc.lastError}` : ""}`,
   );
+}
+
+// `--etat` : où en sont les curseurs, sans toucher à Gmail. Une lecture, même
+// à blanc, prend plusieurs minutes — trop long pour une simple vérification.
+if (process.argv.includes("--etat")) {
+  console.log("");
+  process.exit(0);
 }
 
 for (const doc of conns.docs) {
@@ -113,6 +124,9 @@ for (const doc of conns.docs) {
   if (write) {
     console.log(`  écrits                        : ${summary.written}`);
     console.log(`  déjà présents                 : ${summary.known}`);
+    console.log(
+      `  reprise du passé              : ${summary.backfillDone ? "terminée" : `descendue au ${String(summary.backfillBefore ?? "—").slice(0, 10)}`}`,
+    );
     await recordSync(payload, conn, summary);
   } else if (summary.preview.length) {
     console.log("\n  Ce qui serait rattaché :");

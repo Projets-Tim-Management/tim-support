@@ -1554,7 +1554,8 @@ export interface MailboxConnection {
   accessToken?: string | null;
   refreshToken?: string | null;
   expiresAt?: string | null;
-  historyId?: string | null;
+  syncedUpTo?: string | null;
+  backfillBefore?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2847,7 +2848,8 @@ export interface MailboxConnectionsSelect<T extends boolean = true> {
   accessToken?: T;
   refreshToken?: T;
   expiresAt?: T;
-  historyId?: T;
+  syncedUpTo?: T;
+  backfillBefore?: T;
   updatedAt?: T;
   createdAt?: T;
 }

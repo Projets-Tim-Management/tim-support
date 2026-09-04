@@ -35,6 +35,8 @@ type Connection = {
   refreshToken?: string | null;
   expiresAt?: string | null;
   syncSince?: string | null;
+  syncedUpTo?: string | null;
+  backfillBefore?: string | null;
   capturedCount?: number | null;
 };
 
@@ -53,10 +55,58 @@ export interface MailboxSummary {
   error?: string;
   /** Aperçu de ce qui serait rattaché, pour la lecture à blanc. */
   preview: string[];
+  /** Où en est la reprise du passé, une fois le passage terminé. */
+  backfillBefore?: string;
+  /** Le passé est entièrement rattrapé. */
+  backfillDone: boolean;
 }
 
 /** Plafond par passage : une boîte de dix ans ne doit pas bloquer un cron. */
 const MAX_PER_RUN = 400;
+
+/**
+ * Largeur d'une tranche de reprise du passé.
+ *
+ * Un mois : assez large pour avancer vite, assez étroit pour qu'une tranche
+ * dense (un mois de salon) ne fasse pas exploser le plafond à elle seule. On en
+ * enchaîne autant que le plafond le permet dans un même passage.
+ */
+const SLICE_DAYS = 30;
+
+const daysBefore = (d: Date, n: number) => new Date(d.getTime() - n * 86_400_000);
+
+/**
+ * Les fenêtres à lire pendant ce passage, dans l'ordre.
+ *
+ * Le PRÉSENT d'abord, toujours : un message reçu il y a une heure vaut plus
+ * qu'un message d'il y a six mois, et si le plafond est atteint, c'est la
+ * reprise du passé qui attend — jamais l'inverse.
+ *
+ * Le recouvrement d'un jour sur le présent n'est pas une précaution vague :
+ * Gmail filtre par JOUR, et un message arrivé pendant le passage précédent
+ * serait sinon sauté définitivement. Le `Message-ID` empêche le doublon.
+ */
+export function windowsFor(conn: Connection, now = new Date()): { since: Date; before?: Date }[] {
+  const out: { since: Date; before?: Date }[] = [];
+  const floor = conn.syncSince ? new Date(conn.syncSince) : daysBefore(now, 365);
+
+  /**
+   * Sans curseur, le présent part de MAINTENANT, jamais du plancher : sinon la
+   * première fenêtre couvrirait l'année entière d'un coup — précisément ce que
+   * le découpage en tranches existe pour éviter. Le passé, lui, est rattrapé
+   * par la reprise, tranche par tranche.
+   */
+  const upTo = conn.syncedUpTo ? new Date(conn.syncedUpTo) : now;
+  out.push({ since: daysBefore(upTo, 1) });
+
+  let before = conn.backfillBefore ? new Date(conn.backfillBefore) : upTo;
+  while (before > floor) {
+    const since = new Date(Math.max(floor.getTime(), daysBefore(before, SLICE_DAYS).getTime()));
+    out.push({ since, before });
+    before = since;
+  }
+  return out;
+}
 
 export async function syncMailbox(
   payload: Payload,
@@ -73,6 +123,7 @@ export async function syncMailbox(
     written: 0,
     known: 0,
     preview: [],
+    backfillDone: false,
   };
 
   if (connection.status === "suspendue") {
@@ -87,20 +138,34 @@ export async function syncMailbox(
   }
   if (!token?.accessToken) return { ...summary, error: "aucun jeton exploitable" };
 
-  const since = connection.syncSince ? new Date(connection.syncSince) : new Date(Date.now() - 31_536_000_000);
+  const floor = connection.syncSince ? new Date(connection.syncSince) : daysBefore(new Date(), 365);
+  const windows = windowsFor(connection);
 
-  let ids: string[];
-  try {
-    ids = await listMessageIds(token.accessToken, { since, max });
-  } catch (e) {
-    return { ...summary, error: (e as Error).message };
+  const metas = [];
+  for (const w of windows) {
+    if (metas.length >= max) break;
+
+    let ids: string[];
+    try {
+      ids = await listMessageIds(token.accessToken, { ...w, max: max - metas.length });
+    } catch (e) {
+      // Une fenêtre illisible n'annule pas celles déjà lues : ce qui a été
+      // trouvé est écrit, et le curseur n'avancera pas au-delà.
+      summary.error = (e as Error).message;
+      break;
+    }
+
+    // Un message illisible n'arrête pas les autres : il sera revu au passage
+    // suivant, et l'échec d'un seul ne doit pas priver la fiche des autres.
+    metas.push(
+      ...(await getMetadataBatch(token.accessToken, ids, (id, e) =>
+        payload.logger.warn(`[boîte mail] ${mailbox} : métadonnées de ${id} illisibles (${e}).`),
+      )),
+    );
+
+    // La tranche est traitée : la reprise du passé peut descendre d'autant.
+    if (w.before) summary.backfillBefore = w.since.toISOString();
   }
-
-  // Un message illisible n'arrête pas les autres : il sera revu au passage
-  // suivant, et l'échec d'un seul ne doit pas priver la fiche des autres.
-  const metas = await getMetadataBatch(token.accessToken, ids, (id, e) =>
-    payload.logger.warn(`[boîte mail] ${mailbox} : métadonnées de ${id} illisibles (${e}).`),
-  );
 
   for (const meta of metas) {
     summary.scanned += 1;
@@ -142,7 +207,9 @@ export async function syncMailbox(
     }
   }
 
-  summary.ok = true;
+  summary.ok = !summary.error;
+  summary.backfillDone =
+    !summary.error && new Date(summary.backfillBefore ?? connection.backfillBefore ?? 0) <= floor;
   return summary;
 }
 
@@ -167,6 +234,13 @@ export async function recordSync(
         status: summary.ok ? "active" : "erreur",
         lastError: summary.error ?? null,
         capturedCount: (connection.capturedCount ?? 0) + summary.written,
+        /**
+         * Le présent n'avance QUE si le passage s'est bien terminé : sur une
+         * erreur, on préfère relire ce qu'on a déjà lu — le `Message-ID` évite
+         * le doublon — plutôt que de sauter définitivement des messages.
+         */
+        ...(summary.ok ? { syncedUpTo: new Date().toISOString() } : {}),
+        ...(summary.backfillBefore ? { backfillBefore: summary.backfillBefore } : {}),
       } as never,
       overrideAccess: true,
     })
