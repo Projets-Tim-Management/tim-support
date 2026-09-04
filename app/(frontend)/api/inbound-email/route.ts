@@ -8,7 +8,7 @@ import {
   extractSequenceRunId,
   extractTicketNumber,
 } from "@/modules/marketing/lib/reply-routing";
-import { captureEmail } from "@/modules/partner/lib/email-capture";
+import { captureAddresses, captureEmail } from "@/modules/partner/lib/email-capture";
 import { SUPPORT_NOTIFY_EMAIL, ticketReplyNoticeEmail } from "@/modules/support/lib/email";
 
 // Webhook d'e-mails entrants (Brevo Inbound Parsing).
@@ -44,26 +44,6 @@ function collectAddresses(value: unknown, out: string[]): void {
     if (typeof o.Address === "string") out.push(o.Address);
     else if (typeof o.address === "string") out.push(o.address);
   }
-}
-
-/**
- * Les deux formes de l'adresse de capture.
- *
- * Celle que les commerciaux tapent vit sur le domaine principal
- * (`suivi@tim-management.co`), dont les MX sont chez Google. Une règle de
- * routage Workspace la renvoie vers le même nom sur `REPLY_DOMAIN`, dont les MX
- * sont chez Brevo — c'est celle-là qui arrive ici.
- *
- * On reconnaît les deux : la première apparaît dans les en-têtes le jour où
- * quelqu'un se trompe et la met en Cc au lieu de Cci, la seconde dans les
- * destinataires d'enveloppe le reste du temps.
- */
-function captureAddresses(): string[] {
-  const addr = process.env.EMAIL_CAPTURE_ADDRESS?.trim().toLowerCase();
-  if (!addr?.includes("@")) return [];
-  const domain = process.env.REPLY_DOMAIN?.trim().toLowerCase();
-  const routed = domain ? `${addr.split("@")[0]}@${domain}` : null;
-  return routed && routed !== addr ? [addr, routed] : [addr];
 }
 
 /** Nom affiché de l'expéditeur, quand Brevo le fournit. */

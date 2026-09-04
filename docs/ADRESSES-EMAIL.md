@@ -56,3 +56,32 @@ a confiés.
 
 Un message capté deux fois — deux commerciaux en copie du même fil, une reprise
 du webhook — n'est écrit qu'une seule fois : le `Message-ID` fait foi.
+
+## Boîtes mail connectées
+
+Même règle de conservation, source différente : au lieu d'attendre une copie
+cachée, on lit la boîte. **Partenaires → Boîtes mail**, bouton « Connecter ma
+boîte mail ».
+
+Réservé aux comptes `@tim-management.co` : l'écran de consentement OAuth du
+projet Google est de type **Interne**, ce qui exempte le scope restreint
+`gmail.readonly` de l'audit de sécurité annuel. **Le passer en « Externe »
+coûterait plusieurs milliers d'euros par an** — c'est la raison d'être du client
+OAuth séparé (`GOOGLE_MAIL_*`), distinct de celui des agendas.
+
+L'ordre des opérations est la garantie : on lit les **métadonnées** d'abord, on
+cherche l'opportunité, et on ne télécharge le **contenu** que des messages qui
+en ont une. Le reste de la boîte n'est jamais lu.
+
+Deux curseurs avancent en sens inverse — `syncedUpTo` pour le présent (avec un
+jour de recouvrement), `backfillBefore` pour la reprise du passé, par tranches
+d'un mois jusqu'à `syncSince`. Passage horaire (`/api/cron/mailbox-sync`).
+
+**Couper.** Supprimer la ligne révoque l'autorisation chez Google — sinon la
+personne continuerait d'y lire que nous avons accès à sa messagerie. Les
+échanges déjà rattachés restent : ils appartiennent à l'historique des
+opportunités. Pour les effacer aussi :
+
+```
+npx tsx scripts/mailbox-status.ts --purger=prenom.nom@tim-management.co
+```

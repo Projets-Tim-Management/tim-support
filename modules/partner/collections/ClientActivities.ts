@@ -243,6 +243,22 @@ export const ClientActivities: CollectionConfig = {
     },
     {
       /**
+       * La boîte qui a fourni cet échange, ou l'adresse de capture pour une
+       * copie cachée.
+       *
+       * Conservée pour une seule raison, mais elle suffit : quand quelqu'un
+       * retire le consentement qu'il avait donné sur sa boîte, on doit pouvoir
+       * retrouver et effacer ce qu'elle a produit. Sans ce champ, la seule
+       * option serait de tout garder — et une promesse de suppression qu'on ne
+       * peut pas tenir n'aurait pas dû être faite.
+       */
+      name: "capturedFrom",
+      type: "text",
+      index: true,
+      admin: { hidden: true },
+    },
+    {
+      /**
        * Les NOMS des pièces jointes d'un échange capté, pas les fichiers.
        *
        * Décision assumée : « je vous ai envoyé le devis » se vérifie avec un nom

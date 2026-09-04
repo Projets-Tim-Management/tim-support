@@ -1,3 +1,5 @@
+import { postForm } from "@/core/lib/google-oauth";
+
 /**
  * Abstraction des fournisseurs d'agenda.
  *
@@ -106,23 +108,5 @@ export const redirectUri = (): string => {
   return `${base.replace(/\/$/, "")}/api/calendar/callback`;
 };
 
-/** Petit utilitaire commun : POST form-urlencoded vers un endpoint de jetons. */
-export async function postForm(url: string, params: Record<string, string>): Promise<Record<string, unknown>> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams(params).toString(),
-    /**
-     * Le RAFRAÎCHISSEMENT du jeton précède chaque appel d'agenda : sans délai,
-     * c'est lui qui suspendait l'enregistrement, avant même d'avoir touché au
-     * calendrier. Dix secondes suffisent pour un échange de jetons.
-     */
-    signal: AbortSignal.timeout(10_000),
-  });
-  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok) {
-    const detail = (body.error_description ?? body.error ?? res.statusText) as string;
-    throw new Error(`Échange de jetons refusé (${res.status}) : ${detail}`);
-  }
-  return body;
-}
+/** Réexporté : les fournisseurs l'importent depuis ce module depuis toujours. */
+export { postForm };

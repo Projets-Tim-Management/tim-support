@@ -36,6 +36,24 @@ export interface IncomingMessage {
 
 const EMAIL = /[a-z0-9._%+'-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
 
+/**
+ * Les deux formes de l'adresse de capture.
+ *
+ * Celle qu'on tape vit sur le domaine principal (`suivi@tim-management.co`),
+ * dont les MX sont chez Google ; un groupe Workspace la renvoie vers le même
+ * nom sur `REPLY_DOMAIN`, dont les MX sont chez Brevo — c'est celle-là qui
+ * arrive au webhook. On reconnaît les deux : la première apparaît dans les
+ * en-têtes le jour où quelqu'un la met en Cc au lieu de Cci, la seconde dans
+ * les destinataires d'enveloppe le reste du temps.
+ */
+export function captureAddresses(): string[] {
+  const addr = process.env.EMAIL_CAPTURE_ADDRESS?.trim().toLowerCase();
+  if (!addr?.includes("@")) return [];
+  const domain = process.env.REPLY_DOMAIN?.trim().toLowerCase();
+  const routed = domain ? `${addr.split("@")[0]}@${domain}` : null;
+  return routed && routed !== addr ? [addr, routed] : [addr];
+}
+
 /** Extrait une adresse d'une des formes possibles. `null` si elle n'en contient pas. */
 export function readAddress(value: RawAddress | null | undefined): string | null {
   if (!value) return null;
@@ -85,6 +103,46 @@ export function attachmentNames(msg: IncomingMessage): string[] {
 export function cleanSubject(subject?: string | null): string {
   const s = (subject ?? "").replace(/\s+/g, " ").trim();
   return s.replace(/^((re|ré|rép|fwd|fw|tr)\s*(\[\d+\])?\s*:\s*)+/i, "").trim();
+}
+
+/**
+ * Le message SEUL, sans le fil qu'il cite.
+ *
+ * Une réponse embarque tout l'échange précédent. Sans cette coupe, la
+ * chronologie d'une fiche afficherait dix fois la même conversation, chacune un
+ * peu plus longue que la précédente — et on ne verrait plus ce qui vient d'être
+ * écrit, qui est la seule chose qu'on venait lire.
+ *
+ * Reconnaît les marqueurs français et anglais, Gmail comme Outlook. En cas de
+ * doute on garde TOUT : un message tronqué à tort est pire qu'un message trop
+ * long, parce que rien ne le signale.
+ */
+const QUOTE_MARKERS = [
+  /^\s*le\s.+\sa\s(écrit|ecrit)\s*:/i,
+  /^\s*on\s.+\swrote\s*:/i,
+  /^\s*-{2,}\s*(message d'origine|original message|forwarded message)\s*-{2,}/i,
+  /^\s*De\s*:\s*.+$/i,
+  /^\s*From\s*:\s*.+$/i,
+  /^\s*_{5,}\s*$/,
+  /**
+   * Le préfixe « > » du texte brut, marqueur le plus universel — et le seul qui
+   * survive à un retour à la ligne au milieu du « Le … a écrit : », lequel
+   * échappait aux motifs ci-dessus et laissait passer des fils entiers.
+   */
+  /^\s*>/,
+];
+
+export function stripQuoted(text: string): string {
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    if (QUOTE_MARKERS.some((re) => re.test(lines[i]))) {
+      const kept = lines.slice(0, i).join("\n").trim();
+      // Une citation en tête de message (un transfert commenté d'une ligne) ne
+      // doit pas tout effacer : dans ce cas on préfère garder le message entier.
+      return kept.length >= 20 ? kept : text.trim();
+    }
+  }
+  return text.trim();
 }
 
 export interface Match {
@@ -150,15 +208,38 @@ export async function findOpportunity(
   return Number.isFinite(id) ? { clientId: id, matchedOn: found.email ?? addresses[0] } : null;
 }
 
+const domainOf = (email: string): string => email.split("@")[1]?.toLowerCase() ?? "";
+
 /**
  * Sens du message, du point de vue de la fiche.
  *
- * Déterminé par l'EXPÉDITEUR et lui seul : si c'est le prospect qui écrit, le
- * message est reçu ; dans tous les autres cas il part de chez nous. Se fier aux
- * destinataires serait faux dès qu'un fil compte plusieurs personnes.
+ * Déterminé par l'EXPÉDITEUR seul : dans un fil à plusieurs, l'adresse du
+ * prospect figure des DEUX côtés — il est destinataire de ce qu'on lui écrit
+ * comme expéditeur de sa réponse en copie.
+ *
+ * Quand on connaît NOS adresses — la boîte connectée — la règle est franche :
+ * si ce n'est pas nous qui écrivons, c'est reçu. Sans elle, on comparait à la
+ * seule adresse qui a permis le rattachement, et un message de Louis
+ * <l.dupont@ctsm.be> rattaché via <invoices@ctsm.be> passait pour un envoi de
+ * notre part — constaté sur de vraies données, pas supposé.
+ *
+ * Le repli, quand on ne connaît pas nos adresses (capture par copie cachée),
+ * ajoute le DOMAINE : quelqu'un qui écrit depuis la même maison que le prospect
+ * n'est pas nous.
  */
-export function direction(msg: IncomingMessage, matchedOn: string): "recu" | "envoye" {
-  return readAddresses(msg.from).includes(matchedOn.toLowerCase()) ? "recu" : "envoye";
+export function direction(
+  msg: IncomingMessage,
+  matchedOn: string,
+  ours: string[] = [],
+): "recu" | "envoye" {
+  const from = readAddresses(msg.from)[0];
+  if (!from) return "envoye";
+
+  const mine = ours.map((a) => a.trim().toLowerCase()).filter(Boolean);
+  if (mine.length) return mine.includes(from) ? "envoye" : "recu";
+
+  const target = matchedOn.toLowerCase();
+  return from === target || domainOf(from) === domainOf(target) ? "recu" : "envoye";
 }
 
 export interface CaptureResult {
@@ -178,7 +259,11 @@ export interface CaptureResult {
 export async function captureEmail(
   payload: Payload,
   msg: IncomingMessage,
-  { captureAddress }: { captureAddress?: string } = {},
+  {
+    captureAddress,
+    ourAddresses = [],
+    source,
+  }: { captureAddress?: string; ourAddresses?: string[]; source?: string } = {},
 ): Promise<CaptureResult> {
   const body = (msg.text ?? "").trim();
   const names = attachmentNames(msg);
@@ -200,7 +285,7 @@ export async function captureEmail(
     }
   }
 
-  const sens = direction(msg, match.matchedOn);
+  const sens = direction(msg, match.matchedOn, ourAddresses);
   const subject = cleanSubject(msg.subject) || "(sans objet)";
   const from = readAddresses(msg.from)[0];
   const visibles = [...readAddresses(msg.to), ...readAddresses(msg.cc)].filter(
@@ -220,6 +305,7 @@ export async function captureEmail(
       recipients: (sens === "recu" ? [from, ...visibles] : visibles).filter(Boolean).join(", "),
       emailDirection: sens,
       sourceMessageId: messageId,
+      capturedFrom: source ?? captureAddress,
       attachmentNames: names.join(", ") || undefined,
     } as never,
     overrideAccess: true,

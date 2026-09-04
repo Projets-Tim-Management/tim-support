@@ -3,10 +3,9 @@ import type {
   CalendarProvider,
   CreatedEvent,
   EventInput,
-  OAuthTokens,
   RemoteCalendar,
 } from "./types";
-import { postForm } from "./types";
+import { postForm, toTokens } from "@/core/lib/google-oauth";
 
 /**
  * Google Calendar.
@@ -62,24 +61,6 @@ async function api<T>(accessToken: string, path: string, init?: RequestInit): Pr
 
 /** Statuts signifiant « cet événement n'est plus là » — ce qu'on voulait obtenir. */
 const GONE = new Set([404, 410]);
-
-/** L'adresse du compte connecté, lue dans l'id_token (déjà signé par Google). */
-const emailFromIdToken = (idToken?: unknown): string | undefined => {
-  if (typeof idToken !== "string") return undefined;
-  try {
-    const payload = JSON.parse(Buffer.from(idToken.split(".")[1], "base64url").toString());
-    return typeof payload?.email === "string" ? payload.email : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
-const toTokens = (body: Record<string, unknown>): OAuthTokens => ({
-  accessToken: String(body.access_token ?? ""),
-  refreshToken: typeof body.refresh_token === "string" ? body.refresh_token : undefined,
-  expiresAt: Date.now() + Number(body.expires_in ?? 3600) * 1000,
-  accountEmail: emailFromIdToken(body.id_token),
-});
 
 /**
  * Corps commun d'un événement : ce que création et déplacement écrivent tous

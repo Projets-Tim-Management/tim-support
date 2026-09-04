@@ -54,6 +54,7 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
   ],
   Partenaires: [
     { label: "Comptes", slugs: ["partners", "partner-clients"] },
+    { label: "Boîtes mail", slugs: ["mailbox-connections"] },
     { label: "Missions", slugs: ["missions", "mission-submissions"] },
     { label: "Récompenses", slugs: ["rewards", "reward-orders"] },
     { label: "Points", slugs: ["point-transactions"] },

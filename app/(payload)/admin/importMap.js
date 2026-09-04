@@ -80,6 +80,7 @@ import { JourneyEmailRowLabel as JourneyEmailRowLabel_2a7e629310745e0192957a9f1d
 import { AdminOnlyTabs as AdminOnlyTabs_7f44b13f20fa34f65e1be48236cbac4a } from '../../../modules/marketing/admin/AdminOnlyTabs'
 import { RunStatusCell as RunStatusCell_bca3b66a118f960c09383a20d2f2a00d } from '../../../modules/marketing/admin/RunStatusCell'
 import { SequenceMessageRowLabel as SequenceMessageRowLabel_e7e48e4e23bef92699ec37deb7eff91a } from '../../../modules/marketing/admin/SequenceMessageRowLabel'
+import { ConnectMailbox as ConnectMailbox_1d8ffe1ffcea50c41520fe4ff870ae27 } from '../../../modules/partner/admin/ConnectMailbox'
 import { SequenceMessagePreview as SequenceMessagePreview_1d83c136501c19d8287861487b154c08 } from '../../../modules/marketing/admin/SequenceMessagePreview'
 import { SequenceThemeRowLabel as SequenceThemeRowLabel_f78827f64ca8974d62621135cef1d267 } from '../../../modules/marketing/admin/SequenceThemeRowLabel'
 import { FormOptionRowLabel as FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b } from '../../../modules/forms/admin/FormOptionRowLabel'
@@ -185,6 +186,7 @@ export const importMap = {
   "/modules/marketing/admin/AdminOnlyTabs#AdminOnlyTabs": AdminOnlyTabs_7f44b13f20fa34f65e1be48236cbac4a,
   "/modules/marketing/admin/RunStatusCell#RunStatusCell": RunStatusCell_bca3b66a118f960c09383a20d2f2a00d,
   "/modules/marketing/admin/SequenceMessageRowLabel#SequenceMessageRowLabel": SequenceMessageRowLabel_e7e48e4e23bef92699ec37deb7eff91a,
+  "/modules/partner/admin/ConnectMailbox#ConnectMailbox": ConnectMailbox_1d8ffe1ffcea50c41520fe4ff870ae27,
   "/modules/marketing/admin/SequenceMessagePreview#SequenceMessagePreview": SequenceMessagePreview_1d83c136501c19d8287861487b154c08,
   "/modules/marketing/admin/SequenceThemeRowLabel#SequenceThemeRowLabel": SequenceThemeRowLabel_f78827f64ca8974d62621135cef1d267,
   "/modules/forms/admin/FormOptionRowLabel#FormOptionRowLabel": FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b,

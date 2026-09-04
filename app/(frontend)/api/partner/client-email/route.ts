@@ -5,6 +5,7 @@ import { payloadClient } from "@/core/payload-client";
 import { SITE_URL } from "@/core/lib/email-template";
 import { markdownToHtml, markdownToPlain } from "@/modules/partner/lib/rich-text";
 import { renderSignature, signatureFromPartner, signatureText } from "@/modules/partner/lib/signature";
+import { captureAddresses } from "@/modules/partner/lib/email-capture";
 import { getDomainStatus, getSenders } from "@/modules/support/lib/brevo";
 
 /**
@@ -291,9 +292,23 @@ export async function POST(req: Request) {
   if ("error" in auth) return auth.error;
   const { payload, user, doc } = auth;
 
-  const to = parseRecipients(body.to);
-  const cc = parseRecipients(body.cc);
-  const bcc = parseRecipients(body.bcc);
+  /**
+   * L'adresse de capture n'a rien à faire ici.
+   *
+   * Un e-mail parti de cet écran est DÉJÀ inscrit sur la fiche, plus bas. La
+   * mettre en copie le ferait revenir par le webhook et écrire une seconde
+   * ligne pour le même message — les deux passeraient le dédoublonnage, qui
+   * compare des `Message-ID` et non des contenus. On la retire en silence
+   * plutôt que de refuser l'envoi : c'est un réflexe compréhensible, pas une
+   * erreur de l'utilisateur.
+   */
+  const captured = captureAddresses();
+  const withoutCapture = (list: string[]) =>
+    list.filter((a) => !captured.includes(a.trim().toLowerCase()));
+
+  const to = withoutCapture(parseRecipients(body.to));
+  const cc = withoutCapture(parseRecipients(body.cc));
+  const bcc = withoutCapture(parseRecipients(body.bcc));
   const objet = String(body.subject ?? "").trim();
   const markdown = String(body.body ?? "").trim();
 
