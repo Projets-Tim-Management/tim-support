@@ -44,6 +44,7 @@ export interface FormDoc {
   id?: number | string;
   formId?: string | null;
   active?: boolean | null;
+  defaultChannel?: "seo" | "sea" | null;
   updatedAt?: string | null;
   successText?: string | null;
   errorText?: string | null;

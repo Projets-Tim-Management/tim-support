@@ -48,6 +48,7 @@ import * as migration_20260901_173627_vehicles_papers from './20260901_173627_ve
 import * as migration_20260903_050914_ticket_documents from './20260903_050914_ticket_documents';
 import * as migration_20260904_070317_add_forms from './20260904_070317_add_forms';
 import * as migration_20260904_073045_add_submission_id from './20260904_073045_add_submission_id';
+import * as migration_20260904_080651_add_channel_source from './20260904_080651_add_channel_source';
 
 export const migrations = [
   {
@@ -298,6 +299,11 @@ export const migrations = [
   {
     up: migration_20260904_073045_add_submission_id.up,
     down: migration_20260904_073045_add_submission_id.down,
-    name: '20260904_073045_add_submission_id'
+    name: '20260904_073045_add_submission_id',
+  },
+  {
+    up: migration_20260904_080651_add_channel_source.up,
+    down: migration_20260904_080651_add_channel_source.down,
+    name: '20260904_080651_add_channel_source'
   },
 ];

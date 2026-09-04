@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
+import { resolveChannel } from "@/modules/forms/lib/channel";
 import { checkIngestKey, clientIp, parseAttribution } from "@/modules/forms/lib/ingest";
 import { toPublicForm } from "@/modules/forms/lib/public-schema";
 import { honeypotTripped, validateAnswers } from "@/modules/forms/lib/validate";
@@ -99,6 +100,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
     }
 
     const attribution = parseAttribution(payloadBody.attribution);
+    const { channel, source: channelSource } = resolveChannel(
+      attribution,
+      doc?.defaultChannel ?? "seo",
+    );
     const submissionId = randomUUID();
 
     await payload.create({
@@ -109,6 +114,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
         formIdSnapshot: form.formId,
         answers: result.answers,
         ...attribution,
+        channel,
+        channelSource,
         ip,
         userAgent: req.headers.get("user-agent")?.slice(0, 512) ?? undefined,
         processingStatus: "recue",

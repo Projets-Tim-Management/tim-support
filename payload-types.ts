@@ -1431,6 +1431,10 @@ export interface FormSubmission {
   channel?: ('seo' | 'sea') | null;
   placement?: ('drawer' | 'page-contact' | 'lp-hero' | 'lp-section') | null;
   /**
+   * « Clic payant » est un fait ; « landing page » est une présomption. Beaucoup de présomptions = le taggage automatique de Google Ads ne remonte plus, ou le cookie d'attribution ne tient pas.
+   */
+  channelSource?: ('clic-payant' | 'landing-page' | 'defaut') | null;
+  /**
    * Chemin de la page qui portait le formulaire.
    */
   sourcePagePath?: string | null;
@@ -2594,6 +2598,7 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
   answers?: T;
   channel?: T;
   placement?: T;
+  channelSource?: T;
   sourcePagePath?: T;
   sourcePageUrl?: T;
   lpSlug?: T;

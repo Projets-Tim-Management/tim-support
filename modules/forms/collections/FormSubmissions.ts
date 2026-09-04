@@ -1,6 +1,7 @@
 import type { CollectionBeforeChangeHook, CollectionConfig } from "payload";
 
 import { isAdmin } from "@/core/access";
+import { CHANNEL_SOURCES } from "@/modules/forms/lib/channel";
 import { CHANNELS, PLACEMENTS } from "@/modules/forms/lib/form-schema";
 
 /**
@@ -123,6 +124,18 @@ export const FormSubmissions: CollectionConfig = {
                   admin: { width: "50%", readOnly: true },
                 },
               ],
+            },
+            {
+              name: "channelSource",
+              type: "select",
+              label: "Canal déduit de",
+              options: [...CHANNEL_SOURCES],
+              index: true,
+              admin: {
+                readOnly: true,
+                description:
+                  "« Clic payant » est un fait ; « landing page » est une présomption. Beaucoup de présomptions = le taggage automatique de Google Ads ne remonte plus, ou le cookie d'attribution ne tient pas.",
+              },
             },
             {
               name: "sourcePagePath",
