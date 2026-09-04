@@ -49,20 +49,38 @@ describe("secret partagé avec le proxy de la vitrine", () => {
 });
 
 describe("adresse du visiteur", () => {
-  it("prend la première entrée de X-Forwarded-For", () => {
-    // Les suivantes sont les relais traversés ; la première est le client.
-    expect(clientIp(req({ "x-forwarded-for": "203.0.113.7, 70.41.3.18, 150.172.238.178" }))).toBe(
-      "203.0.113.7",
-    );
-    expect(clientIp(req({ "x-forwarded-for": "  203.0.113.7  " }))).toBe("203.0.113.7");
+  it("croit l'en-tête dédié, et le dit digne de confiance", () => {
+    expect(clientIp(req({ "x-visitor-ip": "203.0.113.7" }))).toEqual({
+      ip: "203.0.113.7",
+      trusted: true,
+    });
   });
 
-  it("se rabat sur X-Real-IP, puis renonce", () => {
-    expect(clientIp(req({ "x-real-ip": "203.0.113.9" }))).toBe("203.0.113.9");
-    expect(clientIp(req({ "x-forwarded-for": "", "x-real-ip": "203.0.113.9" }))).toBe("203.0.113.9");
-    expect(clientIp(req())).toBeUndefined();
+  it("préfère l'en-tête dédié à X-Forwarded-For", () => {
+    // Vérifié en production : Vercel ÉCRASE X-Forwarded-For par l'adresse
+    // réellement connectée — celle du proxy pour un appel de serveur à serveur.
+    // Lui faire confiance ferait compter tous les visiteurs sur un même compteur.
+    const r = clientIp(req({ "x-visitor-ip": "203.0.113.7", "x-forwarded-for": "10.0.0.1" }));
+    expect(r).toEqual({ ip: "203.0.113.7", trusted: true });
+  });
+
+  it("se rabat sur X-Forwarded-For, en signalant que l'adresse n'est pas sûre", () => {
+    expect(clientIp(req({ "x-forwarded-for": "203.0.113.7, 70.41.3.18" }))).toEqual({
+      ip: "203.0.113.7",
+      trusted: false,
+    });
+    expect(clientIp(req({ "x-real-ip": "203.0.113.9" }))).toEqual({
+      ip: "203.0.113.9",
+      trusted: false,
+    });
+  });
+
+  it("renonce plutôt que d'inventer une adresse", () => {
+    expect(clientIp(req())).toEqual({ ip: undefined, trusted: false });
+    expect(clientIp(req({ "x-visitor-ip": "   " })).trusted).toBe(false);
   });
 });
+
 
 describe("attribution", () => {
   it("lit les clés du contrat, en tirets bas comme en camelCase", () => {

@@ -39,14 +39,32 @@ export function checkIngestKey(req: Request): KeyCheck {
 }
 
 /**
- * Adresse du visiteur, relayée par le proxy. La PREMIÈRE entrée de
- * `X-Forwarded-For` est le client d'origine ; les suivantes sont les relais.
- * Falsifiable, donc : elle limite le débit, elle n'autorise rien.
+ * En-tête portant l'adresse du VISITEUR, posé par le proxy de la vitrine.
+ *
+ * Un en-tête PERSONNALISÉ, et non `X-Forwarded-For` : vérifié en production le
+ * 04/09/2026, Vercel ÉCRASE `X-Forwarded-For` par l'adresse réellement connectée
+ * — donc, pour un appel de serveur à serveur, celle de la fonction du proxy. Le
+ * relai prévu par la vitrine partait donc à la poubelle sans que rien ne le dise,
+ * et le plafond de débit se serait appliqué au site entier : passé vingt demandes
+ * dans l'heure, plus aucun lead. Les en-têtes personnalisés, eux, passent intacts.
  */
-export function clientIp(req: Request): string | undefined {
-  const forwarded = req.headers.get("x-forwarded-for");
-  const first = forwarded?.split(",")[0]?.trim();
-  return first || req.headers.get("x-real-ip")?.trim() || undefined;
+export const VISITOR_IP_HEADER = "x-visitor-ip";
+
+export interface ClientIp {
+  ip?: string;
+  /** Vrai quand l'adresse est bien celle du visiteur, et non celle du proxy. */
+  trusted: boolean;
+}
+
+export function clientIp(req: Request): ClientIp {
+  const visitor = req.headers.get(VISITOR_IP_HEADER)?.split(",")[0]?.trim();
+  if (visitor) return { ip: visitor, trusted: true };
+
+  // Repli : l'adresse de qui s'est connecté. Utile en appel direct (essais,
+  // sondes), inutile pour distinguer deux visiteurs derrière le même proxy.
+  const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const ip = forwarded || req.headers.get("x-real-ip")?.trim() || undefined;
+  return { ip, trusted: false };
 }
 
 const cap = (value: unknown, max: number): string | undefined => {

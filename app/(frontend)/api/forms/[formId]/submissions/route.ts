@@ -33,6 +33,16 @@ export const dynamic = "force-dynamic";
  * filtrent déjà l'essentiel.
  */
 const MAX_PER_IP_PER_HOUR = Number(process.env.FORMS_MAX_PER_IP_PER_HOUR) || 20;
+
+/**
+ * Plafond quand l'adresse n'est PAS celle du visiteur mais celle du proxy —
+ * c'est-à-dire quand la vitrine n'a pas posé `X-Visitor-IP`.
+ *
+ * Beaucoup plus haut, parce que ce compteur additionne alors tous les visiteurs
+ * du site : le serrer bloquerait de vrais leads sans rien empêcher. Il ne borne
+ * plus qu'un déluge, et l'anomalie est journalisée à chaque envoi.
+ */
+const MAX_SHARED_PER_HOUR = Number(process.env.FORMS_MAX_SHARED_PER_HOUR) || 200;
 const HOUR_MS = 60 * 60 * 1000;
 
 const fail = (error: string, status: number, extra: Record<string, unknown> = {}) =>
@@ -100,15 +110,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
     const result = validateAnswers(form, payloadBody.answers ?? payloadBody);
     if (!result.ok) return fail("validation_error", 400, { errors: result.errors });
 
-    const ip = clientIp(req);
+    const { ip, trusted } = clientIp(req);
     if (ip) {
+      if (!trusted) {
+        // Doit se voir : sans cet en-tête, le compteur mélange tous les
+        // visiteurs et la protection par adresse ne veut plus rien dire.
+        payload.logger.error(
+          `[formulaires] adresse du visiteur absente (en-tête X-Visitor-IP) : le débit est compté sur ${ip}, commune à tout le site.`,
+        );
+      }
       const since = new Date(Date.now() - HOUR_MS).toISOString();
       const recent = await payload.count({
         collection: "form-submissions",
         where: { ip: { equals: ip }, createdAt: { greater_than: since } },
         overrideAccess: true,
       });
-      if (recent.totalDocs >= MAX_PER_IP_PER_HOUR) {
+      if (recent.totalDocs >= (trusted ? MAX_PER_IP_PER_HOUR : MAX_SHARED_PER_HOUR)) {
         payload.logger.warn(`[formulaires] débit dépassé pour ${ip} sur « ${formId} ».`);
         return fail("rate_limited", 429);
       }
