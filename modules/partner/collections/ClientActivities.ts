@@ -205,7 +205,60 @@ export const ClientActivities: CollectionConfig = {
      */
     { name: "reminderSentAt", type: "date", admin: { hidden: true } },
 
-    // ── E-mail envoyé depuis la fiche ────────────────────────────────────────
+    // ── E-mail : envoyé depuis la fiche, ou capté dans un échange ────────────
+    {
+      /**
+       * Sens du message, du point de vue de la fiche.
+       *
+       * Absent sur les e-mails partis du drawer : ceux-là sont toujours sortants,
+       * et l'écrire aurait été une redite. Il n'apparaît que sur ce qui a été
+       * CAPTÉ — où la question se pose vraiment.
+       */
+      name: "emailDirection",
+      type: "select",
+      label: "Sens",
+      options: [
+        { label: "Reçu du prospect", value: "recu" },
+        { label: "Envoyé au prospect", value: "envoye" },
+      ],
+      index: true,
+      admin: {
+        readOnly: true,
+        condition: (data) => Boolean(data?.emailDirection),
+      },
+    },
+    {
+      /**
+       * `Message-ID` de l'e-mail d'origine — l'identifiant que lui a donné le
+       * serveur qui l'a expédié.
+       *
+       * Conservé pour ne pas écrire deux fois le même échange : un fil où deux
+       * partenaires sont en copie nous parvient deux fois, et une reprise du
+       * webhook après une erreur le rejouerait.
+       */
+      name: "sourceMessageId",
+      type: "text",
+      index: true,
+      admin: { hidden: true },
+    },
+    {
+      /**
+       * Les NOMS des pièces jointes d'un échange capté, pas les fichiers.
+       *
+       * Décision assumée : « je vous ai envoyé le devis » se vérifie avec un nom
+       * et une date. Stocker les fichiers d'une correspondance entière ferait
+       * gonfler le stockage et nous ferait détenir des documents que personne ne
+       * nous a confiés.
+       */
+      name: "attachmentNames",
+      type: "text",
+      label: "Pièces jointes",
+      admin: {
+        readOnly: true,
+        condition: (data) => Boolean(data?.attachmentNames),
+        description: "Noms seulement — les fichiers ne sont pas conservés.",
+      },
+    },
     {
       name: "recipients",
       type: "text",

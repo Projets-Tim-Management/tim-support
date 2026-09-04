@@ -52,6 +52,10 @@ type Activity = {
   taskKind?: string | null;
   done?: boolean;
   recipients?: string | null;
+  /** Sur un échange CAPTÉ (copie cachée) : d'où il vient. Absent sinon. */
+  emailDirection?: "recu" | "envoye" | null;
+  /** Noms des pièces jointes d'un échange capté — les fichiers ne sont pas conservés. */
+  attachmentNames?: string | null;
   attachments?: ({ id: number | string; url?: string; filename?: string } | number)[] | null;
   author?: { email?: string; name?: string } | number | string | null;
 };
@@ -734,10 +738,24 @@ export function ClientHistory() {
                         </div>
                       )}
 
-                      {(who || a.recipients || a.attachments?.length) && (
+                      {(who || a.recipients || a.attachments?.length || a.attachmentNames) && (
                         <p className="tim-history__meta">
                           {who && <span>{who}</span>}
-                          {a.recipients && <span>à {a.recipients}</span>}
+                          {/* « à » pour ce qui part, « de » pour ce qui arrive :
+                              sans ça, un échange reçu se lisait comme un envoi. */}
+                          {a.recipients && (
+                            <span>
+                              {a.emailDirection === "recu" ? "de " : "à "}
+                              {a.recipients}
+                            </span>
+                          )}
+                          {/* Noms seuls, sans lien : le fichier n'est pas conservé.
+                              Un lien mort serait pire que pas de lien. */}
+                          {a.attachmentNames && (
+                            <span title="Nom seulement — le fichier n'est pas conservé">
+                              📎 {a.attachmentNames}
+                            </span>
+                          )}
                           {a.attachments?.map((f) =>
                             typeof f === "object" && f?.url ? (
                               <a
