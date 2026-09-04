@@ -84,8 +84,11 @@ export interface Config {
     'reward-orders': RewardOrder;
     'journey-runs': JourneyRun;
     'marketing-journeys': MarketingJourney;
+    'sequence-runs': SequenceRun;
+    sequences: Sequence;
     forms: Form;
     'form-submissions': FormSubmission;
+    'email-suppressions': EmailSuppression;
     'client-employees': ClientEmployee;
     'client-sites': ClientSite;
     'client-vehicles': ClientVehicle;
@@ -130,8 +133,11 @@ export interface Config {
     'reward-orders': RewardOrdersSelect<false> | RewardOrdersSelect<true>;
     'journey-runs': JourneyRunsSelect<false> | JourneyRunsSelect<true>;
     'marketing-journeys': MarketingJourneysSelect<false> | MarketingJourneysSelect<true>;
+    'sequence-runs': SequenceRunsSelect<false> | SequenceRunsSelect<true>;
+    sequences: SequencesSelect<false> | SequencesSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
+    'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
     'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
     'client-sites': ClientSitesSelect<false> | ClientSitesSelect<true>;
     'client-vehicles': ClientVehiclesSelect<false> | ClientVehiclesSelect<true>;
@@ -1472,6 +1478,181 @@ export interface RewardOrder {
   createdAt: string;
 }
 /**
+ * Les relances après une affaire perdue. Passer le statut à « Arrêtée » interrompt les envois à venir.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sequence-runs".
+ */
+export interface SequenceRun {
+  id: number;
+  summary?: string | null;
+  sequenceLabel?: string | null;
+  client: number | PartnerClient;
+  email: string;
+  sequence: string;
+  /**
+   * « Arrêtée » interrompt tous les envois restants.
+   */
+  status: 'en-cours' | 'terminee' | 'arretee';
+  stopReason?: ('reponse' | 'manuelle' | 'desinscription' | 'statut-change') | null;
+  /**
+   * Facultatif — ce que le motif ne dit pas.
+   */
+  stopNote?: string | null;
+  startedAt?: string | null;
+  /**
+   * Daté à l'enrôlement. Une date modifiée décale ce message seul, pas la suite.
+   */
+  messages?:
+    | {
+        key: string;
+        scheduledAt: string;
+        sentAt?: string | null;
+        skipped?: ('desinscrit' | 'echec') | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Le modèle : quels motifs de perte ouvrent quelle séquence, et les messages qui partent ensuite.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sequences".
+ */
+export interface Sequence {
+  id: number;
+  label: string;
+  /**
+   * Citée par les séquences déjà en cours. À ne pas modifier.
+   */
+  key: string;
+  /**
+   * À quoi sert cette séquence, en une phrase.
+   */
+  description?: string | null;
+  /**
+   * Un motif ne doit apparaître que dans une seule séquence. Sans motif ici, la séquence ne s'ouvre jamais toute seule.
+   */
+  lossReasons?:
+    | (
+        | 'prix'
+        | 'fonctionnalites'
+        | 'concurrent'
+        | 'budget'
+        | 'cessation'
+        | 'autre'
+        | 'sans-reponse'
+        | 'pas-le-moment'
+        | 'besoin-different'
+        | 'solution-interne'
+        | 'test-non-concluant'
+        | 'a-qualifier'
+        | 'peu-utilise'
+        | 'complexite'
+        | 'support'
+        | 'reorganisation'
+      )[]
+    | null;
+  /**
+   * L'ordre de cette liste est l'ordre d'envoi par défaut. Le délai de chaque message se compte depuis le précédent — et pour le premier, depuis la perte.
+   */
+  messages?:
+    | {
+        /**
+         * Identifiant stable. À ne pas modifier une fois des séquences lancées.
+         */
+        key: string;
+        /**
+         * Depuis le message précédent.
+         */
+        delayValue: number;
+        delayUnit: 'jours' | 'semaines' | 'mois';
+        /**
+         * « Sobre » ne garde que le texte et la signature du partenaire : ni logo, ni bandeau, ni bouton, ni pied de page. La désinscription passe par l'en-tête que la messagerie affiche elle-même, et une réponse arrête la séquence.
+         */
+        style: 'marketing' | 'standard';
+        /**
+         * Facultatif. C'est ce qui fait qu'un prospect venu pour le pointage lit d'abord le message sur le pointage.
+         */
+        besoin?: ('planning' | 'pointage' | 'vehicules' | 'chantiers' | 'documents-rh') | null;
+        /**
+         * Affiché en tête des messages marketing. Sert de repère dans la liste.
+         */
+        title: string;
+        subject: string;
+        /**
+         * Affichée à droite du titre. Une capture large (environ 2 pour 1) passe mieux qu'une capture haute ; au-delà de 1,5 Mo elle mettra trop longtemps à s'afficher sur un téléphone.
+         */
+        image?: (number | null) | Media;
+        /**
+         * Trois ou quatre paragraphes courts. Pas de liste à puces : c'est ce qui fait « documentation » plutôt que message écrit par quelqu'un.
+         */
+        paragraphs?:
+          | {
+              text: string;
+              id?: string | null;
+            }[]
+          | null;
+        payoff: string;
+        /**
+         * Un bénéfice, pas une fonctionnalité. Obligatoire pour un message marketing.
+         */
+        cta?: string | null;
+        url?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Doit être un expéditeur vérifié chez Brevo. Vide = l'adresse par défaut.
+   */
+  fromEmail?: string | null;
+  /**
+   * La ligne qui clôt le message, avant la signature. La signature elle-même vient de la fiche du partenaire de l'opportunité — elle n'est pas à saisir ici.
+   */
+  signature?: string | null;
+  /**
+   * À cocher pour une relance qui attend une réponse. À décocher pour une campagne : une réponse y est inscrite sur la fiche, mais n'interrompt pas les envois.
+   */
+  stopOnReply?: boolean | null;
+  /**
+   * Ouverte automatiquement quand tous les messages de celle-ci sont partis. Vide = la relance s'arrête là.
+   */
+  nextSequence?: (number | null) | Sequence;
+  /**
+   * Décochée = plus aucun enrôlement. Les séquences déjà en cours continuent — les interrompre se fait une par une.
+   */
+  active?: boolean | null;
+  seedVersion?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Adresses qui ne reçoivent plus d'envoi commercial. Les e-mails de service (tickets, accusés de réception, codes de connexion) continuent de partir.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "email-suppressions".
+ */
+export interface EmailSuppression {
+  id: number;
+  /**
+   * Enregistrée en minuscules — la casse ne doit pas créer de doublon.
+   */
+  email: string;
+  reason: 'desinscription' | 'rejet-definitif' | 'spam' | 'manuelle';
+  /**
+   * Ce qui a provoqué l'inscription : lien de désinscription, événement Brevo…
+   */
+  source?: string | null;
+  /**
+   * Facultatif — le contexte, quand l'ajout est manuel.
+   */
+  note?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "client-employees".
  */
@@ -1917,12 +2098,24 @@ export interface PayloadLockedDocument {
         value: number | MarketingJourney;
       } | null)
     | ({
+        relationTo: 'sequence-runs';
+        value: number | SequenceRun;
+      } | null)
+    | ({
+        relationTo: 'sequences';
+        value: number | Sequence;
+      } | null)
+    | ({
         relationTo: 'forms';
         value: number | Form;
       } | null)
     | ({
         relationTo: 'form-submissions';
         value: number | FormSubmission;
+      } | null)
+    | ({
+        relationTo: 'email-suppressions';
+        value: number | EmailSuppression;
       } | null)
     | ({
         relationTo: 'client-employees';
@@ -2564,6 +2757,72 @@ export interface MarketingJourneysSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sequence-runs_select".
+ */
+export interface SequenceRunsSelect<T extends boolean = true> {
+  summary?: T;
+  sequenceLabel?: T;
+  client?: T;
+  email?: T;
+  sequence?: T;
+  status?: T;
+  stopReason?: T;
+  stopNote?: T;
+  startedAt?: T;
+  messages?:
+    | T
+    | {
+        key?: T;
+        scheduledAt?: T;
+        sentAt?: T;
+        skipped?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sequences_select".
+ */
+export interface SequencesSelect<T extends boolean = true> {
+  label?: T;
+  key?: T;
+  description?: T;
+  lossReasons?: T;
+  messages?:
+    | T
+    | {
+        key?: T;
+        delayValue?: T;
+        delayUnit?: T;
+        style?: T;
+        besoin?: T;
+        title?: T;
+        subject?: T;
+        image?: T;
+        paragraphs?:
+          | T
+          | {
+              text?: T;
+              id?: T;
+            };
+        payoff?: T;
+        cta?: T;
+        url?: T;
+        id?: T;
+      };
+  fromEmail?: T;
+  signature?: T;
+  stopOnReply?: T;
+  nextSequence?: T;
+  active?: T;
+  seedVersion?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "forms_select".
  */
 export interface FormsSelect<T extends boolean = true> {
@@ -2630,6 +2889,18 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
   ip?: T;
   sessionId?: T;
   userAgent?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "email-suppressions_select".
+ */
+export interface EmailSuppressionsSelect<T extends boolean = true> {
+  email?: T;
+  reason?: T;
+  source?: T;
+  note?: T;
   updatedAt?: T;
   createdAt?: T;
 }

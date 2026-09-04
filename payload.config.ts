@@ -10,6 +10,7 @@ import { buildConfig } from "payload";
 
 import { Users } from "./core/collections/Users";
 import { Media } from "./core/collections/Media";
+import { EmailSuppressions } from "./core/collections/EmailSuppressions";
 import { Platforms } from "./modules/editorial/collections/Platforms";
 import { FeatureCategories } from "./modules/editorial/collections/FeatureCategories";
 import { Features } from "./modules/editorial/collections/Features";
@@ -29,6 +30,8 @@ import { Forms } from "./modules/forms/collections/Forms";
 import { FormSubmissions } from "./modules/forms/collections/FormSubmissions";
 import { MarketingJourneys } from "./modules/marketing/collections/MarketingJourneys";
 import { JourneyRuns } from "./modules/marketing/collections/JourneyRuns";
+import { SequenceRuns } from "./modules/marketing/collections/SequenceRuns";
+import { Sequences } from "./modules/marketing/collections/Sequences";
 import { ClientEmployees } from "./modules/marketing/collections/ClientEmployees";
 import { ClientSites } from "./modules/marketing/collections/ClientSites";
 import { ClientVehicles } from "./modules/marketing/collections/ClientVehicles";
@@ -37,6 +40,7 @@ import { ClientPortalAccounts } from "./modules/marketing/collections/ClientPort
 import { CalendarConnections } from "./modules/marketing/collections/CalendarConnections";
 import { seedJourneys } from "./modules/marketing/lib/seed";
 import { seedForms } from "./modules/forms/lib/seed";
+import { seedSequences } from "./modules/marketing/lib/sequence-seed";
 import {
   hideUnlessAdmin,
   hideUnlessMetier,
@@ -80,12 +84,15 @@ const ROLE_NAV_HIDDEN: Record<string, (args: { user?: unknown }) => boolean> = {
   // Marketing — les phases de test se pilotent à deux (partenaire-métier +
   // admin) ; le MODÈLE de parcours reste un réglage TIM, donc admin seul.
   "journey-runs": hideUnlessMetier,
+  "sequence-runs": hideUnlessAdmin,
+  sequences: hideUnlessAdmin,
   "marketing-journeys": hideUnlessAdmin,
   // Formulaires du site vitrine : réglage et données publics de TIM, pas d'un
   // partenaire. Les soumissions portent en outre les coordonnées de prospects
   // qui n'appartiennent à aucun apporteur.
   forms: hideUnlessAdmin,
   "form-submissions": hideUnlessAdmin,
+  "email-suppressions": hideUnlessAdmin,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -224,9 +231,15 @@ export default buildConfig({
       // Marketing (parcours : le modèle + les phases de test en cours)
       JourneyRuns,
       MarketingJourneys,
+      // Relances après une affaire perdue : les envois en cours, et leur contenu
+      SequenceRuns,
+      Sequences,
       // Formulaires du site vitrine : la définition servie au site, et ce qu'il renvoie
       Forms,
       FormSubmissions,
+      // Adresses qui ne reçoivent plus d'envoi commercial — transverse à tous
+      // les modules, d'où sa place à côté des collections système.
+      EmailSuppressions,
       // Dossier de démarrage — cachées du menu (admin.hidden), gérées via les
       // champs `join` de l'onglet « Dossier de démarrage » de la fiche client.
       ClientEmployees,
@@ -382,6 +395,9 @@ export default buildConfig({
 
     // Idem pour les formulaires du site vitrine (cf. seedForms).
     await seedForms(payload);
+
+    // Idem pour les séquences de relance et leurs messages (cf. seedSequences).
+    await seedSequences(payload);
   },
 
   secret: process.env.PAYLOAD_SECRET || "",

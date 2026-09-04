@@ -2,8 +2,8 @@
 
 import { useDocumentInfo } from "@payloadcms/ui";
 import { useCallback, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 
+import { EmailPreview } from "@/core/admin/EmailPreview";
 import {
   eventMeta,
   groupByMessage,
@@ -120,44 +120,6 @@ function Bubble({
         {cc ? <p className="ticket-msg__cc">En copie : {cc}</p> : null}
       </div>
     </div>
-  );
-}
-
-/**
- * Aperçu de l'e-mail tel que le client le reçoit. Rendu dans une `iframe`
- * ISOLÉE (sandbox) : un HTML d'e-mail embarque ses propres styles et tables, qui
- * saccageraient la mise en page de l'admin s'ils étaient injectés directement.
- */
-function PreviewOverlay({ url, onClose }: { url: string; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <div
-      className="ticket-preview"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Aperçu de l'e-mail"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="ticket-preview__panel">
-        <header className="ticket-preview__head">
-          <span className="ticket-preview__title">Rendu de l&apos;e-mail</span>
-          <a className="ticket-preview__open" href={url} target="_blank" rel="noreferrer">
-            Ouvrir dans un onglet ↗
-          </a>
-          <button type="button" className="ticket-preview__close" onClick={onClose} aria-label="Fermer">
-            ✕
-          </button>
-        </header>
-        <iframe className="ticket-preview__frame" src={url} title="Rendu de l'e-mail" sandbox="" />
-      </div>
-    </div>,
-    document.body,
   );
 }
 
@@ -294,7 +256,7 @@ export function TicketConversation() {
         ))}
       </div>
 
-      {preview && <PreviewOverlay url={preview} onClose={() => setPreview(null)} />}
+      {preview && <EmailPreview url={preview} onClose={() => setPreview(null)} />}
     </div>
   );
 }

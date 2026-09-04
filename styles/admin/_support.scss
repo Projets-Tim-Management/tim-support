@@ -623,7 +623,7 @@ $reply-status-colors: (
 }
 /* Rendu par portail sur <body> : sans quoi le z-index resterait prisonnier du
    contexte d'empilement de la vue et passerait sous la barre du haut. */
-.ticket-preview {
+.email-preview {
   position: fixed;
   inset: 0;
   z-index: 200;
@@ -633,7 +633,7 @@ $reply-status-colors: (
   padding: 2rem 1rem;
   background: color-mix(in srgb, var(--tim-foreground) 40%, transparent);
 }
-.ticket-preview__panel {
+.email-preview__panel {
   display: flex;
   flex-direction: column;
   width: min(720px, 96vw);
@@ -643,29 +643,29 @@ $reply-status-colors: (
   overflow: hidden;
   box-shadow: 0 24px 60px -20px color-mix(in srgb, var(--tim-foreground) 60%, transparent);
 }
-.ticket-preview__head {
+.email-preview__head {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 0.7rem 1rem;
   border-bottom: 1px solid var(--tim-border);
 }
-.ticket-preview__title {
+.email-preview__title {
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--tim-foreground);
 }
-.ticket-preview__open {
+.email-preview__open {
   margin-left: auto;
   font-size: 0.78rem;
   color: var(--tim-muted);
   text-decoration: none;
 }
-.ticket-preview__open:hover {
+.email-preview__open:hover {
   color: var(--tim-primary);
   text-decoration: underline;
 }
-.ticket-preview__close {
+.email-preview__close {
   border: 0;
   background: none;
   color: var(--tim-muted);
@@ -674,11 +674,11 @@ $reply-status-colors: (
   padding: 0.2rem 0.35rem;
   border-radius: var(--tim-radius-sm);
 }
-.ticket-preview__close:hover {
+.email-preview__close:hover {
   background: var(--tim-surface);
   color: var(--tim-foreground);
 }
-.ticket-preview__frame {
+.email-preview__frame {
   flex: 1 1 auto;
   width: 100%;
   border: 0;

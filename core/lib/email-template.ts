@@ -16,7 +16,12 @@
 
 export const BRAND = "#fe5464"; // rouge TIM (liens/accents)
 export const INK = "#22242c";
-export const BODY = "#4a4d57";
+/**
+ * Texte courant. NOIR, comme les titres : du gris sur blanc se lit mal, et rien
+ * ne justifie de rendre moins lisible le contenu même du message. `MUTED` reste
+ * réservé au vraiment secondaire — mentions de pied, adresses, dates.
+ */
+export const BODY = "#22242c";
 export const MUTED = "#8a8f98";
 export const BORDER = "#e6e8ef";
 export const OUTER = "#eef0f7"; // fond général
@@ -154,6 +159,146 @@ export function shell(opts: {
         </td></tr></table>
       </td></tr>
 
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
+}
+
+/**
+ * Enveloppe des messages MARKETING — les séquences de relance.
+ *
+ * Même charte que `shell()` (en-tête lavande, encadré d'aide, réseaux, pied
+ * marine), mais un autre rythme : un hero qui annonce le sujet, des bandes
+ * d'images, un seul bouton d'action, et surtout un lien de DÉSINSCRIPTION.
+ *
+ * Gabarit séparé plutôt qu'option de `shell()` : les e-mails de service ne
+ * doivent jamais hériter par accident d'un lien de désinscription — un client
+ * qui se désinscrirait depuis un accusé de réception cesserait de recevoir ce
+ * qu'il a lui-même demandé.
+ */
+export function marketingShell(opts: {
+  /** Titre du hero, en gros et en gras. */
+  heading: string;
+  preheader?: string;
+  bodyHtml: string;
+  /** Image du hero, à droite du titre. Le hero tient sans elle. */
+  heroImageUrl?: string;
+  recipientEmail?: string;
+  /** Obligatoire : un message commercial sans sortie est une plainte en attente. */
+  unsubscribeUrl: string;
+}): string {
+  const { bodyHtml, heroImageUrl, recipientEmail, unsubscribeUrl } = opts;
+  /**
+   * Titre et pré-en-tête viennent de la BASE : ils sont saisis en back-office.
+   * Pas une faille — personne d'hostile n'écrit là — mais une esperluette dans
+   * « Heures & absences » suffit à produire du HTML invalide, et un guillemet
+   * dans un attribut casse la mise en page chez la moitié des messageries.
+   */
+  const heading = escape(opts.heading);
+  const preheader = escape(opts.preheader ?? "");
+
+  const hero = heroImageUrl
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+         <td width="52%" style="padding:34px 8px 34px 30px;vertical-align:middle;">
+           <h1 style="margin:0;font-family:${FONT};font-size:30px;line-height:1.1;color:${INK};font-weight:800;">${heading}</h1>
+         </td>
+         <td width="48%" style="padding:16px 16px 16px 8px;vertical-align:middle;">
+           <img src="${escape(heroImageUrl)}" alt="" width="270" style="display:block;width:100%;max-width:270px;border:0;border-radius:12px;">
+         </td>
+       </tr></table>`
+    : `<div style="padding:34px 30px;"><h1 style="margin:0;font-family:${FONT};font-size:30px;line-height:1.1;color:${INK};font-weight:800;">${heading}</h1></div>`;
+
+  return `<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+</head>
+<body style="margin:0;padding:0;background:${OUTER};">
+<span style="display:none!important;visibility:hidden;opacity:0;height:0;width:0;overflow:hidden;mso-hide:all;">${preheader}</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${OUTER};">
+  <tr><td align="center" style="padding:28px 16px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid ${BORDER};border-radius:18px;overflow:hidden;">
+
+      <tr><td align="center" style="padding:24px 28px 20px;background:${HEADER_BG};">
+        <img src="${LOGO_URL}" alt="TIM" width="96" height="44" style="display:block;border:0;outline:none;text-decoration:none;height:44px;width:auto;">
+      </td></tr>
+
+      <tr><td style="background:${BANNER};">${hero}</td></tr>
+
+      <tr><td style="padding:28px 30px 12px;font-family:${FONT};">${bodyHtml}</td></tr>
+
+      <tr><td style="padding:22px 30px;background:${HELP_BG};">
+        <p style="margin:0 0 6px;font-family:${FONT};font-size:17px;font-weight:800;color:${INK};">Besoin d'aide ?</p>
+        <p style="margin:0;font-family:${FONT};font-size:14px;line-height:1.5;color:${BODY};">Notre équipe est disponible si vous avez la moindre question : <a href="mailto:support@tim-management.co" style="color:${BRAND};font-weight:700;text-decoration:none;">support@tim-management.co</a> · <strong>09 72 12 59 03</strong></p>
+      </td></tr>
+
+      ${socialRow()}
+
+      <tr><td style="padding:28px 30px;background:${NAVY};" align="center">
+        <p style="margin:0 0 16px;font-family:${FONT};font-size:15px;line-height:1.5;color:#ffffff;">Cordialement,<br><strong>Votre équipe ${COMPANY_NAME}</strong></p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="border-top:1px solid rgba(255,255,255,.15);padding-top:16px;" align="center">
+          <p style="margin:0 0 4px;font-family:${FONT};font-size:12px;letter-spacing:.05em;color:${NAVY_SOFT};text-transform:uppercase;font-weight:700;">${COMPANY_NAME}</p>
+          <p style="margin:0 0 10px;font-family:${FONT};font-size:12px;color:${NAVY_SOFT};">${COMPANY_ADDRESS}</p>
+          ${recipientEmail ? `<p style="margin:0 0 6px;font-family:${FONT};font-size:11px;color:${NAVY_SOFT};">Cet e-mail a été envoyé à ${escape(recipientEmail)}</p>` : ""}
+          <p style="margin:0;font-family:${FONT};font-size:12px;"><a href="${unsubscribeUrl}" style="color:#ffffff;text-decoration:underline;font-weight:700;">Se désabonner</a></p>
+        </td></tr></table>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
+}
+
+/**
+ * Enveloppe SOBRE — un message qui doit ressembler à un e-mail écrit à la main.
+ *
+ * Ni logo, ni bandeau, ni bouton, ni pied de page. C'est le point, et pas une
+ * économie de moyens : une relance qui demande « votre projet est-il toujours
+ * d'actualité ? » perd tout son sens dans un habillage de campagne — et un
+ * encart « Ne plus recevoir ces messages » sous la signature dit au lecteur
+ * qu'il est sur une liste, pas dans une conversation.
+ *
+ * ⚠️ La désinscription n'a pas disparu pour autant. Elle passe par les en-têtes
+ * `List-Unsubscribe` (posés à l'envoi par `sequence-send`), que Gmail, Outlook
+ * et Apple Mail affichent EUX-MÊMES en haut du message. Le moyen de s'opposer
+ * reste donc offert à chaque envoi, en un clic, sans rien peser dans le texte.
+ * Et une réponse suffit : elle arrête la séquence.
+ *
+ * La signature est fournie DÉJÀ RENDUE : elle est fabriquée par
+ * `modules/partner/lib/signature`, à partir de la fiche du partenaire. Il n'y en
+ * a qu'une dans le logiciel, et elle est la même partout.
+ */
+export function plainShell(opts: {
+  preheader?: string;
+  bodyHtml: string;
+  /** Formule de politesse, avant la signature. */
+  closing?: string;
+  /** Signature déjà rendue (voir renderSignature). Vide = pas de bloc. */
+  signatureHtml?: string;
+}): string {
+  const { bodyHtml, closing, signatureHtml } = opts;
+  const preheader = escape(opts.preheader ?? "");
+  const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
+  return `<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+</head>
+<body style="margin:0;padding:0;background:#ffffff;">
+<span style="display:none!important;visibility:hidden;opacity:0;height:0;width:0;overflow:hidden;mso-hide:all;">${preheader}</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
+  <tr><td style="padding:26px 22px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
+      <tr><td style="font-family:${font};font-size:15px;line-height:1.7;color:${INK};">
+        ${bodyHtml}
+        ${closing ? `<p style="margin:26px 0 20px;font-family:${font};font-size:15px;line-height:1.7;color:${INK};">${escape(closing)}</p>` : ""}
+        ${signatureHtml ?? ""}
+      </td></tr>
     </table>
   </td></tr>
 </table>

@@ -10,6 +10,7 @@ import type {
 import { adminOnlyField, hasAdminRole, isAdmin, metierOwnedAccess, partnerIdOf } from "@/core/access";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { validatePhone } from "@/core/lib/validators";
+import { enrollSequence } from "@/modules/marketing/hooks/enrollSequence";
 import { requireTestSchedule } from "@/modules/marketing/hooks/requireTestSchedule";
 import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
 import { ONBOARDING_STATUS_OPTIONS } from "@/modules/marketing/lib/onboarding";
@@ -429,7 +430,11 @@ export const PartnerClients: CollectionConfig = {
       computeCA,
     ],
     // Les faits saisis ici cochent les étapes du parcours correspondantes.
-    afterChange: [armJourneySteps, writeJournal],
+    // `enrollSequence` en dernier : il ouvre ou ferme une séquence de relance
+    // sur les transitions de « Perdue », et ne doit jamais faire échouer un
+    // enregistrement — on ne refuse pas de clore une affaire parce qu'un envoi
+    // futur n'a pas pu être planifié.
+    afterChange: [armJourneySteps, writeJournal, enrollSequence],
     // Vide ce qui n'existe que par ce client avant de le supprimer, sans quoi
     // Postgres refuse la suppression (cf. deleteClientChildren).
     beforeDelete: [deleteClientChildren],
@@ -562,6 +567,22 @@ export const PartnerClients: CollectionConfig = {
         position: "sidebar",
         condition: (data) => needsLossReason(data?.clientStatus),
         description: "Facultatif — ce que le motif ne dit pas.",
+      },
+    },
+    {
+      /**
+       * Où en est la relance automatique. Sous le motif de perte, parce que
+       * c'est le motif qui l'a ouverte — et parce qu'on lit les deux ensemble
+       * avant de rappeler quelqu'un.
+       *
+       * Ne s'affiche que s'il y a quelque chose à dire : le composant ne rend
+       * rien quand la fiche n'a jamais été enrôlée.
+       */
+      name: "sequenceState",
+      type: "ui",
+      admin: {
+        position: "sidebar",
+        components: { Field: "/modules/marketing/admin/SequenceState#SequenceState" },
       },
     },
     {

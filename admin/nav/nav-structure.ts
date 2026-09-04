@@ -37,11 +37,20 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     "parcours",
     { label: "Paramètres", slugs: ["feature-categories", "platforms"] },
   ],
+  /**
+   * Deux objets, le même motif : un modèle qui porte le contenu, une instance
+   * qui porte le calendrier. Les instances côte à côte, les modèles côte à côte
+   * dans les paramètres — c'est ce qui rend la parenté lisible.
+   */
   Marketing: [
     "journey-runs",
+    "sequence-runs",
     "form-submissions",
     { label: "Acquisition", href: "/admin/acquisition" },
-    { label: "Paramètres", slugs: ["marketing-journeys", "forms"] },
+    {
+      label: "Paramètres",
+      slugs: ["marketing-journeys", "sequences", "forms", "email-suppressions"],
+    },
   ],
   Partenaires: [
     { label: "Comptes", slugs: ["partners", "partner-clients"] },

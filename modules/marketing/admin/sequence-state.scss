@@ -1,0 +1,197 @@
+/**
+ * Bloc « Séquence de relance » de la barre latérale d'une opportunité.
+ *
+ * Une frise verticale plutôt qu'une liste : ce qu'on vient y chercher est une
+ * POSITION — ce qui est parti, où on en est, ce qui vient ensuite. Le point
+ * plein la donne d'un coup d'œil, sans lire les dates.
+ *
+ * La colonne est étroite (≈ 280 px) : deux lignes par message, titre au-dessus,
+ * date en dessous. Sur une seule ligne, tout serait tronqué.
+ */
+.seq-state {
+  margin-top: 1.25rem;
+
+  &__label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--tim-muted-light);
+    margin-bottom: 0.5rem;
+  }
+
+  &__run {
+    background: var(--tim-surface);
+    border: 1px solid var(--tim-border);
+    border-radius: var(--tim-radius);
+    padding: 0.75rem 0.875rem;
+
+    & + & {
+      margin-top: 0.5rem;
+    }
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  &__name {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--tim-foreground);
+    text-decoration: none;
+
+    &:hover {
+      color: var(--tim-primary);
+      text-decoration: underline;
+    }
+  }
+
+  &__badge {
+    flex: none;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.125rem 0.4375rem;
+    border-radius: 999px;
+
+    &.is-live {
+      color: var(--tim-green);
+      background: var(--tim-green-bg);
+    }
+    &.is-done {
+      color: var(--tim-slate);
+      background: var(--tim-slate-bg);
+    }
+    &.is-stop {
+      color: var(--tim-rose);
+      background: var(--tim-rose-bg);
+    }
+  }
+
+  &__step {
+    margin-top: 0.1875rem;
+    font-size: 0.75rem;
+    color: var(--tim-muted);
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0.75rem 0 0;
+    padding: 0;
+  }
+
+  &__msg {
+    position: relative;
+    display: flex;
+    gap: 0.5rem;
+    padding-bottom: 0.75rem;
+
+    /* Le trait qui relie les points — jamais sous le dernier. */
+    &:not(:last-child)::before {
+      content: "";
+      position: absolute;
+      left: 0.1875rem;
+      top: 0.75rem;
+      bottom: 0;
+      width: 1px;
+      background: var(--tim-border);
+    }
+
+    &:last-child {
+      padding-bottom: 0;
+    }
+  }
+
+  &__dot {
+    flex: none;
+    width: 0.4375rem;
+    height: 0.4375rem;
+    margin-top: 0.3125rem;
+    border-radius: 50%;
+    background: var(--tim-border);
+  }
+
+  &__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /**
+   * Le titre EST le bouton d'aperçu — pas un lien « voir » posé à côté.
+   *
+   * Dans une colonne de 280 px, une action séparée par message coûterait une
+   * ligne de plus chacune et rendrait la frise illisible ; et c'est bien le
+   * message qu'on veut ouvrir, pas quelque chose qui lui est adjacent.
+   */
+  &__title {
+    appearance: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: var(--tim-muted);
+
+    &:hover {
+      color: var(--tim-primary);
+      text-decoration: underline;
+    }
+  }
+
+  &__when {
+    font-size: 0.6875rem;
+    color: var(--tim-muted-light);
+  }
+
+  /* Envoyé : le point est plein, le titre lisible. C'est acquis. */
+  &.is-sent,
+  .seq-state__msg.is-sent {
+    .seq-state__dot {
+      background: var(--tim-success);
+    }
+    .seq-state__title {
+      color: var(--tim-foreground);
+    }
+  }
+
+  /**
+   * Le PROCHAIN message : le seul en rouge TIM, et en gras.
+   *
+   * C'est la seule information qui commande un geste — savoir qu'un e-mail part
+   * dans huit jours change ce qu'on dit au téléphone aujourd'hui.
+   */
+  .seq-state__msg.is-next {
+    .seq-state__dot {
+      background: var(--tim-primary);
+      box-shadow: 0 0 0 3px var(--tim-primary-light);
+    }
+    .seq-state__title {
+      color: var(--tim-foreground);
+      font-weight: 600;
+    }
+    .seq-state__when {
+      color: var(--tim-primary);
+      font-weight: 600;
+    }
+  }
+
+  /* Non envoyé (désinscrit, échec) : barré, pour ne pas le croire parti. */
+  .seq-state__msg.is-skip {
+    .seq-state__dot {
+      background: var(--tim-danger);
+    }
+    .seq-state__title {
+      text-decoration: line-through;
+    }
+    .seq-state__when {
+      color: var(--tim-danger-text);
+    }
+  }
+}
