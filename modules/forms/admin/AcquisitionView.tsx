@@ -235,6 +235,18 @@ export default async function AcquisitionView({
               </Card>
 
               <Card
+                title="Page d'arrivée"
+                info={[
+                  "Page d'arrivée",
+                  "Première page vue de la visite, qui n'est pas toujours celle du formulaire.",
+                  "C'est elle qui distingue « arrivé directement sur la landing page » d'une navigation ordinaire — la seule explication disponible pour un lead sans campagne.",
+                  "« Entrée inconnue » : soumission reçue avant que la vitrine ne transmette cette information.",
+                ]}
+              >
+                <AcqBars rows={stats.parEntree} tone="blue" />
+              </Card>
+
+              <Card
                 title="Par campagne"
                 info={[
                   "Par campagne",

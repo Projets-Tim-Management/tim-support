@@ -60,6 +60,12 @@ const PLACEMENT_VALUES = new Set<string>(PLACEMENTS.map((p) => p.value));
 export interface Attribution {
   placement?: Placement;
   sourcePagePath?: string;
+  /**
+   * Première page de la visite, qui n'est pas toujours celle du formulaire.
+   * C'est elle qui explique un lead sans campagne : « arrivé directement sur la
+   * landing page » ne se distingue pas autrement d'une navigation ordinaire.
+   */
+  landingPath?: string;
   sourcePageUrl?: string;
   lpSlug?: string;
   lpVariant?: string;
@@ -89,6 +95,7 @@ export function parseAttribution(raw: unknown): Attribution {
   return {
     ...(placement && PLACEMENT_VALUES.has(placement) ? { placement: placement as Placement } : {}),
     sourcePagePath: cap(a.source_page_path ?? a.sourcePagePath, 500),
+    landingPath: cap(a.landing_path ?? a.landingPath, 500),
     sourcePageUrl: cap(a.source_page_url ?? a.sourcePageUrl, 1500),
     lpSlug: cap(a.lp_slug ?? a.lpSlug, 200),
     lpVariant: cap(a.lp_variant ?? a.lpVariant, 40),

@@ -51,6 +51,7 @@ import * as migration_20260904_073045_add_submission_id from './20260904_073045_
 import * as migration_20260904_080651_add_channel_source from './20260904_080651_add_channel_source';
 import * as migration_20260904_082455_add_lead_fields from './20260904_082455_add_lead_fields';
 import * as migration_20260904_090936_add_loss_reason_a_qualifier from './20260904_090936_add_loss_reason_a_qualifier';
+import * as migration_20260904_100019_add_landing_path from './20260904_100019_add_landing_path';
 
 export const migrations = [
   {
@@ -316,6 +317,11 @@ export const migrations = [
   {
     up: migration_20260904_090936_add_loss_reason_a_qualifier.up,
     down: migration_20260904_090936_add_loss_reason_a_qualifier.down,
-    name: '20260904_090936_add_loss_reason_a_qualifier'
+    name: '20260904_090936_add_loss_reason_a_qualifier',
+  },
+  {
+    up: migration_20260904_100019_add_landing_path.up,
+    down: migration_20260904_100019_add_landing_path.down,
+    name: '20260904_100019_add_landing_path'
   },
 ];

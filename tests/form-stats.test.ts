@@ -9,6 +9,7 @@ import { buildStats, topRows, type ClientRow, type SubmissionRow } from "@/modul
 
 const sub = (o: Partial<SubmissionRow> = {}): SubmissionRow => ({
   channel: "seo",
+  landingPath: "/",
   channelSource: "defaut",
   placement: "drawer",
   sourcePagePath: "/contact",
@@ -48,8 +49,12 @@ describe("agrégats", () => {
   });
 
   it("nomme ce qui manque au lieu de laisser un vide", () => {
-    const s = buildStats([sub({ sourcePagePath: null, utmCampaign: null, lpVariant: null })], []);
+    const s = buildStats(
+      [sub({ sourcePagePath: null, utmCampaign: null, lpVariant: null, landingPath: null })],
+      [],
+    );
     expect(s.parPage[0].label).toBe("page inconnue");
+    expect(s.parEntree[0].label).toBe("entrée inconnue");
     expect(s.parCampagne[0].label).toBe("sans campagne");
     expect(s.parVariante[0].label).toBe("hors landing page");
   });

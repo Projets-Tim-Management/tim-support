@@ -146,6 +146,17 @@ export const FormSubmissions: CollectionConfig = {
             },
             { name: "sourcePageUrl", type: "text", label: "URL complète", admin: { readOnly: true } },
             {
+              name: "landingPath",
+              type: "text",
+              label: "Page d'arrivée",
+              index: true,
+              admin: {
+                readOnly: true,
+                description:
+                  "Première page de la visite. Différente de « Page » quand la personne a navigué avant de remplir le formulaire.",
+              },
+            },
+            {
               type: "row",
               fields: [
                 {

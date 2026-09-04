@@ -654,6 +654,10 @@ export interface FormSubmission {
    */
   sourcePagePath?: string | null;
   sourcePageUrl?: string | null;
+  /**
+   * Première page de la visite. Différente de « Page » quand la personne a navigué avant de remplir le formulaire.
+   */
+  landingPath?: string | null;
   lpSlug?: string | null;
   lpVariant?: string | null;
   referrer?: string | null;
@@ -2609,6 +2613,7 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
   channelSource?: T;
   sourcePagePath?: T;
   sourcePageUrl?: T;
+  landingPath?: T;
   lpSlug?: T;
   lpVariant?: T;
   referrer?: T;

@@ -23,8 +23,16 @@ import { honeypotTripped, validateAnswers } from "@/modules/forms/lib/validate";
 
 export const dynamic = "force-dynamic";
 
-/** Généreux : plusieurs personnes partagent souvent une adresse de sortie. */
-const MAX_PER_IP_PER_HOUR = 10;
+/**
+ * Débit maximal par adresse et par heure.
+ *
+ * Généreux, et réglable sans déploiement : une adresse de sortie est souvent
+ * partagée — réseau d'entreprise, et surtout opérateurs mobiles, où des milliers
+ * d'abonnés sortent par la même IP. Refuser un vrai lead coûte plus cher
+ * qu'accepter quelques envois de trop, et le secret partagé plus le leurre
+ * filtrent déjà l'essentiel.
+ */
+const MAX_PER_IP_PER_HOUR = Number(process.env.FORMS_MAX_PER_IP_PER_HOUR) || 20;
 const HOUR_MS = 60 * 60 * 1000;
 
 const fail = (error: string, status: number, extra: Record<string, unknown> = {}) =>

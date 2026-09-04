@@ -82,6 +82,18 @@ describe("attribution", () => {
     });
   });
 
+  it("garde la page d'arrivée, distincte de celle du formulaire", () => {
+    // Une personne arrivée sur une landing page puis passée au tiroir remplit
+    // ailleurs qu'elle n'est entrée : les deux chemins disent des choses différentes.
+    const a = parseAttribution({
+      landing_path: "/lp/demande-demo-suivi-temps-v2",
+      source_page_path: "/produits/pointage",
+    });
+    expect(a.landingPath).toBe("/lp/demande-demo-suivi-temps-v2");
+    expect(a.sourcePagePath).toBe("/produits/pointage");
+    expect(parseAttribution({ landingPath: "/x" }).landingPath).toBe("/x");
+  });
+
   it("garde la variante de landing page, sans quoi l'A/B test n'existe pas", () => {
     const a = parseAttribution({ lp_slug: "demande-demo-suivi-temps", lp_variant: "v2" });
     expect(a.lpSlug).toBe("demande-demo-suivi-temps");

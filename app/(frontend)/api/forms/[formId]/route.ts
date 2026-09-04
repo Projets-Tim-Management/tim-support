@@ -15,8 +15,15 @@ import { toPublicForm } from "@/modules/forms/lib/public-schema";
  * site public, il ne contient aucune donnée de personne.
  */
 
-/** Une minute au CDN, puis service de la version périmée pendant la relecture. */
-const CACHE = "public, max-age=0, s-maxage=60, stale-while-revalidate=300";
+/**
+ * Une minute au CDN, puis deux minutes de tolérance pendant la relecture.
+ *
+ * La vitrine ajoute sa propre revalidation d'une minute : la fraîcheur réelle
+ * est la somme des deux. Cinq minutes de tolérance portaient le pire cas à six
+ * minutes — trop long pour une correction de libellé qu'on vient de faire et
+ * qu'on recharge pour la voir.
+ */
+const CACHE = "public, max-age=0, s-maxage=60, stale-while-revalidate=120";
 
 export async function GET(req: Request, { params }: { params: Promise<{ formId: string }> }) {
   const cors = corsHeaders(req.headers.get("origin"));

@@ -13,6 +13,7 @@ import { lossReasonLabel } from "@/modules/partner/lib/lossReason";
 
 export interface SubmissionRow {
   channel?: string | null;
+  landingPath?: string | null;
   channelSource?: string | null;
   placement?: string | null;
   sourcePagePath?: string | null;
@@ -75,6 +76,8 @@ export interface Stats {
   fiabiliteSea: number | null;
   parEmplacement: Row[];
   parPage: Row[];
+  /** Première page de la visite — d'où les gens entrent, et non où ils remplissent. */
+  parEntree: Row[];
   parCampagne: Row[];
   /** Variantes de landing page — l'A/B test, enfin mesurable. */
   parVariante: Row[];
@@ -112,6 +115,7 @@ export function buildStats(subs: SubmissionRow[], clients: ClientRow[]): Stats {
       key: v,
     })),
     parPage: topRows(tally(subs.map((s) => s.sourcePagePath), "page inconnue")),
+    parEntree: topRows(tally(subs.map((s) => s.landingPath), "entrée inconnue")),
     parCampagne: topRows(tally(subs.map((s) => s.utmCampaign), "sans campagne")),
     parVariante: [...tally(subs.map((s) => s.lpVariant), "hors landing page")].map(([v, value]) => ({
       label: v,
