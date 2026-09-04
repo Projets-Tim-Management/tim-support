@@ -9,6 +9,8 @@
  *   npx tsx scripts/mailbox-status.ts --etat      # l'état des curseurs, sans rien lire
  *   npx tsx scripts/mailbox-status.ts --voir      # relit les derniers écrits
  *   npx tsx scripts/mailbox-status.ts --refaire   # efface les échanges CAPTÉS et recommence
+ *   npx tsx scripts/mailbox-status.ts --purger=x@y.fr   # efface ceux venus de CETTE boîte
+ *   npx tsx scripts/mailbox-status.ts --rattraper       # renseigne la provenance manquante
  *
  * `--max` borne le nombre de messages EXAMINÉS, pas écrits. Il sert à regarder
  * ce que donne une première tranche avant de lâcher un passage complet sur des
@@ -47,10 +49,73 @@ const { syncMailbox, recordSync } = await import("@/modules/partner/lib/mailbox/
  * de quelqu'un.
  */
 const redo = process.argv.includes("--refaire");
+/**
+ * Efface les échanges venus d'UNE boîte précise.
+ *
+ * C'est ce qu'on doit pouvoir faire quand quelqu'un retire le consentement
+ * qu'il avait donné : déconnecter arrête la lecture, purger retire ce qu'elle
+ * avait produit. Sans cette commande, la promesse de suppression n'en serait
+ * pas une.
+ */
+const purge = process.argv.find((a) => a.startsWith("--purger="))?.split("=")[1];
 const write = process.argv.includes("--ecrire");
 const maxArg = process.argv.find((a) => a.startsWith("--max="))?.split("=")[1];
 const max = maxArg ? Number(maxArg) : undefined;
 const payload = await getPayload({ config });
+
+/**
+ * Renseigne la provenance des échanges captés avant que le champ n'existe.
+ *
+ * Sans elle, `--purger` ne les retrouverait pas, et la promesse de suppression
+ * n'en serait pas une pour les plus anciens — ceux, justement, qu'on voudrait
+ * effacer le jour où quelqu'un se ravise.
+ *
+ * Ne s'exécute que s'il n'y a qu'UNE boîte connectée : au-delà, on ne peut plus
+ * savoir laquelle a fourni quoi, et deviner reviendrait à effacer plus tard les
+ * échanges de quelqu'un d'autre.
+ */
+if (process.argv.includes("--rattraper")) {
+  const boxes = await payload.find({ collection: "mailbox-connections", limit: 5, overrideAccess: true });
+  if (boxes.docs.length !== 1) {
+    console.log(`\n${boxes.docs.length} boîtes connectées : impossible d'attribuer la provenance sans deviner.\n`);
+    process.exit(1);
+  }
+  const from = (boxes.docs[0] as { accountEmail?: string }).accountEmail;
+
+  const orphans = await payload.find({
+    collection: "client-activities",
+    where: { and: [{ sourceMessageId: { exists: true } }, { capturedFrom: { exists: false } }] },
+    limit: 5000,
+    depth: 0,
+    overrideAccess: true,
+  });
+  for (const a of orphans.docs) {
+    await payload.update({
+      collection: "client-activities",
+      id: a.id,
+      data: { capturedFrom: from } as never,
+      overrideAccess: true,
+    });
+  }
+  console.log(`\n${orphans.docs.length} échange(s) rattaché(s) à ${from}.\n`);
+  process.exit(0);
+}
+
+if (purge) {
+  const from = purge.trim().toLowerCase();
+  const captured = await payload.find({
+    collection: "client-activities",
+    where: { capturedFrom: { equals: from } },
+    limit: 5000,
+    depth: 0,
+    overrideAccess: true,
+  });
+  for (const a of captured.docs) {
+    await payload.delete({ collection: "client-activities", id: a.id, overrideAccess: true });
+  }
+  console.log(`\n${captured.docs.length} échange(s) venu(s) de ${from} effacé(s).\n`);
+  process.exit(0);
+}
 
 if (redo) {
   const captured = await payload.find({

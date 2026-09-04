@@ -1308,6 +1308,7 @@ export interface ClientActivity {
   reminderSentAt?: string | null;
   emailDirection?: ('recu' | 'envoye') | null;
   sourceMessageId?: string | null;
+  capturedFrom?: string | null;
   /**
    * Noms seulement — les fichiers ne sont pas conservés.
    */
@@ -1524,7 +1525,7 @@ export interface SequenceRun {
   createdAt: string;
 }
 /**
- * Les boîtes dont les échanges remontent dans l'historique des opportunités. Seuls les messages concernant un prospect connu sont conservés.
+ * Les boîtes dont les échanges remontent dans l'historique des opportunités. Seuls les messages concernant un prospect connu sont conservés. Supprimer une ligne révoque l'accès chez Google et arrête la lecture ; les échanges déjà rattachés restent sur les fiches.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "mailbox-connections".
@@ -2569,6 +2570,7 @@ export interface ClientActivitiesSelect<T extends boolean = true> {
   reminderSentAt?: T;
   emailDirection?: T;
   sourceMessageId?: T;
+  capturedFrom?: T;
   attachmentNames?: T;
   recipients?: T;
   attachments?: T;

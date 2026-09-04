@@ -198,7 +198,10 @@ export async function syncMailbox(
         },
         // La boîte lue EST notre côté de la conversation : tout ce qui ne part
         // pas d'elle est reçu, quelle que soit l'adresse du correspondant.
-        { ourAddresses: connection.accountEmail ? [connection.accountEmail] : [] },
+        {
+          ourAddresses: connection.accountEmail ? [connection.accountEmail] : [],
+          source: connection.accountEmail,
+        },
       );
       if (result.reason === "ecrit") summary.written += 1;
       else if (result.reason === "deja-connu") summary.known += 1;

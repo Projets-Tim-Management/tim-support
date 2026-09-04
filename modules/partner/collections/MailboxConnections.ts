@@ -1,6 +1,7 @@
-import type { CollectionConfig } from "payload";
+import type { CollectionAfterDeleteHook, CollectionConfig } from "payload";
 
 import { isAdmin } from "@/core/access";
+import { revokeGoogleToken } from "@/core/lib/google-oauth";
 
 /**
  * Les boîtes mail connectées — une par personne.
@@ -20,6 +21,32 @@ import { isAdmin } from "@/core/access";
  * où on la prend : le jeton donne accès à TOUT le contenu de la boîte, bien
  * au-delà de ce que le logiciel en retient.
  */
+/**
+ * Déconnecter coupe des DEUX côtés.
+ *
+ * Supprimer la ligne efface nos jetons ; sans révocation, l'application reste
+ * inscrite dans le compte Google de la personne, qui continue d'y lire que nous
+ * avons accès à sa messagerie. Ce serait faux, et c'est précisément le genre de
+ * détail qui ruine la confiance qu'on demande en branchant une boîte.
+ *
+ * Les échanges déjà rattachés, eux, RESTENT : ils appartiennent à l'historique
+ * des opportunités, pas à la boîte qui les a fournis. Les effacer se demande
+ * explicitement — voir `--purger` dans scripts/mailbox-status.ts.
+ */
+const revokeOnDelete: CollectionAfterDeleteHook = async ({ doc, req }) => {
+  const token = (doc as { refreshToken?: string }).refreshToken;
+  const email = (doc as { accountEmail?: string }).accountEmail;
+  if (!token) return doc;
+
+  const done = await revokeGoogleToken(token);
+  req.payload.logger.info(
+    done
+      ? `[boîte mail] ${email} déconnectée, autorisation révoquée chez Google.`
+      : `[boîte mail] ${email} déconnectée ; la révocation chez Google a échoué (peut-être déjà faite).`,
+  );
+  return doc;
+};
+
 export const MailboxConnections: CollectionConfig = {
   slug: "mailbox-connections",
   labels: { singular: "Boîte mail", plural: "Boîtes mail connectées" },
@@ -28,7 +55,7 @@ export const MailboxConnections: CollectionConfig = {
     defaultColumns: ["accountEmail", "status", "lastSyncAt", "capturedCount"],
     group: "Partenaires",
     description:
-      "Les boîtes dont les échanges remontent dans l'historique des opportunités. Seuls les messages concernant un prospect connu sont conservés.",
+      "Les boîtes dont les échanges remontent dans l'historique des opportunités. Seuls les messages concernant un prospect connu sont conservés. Supprimer une ligne révoque l'accès chez Google et arrête la lecture ; les échanges déjà rattachés restent sur les fiches.",
     components: {
       beforeList: ["/modules/partner/admin/ConnectMailbox#ConnectMailbox"],
     },
@@ -36,6 +63,7 @@ export const MailboxConnections: CollectionConfig = {
   // Créée et mise à jour par le flux OAuth uniquement : une connexion saisie à
   // la main n'aurait ni jeton valide ni consentement derrière elle.
   access: { read: isAdmin, create: () => false, update: isAdmin, delete: isAdmin },
+  hooks: { afterDelete: [revokeOnDelete] },
   fields: [
     {
       type: "row",

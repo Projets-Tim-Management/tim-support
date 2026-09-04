@@ -126,3 +126,28 @@ export async function refreshGoogleTokens(
     }),
   );
 }
+
+/**
+ * Révoque l'autorisation côté GOOGLE.
+ *
+ * Supprimer la ligne en base efface nos jetons, mais laisse l'application
+ * inscrite dans le compte Google de la personne — elle continuerait d'y lire
+ * « TIM Support a accès à votre messagerie », ce qui serait faux et inquiétant.
+ * Couper doit couper des deux côtés.
+ *
+ * Silencieux en cas d'échec : un jeton déjà révoqué depuis le compte Google
+ * répond 400, et ce n'est pas une erreur — c'est le résultat voulu.
+ */
+export async function revokeGoogleToken(token: string): Promise<boolean> {
+  try {
+    const res = await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ token }).toString(),
+      signal: AbortSignal.timeout(8000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

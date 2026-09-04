@@ -259,7 +259,11 @@ export interface CaptureResult {
 export async function captureEmail(
   payload: Payload,
   msg: IncomingMessage,
-  { captureAddress, ourAddresses = [] }: { captureAddress?: string; ourAddresses?: string[] } = {},
+  {
+    captureAddress,
+    ourAddresses = [],
+    source,
+  }: { captureAddress?: string; ourAddresses?: string[]; source?: string } = {},
 ): Promise<CaptureResult> {
   const body = (msg.text ?? "").trim();
   const names = attachmentNames(msg);
@@ -301,6 +305,7 @@ export async function captureEmail(
       recipients: (sens === "recu" ? [from, ...visibles] : visibles).filter(Boolean).join(", "),
       emailDirection: sens,
       sourceMessageId: messageId,
+      capturedFrom: source ?? captureAddress,
       attachmentNames: names.join(", ") || undefined,
     } as never,
     overrideAccess: true,
