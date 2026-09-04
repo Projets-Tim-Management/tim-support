@@ -127,6 +127,16 @@ describe("textes et garde-fous", () => {
     }
   });
 
+  it("porte une mention d'information au point de collecte", () => {
+    // Les formulaires Brevo n'en avaient aucune : ni finalité, ni durée, ni
+    // moyen d'exercer ses droits. Un formulaire neuf ne doit pas reconduire ça.
+    const notice = DEMO_FORM.legalNotice ?? "";
+    expect(notice).toContain("TIM Management");
+    expect(notice).toContain("3 ans");
+    expect(notice).toContain("support@tim-management.co");
+    expect(notice).toMatch(/droit d'accès/);
+  });
+
   it("ne sème pas deux formulaires sous le même identifiant", () => {
     const ids = SEEDED_FORMS.map((f) => f.formId);
     expect(new Set(ids).size).toBe(ids.length);

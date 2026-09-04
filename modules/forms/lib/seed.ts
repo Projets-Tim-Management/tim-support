@@ -10,7 +10,8 @@ import { SEEDED_FORMS } from "@/modules/forms/lib/form-schema";
  * correction faite en back-office. `seedVersion` servira le jour où il faudra
  * compléter une définition en place, champ par champ.
  */
-const SEED_VERSION = 1;
+// v2 : mention d'information RGPD, posée uniquement si le champ est encore vide.
+const SEED_VERSION = 2;
 
 export async function seedForms(payload: Payload): Promise<void> {
   for (const form of SEEDED_FORMS) {
@@ -23,7 +24,25 @@ export async function seedForms(payload: Payload): Promise<void> {
         overrideAccess: true,
       });
 
-      if (existing.docs.length) continue;
+      const doc = existing.docs[0] as
+        | { id: number | string; legalNotice?: string | null; seedVersion?: number | null }
+        | undefined;
+
+      if (doc) {
+        // Mise à niveau : on COMPLÈTE ce qui est vide, jamais ce qui est écrit.
+        // Une mention retouchée en back-office ne doit pas être remplacée par
+        // celle du code au prochain démarrage.
+        if ((doc.seedVersion ?? 0) < SEED_VERSION && !doc.legalNotice?.trim() && form.legalNotice) {
+          await payload.update({
+            collection: "forms",
+            id: doc.id,
+            data: { legalNotice: form.legalNotice, seedVersion: SEED_VERSION } as never,
+            overrideAccess: true,
+          });
+          payload.logger.info(`[formulaires] mention d'information posée sur « ${form.formId} ».`);
+        }
+        continue;
+      }
 
       await payload.create({
         collection: "forms",

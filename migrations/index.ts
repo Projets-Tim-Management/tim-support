@@ -50,6 +50,7 @@ import * as migration_20260904_070317_add_forms from './20260904_070317_add_form
 import * as migration_20260904_073045_add_submission_id from './20260904_073045_add_submission_id';
 import * as migration_20260904_080651_add_channel_source from './20260904_080651_add_channel_source';
 import * as migration_20260904_082455_add_lead_fields from './20260904_082455_add_lead_fields';
+import * as migration_20260904_090936_add_loss_reason_a_qualifier from './20260904_090936_add_loss_reason_a_qualifier';
 
 export const migrations = [
   {
@@ -310,6 +311,11 @@ export const migrations = [
   {
     up: migration_20260904_082455_add_lead_fields.up,
     down: migration_20260904_082455_add_lead_fields.down,
-    name: '20260904_082455_add_lead_fields'
+    name: '20260904_082455_add_lead_fields',
+  },
+  {
+    up: migration_20260904_090936_add_loss_reason_a_qualifier.up,
+    down: migration_20260904_090936_add_loss_reason_a_qualifier.down,
+    name: '20260904_090936_add_loss_reason_a_qualifier'
   },
 ];

@@ -498,6 +498,7 @@ export interface PartnerClient {
         | 'besoin-different'
         | 'solution-interne'
         | 'test-non-concluant'
+        | 'a-qualifier'
         | 'peu-utilise'
         | 'complexite'
         | 'support'

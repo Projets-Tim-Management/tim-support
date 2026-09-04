@@ -40,6 +40,16 @@ export const LOSS_REASONS: LossReason[] = [
   { value: "besoin-different", label: "Besoin différent de notre offre", scopes: ["prospect"] },
   { value: "solution-interne", label: "Solution interne / fait maison", scopes: ["prospect"] },
   { value: "test-non-concluant", label: "Phase de test non concluante", scopes: ["prospect"] },
+  /**
+   * ⚠️ TEMPORAIRE. Posé sur les affaires perdues reprises du CRM Brevo, qui ne
+   * portaient aucun motif : il faut bien en poser un (requireLossReason refuse
+   * une fiche close sans motif), et un repli sur « Autre motif » polluerait des
+   * statistiques que cette liste fermée sert justement à produire.
+   *
+   * À SUPPRIMER — entrée, valeur d'enum et code d'import — une fois toutes les
+   * fiches qualifiées. À redemander à l'utilisateur à chaque mise en production.
+   */
+  { value: "a-qualifier", label: "À qualifier — repris de Brevo", scopes: ["prospect"] },
 
   // ── Client qui s'en va ───────────────────────────────────────────────────
   { value: "peu-utilise", label: "Outil trop peu utilisé", scopes: ["client"] },

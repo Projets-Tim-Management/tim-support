@@ -104,8 +104,13 @@ export const DEMO_FORM: FormDef = {
   // l'envoi échouait croyait avoir réussi.
   errorText:
     "Votre demande n'a pas pu être envoyée. Vérifiez les champs signalés, puis réessayez.",
-  /** Rédigée à l'étape 7, après validation juridique. Vide = rien n'est affiché. */
-  legalNotice: "",
+  /**
+   * Mention d'information au point de collecte. La vitrine l'affiche près du
+   * bouton d'envoi et y ajoute son propre lien vers /politique-confidentialite.
+   * Durée et adresse validées par l'utilisateur le 04/09/2026.
+   */
+  legalNotice:
+    "Les informations recueillies dans ce formulaire sont utilisées par TIM Management pour traiter votre demande et vous recontacter. Elles sont conservées 3 ans à compter de notre dernier échange. Vous disposez d'un droit d'accès, de rectification, d'effacement et d'opposition, que vous pouvez exercer à support@tim-management.co.",
   fields: [
     {
       name: "company_name",
