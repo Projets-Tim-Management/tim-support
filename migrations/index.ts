@@ -60,6 +60,7 @@ import * as migration_20260904_154155_remove_sequence_signature from './20260904
 import * as migration_20260904_160912_optional_sequence_cta from './20260904_160912_optional_sequence_cta';
 import * as migration_20260904_164301_sequence_reply_and_chaining from './20260904_164301_sequence_reply_and_chaining';
 import * as migration_20260904_173847_capture_email_fields from './20260904_173847_capture_email_fields';
+import * as migration_20260904_181924_mailbox_connections from './20260904_181924_mailbox_connections';
 
 export const migrations = [
   {
@@ -370,6 +371,11 @@ export const migrations = [
   {
     up: migration_20260904_173847_capture_email_fields.up,
     down: migration_20260904_173847_capture_email_fields.down,
-    name: '20260904_173847_capture_email_fields'
+    name: '20260904_173847_capture_email_fields',
+  },
+  {
+    up: migration_20260904_181924_mailbox_connections.up,
+    down: migration_20260904_181924_mailbox_connections.down,
+    name: '20260904_181924_mailbox_connections'
   },
 ];

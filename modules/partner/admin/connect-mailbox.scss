@@ -1,0 +1,92 @@
+/**
+ * En-tête de la liste des boîtes mail connectées.
+ *
+ * Le texte d'engagement occupe la place — c'est lui qu'on vient lire avant de
+ * cliquer, pas le bouton. Un encadré discret avec un gros bouton rouge dirait
+ * l'inverse de ce qu'on veut dire.
+ */
+.mailbox-intro {
+  margin-bottom: 1.5rem;
+
+  &__flash {
+    margin: 0 0 0.75rem;
+    padding: 0.625rem 0.875rem;
+    border-radius: var(--tim-radius-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+
+    &.is-ok {
+      color: var(--tim-green);
+      background: var(--tim-green-bg);
+    }
+    &.is-ko {
+      color: var(--tim-red);
+      background: var(--tim-red-bg);
+    }
+  }
+
+  &__box {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+    padding: 1.125rem 1.25rem;
+    background: var(--tim-surface);
+    border: 1px solid var(--tim-border);
+    border-radius: var(--tim-radius);
+  }
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+
+    p {
+      margin: 0 0 0.5rem;
+      font-size: 0.875rem;
+      line-height: 1.6;
+      color: var(--tim-foreground);
+    }
+    p:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__title {
+    font-size: 1rem !important;
+    font-weight: 700;
+  }
+
+  /* La règle de conservation, en retrait : c'est un engagement, pas du corps de texte. */
+  &__rule {
+    padding-left: 0.75rem;
+    border-left: 3px solid var(--tim-border);
+    color: var(--tim-muted) !important;
+  }
+
+  &__btn {
+    flex: none;
+    align-self: center;
+    padding: 0.6875rem 1.25rem;
+    border-radius: var(--tim-radius-sm);
+    background: var(--tim-primary);
+    color: var(--tim-white);
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover {
+      background: var(--tim-primary-dark);
+      color: var(--tim-white);
+    }
+  }
+
+  @media (max-width: 720px) {
+    &__box {
+      flex-direction: column;
+    }
+    &__btn {
+      align-self: stretch;
+      text-align: center;
+    }
+  }
+}

@@ -85,6 +85,7 @@ export interface Config {
     'journey-runs': JourneyRun;
     'marketing-journeys': MarketingJourney;
     'sequence-runs': SequenceRun;
+    'mailbox-connections': MailboxConnection;
     sequences: Sequence;
     forms: Form;
     'form-submissions': FormSubmission;
@@ -134,6 +135,7 @@ export interface Config {
     'journey-runs': JourneyRunsSelect<false> | JourneyRunsSelect<true>;
     'marketing-journeys': MarketingJourneysSelect<false> | MarketingJourneysSelect<true>;
     'sequence-runs': SequenceRunsSelect<false> | SequenceRunsSelect<true>;
+    'mailbox-connections': MailboxConnectionsSelect<false> | MailboxConnectionsSelect<true>;
     sequences: SequencesSelect<false> | SequencesSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
@@ -1522,6 +1524,41 @@ export interface SequenceRun {
   createdAt: string;
 }
 /**
+ * Les boîtes dont les échanges remontent dans l'historique des opportunités. Seuls les messages concernant un prospect connu sont conservés.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "mailbox-connections".
+ */
+export interface MailboxConnection {
+  id: number;
+  accountEmail: string;
+  user?: (number | null) | User;
+  provider: 'google';
+  /**
+   * « Suspendue » arrête la lecture sans couper la connexion.
+   */
+  status: 'active' | 'erreur' | 'suspendue';
+  lastSyncAt?: string | null;
+  /**
+   * Ce que Google a répondu. Une reconnexion suffit le plus souvent.
+   */
+  lastError?: string | null;
+  /**
+   * Les échanges antérieurs ne sont pas repris.
+   */
+  syncSince?: string | null;
+  /**
+   * Depuis la connexion.
+   */
+  capturedCount?: number | null;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  expiresAt?: string | null;
+  historyId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Le modèle : quels motifs de perte ouvrent quelle séquence, et les messages qui partent ensuite.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2106,6 +2143,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'sequence-runs';
         value: number | SequenceRun;
+      } | null)
+    | ({
+        relationTo: 'mailbox-connections';
+        value: number | MailboxConnection;
       } | null)
     | ({
         relationTo: 'sequences';
@@ -2787,6 +2828,26 @@ export interface SequenceRunsSelect<T extends boolean = true> {
         skipped?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "mailbox-connections_select".
+ */
+export interface MailboxConnectionsSelect<T extends boolean = true> {
+  accountEmail?: T;
+  user?: T;
+  provider?: T;
+  status?: T;
+  lastSyncAt?: T;
+  lastError?: T;
+  syncSince?: T;
+  capturedCount?: T;
+  accessToken?: T;
+  refreshToken?: T;
+  expiresAt?: T;
+  historyId?: T;
   updatedAt?: T;
   createdAt?: T;
 }

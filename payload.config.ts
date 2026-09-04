@@ -32,6 +32,7 @@ import { MarketingJourneys } from "./modules/marketing/collections/MarketingJour
 import { JourneyRuns } from "./modules/marketing/collections/JourneyRuns";
 import { SequenceRuns } from "./modules/marketing/collections/SequenceRuns";
 import { Sequences } from "./modules/marketing/collections/Sequences";
+import { MailboxConnections } from "./modules/partner/collections/MailboxConnections";
 import { ClientEmployees } from "./modules/marketing/collections/ClientEmployees";
 import { ClientSites } from "./modules/marketing/collections/ClientSites";
 import { ClientVehicles } from "./modules/marketing/collections/ClientVehicles";
@@ -86,6 +87,7 @@ const ROLE_NAV_HIDDEN: Record<string, (args: { user?: unknown }) => boolean> = {
   "journey-runs": hideUnlessMetier,
   "sequence-runs": hideUnlessAdmin,
   sequences: hideUnlessAdmin,
+  "mailbox-connections": hideUnlessAdmin,
   "marketing-journeys": hideUnlessAdmin,
   // Formulaires du site vitrine : réglage et données publics de TIM, pas d'un
   // partenaire. Les soumissions portent en outre les coordonnées de prospects
@@ -233,6 +235,7 @@ export default buildConfig({
       MarketingJourneys,
       // Relances après une affaire perdue : les envois en cours, et leur contenu
       SequenceRuns,
+      MailboxConnections,
       Sequences,
       // Formulaires du site vitrine : la définition servie au site, et ce qu'il renvoie
       Forms,
