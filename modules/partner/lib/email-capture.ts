@@ -124,6 +124,12 @@ const QUOTE_MARKERS = [
   /^\s*De\s*:\s*.+$/i,
   /^\s*From\s*:\s*.+$/i,
   /^\s*_{5,}\s*$/,
+  /**
+   * Le préfixe « > » du texte brut, marqueur le plus universel — et le seul qui
+   * survive à un retour à la ligne au milieu du « Le … a écrit : », lequel
+   * échappait aux motifs ci-dessus et laissait passer des fils entiers.
+   */
+  /^\s*>/,
 ];
 
 export function stripQuoted(text: string): string {
@@ -202,15 +208,38 @@ export async function findOpportunity(
   return Number.isFinite(id) ? { clientId: id, matchedOn: found.email ?? addresses[0] } : null;
 }
 
+const domainOf = (email: string): string => email.split("@")[1]?.toLowerCase() ?? "";
+
 /**
  * Sens du message, du point de vue de la fiche.
  *
- * Déterminé par l'EXPÉDITEUR et lui seul : si c'est le prospect qui écrit, le
- * message est reçu ; dans tous les autres cas il part de chez nous. Se fier aux
- * destinataires serait faux dès qu'un fil compte plusieurs personnes.
+ * Déterminé par l'EXPÉDITEUR seul : dans un fil à plusieurs, l'adresse du
+ * prospect figure des DEUX côtés — il est destinataire de ce qu'on lui écrit
+ * comme expéditeur de sa réponse en copie.
+ *
+ * Quand on connaît NOS adresses — la boîte connectée — la règle est franche :
+ * si ce n'est pas nous qui écrivons, c'est reçu. Sans elle, on comparait à la
+ * seule adresse qui a permis le rattachement, et un message de Louis
+ * <l.dupont@ctsm.be> rattaché via <invoices@ctsm.be> passait pour un envoi de
+ * notre part — constaté sur de vraies données, pas supposé.
+ *
+ * Le repli, quand on ne connaît pas nos adresses (capture par copie cachée),
+ * ajoute le DOMAINE : quelqu'un qui écrit depuis la même maison que le prospect
+ * n'est pas nous.
  */
-export function direction(msg: IncomingMessage, matchedOn: string): "recu" | "envoye" {
-  return readAddresses(msg.from).includes(matchedOn.toLowerCase()) ? "recu" : "envoye";
+export function direction(
+  msg: IncomingMessage,
+  matchedOn: string,
+  ours: string[] = [],
+): "recu" | "envoye" {
+  const from = readAddresses(msg.from)[0];
+  if (!from) return "envoye";
+
+  const mine = ours.map((a) => a.trim().toLowerCase()).filter(Boolean);
+  if (mine.length) return mine.includes(from) ? "envoye" : "recu";
+
+  const target = matchedOn.toLowerCase();
+  return from === target || domainOf(from) === domainOf(target) ? "recu" : "envoye";
 }
 
 export interface CaptureResult {
@@ -230,7 +259,7 @@ export interface CaptureResult {
 export async function captureEmail(
   payload: Payload,
   msg: IncomingMessage,
-  { captureAddress }: { captureAddress?: string } = {},
+  { captureAddress, ourAddresses = [] }: { captureAddress?: string; ourAddresses?: string[] } = {},
 ): Promise<CaptureResult> {
   const body = (msg.text ?? "").trim();
   const names = attachmentNames(msg);
@@ -252,7 +281,7 @@ export async function captureEmail(
     }
   }
 
-  const sens = direction(msg, match.matchedOn);
+  const sens = direction(msg, match.matchedOn, ourAddresses);
   const subject = cleanSubject(msg.subject) || "(sans objet)";
   const from = readAddresses(msg.from)[0];
   const visibles = [...readAddresses(msg.to), ...readAddresses(msg.cc)].filter(

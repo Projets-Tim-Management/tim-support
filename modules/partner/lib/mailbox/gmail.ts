@@ -32,23 +32,44 @@ const isRateLimited = (status: number, message: string): boolean =>
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const MAX_ATTEMPTS = 4;
+
+/** Attente doublée à chaque essai, avec une part d'aléatoire (voir plus bas). */
+const backoff = (attempt: number) => wait(2 ** attempt * 1500 + Math.random() * 500);
+
 async function api<T>(accessToken: string, path: string, attempt = 0): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API}${path}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+    });
+  } catch (err) {
+    /**
+     * Délai dépassé, ou réseau qui tousse. Constaté : UN appel expiré suffisait
+     * à faire échouer le passage entier — la liste des messages est le premier
+     * appel, et son échec renvoyait une erreur sans qu'aucune fiche ne soit
+     * touchée. Une coupure de trois secondes ne doit pas coûter une journée.
+     */
+    if (attempt < MAX_ATTEMPTS) {
+      await backoff(attempt);
+      return api<T>(accessToken, path, attempt + 1);
+    }
+    throw err;
+  }
+
   const body = await res.json().catch(() => ({}));
   if (res.ok) return body as T;
 
   const message = (body as { error?: { message?: string } })?.error?.message ?? res.statusText;
 
   /**
-   * Attente doublée à chaque essai, avec une part d'aléatoire : sans elle, dix
-   * appels refusés ensemble repartiraient ensemble et se feraient refuser
-   * ensemble. Quatre essais couvrent largement la fenêtre d'une minute.
+   * La part d'aléatoire n'est pas un détail : sans elle, dix appels refusés
+   * ensemble repartiraient ensemble et se feraient refuser ensemble. Quatre
+   * essais couvrent largement la fenêtre d'une minute du quota.
    */
-  if (isRateLimited(res.status, message) && attempt < 4) {
-    await wait(2 ** attempt * 1500 + Math.random() * 500);
+  if (isRateLimited(res.status, message) && attempt < MAX_ATTEMPTS) {
+    await backoff(attempt);
     return api<T>(accessToken, path, attempt + 1);
   }
 

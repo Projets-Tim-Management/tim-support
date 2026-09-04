@@ -2,8 +2,16 @@
 /**
  * État des boîtes connectées, et LECTURE À BLANC de ce qui serait rattaché.
  *
- *   npx tsx scripts/mailbox-status.ts            # à blanc : rien n'est écrit
- *   npx tsx scripts/mailbox-status.ts --ecrire   # écrit réellement sur les fiches
+ *   npx tsx scripts/mailbox-status.ts              # à blanc : rien n'est écrit
+ *   npx tsx scripts/mailbox-status.ts --ecrire     # écrit réellement sur les fiches
+ *   npx tsx scripts/mailbox-status.ts --ecrire --max=60   # sur une tranche courte
+ *
+ *   npx tsx scripts/mailbox-status.ts --voir      # relit les derniers écrits
+ *   npx tsx scripts/mailbox-status.ts --refaire   # efface les échanges CAPTÉS et recommence
+ *
+ * `--max` borne le nombre de messages EXAMINÉS, pas écrits. Il sert à regarder
+ * ce que donne une première tranche avant de lâcher un passage complet sur des
+ * fiches que toute l'équipe consulte.
  *
  * La lecture à blanc s'arrête aux MÉTADONNÉES : elle dit quels échanges
  * concernent un prospect connu, sans télécharger le contenu d'un seul message.
@@ -28,8 +36,44 @@ const { getPayload } = await import("payload");
 const { default: config } = await import("@payload-config");
 const { syncMailbox, recordSync } = await import("@/modules/partner/lib/mailbox/sync");
 
+/**
+ * Efface les échanges CAPTÉS — ceux qui portent un `sourceMessageId` — pour
+ * pouvoir relancer un import propre.
+ *
+ * Ne touche à rien d'autre : ni aux notes, ni aux tâches, ni aux e-mails partis
+ * du drawer, qui n'ont pas cet identifiant. C'est ce qui rend l'opération
+ * rejouable pendant qu'on met au point le tri, sans jamais effacer le travail
+ * de quelqu'un.
+ */
+const redo = process.argv.includes("--refaire");
 const write = process.argv.includes("--ecrire");
+const maxArg = process.argv.find((a) => a.startsWith("--max="))?.split("=")[1];
+const max = maxArg ? Number(maxArg) : undefined;
 const payload = await getPayload({ config });
+
+if (redo) {
+  const captured = await payload.find({
+    collection: "client-activities",
+    where: { sourceMessageId: { exists: true } },
+    limit: 1000,
+    depth: 0,
+    overrideAccess: true,
+  });
+  for (const a of captured.docs) {
+    await payload.delete({ collection: "client-activities", id: a.id, overrideAccess: true });
+  }
+  console.log(`\n${captured.docs.length} échange(s) capté(s) effacé(s).`);
+
+  const conns = await payload.find({ collection: "mailbox-connections", limit: 20, overrideAccess: true });
+  for (const c of conns.docs) {
+    await payload.update({
+      collection: "mailbox-connections",
+      id: c.id,
+      data: { capturedCount: 0 } as never,
+      overrideAccess: true,
+    });
+  }
+}
 
 const conns = await payload.find({
   collection: "mailbox-connections",
@@ -58,7 +102,7 @@ for (const doc of conns.docs) {
   console.log(
     `\n── ${write ? "ÉCRITURE" : "LECTURE À BLANC"} : ${(doc as { accountEmail?: string }).accountEmail} ──`,
   );
-  const summary = await syncMailbox(payload, conn, { dry: !write });
+  const summary = await syncMailbox(payload, conn, { dry: !write, ...(max ? { max } : {}) });
 
   if (!summary.ok) {
     console.log(`  ❌ ${summary.error}`);
@@ -76,6 +120,35 @@ for (const doc of conns.docs) {
     if (summary.matched > summary.preview.length) {
       console.log(`    … et ${summary.matched - summary.preview.length} autre(s)`);
     }
+  }
+}
+
+/**
+ * Relecture de ce qui a réellement été écrit.
+ *
+ * Le compteur dit combien ; il ne dit pas si le texte est lisible, si le sens
+ * est le bon, ni si le fil cité a bien été coupé. C'est là que ça se voit.
+ */
+if (process.argv.includes("--voir")) {
+  const recent = await payload.find({
+    collection: "client-activities",
+    where: { sourceMessageId: { exists: true } },
+    sort: "-occurredAt",
+    limit: 6,
+    depth: 1,
+    overrideAccess: true,
+  });
+
+  console.log("\n── DERNIERS ÉCHANGES ÉCRITS ────────────────────────────────────");
+  for (const a of recent.docs as unknown as Record<string, unknown>[]) {
+    const client = a.client as { companyName?: string } | null;
+    const body = String(a.content ?? "").replace(/\s+/g, " ").trim();
+    console.log(`\n  ${a.title}`);
+    console.log(`    fiche      ${client?.companyName ?? "?"}`);
+    console.log(`    sens       ${a.emailDirection}   ·   ${a.recipients}`);
+    if (a.attachmentNames) console.log(`    pièces     ${a.attachmentNames}`);
+    console.log(`    texte      ${body.slice(0, 160)}${body.length > 160 ? "…" : ""}`);
+    console.log(`    longueur   ${body.length} caractères`);
   }
 }
 

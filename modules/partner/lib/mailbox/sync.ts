@@ -121,14 +121,20 @@ export async function syncMailbox(
 
     try {
       const content = await getContent(token.accessToken, meta.id);
-      const result = await captureEmail(payload, {
-        ...msg,
-        subject: meta.subject,
-        text: stripQuoted(content.text),
-        attachments: content.attachments.map((name) => ({ name })),
-        messageId: meta.messageId,
-        date: meta.date,
-      });
+      const result = await captureEmail(
+        payload,
+        {
+          ...msg,
+          subject: meta.subject,
+          text: stripQuoted(content.text),
+          attachments: content.attachments.map((name) => ({ name })),
+          messageId: meta.messageId,
+          date: meta.date,
+        },
+        // La boîte lue EST notre côté de la conversation : tout ce qui ne part
+        // pas d'elle est reçu, quelle que soit l'adresse du correspondant.
+        { ourAddresses: connection.accountEmail ? [connection.accountEmail] : [] },
+      );
       if (result.reason === "ecrit") summary.written += 1;
       else if (result.reason === "deja-connu") summary.known += 1;
     } catch (e) {
