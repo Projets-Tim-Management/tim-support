@@ -180,6 +180,14 @@ export default buildConfig({
           exact: true,
           meta: { title: "Notifications" },
         },
+        // Écran « Acquisition » : d'où viennent les leads du site vitrine et ce
+        // qu'ils deviennent — voir modules/forms/admin/AcquisitionView.
+        acquisition: {
+          Component: "/modules/forms/admin/AcquisitionView#default",
+          path: "/acquisition",
+          exact: true,
+          meta: { title: "Acquisition" },
+        },
       },
     },
   },

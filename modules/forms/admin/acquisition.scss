@@ -1,0 +1,273 @@
+/* Écran « Acquisition » (modules/forms/admin/AcquisitionView.tsx).
+   Aucune couleur en dur : tout vient des jetons de styles/_tokens.scss. */
+
+.acq {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-bottom: 2rem;
+}
+
+.acq-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.acq-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.acq-sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: var(--tim-muted);
+}
+
+.acq-periods {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.acq-period {
+  padding: 0.35rem 0.75rem;
+  border-radius: calc(var(--tim-radius) - 2px);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--tim-foreground);
+    background: var(--tim-primary-light);
+  }
+}
+.acq-period--on {
+  color: var(--tim-white);
+  background: var(--tim-primary);
+
+  &:hover {
+    color: var(--tim-white);
+    background: var(--tim-primary);
+  }
+}
+
+.acq-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+.acq-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.acq-tile__label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+.acq-tile__value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--tim-foreground);
+}
+.acq-tile__sub {
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+}
+
+.acq-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 0.75rem;
+}
+.acq-card {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.acq-card__title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+
+/* Le « i » d'explication, à côté d'un titre ou d'un libellé de tuile. */
+.acq-info {
+  display: inline-flex;
+}
+.acq-info__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--tim-border);
+  background: var(--tim-white);
+  color: var(--tim-muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  font-style: italic;
+  line-height: 1;
+  cursor: help;
+  user-select: none;
+  transition: color 0.12s ease, border-color 0.12s ease;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--tim-primary);
+    border-color: var(--tim-primary);
+    outline: none;
+  }
+}
+
+/* ─── Barres horizontales ─────────────────────────────────────────────────── */
+.acq-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin: 0.9rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.acq-bars__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.acq-bars__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.acq-bars__label {
+  overflow: hidden;
+  font-size: 0.82rem;
+  color: var(--tim-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.acq-bars__value {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+  white-space: nowrap;
+}
+.acq-bars__pct {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+.acq-bars__track {
+  height: 7px;
+  border-radius: 99px;
+  background: var(--tim-elevation-100);
+  overflow: hidden;
+}
+.acq-bars__fill {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+}
+
+/* ─── Barre segmentée ─────────────────────────────────────────────────────── */
+.acq-seg {
+  margin-top: 0.9rem;
+}
+.acq-seg__bar {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  border-radius: 99px;
+  overflow: hidden;
+}
+.acq-seg__part {
+  display: block;
+  height: 100%;
+  transition: opacity 0.12s ease;
+
+  &:hover {
+    opacity: 0.82;
+  }
+}
+.acq-seg__legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.acq-seg__key {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+.acq-seg__dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  transform: translateY(1px);
+}
+.acq-seg__key-label {
+  flex: 1;
+  overflow: hidden;
+  color: var(--tim-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.acq-seg__key-val {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.acq-seg__key-pct {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+
+.acq-none {
+  margin: 0.9rem 0 0;
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+}
+
+.acq-empty {
+  margin: 0;
+  padding: 2rem;
+  border: 1px dashed var(--tim-border);
+  border-radius: var(--tim-radius);
+  text-align: center;
+  color: var(--tim-muted);
+}
