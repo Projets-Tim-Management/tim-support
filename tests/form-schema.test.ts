@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CHANNELS,
   CHOICE_TYPES,
   DEMO_FORM,
+  isPaidChannel,
   HONEYPOT_FIELD,
   SEEDED_FORMS,
   channelLabel,
@@ -140,5 +142,21 @@ describe("textes et garde-fous", () => {
   it("ne sème pas deux formulaires sous le même identifiant", () => {
     const ids = SEEDED_FORMS.map((f) => f.formId);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("canaux payants", () => {
+  it("marque comme payant tout ce qui n'est pas le référencement naturel", () => {
+    /**
+     * Le drapeau `paid` décide de ce que les statistiques comptent comme
+     * « clic constaté ». Un canal de régie oublié n'y ferait pas d'erreur
+     * visible — juste un chiffre trop bas que personne ne saurait interpréter.
+     */
+    for (const c of CHANNELS) {
+      expect(c.paid, c.value).toBe(c.value !== "seo");
+    }
+    expect(isPaidChannel("chatgpt")).toBe(true);
+    expect(isPaidChannel("seo")).toBe(false);
+    expect(isPaidChannel(undefined)).toBe(false);
   });
 });

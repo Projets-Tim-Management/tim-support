@@ -616,6 +616,7 @@ export const PartnerClients: CollectionConfig = {
         { label: "Saisie manuelle", value: "manuelle" },
         { label: "Site vitrine — SEO", value: "site-vitrine-seo" },
         { label: "Google Ads — SEA", value: "google-ads-sea" },
+        { label: "ChatGPT Ads — SEA", value: "chatgpt-ads-sea" },
         { label: "Site vitrine (import Brevo)", value: "site-vitrine" },
       ],
       admin: { position: "sidebar", readOnly: true },

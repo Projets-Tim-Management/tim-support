@@ -40,6 +40,27 @@ const AD_PLACEMENTS = new Set(["lp-hero", "lp-section"]);
 export const isPaidMedium = (medium?: string | null): boolean =>
   Boolean(medium && PAID_MEDIUMS.has(medium.trim().toLowerCase()));
 
+/**
+ * La visite vient-elle d'une ANNONCE ChatGPT ?
+ *
+ * Deux signaux, et il en faut un des deux :
+ *
+ *  - `oaiclid`, la référence de clic posée par la vitrine à partir de la macro
+ *    `{oppref}` de ChatGPT Ads. Elle n'existe que sur un clic d'annonce, donc
+ *    elle suffit à elle seule ;
+ *  - `utm_source=chatgpt` ACCOMPAGNÉ d'un medium payant.
+ *
+ * ⚠️ `utm_source=chatgpt` seul ne suffit délibérément PAS, alors que le canal
+ * s'appelle « ChatGPT Ads ». ChatGPT cite aussi des sites hors publicité, et
+ * cette étiquette se met facilement à la main dans un lien partagé : compter ce
+ * trafic-là comme un clic acheté gonflerait le coût d'acquisition d'un canal
+ * qui n'a rien coûté. Sans medium payant ni référence de clic, la visite suit
+ * la règle générale — landing page, puis canal par défaut.
+ */
+export const isChatGpt = (a: Attribution): boolean =>
+  Boolean(a.oaiclid) ||
+  (a.utmSource?.trim().toLowerCase() === "chatgpt" && isPaidMedium(a.utmMedium));
+
 /** La visite porte-t-elle la trace d'un clic acheté ? */
 export const hasPaidClick = (a: Attribution): boolean =>
   Boolean(a.gclid || a.msclkid) || isPaidMedium(a.utmMedium);
@@ -71,6 +92,17 @@ export interface ResolvedChannel {
 }
 
 export function resolveChannel(a: Attribution, defaultChannel: Channel = "seo"): ResolvedChannel {
+  /**
+   * ChatGPT AVANT la règle générale, et c'est tout l'enjeu de l'ordre.
+   *
+   * ChatGPT Ads envoie `utm_medium=cpc`, donc `hasPaidClick()` répond déjà oui.
+   * Placée après, cette règle ne serait JAMAIS atteinte : tous les leads
+   * ChatGPT tomberaient dans « Google Ads », sans que rien ne le signale — le
+   * détail resterait juste dans `utm_source`, mais l'intitulé, celui qu'on lit
+   * dans les tableaux de bord, mentirait.
+   */
+  if (isChatGpt(a)) return { channel: "chatgpt", source: "clic-payant" };
+
   // Un gclid est un fait ; l'emplacement n'est qu'une présomption. L'ordre compte.
   if (hasPaidClick(a)) return { channel: "sea", source: "clic-payant" };
   if (isLandingPage(a)) return { channel: "sea", source: "landing-page" };

@@ -12,6 +12,47 @@ const a = (raw: Record<string, unknown>) => parseAttribution(raw);
 const channelOf = (att: ReturnType<typeof a>, def?: "seo" | "sea") =>
   resolveChannel(att, def).channel;
 
+describe("ChatGPT Ads", () => {
+  it("l'emporte sur la règle générale du clic payant", () => {
+    /**
+     * LE test de ce canal. ChatGPT Ads envoie `utm_medium=cpc`, donc la règle
+     * générale répond déjà « clic payant ». Placée après elle, la règle ChatGPT
+     * ne serait jamais atteinte et TOUS ces leads s'afficheraient « Google
+     * Ads » — sans erreur, sans alerte, juste un intitulé faux dans les
+     * tableaux de bord.
+     */
+    const chatgpt = a({ utm_source: "chatgpt", utm_medium: "cpc", oaiclid: "oai-123" });
+    expect(hasPaidClick(chatgpt), "la règle générale répond bien oui").toBe(true);
+    expect(channelOf(chatgpt)).toBe("chatgpt");
+    expect(resolveChannel(chatgpt).source).toBe("clic-payant");
+  });
+
+  it("se reconnaît à la référence de clic seule", () => {
+    // `oaiclid` vient de la macro {oppref} : elle n'existe que sur un clic
+    // d'annonce, elle se suffit donc à elle-même.
+    expect(channelOf(a({ oaiclid: "oai-123" }))).toBe("chatgpt");
+  });
+
+  it("accepte la source, à condition qu'un medium payant l'accompagne", () => {
+    expect(channelOf(a({ utm_source: "ChatGPT", utm_medium: "cpc" }))).toBe("chatgpt");
+  });
+
+  it("REFUSE la source seule : ChatGPT cite aussi des sites hors publicité", () => {
+    /**
+     * L'étiquette `utm_source=chatgpt` se met à la main dans n'importe quel
+     * lien partagé. Compter ce trafic comme un clic acheté gonflerait le coût
+     * d'acquisition d'un canal qui n'a rien coûté — et personne ne penserait à
+     * vérifier un chiffre qui monte.
+     */
+    expect(channelOf(a({ utm_source: "chatgpt" }))).toBe("seo");
+    expect(channelOf(a({ utm_source: "chatgpt", utm_medium: "referral" }))).toBe("seo");
+  });
+
+  it("ne détourne pas un lead Google", () => {
+    expect(channelOf(a({ utm_source: "google", utm_medium: "cpc", gclid: "Cj0" }))).toBe("sea");
+  });
+});
+
 describe("trace d'un clic payant", () => {
   it("reconnaît les identifiants de clic des deux régies", () => {
     expect(hasPaidClick(a({ gclid: "Cj0KCQ" }))).toBe(true);

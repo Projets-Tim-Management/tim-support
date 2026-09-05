@@ -64,6 +64,7 @@ import * as migration_20260904_181924_mailbox_connections from './20260904_18192
 import * as migration_20260904_203851_mailbox_cursors from './20260904_203851_mailbox_cursors';
 import * as migration_20260904_203907_drop_mailbox_history_id from './20260904_203907_drop_mailbox_history_id';
 import * as migration_20260904_205309_activity_captured_from from './20260904_205309_activity_captured_from';
+import * as migration_20260905_052810_add_chatgpt_channel from './20260905_052810_add_chatgpt_channel';
 
 export const migrations = [
   {
@@ -394,6 +395,11 @@ export const migrations = [
   {
     up: migration_20260904_205309_activity_captured_from.up,
     down: migration_20260904_205309_activity_captured_from.down,
-    name: '20260904_205309_activity_captured_from'
+    name: '20260904_205309_activity_captured_from',
+  },
+  {
+    up: migration_20260905_052810_add_chatgpt_channel.up,
+    down: migration_20260905_052810_add_chatgpt_channel.down,
+    name: '20260905_052810_add_chatgpt_channel'
   },
 ];

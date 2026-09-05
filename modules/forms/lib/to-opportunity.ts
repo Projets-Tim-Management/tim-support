@@ -20,6 +20,7 @@ import { channelLabel } from "@/modules/forms/lib/form-schema";
 const SOURCE_BY_CHANNEL: Record<Channel, string> = {
   seo: "site-vitrine-seo",
   sea: "google-ads-sea",
+  chatgpt: "chatgpt-ads-sea",
 };
 
 export interface OpportunityDraft {

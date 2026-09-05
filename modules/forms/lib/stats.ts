@@ -1,4 +1,4 @@
-import { CHANNELS, PLACEMENTS } from "@/modules/forms/lib/form-schema";
+import { CHANNELS, PLACEMENTS, isPaidChannel } from "@/modules/forms/lib/form-schema";
 import { CHANNEL_SOURCES } from "@/modules/forms/lib/channel";
 import { clientStatusMeta } from "@/modules/partner/lib/clientStatus";
 import { lossReasonLabel } from "@/modules/partner/lib/lossReason";
@@ -90,7 +90,9 @@ export interface Stats {
 }
 
 export function buildStats(subs: SubmissionRow[], clients: ClientRow[]): Stats {
-  const sea = subs.filter((s) => s.channel === "sea");
+  // TOUS les canaux payants, pas seulement Google : citer « sea » en dur aurait
+  // exclu ChatGPT de la mesure le jour de son ajout, sans erreur visible.
+  const sea = subs.filter((s) => isPaidChannel(s.channel));
   const clicsConstates = sea.filter((s) => s.channelSource === "clic-payant").length;
 
   const statuts = tally(clients.map((c) => c.clientStatus));
