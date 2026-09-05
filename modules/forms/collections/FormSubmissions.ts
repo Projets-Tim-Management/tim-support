@@ -203,6 +203,16 @@ export const FormSubmissions: CollectionConfig = {
                   fields: [
                     { name: "gclid", type: "text", label: "gclid", admin: { width: "50%", readOnly: true } },
                     { name: "msclkid", type: "text", label: "msclkid", admin: { width: "50%", readOnly: true } },
+                    {
+                      name: "oaiclid",
+                      type: "text",
+                      label: "oaiclid",
+                      admin: {
+                        width: "50%",
+                        readOnly: true,
+                        description: "Référence de clic ChatGPT Ads, posée par la vitrine.",
+                      },
+                    },
                   ],
                 },
               ],

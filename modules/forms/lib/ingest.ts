@@ -96,6 +96,8 @@ export interface Attribution {
   utmContent?: string;
   gclid?: string;
   msclkid?: string;
+  /** Référence de clic ChatGPT Ads, posée par la vitrine et non par la régie. */
+  oaiclid?: string;
 }
 
 /**
@@ -126,5 +128,6 @@ export function parseAttribution(raw: unknown): Attribution {
     utmContent: cap(a.utm_content ?? a.utmContent, 255),
     gclid: cap(a.gclid, 500),
     msclkid: cap(a.msclkid, 500),
+    oaiclid: cap(a.oaiclid, 500),
   };
 }
