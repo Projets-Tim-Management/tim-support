@@ -28,6 +28,18 @@ interface Props {
   onToggle?: () => void;
   /** Mode non contrôlé : état initial (sous-groupes). */
   defaultOpen?: boolean;
+  /**
+   * Libellé exposé au CSS (`data-nav-group`) pour poser l'icône du groupe en
+   * mode réduit. Sur les sous-groupes, il n'y en a pas : ils ne s'affichent
+   * jamais dans la colonne d'icônes.
+   */
+  iconKey?: string;
+  /**
+   * Infobulle native. Posée seulement quand le menu est réduit : c'est là
+   * qu'une icône seule ne dit pas ce qu'elle ouvre. En mode déplié le libellé
+   * est écrit à côté, et un titre qui répète le texte visible n'apporte rien.
+   */
+  title?: string;
 }
 
 /**
@@ -42,6 +54,8 @@ export default function CollapsibleGroup({
   open: openProp,
   onToggle,
   defaultOpen = false,
+  iconKey,
+  title,
 }: Props) {
   const [localOpen, setLocalOpen] = useState(defaultOpen);
   const controlled = openProp !== undefined;
@@ -55,6 +69,8 @@ export default function CollapsibleGroup({
         className={`${baseClass}__toggle`}
         onClick={toggle}
         aria-expanded={open}
+        {...(title ? { title } : {})}
+        {...(iconKey ? { "data-nav-group": iconKey } : {})}
       >
         <span className={`${baseClass}__label`}>{label}</span>
         <span className={`${baseClass}__indicator`}>

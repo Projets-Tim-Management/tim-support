@@ -41,6 +41,19 @@ export default async function CustomNav(props: any) {
 
   if (!payload?.config) return null;
 
+  /**
+   * Les logos réglés en back-office. Lus ici, côté serveur, pour qu'ils soient
+   * dans le HTML du premier rendu : passés au client, le menu afficherait
+   * d'abord le logo livré avec le code, puis le vrai — un clignotement à
+   * chaque page.
+   *
+   * `overrideAccess` : le menu s'affiche pour tous les rôles, y compris ceux
+   * qui n'ont pas le droit de MODIFIER l'apparence.
+   */
+  const appearance = (await payload
+    .findGlobal({ slug: "appearance", depth: 1, overrideAccess: true })
+    .catch(() => null)) as { logo?: { url?: string }; icon?: { url?: string } } | null;
+
   const {
     admin: {
       components: { afterNav, afterNavLinks, beforeNav, beforeNavLinks, logout, settingsMenu },
@@ -97,6 +110,8 @@ export default async function CustomNav(props: any) {
       beforeNavLinks={render(beforeNavLinks)}
       logout={LogoutComponent}
       settingsMenu={RenderedSettingsMenu}
+      logoUrl={appearance?.logo?.url ?? undefined}
+      iconUrl={appearance?.icon?.url ?? undefined}
     >
       <CustomNavClient groups={groups} />
     </NavShell>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useAuth, useConfig, useNav } from "@payloadcms/ui";
+
+import { useNavRail } from "@/admin/nav/useNavRail";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -34,6 +36,7 @@ export default function PartnerSwitcher() {
   const { config } = useConfig();
   const { user } = useAuth();
   const { navOpen, setNavOpen } = useNav();
+  const [railed, setRailed] = useNavRail();
   const adminRoute = config.routes.admin;
 
   // Cloche (tickets) réservée aux admins + support ; pendant l'impersonation,
@@ -102,9 +105,20 @@ export default function PartnerSwitcher() {
         <button
           type="button"
           className="tim-collapse"
-          onClick={() => setNavOpen(!navOpen)}
-          aria-label={navOpen ? "Replier le menu" : "Déplier le menu"}
-          title={navOpen ? "Replier le menu" : "Déplier le menu"}
+          onClick={() => {
+            /**
+             * Deux gestes différents selon la largeur, sous le même bouton.
+             *
+             * En desktop, replier ne veut pas dire faire disparaître : le menu
+             * se réduit à sa colonne d'icônes, et l'on continue de naviguer.
+             * En mobile il n'y a pas la place pour une colonne, donc on garde
+             * le comportement d'origine — le menu s'efface.
+             */
+            if (window.matchMedia("(min-width: 769px)").matches) setRailed(!railed);
+            else setNavOpen(!navOpen);
+          }}
+          aria-label={railed ? "Déplier le menu" : "Replier le menu"}
+          title={railed ? "Déplier le menu" : "Replier le menu"}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
             <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.8" />

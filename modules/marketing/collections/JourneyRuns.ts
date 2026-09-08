@@ -723,7 +723,7 @@ const defaultSessionLocation: CollectionBeforeChangeHook = async ({ data, origin
   return address ? { ...data, sessionLocation: address } : data;
 };
 
-/** Titre lisible de la fiche (useAsTitle) : « ENTREPRISE — Phase de test ». */
+/** Titre lisible de la fiche (useAsTitle) : « ENTREPRISE — nom du parcours ». */
 const computeDisplayName: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
   const clientId = idOf(data?.client ?? originalDoc?.client);
   const journeyId = idOf(data?.journey ?? originalDoc?.journey);
@@ -1184,7 +1184,17 @@ const notifyNewRequest: CollectionAfterChangeHook = async ({ doc, operation, req
 
 export const JourneyRuns: CollectionConfig = {
   slug: "journey-runs",
-  labels: { singular: "Phase de test", plural: "Phases de test" },
+  /**
+   * « Parcours de test » et non « Phase de test » : ce sont les INSTANCES de
+   * « Parcours marketing », et le nom doit dire cette parenté — comme
+   * « Séquences » / « Séquences de relance ».
+   *
+   * « Phase de test » reste le nom de l'ÉTAPE du pipeline (statut client, motif
+   * de perte, cartes du Kanban). Les deux vocabulaires cohabitent sans se
+   * contredire : l'étape décrit où en est le client, le parcours décrit ce
+   * qu'on lui envoie pendant ce temps.
+   */
+  labels: { singular: "Parcours de test", plural: "Parcours de test" },
   admin: {
     useAsTitle: "displayName",
     defaultColumns: ["displayName", "partner", "status", "startDate", "endDate", "currentStepLabel"],

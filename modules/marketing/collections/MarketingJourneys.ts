@@ -26,7 +26,13 @@ import {
  */
 export const MarketingJourneys: CollectionConfig = {
   slug: "marketing-journeys",
-  labels: { singular: "Parcours marketing", plural: "Parcours marketing" },
+  /**
+   * Même nom que ses instances (« Parcours de test »), et c'est l'EMPLACEMENT
+   * qui les distingue : sous « Paramètres », ce sont les modèles ; en tête de
+   * Marketing, ceux qui tournent. Deux noms différents pour un même objet
+   * obligeaient à savoir lequel désignait quoi.
+   */
+  labels: { singular: "Parcours de test", plural: "Parcours de test" },
   admin: {
     useAsTitle: "title",
     defaultColumns: ["title", "key", "defaultDurationWeeks", "active"],

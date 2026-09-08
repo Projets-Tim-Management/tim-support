@@ -33,7 +33,7 @@ export const RewardOrders: CollectionConfig = {
   admin: {
     useAsTitle: "number",
     defaultColumns: ["number", "partner", "reward", "cost", "status"],
-    group: "Partenaires",
+    group: "Utilisateurs",
   },
   // Commandes : partenaire-utilisateur = LECTURE de ses commandes uniquement.
   // La création (qui débite les points) est réservée aux admins ET passe par

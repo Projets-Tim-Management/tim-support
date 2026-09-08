@@ -157,8 +157,12 @@ export interface Config {
     defaultIDType: number;
   };
   fallbackLocale: null;
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    appearance: Appearance;
+  };
+  globalsSelect: {
+    appearance: AppearanceSelect<false> | AppearanceSelect<true>;
+  };
   locale: null;
   widgets: {
     collections: CollectionsWidget;
@@ -3188,6 +3192,36 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * Les logos affichés dans le menu de l'administration. Sans image ici, les logos livrés avec le code sont utilisés.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "appearance".
+ */
+export interface Appearance {
+  id: number;
+  /**
+   * Affiché en haut du menu déplié. Format large, hauteur 34 px à l'écran — prévoir le double pour rester net sur un écran Retina.
+   */
+  logo?: (number | null) | Media;
+  /**
+   * Affichée quand le menu est réduit à sa colonne d'icônes. CARRÉE, sans texte — c'est la marque seule. Un logo large mis ici serait illisible.
+   */
+  icon?: (number | null) | Media;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "appearance_select".
+ */
+export interface AppearanceSelect<T extends boolean = true> {
+  logo?: T;
+  icon?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
