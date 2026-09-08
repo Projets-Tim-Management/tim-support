@@ -1,4 +1,4 @@
-import { validatePhone } from "@/core/lib/validators";
+import { validateBirthDate, validatePhone } from "@/core/lib/validators";
 import {
   CONTRACT_NEEDS_END_DATE,
   CONTRACT_TYPES,
@@ -32,6 +32,12 @@ export type PortalField = {
   showIf?: { field: string; truthy?: true; notEquals?: string };
   options?: readonly { label: string; value: string }[];
   placeholder?: string;
+  /**
+   * Valeur d'exemple pour la ligne du modèle CSV, quand la valeur générique
+   * n'aurait pas de sens : une date de naissance en 2026 se recopie sans qu'on
+   * y pense, et entre en base telle quelle.
+   */
+  sample?: string;
   hint?: string;
   half?: boolean;
   /**
@@ -92,8 +98,8 @@ export const PORTAL_SECTIONS: PortalSection[] = [
       "Les personnes qui utiliseront TIM chez vous, avec leur profil de licence. Nous créons leurs accès à partir de cette liste ; vous les récupérez dans votre espace et vous les leur remettez vous-même.",
     columns: ["firstName", "lastName", "email", "licenceProfile"],
     fields: [
-      { name: "firstName", label: "Prénom", type: "text", required: true, half: true },
-      { name: "lastName", label: "Nom", type: "text", required: true, half: true },
+      { name: "firstName", label: "Prénom", type: "text", placeholder: "Luis", required: true, half: true },
+      { name: "lastName", label: "Nom", type: "text", placeholder: "Martin", required: true, half: true },
       { name: "email", label: "Adresse e-mail", type: "email", required: true, half: true },
       { name: "phone", label: "Téléphone", type: "tel", half: true, placeholder: "+33 6 12 34 56 78" },
       {
@@ -140,9 +146,9 @@ export const PORTAL_SECTIONS: PortalSection[] = [
         half: true,
         hint: "Laissez vide si vous n'en utilisez pas : nous en générons un.",
       },
-      { name: "company", label: "Société", type: "text", required: true, half: true },
-      { name: "firstName", label: "Prénom", type: "text", required: true, half: true },
-      { name: "lastName", label: "Nom", type: "text", required: true, half: true },
+      { name: "company", label: "Société", type: "text", placeholder: "BTP Sud", required: true, half: true },
+      { name: "firstName", label: "Prénom", type: "text", placeholder: "Luis", required: true, half: true },
+      { name: "lastName", label: "Nom", type: "text", placeholder: "Martin", required: true, half: true },
       {
         name: "poste",
         label: "Poste",
@@ -151,14 +157,14 @@ export const PORTAL_SECTIONS: PortalSection[] = [
         placeholder: "Maçon, coffreur, grutier…",
         hint: "Le métier réel, pas le profil de licence.",
       },
-      { name: "address", label: "Adresse", type: "text", half: true },
+      { name: "address", label: "Adresse", type: "text", half: true, placeholder: "12 rue des Lilas, 69009 Lyon" },
       // Ni « Accès TIM », ni « Priorité », ni adresse e-mail ici : les licences se
       // déclarent dans « Utilisateurs TIM », avec leur profil. Deux endroits pour
       // dire la même chose donnaient deux comptages possibles — et donc deux
       // devis possibles. Les champs restent en base, seule la saisie déménage.
       { name: "phone", label: "Téléphone", type: "tel", half: true },
       { name: "nationality", label: "Nationalité", type: "select", options: COUNTRIES, half: true },
-      { name: "birthDate", label: "Date de naissance", type: "date", half: true },
+      { name: "birthDate", label: "Date de naissance", type: "date", sample: "12/04/1988", half: true },
       {
         name: "contractType",
         label: "Type de contrat",
@@ -185,16 +191,16 @@ export const PORTAL_SECTIONS: PortalSection[] = [
     intro: "Les chantiers ouverts pendant votre période de test — c'est là que vos équipes pointeront.",
     columns: ["code", "name", "address", "startDate"],
     fields: [
-      { name: "name", label: "Nom du chantier", type: "text", required: true, half: true },
+      { name: "name", label: "Nom du chantier", type: "text", placeholder: "Résidence Les Tilleuls", required: true, half: true },
       {
         name: "code",
         label: "Code chantier",
         type: "text",
-        required: true,
         half: true,
+        placeholder: "CH-2026-014",
         hint: "Votre référence interne.",
       },
-      { name: "address", label: "Adresse du chantier", type: "text", required: true },
+      { name: "address", label: "Adresse du chantier", type: "text", required: true, placeholder: "8 avenue Jean Jaurès, 69007 Lyon" },
       { name: "startDate", label: "Date de début", type: "date", required: true, half: true },
       {
         name: "endDate",
@@ -217,15 +223,15 @@ export const PORTAL_SECTIONS: PortalSection[] = [
     columns: ["brand", "year", "plate", "insuranceDate"],
     fields: [
       { name: "brand", label: "Marque du véhicule", type: "text", required: true, half: true, placeholder: "Renault Master" },
-      { name: "year", label: "Année", type: "number", required: true, half: true },
-      { name: "plate", label: "Immatriculation", type: "text", required: true, half: true, placeholder: "AB-123-CD" },
+      { name: "year", label: "Année", type: "number", half: true },
+      { name: "plate", label: "Immatriculation", type: "text", half: true, placeholder: "AB-123-CD" },
       // Facultatives, comme la date d'assurance : elles complètent la fiche du
       // véhicule sans conditionner son enregistrement.
       { name: "registrationDate", label: "Carte grise", type: "date", half: true },
       { name: "inspectionDate", label: "Contrôle technique", type: "date", half: true },
       // Facultative : voir insuranceDateField (les deux doivent rester alignés).
       { name: "insuranceDate", label: "Date d'assurance", type: "date", half: true },
-      { name: "licenseTypes", label: "Type de permis", type: "text", required: true, placeholder: "B, C1E" },
+      { name: "licenseTypes", label: "Type de permis", type: "text", placeholder: "B, C1E" },
     ],
   },
   {
@@ -238,12 +244,11 @@ export const PORTAL_SECTIONS: PortalSection[] = [
     columns: ["brand", "year", "serial", "insuranceDate"],
     fields: [
       { name: "brand", label: "Marque de l'engin", type: "text", required: true, half: true, placeholder: "Caterpillar 320" },
-      { name: "year", label: "Année", type: "number", required: true, half: true },
+      { name: "year", label: "Année", type: "number", half: true },
       {
         name: "serial",
         label: "Immatriculation / n° de série",
         type: "text",
-        required: true,
         half: true,
         hint: "La plaque si l'engin en a une, sinon le numéro de série.",
       },
@@ -253,7 +258,7 @@ export const PORTAL_SECTIONS: PortalSection[] = [
       { name: "inspectionDate", label: "Contrôle technique", type: "date", half: true },
       // Facultative : voir insuranceDateField (les deux doivent rester alignés).
       { name: "insuranceDate", label: "Date d'assurance", type: "date", half: true },
-      { name: "cacesTypes", label: "Type de CACES", type: "text", required: true, placeholder: "R482 B1, R489 3" },
+      { name: "cacesTypes", label: "Type de CACES", type: "text", placeholder: "R482 B1, R489 3" },
     ],
   },
 ];
@@ -295,6 +300,14 @@ export const validateRow = (
     // qui diverge d'un écran à l'autre est pire que pas de contrôle du tout.
     if (field.type === "tel") {
       const verdict = validatePhone(value);
+      if (verdict !== true) errors[field.name] = verdict;
+    }
+
+    // La date de naissance était contrôlée dans la COLLECTION seulement : le
+    // tableau du client passait tout au vert, puis l'enregistrement refusait la
+    // ligne. Une règle qu'un écran ignore est une règle qui casse cet écran.
+    if (field.name === "birthDate") {
+      const verdict = validateBirthDate(value);
       if (verdict !== true) errors[field.name] = verdict;
     }
   }

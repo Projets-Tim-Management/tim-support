@@ -53,7 +53,12 @@ export const MailboxConnections: CollectionConfig = {
   admin: {
     useAsTitle: "accountEmail",
     defaultColumns: ["accountEmail", "status", "lastSyncAt", "capturedCount"],
-    group: "Partenaires",
+    /**
+     * « Système » et non « Partenaires » : connecter une boîte est un réglage
+     * de COMPTE, pas un objet du métier. Elle voisine avec les utilisateurs et
+     * l'apparence, là où l'on va quand on configure — pas là où l'on travaille.
+     */
+    group: "Système",
     description:
       "Les boîtes dont les échanges remontent dans l'historique des opportunités. Seuls les messages concernant un prospect connu sont conservés. Supprimer une ligne révoque l'accès chez Google et arrête la lecture ; les échanges déjà rattachés restent sur les fiches.",
     components: {

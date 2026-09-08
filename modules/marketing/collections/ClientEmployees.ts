@@ -3,7 +3,7 @@ import type { CollectionBeforeChangeHook, CollectionConfig } from "payload";
 import { metierOwnedAccess } from "@/core/access";
 import { COUNTRIES } from "@/modules/marketing/lib/reference-lists";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
-import { validateEmail, validatePhone } from "@/core/lib/validators";
+import { validateBirthDate, validateEmail, validatePhone } from "@/core/lib/validators";
 import {
   clientField,
   displayNameField,
@@ -204,17 +204,9 @@ export const ClientEmployees: CollectionConfig = {
           name: "birthDate",
           type: "date",
           label: "Date de naissance",
-          validate: (value: unknown) => {
-            if (!value) return true;
-            const d = new Date(value as string);
-            if (Number.isNaN(d.getTime())) return "Date invalide.";
-            // Garde-fou de saisie (âge légal de travail) plutôt que contrôle RH :
-            // attrape surtout les années mal tapées (2 025 au lieu de 1 025…).
-            const age = (Date.now() - d.getTime()) / 31_557_600_000;
-            if (age < 16) return "Le salarié doit avoir au moins 16 ans.";
-            if (age > 90) return "Date de naissance improbable — vérifiez l'année.";
-            return true;
-          },
+          // Même règle que l'écran du client (`validateRow`) : une date acceptée
+          // là-bas ne doit pas être refusée ici.
+          validate: validateBirthDate,
           admin: {
             width: "50%",
             date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },

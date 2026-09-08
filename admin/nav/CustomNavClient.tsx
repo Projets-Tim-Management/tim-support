@@ -11,7 +11,8 @@ import { Fragment, useState } from "react";
 import { hasAdminRole } from "@/core/access";
 
 import CollapsibleGroup from "./CollapsibleGroup";
-import { NAV_LAYOUT, isLink, isSubGroup, type NavItem } from "./nav-structure";
+import { NAV_LAYOUT, NAV_ORDER, isLink, isSubGroup, type NavItem } from "./nav-structure";
+import { useNavRail } from "./useNavRail";
 
 const baseClass = "nav";
 
@@ -90,6 +91,7 @@ export default function CustomNavClient({ groups }: Props) {
   const isActive = useIsActive();
   const pathname = usePathname();
   const adminRoute = config.routes.admin;
+  const [railed, setRailed] = useNavRail();
 
   // Rôles non-admin (support, partenaires) : menus OUVERTS par défaut — la nav
   // est courte, plus simple à parcourir sans dérouler. Admins : accordéon.
@@ -113,6 +115,17 @@ export default function CustomNavClient({ groups }: Props) {
     () => groups.find(groupHasActive)?.label ?? null,
   );
 
+  /**
+   * Ordre voulu, puis le reste. Un groupe non listé garde sa place relative à
+   * la fin plutôt que de disparaître — on ne perd jamais une collection parce
+   * qu'elle n'a pas été déclarée quelque part.
+   */
+  const rank = (label: string) => {
+    const i = NAV_ORDER.indexOf(label);
+    return i === -1 ? NAV_ORDER.length : i;
+  };
+  const ordered = [...groups].sort((a, b) => rank(a.label) - rank(b.label));
+
   const renderLink = (entity: NavEntity) => (
     <NavLink
       key={entity.slug}
@@ -128,17 +141,26 @@ export default function CustomNavClient({ groups }: Props) {
       {/* Accès direct au tableau de bord (pour tous les rôles). Comme le logo,
           on utilise next/link (le Link de Payload ne mène pas à la racine /admin). */}
       {onDashboard ? (
-        <div className={`${baseClass}__link`} id="nav-dashboard">
+        <div
+          className={`${baseClass}__link`}
+          id="nav-dashboard"
+          {...(railed ? { title: "Tableau de bord" } : {})}
+        >
           <div className={`${baseClass}__link-indicator`} />
           <span className={`${baseClass}__link-label`}>Tableau de bord</span>
         </div>
       ) : (
-        <NextLink className={`${baseClass}__link`} href={adminRoute} id="nav-dashboard">
+        <NextLink
+          className={`${baseClass}__link`}
+          href={adminRoute}
+          id="nav-dashboard"
+          {...(railed ? { title: "Tableau de bord" } : {})}
+        >
           <span className={`${baseClass}__link-label`}>Tableau de bord</span>
         </NextLink>
       )}
 
-      {groups.map((group) => {
+      {ordered.map((group) => {
         const bySlug = new Map(group.entities.map((e) => [e.slug, e]));
         const layout: NavItem[] = NAV_LAYOUT[group.label] ?? group.entities.map((e) => e.slug);
 
@@ -154,11 +176,26 @@ export default function CustomNavClient({ groups }: Props) {
           <CollapsibleGroup
             key={group.label}
             label={group.label}
-            {...(keepOpen
+            iconKey={group.label}
+            title={railed ? group.label : undefined}
+            {...(keepOpen && !railed
               ? { defaultOpen: true }
               : {
                   open: openGroup === group.label,
-                  onToggle: () => setOpenGroup((prev) => (prev === group.label ? null : group.label)),
+                  /**
+                   * En mode réduit, cliquer une icône DÉPLIE le menu et l'y
+                   * laisse — c'est le geste naturel : on clique parce qu'on
+                   * veut voir ce qu'il y a dedans, pas pour un aperçu qui
+                   * disparaît dès qu'on bouge la souris.
+                   */
+                  onToggle: () => {
+                    if (railed) {
+                      setRailed(false);
+                      setOpenGroup(group.label);
+                      return;
+                    }
+                    setOpenGroup((prev) => (prev === group.label ? null : group.label));
+                  },
                 })}
           >
             {layout.map((item, i) => {

@@ -32,7 +32,7 @@ export const Rewards: CollectionConfig = {
     // `purchasePrice` n'apparaît que pour les admins : son field-level access
     // écarte la colonne pour les autres rôles.
     defaultColumns: ["title", "cost", "purchasePrice", "stock"],
-    group: "Partenaires",
+    group: "Utilisateurs",
     components: {
       // Catalogue + commande pour le partenaire-utilisateur (l'admin garde le tableau).
       beforeListTable: ["/modules/partner/admin/RewardsCatalog#default"],

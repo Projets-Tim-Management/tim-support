@@ -157,8 +157,12 @@ export interface Config {
     defaultIDType: number;
   };
   fallbackLocale: null;
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    appearance: Appearance;
+  };
+  globalsSelect: {
+    appearance: AppearanceSelect<false> | AppearanceSelect<true>;
+  };
   locale: null;
   widgets: {
     collections: CollectionsWidget;
@@ -1947,7 +1951,7 @@ export interface ClientSite {
   /**
    * La référence interne du client.
    */
-  code: string;
+  code?: string | null;
   address: string;
   startDate: string;
   /**
@@ -1974,7 +1978,7 @@ export interface ClientVehicle {
   client: number | PartnerClient;
   brand: string;
   year: number;
-  plate: string;
+  plate?: string | null;
   /**
    * Date du certificat d'immatriculation.
    */
@@ -1990,7 +1994,7 @@ export interface ClientVehicle {
   /**
    * Permis nécessaires pour conduire ce véhicule.
    */
-  licenseTypes: string;
+  licenseTypes?: string | null;
   partner?: (number | null) | Partner;
   displayName?: string | null;
   updatedAt: string;
@@ -2008,7 +2012,7 @@ export interface ClientMachine {
   /**
    * Plaque si l'engin en a une, sinon n° de série.
    */
-  serial: string;
+  serial?: string | null;
   /**
    * Date du certificat d'immatriculation.
    */
@@ -2024,7 +2028,7 @@ export interface ClientMachine {
   /**
    * Certification nécessaire pour conduire cet engin.
    */
-  cacesTypes: string;
+  cacesTypes?: string | null;
   partner?: (number | null) | Partner;
   displayName?: string | null;
   updatedAt: string;
@@ -3188,6 +3192,36 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * Les logos affichés dans le menu de l'administration. Sans image ici, les logos livrés avec le code sont utilisés.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "appearance".
+ */
+export interface Appearance {
+  id: number;
+  /**
+   * Affiché en haut du menu déplié. Format large, hauteur 34 px à l'écran — prévoir le double pour rester net sur un écran Retina.
+   */
+  logo?: (number | null) | Media;
+  /**
+   * Affichée quand le menu est réduit à sa colonne d'icônes. CARRÉE, sans texte — c'est la marque seule. Un logo large mis ici serait illisible.
+   */
+  icon?: (number | null) | Media;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "appearance_select".
+ */
+export interface AppearanceSelect<T extends boolean = true> {
+  logo?: T;
+  icon?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

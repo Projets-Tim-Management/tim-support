@@ -30,6 +30,25 @@ export interface NavLink {
 /** Un item de groupe : un slug, un sous-groupe repliable, ou un lien libre. */
 export type NavItem = string | NavSubGroup | NavLink;
 
+/**
+ * ORDRE des groupes de 1er niveau dans le menu.
+ *
+ * Sans lui, l'ordre venait de celui des collections dans `payload.config.ts` :
+ * déplacer un groupe demandait de réordonner des imports, et le résultat était
+ * imprévisible. Ici il se lit et se change en une ligne.
+ *
+ * Un groupe absent de cette liste n'est pas perdu : il s'affiche à la fin, dans
+ * l'ordre de Payload — même principe que pour les slugs non listés plus bas.
+ */
+export const NAV_ORDER = [
+  "Support",
+  "Partenaires",
+  "Utilisateurs",
+  "Éditorial",
+  "Marketing",
+  "Système",
+];
+
 /** Layout par groupe de 1er niveau (clé = valeur exacte de `admin.group`). */
 export const NAV_LAYOUT: Record<string, NavItem[]> = {
   Éditorial: [
@@ -52,13 +71,19 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
       slugs: ["marketing-journeys", "sequences", "forms", "email-suppressions"],
     },
   ],
-  Partenaires: [
-    { label: "Comptes", slugs: ["partners", "partner-clients"] },
-    { label: "Boîtes mail", slugs: ["mailbox-connections"] },
+  /**
+   * Deux groupes de TÊTE distincts, et la coupure est celle du métier :
+   * « Partenaires », ce qu'on ouvre pour travailler sur un dossier ;
+   * « Utilisateur », le programme de points vu du partenaire.
+   */
+  Partenaires: ["partners", "partner-clients"],
+  Utilisateurs: [
     { label: "Missions", slugs: ["missions", "mission-submissions"] },
     { label: "Récompenses", slugs: ["rewards", "reward-orders"] },
     { label: "Points", slugs: ["point-transactions"] },
   ],
+  /** Les réglages : comptes, apparence, boîtes connectées. */
+  Système: ["users", "appearance", "mailbox-connections", "media"],
 };
 
 export function isSubGroup(item: NavItem): item is NavSubGroup {

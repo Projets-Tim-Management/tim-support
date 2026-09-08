@@ -57,7 +57,7 @@ export const ClientVehicles: CollectionConfig = {
           name: "plate",
           type: "text",
           label: "Immatriculation",
-          required: true,
+          // Facultatif : un véhicule peut être saisi avant d'être immatriculé.
           index: true,
           validate: (value: unknown) =>
             isValidPlate(value as string) ? true : "Format attendu : AB-123-CD.",
@@ -88,7 +88,7 @@ export const ClientVehicles: CollectionConfig = {
           name: "licenseTypes",
           type: "text",
           label: "Type de permis",
-          required: true,
+          // Facultatif : le permis requis n'est pas toujours connu à la saisie.
           admin: {
             width: "25%",
             placeholder: "B, C1E",

@@ -20,7 +20,7 @@ export const PointTransactions: CollectionConfig = {
   admin: {
     useAsTitle: "motif",
     defaultColumns: ["partner", "delta", "source", "motif", "createdAt"],
-    group: "Partenaires",
+    group: "Utilisateurs",
     // Pas une page du menu : géré en drawer depuis la fiche du partenaire
     // utilisateur (onglet Points & activité → Transactions de points).
     hidden: true,

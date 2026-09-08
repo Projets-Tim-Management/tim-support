@@ -18,7 +18,7 @@ export const MissionSubmissions: CollectionConfig = {
   admin: {
     useAsTitle: "number",
     defaultColumns: ["number", "mission", "partner", "status"],
-    group: "Partenaires",
+    group: "Utilisateurs",
   },
   // Soumissions : partenaire-utilisateur = C·R scopé à sa fiche ; revue = admin.
   access: utilisateurOwnedAccess,

@@ -11,6 +11,7 @@ import { buildConfig } from "payload";
 import { Users } from "./core/collections/Users";
 import { Media } from "./core/collections/Media";
 import { EmailSuppressions } from "./core/collections/EmailSuppressions";
+import { Appearance } from "./core/globals/Appearance";
 import { Platforms } from "./modules/editorial/collections/Platforms";
 import { FeatureCategories } from "./modules/editorial/collections/FeatureCategories";
 import { Features } from "./modules/editorial/collections/Features";
@@ -431,6 +432,7 @@ export default buildConfig({
        */
     }),
   ],
+  globals: [Appearance],
 
   db: postgresAdapter({
     // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :
