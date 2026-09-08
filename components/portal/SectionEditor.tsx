@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import ImportDialog from "@/components/portal/ImportDialog";
 import { IconCheck, IconCross } from "@/components/ui/icons";
 import { coerceCell, parseClipboard, parseDateText } from "@/modules/marketing/lib/portal-paste";
 import {
@@ -341,6 +342,7 @@ export default function SectionEditor({
     } ${disabled ? "cursor-not-allowed text-muted" : "focus:bg-primary-light"}`;
 
   const columns = useMemo(() => fields, [fields]);
+  const [importing, setImporting] = useState(false);
 
   if (loading) return <p className="text-muted">Chargement…</p>;
 
@@ -357,6 +359,34 @@ export default function SectionEditor({
           Votre dossier a été validé par TIM : il n&apos;est plus modifiable. Contactez-nous si une
           information doit changer.
         </p>
+      )}
+
+      {/* L'import, AU-DESSUS du tableau et non en dessous : quelqu'un qui a
+          quarante salariés à saisir doit le voir avant de commencer à taper,
+          pas après. Masqué quand le dossier est verrouillé, comme le reste. */}
+      {!locked && (
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setImporting(true)}
+            className="rounded-md border border-border bg-white px-3 py-1.5 text-sm font-semibold text-foreground transition hover:bg-surface"
+          >
+            Importer un fichier
+          </button>
+        </div>
+      )}
+
+      {importing && (
+        <ImportDialog
+          section={section}
+          endpoint={endpoint}
+          query={query}
+          onClose={() => setImporting(false)}
+          onImported={() => void load()}
+          /* Les lignes DÉJÀ enregistrées : la dernière est la ligne vide de
+             saisie, elle ne compte pas. */
+          existantes={rows.filter((r) => r.row.id).length}
+        />
       )}
 
       {/* Défilement horizontal assumé : quatorze colonnes pour les salariés ne
