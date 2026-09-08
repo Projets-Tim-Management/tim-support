@@ -630,11 +630,23 @@ export function ClientHistory() {
                 const k = activityKind(a.type);
                 const who = authorLabel(a.author);
                 const system = a.type === "systeme";
+                /**
+                 * Sens d'un e-mail, pour le fond de sa carte.
+                 *
+                 * Un message SANS sens explicite est parti du composeur de la
+                 * fiche : ceux-là sont toujours sortants, et la collection ne
+                 * l'écrit pas (cf. ClientActivities.emailDirection). Traiter
+                 * l'absence comme « reçu » teinterait donc à l'envers tous les
+                 * e-mails qu'on a envoyés.
+                 */
+                const mail = a.type === "email" ? (a.emailDirection === "recu" ? "recu" : "envoye") : null;
                 const iconKind = a.type === "tache" ? (a.taskKind ?? "tache") : a.type;
                 return (
                   <li
                     key={a.id}
-                    className={`tim-history__item${system ? " tim-history__item--system" : ""}`}
+                    className={`tim-history__item${system ? " tim-history__item--system" : ""}${
+                      mail ? ` tim-history__item--mail-${mail}` : ""
+                    }`}
                   >
                     {/* Une tâche porte la couleur de SA nature, la même que dans
                         le Kanban : un appel est turquoise des deux côtés. */}
@@ -653,6 +665,11 @@ export function ClientHistory() {
                     <div className="tim-history__card">
                       <p className="tim-history__item-head">
                         <strong className="tim-history__item-title">
+                          {mail && (
+                            <span className="tim-history__dir">
+                              {mail === "recu" ? "Reçu" : "Envoyé"} —{" "}
+                            </span>
+                          )}
                           {a.title || k?.label}
                         </strong>
                         {a.done && a.type === "tache" && (

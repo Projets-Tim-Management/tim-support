@@ -316,6 +316,49 @@
   background: none;
   padding: 0.45rem 0;
 }
+/* ─── E-mails : ce qui part, ce qui arrive ───────────────────────────────────
+   Un fil se relit comme une conversation, et la première question est « qui
+   parle ? ». Elle se lisait dans le « à » ou le « de » de la ligne de bas de
+   carte — trois caractères qu'il faut chercher.
+
+   Le bleu est déjà la couleur de l'e-mail partout ailleurs (pastille, icône) :
+   il porte donc ce qui SORT de chez nous. Le vert va à ce qui ARRIVE — la
+   réponse d'un prospect est la bonne nouvelle d'un suivi.
+
+   La couleur tient le BANDEAU DE TITRE, pas la carte entière : le corps d'un
+   e-mail fait souvent dix lignes, et le teindre en entier faisait de la
+   chronologie un damier où la couleur cessait de signifier quoi que ce soit.
+   Sur le seul titre, elle reste un repère — et le texte du message se lit sur
+   blanc, comme partout ailleurs.
+
+   Le bandeau déborde le rembourrage de la carte (marges négatives) : une bande
+   qui s'arrête avant le bord se lit comme une étiquette posée là, pas comme
+   l'en-tête de ce qui suit. */
+.tim-history__item--mail-envoye .tim-history__item-head,
+.tim-history__item--mail-recu .tim-history__item-head {
+  margin: -0.55rem -0.75rem 0;
+  padding: 0.42rem 0.75rem;
+  border-radius: calc(var(--tim-radius) - 1px) calc(var(--tim-radius) - 1px) 0 0;
+}
+.tim-history__item--mail-envoye .tim-history__item-head {
+  background: var(--tim-blue-bg);
+  color: var(--tim-blue);
+}
+.tim-history__item--mail-recu .tim-history__item-head {
+  background: var(--tim-green-bg);
+  color: var(--tim-green);
+}
+/* Le sens, en tête du titre : « Envoyé — Récapitulatif… ». Il portait déjà la
+   couleur du bandeau ; l'écrire évite d'avoir à la connaître. */
+.tim-history__dir {
+  font-weight: 700;
+}
+.tim-history__item--mail-envoye .tim-history__item-title,
+.tim-history__item--mail-recu .tim-history__item-title,
+.tim-history__item--mail-envoye .tim-history__hour,
+.tim-history__item--mail-recu .tim-history__hour {
+  color: inherit;
+}
 .tim-history__item--system .tim-history__item-title {
   font-weight: 600;
   color: var(--tim-muted);
