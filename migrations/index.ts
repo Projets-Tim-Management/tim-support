@@ -66,6 +66,7 @@ import * as migration_20260904_203907_drop_mailbox_history_id from './20260904_2
 import * as migration_20260904_205309_activity_captured_from from './20260904_205309_activity_captured_from';
 import * as migration_20260905_052810_add_chatgpt_channel from './20260905_052810_add_chatgpt_channel';
 import * as migration_20260905_065835_add_appearance_global from './20260905_065835_add_appearance_global';
+import * as migration_20260908_073221_optional_onboarding_fields from './20260908_073221_optional_onboarding_fields';
 
 export const migrations = [
   {
@@ -406,6 +407,11 @@ export const migrations = [
   {
     up: migration_20260905_065835_add_appearance_global.up,
     down: migration_20260905_065835_add_appearance_global.down,
-    name: '20260905_065835_add_appearance_global'
+    name: '20260905_065835_add_appearance_global',
+  },
+  {
+    up: migration_20260908_073221_optional_onboarding_fields.up,
+    down: migration_20260908_073221_optional_onboarding_fields.down,
+    name: '20260908_073221_optional_onboarding_fields'
   },
 ];

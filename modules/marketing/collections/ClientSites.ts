@@ -53,7 +53,7 @@ export const ClientSites: CollectionConfig = {
           name: "code",
           type: "text",
           label: "Code chantier",
-          required: true,
+          // Facultatif : tous les clients n'ont pas de référence interne de chantier.
           index: true,
           admin: { width: "35%", description: "La référence interne du client." },
         },

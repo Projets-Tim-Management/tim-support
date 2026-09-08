@@ -56,7 +56,7 @@ export const ClientMachines: CollectionConfig = {
           name: "serial",
           type: "text",
           label: "Immatriculation / n° de série",
-          required: true,
+          // Facultatif : tous les engins n'ont ni plaque ni numéro relevé.
           index: true,
           admin: { width: "25%", description: "Plaque si l'engin en a une, sinon n° de série." },
         },
@@ -75,7 +75,7 @@ export const ClientMachines: CollectionConfig = {
           name: "cacesTypes",
           type: "text",
           label: "Type de CACES",
-          required: true,
+          // Facultatif : la certification requise se précise souvent plus tard.
           admin: {
             width: "25%",
             placeholder: "R482 B1, R489 3",

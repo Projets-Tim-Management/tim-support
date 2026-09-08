@@ -1951,7 +1951,7 @@ export interface ClientSite {
   /**
    * La référence interne du client.
    */
-  code: string;
+  code?: string | null;
   address: string;
   startDate: string;
   /**
@@ -1978,7 +1978,7 @@ export interface ClientVehicle {
   client: number | PartnerClient;
   brand: string;
   year: number;
-  plate: string;
+  plate?: string | null;
   /**
    * Date du certificat d'immatriculation.
    */
@@ -1994,7 +1994,7 @@ export interface ClientVehicle {
   /**
    * Permis nécessaires pour conduire ce véhicule.
    */
-  licenseTypes: string;
+  licenseTypes?: string | null;
   partner?: (number | null) | Partner;
   displayName?: string | null;
   updatedAt: string;
@@ -2012,7 +2012,7 @@ export interface ClientMachine {
   /**
    * Plaque si l'engin en a une, sinon n° de série.
    */
-  serial: string;
+  serial?: string | null;
   /**
    * Date du certificat d'immatriculation.
    */
@@ -2028,7 +2028,7 @@ export interface ClientMachine {
   /**
    * Certification nécessaire pour conduire cet engin.
    */
-  cacesTypes: string;
+  cacesTypes?: string | null;
   partner?: (number | null) | Partner;
   displayName?: string | null;
   updatedAt: string;
