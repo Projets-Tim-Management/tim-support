@@ -1,5 +1,6 @@
 import type {
   CollectionAfterChangeHook,
+  Condition,
   CollectionBeforeChangeHook,
   CollectionBeforeDeleteHook,
   CollectionConfig,
@@ -7,7 +8,16 @@ import type {
   FieldHook,
 } from "payload";
 
-import { adminOnlyField, hasAdminRole, isAdmin, metierOwnedAccess, partnerIdOf } from "@/core/access";
+import {
+  adminOnlyField,
+  adminOnlyFieldRead,
+  hasAdminRole,
+  isAdmin,
+  metierOwnedAccess,
+  partnerIdOf,
+} from "@/core/access";
+import { documentsField } from "@/core/fields/documents";
+import { stampDocuments } from "@/core/hooks/documents";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { validatePhone } from "@/core/lib/validators";
 import { enrollSequence } from "@/modules/marketing/hooks/enrollSequence";
@@ -44,6 +54,13 @@ import {
  * La commission du partenaire (CA payé HT × son taux) est calculée sur la fiche
  * partenaire (où le taux est connu) pour éviter toute désynchronisation.
  */
+
+/**
+ * Onglet réservé à TIM : le partenaire-métier voit la fiche de SON client, pas
+ * le pilotage produit. La barrière réelle est l'access control du champ (et de
+ * la collection `developments`) ; la condition évite d'afficher un onglet vide.
+ */
+const adminOnlyTab: Condition = (_data, _siblingData, { user }) => hasAdminRole(user);
 
 /** Recalcule les totaux CA + l'historique mensuel à chaque enregistrement. */
 const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
@@ -428,6 +445,7 @@ export const PartnerClients: CollectionConfig = {
       enforcePartnerField(),
       setStatusRank,
       computeCA,
+      stampDocuments,
     ],
     // Les faits saisis ici cochent les étapes du parcours correspondantes.
     // `enrollSequence` en dernier : il ouvre ou ferme une séquence de relance
@@ -703,6 +721,51 @@ export const PartnerClients: CollectionConfig = {
               type: "ui",
               admin: {
                 components: { Field: "/modules/partner/admin/ClientHistory#ClientHistory" },
+              },
+            },
+          ],
+        },
+        // ── Besoins : ce que ce client attend du produit ────────────────────
+        // Juste après l'historique, parce que c'est la même question posée
+        // autrement : « où en est-on avec eux ? ». Réservé à l'admin — le suivi
+        // des développements est un outil de pilotage interne.
+        {
+          label: "Besoins",
+          admin: { condition: adminOnlyTab },
+          fields: [
+            /**
+             * Ouvrir un développement SANS quitter la fiche : le besoin d'un
+             * prospect se perd entre le formulaire du site et le tableau des
+             * développements. Le tiroir montre ce qu'il a demandé et rattache le
+             * client d'office.
+             */
+            {
+              name: "createDevelopment",
+              type: "ui",
+              admin: {
+                components: {
+                  Field: "/modules/dev/admin/CreateDevelopment#NeedFromOpportunity",
+                },
+              },
+            },
+            {
+              /**
+               * Les développements que ce client attend. Le lien est stocké sur
+               * le DÉVELOPPEMENT (`opportunities`), jamais ici : un même besoin
+               * est presque toujours porté par plusieurs clients, et c'est
+               * précisément ce que le module sert à voir.
+               */
+              name: "developments",
+              type: "join",
+              collection: "developments",
+              on: "opportunities",
+              label: false,
+              access: { read: adminOnlyFieldRead },
+              admin: {
+                allowCreate: false,
+                defaultColumns: ["number", "title", "type", "status", "priority", "dueDate"],
+                description:
+                  "Ce que ce client attend. Pour l'ajouter à un développement existant, ouvrez-le et renseignez « Demandé par ».",
               },
             },
           ],
@@ -1027,6 +1090,26 @@ export const PartnerClients: CollectionConfig = {
               ],
             },
             { name: "billingRemarks", type: "textarea", label: "Remarques", admin: { description: "Optionnel." } },
+          ],
+        },
+        // ── Documents : tout ce qui se rattache à la fiche ──────────────────
+        // Toujours visible, contrairement au contrat ou au dossier : une pièce
+        // arrive à n'importe quel moment de la relation, y compris avant
+        // qu'elle n'ait un contrat — un devis reçu, un plan, un échange scanné.
+        //
+        // Le contrat signé garde sa place dans « Contrat client » : c'est une
+        // pièce qui a un rôle, pas un document parmi d'autres, et le déplacer
+        // ici le noierait.
+        {
+          label: "Documents",
+          fields: [
+            documentsField({
+              description:
+                "Pièces rattachées à cette opportunité : devis, plan, compte rendu, " +
+                "échange scanné. Elles restent internes à TIM — le client ne les voit " +
+                "pas dans son espace, et elles ne partent dans aucun e-mail. " +
+                "Elles sont conservées aussi longtemps que la fiche.",
+            }),
           ],
         },
       ],

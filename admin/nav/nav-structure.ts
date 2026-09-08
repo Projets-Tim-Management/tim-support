@@ -42,6 +42,7 @@ export type NavItem = string | NavSubGroup | NavLink;
  */
 export const NAV_ORDER = [
   "Support",
+  "Développements",
   "Partenaires",
   "Utilisateurs",
   "Éditorial",
@@ -81,6 +82,16 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     { label: "Missions", slugs: ["missions", "mission-submissions"] },
     { label: "Récompenses", slugs: ["rewards", "reward-orders"] },
     { label: "Points", slugs: ["point-transactions"] },
+  ],
+  /**
+   * Ce qui est en cours d'abord — c'est l'écran qu'on ouvre tous les jours —
+   * puis « Paramètres », qui met à distance ce qui se règle une fois : les
+   * colonnes du Kanban. Une seule entrée dedans pour l'instant, et c'est bien
+   * ainsi : ce qui se règle ne doit pas côtoyer ce qui se travaille.
+   */
+  Développements: [
+    "developments",
+    { label: "Paramètres", slugs: ["dev-statuses"] },
   ],
   /** Les réglages : comptes, apparence, boîtes connectées. */
   Système: ["users", "appearance", "mailbox-connections", "media"],

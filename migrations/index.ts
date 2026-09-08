@@ -67,6 +67,22 @@ import * as migration_20260904_205309_activity_captured_from from './20260904_20
 import * as migration_20260905_052810_add_chatgpt_channel from './20260905_052810_add_chatgpt_channel';
 import * as migration_20260905_065835_add_appearance_global from './20260905_065835_add_appearance_global';
 import * as migration_20260908_073221_optional_onboarding_fields from './20260908_073221_optional_onboarding_fields';
+import * as migration_20260908_095137_documents_fiche_client from './20260908_095137_documents_fiche_client';
+import * as migration_20260908_115341_suivi_developpements from './20260908_115341_suivi_developpements';
+import * as migration_20260908_122143_statuts_editables from './20260908_122143_statuts_editables';
+import * as migration_20260908_130357_suppression_labels from './20260908_130357_suppression_labels';
+import * as migration_20260908_131658_checklist_features from './20260908_131658_checklist_features';
+import * as migration_20260908_133413_checklist_sur_developpement from './20260908_133413_checklist_sur_developpement';
+import * as migration_20260908_134851_description_texte_simple from './20260908_134851_description_texte_simple';
+import * as migration_20260908_140310_assignation_equipe from './20260908_140310_assignation_equipe';
+import * as migration_20260908_141025_question_dans_discussion from './20260908_141025_question_dans_discussion';
+import * as migration_20260908_142141_commentaire_texte_optionnel from './20260908_142141_commentaire_texte_optionnel';
+import * as migration_20260908_145341_assignation_multiple from './20260908_145341_assignation_multiple';
+import * as migration_20260908_150127_ordre_importance from './20260908_150127_ordre_importance';
+import * as migration_20260908_151148_documents_developpement from './20260908_151148_documents_developpement';
+import * as migration_20260908_154930_liens_developpement from './20260908_154930_liens_developpement';
+import * as migration_20260908_172250_suppression_features from './20260908_172250_suppression_features';
+import * as migration_20260908_173328_ticket_entreprise_cliente from './20260908_173328_ticket_entreprise_cliente';
 
 export const migrations = [
   {
@@ -412,6 +428,86 @@ export const migrations = [
   {
     up: migration_20260908_073221_optional_onboarding_fields.up,
     down: migration_20260908_073221_optional_onboarding_fields.down,
-    name: '20260908_073221_optional_onboarding_fields'
+    name: '20260908_073221_optional_onboarding_fields',
+  },
+  {
+    up: migration_20260908_095137_documents_fiche_client.up,
+    down: migration_20260908_095137_documents_fiche_client.down,
+    name: '20260908_095137_documents_fiche_client',
+  },
+  {
+    up: migration_20260908_115341_suivi_developpements.up,
+    down: migration_20260908_115341_suivi_developpements.down,
+    name: '20260908_115341_suivi_developpements',
+  },
+  {
+    up: migration_20260908_122143_statuts_editables.up,
+    down: migration_20260908_122143_statuts_editables.down,
+    name: '20260908_122143_statuts_editables',
+  },
+  {
+    up: migration_20260908_130357_suppression_labels.up,
+    down: migration_20260908_130357_suppression_labels.down,
+    name: '20260908_130357_suppression_labels',
+  },
+  {
+    up: migration_20260908_131658_checklist_features.up,
+    down: migration_20260908_131658_checklist_features.down,
+    name: '20260908_131658_checklist_features',
+  },
+  {
+    up: migration_20260908_133413_checklist_sur_developpement.up,
+    down: migration_20260908_133413_checklist_sur_developpement.down,
+    name: '20260908_133413_checklist_sur_developpement',
+  },
+  {
+    up: migration_20260908_134851_description_texte_simple.up,
+    down: migration_20260908_134851_description_texte_simple.down,
+    name: '20260908_134851_description_texte_simple',
+  },
+  {
+    up: migration_20260908_140310_assignation_equipe.up,
+    down: migration_20260908_140310_assignation_equipe.down,
+    name: '20260908_140310_assignation_equipe',
+  },
+  {
+    up: migration_20260908_141025_question_dans_discussion.up,
+    down: migration_20260908_141025_question_dans_discussion.down,
+    name: '20260908_141025_question_dans_discussion',
+  },
+  {
+    up: migration_20260908_142141_commentaire_texte_optionnel.up,
+    down: migration_20260908_142141_commentaire_texte_optionnel.down,
+    name: '20260908_142141_commentaire_texte_optionnel',
+  },
+  {
+    up: migration_20260908_145341_assignation_multiple.up,
+    down: migration_20260908_145341_assignation_multiple.down,
+    name: '20260908_145341_assignation_multiple',
+  },
+  {
+    up: migration_20260908_150127_ordre_importance.up,
+    down: migration_20260908_150127_ordre_importance.down,
+    name: '20260908_150127_ordre_importance',
+  },
+  {
+    up: migration_20260908_151148_documents_developpement.up,
+    down: migration_20260908_151148_documents_developpement.down,
+    name: '20260908_151148_documents_developpement',
+  },
+  {
+    up: migration_20260908_154930_liens_developpement.up,
+    down: migration_20260908_154930_liens_developpement.down,
+    name: '20260908_154930_liens_developpement',
+  },
+  {
+    up: migration_20260908_172250_suppression_features.up,
+    down: migration_20260908_172250_suppression_features.down,
+    name: '20260908_172250_suppression_features',
+  },
+  {
+    up: migration_20260908_173328_ticket_entreprise_cliente.up,
+    down: migration_20260908_173328_ticket_entreprise_cliente.down,
+    name: '20260908_173328_ticket_entreprise_cliente'
   },
 ];

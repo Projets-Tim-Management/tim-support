@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { stampDocuments } from "@/modules/support/hooks/documents";
+import { stampDocuments } from "@/core/hooks/documents";
 import { ticketMediaIds } from "@/modules/support/lib/retention";
 
 /**

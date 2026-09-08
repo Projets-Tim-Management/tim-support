@@ -17,6 +17,7 @@ import {
   taskKindMeta,
 } from "@/modules/partner/lib/activity";
 import { PARIS_TZ, dayKey } from "@/core/lib/dates";
+import { relativeDue } from "@/modules/partner/lib/relative-due";
 import { firstStartableMonday, leadDaysOf } from "@/modules/marketing/lib/journey";
 import { tarifsMarkdown } from "@/modules/partner/lib/pricing";
 import { markdownToHtml } from "@/modules/partner/lib/rich-text";
@@ -106,19 +107,6 @@ const hourOf = (iso?: string): string =>
   iso
     ? new Date(iso).toLocaleTimeString("fr-FR", { timeZone: PARIS_TZ, hour: "2-digit", minute: "2-digit" })
     : "";
-
-/** « en retard de 2 jours », « dans 3 heures » — l'urgence se lit d'un coup. */
-const relativeDue = (iso?: string | null): { text: string; late: boolean } | null => {
-  if (!iso) return null;
-  const ms = new Date(iso).getTime() - Date.now();
-  if (Number.isNaN(ms)) return null;
-  const late = ms < 0;
-  const abs = Math.abs(ms);
-  const days = Math.floor(abs / 86_400_000);
-  const hours = Math.floor(abs / 3_600_000);
-  const unit = days >= 1 ? `${days} jour${days > 1 ? "s" : ""}` : `${Math.max(hours, 1)} h`;
-  return { text: late ? `en retard de ${unit}` : `dans ${unit}`, late };
-};
 
 export function ClientHistory() {
   const { id } = useDocumentInfo();
@@ -642,11 +630,23 @@ export function ClientHistory() {
                 const k = activityKind(a.type);
                 const who = authorLabel(a.author);
                 const system = a.type === "systeme";
+                /**
+                 * Sens d'un e-mail, pour le fond de sa carte.
+                 *
+                 * Un message SANS sens explicite est parti du composeur de la
+                 * fiche : ceux-là sont toujours sortants, et la collection ne
+                 * l'écrit pas (cf. ClientActivities.emailDirection). Traiter
+                 * l'absence comme « reçu » teinterait donc à l'envers tous les
+                 * e-mails qu'on a envoyés.
+                 */
+                const mail = a.type === "email" ? (a.emailDirection === "recu" ? "recu" : "envoye") : null;
                 const iconKind = a.type === "tache" ? (a.taskKind ?? "tache") : a.type;
                 return (
                   <li
                     key={a.id}
-                    className={`tim-history__item${system ? " tim-history__item--system" : ""}`}
+                    className={`tim-history__item${system ? " tim-history__item--system" : ""}${
+                      mail ? ` tim-history__item--mail-${mail}` : ""
+                    }`}
                   >
                     {/* Une tâche porte la couleur de SA nature, la même que dans
                         le Kanban : un appel est turquoise des deux côtés. */}
@@ -665,6 +665,11 @@ export function ClientHistory() {
                     <div className="tim-history__card">
                       <p className="tim-history__item-head">
                         <strong className="tim-history__item-title">
+                          {mail && (
+                            <span className="tim-history__dir">
+                              {mail === "recu" ? "Reçu" : "Envoyé"} —{" "}
+                            </span>
+                          )}
                           {a.title || k?.label}
                         </strong>
                         {a.done && a.type === "tache" && (

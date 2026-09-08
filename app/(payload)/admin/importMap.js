@@ -1,7 +1,8 @@
 import { TicketConversation as TicketConversation_fb92716304d231f4c816d76a0ee726e6 } from '../../../modules/support/admin/TicketConversation'
 import { TicketReply as TicketReply_c022cd1f6b5f4560fb88ddde4de1c692 } from '../../../modules/support/admin/TicketReply'
 import { default as default_40605f4ba1c0a526a32bc7182606996c } from '../../../admin/fields/DirectUpload'
-import { TicketDocuments as TicketDocuments_0c8f8b394f86d8e2e206721f3f2926e3 } from '../../../modules/support/admin/TicketDocuments'
+import { DocumentsField as DocumentsField_14bf702b98d6e5c2962323aa6667995f } from '../../../admin/fields/Documents'
+import { NeedFromTicket as NeedFromTicket_706b11bee372d49b265857d9536df99c } from '../../../modules/dev/admin/CreateDevelopment'
 import { TicketEmails as TicketEmails_6e31d56b2fee4573d76ebe347c3b535e } from '../../../modules/support/admin/TicketEmails'
 import { ColoredCell as ColoredCell_acd47df5632d512e8adc7b1eabe7f150 } from '../../../modules/support/admin/ColoredCell'
 import { ColoredSelectField as ColoredSelectField_b4c0004ddd75d8c70b0e0808738ae1e8 } from '../../../modules/support/admin/ColoredSelectField'
@@ -10,6 +11,23 @@ import { TicketAttachments as TicketAttachments_87e94bd030fa525d2b258e102bca13ac
 import { TicketAlertCell as TicketAlertCell_bc783fda4b7224342b8bdee45d2751b5 } from '../../../modules/support/admin/TicketAlertCell'
 import { TicketListFilters as TicketListFilters_ae5b32e140a9f00f2cdbcf996154b234 } from '../../../modules/support/admin/TicketListFilters'
 import { BackToListButton as BackToListButton_f7d026444a05d2bc171e6cce3246d6f0 } from '../../../admin/components/BackToListButton'
+import { MarkdownField as MarkdownField_7c2119424f6b7db659677abdbda01311 } from '../../../modules/dev/admin/MarkdownField'
+import { ChecklistProgress as ChecklistProgress_6237e48dbcb08a532afe8ea958d57c91 } from '../../../modules/dev/admin/ChecklistProgress'
+import { AssigneePicker as AssigneePicker_97b5d4d5beb9a4b010e482cf4cd9dc28 } from '../../../modules/dev/admin/AssigneePicker'
+import { Discussion as Discussion_97172b0463b6c4309cfc6a386e5d1743 } from '../../../modules/dev/admin/Discussion'
+import { ChecklistRowLabel as ChecklistRowLabel_2fcda5c0d5297d32ad1f75d46f0a7756 } from '../../../modules/dev/admin/ChecklistRowLabel'
+import { ChecklistAutoCollapse as ChecklistAutoCollapse_d2dfe6020c139da8b2e0560d0a6e6a4b } from '../../../modules/dev/admin/ChecklistAutoCollapse'
+import { DevLinks as DevLinks_bb94574dbd75fe3b474718650b711418 } from '../../../modules/dev/admin/DevLinks'
+import { DevStatusCell as DevStatusCell_5e03f36098db4cf88c65d19b2866a269 } from '../../../modules/dev/admin/DevStatusCell'
+import { DevStatusField as DevStatusField_819319c999294b546c0f69c780077993 } from '../../../modules/dev/admin/DevStatusField'
+import { DevCell as DevCell_ff22fda9c901dfff8262e74b909f96af } from '../../../modules/dev/admin/DevCell'
+import { DevSelectField as DevSelectField_7f5a2bfdf035052e7caaeb96cf6a1598 } from '../../../modules/dev/admin/DevSelectField'
+import { ChecklistCell as ChecklistCell_8af2bc43e2f51c59acdebf4eb772057c } from '../../../modules/dev/admin/ChecklistCell'
+import { DevViewSwitcher as DevViewSwitcher_e17c34097fb47fa6e17560f990543519 } from '../../../modules/dev/admin/DevViewSwitcher'
+import { DevStatusNameCell as DevStatusNameCell_edf2fab7585bd587bc345570e4e95412 } from '../../../modules/dev/admin/DevStatusNameCell'
+import { PaletteColorField as PaletteColorField_f12f393f1d861dcc9adf7448d16ac553 } from '../../../modules/dev/admin/PaletteColorField'
+import { DevRolesCell as DevRolesCell_8df41335d2dbe76b59544d2e11d56ce2 } from '../../../modules/dev/admin/DevRolesCell'
+import { DevStatusMoveCell as DevStatusMoveCell_204212af5dacc12cea1dfe3080e2448d } from '../../../modules/dev/admin/DevStatusMoveCell'
 import { RscEntryLexicalCell as RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { RscEntryLexicalField as RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { LexicalDiffComponent as LexicalDiffComponent_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
@@ -52,6 +70,7 @@ import { ClientStatusCell as ClientStatusCell_358b486afee2c4532aca3d72ba0365eb }
 import { ClientStatusField as ClientStatusField_4cf9c5082e5cc09e6363544e31423ee7 } from '../../../modules/marketing/admin/ClientStatusField'
 import { SequenceState as SequenceState_76fc64c304fa617805830e30067a8b3b } from '../../../modules/marketing/admin/SequenceState'
 import { ClientHistory as ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1 } from '../../../modules/partner/admin/ClientHistory'
+import { NeedFromOpportunity as NeedFromOpportunity_706b11bee372d49b265857d9536df99c } from '../../../modules/dev/admin/CreateDevelopment'
 import { LicencesTable as LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338 } from '../../../modules/partner/admin/LicencesTable'
 import { PartnerClientHistory as PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2 } from '../../../modules/partner/admin/PartnerClientHistory'
 import { OnboardingRecap as OnboardingRecap_d713ec8857fdf2ef0b320360e45593af } from '../../../modules/marketing/admin/OnboardingRecap'
@@ -107,7 +126,8 @@ export const importMap = {
   "/modules/support/admin/TicketConversation#TicketConversation": TicketConversation_fb92716304d231f4c816d76a0ee726e6,
   "/modules/support/admin/TicketReply#TicketReply": TicketReply_c022cd1f6b5f4560fb88ddde4de1c692,
   "/admin/fields/DirectUpload#default": default_40605f4ba1c0a526a32bc7182606996c,
-  "/modules/support/admin/TicketDocuments#TicketDocuments": TicketDocuments_0c8f8b394f86d8e2e206721f3f2926e3,
+  "/admin/fields/Documents#DocumentsField": DocumentsField_14bf702b98d6e5c2962323aa6667995f,
+  "/modules/dev/admin/CreateDevelopment#NeedFromTicket": NeedFromTicket_706b11bee372d49b265857d9536df99c,
   "/modules/support/admin/TicketEmails#TicketEmails": TicketEmails_6e31d56b2fee4573d76ebe347c3b535e,
   "/modules/support/admin/ColoredCell#ColoredCell": ColoredCell_acd47df5632d512e8adc7b1eabe7f150,
   "/modules/support/admin/ColoredSelectField#ColoredSelectField": ColoredSelectField_b4c0004ddd75d8c70b0e0808738ae1e8,
@@ -116,6 +136,23 @@ export const importMap = {
   "/modules/support/admin/TicketAlertCell#TicketAlertCell": TicketAlertCell_bc783fda4b7224342b8bdee45d2751b5,
   "/modules/support/admin/TicketListFilters#TicketListFilters": TicketListFilters_ae5b32e140a9f00f2cdbcf996154b234,
   "/admin/components/BackToListButton#BackToListButton": BackToListButton_f7d026444a05d2bc171e6cce3246d6f0,
+  "/modules/dev/admin/MarkdownField#MarkdownField": MarkdownField_7c2119424f6b7db659677abdbda01311,
+  "/modules/dev/admin/ChecklistProgress#ChecklistProgress": ChecklistProgress_6237e48dbcb08a532afe8ea958d57c91,
+  "/modules/dev/admin/AssigneePicker#AssigneePicker": AssigneePicker_97b5d4d5beb9a4b010e482cf4cd9dc28,
+  "/modules/dev/admin/Discussion#Discussion": Discussion_97172b0463b6c4309cfc6a386e5d1743,
+  "/modules/dev/admin/ChecklistRowLabel#ChecklistRowLabel": ChecklistRowLabel_2fcda5c0d5297d32ad1f75d46f0a7756,
+  "/modules/dev/admin/ChecklistAutoCollapse#ChecklistAutoCollapse": ChecklistAutoCollapse_d2dfe6020c139da8b2e0560d0a6e6a4b,
+  "/modules/dev/admin/DevLinks#DevLinks": DevLinks_bb94574dbd75fe3b474718650b711418,
+  "/modules/dev/admin/DevStatusCell#DevStatusCell": DevStatusCell_5e03f36098db4cf88c65d19b2866a269,
+  "/modules/dev/admin/DevStatusField#DevStatusField": DevStatusField_819319c999294b546c0f69c780077993,
+  "/modules/dev/admin/DevCell#DevCell": DevCell_ff22fda9c901dfff8262e74b909f96af,
+  "/modules/dev/admin/DevSelectField#DevSelectField": DevSelectField_7f5a2bfdf035052e7caaeb96cf6a1598,
+  "/modules/dev/admin/ChecklistCell#ChecklistCell": ChecklistCell_8af2bc43e2f51c59acdebf4eb772057c,
+  "/modules/dev/admin/DevViewSwitcher#DevViewSwitcher": DevViewSwitcher_e17c34097fb47fa6e17560f990543519,
+  "/modules/dev/admin/DevStatusNameCell#DevStatusNameCell": DevStatusNameCell_edf2fab7585bd587bc345570e4e95412,
+  "/modules/dev/admin/PaletteColorField#PaletteColorField": PaletteColorField_f12f393f1d861dcc9adf7448d16ac553,
+  "/modules/dev/admin/DevRolesCell#DevRolesCell": DevRolesCell_8df41335d2dbe76b59544d2e11d56ce2,
+  "/modules/dev/admin/DevStatusMoveCell#DevStatusMoveCell": DevStatusMoveCell_204212af5dacc12cea1dfe3080e2448d,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalCell": RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalField": RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#LexicalDiffComponent": LexicalDiffComponent_44fe37237e0ebf4470c9990d8cb7b07e,
@@ -158,6 +195,7 @@ export const importMap = {
   "/modules/marketing/admin/ClientStatusField#ClientStatusField": ClientStatusField_4cf9c5082e5cc09e6363544e31423ee7,
   "/modules/marketing/admin/SequenceState#SequenceState": SequenceState_76fc64c304fa617805830e30067a8b3b,
   "/modules/partner/admin/ClientHistory#ClientHistory": ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1,
+  "/modules/dev/admin/CreateDevelopment#NeedFromOpportunity": NeedFromOpportunity_706b11bee372d49b265857d9536df99c,
   "/modules/partner/admin/LicencesTable#LicencesTable": LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338,
   "/modules/partner/admin/PartnerClientHistory#PartnerClientHistory": PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2,
   "/modules/marketing/admin/OnboardingRecap#OnboardingRecap": OnboardingRecap_d713ec8857fdf2ef0b320360e45593af,

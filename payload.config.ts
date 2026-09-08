@@ -27,6 +27,8 @@ import { MissionSubmissions } from "./modules/partner/collections/MissionSubmiss
 import { Rewards } from "./modules/partner/collections/Rewards";
 import { RewardOrders } from "./modules/partner/collections/RewardOrders";
 import { Tickets } from "./modules/support/collections/Tickets";
+import { Developments } from "./modules/dev/collections/Developments";
+import { DevStatuses } from "./modules/dev/collections/DevStatuses";
 import { Forms } from "./modules/forms/collections/Forms";
 import { FormSubmissions } from "./modules/forms/collections/FormSubmissions";
 import { MarketingJourneys } from "./modules/marketing/collections/MarketingJourneys";
@@ -43,6 +45,7 @@ import { CalendarConnections } from "./modules/marketing/collections/CalendarCon
 import { seedJourneys } from "./modules/marketing/lib/seed";
 import { seedForms } from "./modules/forms/lib/seed";
 import { seedSequences } from "./modules/marketing/lib/sequence-seed";
+import { seedDevStatuses } from "./modules/dev/lib/seed";
 import {
   hideUnlessAdmin,
   hideUnlessMetier,
@@ -83,6 +86,10 @@ const ROLE_NAV_HIDDEN: Record<string, (args: { user?: unknown }) => boolean> = {
   "reward-orders": hideUnlessAdmin,
   // Support
   tickets: hideUnlessSupport,
+  // Suivi des développements : outil de pilotage interne, admin seul (l'access
+  // control de chaque collection le refuse déjà aux autres rôles).
+  developments: hideUnlessAdmin,
+  "dev-statuses": hideUnlessAdmin,
   // Marketing — les phases de test se pilotent à deux (partenaire-métier +
   // admin) ; le MODÈLE de parcours reste un réglage TIM, donc admin seul.
   "journey-runs": hideUnlessMetier,
@@ -208,6 +215,9 @@ export default buildConfig({
     applyRoleNavVisibility([
       // Support
       Tickets,
+      // Suivi des développements (ce qui est demandé, ce qui est en cours)
+      Developments,
+      DevStatuses,
       // Features (+ leurs paramètres : catégories, plateformes)
       Features,
       FeatureCategories,
@@ -402,6 +412,10 @@ export default buildConfig({
 
     // Idem pour les séquences de relance et leurs messages (cf. seedSequences).
     await seedSequences(payload);
+
+    // Colonnes de départ du suivi des développements — créées une seule fois,
+    // dans une base vide (cf. modules/dev/lib/seed).
+    await seedDevStatuses(payload);
   },
 
   secret: process.env.PAYLOAD_SECRET || "",

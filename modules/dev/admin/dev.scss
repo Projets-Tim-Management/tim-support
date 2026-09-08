@@ -1,0 +1,1591 @@
+/* ─── Suivi des développements ───────────────────────────────────────────────
+   Pastilles (statut / type / priorité / labels) et sélecteur de couleur.
+
+   Volontairement distinct des classes `.ticket-*` de _support.scss, qui portent
+   les mêmes formes mais avec des couleurs EN DUR héritées d'avant les tokens.
+   Ici tout passe par var(--tim-…), fourni par les composants depuis devMeta. */
+
+.dev-pill {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ─── Champ « select » rendu en pastille, mais toujours éditable ──────────── */
+.dev-cfield {
+  margin-bottom: 0.85rem;
+}
+.dev-cfield__label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--tim-muted);
+  margin-bottom: 0.3rem;
+}
+/* L'aide du choix courant : ce qui distingue « À l'étude » d'« En investigation ».
+   Discrète — elle informe, elle ne dispute pas l'attention à la pastille. */
+.dev-cfield__hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--tim-muted);
+}
+.dev-cselect {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border-radius: 6px;
+  padding: 0.3rem 0.55rem 0.3rem 0.8rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.dev-cselect__native {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  max-width: 100%;
+  padding: 0;
+}
+.dev-cselect__native:focus {
+  outline: none;
+}
+.dev-cselect__native:disabled {
+  cursor: default;
+}
+/* La liste déroulante native reste lisible (fond blanc, texte neutre). */
+.dev-cselect__native option {
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+  font-weight: 500;
+}
+.dev-cselect__caret {
+  font-size: 0.7rem;
+  opacity: 0.65;
+  pointer-events: none;
+  margin-left: 0.25rem;
+}
+
+/* Type + priorité côte à côte : le `row` de Payload ne dimensionne pas nos
+   composants custom, on impose la grille nous-mêmes. */
+.row__fields:has(.dev-cfield) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.85rem;
+  align-items: start;
+}
+.row__fields:has(.dev-cfield) > * {
+  min-width: 0;
+  width: 100%;
+}
+
+/* ─── Couleur d'un statut : des pastilles à cliquer ───────────────────────── */
+.dev-swatches__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.dev-swatch {
+  width: 2rem;
+  height: 1.6rem;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.12s ease;
+}
+.dev-swatch:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+/* Le choix courant se voit à son contour, pas à sa couleur (qui est déjà prise). */
+.dev-swatch--on {
+  border-color: currentColor;
+}
+.dev-swatch:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* ─── Vues rapides par phase (au-dessus du tableau) ──────────────────────── */
+.dev-quickfilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+.dev-quickfilter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--tim-border);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: filter 0.12s ease;
+}
+.dev-quickfilter:hover {
+  filter: brightness(0.97);
+}
+.dev-quickfilter__badge {
+  min-width: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ─── Kanban : colonnes regroupées par phase ─────────────────────────────────
+   Réutilise les classes `.tim-kanban*` (colonnes, cartes, survol de dépôt) déjà
+   définies pour les opportunités — même objet visuel, même comportement. Seul
+   le regroupement par phase est propre aux développements. */
+.dev-board {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.75rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+}
+/* Un seul défilement horizontal, celui du board : les rangées internes ne
+   scrollent pas chacune de leur côté. */
+.dev-board .tim-kanban {
+  overflow: visible;
+  padding-bottom: 0;
+}
+/* Colonnes plus étroites qu'un pipeline commercial : il y en a 18, et une carte
+   de dev tient en un titre. */
+.dev-board .tim-kanban__col {
+  flex: 0 0 232px;
+  width: 232px;
+}
+.dev-board__phase {
+  flex: 0 0 auto;
+}
+.dev-board__phase-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0 0.2rem 0.5rem;
+  margin-bottom: 0.35rem;
+  border-bottom: 2px solid var(--tim-elevation-150);
+}
+.dev-board__phase-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+.dev-board__phase-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tim-muted-light);
+}
+
+/* ─── Carte d'un développement ───────────────────────────────────────────── */
+.dev-card__top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.4rem;
+}
+.dev-card__due {
+  font-weight: 600;
+}
+.dev-card__due--late {
+  color: var(--tim-danger-text);
+  font-weight: 700;
+}
+
+/* En mode Kanban, le tableau natif Payload et ses contrôles s'effacent : le
+   board occupe le slot `beforeListTable`, au-dessus de leur emplacement.
+   Classe posée sur <body> par DevViewSwitcher, sur cette liste uniquement. */
+body.tim-dev-kanban .list-controls,
+body.tim-dev-kanban .collection-list__sub-header,
+body.tim-dev-kanban .collection-list__tables,
+body.tim-dev-kanban .no-results,
+body.tim-dev-kanban .page-controls,
+body.tim-dev-kanban .collection-list__list-selection {
+  display: none !important;
+}
+
+/* En-tête de la liste (bascule de vue + vues rapides). */
+.dev-header {
+  margin-bottom: 1rem;
+}
+
+/* ─── Réglage des colonnes : déplacer un statut ──────────────────────────── */
+.dev-move {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.dev-move__btn {
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-muted);
+  font-size: 0.6rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.dev-move__btn:hover:not(:disabled) {
+  color: var(--tim-primary);
+  border-color: var(--tim-primary);
+}
+.dev-move__btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+/* Le nombre reste visible — c'est lui qu'on édite dans la fiche du statut. */
+.dev-move__num {
+  margin-left: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--tim-muted-light);
+}
+
+/* ─── Checklist d'une feature ─────────────────────────────────────────────── */
+/* Ligne repliée : état, numéro, intitulé, discussion. Le tout doit se lire
+   sans déplier — c'est ce qui rend une checklist de vingt points utilisable. */
+/* `flex` et non `inline-flex`, sur toute la largeur : le conteneur se réduisait
+   à son contenu, si bien que le champ du titre ne pouvait pas s'étendre. Il
+   occupe maintenant tout ce que la barre laisse. */
+.dev-check__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+}
+/* La case à cocher, dans la barre du point.
+   ⚠️ DEUX précautions, pas une :
+   1. `pointer-events: auto` — Payload pose `pointer-events: none` sur toute la
+      barre d'une ligne (.collapsible__header-wrap), pour que les clics la
+      TRAVERSENT et atteignent le bouton invisible qui plie/déplie. Sans cette
+      ligne, la case ne recevait aucun clic : on ne cochait rien, on dépliait le
+      point.
+   2. `position: relative` + `z-index` — pour passer devant ce même bouton.
+   Le reste de la barre garde `pointer-events: none` : cliquer le titre continue
+   de plier et déplier le point, comme partout ailleurs dans l'admin. */
+.dev-check__toggle {
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Un CARRÉ, et large : c'est la forme qu'on reconnaît comme « case à cocher »,
+     et la cible du geste le plus fréquent de l'écran. */
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+  padding: 0;
+  border-radius: 5px;
+  border: 1.5px solid var(--tim-border);
+  background: var(--tim-white);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+/* La coche existe toujours dans le bouton : invisible au repos, esquissée au
+   survol. C'est ce qui annonce le geste avant qu'on l'ait fait. */
+.dev-check__toggle > span {
+  color: var(--tim-white);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.dev-check__toggle:hover {
+  border-color: var(--tim-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tim-success) 15%, transparent);
+}
+.dev-check__toggle:hover > span {
+  color: var(--tim-success);
+  opacity: 0.5;
+}
+.dev-check__toggle--on {
+  background: var(--tim-success);
+  border-color: var(--tim-success);
+}
+.dev-check__toggle--on > span,
+.dev-check__toggle--on:hover > span {
+  color: var(--tim-white);
+  opacity: 1;
+}
+/* Les champs dont la SAISIE a été remontée dans la barre du point (la case
+   « Fait », le titre) : ils vivent toujours dans le formulaire — c'est ce qui
+   garantit leur enregistrement — mais n'ont plus à s'afficher deux fois. */
+.dev-done {
+  display: none !important;
+}
+.dev-check__num {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tim-muted-light);
+}
+/* Le titre du point : un champ qui a l'air d'un libellé tant qu'on n'y touche
+   pas. Il occupe toute la largeur restante de la barre — c'est la ligne qu'on
+   lit, elle ne doit pas être bridée par le contenu.
+   `pointer-events: auto` : la barre entière laisse passer les clics vers le
+   bouton qui plie/déplie (voir la case à cocher plus haut). Sans cette ligne,
+   on ne pourrait jamais poser le curseur dans le champ. */
+.dev-check__title {
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.15rem 0.35rem;
+  border: 1px solid transparent;
+  border-radius: var(--tim-radius-sm);
+  /* Fond blanc dès le repos : sur la barre grise d'un point, le champ se
+     détache et se donne pour ce qu'il est — une zone où l'on écrit. */
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+.dev-check__title:hover {
+  border-color: color-mix(in srgb, var(--tim-border) 70%, transparent);
+}
+.dev-check__title:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+  background: var(--tim-white);
+}
+.dev-check__title::placeholder {
+  color: var(--tim-muted-light);
+  font-weight: 500;
+}
+/* Un point fait s'efface sans disparaître : il reste lisible, il ne réclame
+   simplement plus l'attention. Le barré tombe dès qu'on édite — on ne raye pas
+   ce qu'on est en train d'écrire. */
+.dev-check__title--done {
+  color: var(--tim-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--tim-muted-light);
+}
+.dev-check__title--done:focus {
+  color: var(--tim-foreground);
+  text-decoration: none;
+}
+.dev-check__count {
+  font-size: 0.72rem;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+
+/* ─── Avancement (fiche + colonne de liste) ───────────────────────────────── */
+.dev-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
+}
+/* Au-dessus de la checklist, la barre annonce l'état d'ensemble : un peu d'air
+   au-dessus, et une largeur qui se voit. */
+.dev-progress--main {
+  margin: 0.2rem 0 0.9rem;
+}
+.dev-progress--main .dev-progress__bar {
+  max-width: 22rem;
+  height: 0.55rem;
+}
+.dev-progress--main .dev-progress__text {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.dev-progress__bar {
+  flex: 1 1 auto;
+  min-width: 3rem;
+  max-width: 14rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--tim-elevation-150);
+  overflow: hidden;
+}
+.dev-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--tim-success);
+  transition: width 0.18s ease;
+}
+.dev-progress__text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+/* Dans une cellule de tableau : plus compact, et pas de marge basse. */
+.dev-progress--cell {
+  margin-bottom: 0;
+  gap: 0.4rem;
+}
+.dev-progress--cell .dev-progress__bar {
+  max-width: 4.5rem;
+}
+
+/* Avancement de la checklist sur une carte du Kanban. */
+.dev-card__check {
+  margin-top: 0.45rem;
+}
+
+/* ─── La checklist, collée à la description ──────────────────────────────────
+   La checklist répond au texte qui la précède : les séparer d'un blanc de
+   formulaire les faisait lire comme deux sujets. */
+.dev-desc {
+  margin-bottom: 0.5rem;
+}
+.dev-checklist {
+  margin-top: 0;
+}
+.dev-checklist .array-field__draggable-rows {
+  margin-top: 0.25rem;
+}
+
+/* ─── Discussion d'un point : une icône, puis un panneau ─────────────────────
+   Le fil ne s'affiche plus sous chaque point (dix points = dix conversations à
+   dépasser pour lire les tâches). L'icône dit qu'il y a quelque chose, et
+   combien ; le panneau le montre. */
+.dev-comments {
+  margin-top: 0.5rem;
+}
+.dev-disc__open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 999px;
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.dev-disc__open:hover {
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+  background: var(--tim-surface);
+}
+/* Une réponse est attendue : le bouton le dit, sinon il faudrait ouvrir pour
+   l'apprendre. */
+.dev-disc__open--pending {
+  border-color: var(--tim-warning);
+  background: var(--tim-amber-bg);
+  color: var(--tim-warning-text);
+}
+.dev-disc__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--tim-warning-text);
+  color: var(--tim-white);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+/* Ouvert, le bouton reste rattaché au panneau qu'il vient de déplier. */
+.dev-disc__open--on {
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+  background: var(--tim-surface);
+}
+
+/* ── Le panneau, déplié juste sous le bouton ─────────────────────────────────
+   En place, et non dans un tiroir latéral : une discussion se lit à côté du
+   point dont elle parle. Un panneau qui recouvre l'écran fait perdre la tâche
+   de vue, et il faut le refermer pour reprendre ce qu'on faisait. */
+.dev-disc__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 46rem;
+  margin-top: 0.5rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  box-shadow: 0 2px 10px -6px color-mix(in srgb, var(--tim-foreground) 25%, transparent);
+}
+.dev-disc__alert {
+  margin: 0;
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-amber-bg);
+  color: var(--tim-warning-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.dev-disc__empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--tim-muted-light);
+}
+.dev-disc__thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+.dev-msg {
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+}
+.dev-msg__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin-bottom: 0.25rem;
+}
+.dev-msg__who {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.dev-msg__when {
+  font-size: 0.72rem;
+  color: var(--tim-muted-light);
+}
+/* La suppression ne se montre qu'au survol : elle existe, elle ne s'impose pas
+   au milieu d'une conversation. */
+.dev-msg__del {
+  margin-left: auto;
+  padding: 0 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--tim-muted-light);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+.dev-msg:hover .dev-msg__del,
+.dev-msg__del:focus-visible {
+  opacity: 1;
+}
+.dev-msg__del:hover {
+  color: var(--tim-danger-text);
+}
+.dev-msg__body {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--tim-foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.dev-msg__ask {
+  margin: 0.35rem 0 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--tim-green);
+}
+.dev-msg__ask--waiting {
+  color: var(--tim-warning-text);
+}
+
+/* ── Écrire ──────────────────────────────────────────────────────────────── */
+.dev-disc__compose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--tim-border);
+}
+.dev-disc__input {
+  width: 100%;
+  min-height: 2.2rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.88rem;
+  resize: vertical;
+}
+.dev-disc__input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+}
+.dev-disc__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.dev-disc__ask {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+}
+.dev-disc__ask select {
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.8rem;
+}
+.dev-disc__send {
+  padding: 0.45rem 1rem;
+  border: 1px solid var(--tim-primary);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, opacity 0.12s ease;
+}
+.dev-disc__send:hover:not(:disabled) {
+  background: var(--tim-primary-dark);
+  border-color: var(--tim-primary-dark);
+}
+.dev-disc__send:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.dev-disc__hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--tim-muted-light);
+}
+/* Une réponse attendue se voit aussi depuis la barre du point. */
+.dev-check__count--waiting {
+  color: var(--tim-warning-text);
+  font-weight: 700;
+}
+.dev-check__bell {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-left: 0.3rem;
+  border-radius: 50%;
+  background: var(--tim-warning-text);
+  vertical-align: middle;
+}
+
+/* ── Bandeau du tableau de bord ──────────────────────────────────────────── */
+.dev-notif__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.dev-notif__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  text-decoration: none;
+  transition: background 0.12s ease;
+}
+.dev-notif__item:hover {
+  background: var(--tim-surface);
+}
+.dev-notif__where {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+}
+.dev-notif__what {
+  font-size: 0.84rem;
+  color: var(--tim-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dev-notif__more {
+  font-size: 0.74rem;
+  color: var(--tim-muted-light);
+}
+
+/* ─── La checklist, collée à la description ──────────────────────────────────
+   La checklist répond au texte qui la précède : les séparer d'un blanc de
+   formulaire les faisait lire comme deux sujets. */
+.dev-desc {
+  margin-bottom: 0.5rem;
+}
+.dev-checklist {
+  margin-top: 0;
+}
+.dev-checklist .array-field__draggable-rows {
+  margin-top: 0.25rem;
+}
+
+/* ─── Discussion d'un point ──────────────────────────────────────────────────
+   Les messages, puis un champ et un bouton. Rien de l'appareillage d'un tableau
+   (lignes repliables, boutons de tri, champs Auteur et Le) : on vient dire une
+   phrase. */
+.dev-comments {
+  margin-top: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--tim-elevation-150);
+}
+.dev-disc__empty {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  color: var(--tim-muted-light);
+}
+.dev-disc__thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+.dev-msg {
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+}
+.dev-msg__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin-bottom: 0.2rem;
+}
+.dev-msg__who {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.dev-msg__when {
+  font-size: 0.7rem;
+  color: var(--tim-muted-light);
+}
+/* La suppression ne se montre qu'au survol du message : elle existe, elle ne
+   s'impose pas au milieu d'une conversation. */
+.dev-msg__del {
+  margin-left: auto;
+  padding: 0 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--tim-muted-light);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+.dev-msg:hover .dev-msg__del,
+.dev-msg__del:focus-visible {
+  opacity: 1;
+}
+.dev-msg__del:hover {
+  color: var(--tim-danger-text);
+}
+.dev-msg__body {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--tim-foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.dev-disc__compose {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+.dev-disc__input {
+  flex: 1 1 auto;
+  min-height: 2.4rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.86rem;
+  resize: vertical;
+}
+.dev-disc__input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+}
+.dev-disc__send {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--tim-primary);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, opacity 0.12s ease;
+}
+.dev-disc__send:hover:not(:disabled) {
+  background: var(--tim-primary-dark);
+  border-color: var(--tim-primary-dark);
+}
+.dev-disc__send:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* Qui s'occupe d'un point, dans sa barre : des initiales, pas un nom complet —
+   la barre doit rester lisible d'un coup d'œil sur vingt lignes. */
+.dev-check__who {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--tim-elevation-150);
+  color: var(--tim-foreground);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* ─── « Tout réduire » / « Afficher tout » ───────────────────────────────────
+   Deux liens que Payload pose au-dessus de tout tableau. Ici les points sont
+   déjà tous ouverts par défaut, et chaque barre se plie d'un clic : ces liens
+   n'ajoutaient qu'un vocabulaire de formulaire au-dessus d'une checklist.
+   L'action « copier / coller » de la même barre, elle, reste. */
+.dev-checklist .array-field__header-actions li:has(.array-field__header-action) {
+  display: none;
+}
+
+/* ─── « Assigné à » en rangée de visages ─────────────────────────────────────
+   Un menu déroulant demande trois gestes et n'affiche qu'un nom une fois
+   refermé. Une rangée d'avatars montre l'équipe entière et se répond d'un clic ;
+   on reconnaît un collègue à sa tête avant de lire son nom. */
+.dev-people__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.dev-people__empty {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--tim-muted-light);
+}
+.dev-people__btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  overflow: visible;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: var(--tim-elevation-150);
+  color: var(--tim-muted);
+  cursor: pointer;
+  /* Les non-choisis s'effacent : la personne assignée doit sauter aux yeux. */
+  opacity: 0.55;
+  filter: grayscale(1);
+  transition: opacity 0.12s ease, filter 0.12s ease, border-color 0.12s ease;
+}
+.dev-people__btn:hover:not(:disabled) {
+  opacity: 1;
+  filter: none;
+}
+.dev-people__btn--on {
+  opacity: 1;
+  filter: none;
+  border-color: var(--tim-primary);
+  color: var(--tim-foreground);
+  background: var(--tim-primary-light);
+}
+.dev-people__btn:disabled {
+  cursor: default;
+}
+.dev-people__img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.dev-people__ini {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+/* Infobulle immédiate, contrairement à celle du navigateur qui se fait attendre
+   une seconde — trop long quand on survole six pastilles d'affilée. Elle sert au
+   choix des personnes (nom + e-mail) et aux initiales de clients sur les cartes
+   du Kanban (raisons sociales), d'où la classe générique `.dev-tip`. */
+.dev-tip {
+  position: relative;
+}
+.dev-tip[data-tip]:hover::after,
+.dev-people__btn[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 0.35rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-tooltip-bg);
+  color: var(--tim-tooltip-text);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: pre;
+  pointer-events: none;
+}
+
+/* Au-delà de deux personnes sur un point, un compteur : quatre pastilles dans
+   une barre de ligne, et on ne lit plus le titre. */
+.dev-check__who--more {
+  background: transparent;
+  border: 1px dashed var(--tim-border);
+  color: var(--tim-muted);
+}
+
+/* ─── Ordre d'importance dans une colonne ────────────────────────────────────
+   Le classement se pose en glissant les cartes ; ces repères disent où la carte
+   tomberait si on lâchait maintenant. Sans eux, on déplace à l'aveugle. */
+/* Le rang vit dans le PIED de la carte : c'est un repère de classement, pas
+   une qualification du développement — en tête, il disputait l'attention au
+   titre, qui est la seule façon de reconnaître une carte. */
+.dev-card__rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.25rem;
+  border-radius: 4px;
+  background: var(--tim-elevation-150);
+  color: var(--tim-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+/* La carte devant laquelle on va insérer : un trait au-dessus. */
+.tim-kanban__card--drop {
+  box-shadow:
+    inset 0 3px 0 0 var(--tim-primary),
+    0 1px 2px color-mix(in srgb, var(--tim-foreground) 5%, transparent);
+}
+/* La carte qu'on tient : effacée, pour qu'on regarde la place et non l'objet. */
+.tim-kanban__card--moving {
+  opacity: 0.4;
+}
+/* Insertion en fin de colonne. */
+.tim-kanban__dropline {
+  display: block;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--tim-primary);
+}
+
+/* ─── Créer un développement depuis une opportunité ──────────────────────────
+   Deux colonnes : à gauche ce que le prospect a écrit, à droite ce qu'on en
+   tire. Côte à côte, parce qu'on recopie de l'un vers l'autre. */
+.dev-need__open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.9rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--tim-primary);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.dev-need__open:hover {
+  background: var(--tim-primary-dark);
+  border-color: var(--tim-primary-dark);
+}
+/* Le tiroir de Payload occupe presque tout l'écran — juste pour une fiche
+   entière, disproportionné pour un formulaire de six champs. La largeur est
+   posée en JS par Payload, donc `!important` est le seul moyen de la reprendre. */
+.dev-need-drawer .drawer__content {
+  width: min(38rem, 94vw) !important;
+}
+/* Une seule colonne : à cette largeur, deux colonnes donneraient deux couloirs
+   étroits. On lit la demande, puis on écrit dessous. */
+.dev-need__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.dev-need__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.dev-need__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+.dev-need__label input,
+.dev-need__label textarea,
+.dev-need__label select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 400;
+}
+.dev-need__label textarea {
+  resize: vertical;
+}
+.dev-need__label input:focus,
+.dev-need__label textarea:focus,
+.dev-need__label select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+}
+.dev-need__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+.dev-need__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.dev-need__close {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.dev-need__close:hover {
+  color: var(--tim-foreground);
+  border-color: var(--tim-foreground);
+}
+
+/* ── La checklist en cours de saisie, dans le tiroir de création ─────────── */
+.dev-need__points {
+  list-style: none;
+  margin: 0.35rem 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.dev-need__point {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+}
+.dev-need__point-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.dev-need__point-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 4px;
+  background: var(--tim-elevation-150);
+  color: var(--tim-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+.dev-need__point-title {
+  flex: 1 1 auto;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+  word-break: break-word;
+}
+/* La suppression apparaît au survol du point, comme dans une discussion. */
+.dev-need__point .dev-msg__del {
+  margin-left: 0;
+}
+.dev-need__point:hover .dev-msg__del {
+  opacity: 1;
+}
+.dev-need__point-desc {
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 400;
+  field-sizing: content;
+  min-height: 1.9rem;
+  max-height: 8rem;
+  resize: vertical;
+}
+.dev-need__point-desc:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+  background: var(--tim-white);
+}
+.dev-need__point-add {
+  display: flex;
+  gap: 0.4rem;
+}
+.dev-need__point-add input {
+  flex: 1 1 auto;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 400;
+}
+.dev-need__point-add input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+}
+.dev-need__point-btn {
+  flex: 0 0 auto;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dev-need__point-btn:hover:not(:disabled) {
+  border-color: var(--tim-primary);
+  color: var(--tim-primary);
+}
+.dev-need__point-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* ─── Liens externes ─────────────────────────────────────────────────────────
+   Des pastilles cliquables : un lien existe pour être ouvert. Le signe du
+   service en tête — une URL de quatre-vingts caractères ne dit rien de ce qu'il
+   y a au bout. */
+.dev-links__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+.dev-links__chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--tim-border);
+  border-radius: 999px;
+  background: var(--tim-white);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.dev-links__chip:hover {
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+  background: var(--tim-surface);
+}
+.dev-links__chip a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  color: var(--tim-foreground);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dev-links__chip a:hover {
+  color: var(--tim-primary);
+}
+/* La suppression n'apparaît qu'au survol : elle ne doit pas se disputer le clic
+   avec le lien lui-même. */
+.dev-links__del {
+  padding: 0 0.5rem 0 0.15rem;
+  border: 0;
+  background: none;
+  color: var(--tim-muted-light);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+.dev-links__chip:hover .dev-links__del,
+.dev-links__del:focus-visible {
+  opacity: 1;
+}
+.dev-links__del:hover {
+  color: var(--tim-danger-text);
+}
+.dev-links__add {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.dev-links__add input {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.84rem;
+}
+.dev-links__add input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+}
+.dev-links__url {
+  flex: 2 1 18rem;
+}
+.dev-links__label {
+  flex: 1 1 10rem;
+}
+.dev-links__btn {
+  flex: 0 0 auto;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dev-links__btn:hover:not(:disabled) {
+  border-color: var(--tim-primary);
+  color: var(--tim-primary);
+}
+.dev-links__btn:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.dev-links__error {
+  margin: 0.35rem 0 0;
+  font-size: 0.76rem;
+  color: var(--tim-danger-text);
+}
+
+/* ─── Carte du Kanban : le titre d'abord, et qu'il se voie ───────────────────
+   On parcourt une colonne pour retrouver UNE carte, et c'est son titre qu'on
+   cherche. Les pastilles qualifient ce qu'on a trouvé ; les mettre au-dessus
+   revenait à faire lire une ligne d'étiquettes avant chaque nom.
+
+   Le reste de la carte reprend telles quelles les classes des cartes
+   d'opportunité (`tim-kanban__chip`, `__activity`, `__foot`) : deux tableaux du
+   même back-office doivent se lire de la même façon, et ce qui est partagé ne
+   peut pas diverger. */
+.dev-board .tim-kanban__card-title {
+  /* Un cran au-dessus de la carte d'opportunité (0,88) : ici le titre est la
+     SEULE façon de reconnaître une carte — un dev n'a ni raison sociale ni
+     montant pour le seconder. */
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.32;
+  color: var(--tim-foreground);
+  /* Un filet sous le titre, le même que celui du pied : la carte se lit alors
+     en trois temps — ce que c'est, ce qui le qualifie, ce qui le situe.
+     Le titre respire au-dessus du trait, et les pastilles en dessous. */
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+}
+/* Les pastilles passent dessous, en retrait de graisse et de taille. */
+.dev-board .dev-card__top {
+  margin: 0.9rem 0 0;
+}
+/* QUI s'en occupe, collé à droite : les pastilles de qualification tiennent le
+   bord gauche, la personne tient le bord droit. Deux ancrages plutôt qu'une
+   colonne unique où tout se suit — on retrouve « qui » sans lire le reste.
+   `width: fit-content` + `margin-left: auto` : la pastille reste à sa taille et
+   se pousse à droite dans le flux du bloc. */
+.dev-board .tim-kanban__chip {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+/* L'avancement se cale sur la ligne d'activité d'une opportunité. */
+.dev-board .dev-card__check {
+  margin-top: 0.55rem;
+}
+
+/* Le « + » qui ouvre la saisie d'un lien. Discret : c'est un geste occasionnel,
+   il ne doit pas occuper deux lignes de formulaire sur chaque fiche. */
+.dev-links__toggle {
+  padding: 0.25rem 0;
+  border: 0;
+  background: none;
+  color: var(--tim-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dev-links__toggle:hover {
+  text-decoration: underline;
+}
+.dev-links__cancel {
+  flex: 0 0 auto;
+  padding: 0 0.4rem;
+  border: 0;
+  background: none;
+  color: var(--tim-muted-light);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.dev-links__cancel:hover {
+  color: var(--tim-foreground);
+}
+
+/* ─── Les clients qui attendent, en pied de carte ────────────────────────────
+   Des initiales : sur une carte large de 230 px, « Dupont BTP » et « Martin
+   Construction » ne tiennent pas côte à côte, et le nombre seul (« 3 ») ne dit
+   pas DE QUI il s'agit. Le nom entier vient au survol. */
+.dev-card__clients {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  cursor: default;
+}
+.dev-card__client {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.3rem;
+  height: 1.3rem;
+  padding: 0 0.2rem;
+  border-radius: 50%;
+  background: var(--tim-platform-bg);
+  color: var(--tim-info);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.dev-card__client--more {
+  background: transparent;
+  border: 1px dashed var(--tim-border);
+  color: var(--tim-muted);
+}
+
+/* ─── « À faire » / « Fait » ─────────────────────────────────────────────────
+   Un point coché descend sous le titre « Fait », les autres restent au-dessus.
+
+   Fait en CSS et non en déplaçant les lignes : l'ordre des données reste celui
+   que l'équipe a choisi en glissant ses points, et cocher ne le réécrit pas.
+   Décocher un point le renvoie donc exactement à sa place d'origine.
+
+   Les deux titres sont des pseudo-éléments du conteneur : ce sont des éléments
+   flex comme les lignes, ils se rangent donc dans la même colonne, entre les
+   deux groupes. */
+.dev-checklist .array-field__draggable-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.dev-checklist .array-field__draggable-rows::before,
+.dev-checklist .array-field__draggable-rows::after {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tim-muted-light);
+}
+.dev-checklist .array-field__draggable-rows::before {
+  content: "À faire";
+  order: -1;
+}
+.dev-checklist .array-field__draggable-rows::after {
+  content: "Fait";
+  order: 1;
+  margin-top: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+}
+/* Une ligne dont la case est cochée passe sous le titre « Fait ». */
+.dev-checklist .array-field__draggable-rows > div:has(.dev-check__toggle--on) {
+  order: 2;
+}
+/* Rien de coché : le titre « Fait » n'annonce rien, il ne s'affiche pas. */
+.dev-checklist .array-field__draggable-rows:not(:has(.dev-check__toggle--on))::after {
+  display: none;
+}
+/* Tout est coché : c'est « À faire » qui n'a plus d'objet. */
+.dev-checklist
+  .array-field__draggable-rows:not(:has(> div:not(:has(.dev-check__toggle--on))))::before {
+  display: none;
+}
+/* Le pourcentage porte le regard ; le détail « 3/7 » le précise. */
+.dev-progress__detail {
+  margin-left: 0.4rem;
+  font-weight: 500;
+  color: var(--tim-muted-light);
+}
+
+/* ─── Description : écrite en texte, affichée mise en forme ──────────────────
+   La zone de saisie et le rendu occupent la même place et se ressemblent : on
+   passe de l'un à l'autre sans que la page saute. */
+.dev-md__input,
+.dev-md__view {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--tim-foreground);
+}
+.dev-md__input {
+  font: inherit;
+  font-size: 0.88rem;
+  field-sizing: content;
+  min-height: 5.2rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  resize: vertical;
+}
+.dev-md__input:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
+}
+/* Le rendu invite au clic sans crier : la bordure s'anime au survol, comme
+   n'importe quel champ. */
+.dev-md__view {
+  min-height: 5.2rem;
+  cursor: text;
+  transition: border-color 0.12s ease;
+}
+.dev-md__view:hover {
+  border-color: color-mix(in srgb, var(--tim-primary) 35%, var(--tim-border));
+}
+.dev-md__view:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--tim-primary) 45%, transparent);
+  outline-offset: 1px;
+}
+.dev-md__p {
+  margin: 0 0 0.6rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.dev-md__p:last-child {
+  margin-bottom: 0;
+}
+.dev-md__title {
+  margin: 0.8rem 0 0.4rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.dev-md__title:first-child {
+  margin-top: 0;
+}
+.dev-md__list {
+  margin: 0 0 0.6rem;
+  padding-left: 1.4rem;
+}
+.dev-md__list li {
+  margin-bottom: 0.25rem;
+}
+.dev-md__list:last-child {
+  margin-bottom: 0;
+}
+/* Le code en ligne : ce qui doit être recopié à l'identique doit se voir comme
+   tel — un nom de colonne, un appel de fonction. */
+.dev-md__code {
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  background: var(--tim-elevation-150);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.82em;
+  word-break: break-word;
+}
+.dev-md__view a {
+  color: var(--tim-primary);
+}
+.dev-md__help {
+  margin: 0.3rem 0 0;
+  font-size: 0.75rem;
+  color: var(--tim-muted-light);
+}
+/* Dans un point de checklist : même chose, en plus compact. */
+.dev-md--sm .dev-md__input,
+.dev-md--sm .dev-md__view {
+  min-height: 2.6rem;
+  font-size: 0.84rem;
+}
+
+/* Plateforme sur une carte : un signe, à l'extrême droite du pied, dans le bleu
+   des badges de plateforme du back-office et du site — la même notion garde la
+   même couleur d'un écran à l'autre. Un mot (« Web », « Mobile ») aurait pesé
+   autant que le titre sur une carte de 230 px. */
+.dev-card__right {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-left: auto;
+}
+.dev-card__platform {
+  display: inline-flex;
+  align-items: center;
+  color: var(--tim-info);
+}

@@ -300,7 +300,15 @@ export function ActivityDrawer({
   // (la fiche le monte sur `kind`), il n'a donc pas à se resynchroniser.
   const [title, setTitle] = useState(initial?.title ?? "");
   const [content, setContent] = useState(initial?.content ?? "");
-  const [taskKind, setTaskKind] = useState<string>(initial?.taskKind ?? "a-faire");
+  /**
+   * Une tâche neuve est un APPEL, sauf indication contraire.
+   *
+   * C'est le geste le plus fréquent d'un suivi d'opportunité — la liste des
+   * types le reconnaît déjà en le mettant en tête. Le défaut « À faire »
+   * obligeait à un clic de plus dans le cas courant, et laissait passer des
+   * appels rangés en « à faire » quand on l'oubliait.
+   */
+  const [taskKind, setTaskKind] = useState<string>(initial?.taskKind ?? "appel");
   const [due, setDue] = useState(() => isoToLocal(initial?.dueDate) || toLocalInput(atNineIn(1)));
   const [wantsReminder, setWantsReminder] = useState(Boolean(initial?.reminderAt));
   const [reminder, setReminder] = useState(
