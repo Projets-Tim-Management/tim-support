@@ -67,6 +67,7 @@ import * as migration_20260904_205309_activity_captured_from from './20260904_20
 import * as migration_20260905_052810_add_chatgpt_channel from './20260905_052810_add_chatgpt_channel';
 import * as migration_20260905_065835_add_appearance_global from './20260905_065835_add_appearance_global';
 import * as migration_20260908_073221_optional_onboarding_fields from './20260908_073221_optional_onboarding_fields';
+import * as migration_20260908_095137_documents_fiche_client from './20260908_095137_documents_fiche_client';
 
 export const migrations = [
   {
@@ -412,6 +413,11 @@ export const migrations = [
   {
     up: migration_20260908_073221_optional_onboarding_fields.up,
     down: migration_20260908_073221_optional_onboarding_fields.down,
-    name: '20260908_073221_optional_onboarding_fields'
+    name: '20260908_073221_optional_onboarding_fields',
+  },
+  {
+    up: migration_20260908_095137_documents_fiche_client.up,
+    down: migration_20260908_095137_documents_fiche_client.down,
+    name: '20260908_095137_documents_fiche_client'
   },
 ];

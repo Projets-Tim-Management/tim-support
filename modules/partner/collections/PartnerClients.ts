@@ -8,6 +8,7 @@ import type {
 } from "payload";
 
 import { adminOnlyField, hasAdminRole, isAdmin, metierOwnedAccess, partnerIdOf } from "@/core/access";
+import { stampDocuments } from "@/core/hooks/documents";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { validatePhone } from "@/core/lib/validators";
 import { enrollSequence } from "@/modules/marketing/hooks/enrollSequence";
@@ -428,6 +429,7 @@ export const PartnerClients: CollectionConfig = {
       enforcePartnerField(),
       setStatusRank,
       computeCA,
+      stampDocuments,
     ],
     // Les faits saisis ici cochent les étapes du parcours correspondantes.
     // `enrollSequence` en dernier : il ouvre ou ferme une séquence de relance
@@ -1027,6 +1029,85 @@ export const PartnerClients: CollectionConfig = {
               ],
             },
             { name: "billingRemarks", type: "textarea", label: "Remarques", admin: { description: "Optionnel." } },
+          ],
+        },
+        // ── Documents : tout ce qui se rattache à la fiche ──────────────────
+        // Toujours visible, contrairement au contrat ou au dossier : une pièce
+        // arrive à n'importe quel moment de la relation, y compris avant
+        // qu'elle n'ait un contrat — un devis reçu, un plan, un échange scanné.
+        //
+        // Le contrat signé garde sa place dans « Contrat client » : c'est une
+        // pièce qui a un rôle, pas un document parmi d'autres, et le déplacer
+        // ici le noierait.
+        {
+          label: "Documents",
+          fields: [
+            {
+              name: "documents",
+              type: "array",
+              label: false,
+              labels: { singular: "Document", plural: "Documents" },
+              admin: {
+                description:
+                  "Pièces rattachées à cette opportunité : devis, plan, compte rendu, " +
+                  "échange scanné. Elles restent internes à TIM — le client ne les voit " +
+                  "pas dans son espace, et elles ne partent dans aucun e-mail. " +
+                  "Elles sont conservées aussi longtemps que la fiche.",
+                components: {
+                  // Mosaïque : une pièce se reconnaît à ce qu'elle montre, pas à
+                  // un numéro de ligne. Le détail s'ouvre au clic.
+                  Field: "/admin/fields/Documents#DocumentsField",
+                },
+              },
+              fields: [
+                {
+                  name: "file",
+                  type: "upload",
+                  relationTo: "media",
+                  required: true,
+                  label: "Fichier",
+                  // Dépôt direct au CDN : un gros PDF ne transite pas par la
+                  // fonction serveur, qui le refuserait au-delà de sa limite.
+                  admin: { components: { Field: "/admin/fields/DirectUpload#default" } },
+                },
+                {
+                  name: "label",
+                  type: "text",
+                  label: "Intitulé",
+                  admin: {
+                    description: "Ce qu'on cherchera dans six mois. À défaut, le nom du fichier.",
+                  },
+                },
+                {
+                  name: "note",
+                  type: "textarea",
+                  label: "Note",
+                  admin: { description: "D'où vient cette pièce, ce qu'elle montre." },
+                },
+                {
+                  type: "row",
+                  fields: [
+                    {
+                      name: "addedAt",
+                      type: "date",
+                      label: "Déposé le",
+                      admin: {
+                        width: "50%",
+                        readOnly: true,
+                        date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
+                      },
+                    },
+                    {
+                      name: "addedBy",
+                      type: "relationship",
+                      relationTo: "users",
+                      label: "Déposé par",
+                      admin: { width: "50%", readOnly: true },
+                    },
+                  ],
+                },
+              ],
+            },
           ],
         },
       ],

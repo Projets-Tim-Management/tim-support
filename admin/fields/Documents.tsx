@@ -7,16 +7,21 @@ import { createPortal } from "react-dom";
 import { formatOctets, uploadFile, type MediaLite } from "@/core/lib/media-upload";
 
 /**
- * Documents d'un ticket, en MOSAÏQUE.
+ * Un tableau de documents, en MOSAÏQUE.
  *
  * Le tableau replié de Payload annonçait « Document 01, 02… » : pour retrouver
  * une capture d'écran, il fallait déplier chaque ligne. Une pièce se reconnaît
  * d'abord à ce qu'elle montre — on affiche donc l'aperçu, et le détail
  * (intitulé, note, dépôt) s'ouvre au clic.
  *
- * Ce composant REMPLACE le rendu du tableau `documents` ; le champ, lui, ne
+ * Ce composant REMPLACE le rendu d'un tableau `documents` ; le champ, lui, ne
  * change pas. Les lignes restent des lignes de tableau Payload, avec la même
- * validation, le même enregistrement et la même purge à 30 jours.
+ * validation et le même enregistrement.
+ *
+ * Il ne sait rien de ce à quoi les pièces sont rattachées — un ticket, une
+ * fiche client — et c'est ce qui permet de le poser sur les deux. Ce qui leur
+ * est propre (durée de conservation, qui les voit) se dit dans la
+ * `description` du champ, qu'il affiche telle quelle.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -53,7 +58,7 @@ const idDe = (v: unknown): number | string | null => {
   return typeof v === "number" || typeof v === "string" ? v : null;
 };
 
-export function TicketDocuments(props: any) {
+export function DocumentsField(props: any) {
   const path: string = props?.path ?? "documents";
   const schemaPath: string = props?.schemaPath ?? props?.field?.name ?? path;
   const readOnly = Boolean(props?.readOnly);

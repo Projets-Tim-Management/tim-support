@@ -1,15 +1,15 @@
 import type { CollectionBeforeChangeHook } from "payload";
 
 /**
- * Horodate et signe chaque document ajouté à un ticket.
+ * Horodate et signe chaque document ajouté à un tableau `documents`.
  *
  * Une pièce déposée sans trace ne dit ni quand elle est arrivée, ni qui l'a
  * mise là — deux questions qu'on se pose systématiquement six mois plus tard,
  * devant un export de configuration dont on ne sait plus s'il précède ou suit
  * la correction.
  *
- * Seules les lignes NEUVES sont signées : réenregistrer un ticket ne réécrit
- * pas l'auteur d'un document déposé la semaine dernière, et corriger l'intitulé
+ * Seules les lignes NEUVES sont signées : réenregistrer la fiche ne réécrit pas
+ * l'auteur d'un document déposé la semaine dernière, et corriger l'intitulé
  * d'une pièce n'en fait pas la sienne.
  */
 

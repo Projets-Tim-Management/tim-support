@@ -601,6 +601,25 @@ export interface PartnerClient {
    * Optionnel.
    */
   billingRemarks?: string | null;
+  /**
+   * Pièces rattachées à cette opportunité : devis, plan, compte rendu, échange scanné. Elles restent internes à TIM — le client ne les voit pas dans son espace, et elles ne partent dans aucun e-mail. Elles sont conservées aussi longtemps que la fiche.
+   */
+  documents?:
+    | {
+        file: number | Media;
+        /**
+         * Ce qu'on cherchera dans six mois. À défaut, le nom du fichier.
+         */
+        label?: string | null;
+        /**
+         * D'où vient cette pièce, ce qu'elle montre.
+         */
+        note?: string | null;
+        addedAt?: string | null;
+        addedBy?: (number | null) | User;
+        id?: string | null;
+      }[]
+    | null;
   history?:
     | {
         at?: string | null;
@@ -2519,6 +2538,16 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   phone?: T;
   recipient?: T;
   billingRemarks?: T;
+  documents?:
+    | T
+    | {
+        file?: T;
+        label?: T;
+        note?: T;
+        addedAt?: T;
+        addedBy?: T;
+        id?: T;
+      };
   history?:
     | T
     | {

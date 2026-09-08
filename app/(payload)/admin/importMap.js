@@ -1,7 +1,7 @@
 import { TicketConversation as TicketConversation_fb92716304d231f4c816d76a0ee726e6 } from '../../../modules/support/admin/TicketConversation'
 import { TicketReply as TicketReply_c022cd1f6b5f4560fb88ddde4de1c692 } from '../../../modules/support/admin/TicketReply'
 import { default as default_40605f4ba1c0a526a32bc7182606996c } from '../../../admin/fields/DirectUpload'
-import { TicketDocuments as TicketDocuments_0c8f8b394f86d8e2e206721f3f2926e3 } from '../../../modules/support/admin/TicketDocuments'
+import { DocumentsField as DocumentsField_14bf702b98d6e5c2962323aa6667995f } from '../../../admin/fields/Documents'
 import { TicketEmails as TicketEmails_6e31d56b2fee4573d76ebe347c3b535e } from '../../../modules/support/admin/TicketEmails'
 import { ColoredCell as ColoredCell_acd47df5632d512e8adc7b1eabe7f150 } from '../../../modules/support/admin/ColoredCell'
 import { ColoredSelectField as ColoredSelectField_b4c0004ddd75d8c70b0e0808738ae1e8 } from '../../../modules/support/admin/ColoredSelectField'
@@ -107,7 +107,7 @@ export const importMap = {
   "/modules/support/admin/TicketConversation#TicketConversation": TicketConversation_fb92716304d231f4c816d76a0ee726e6,
   "/modules/support/admin/TicketReply#TicketReply": TicketReply_c022cd1f6b5f4560fb88ddde4de1c692,
   "/admin/fields/DirectUpload#default": default_40605f4ba1c0a526a32bc7182606996c,
-  "/modules/support/admin/TicketDocuments#TicketDocuments": TicketDocuments_0c8f8b394f86d8e2e206721f3f2926e3,
+  "/admin/fields/Documents#DocumentsField": DocumentsField_14bf702b98d6e5c2962323aa6667995f,
   "/modules/support/admin/TicketEmails#TicketEmails": TicketEmails_6e31d56b2fee4573d76ebe347c3b535e,
   "/modules/support/admin/ColoredCell#ColoredCell": ColoredCell_acd47df5632d512e8adc7b1eabe7f150,
   "/modules/support/admin/ColoredSelectField#ColoredSelectField": ColoredSelectField_b4c0004ddd75d8c70b0e0808738ae1e8,

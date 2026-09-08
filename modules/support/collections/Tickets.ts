@@ -2,7 +2,7 @@ import type { CollectionConfig, Condition } from "payload";
 
 import { canSupport, isAdmin } from "@/core/access";
 import { referenceNumber } from "@/core/fields/referenceNumber";
-import { stampDocuments } from "@/modules/support/hooks/documents";
+import { stampDocuments } from "@/core/hooks/documents";
 import { TICKET_RETENTION_DAYS } from "@/modules/support/lib/retention";
 import { stampResolvedAt } from "@/modules/support/hooks/resolved-at";
 
@@ -120,7 +120,7 @@ export const Tickets: CollectionConfig = {
                 components: {
                   // Mosaïque : une pièce se reconnaît à ce qu'elle montre, pas à
                   // un numéro de ligne. Le détail s'ouvre au clic.
-                  Field: "/modules/support/admin/TicketDocuments#TicketDocuments",
+                  Field: "/admin/fields/Documents#DocumentsField",
                 },
               },
               fields: [
