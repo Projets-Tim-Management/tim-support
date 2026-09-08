@@ -3,6 +3,7 @@ import type { AdminViewServerProps } from "payload";
 import { Gutter } from "@payloadcms/ui";
 
 import { hasAdminRole, isPartner, isPartnerMetier, isSupport, partnerIdOf } from "@/core/access";
+import { DevNotifications } from "@/modules/dev/admin/DevNotifications";
 import { TicketNotifications } from "@/modules/support/admin/TicketNotifications";
 
 import HBars from "./charts/HBars";
@@ -118,6 +119,11 @@ export default async function DashboardView({ initPageResult }: AdminViewServerP
 
         {/* Notifications : bandeau des tickets qui demandent une action. */}
         <TicketNotifications />
+
+        {/* Et les questions posées dans une discussion de développement, qui
+            attendent MA réponse — elles vivent sinon dans une fiche que personne
+            n'a de raison de rouvrir. */}
+        <DevNotifications />
 
         {/* ── SUPPORT ─────────────────────────────────────────────── */}
         <SupportSection support={d.support} adminRoute={adminRoute} />

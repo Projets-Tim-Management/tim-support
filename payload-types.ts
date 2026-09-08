@@ -68,6 +68,8 @@ export interface Config {
   blocks: {};
   collections: {
     tickets: Ticket;
+    developments: Development;
+    'dev-statuses': DevStatus;
     features: Feature;
     'feature-categories': FeatureCategory;
     platforms: Platform;
@@ -104,11 +106,15 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
+    tickets: {
+      developments: 'developments';
+    };
     partners: {
       clients: 'partner-clients';
       ledger: 'point-transactions';
     };
     'partner-clients': {
+      developments: 'developments';
       portalAccounts: 'client-portal-accounts';
       contacts: 'client-contacts';
     };
@@ -118,6 +124,8 @@ export interface Config {
   };
   collectionsSelect: {
     tickets: TicketsSelect<false> | TicketsSelect<true>;
+    developments: DevelopmentsSelect<false> | DevelopmentsSelect<true>;
+    'dev-statuses': DevStatusesSelect<false> | DevStatusesSelect<true>;
     features: FeaturesSelect<false> | FeaturesSelect<true>;
     'feature-categories': FeatureCategoriesSelect<false> | FeatureCategoriesSelect<true>;
     platforms: PlatformsSelect<false> | PlatformsSelect<true>;
@@ -216,6 +224,14 @@ export interface Ticket {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Les développements ouverts à partir de ce ticket. Pour en ouvrir un : menu ⋮ → « Créer un développement ».
+   */
+  developments?: {
+    docs?: (number | Development)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   subject?: string | null;
   description?: string | null;
   messages?:
@@ -244,6 +260,10 @@ export interface Ticket {
   name?: string | null;
   firstName?: string | null;
   company?: string | null;
+  /**
+   * Rattachement à une opportunité. Facultatif — laissez vide si le demandeur n'est pas encore client.
+   */
+  client?: (number | null) | PartnerClient;
   url?: string | null;
   attachments?: (number | Media)[] | null;
   /**
@@ -536,6 +556,14 @@ export interface PartnerClient {
    * Repris du formulaire du site vitrine.
    */
   leadNotes?: string | null;
+  /**
+   * Ce que ce client attend. Pour l'ajouter à un développement existant, ouvrez-le et renseignez « Demandé par ».
+   */
+  developments?: {
+    docs?: (number | Development)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   licences?: {
     adminQty?: number | null;
     adminPrice?: number | null;
@@ -784,6 +812,296 @@ export interface Form {
    */
   active?: boolean | null;
   seedVersion?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "developments".
+ */
+export interface Development {
+  id: number;
+  title: string;
+  description?: string | null;
+  checklist?:
+    | {
+        done?: boolean | null;
+        title: string;
+        assignee?: (number | User)[] | null;
+        description?: string | null;
+        comments?:
+          | {
+              body?: string | null;
+              /**
+               * Facultatif — le membre de l'équipe TIM qui s'en occupe.
+               */
+              askedTo?: (number | null) | User;
+              author?: (number | null) | User;
+              at?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  links?:
+    | {
+        url: string;
+        label?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Maquettes, spécifications, exports, captures. Internes à TIM : le client ne les voit pas, elles ne partent dans aucun e-mail.
+   */
+  documents?:
+    | {
+        file: number | Media;
+        /**
+         * Ce qu'on cherchera dans six mois. À défaut, le nom du fichier.
+         */
+        label?: string | null;
+        /**
+         * D'où vient cette pièce, ce qu'elle montre.
+         */
+        note?: string | null;
+        addedAt?: string | null;
+        addedBy?: (number | null) | User;
+        id?: string | null;
+      }[]
+    | null;
+  number?: number | null;
+  status?: (number | null) | DevStatus;
+  type?: ('feature' | 'evolution' | 'bug' | 'depannage' | 'technique' | 'etude') | null;
+  priority?: ('urgente' | 'haute' | 'normale' | 'basse') | null;
+  platforms?: (number | Platform)[] | null;
+  assignee?: (number | User)[] | null;
+  opportunities?: (number | PartnerClient)[] | null;
+  tickets?: (number | Ticket)[] | null;
+  /**
+   * Seulement si une date a été ANNONCÉE à quelqu'un.
+   */
+  dueDate?: string | null;
+  demandCount?: number | null;
+  checklistProgress?: string | null;
+  startedAt?: string | null;
+  deliveredAt?: string | null;
+  /**
+   * Jamais communiqué au client.
+   */
+  internalNotes?: string | null;
+  /**
+   * La fiche du site support, une fois le développement livré.
+   */
+  feature?: (number | null) | Feature;
+  rank?: number | null;
+  statusRank?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Les colonnes du Kanban. L'ordre ci-dessous est celui du tableau — utilisez les flèches pour déplacer une colonne.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "dev-statuses".
+ */
+export interface DevStatus {
+  id: number;
+  name: string;
+  color?: ('slate' | 'blue' | 'teal' | 'indigo' | 'purple' | 'green' | 'amber' | 'rose' | 'red' | 'gray') | null;
+  /**
+   * Le bandeau sous lequel la colonne se range dans le Kanban, et l'onglet qui la regroupe dans la liste.
+   */
+  phase: 'entree' | 'etude' | 'realisation' | 'livraison' | 'hors-flux';
+  /**
+   * Démarre le travail : Date le démarrage la première fois qu'un développement atteint ce statut. — Marque la livraison : Date la livraison : c'est chez l'utilisateur. — Clôt le dossier : Plus rien n'est attendu — le développement sort des vues de travail.
+   */
+  roles?: ('demarre' | 'livre' | 'cloture')[] | null;
+  /**
+   * Ce qui distingue ce statut du voisin. Affiché sous le sélecteur d'une fiche et au survol de la colonne.
+   */
+  hint?: string | null;
+  /**
+   * Ordre des colonnes, du plus petit au plus grand. Les statuts livrés sont espacés de 10 : il reste donc de la place pour en intercaler un sans renuméroter les autres.
+   */
+  position: number;
+  /**
+   * Identifiant technique, posé à la création et jamais modifié — renommer le statut ne le change pas.
+   */
+  key?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "platforms".
+ */
+export interface Platform {
+  id: number;
+  name: string;
+  /**
+   * Laisser vide pour générer automatiquement depuis le titre.
+   */
+  slug: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "features".
+ */
+export interface Feature {
+  id: number;
+  /**
+   * Nom interne de la feature (sert de titre à la fiche).
+   */
+  title: string;
+  /**
+   * Laisser vide pour générer automatiquement depuis le titre.
+   */
+  slug: string;
+  /**
+   * Peut différer du titre interne. Laissez vide pour réutiliser le titre.
+   */
+  titleFeature?: string | null;
+  /**
+   * Résumé d'une phrase (listes, résultats de recherche).
+   */
+  shortDescription?: string | null;
+  /**
+   * Termes de recherche alternatifs (ex : masquer panneau).
+   */
+  keywords?: string[] | null;
+  /**
+   * Texte d'intro de la fiche, avant les parties détaillées ci-dessous.
+   */
+  content?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  doc?:
+    | {
+        titleDoc?: string | null;
+        descriptionDoc?: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        } | null;
+        /**
+         * Ajoutez un GIF animé (bloc « Image / GIF »), une image, une galerie ou un fichier. Laissez vide si la partie n'a pas de visuel.
+         */
+        mediaDoc?:
+          | (
+              | {
+                  /**
+                   * PNG, JPG ou GIF animé (démonstration de la partie).
+                   */
+                  image: number | Media;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'img';
+                }
+              | {
+                  images: (number | Media)[];
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'galerie';
+                }
+              | {
+                  content?: {
+                    root: {
+                      type: string;
+                      children: {
+                        type: any;
+                        version: number;
+                        [k: string]: unknown;
+                      }[];
+                      direction: ('ltr' | 'rtl') | null;
+                      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                      indent: number;
+                      version: number;
+                    };
+                    [k: string]: unknown;
+                  } | null;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'editeur';
+                }
+              | {
+                  file: number | Media;
+                  id?: string | null;
+                  blockName?: string | null;
+                  blockType: 'fichier';
+                }
+            )[]
+          | null;
+        /**
+         * Placement du média par rapport à la description (sur le front).
+         */
+        mediaPosition?: ('droite' | 'gauche') | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Visuel de couverture (listes, cartes, résultats de recherche).
+   */
+  thumbnail?: (number | null) | Media;
+  availability?: ('disponible' | 'beta' | 'prochainement') | null;
+  platforms?: (number | Platform)[] | null;
+  categories?: (number | FeatureCategory)[] | null;
+  /**
+   * Votes « utile / pas utile » recueillis sur le front (lecture seule).
+   */
+  feedback?: {
+    helpful?: number | null;
+    notHelpful?: number | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "feature-categories".
+ */
+export interface FeatureCategory {
+  id: number;
+  name: string;
+  /**
+   * Laisser vide pour générer automatiquement depuis le titre.
+   */
+  slug: string;
+  description?: string | null;
+  /**
+   * Laisser vide pour une catégorie racine (= plateforme : Web / Mobile).
+   */
+  parent?: (number | null) | FeatureCategory;
+  /**
+   * Emplacement dans l'arborescence. Calculé automatiquement.
+   */
+  pathTitle?: string | null;
+  sortKey?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1100,179 +1418,6 @@ export interface MarketingJourney {
    */
   active?: boolean | null;
   seedVersion?: number | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "features".
- */
-export interface Feature {
-  id: number;
-  /**
-   * Nom interne de la feature (sert de titre à la fiche).
-   */
-  title: string;
-  /**
-   * Laisser vide pour générer automatiquement depuis le titre.
-   */
-  slug: string;
-  /**
-   * Peut différer du titre interne. Laissez vide pour réutiliser le titre.
-   */
-  titleFeature?: string | null;
-  /**
-   * Résumé d'une phrase (listes, résultats de recherche).
-   */
-  shortDescription?: string | null;
-  /**
-   * Termes de recherche alternatifs (ex : masquer panneau).
-   */
-  keywords?: string[] | null;
-  /**
-   * Texte d'intro de la fiche, avant les parties détaillées ci-dessous.
-   */
-  content?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  doc?:
-    | {
-        titleDoc?: string | null;
-        descriptionDoc?: {
-          root: {
-            type: string;
-            children: {
-              type: any;
-              version: number;
-              [k: string]: unknown;
-            }[];
-            direction: ('ltr' | 'rtl') | null;
-            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-            indent: number;
-            version: number;
-          };
-          [k: string]: unknown;
-        } | null;
-        /**
-         * Ajoutez un GIF animé (bloc « Image / GIF »), une image, une galerie ou un fichier. Laissez vide si la partie n'a pas de visuel.
-         */
-        mediaDoc?:
-          | (
-              | {
-                  /**
-                   * PNG, JPG ou GIF animé (démonstration de la partie).
-                   */
-                  image: number | Media;
-                  id?: string | null;
-                  blockName?: string | null;
-                  blockType: 'img';
-                }
-              | {
-                  images: (number | Media)[];
-                  id?: string | null;
-                  blockName?: string | null;
-                  blockType: 'galerie';
-                }
-              | {
-                  content?: {
-                    root: {
-                      type: string;
-                      children: {
-                        type: any;
-                        version: number;
-                        [k: string]: unknown;
-                      }[];
-                      direction: ('ltr' | 'rtl') | null;
-                      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-                      indent: number;
-                      version: number;
-                    };
-                    [k: string]: unknown;
-                  } | null;
-                  id?: string | null;
-                  blockName?: string | null;
-                  blockType: 'editeur';
-                }
-              | {
-                  file: number | Media;
-                  id?: string | null;
-                  blockName?: string | null;
-                  blockType: 'fichier';
-                }
-            )[]
-          | null;
-        /**
-         * Placement du média par rapport à la description (sur le front).
-         */
-        mediaPosition?: ('droite' | 'gauche') | null;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Visuel de couverture (listes, cartes, résultats de recherche).
-   */
-  thumbnail?: (number | null) | Media;
-  availability?: ('disponible' | 'beta' | 'prochainement') | null;
-  platforms?: (number | Platform)[] | null;
-  categories?: (number | FeatureCategory)[] | null;
-  /**
-   * Votes « utile / pas utile » recueillis sur le front (lecture seule).
-   */
-  feedback?: {
-    helpful?: number | null;
-    notHelpful?: number | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "platforms".
- */
-export interface Platform {
-  id: number;
-  name: string;
-  /**
-   * Laisser vide pour générer automatiquement depuis le titre.
-   */
-  slug: string;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "feature-categories".
- */
-export interface FeatureCategory {
-  id: number;
-  name: string;
-  /**
-   * Laisser vide pour générer automatiquement depuis le titre.
-   */
-  slug: string;
-  description?: string | null;
-  /**
-   * Laisser vide pour une catégorie racine (= plateforme : Web / Mobile).
-   */
-  parent?: (number | null) | FeatureCategory;
-  /**
-   * Emplacement dans l'arborescence. Calculé automatiquement.
-   */
-  pathTitle?: string | null;
-  sortKey?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2110,6 +2255,14 @@ export interface PayloadLockedDocument {
         value: number | Ticket;
       } | null)
     | ({
+        relationTo: 'developments';
+        value: number | Development;
+      } | null)
+    | ({
+        relationTo: 'dev-statuses';
+        value: number | DevStatus;
+      } | null)
+    | ({
         relationTo: 'features';
         value: number | Feature;
       } | null)
@@ -2282,6 +2435,7 @@ export interface TicketsSelect<T extends boolean = true> {
         addedBy?: T;
         id?: T;
       };
+  developments?: T;
   subject?: T;
   description?: T;
   messages?:
@@ -2304,6 +2458,7 @@ export interface TicketsSelect<T extends boolean = true> {
   name?: T;
   firstName?: T;
   company?: T;
+  client?: T;
   url?: T;
   attachments?: T;
   journeyRun?: T;
@@ -2312,6 +2467,83 @@ export interface TicketsSelect<T extends boolean = true> {
   unreadClientReply?: T;
   ip?: T;
   userAgent?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "developments_select".
+ */
+export interface DevelopmentsSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  checklist?:
+    | T
+    | {
+        done?: T;
+        title?: T;
+        assignee?: T;
+        description?: T;
+        comments?:
+          | T
+          | {
+              body?: T;
+              askedTo?: T;
+              author?: T;
+              at?: T;
+              id?: T;
+            };
+        id?: T;
+      };
+  links?:
+    | T
+    | {
+        url?: T;
+        label?: T;
+        id?: T;
+      };
+  documents?:
+    | T
+    | {
+        file?: T;
+        label?: T;
+        note?: T;
+        addedAt?: T;
+        addedBy?: T;
+        id?: T;
+      };
+  number?: T;
+  status?: T;
+  type?: T;
+  priority?: T;
+  platforms?: T;
+  assignee?: T;
+  opportunities?: T;
+  tickets?: T;
+  dueDate?: T;
+  demandCount?: T;
+  checklistProgress?: T;
+  startedAt?: T;
+  deliveredAt?: T;
+  internalNotes?: T;
+  feature?: T;
+  rank?: T;
+  statusRank?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "dev-statuses_select".
+ */
+export interface DevStatusesSelect<T extends boolean = true> {
+  name?: T;
+  color?: T;
+  phase?: T;
+  roles?: T;
+  hint?: T;
+  position?: T;
+  key?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2506,6 +2738,7 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   formSubmission?: T;
   brevoDealId?: T;
   leadNotes?: T;
+  developments?: T;
   licences?:
     | T
     | {

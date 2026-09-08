@@ -1,6 +1,7 @@
 import type { CollectionConfig, Condition } from "payload";
 
-import { canSupport, isAdmin } from "@/core/access";
+import { adminOnlyField, adminOnlyFieldRead, canSupport, hasAdminRole, isAdmin } from "@/core/access";
+import { documentsField } from "@/core/fields/documents";
 import { referenceNumber } from "@/core/fields/referenceNumber";
 import { stampDocuments } from "@/core/hooks/documents";
 import { TICKET_RETENTION_DAYS } from "@/modules/support/lib/retention";
@@ -18,6 +19,16 @@ import { stampResolvedAt } from "@/modules/support/hooks/resolved-at";
  */
 const onCreate: Condition = (_data, _siblingData, { operation }) => operation === "create";
 const onEdit: Condition = (_data, _siblingData, { operation }) => operation === "update";
+
+/**
+ * Onglet du suivi interne des développements : sur un ticket existant, et pour
+ * un admin seulement. Le support travaille la demande du client, pas le
+ * pilotage produit — lui montrer un onglet vide n'aurait rien apporté.
+ * La vraie barrière reste l'access control (la collection `developments` et le
+ * champ ci-dessous refusent les autres rôles).
+ */
+const onEditAsAdmin: Condition = (_data, _siblingData, { operation, user }) =>
+  operation === "update" && hasAdminRole(user);
 
 /**
  * Tickets de support.
@@ -108,69 +119,54 @@ export const Tickets: CollectionConfig = {
            */
           label: "Documents",
           fields: [
+            documentsField({
+              description:
+                `Pièces internes rattachées à cette demande. Le client ne les voit pas — elles ne partent dans aucun e-mail. ` +
+                `Comme les pièces jointes du fil, elles sont supprimées ${TICKET_RETENTION_DAYS} jours après la résolution du ticket.`,
+            }),
+          ],
+        },
+        {
+          /**
+           * Ce que la demande est devenue côté produit. Le lien est stocké sur
+           * le DÉVELOPPEMENT (champ `tickets`), pas ici : une seule source de
+           * vérité, et un dev né de trois tickets les porte tous les trois.
+           */
+          label: "Développement",
+          admin: { condition: onEditAsAdmin },
+          fields: [
+            /**
+             * Le même tiroir que sur une opportunité : on écrit le développement
+             * sans quitter le ticket, et le ticket lui reste attaché. Le
+             * formulaire arrive rempli de ce que le ticket dit déjà — on relit
+             * avant de créer, une demande d'assistance n'étant pas toujours un
+             * développement.
+             */
             {
-              name: "documents",
-              type: "array",
-              label: false,
-              labels: { singular: "Document", plural: "Documents" },
+              name: "createDevelopment",
+              type: "ui",
               admin: {
-                description:
-                  `Pièces internes rattachées à cette demande. Le client ne les voit pas — elles ne partent dans aucun e-mail. ` +
-                  `Comme les pièces jointes du fil, elles sont supprimées ${TICKET_RETENTION_DAYS} jours après la résolution du ticket.`,
                 components: {
-                  // Mosaïque : une pièce se reconnaît à ce qu'elle montre, pas à
-                  // un numéro de ligne. Le détail s'ouvre au clic.
-                  Field: "/admin/fields/Documents#DocumentsField",
+                  Field: "/modules/dev/admin/CreateDevelopment#NeedFromTicket",
                 },
               },
-              fields: [
-                {
-                  name: "file",
-                  type: "upload",
-                  relationTo: "media",
-                  required: true,
-                  label: "Fichier",
-                  // Même dépôt direct au CDN que les pièces jointes du fil : un
-                  // gros PDF ne transite pas par la fonction serveur.
-                  admin: { components: { Field: "/admin/fields/DirectUpload#default" } },
-                },
-                {
-                  name: "label",
-                  type: "text",
-                  label: "Intitulé",
-                  admin: {
-                    description: "Ce qu'on cherchera dans six mois. À défaut, le nom du fichier.",
-                  },
-                },
-                {
-                  name: "note",
-                  type: "textarea",
-                  label: "Note",
-                  admin: { description: "D'où vient cette pièce, ce qu'elle montre." },
-                },
-                {
-                  type: "row",
-                  fields: [
-                    {
-                      name: "addedAt",
-                      type: "date",
-                      label: "Déposé le",
-                      admin: {
-                        width: "50%",
-                        readOnly: true,
-                        date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
-                      },
-                    },
-                    {
-                      name: "addedBy",
-                      type: "relationship",
-                      relationTo: "users",
-                      label: "Déposé par",
-                      admin: { width: "50%", readOnly: true },
-                    },
-                  ],
-                },
-              ],
+            },
+            {
+              name: "developments",
+              type: "join",
+              collection: "developments",
+              on: "tickets",
+              label: false,
+              access: { read: adminOnlyFieldRead },
+              admin: {
+                // Pas de « Créer » ici : la création passe par le menu ⋮, qui
+                // reprend le sujet, la demande et l'urgence du ticket. Un
+                // formulaire vide ferait tout ressaisir.
+                allowCreate: false,
+                defaultColumns: ["number", "title", "type", "status", "priority"],
+                description:
+                  "Les développements ouverts à partir de ce ticket. Pour en ouvrir un : menu ⋮ → « Créer un développement ».",
+              },
             },
           ],
         },
@@ -357,7 +353,39 @@ export const Tickets: CollectionConfig = {
         { name: "firstName", type: "text", label: "Prénom", admin: { width: "50%" } },
       ],
     },
-    { name: "company", type: "text", label: "Entreprise", admin: { position: "sidebar" } },
+    /**
+     * L'entreprise TELLE QUE LE DEMANDEUR L'A ÉCRITE, depuis le formulaire du
+     * site ou son e-mail. On n'y touche pas : c'est une trace de ce qui est
+     * arrivé, et deux orthographes du même client en disent parfois long sur
+     * qui écrit.
+     */
+    { name: "company", type: "text", label: "Entreprise (saisie)", admin: { position: "sidebar" } },
+    /**
+     * Et l'entreprise DE NOTRE CÔTÉ : le rattachement, à la main, à l'une de nos
+     * opportunités.
+     *
+     * Deux champs et non un seul, parce qu'ils ne disent pas la même chose. Le
+     * texte libre est ce que le client a tapé ; le rattachement est ce que nous
+     * en avons conclu — et il ouvre ce que le texte ne permet pas : retrouver
+     * tous les tickets d'un client, et savoir de quel contrat il relève.
+     *
+     * Réservé à l'admin : les opportunités ne sont pas dans le périmètre du
+     * support (voir docs/RBAC-PLAN.md), et le champ resterait vide pour lui.
+     */
+    {
+      name: "client",
+      type: "relationship",
+      relationTo: "partner-clients",
+      label: "Entreprise cliente",
+      index: true,
+      access: { read: adminOnlyFieldRead, update: adminOnlyField },
+      admin: {
+        position: "sidebar",
+        condition: (_data, _siblingData, { user }) => hasAdminRole(user),
+        allowCreate: false,
+        description: "Rattachement à une opportunité. Facultatif — laissez vide si le demandeur n'est pas encore client.",
+      },
+    },
     {
       name: "url",
       type: "text",
