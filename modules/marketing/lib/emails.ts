@@ -12,6 +12,7 @@ import {
 // Le fuseau des créneaux, pris à sa source : c'est en heure de Paris que le
 // partenaire déclare ses disponibilités, et en UTC qu'on les stocke.
 import { TIMEZONE as PARIS } from "@/modules/marketing/lib/scheduling";
+import { profileRank } from "@/modules/partner/lib/pricing";
 
 /**
  * Les e-mails de la phase de test, rédigés.
@@ -909,20 +910,48 @@ const TIM_IOS_URL = "https://apps.apple.com/fr/app/tim-management/id1565369001";
  * Qui accède à quoi. Les deux listes ne se recoupent qu'en partie, et c'est le
  * cœur du message : proposer une porte fermée est pire que ne rien proposer.
  *
- *  - le NAVIGATEUR est réservé à l'administrateur et au conducteur de travaux :
- *    ce sont eux qui paramètrent et qui suivent. Les autres n'y ont tout
- *    simplement pas de compte — leur envoyer « Se connecter à TIM » les
+ *  - le NAVIGATEUR va à ceux qui paramètrent et qui suivent — administrateur,
+ *    conducteur de travaux, chef de chantier. Les autres n'y ont tout
+ *    simplement pas de compte : leur envoyer « Se connecter à TIM » les
  *    enverrait se heurter à un refus, et douter de leurs identifiants ;
- *  - l'APPLICATION MOBILE va à tous ceux qui sont sur le terrain, conducteur
- *    compris : c'est sur un téléphone, au pied du chantier, que le pointage se
- *    saisit.
+ *  - l'APPLICATION MOBILE va à ceux qui sont sur le terrain — chef de chantier,
+ *    chef d'équipe, compagnon : c'est sur un téléphone, au pied du chantier,
+ *    que le pointage se saisit.
+ *
+ * Le chef de chantier est donc le seul à recevoir les deux : il prépare devant
+ * un écran et pointe sur le chantier.
  *
  * Un profil inconnu reçoit le lien web, comme un administrateur : c'est le cas
  * d'un compte de direction créé hors nomenclature, et le priver du lien serait
  * plus gênant que l'inverse.
  */
-const WEB_PROFILES = new Set(["admin", "conducteur"]);
-const MOBILE_PROFILES = new Set(["conducteur", "chefChantier", "chefEquipe", "compagnon"]);
+const WEB_PROFILES = new Set(["admin", "conducteur", "chefChantier"]);
+const MOBILE_PROFILES = new Set(["chefChantier", "chefEquipe", "compagnon"]);
+
+/** Les portes ouvertes à un profil. Une seule table, deux messages. */
+const channelsOf = (profileKey?: string | null) => ({
+  web: !profileKey || WEB_PROFILES.has(profileKey),
+  mobile: MOBILE_PROFILES.has(profileKey ?? ""),
+});
+
+/** La page où le client imprime et renvoie les accès, un par un. */
+const PORTAL_ACCES = `${PORTAL}/acces`;
+
+/** « Connexion : … » — la ligne qui dit à CETTE personne par où elle entre. */
+const channelLine = (profileKey: string | null | undefined, html: boolean): string => {
+  const { web, mobile } = channelsOf(profileKey);
+  if (html) {
+    const app = `<a href="${TIM_ANDROID_URL}">Android</a> · <a href="${TIM_IOS_URL}">iPhone</a>`;
+    if (web && mobile)
+      return `Connexion&nbsp;: <a href="${TIM_APP_URL}">le logiciel en ligne</a>, ou l'application mobile (${app})`;
+    if (web) return `Connexion&nbsp;: <a href="${TIM_APP_URL}">le logiciel en ligne</a>`;
+    return `Connexion&nbsp;: application mobile (${app})`;
+  }
+  if (web && mobile)
+    return `  Connexion     : ${TIM_APP_URL}\n  ou l'app mobile : ${TIM_ANDROID_URL} (Android) / ${TIM_IOS_URL} (iPhone)`;
+  if (web) return `  Connexion     : ${TIM_APP_URL}`;
+  return `  Application   : ${TIM_ANDROID_URL} (Android) / ${TIM_IOS_URL} (iPhone)`;
+};
 
 /**
  * Badges officiels des deux magasins.
@@ -937,6 +966,152 @@ const PLAY_BADGE =
 const APPSTORE_BADGE =
   "https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/fr-fr?size=250x83";
 
+/**
+ * TOUS les accès d'une entreprise, en un seul message.
+ *
+ * Envoyé au référent — celui qui distribuera les identifiants à ses équipes —
+ * quand il est plus simple de lui remettre la liste que d'écrire à neuf
+ * personnes. Le message individuel (`buildTimAccessEmail`) garde son rôle : il
+ * s'adresse à la personne, celui-ci à celle qui organise.
+ *
+ * Il rappelle aussi que ces identifiants vivent dans l'espace client : un
+ * e-mail se perd, se classe, s'efface — l'espace, lui, reste, et n'oblige pas à
+ * demander qu'on renvoie la liste.
+ *
+ * ⚠️ Un seul message porte ici TOUS les mots de passe. C'est ce qui est demandé
+ * — remettre la liste à celui qui la distribue — mais ça reste un message qui
+ * se transfère : la phrase de prudence en fin de mail n'est pas décorative.
+ */
+export const buildTimAccessRecapEmail = (args: {
+  clientName?: string | null;
+  contactFirstName?: string | null;
+  accesses: {
+    firstName?: string | null;
+    lastName?: string | null;
+    login: string;
+    password: string;
+    profileLabel?: string | null;
+    profileKey?: string | null;
+  }[];
+}): BuiltEmail => {
+  const who = args.contactFirstName?.trim()
+    ? `Bonjour ${args.contactFirstName.trim()},`
+    : "Bonjour,";
+  const societe = args.clientName?.trim();
+  const count = args.accesses.length;
+  const nameOf = (a: { firstName?: string | null; lastName?: string | null }) =>
+    [a.firstName, a.lastName].filter(Boolean).join(" ").trim();
+
+  /**
+   * Rangés par NIVEAU, et regroupés sous leur intitulé — comme l'espace client
+   * et la feuille d'impression.
+   *
+   * Une liste continue mélange un compagnon entre deux conducteurs, et celui qui
+   * distribue doit relire chaque ligne pour savoir à qui il parle. Les trois
+   * supports montrent donc le même ordre, ce qui permet de les recouper.
+   *
+   * Le tri se refait ici plutôt que de se fier à l'appelant : ce constructeur
+   * est aussi appelé par les tests et pourrait l'être ailleurs.
+   */
+  const groups: { label: string; gens: typeof args.accesses }[] = [];
+  for (const a of [...args.accesses].sort(
+    (x, y) =>
+      profileRank(x.profileKey) - profileRank(y.profileKey) ||
+      (x.lastName ?? "").localeCompare(y.lastName ?? "", "fr"),
+  )) {
+    const label = a.profileLabel?.trim() || "Profil non précisé";
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.gens.push(a);
+    else groups.push({ label, gens: [a] });
+  }
+
+  return {
+    subject:
+      count > 1 ? `Les ${count} accès au logiciel TIM` : "Les accès au logiciel TIM",
+    text: [
+      who,
+      "",
+      societe
+        ? `Voici ${count > 1 ? `les ${count} accès` : "l'accès"} au logiciel TIM pour ${societe}.`
+        : `Voici ${count > 1 ? `les ${count} accès` : "l'accès"} au logiciel TIM.`,
+      "",
+      "Vous les retrouvez à tout moment dans votre espace client :",
+      PORTAL_ACCES,
+      "Vous pouvez y imprimer chaque fiche et renvoyer à chacun ses identifiants, un par un,",
+      "sans repasser par nous.",
+      "",
+      ...groups.flatMap((g) => [
+        `${g.label.toUpperCase()}`,
+        // La porte d'entrée se dit une fois par niveau, pas une fois par
+        // personne : elle ne dépend que du profil. Le lien du logiciel ne sert
+        // à rien à un compagnon, les magasins à rien à un administrateur.
+        channelLine(g.gens[0]?.profileKey, false),
+        "",
+        ...g.gens.flatMap((a) => [
+          nameOf(a) || a.login,
+          `  Identifiant   : ${a.login}`,
+          `  Mot de passe  : ${a.password}`,
+          "",
+        ]),
+      ]),
+      "Ces mots de passe sont personnels : transmettez à chacun le sien, et rien de plus.",
+      textSignature(),
+    ]
+      // Les lignes vides sont GARDÉES ici : ce sont elles qui séparent les
+      // niveaux et les personnes. Sans elles, la version texte devient un pavé
+      // où l'on ne retrouve plus à qui appartient un mot de passe.
+      .join("\n"),
+    html: shell({
+      heading: count > 1 ? `Les ${count} accès au logiciel TIM` : "Les accès au logiciel TIM",
+      preheader: "Les identifiants de vos équipes, et où les retrouver.",
+      bodyHtml:
+        paragraph(who) +
+        paragraph(
+          societe
+            ? `Voici ${count > 1 ? `les <strong>${count} accès</strong>` : "l'accès"} au logiciel TIM pour <strong>${escape(societe)}</strong>.`
+            : `Voici ${count > 1 ? `les <strong>${count} accès</strong>` : "l'accès"} au logiciel TIM.`,
+        ) +
+        // En TÊTE, avant même la liste : l'espace client est ce qui reste quand
+        // ce message a été classé ou perdu, et c'est de là qu'on réimprime une
+        // fiche ou qu'on renvoie ses accès à une seule personne.
+        paragraph(
+          `Vous les retrouvez à tout moment dans votre <a href="${PORTAL_ACCES}">espace client</a>&nbsp;: ` +
+            `vous pouvez y <strong>imprimer chaque fiche</strong> et <strong>renvoyer à chacun ses identifiants</strong>, ` +
+            `un par un, sans repasser par nous.`,
+        ) +
+        button("Ouvrir mon espace client", PORTAL_ACCES) +
+        groups
+          .map(
+            (g) =>
+              // L'intitulé du niveau, et la porte qui va avec : elle ne dépend
+              // que du profil — voir WEB_PROFILES.
+              paragraph(
+                `<strong>${escape(g.label)}</strong><br>` +
+                  `<span style="color:${MUTED};font-size:14px;">${channelLine(g.gens[0]?.profileKey, true)}</span>`,
+              ) +
+              g.gens
+                .map((a) =>
+                  callout(
+                    [
+                      nameOf(a) ? `<strong>${escape(nameOf(a))}</strong>` : null,
+                      `Identifiant&nbsp;: <strong>${escape(a.login)}</strong>`,
+                      `Mot de passe&nbsp;: <strong>${escape(a.password)}</strong>`,
+                    ]
+                      .filter(Boolean)
+                      .join("<br>"),
+                  ),
+                )
+                .join(""),
+          )
+          .join("") +
+        paragraph(
+          `<span style="color:${MUTED};font-size:14px;">Ces mots de passe sont personnels&nbsp;: transmettez à chacun le sien, et rien de plus.</span>`,
+        ) +
+        signature(),
+    }),
+  };
+};
+
 export const buildTimAccessEmail = (args: {
   firstName?: string | null;
   lastName?: string | null;
@@ -948,8 +1123,7 @@ export const buildTimAccessEmail = (args: {
 }): BuiltEmail => {
   const who = args.firstName?.trim() ? `Bonjour ${escape(args.firstName.trim())},` : "Bonjour,";
   const societe = args.clientName?.trim();
-  const mobile = MOBILE_PROFILES.has(args.profileKey ?? "");
-  const web = !args.profileKey || WEB_PROFILES.has(args.profileKey);
+  const { mobile, web } = channelsOf(args.profileKey);
 
   return {
     subject: "Vos accès au logiciel TIM",

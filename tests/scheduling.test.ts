@@ -760,7 +760,7 @@ describe("e-mail « vos accès TIM » envoyé à une personne", () => {
   const base = { login: "jean@exemple.fr", password: "094220", clientName: "SOUVET VMB" };
 
   it("donne le lien du logiciel à ceux qui ont un accès web", () => {
-    for (const profileKey of ["admin", "conducteur"]) {
+    for (const profileKey of ["admin", "conducteur", "chefChantier"]) {
       const mail = buildTimAccessEmail({ ...base, profileKey });
       expect(mail.text, profileKey).toContain("https://app.tim-management.co/");
       expect(mail.html, profileKey).toContain("Se connecter à TIM");
@@ -770,7 +770,7 @@ describe("e-mail « vos accès TIM » envoyé à une personne", () => {
   it("ne le donne PAS à ceux qui n'en ont pas", () => {
     // Proposer une porte fermée est pire que ne rien proposer : la personne se
     // heurte à un refus et doute de ses identifiants.
-    for (const profileKey of ["chefChantier", "chefEquipe", "compagnon"]) {
+    for (const profileKey of ["chefEquipe", "compagnon"]) {
       const mail = buildTimAccessEmail({ ...base, profileKey });
       expect(mail.text, profileKey).not.toContain("app.tim-management.co");
       expect(mail.html, profileKey).not.toContain("Se connecter à TIM");
@@ -779,7 +779,7 @@ describe("e-mail « vos accès TIM » envoyé à une personne", () => {
 
   it("propose l'application mobile à ceux qui sont sur le terrain", () => {
     // Le pointage se saisit au pied du chantier, sur un téléphone.
-    for (const profileKey of ["conducteur", "chefChantier", "chefEquipe", "compagnon"]) {
+    for (const profileKey of ["chefChantier", "chefEquipe", "compagnon"]) {
       const mail = buildTimAccessEmail({ ...base, profileKey });
       expect(mail.text, profileKey).toContain("play.google.com");
       expect(mail.text, profileKey).toContain("apps.apple.com");
@@ -788,16 +788,20 @@ describe("e-mail « vos accès TIM » envoyé à une personne", () => {
   });
 
   it("dit à ceux qui n'ont que le mobile que c'est LEUR porte d'entrée", () => {
+    const compagnon = buildTimAccessEmail({ ...base, profileKey: "compagnon" });
+    expect(compagnon.text).toContain("Votre accès se fait depuis l'application mobile");
+    // Le chef de chantier a les deux : l'application est un complément, pas sa
+    // seule porte — la phrase change avec elle.
     const chef = buildTimAccessEmail({ ...base, profileKey: "chefChantier" });
-    expect(chef.text).toContain("Votre accès se fait depuis l'application mobile");
-    const conducteur = buildTimAccessEmail({ ...base, profileKey: "conducteur" });
-    expect(conducteur.text).toContain("Sur le chantier, l'application mobile");
+    expect(chef.text).toContain("Sur le chantier, l'application mobile");
   });
 
-  it("ne propose PAS l'application à l'administrateur : il paramètre, il ne pointe pas", () => {
-    const mail = buildTimAccessEmail({ ...base, profileKey: "admin" });
-    expect(mail.text).not.toContain("play.google.com");
-    expect(mail.html).not.toContain("App Store");
+  it("ne propose PAS l'application à ceux qui ne pointent pas : ils paramètrent", () => {
+    for (const profileKey of ["admin", "conducteur"]) {
+      const mail = buildTimAccessEmail({ ...base, profileKey });
+      expect(mail.text, profileKey).not.toContain("play.google.com");
+      expect(mail.html, profileKey).not.toContain("App Store");
+    }
   });
 
   it("contient l'identifiant et le mot de passe, dans les deux versions", () => {

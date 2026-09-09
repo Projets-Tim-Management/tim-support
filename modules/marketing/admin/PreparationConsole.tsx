@@ -4,6 +4,7 @@ import { useDocumentInfo, useFormFields } from "@payloadcms/ui";
 import { useEffect, useState } from "react";
 
 import SectionEditor from "@/components/portal/SectionEditor";
+import { AccessDelivery } from "@/modules/marketing/admin/AccessDelivery";
 import { PORTAL_SECTIONS } from "@/modules/marketing/lib/portal-sections";
 
 /**
@@ -123,6 +124,12 @@ export function PreparationConsole() {
           <div className="jr-prep__body">
             {section.key === "administrateur" && (done || error) && (
               <p className={done ? "jr-gen__done" : "jr-gen__ko"}>{done ?? error}</p>
+            )}
+            {/* La remise des identifiants suit la table des utilisateurs :
+                c'est elle qui dit qui existe, et c'est après l'avoir lue qu'on
+                décide à qui envoyer. */}
+            {section.key === "administrateur" && (
+              <AccessDelivery clientId={id} reloadToken={reloadToken} />
             )}
             <SectionEditor
               section={section}

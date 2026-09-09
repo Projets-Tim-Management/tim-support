@@ -5,6 +5,7 @@ import {
   encryptPasswordValue,
   readPassword,
 } from "@/modules/marketing/lib/credential-secrets";
+import { profileRank } from "@/modules/partner/lib/pricing";
 
 /**
  * Chiffrement des mots de passe d'accès.
@@ -83,5 +84,37 @@ describe("lecture", () => {
   it("ne rend rien pour une valeur absente", () => {
     expect(readPassword(null)).toBeNull();
     expect(readPassword("")).toBeNull();
+  });
+});
+
+/**
+ * L'ORDRE des accès : par niveau, jamais par nom.
+ *
+ * `readTimAccesses` alimente les trois écrans qui remettent des identifiants —
+ * l'espace client, le récapitulatif par e-mail, la feuille d'impression. Trier
+ * ici plutôt que dans chacun d'eux est ce qui les garde d'accord entre eux :
+ * une feuille imprimée doit se relire ligne à ligne à côté de l'écran.
+ */
+describe("rang des profils", () => {
+  it("classe du plus haut au plus bas, et le nom départage", () => {
+    const gens = [
+      { lastName: "Zoll", licenceProfile: "compagnon" },
+      { lastName: "Abel", licenceProfile: "admin" },
+      { lastName: "Marc", licenceProfile: "chefEquipe" },
+      { lastName: "Blin", licenceProfile: "conducteur" },
+      { lastName: "Cole", licenceProfile: "chefChantier" },
+      { lastName: "Aube", licenceProfile: "compagnon" },
+    ];
+    const trie = [...gens].sort(
+      (a, b) =>
+        profileRank(a.licenceProfile) - profileRank(b.licenceProfile) ||
+        a.lastName.localeCompare(b.lastName, "fr"),
+    );
+    expect(trie.map((g) => g.lastName)).toEqual(["Abel", "Blin", "Cole", "Marc", "Aube", "Zoll"]);
+  });
+
+  it("range un profil vide ou inconnu à la fin, jamais au milieu", () => {
+    expect(profileRank(null)).toBeGreaterThan(profileRank("compagnon"));
+    expect(profileRank("directeur-general")).toBeGreaterThan(profileRank("compagnon"));
   });
 });

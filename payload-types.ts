@@ -499,6 +499,7 @@ export interface PartnerClient {
    * Contact, puis envoi des factures.
    */
   email: string;
+  portalOpened?: boolean | null;
   clientStatus?:
     | (
         | 'nouvelle'
@@ -1122,6 +1123,10 @@ export interface ClientPortalAccount {
    * Décoché = le client ne peut pas demander de code. C'est la case qui OUVRE l'espace : la cocher envoie l'invitation (une seule fois) et coche l'étape du parcours. Elle se coche d'elle-même à la validation du Go/No-Go.
    */
   active?: boolean | null;
+  /**
+   * Renseignée par l'envoi depuis l'encart, hors phase de test.
+   */
+  invitationSentAt?: string | null;
   lastLoginAt?: string | null;
   codeHash?: string | null;
   codeExpiresAt?: string | null;
@@ -2728,6 +2733,7 @@ export interface PartnersSelect<T extends boolean = true> {
 export interface PartnerClientsSelect<T extends boolean = true> {
   companyName?: T;
   email?: T;
+  portalOpened?: T;
   clientStatus?: T;
   partner?: T;
   lossReason?: T;
@@ -3337,6 +3343,7 @@ export interface ClientPortalAccountsSelect<T extends boolean = true> {
   firstName?: T;
   lastName?: T;
   active?: T;
+  invitationSentAt?: T;
   lastLoginAt?: T;
   codeHash?: T;
   codeExpiresAt?: T;

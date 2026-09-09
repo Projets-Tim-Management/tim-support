@@ -60,6 +60,24 @@ export const PROFILS: { key: ProfilKey; label: string }[] = [
 ];
 
 /**
+ * Le RANG d'un profil dans la hiérarchie — admin 1, conducteur 2, chef de
+ * chantier 3, chef d'équipe 4, compagnon 5.
+ *
+ * `PROFILS` porte déjà cet ordre : la grille tarifaire se lit du plus cher au
+ * moins cher, qui est aussi l'ordre hiérarchique. On en fait une fonction pour
+ * que les LISTES DE PERSONNES s'y rangent aussi — accès de l'espace client,
+ * récapitulatif par e-mail, feuille d'impression. Triées par nom, elles
+ * mélangeaient un compagnon entre deux conducteurs, et il fallait relire
+ * chaque ligne pour retrouver qui fait quoi.
+ *
+ * Profil inconnu ou vide : à la fin, jamais au milieu.
+ */
+export const profileRank = (key?: string | null): number => {
+  const i = PROFILS.findIndex((p) => p.key === key);
+  return i === -1 ? PROFILS.length : i;
+};
+
+/**
  * Grille tarifaire d'un client, en Markdown, pour la variable `{{tarifs}}`.
  *
  * Ce sont les prix RÉELLEMENT saisis sur sa fiche (onglet « Licences par

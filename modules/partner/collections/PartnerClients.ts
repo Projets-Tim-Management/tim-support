@@ -345,8 +345,15 @@ const armJourneySteps: CollectionAfterChangeHook = async ({ doc, previousDoc, re
  * date la phase), et on les GARDE ensuite : les données du dossier survivent au
  * test, y compris sur un client devenu actif ou résilié.
  */
-const hasTestPhase = (data?: { clientStatus?: string }): boolean =>
-  !isPipelineStatus(data?.clientStatus ?? DEFAULT_CLIENT_STATUS);
+const hasTestPhase = (data?: { clientStatus?: string; portalOpened?: boolean }): boolean =>
+  !isPipelineStatus(data?.clientStatus ?? DEFAULT_CLIENT_STATUS) || data?.portalOpened === true;
+
+/**
+ * Le bouton d'ouverture ne s'affiche que là où il a un sens : sur un prospect
+ * dont l'espace n'est pas déjà ouvert. Ailleurs, les onglets sont là.
+ */
+const canOpenPortal = (data?: { clientStatus?: string; portalOpened?: boolean }): boolean =>
+  isPipelineStatus(data?.clientStatus ?? DEFAULT_CLIENT_STATUS) && data?.portalOpened !== true;
 
 /**
  * Onglet « Contrat client » : réservé aux affaires GAGNÉES (et à ce qu'elles
@@ -508,6 +515,24 @@ export const PartnerClients: CollectionConfig = {
     },
 
     // ─── Colonne latérale ────────────────────────────────────────────────────
+    /**
+     * Espace client ouvert HORS phase de test.
+     *
+     * Un prospect à qui l'on fait essayer le produit a besoin d'accès et d'un
+     * dossier (ses chantiers, ses salariés) ; il n'a pas besoin d'une séquence
+     * de mails sur quatre semaines. Ce drapeau ouvre les écrans sans rien
+     * déclencher — voir OpenPortalButton.
+     *
+     * Posé par le bouton, jamais à la main : c'est un fait (« on a ouvert un
+     * espace »), pas un réglage à cocher au hasard d'une relecture de fiche.
+     */
+    {
+      name: "portalOpened",
+      type: "checkbox",
+      label: "Espace client ouvert",
+      defaultValue: false,
+      admin: { hidden: true },
+    },
     {
       // Nommé `clientStatus` (et non `status`) pour éviter la collision de
       // nom d'enum avec le champ `_status` des brouillons dans la table de
@@ -1139,6 +1164,20 @@ export const PartnerClients: CollectionConfig = {
       admin: {
         position: "sidebar",
         components: { Field: "/modules/marketing/admin/ClientJourneyBox#ClientJourneyBox" },
+      },
+    },
+    /**
+     * Sous l'encart de phase de test, parce que c'est à SA question que ce
+     * bouton répond : ouvrir un espace au client sans lui déclencher les quatre
+     * semaines de séquence. Les deux gestes se lisent l'un après l'autre.
+     */
+    {
+      name: "openPortalButton",
+      type: "ui",
+      admin: {
+        position: "sidebar",
+        condition: canOpenPortal,
+        components: { Field: "/modules/marketing/admin/OpenPortalButton#OpenPortalButton" },
       },
     },
     // Récap LIVE (total licences, CA HT, remise conseillée, commission) →
