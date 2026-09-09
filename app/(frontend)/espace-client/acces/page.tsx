@@ -41,7 +41,9 @@ type Credential = {
  */
 export default async function AccesPage() {
   const ctx = await getPortalClient();
-  if (!ctx) redirect("/espace-client");
+  // Sans session, on passe par la connexion — en DISANT où l'on allait,
+  // sinon le lien reçu par e-mail se perd sur l'accueil.
+  if (!ctx) redirect("/espace-client?next=/espace-client/acces");
 
   const payload = await payloadClient();
   // Lecture déchiffrée : les mots de passe sont chiffrés au repos et masqués par

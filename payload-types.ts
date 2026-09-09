@@ -1232,6 +1232,15 @@ export interface JourneyRun {
       }[]
     | null;
   sessionEventId?: string | null;
+  /**
+   * Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.
+   */
+  reviewAt?: string | null;
+  /**
+   * Créé avec l'événement d'agenda. À remplir à la main si vous calez le rendez-vous vous-même.
+   */
+  reviewLink?: string | null;
+  reviewEventId?: string | null;
   extensions?:
     | {
         /**
@@ -1264,7 +1273,7 @@ export interface JourneyRun {
         actor?: ('partenaire' | 'admin' | 'client') | null;
         phase?: ('avant-test' | 'pendant-test' | 'sortie-test') | null;
         detail?: string | null;
-        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session') | null;
+        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session' | 'bilan') | null;
         offsetDays?: number | null;
         doneAt?: string | null;
         doneBy?: (number | null) | User;
@@ -1391,7 +1400,7 @@ export interface MarketingJourney {
          * Sans effet si aucun fait observable n'est associé à cette étape. Les étapes que le logiciel sait constater (voir SYSTEM_STEPS) se valident seules de toute façon : cette règle vit dans le code, pas dans cette case.
          */
         autoValidate?: boolean | null;
-        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session') | null;
+        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session' | 'bilan') | null;
         /**
          * Négatif = avant l'ancrage. Ex. -7 = une semaine avant.
          */
@@ -1410,7 +1419,7 @@ export interface MarketingJourney {
          */
         subject: string;
         audience?: ('client' | 'tim' | 'partenaire') | null;
-        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session') | null;
+        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session' | 'bilan') | null;
         offsetDays?: number | null;
         /**
          * Heure de Paris. Une date sans heure partirait à minuit.
@@ -2995,6 +3004,9 @@ export interface JourneyRunsSelect<T extends boolean = true> {
         id?: T;
       };
   sessionEventId?: T;
+  reviewAt?: T;
+  reviewLink?: T;
+  reviewEventId?: T;
   extensions?:
     | T
     | {

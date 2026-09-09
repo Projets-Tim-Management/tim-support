@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { safeNext } from "@/modules/marketing/lib/portal-next";
 import { useState } from "react";
 
 /**
@@ -38,8 +39,11 @@ const postJson = async (url: string, body: unknown): Promise<Response> => {
   }
 };
 
-export default function PortalLogin() {
+export default function PortalLogin({ next }: { next?: string }) {
   const router = useRouter();
+  // Vérifiée une seconde fois ICI : la page a beau l'avoir filtrée, ce
+  // composant est aussi le dernier rempart avant la redirection.
+  const destination = safeNext(next);
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -85,7 +89,7 @@ export default function PortalLogin() {
         setError("Code incorrect ou expiré. Demandez-en un nouveau si besoin.");
         return;
       }
-      router.replace("/espace-client/accueil");
+      router.replace(destination);
       router.refresh();
     } catch (err) {
       setError(

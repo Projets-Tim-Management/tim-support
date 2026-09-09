@@ -83,12 +83,12 @@ export async function POST(req: Request) {
   }
 
   payload.logger.info(
-    `[agenda] parcours ${run.id} : événement ${result.action} à la demande${result.sessionLink ? " (lien obtenu)" : ""}.`,
+    `[agenda] parcours ${run.id} : événement ${result.action} à la demande${result.link ? " (lien obtenu)" : ""}.`,
   );
   return NextResponse.json({
     ok: true,
     action: result.action,
-    eventId: result.sessionEventId ?? null,
-    sessionLink: result.sessionLink ?? null,
+    eventId: result.eventId ?? null,
+    sessionLink: result.link ?? null,
   });
 }

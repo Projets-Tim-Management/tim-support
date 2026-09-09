@@ -247,6 +247,7 @@ function SlotField({
   origine: string;
   onChange: (v: string) => void;
 }) {
+  const { setModified } = useForm();
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
 
@@ -256,12 +257,33 @@ function SlotField({
     <label className="jr-texts__field">
       <span className="jr-texts__label">
         {label}
-        {modifie ? <em className="jr-texts__tag">réécrit</em> : null}
+        {/* Collée au libellé, elle se lisait comme une phrase — « Disponibilité
+            réécrit ». Séparée et explicite, elle dit ce qu'elle constate. */}
+        {modifie ? (
+          <em
+            className="jr-texts__tag"
+            title="Ce bloc ne dit plus ce que dit le texte livré avec le logiciel. Videz le champ pour revenir en arrière."
+          >
+            ✎ modifié
+          </em>
+        ) : null}
       </span>
       <textarea
         rows={2}
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          /**
+           * Le formulaire est déclaré modifié DÈS LA PREMIÈRE FRAPPE.
+           *
+           * L'écriture dans le tableau, elle, attend la sortie du champ — la
+           * refaire à chaque lettre republie le formulaire et fait sauter le
+           * curseur. Mais « Sauvegarder » ne s'allume que sur un formulaire
+           * modifié : sans cette ligne, on tapait son texte devant un bouton
+           * resté gris, et on croyait l'écran bloqué.
+           */
+          setModified(true);
+        }}
         onBlur={() => {
           // Vidé : on remet le texte d'origine sous les yeux, et on efface la
           // reprise. Le champ montre toujours ce qui part.
@@ -272,7 +294,7 @@ function SlotField({
       />
       <span className="jr-texts__hint">
         {hint}
-        {modifie ? " — videz le champ pour revenir au texte d'origine." : ""}
+        {modifie ? " Videz le champ pour revenir au texte d'origine." : ""}
       </span>
     </label>
   );

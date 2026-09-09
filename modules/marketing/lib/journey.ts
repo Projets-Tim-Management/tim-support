@@ -56,6 +56,9 @@ export const JOURNEY_ANCHORS = [
   // choisit son jour et son heure, souvent une semaine avant. Un rappel calé
   // sur le démarrage tomberait donc à côté.
   { value: "session", label: "Par rapport au créneau de prise en main" },
+  // Même raison pour le bilan : sa date est choisie par le client, pas déduite
+  // de la fin du test. Un rappel calé sur la fin tomberait à côté.
+  { value: "bilan", label: "Par rapport au créneau de bilan" },
 ] as const;
 
 export type JourneyAnchor = (typeof JOURNEY_ANCHORS)[number]["value"];
@@ -330,6 +333,15 @@ export const SYSTEM_STEPS: Record<string, SystemStepDef> = {
       label: "Saisir le créneau",
       on: "run",
       hint: "Onglet « Session de prise en main » de cette fiche, si le client vous a donné sa date de vive voix.",
+    },
+    wait: "Le client réserve depuis son espace",
+  },
+  "rdv-bilan": {
+    trigger: "quand le créneau de bilan est réservé",
+    action: {
+      label: "Saisir le créneau",
+      on: "run",
+      hint: "Onglet « Bilan de fin de test » de cette fiche, si le client vous a donné sa date de vive voix.",
     },
     wait: "Le client réserve depuis son espace",
   },
@@ -791,6 +803,26 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
     offsetDays: -7,
   },
   {
+    /**
+     * Réserver le bilan et le TENIR sont deux faits distincts — exactement
+     * comme la prise en main, qui a ses deux étapes depuis le début.
+     *
+     * Confondus, ils cachaient l'essentiel : rien ne disait si le client avait
+     * pris son rendez-vous, et le partenaire devait ouvrir l'onglet pour le
+     * savoir. Le cycle est pourtant le même — on propose, le client réserve, on
+     * rappelle, le partenaire mène l'entretien.
+     */
+    key: "rdv-bilan",
+    label: "Bilan de fin de test réservé",
+    actor: "client",
+    phase: "pendant-test",
+    autoValidate: true,
+    detail:
+      "30 minutes avec le partenaire, dans les derniers jours du test. L'invitation à réserver part cinq jours avant la fin ; le client choisit son créneau depuis son espace.",
+    anchor: "fin",
+    offsetDays: -5,
+  },
+  {
     key: "bilan",
     label: "Bilan de fin de test",
     actor: "partenaire",
@@ -1069,6 +1101,35 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
       "Relance sur le créneau de prise en main, envoyée seulement si aucun rendez-vous n'est réservé. Passé le démarrage, cette session ne rattrape plus la première semaine.",
   },
   {
+    /**
+     * Confirmation du bilan — déclenchée par la réservation, jamais datée.
+     */
+    key: "bilan-confirme",
+    subject: "Votre bilan de fin de test est réservé",
+    audience: "client",
+    anchor: "aucun",
+    // L'accusé de RÉSERVATION : il achève l'étape « réservé », pas le bilan.
+    stepKey: "rdv-bilan",
+    trigger: "à la réservation du créneau de bilan, par le client",
+    detail:
+      "Accusé de réception au client : la date retenue, la durée, et le lien de visio si l'agenda en a produit un.",
+  },
+  {
+    /** Rappel de la veille, accroché au créneau du BILAN — pas à la fin du test. */
+    key: "rappel-bilan",
+    subject: "Votre bilan de fin de test, c'est demain",
+    audience: "client",
+    anchor: "bilan",
+    offsetDays: -1,
+    stepKey: "bilan",
+    // 17 h, comme le rappel de la prise en main : la veille en fin de journée,
+    // au moment où l'on organise le lendemain.
+    sendHour: "17:00",
+    trigger: "la veille du bilan, à 17 h",
+    detail:
+      "Rappel au client, la veille du bilan. Sans créneau réservé, il n'a pas de date et ne part pas — c'est la réservation qui lui en donne une.",
+  },
+  {
     key: "rappel-creneau",
     subject: "Votre session de prise en main, c'est demain",
     audience: "client",
@@ -1161,9 +1222,10 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "fin",
     offsetDays: -5,
-    // Compte à rebours vers le bilan : c'est le jalon qu'il prépare.
-    stepKey: "bilan",
-    detail: "Propose de caler le rendez-vous de bilan avec le partenaire.",
+    // Sous l'étape de RÉSERVATION : c'est ce qu'il demande. Le rendez-vous
+    // lui-même a sa propre ligne, et son propre rappel.
+    stepKey: "rdv-bilan",
+    detail: "Propose de réserver le rendez-vous de bilan, avec le lien vers les créneaux du partenaire.",
   },
   {
     key: "dernier-jour",
@@ -1171,8 +1233,15 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     audience: "client",
     anchor: "fin",
     offsetDays: -1,
-    // Dernier jour d'accès : même jalon que le bilan qui le précède.
-    stepKey: "bilan",
+    /**
+     * Sous « Décision du client », l'étape vers laquelle il MÈNE.
+     *
+     * Il était rangé sous le bilan, par proximité de date — « même jalon que le
+     * bilan qui le précède ». Mais il n'en parle pas : il annonce l'extinction
+     * des comptes. Quatre enveloppes s'accumulaient ainsi sur une étape dont
+     * une seule disait quelque chose du bilan.
+     */
+    stepKey: "decision",
     detail:
       "Rappelle l'échéance et ce qui advient des données saisies pendant le test.",
   },
@@ -1499,6 +1568,7 @@ export const stepDueDate = (
   startDate?: string | null,
   endDate?: string | null,
   sessionAt?: string | null,
+  reviewAt?: string | null,
 ): string | null => {
   const offset = step.offsetDays ?? 0;
   switch (step.anchor) {
@@ -1507,6 +1577,8 @@ export const stepDueDate = (
     // tout seul le jour où le client choisit son heure.
     case "session":
       return sessionAt ? addDays(sessionAt, offset) : null;
+    case "bilan":
+      return reviewAt ? addDays(reviewAt, offset) : null;
     case "debut":
       return startDate ? addDays(startDate, offset) : null;
     case "fin":
@@ -1563,10 +1635,11 @@ export function computeEmailSchedule<
   startDate?: string | null,
   endDate?: string | null,
   sessionAt?: string | null,
+  reviewAt?: string | null,
 ): E[] {
   return emails.map((mail) => {
     if (mail.overridden) return mail;
-    const due = stepDueDate(mail, startDate, endDate, sessionAt);
+    const due = stepDueDate(mail, startDate, endDate, sessionAt, reviewAt);
     // Une date d'ancrage tombe à minuit : on y pose l'heure d'envoi voulue.
     return {
       ...mail,
@@ -1626,3 +1699,41 @@ export const stepTooltip = (step: {
 export const totalExtensionDays = (
   extensions?: { days?: number | null }[] | null,
 ): number => (extensions ?? []).reduce((sum, e) => sum + (e?.days ?? 0), 0);
+
+/**
+ * Les trois réponses possibles en fin de test, telles qu'on les propose AU
+ * CLIENT — libellé à la première personne, et ce que chacune veut dire.
+ *
+ * `RUN_DECISIONS` sert au back-office : « Go — passage au contrat » se lit du
+ * côté de TIM. Ici on s'adresse à celui qui décide, et « Je continue » n'a pas
+ * besoin d'être traduit.
+ *
+ * L'ABANDON est proposé aussi franchement que les deux autres : une sortie
+ * qu'on cache se transforme en silence, et un silence ne dit pas pourquoi.
+ */
+export const CLIENT_DECISIONS = [
+  {
+    value: "contrat",
+    label: "Je continue",
+    hint: "On vous prépare le devis et le contrat.",
+  },
+  {
+    value: "prolongation",
+    label: "J'ai besoin de plus de temps",
+    hint: "On prolonge votre test, sans rien réinstaller.",
+  },
+  {
+    value: "abandon",
+    label: "Je m'arrête",
+    hint: "Dites-nous ce qui a manqué : ça nous aide plus qu'un silence poli.",
+  },
+] as const;
+
+export type ClientDecision = (typeof CLIENT_DECISIONS)[number]["value"];
+
+/** La réponse est-elle une des trois ? Tout le reste est refusé. */
+export const isClientDecision = (value: unknown): value is ClientDecision =>
+  CLIENT_DECISIONS.some((d) => d.value === value);
+
+export const clientDecisionLabel = (value?: string | null): string | null =>
+  CLIENT_DECISIONS.find((d) => d.value === value)?.label ?? null;

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import PortalLogin from "@/components/portal/PortalLogin";
+import { safeNext } from "@/modules/marketing/lib/portal-next";
 import { getPortalSession } from "@/modules/marketing/lib/portal-server";
 
 export const metadata: Metadata = {
@@ -10,9 +11,22 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** Une session déjà ouverte n'a pas à repasser par la connexion. */
-export default async function EspaceClientPage() {
-  if (await getPortalSession()) redirect("/espace-client/accueil");
+/**
+ * Une session déjà ouverte n'a pas à repasser par la connexion.
+ *
+ * `?next=` porte la page qu'on voulait ouvrir — celle du lien d'e-mail, par
+ * exemple. Elle est filtrée par `safeNext` : seul un chemin de l'espace client
+ * est suivi, jamais une adresse venue d'ailleurs.
+ */
+export default async function EspaceClientPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+  const destination = safeNext(next);
+
+  if (await getPortalSession()) redirect(destination);
 
   return (
     // Écran volontairement étroit, contrairement au reste de l'espace : un
@@ -26,7 +40,7 @@ export default async function EspaceClientPage() {
         </p>
       </header>
 
-      <PortalLogin />
+      <PortalLogin next={destination} />
     </div>
   );
 }

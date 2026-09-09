@@ -293,11 +293,12 @@ export const EMAIL_SLOTS: Record<string, EmailSlot[]> = {
       "Ce qu'on propose de faire avant la fin.",
       "Avant ça, on vous propose **30 minutes** pour faire le bilan : ce qui a marché, ce qui manque, et la suite si vous voulez continuer.",
     ),
+    bouton("Choisir mon créneau de bilan"),
     s(
       "encadre",
-      "Encadré",
-      "Le rappel mis en valeur.",
-      "Répondez à cet e-mail avec deux créneaux qui vous arrangent.",
+      "Repli",
+      "Ce qu'on propose si aucun créneau ne convient.",
+      "Aucun créneau ne vous convient ? Répondez à cet e-mail, on trouvera un moment.",
     ),
   ],
 
@@ -338,8 +339,8 @@ export const EMAIL_SLOTS: Record<string, EmailSlot[]> = {
     s(
       "reponse",
       "Appel à répondre",
-      "L'invitation à répondre à l'e-mail.",
-      "Répondez simplement à cet e-mail.",
+      "L'invitation à répondre à l'e-mail, sous les boutons.",
+      "Vous préférez en parler ? Répondez simplement à cet e-mail.",
     ),
   ],
 
@@ -376,6 +377,42 @@ export const EMAIL_SLOTS: Record<string, EmailSlot[]> = {
       "Préparation",
       "Ce qu'il faut avoir sous la main. Une ligne par point.",
       "**Pour que la séance serve à quelque chose**\nÊtre devant un ordinateur, pas seulement un téléphone.\nAvoir sous la main un chantier en cours et deux ou trois salariés à saisir.",
+    ),
+  ],
+
+  "bilan-confirme": [
+    objet("Votre bilan de fin de test est réservé"),
+    titre("Votre bilan est réservé"),
+    apercu("C'est calé."),
+    s(
+      "intro",
+      "Introduction",
+      "La confirmation du créneau.",
+      "Votre bilan de fin de test est confirmé.",
+    ),
+    s(
+      "preparation",
+      "Note de bas",
+      "Comment déplacer le rendez-vous.",
+      "Besoin de déplacer ce rendez-vous ? Répondez simplement à cet e-mail.",
+    ),
+  ],
+
+  "rappel-bilan": [
+    objet("Votre bilan de fin de test, c'est demain"),
+    titre("C'est demain"),
+    apercu("Votre bilan de fin de test a lieu demain."),
+    s(
+      "intro",
+      "Introduction",
+      "Le rappel de la veille.",
+      "Votre bilan de fin de test a lieu **{{date_bilan}}**.",
+    ),
+    s(
+      "preparation",
+      "Préparation",
+      "Ce qu'il faut avoir en tête. Une ligne par point.",
+      "**Pour que le bilan serve à quelque chose**\nCe qui a marché, et ce qui vous a manqué.\nQui, dans vos équipes, s'en est vraiment servi.\nCe que vous voulez faire ensuite.",
     ),
   ],
 

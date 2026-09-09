@@ -56,6 +56,12 @@ export const JOURNEY_VARIABLES: JourneyVariable[] = [
     fallback: "bientôt",
   },
   {
+    token: "date_bilan",
+    label: "Date du bilan",
+    hint: "Créneau du bilan de fin de test, date et heure",
+    fallback: "bientôt",
+  },
+  {
     token: "modalite_session",
     label: "Modalité de la session",
     hint: "« en visio » ou « sur site — 12 rue… »",

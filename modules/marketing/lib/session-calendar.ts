@@ -26,11 +26,64 @@ import { resolveRules } from "@/modules/marketing/lib/scheduling";
 
 export type SessionSyncResult = {
   /** Lien de visio à écrire sur le parcours (undefined = ne pas toucher). */
-  sessionLink?: string | null;
+  link?: string | null;
   /** Identifiant de l'événement (null = il n'y en a plus). */
-  sessionEventId?: string | null;
+  eventId?: string | null;
   /** Ce qui a été fait — pour le journal. */
   action: "created" | "updated" | "deleted" | "none";
+};
+
+/**
+ * Les DEUX rendez-vous d'un parcours, décrits une fois.
+ *
+ * Ils partagent tout le mécanisme — agenda cible, jeton, adoption d'un
+ * événement orphelin, recréation après un 404 — et ne diffèrent que par les
+ * champs qu'ils portent et le titre de l'événement. Deux copies du même code
+ * auraient divergé au premier correctif, et ces correctifs-là ont coûté cher.
+ *
+ * ⚠️ `runKey` DOIT différer : c'est la clé qui permet de retrouver un événement
+ * déjà créé. Partagée, la recherche d'orphelin adopterait l'événement de la
+ * prise en main pour le bilan — et déplacerait la formation à la place.
+ */
+export type EventKind = "prise-en-main" | "bilan";
+
+/** Durée du bilan, en minutes. Annoncée telle quelle dans le message. */
+export const REVIEW_DURATION_MIN = 30;
+
+const KINDS: Record<
+  EventKind,
+  {
+    atField: string;
+    eventField: string;
+    linkField: string;
+    summary: (company: string) => string;
+    description: string;
+    runKey: (runId: number | string) => string;
+    /** Minutes. `null` = la durée réglée par le partenaire. */
+    duration: number | null;
+  }
+> = {
+  "prise-en-main": {
+    atField: "sessionAt",
+    eventField: "sessionEventId",
+    linkField: "sessionLink",
+    summary: (company) => `Prise en main TIM — ${company}`,
+    description:
+      "Session de prise en main de 45 minutes, avant le démarrage de la phase de test.",
+    // Inchangée : les événements déjà créés portent cette clé.
+    runKey: (runId) => `run-${runId}`,
+    duration: null,
+  },
+  bilan: {
+    atField: "reviewAt",
+    eventField: "reviewEventId",
+    linkField: "reviewLink",
+    summary: (company) => `Bilan de fin de test TIM — ${company}`,
+    description:
+      "30 minutes pour faire le bilan de la phase de test : ce qui a marché, ce qui manque, et la suite.",
+    runKey: (runId) => `run-${runId}-bilan`,
+    duration: REVIEW_DURATION_MIN,
+  },
 };
 
 const NOTHING: SessionSyncResult = { action: "none" };
@@ -43,6 +96,8 @@ type Run = {
   sessionMode?: string | null;
   sessionLocation?: string | null;
   sessionEventId?: string | null;
+  reviewAt?: string | null;
+  reviewEventId?: string | null;
 };
 
 const idOf = (ref: unknown): number | string | null => {
@@ -84,19 +139,27 @@ async function companyName(payload: Payload, clientId: number | string): Promise
  * `undefined` veut dire « je n'en sais rien, n'y touche pas » ; `null` veut dire
  * « il n'y en a plus ». La différence est écrite une fois, ici.
  */
-export const sessionSyncPatch = (result: SessionSyncResult): Record<string, unknown> => ({
-  ...(result.sessionEventId !== undefined ? { sessionEventId: result.sessionEventId } : {}),
-  ...(result.sessionLink !== undefined ? { sessionLink: result.sessionLink } : {}),
-});
+export const sessionSyncPatch = (
+  result: SessionSyncResult,
+  kind: EventKind = "prise-en-main",
+): Record<string, unknown> => {
+  const champs = KINDS[kind];
+  return {
+    ...(result.eventId !== undefined ? { [champs.eventField]: result.eventId } : {}),
+    ...(result.link !== undefined ? { [champs.linkField]: result.link } : {}),
+  };
+};
 
 export async function syncSessionEvent(
   payload: Payload,
   run: Run,
   previousSessionAt?: string | null,
+  kind: EventKind = "prise-en-main",
 ): Promise<SessionSyncResult> {
+  const champs = KINDS[kind];
   const partnerId = idOf(run.partner);
-  const eventId = run.sessionEventId ?? null;
-  const at = run.sessionAt ?? null;
+  const eventId = ((run as Record<string, unknown>)[champs.eventField] as string | null) ?? null;
+  const at = ((run as Record<string, unknown>)[champs.atField] as string | null) ?? null;
 
   // Rien à faire si le créneau n'a pas bougé et qu'aucun événement n'attend
   // d'être créé.
@@ -138,7 +201,7 @@ export async function syncSessionEvent(
     try {
       await provider.deleteEvent(token, target.calendarId, eventId);
       payload.logger.info(`[agenda] événement du parcours ${run.id} supprimé.`);
-      return { sessionEventId: null, sessionLink: null, action: "deleted" };
+      return { eventId: null, link: null, action: "deleted" };
     } catch (err) {
       payload.logger.error(`[agenda] suppression de l'événement échouée : ${err}`);
       return NOTHING;
@@ -160,10 +223,10 @@ export async function syncSessionEvent(
   const online = run.sessionMode !== "sur-place";
   const input = {
     calendarId: target.calendarId,
-    summary: `Prise en main TIM — ${company ?? "client"}`,
-    description: "Session de prise en main de 45 minutes, avant le démarrage de la phase de test.",
+    summary: champs.summary(company ?? "client"),
+    description: champs.description,
     start: at,
-    end: new Date(Date.parse(at) + rules.durationMin * 60_000).toISOString(),
+    end: new Date(Date.parse(at) + (champs.duration ?? rules.durationMin) * 60_000).toISOString(),
     // La personne formée, puis les invités déclarés. L'adresse de l'espace
     // client ne sert que de repli : celle saisie au moment de réserver prime,
     // parce que l'administrateur formé n'est pas forcément le contact qui a reçu
@@ -199,7 +262,7 @@ export async function syncSessionEvent(
     requestId: `run-${run.id}-${randomUUID()}`,
     // Stable sur toute la vie du parcours, à la différence de `requestId` :
     // c'est ce qui permet de retrouver l'événement même après un report.
-    runKey: `run-${run.id}`,
+    runKey: champs.runKey(run.id),
   };
 
   /**
@@ -237,10 +300,10 @@ export async function syncSessionEvent(
       }.`,
     );
     return {
-      sessionEventId: result.eventId,
+      eventId: result.eventId,
       // Sur place : pas de lien à afficher, et un lien résiduel enverrait le
       // client en visio alors qu'on l'attend sur le chantier.
-      sessionLink: online ? (result.meetingUrl ?? null) : null,
+      link: online ? (result.meetingUrl ?? null) : null,
       action: known ? "updated" : "created",
     };
   } catch (err) {
@@ -259,13 +322,13 @@ export async function syncSessionEvent(
           `[agenda] parcours ${run.id} : événement ${known} introuvable, remplacé par ${fresh.eventId}.`,
         );
         return {
-          sessionEventId: fresh.eventId,
-          sessionLink: online ? (fresh.meetingUrl ?? null) : null,
+          eventId: fresh.eventId,
+          link: online ? (fresh.meetingUrl ?? null) : null,
           action: "created",
         };
       } catch (again) {
         payload.logger.error(`[agenda] recréation de l'événement échouée : ${again}`);
-        return { sessionEventId: null, action: "none" };
+        return { eventId: null, action: "none" };
       }
     }
     return NOTHING;

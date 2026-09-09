@@ -407,6 +407,10 @@ const armAutoSteps: CollectionBeforeChangeHook = ({ data, originalDoc, operation
   // Le créneau vient d'être réservé (par le client ou saisi à la main).
   const sessionAt = data?.sessionAt ?? originalDoc?.sessionAt;
   if (sessionAt && !originalDoc?.sessionAt) armed.add("rdv-prise-en-main");
+  // Le bilan vient d'être réservé — la RÉSERVATION, pas le bilan lui-même :
+  // celui-ci reste au partenaire, qui le coche une fois l'entretien tenu.
+  const reviewAt = (data?.reviewAt ?? originalDoc?.reviewAt) as string | null | undefined;
+  if (reviewAt && !originalDoc?.reviewAt) armed.add("rdv-bilan");
 
   // Ajoutées par les autres modules via le contexte (compte espace client,
   // transmission du dossier) : ils n'ont pas à connaître la forme des étapes.
@@ -689,6 +693,8 @@ const computeState: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
     // dès que le client réserve — la réservation enregistre le parcours, ce
     // hook tourne, et l'envoi se programme tout seul.
     (data?.sessionAt ?? originalDoc?.sessionAt) as string | null | undefined,
+    // Même chose pour le rappel du BILAN, accroché à son propre créneau.
+    (data?.reviewAt ?? originalDoc?.reviewAt) as string | null | undefined,
   );
 
   // Une date reprise à la main reste dans la fenêtre de son étape. L'écran pose
@@ -720,6 +726,7 @@ const computeState: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
         startDate,
         endDate,
         (data?.sessionAt ?? originalDoc?.sessionAt) as string | null | undefined,
+        (data?.reviewAt ?? originalDoc?.reviewAt) as string | null | undefined,
       )[0]?.scheduledAt ?? null;
     const window = allowComputedDate(mailDateWindow(mail.stepKey as string, dated), computedAt);
     const inside = clampMailDate(mail.scheduledAt, window);
@@ -815,7 +822,7 @@ const syncSessionCalendar: CollectionAfterChangeHook = async ({ doc, previousDoc
   if (before === after && !modeChanged && !placeChanged && !missingEvent) return doc;
 
   const result = await syncSessionEvent(req.payload, doc as never, before);
-  if (result.action === "none" && result.sessionEventId === undefined) return doc;
+  if (result.action === "none" && result.eventId === undefined) return doc;
 
   ctx[SKIP] = true;
   try {
@@ -828,6 +835,50 @@ const syncSessionCalendar: CollectionAfterChangeHook = async ({ doc, previousDoc
     });
   } catch (err) {
     req.payload.logger.error(`[agenda] écriture du lien sur le parcours ${doc.id} échouée : ${err}`);
+  } finally {
+    delete ctx[SKIP];
+  }
+  return doc;
+};
+
+/**
+ * Même chose pour le BILAN de fin de test.
+ *
+ * Un hook à part plutôt qu'une condition de plus dans le précédent : les deux
+ * rendez-vous bougent indépendamment, et mêler leurs conditions rendrait
+ * illisible ce qui déclenche quoi. Le mécanisme, lui, est partagé — c'est
+ * `syncSessionEvent` qui sait faire, on lui dit seulement DE QUEL rendez-vous
+ * il s'agit.
+ *
+ * La modalité est celle de la prise en main : mêmes gens, même façon de se
+ * voir. Elle est donc surveillée ici aussi — passer de visio à sur place doit
+ * retirer la conférence des DEUX événements.
+ */
+const syncReviewCalendar: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
+  const ctx = (req.context ?? {}) as Record<string, unknown>;
+  if (ctx[SKIP]) return doc;
+
+  const before = (previousDoc?.reviewAt ?? null) as string | null;
+  const after = (doc?.reviewAt ?? null) as string | null;
+  const modeChanged = (previousDoc?.sessionMode ?? null) !== (doc?.sessionMode ?? null);
+  const placeChanged = (previousDoc?.sessionLocation ?? null) !== (doc?.sessionLocation ?? null);
+  const missingEvent = Boolean(after) && !doc?.reviewEventId && !doc?.reviewLink;
+  if (before === after && !modeChanged && !placeChanged && !missingEvent) return doc;
+
+  const result = await syncSessionEvent(req.payload, doc as never, before, "bilan");
+  if (result.action === "none" && result.eventId === undefined) return doc;
+
+  ctx[SKIP] = true;
+  try {
+    await req.payload.update({
+      collection: "journey-runs",
+      id: doc.id,
+      data: sessionSyncPatch(result, "bilan"),
+      overrideAccess: true,
+      req,
+    });
+  } catch (err) {
+    req.payload.logger.error(`[agenda] écriture du lien de bilan sur ${doc.id} échouée : ${err}`);
   } finally {
     delete ctx[SKIP];
   }
@@ -1269,6 +1320,7 @@ export const JourneyRuns: CollectionConfig = {
     ],
     afterChange: [
       syncSessionCalendar,
+      syncReviewCalendar,
       syncClientStatus,
       notifyNewRequest,
       notifyQuoteNeeded,
@@ -1459,6 +1511,45 @@ export const JourneyRuns: CollectionConfig = {
               type: "text",
               admin: { hidden: true },
             },
+          ],
+        },
+        {
+          /**
+           * Le BILAN de fin de test — un second rendez-vous, distinct de la
+           * prise en main.
+           *
+           * Distinct et pas réutilisé : la prise en main a eu lieu, son créneau
+           * est la trace de ce qui s'est passé. Écrire le bilan par-dessus
+           * l'effacerait, et le générateur de créneaux s'arrête de toute façon
+           * au démarrage du test — un bilan est par définition après.
+           *
+           * La MODALITÉ, elle, est reprise de la prise en main : même partenaire,
+           * même client, même façon de se voir. Deux réglages pour la même
+           * question finiraient par se contredire.
+           */
+          label: "Bilan de fin de test",
+          description:
+            "Réservé par le client depuis son espace, dans les derniers jours du test. Se tient comme la prise en main (visio ou sur place).",
+          fields: [
+            {
+              name: "reviewAt",
+              type: "date",
+              label: "Créneau retenu",
+              admin: {
+                date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" },
+                description:
+                  "Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.",
+              },
+            },
+            {
+              name: "reviewLink",
+              type: "text",
+              label: "Lien de visio",
+              admin: {
+                description: "Créé avec l'événement d'agenda. À remplir à la main si vous calez le rendez-vous vous-même.",
+              },
+            },
+            { name: "reviewEventId", type: "text", admin: { hidden: true } },
           ],
         },
         {

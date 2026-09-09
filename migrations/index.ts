@@ -87,6 +87,7 @@ import * as migration_20260909_074226_espace_client_hors_phase_de_test from './2
 import * as migration_20260909_141218_alerte_etape_partenaire from './20260909_141218_alerte_etape_partenaire';
 import * as migration_20260909_143014_satisfaction_parcours from './20260909_143014_satisfaction_parcours';
 import * as migration_20260909_150344_textes_emails_parcours from './20260909_150344_textes_emails_parcours';
+import * as migration_20260909_164004_bilan_fin_de_test from './20260909_164004_bilan_fin_de_test';
 
 export const migrations = [
   {
@@ -532,6 +533,11 @@ export const migrations = [
   {
     up: migration_20260909_150344_textes_emails_parcours.up,
     down: migration_20260909_150344_textes_emails_parcours.down,
-    name: '20260909_150344_textes_emails_parcours'
+    name: '20260909_150344_textes_emails_parcours',
+  },
+  {
+    up: migration_20260909_164004_bilan_fin_de_test.up,
+    down: migration_20260909_164004_bilan_fin_de_test.down,
+    name: '20260909_164004_bilan_fin_de_test'
   },
 ];

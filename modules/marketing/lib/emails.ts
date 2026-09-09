@@ -1,6 +1,7 @@
 import {
   BORDER,
   FONT,
+  INK,
   MUTED,
   OUTER,
   SITE_URL,
@@ -12,7 +13,10 @@ import {
 // Le fuseau des créneaux, pris à sa source : c'est en heure de Paris que le
 // partenaire déclare ses disponibilités, et en UTC qu'on les stocke.
 import { defaultSlotText } from "@/modules/marketing/lib/email-slots";
+import { CLIENT_DECISIONS } from "@/modules/marketing/lib/journey";
+import { safeRunToken } from "@/modules/marketing/lib/run-token";
 import { applyJourneyVars } from "@/modules/marketing/lib/journey-vars";
+import { REVIEW_DURATION_MIN } from "@/modules/marketing/lib/session-calendar";
 import { TIMEZONE as PARIS } from "@/modules/marketing/lib/scheduling";
 import {
   SATISFACTION_LEVELS,
@@ -63,6 +67,9 @@ export type JourneyEmailContext = {
    *  résumer : un client qui reçoit « lien fourni » cherche encore le lien. */
   sessionLink?: string | null;
   sessionAt?: string | null;
+  /** Créneau du bilan de fin de test, et son lien de visio. */
+  reviewAt?: string | null;
+  reviewLink?: string | null;
   /**
    * Qui suivra la session, déclaré par le client en réservant. Le partenaire
    * prépare sa session en sachant à qui il s'adresse — « une entreprise » ne se
@@ -139,6 +146,7 @@ const journeyVarValues = (ctx: JourneyEmailContext): Record<string, string | num
   date_debut: frDate(ctx.startDate),
   date_fin: frDate(ctx.endDate),
   date_session: frDateTime(ctx.sessionAt),
+  date_bilan: frDateTime(ctx.reviewAt),
   modalite_session: ctx.sessionModality ?? null,
   nb_acces: ctx.credentialCount ?? null,
   date_limite_dossier: frDate(ctx.dossierDeadline),
@@ -618,9 +626,24 @@ const finProche = (ctx: JourneyEmailContext): BuiltEmail => {
   const intro = bloc(ctx, "fin-proche", "intro");
   const bilan = bloc(ctx, "fin-proche", "bilan");
   const encadre = bloc(ctx, "fin-proche", "encadre");
+  // Le client CHOISIT son créneau, au lieu de proposer deux dates et d'attendre.
+  // La page décide de ce qu'elle montre : les créneaux du partenaire, ou son
+  // propre lien de prise de rendez-vous quand il en utilise un.
+  const url = `${PORTAL}/bilan`;
   return {
     subject: sujet(ctx, "fin-proche"),
-    text: [hello(ctx), "", intro.text, "", bilan.text, "", encadre.text, textSignature()].join("\n"),
+    text: [
+      hello(ctx),
+      "",
+      intro.text,
+      "",
+      bilan.text,
+      "",
+      url,
+      "",
+      encadre.text,
+      textSignature(),
+    ].join("\n"),
     html: shell({
       heading: texte(ctx, "fin-proche", "titre"),
       preheader: texte(ctx, "fin-proche", "apercu"),
@@ -628,7 +651,8 @@ const finProche = (ctx: JourneyEmailContext): BuiltEmail => {
         paragraph(hello(ctx)) +
         paragraph(intro.html) +
         paragraph(bilan.html) +
-        paragraph(encadre.html) +
+        button(texte(ctx, "fin-proche", "bouton"), url) +
+        paragraph(`<span style="color:${MUTED};font-size:14px;">${encadre.html}</span>`) +
         signature(),
     }),
   };
@@ -649,10 +673,47 @@ const dernierJour = (ctx: JourneyEmailContext): BuiltEmail => {
   };
 };
 
+/**
+ * Les trois réponses, en TROIS BOUTONS.
+ *
+ * Une liste à puces demandait d'écrire un message pour dire laquelle. Or c'est
+ * la réponse la plus utile du parcours — celle qui décide de la suite — et
+ * c'est celle qu'on obtenait le moins : rédiger « je m'arrête » à quelqu'un
+ * qu'on a eu au téléphone coûte plus qu'un clic.
+ *
+ * Empilés et non côte à côte : trois boutons alignés sur une messagerie
+ * étroite se replient n'importe comment, et celui du milieu finit seul sur sa
+ * ligne. Le premier est plein, les deux autres bordés — non pour orienter la
+ * réponse, mais parce que trois boutons de même poids ne se lisent plus comme
+ * un choix.
+ */
+const decisionBoutons = (links: { label: string; url: string; premier: boolean }[]): string =>
+  links
+    .map(
+      (l) =>
+        `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 10px;"><tr><td>` +
+        `<a href="${l.url}" style="display:inline-block;padding:12px 24px;border-radius:9px;` +
+        (l.premier
+          ? `background:#fe5464;color:#ffffff;border:1px solid #fe5464;`
+          : `background:#ffffff;color:${INK};border:1px solid ${BORDER};`) +
+        `font-family:${FONT};font-size:15px;font-weight:700;text-decoration:none;">${escape(l.label)}</a>` +
+        `</td></tr></table>`,
+    )
+    .join("");
+
 const decision = (ctx: JourneyEmailContext): BuiltEmail => {
   const intro = bloc(ctx, "decision", "intro");
   const encadre = bloc(ctx, "decision", "encadre");
   const reponse = bloc(ctx, "decision", "reponse");
+  const token = ctx.runId != null ? safeRunToken("decision", ctx.runId) : null;
+  const links = token
+    ? CLIENT_DECISIONS.map((d, i) => ({
+        label: d.label,
+        url: `${SITE_URL.replace(/\/$/, "")}/decision/${token}?choix=${d.value}`,
+        premier: i === 0,
+      }))
+    : [];
+
   return {
     subject: sujet(ctx, "decision"),
     text: [
@@ -660,9 +721,9 @@ const decision = (ctx: JourneyEmailContext): BuiltEmail => {
       "",
       intro.text,
       "",
-      "  • Je continue",
-      "  • J'ai besoin de plus de temps",
-      "  • Je m'arrête",
+      ...(links.length > 0
+        ? links.map((l) => `  ${l.label} : ${l.url}`)
+        : CLIENT_DECISIONS.map((d) => `  • ${d.label}`)),
       "",
       encadre.text,
       "",
@@ -675,11 +736,9 @@ const decision = (ctx: JourneyEmailContext): BuiltEmail => {
       bodyHtml:
         paragraph(hello(ctx)) +
         paragraph(intro.html) +
-        bullets([
-          "<strong>Je continue</strong>",
-          "J'ai besoin de <strong>plus de temps</strong>",
-          "<strong>Je m'arrête</strong>",
-        ]) +
+        (links.length > 0
+          ? decisionBoutons(links)
+          : bullets(CLIENT_DECISIONS.map((d) => escape(d.label)))) +
         callout(encadre.html) +
         paragraph(reponse.html) +
         signature(),
@@ -830,6 +889,105 @@ const rappelCreneau = (ctx: JourneyEmailContext): BuiltEmail => {
               `<strong>Attendus à cette session</strong><br>${attendeeLines(ctx).map(escape).join("<br>")}`,
             )
           : "") +
+        paragraph(preparation.html) +
+        paragraph(
+          `<span style="color:${MUTED};font-size:14px;">Un empêchement&nbsp;? Répondez à cet e-mail, on replacera le rendez-vous.</span>`,
+        ) +
+        signature(),
+    }),
+  };
+};
+
+/**
+ * Le bilan est réservé, et le rappel de la veille.
+ *
+ * Deux messages jumeaux de ceux de la prise en main, et volontairement plus
+ * courts : à ce stade le client connaît son interlocuteur, il n'y a rien à
+ * réexpliquer. Ce qu'il lui faut tient en trois lignes — quand, combien de
+ * temps, et par où entrer.
+ */
+const bilanConfirme = (ctx: JourneyEmailContext): BuiltEmail => {
+  const when = frDateTime(ctx.reviewAt);
+  const link = ctx.reviewLink?.trim() || null;
+  const intro = bloc(ctx, "bilan-confirme", "intro");
+  const preparation = bloc(ctx, "bilan-confirme", "preparation");
+  return {
+    subject: sujet(ctx, "bilan-confirme"),
+    text: [
+      hello(ctx),
+      "",
+      intro.text,
+      "",
+      when ? `Quand : ${when}` : "",
+      `Durée : ${REVIEW_DURATION_MIN} minutes`,
+      ctx.sessionModality ? `Où    : ${ctx.sessionModality}` : "",
+      link ? `Lien  : ${link}` : "",
+      "",
+      preparation.text,
+      textSignature(),
+    ]
+      .filter((l) => l !== "")
+      .join("\n"),
+    html: shell({
+      heading: texte(ctx, "bilan-confirme", "titre"),
+      preheader: texte(ctx, "bilan-confirme", "apercu"),
+      bodyHtml:
+        paragraph(hello(ctx)) +
+        paragraph(intro.html) +
+        callout(
+          [
+            when ? `<strong>${when}</strong>` : null,
+            `${REVIEW_DURATION_MIN} minutes`,
+            ctx.sessionModality ? escape(ctx.sessionModality) : null,
+          ]
+            .filter(Boolean)
+            .join("<br>"),
+        ) +
+        (link ? button("Rejoindre la visio", link) : "") +
+        paragraph(`<span style="color:${MUTED};font-size:14px;">${preparation.html}</span>`) +
+        signature(),
+    }),
+  };
+};
+
+const rappelBilan = (ctx: JourneyEmailContext): BuiltEmail => {
+  const when = frDateTime(ctx.reviewAt);
+  const link = ctx.reviewLink?.trim() || null;
+  const intro = bloc(ctx, "rappel-bilan", "intro");
+  const preparation = bloc(ctx, "rappel-bilan", "preparation");
+  return {
+    subject: sujet(ctx, "rappel-bilan"),
+    text: [
+      hello(ctx),
+      "",
+      intro.text,
+      `Comptez ${REVIEW_DURATION_MIN} minutes.`,
+      ctx.sessionModality ? `Où   : ${ctx.sessionModality}` : "",
+      link ? `Lien : ${link}` : "",
+      "",
+      preparation.text,
+      "",
+      "Un empêchement ? Répondez à cet e-mail, on replacera le rendez-vous.",
+      textSignature(),
+    ]
+      .filter((l) => l !== "")
+      .join("\n"),
+    html: shell({
+      heading: texte(ctx, "rappel-bilan", "titre"),
+      preheader: texte(ctx, "rappel-bilan", "apercu"),
+      bodyHtml:
+        paragraph(hello(ctx)) +
+        paragraph(intro.html) +
+        callout(
+          [
+            when ? `<strong>${when}</strong>` : "<strong>Demain</strong>",
+            `${REVIEW_DURATION_MIN} minutes`,
+            ctx.sessionModality ? escape(ctx.sessionModality) : null,
+          ]
+            .filter(Boolean)
+            .join("<br>"),
+        ) +
+        (link ? button("Rejoindre la visio", link) : "") +
         paragraph(preparation.html) +
         paragraph(
           `<span style="color:${MUTED};font-size:14px;">Un empêchement&nbsp;? Répondez à cet e-mail, on replacera le rendez-vous.</span>`,
@@ -1271,6 +1429,8 @@ export const JOURNEY_EMAILS: Record<
   "creneau-confirme": creneauConfirme,
   "rappel-creneau": rappelCreneau,
   "creneau-reserve": creneauReserve,
+  "bilan-confirme": bilanConfirme,
+  "rappel-bilan": rappelBilan,
   "recap-partenaire": recapPartenaire,
 };
 

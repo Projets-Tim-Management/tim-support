@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { readRunToken, runToken, safeRunToken } from "@/modules/marketing/lib/run-token";
 
 /**
  * « Comment ça se passe sur le chantier ? » — la réponse en un clic.
@@ -27,71 +27,12 @@ export type SatisfactionLevel = (typeof SATISFACTION_LEVELS)[number]["value"];
 export const isSatisfactionLevel = (value: unknown): value is SatisfactionLevel =>
   SATISFACTION_LEVELS.some((l) => l.value === value);
 
-/**
- * Jeton du lien de réponse — SANS EXPIRATION, comme celui de désinscription.
- *
- * Un client qui rouvre le message trois semaines plus tard doit encore pouvoir
- * répondre : lui montrer « lien expiré » à ce moment-là, c'est perdre la seule
- * réponse qu'il aura donnée. Le parcours, lui, finit par se clôturer — c'est la
- * page qui refuse une réponse sur un test terminé, pas le jeton.
- *
- * Signé, donc non falsifiable et non énumérable : sans signature, on noterait
- * n'importe quel parcours en devinant un identifiant.
- */
-const sign = (runId: string): string => {
-  const secret = process.env.PAYLOAD_SECRET;
-  if (!secret) throw new Error("PAYLOAD_SECRET manquant");
-  return createHmac("sha256", secret).update(`avis:${runId}`).digest("base64url");
-};
-
-export const satisfactionToken = (runId: number | string): string => {
-  const value = String(runId);
-  return `${Buffer.from(value).toString("base64url")}.${sign(value)}`;
-};
-
-/**
- * Le jeton, ou `null` s'il ne peut pas être signé.
- *
- * Le message d'accompagnement ne doit pas tomber parce qu'un secret manque : un
- * client privé de visages reçoit un e-mail amputé, un client privé du message
- * entier n'a plus de nouvelles du tout.
- */
-const safeSatisfactionToken = (runId: number | string): string | null => {
-  try {
-    return satisfactionToken(runId);
-  } catch {
-    return null;
-  }
-};
+/** Jeton du lien de réponse — voir `run-token.ts` pour ce qu'il garantit. */
+export const satisfactionToken = (runId: number | string): string => runToken("avis", runId);
 
 /** @returns l'identifiant du parcours si la signature est valide, `null` sinon. */
-export const readSatisfactionToken = (token?: string | null): string | null => {
-  if (!token) return null;
-  const [encoded, signature] = token.split(".");
-  if (!encoded || !signature) return null;
-
-  let runId: string;
-  try {
-    runId = Buffer.from(encoded, "base64url").toString("utf8");
-  } catch {
-    return null;
-  }
-  if (!runId) return null;
-
-  let expected: string;
-  try {
-    expected = sign(runId);
-  } catch {
-    return null;
-  }
-
-  const a = Buffer.from(signature);
-  const b = Buffer.from(expected);
-  // Comparaison à temps constant : la signature se devine autrement, octet par
-  // octet, en mesurant le temps de réponse.
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  return runId;
-};
+export const readSatisfactionToken = (token?: string | null): string | null =>
+  readRunToken("avis", token);
 
 /** L'adresse d'un visage dans le message. `null` si le jeton n'est pas signable. */
 export const satisfactionUrl = (
@@ -99,6 +40,6 @@ export const satisfactionUrl = (
   runId: number | string,
   value: number,
 ): string | null => {
-  const token = safeSatisfactionToken(runId);
+  const token = safeRunToken("avis", runId);
   return token ? `${siteUrl.replace(/\/$/, "")}/avis/${token}?note=${value}` : null;
 };
