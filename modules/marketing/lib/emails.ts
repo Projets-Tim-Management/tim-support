@@ -11,7 +11,13 @@ import {
 } from "@/core/lib/email-template";
 // Le fuseau des créneaux, pris à sa source : c'est en heure de Paris que le
 // partenaire déclare ses disponibilités, et en UTC qu'on les stocke.
+import { defaultSlotText } from "@/modules/marketing/lib/email-slots";
+import { applyJourneyVars } from "@/modules/marketing/lib/journey-vars";
 import { TIMEZONE as PARIS } from "@/modules/marketing/lib/scheduling";
+import {
+  SATISFACTION_LEVELS,
+  satisfactionUrl,
+} from "@/modules/marketing/lib/satisfaction";
 import { profileRank } from "@/modules/partner/lib/pricing";
 
 /**
@@ -36,6 +42,17 @@ export type BuiltEmail = { subject: string; text: string; html: string };
 
 /** Tout ce qu'un message du parcours peut avoir à dire. Champs absents = lignes retirées. */
 export type JourneyEmailContext = {
+  /**
+   * Le parcours d'où part le message. Sert aux liens qui RENVOIENT une réponse
+   * dedans — les visages de « Comment ça se passe ? ». Absent, le message reste
+   * juste : il perd seulement ses liens de réponse.
+   */
+  runId?: number | string | null;
+  /**
+   * Blocs de texte repris à la main sur le modèle de parcours, par nom de bloc.
+   * Absent ou vide pour un bloc = le texte du code. Voir `email-overrides.ts`.
+   */
+  texts?: Record<string, string | undefined>;
   clientName?: string | null;
   /** Prénom du contact, pour l'appel. Absent → « Bonjour, ». */
   contactFirstName?: string | null;
@@ -87,8 +104,81 @@ const hello = (ctx: JourneyEmailContext) =>
     ? `Bonjour ${escape(ctx.contactFirstName.trim())},`
     : "Bonjour,";
 
-const company = (ctx: JourneyEmailContext) =>
-  escape(ctx.clientName?.trim() || "votre entreprise");
+/**
+ * Un BLOC de texte : celui de la table, ou celui repris à la main.
+ *
+ * Le texte est le MÊME dans les deux cas et suit le même chemin : variables
+ * remplacées, puis échappé, puis mis en forme. Un texte n'est jamais du HTML —
+ * coller une balise dans un champ ne doit pas pouvoir casser un message, ni y
+ * glisser quoi que ce soit.
+ *
+ * Une seule source alimente les deux versions du message : `**gras**` devient
+ * `<strong>` en HTML et disparaît en texte brut, un retour à la ligne devient
+ * `<br>`. Deux textes séparés auraient divergé au premier correctif.
+ */
+type Bloc = { html: string; text: string };
+
+/** `**gras**` → `<strong>`, retours à la ligne → `<br>`. Après échappement. */
+const enrichir = (echappe: string): string =>
+  echappe.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
+
+/** Les marques de mise en forme, retirées : la version texte n'en a pas l'usage. */
+const depouiller = (brut: string): string => brut.replace(/\*\*([^*]+)\*\*/g, "$1");
+
+const bloc = (ctx: JourneyEmailContext, key: string, slot: string): Bloc => {
+  const source = ctx.texts?.[slot]?.trim() || defaultSlotText(key, slot);
+  const rempli = applyJourneyVars(source, journeyVarValues(ctx));
+  return { html: enrichir(escape(rempli)), text: depouiller(rempli) };
+};
+
+/** Les valeurs des variables pour CE message. Voir `journey-vars.ts`. */
+const journeyVarValues = (ctx: JourneyEmailContext): Record<string, string | number | null> => ({
+  prenom: ctx.contactFirstName?.trim() || null,
+  entreprise: ctx.clientName?.trim() || null,
+  partenaire: ctx.partnerName?.trim() || null,
+  date_debut: frDate(ctx.startDate),
+  date_fin: frDate(ctx.endDate),
+  date_session: frDateTime(ctx.sessionAt),
+  modalite_session: ctx.sessionModality ?? null,
+  nb_acces: ctx.credentialCount ?? null,
+  date_limite_dossier: frDate(ctx.dossierDeadline),
+  duree_semaines: ctx.durationWeeks ?? null,
+  // Tiré au hasard à l'envoi, jamais conservé : il n'existe que le temps de ce
+  // message. C'est aussi le seul objet qui porte une donnée utile avant
+  // ouverture — on lit son code depuis la notification.
+  code: ctx.code ?? null,
+});
+
+/**
+ * Un texte simple qui n'existe QU'EN HTML : le titre, la ligne d'aperçu, le
+ * libellé d'un bouton.
+ *
+ * Échappé dès qu'il est repris, parce que ni `shell` ni `button` ne le font :
+ * ils reçoivent du HTML écrit par nous. Un texte venu d'un champ, lui, n'est
+ * jamais du HTML.
+ *
+ * L'ADRESSE d'un bouton ne se reprend jamais : un lien retapé à la main est un
+ * lien mort, et c'est la seule chose du message qu'on ne puisse pas corriger
+ * après coup.
+ */
+/**
+ * L'OBJET du message.
+ *
+ * Ni échappé ni mis en forme, contrairement au reste : un objet n'est pas du
+ * HTML, il voyage dans un en-tête. `&amp;` s'y afficherait tel quel, et un
+ * retour à la ligne y couperait l'en-tête — d'où l'aplatissement.
+ */
+const sujet = (ctx: JourneyEmailContext, key: string, slot = "objet"): string => {
+  const source = ctx.texts?.[slot]?.trim() || defaultSlotText(key, slot);
+  return depouiller(applyJourneyVars(source, journeyVarValues(ctx)))
+    .replace(/\s*\n\s*/g, " ")
+    .trim();
+};
+
+const texte = (ctx: JourneyEmailContext, key: string, slot: string): string => {
+  const source = ctx.texts?.[slot]?.trim() || defaultSlotText(key, slot);
+  return escape(depouiller(applyJourneyVars(source, journeyVarValues(ctx))));
+};
 
 /**
  * ⚠️ `timeZone` n'est pas décoratif : il fait la différence entre le rendez-vous
@@ -183,18 +273,21 @@ const invitationEspaceClient = (ctx: JourneyEmailContext): BuiltEmail => {
   const why = start
     ? `Ce délai nous laisse le temps de créer les comptes de vos équipes avant le démarrage, le ${start}.`
     : "Ce délai nous laisse le temps de créer les comptes de vos équipes avant le démarrage.";
+  const intro = bloc(ctx, "invitation-espace-client", "intro");
+  const listeIntro = bloc(ctx, "invitation-espace-client", "liste_intro");
+  const encadre = bloc(ctx, "invitation-espace-client", "encadre");
   return {
-    subject: "Votre espace client TIM est ouvert",
+    subject: sujet(ctx, "invitation-espace-client"),
     text: [
       hello(ctx),
       "",
-      `Votre espace client est ouvert. C'est là que vous préparez la phase de test de ${ctx.clientName ?? "votre entreprise"}${start ? `, qui démarre le ${start}` : ""}.`,
+      intro.text,
       "",
-      "Vous y renseignez, à votre rythme :",
+      listeIntro.text,
       "  • vos licences : qui utilisera TIM, avec quel rôle",
       "  • vos salariés, vos chantiers, vos véhicules et vos engins",
       "",
-      "Pas de mot de passe à retenir : vous saisissez votre e-mail, un code à 6 chiffres vous est envoyé.",
+      encadre.text,
       "",
       ...(deadline
         ? [`À COMPLÉTER AVANT LE ${deadline.toUpperCase()}`, why, ""]
@@ -206,15 +299,12 @@ const invitationEspaceClient = (ctx: JourneyEmailContext): BuiltEmail => {
       textSignature(),
     ].join("\n"),
     html: shell({
-      heading: "Votre espace client est ouvert",
-      preheader:
-        "Renseignez vos informations pour préparer votre phase de test.",
+      heading: texte(ctx, "invitation-espace-client", "titre"),
+      preheader: texte(ctx, "invitation-espace-client", "apercu"),
       bodyHtml:
         paragraph(hello(ctx)) +
-        paragraph(
-          `Votre espace client est ouvert. C'est là que vous préparez la phase de test de <strong>${company(ctx)}</strong>${start ? `, qui démarre le <strong>${start}</strong>` : ""}.`,
-        ) +
-        paragraph("Vous y renseignez, à votre rythme :") +
+        paragraph(intro.html) +
+        paragraph(listeIntro.html) +
         bullets([
           "<strong>vos licences</strong> : qui utilisera TIM, et avec quel rôle",
           "vos <strong>salariés</strong>, vos <strong>chantiers</strong>, vos <strong>véhicules</strong> et vos <strong>engins</strong>",
@@ -224,10 +314,8 @@ const invitationEspaceClient = (ctx: JourneyEmailContext): BuiltEmail => {
           : paragraph(
               `<span style="color:${MUTED};font-size:14px;">Sans ces informations, nous ne pouvons pas préparer vos accès${start ? ` avant le ${start}` : ""}.</span>`,
             )) +
-        callout(
-          "Pas de mot de passe à retenir : vous saisissez votre adresse e-mail, un code à 6 chiffres vous est envoyé.",
-        ) +
-        button("Ouvrir mon espace client", PORTAL) +
+        callout(encadre.html) +
+        button(texte(ctx, "invitation-espace-client", "bouton"), PORTAL) +
         signature(),
     }),
   };
@@ -235,59 +323,39 @@ const invitationEspaceClient = (ctx: JourneyEmailContext): BuiltEmail => {
 
 const codeConnexion = (ctx: JourneyEmailContext): BuiltEmail => {
   const code = ctx.code ?? "000000";
+  const intro = bloc(ctx, "code-connexion", "intro");
+  const validite = bloc(ctx, "code-connexion", "validite");
+  const securite = bloc(ctx, "code-connexion", "securite");
   return {
-    subject: `${code} — votre code de connexion TIM`,
-    text: [
-      `Votre code de connexion à l'espace client${ctx.clientName ? ` de ${ctx.clientName}` : ""} :`,
-      "",
-      code,
-      "",
-      "Il est valable 15 minutes et ne fonctionne qu'une fois.",
-      "",
-      "Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.",
-    ].join("\n"),
+    subject: sujet(ctx, "code-connexion"),
+    text: [intro.text, "", code, "", validite.text, "", securite.text].join("\n"),
     html: shell({
-      heading: "Votre code de connexion",
-      preheader: `Code ${code} — valable 15 minutes.`,
+      heading: texte(ctx, "code-connexion", "titre"),
+      preheader: texte(ctx, "code-connexion", "apercu"),
       bodyHtml:
-        paragraph(
-          `Voici votre code pour accéder à l'espace client${ctx.clientName ? ` de <strong>${company(ctx)}</strong>` : ""}.`,
-        ) +
+        paragraph(intro.html) +
         refBox("Code de connexion", code) +
-        paragraph(
-          "Il est valable <strong>15 minutes</strong> et ne fonctionne qu'une seule fois.",
-        ) +
-        paragraph(
-          `<span style="color:${MUTED};font-size:14px;">Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail : personne n'a pu accéder à votre espace.</span>`,
-        ),
+        paragraph(validite.html) +
+        paragraph(`<span style="color:${MUTED};font-size:14px;">${securite.html}</span>`),
     }),
   };
 };
 
 const dossierRecu = (ctx: JourneyEmailContext): BuiltEmail => {
-  const start = frDate(ctx.startDate);
+  const intro = bloc(ctx, "dossier-recu", "intro");
+  const suite = bloc(ctx, "dossier-recu", "suite");
+  const encadre = bloc(ctx, "dossier-recu", "encadre");
   return {
-    subject: "Nous avons bien reçu votre dossier",
-    text: [
-      hello(ctx),
-      "",
-      "Votre dossier de démarrage nous est bien parvenu. Merci.",
-      "",
-      `Nous préparons vos accès${start ? ` pour le ${start}` : ""}. Vous les recevrez le matin du démarrage, prêts à être distribués à vos équipes.`,
-      "",
-      "Rien à faire de votre côté d'ici là.",
-      textSignature(),
-    ].join("\n"),
+    subject: sujet(ctx, "dossier-recu"),
+    text: [hello(ctx), "", intro.text, "", suite.text, "", encadre.text, textSignature()].join("\n"),
     html: shell({
-      heading: "Dossier bien reçu",
-      preheader: "Nous préparons vos accès.",
+      heading: texte(ctx, "dossier-recu", "titre"),
+      preheader: texte(ctx, "dossier-recu", "apercu"),
       bodyHtml:
         paragraph(hello(ctx)) +
-        paragraph("Votre dossier de démarrage nous est bien parvenu. Merci.") +
-        paragraph(
-          `Nous préparons vos accès${start ? ` pour le <strong>${start}</strong>` : ""}. Vous les recevrez le matin du démarrage, prêts à être distribués à vos équipes.`,
-        ) +
-        callout("Rien à faire de votre côté d'ici là.") +
+        paragraph(intro.html) +
+        paragraph(suite.html) +
+        callout(encadre.html) +
         signature(),
     }),
   };
@@ -301,37 +369,33 @@ const dossierRecu = (ctx: JourneyEmailContext): BuiltEmail => {
  * réagi au premier message ne réagira pas au même message répété.
  */
 const relanceCreneau = (ctx: JourneyEmailContext): BuiltEmail => {
-  const start = frDate(ctx.startDate);
   const url = `${PORTAL}/prise-en-main`;
+  const intro = bloc(ctx, "relance-creneau", "intro");
+  const format = bloc(ctx, "relance-creneau", "format");
+  const enjeu = bloc(ctx, "relance-creneau", "enjeu");
   return {
-    subject: "Il reste à réserver votre session de prise en main",
+    subject: sujet(ctx, "relance-creneau"),
     text: [
       hello(ctx),
       "",
-      `Votre test démarre${start ? ` le ${start}` : " dans quelques jours"}, et nous n'avons pas encore de créneau pour votre session de prise en main.`,
+      intro.text,
       "",
-      "45 minutes avec l'administrateur de votre compte — celui qui pilotera TIM au quotidien.",
-      "Les entreprises qui la font démarrent vraiment dès la première semaine ; les autres passent la leur à chercher comment faire.",
+      format.text,
+      enjeu.text,
       "",
       "Il reste des créneaux :",
       url,
       textSignature(),
     ].join("\n"),
     html: shell({
-      heading: "Il reste à réserver votre session de prise en main",
-      preheader: "45 minutes, avant le démarrage — il reste des créneaux.",
+      heading: texte(ctx, "relance-creneau", "titre"),
+      preheader: texte(ctx, "relance-creneau", "apercu"),
       bodyHtml:
         paragraph(hello(ctx)) +
-        paragraph(
-          `Votre test démarre${start ? ` le <strong>${start}</strong>` : " dans quelques jours"}, et nous n'avons pas encore de créneau pour votre session de prise en main.`,
-        ) +
-        paragraph(
-          "<strong>45 minutes</strong> avec l'administrateur de votre compte, celui qui pilotera TIM au quotidien.",
-        ) +
-        button("Choisir mon créneau", url) +
-        paragraph(
-          `<span style="color:${MUTED};font-size:14px;">Les entreprises qui font cette session démarrent dès la première semaine. Les autres passent la leur à chercher comment faire.</span>`,
-        ) +
+        paragraph(intro.html) +
+        paragraph(format.html) +
+        button(texte(ctx, "relance-creneau", "bouton"), url) +
+        paragraph(`<span style="color:${MUTED};font-size:14px;">${enjeu.html}</span>`) +
         signature(),
     }),
   };
@@ -344,76 +408,68 @@ const relanceCreneau = (ctx: JourneyEmailContext): BuiltEmail => {
  * créés le lundi matin. C'est ce qui fait agir, pas un rappel de règlement.
  */
 const relanceDossier = (ctx: JourneyEmailContext): BuiltEmail => {
-  const start = frDate(ctx.startDate);
   // Pas de date limite ici, contrairement à l'invitation : la relance part APRÈS
   // l'échéance annoncée (−3 j contre −5 j). Lui répéter « à compléter avant le
   // 26 » le 28 la décrédibiliserait. Le repère utile est devenu le démarrage.
   const url = `${PORTAL}/dossier`;
+  const intro = bloc(ctx, "relance-dossier", "intro");
+  const enjeu = bloc(ctx, "relance-dossier", "enjeu");
+  const note = bloc(ctx, "relance-dossier", "note");
   return {
-    subject: "Votre dossier de démarrage nous manque",
+    subject: sujet(ctx, "relance-dossier"),
     text: [
       hello(ctx),
       "",
-      "Nous n'avons pas encore reçu votre dossier de démarrage : vos salariés, vos chantiers, et votre matériel si vous en suivez.",
+      intro.text,
       "",
-      `C'est ce qui nous permet de créer les comptes de vos équipes${start ? ` pour le ${start}` : " pour le démarrage"}. Sans lui, vos accès ne seront pas prêts le jour J.`,
+      enjeu.text,
       "",
-      "Vous pouvez le remplir en plusieurs fois, il s'enregistre au fur et à mesure :",
+      note.text,
       url,
       textSignature(),
     ].join("\n"),
     html: shell({
-      heading: "Votre dossier de démarrage nous manque",
-      preheader: "Sans lui, vos accès ne seront pas prêts pour le démarrage.",
+      heading: texte(ctx, "relance-dossier", "titre"),
+      preheader: texte(ctx, "relance-dossier", "apercu"),
       bodyHtml:
         paragraph(hello(ctx)) +
-        paragraph(
-          "Nous n'avons pas encore reçu votre dossier de démarrage : vos salariés, vos chantiers, et votre matériel si vous en suivez.",
-        ) +
-        paragraph(
-          `C'est ce qui nous permet de créer les comptes de vos équipes${start ? ` pour le <strong>${start}</strong>` : " pour le démarrage"}. Sans lui, vos accès ne seront pas prêts le jour J.`,
-        ) +
-        button("Compléter mon dossier", url) +
-        paragraph(
-          `<span style="color:${MUTED};font-size:14px;">Vous pouvez le remplir en plusieurs fois : chaque section s'enregistre au fur et à mesure.</span>`,
-        ) +
+        paragraph(intro.html) +
+        paragraph(enjeu.html) +
+        button(texte(ctx, "relance-dossier", "bouton"), url) +
+        paragraph(`<span style="color:${MUTED};font-size:14px;">${note.html}</span>`) +
         signature(),
     }),
   };
 };
 
 const priseEnMain = (ctx: JourneyEmailContext): BuiltEmail => {
-  const start = frDate(ctx.startDate);
   const url = `${PORTAL}/prise-en-main`;
+  const intro = bloc(ctx, "prise-en-main", "intro");
+  const format = bloc(ctx, "prise-en-main", "format");
+  const note = bloc(ctx, "prise-en-main", "note");
   return {
-    subject: "45 minutes pour rendre votre équipe autonome",
+    subject: sujet(ctx, "prise-en-main"),
     text: [
       hello(ctx),
       "",
-      `Votre phase de test démarre${start ? ` le ${start}` : " bientôt"}. D'ici là, une seule chose à caler : la session de prise en main${ctx.sessionModality ? `, ${ctx.sessionModality}` : ""}.`,
+      intro.text,
       "",
-      "45 minutes, avec l'administrateur de votre compte — celui qui pilotera TIM au quotidien.",
+      format.text,
       "",
-      "Elle doit avoir lieu AVANT le démarrage : c'est une préparation, pas un rattrapage.",
+      note.text,
       "",
       url,
       textSignature(),
     ].join("\n"),
     html: shell({
-      heading: "45 minutes pour rendre votre équipe autonome",
-      preheader: "Choisissez votre créneau de prise en main.",
+      heading: texte(ctx, "prise-en-main", "titre"),
+      preheader: texte(ctx, "prise-en-main", "apercu"),
       bodyHtml:
         paragraph(hello(ctx)) +
-        paragraph(
-          `Votre phase de test démarre${start ? ` le <strong>${start}</strong>` : " bientôt"}. D'ici là, une seule chose à caler : la session de prise en main${ctx.sessionModality ? `, ${escape(ctx.sessionModality)}` : ""}.`,
-        ) +
-        paragraph(
-          "<strong>45 minutes</strong>, avec l'administrateur de votre compte, celui qui pilotera TIM au quotidien.",
-        ) +
-        button("Choisir mon créneau", url) +
-        paragraph(
-          `<span style="color:${MUTED};font-size:14px;">La session a lieu <strong>avant</strong> le démarrage : c'est une préparation, pas un rattrapage.</span>`,
-        ) +
+        paragraph(intro.html) +
+        paragraph(format.html) +
+        button(texte(ctx, "prise-en-main", "bouton"), url) +
+        paragraph(`<span style="color:${MUTED};font-size:14px;">${note.html}</span>`) +
         signature(),
     }),
   };
@@ -421,54 +477,49 @@ const priseEnMain = (ctx: JourneyEmailContext): BuiltEmail => {
 
 const accesPrets = (ctx: JourneyEmailContext): BuiltEmail => {
   const url = `${PORTAL}/acces`;
-  const count = ctx.credentialCount ?? 0;
+  const intro = bloc(ctx, "acces-prets", "intro");
+  const quiDistribue = bloc(ctx, "acces-prets", "qui_distribue");
+  const encadre = bloc(ctx, "acces-prets", "encadre");
+  const note = bloc(ctx, "acces-prets", "note");
   return {
-    subject: "Vos accès TIM sont prêts",
+    subject: sujet(ctx, "acces-prets"),
     text: [
       hello(ctx),
       "",
-      `Les comptes de ${ctx.clientName ?? "votre entreprise"} sont créés${count ? ` : ${count} accès` : ""}. Votre phase de test commence aujourd'hui.`,
+      intro.text,
       "",
-      "C'est vous qui les distribuez — vous savez mieux que nous qui doit commencer par quoi.",
+      quiDistribue.text,
       "",
-      "Dans votre espace client, chaque personne a sa ligne : identifiant et mot de passe. Imprimez-les pour les remettre en main propre, ou envoyez à chacun les siens par e-mail.",
+      encadre.text,
       "",
-      "Les identifiants ne sont pas dans cet e-mail : ils ne s'affichent qu'une fois connecté.",
+      note.text,
       "",
       url,
       textSignature(),
     ].join("\n"),
     html: shell({
-      heading: "Vos accès TIM sont prêts",
-      preheader: "À imprimer ou à envoyer à vos équipes.",
+      heading: texte(ctx, "acces-prets", "titre"),
+      preheader: texte(ctx, "acces-prets", "apercu"),
       bodyHtml:
         paragraph(hello(ctx)) +
-        paragraph(
-          `Les comptes de <strong>${company(ctx)}</strong> sont créés${count ? ` : <strong>${count} accès</strong>` : ""}. Votre phase de test commence aujourd'hui.`,
-        ) +
-        paragraph(
-          "C'est vous qui les distribuez — vous savez mieux que nous qui doit commencer par quoi.",
-        ) +
-        callout(
-          "Dans votre espace client, chaque personne a sa ligne : identifiant et mot de passe. Imprimez-les pour les remettre en main propre, ou envoyez à chacun les siens par e-mail.",
-        ) +
-        button("Voir et distribuer mes accès", url) +
-        paragraph(
-          `<span style="color:${MUTED};font-size:14px;">Les identifiants ne figurent pas dans CE message : ils ne s'affichent qu'une fois connecté à votre espace, d'où vous pourrez les envoyer à chacun.</span>`,
-        ) +
+        paragraph(intro.html) +
+        paragraph(quiDistribue.html) +
+        callout(encadre.html) +
+        button(texte(ctx, "acces-prets", "bouton"), url) +
+        paragraph(`<span style="color:${MUTED};font-size:14px;">${note.html}</span>`) +
         signature(),
     }),
   };
 };
 
-const suiviChantier = (ctx: JourneyEmailContext): BuiltEmail => ({
-  subject: "Le suivi de chantier, en 3 clics",
+const suiviChantier = (ctx: JourneyEmailContext): BuiltEmail => {
+  const intro = bloc(ctx, "suivi-chantier", "intro");
+  return {
+  subject: sujet(ctx, "suivi-chantier"),
   text: [
     hello(ctx),
     "",
-    "Aujourd'hui, une seule chose : créer un chantier et y affecter une équipe.",
-    "",
-    "C'est la brique sur laquelle tout le reste s'appuie — sans chantier, pas de pointage.",
+    intro.text,
     "",
     "  1. Créez votre chantier (nom, adresse, dates)",
     "  2. Affectez-y vos équipes",
@@ -478,152 +529,163 @@ const suiviChantier = (ctx: JourneyEmailContext): BuiltEmail => ({
     textSignature(),
   ].join("\n"),
   html: shell({
-    heading: "Le suivi de chantier, en 3 clics",
-    preheader: "La première chose à faire dans TIM.",
+    heading: texte(ctx, "suivi-chantier", "titre"),
+    preheader: texte(ctx, "suivi-chantier", "apercu"),
     bodyHtml:
       paragraph(hello(ctx)) +
-      paragraph(
-        "Aujourd'hui, une seule chose : <strong>créer un chantier et y affecter une équipe</strong>. C'est la brique sur laquelle tout le reste s'appuie — sans chantier, pas de pointage.",
-      ) +
+      paragraph(intro.html) +
       bullets([
         "Créez votre chantier : nom, adresse, dates",
         "Affectez-y vos équipes",
         "Vos compagnons pointent dessus depuis leur téléphone",
       ]) +
-      button("Voir comment faire", `${SITE_URL}/features`) +
+      button(texte(ctx, "suivi-chantier", "bouton"), `${SITE_URL}/features`) +
       signature(),
   }),
-});
+  };
+};
 
-const checkIn = (ctx: JourneyEmailContext): BuiltEmail => ({
-  subject: "Comment ça se passe sur le chantier ?",
-  text: [
-    hello(ctx),
-    "",
-    "Une semaine que votre test a démarré. On voulait savoir comment ça se passe de votre côté.",
-    "",
-    "Et si vous avez besoin de nous — une fonctionnalité à revoir, une question de vos équipes, un point à caler ensemble —, on reste disponibles jusqu'à la fin du test.",
-    "",
-    "Répondez directement à cet e-mail, on lit tout.",
-    textSignature(),
-  ].join("\n"),
-  // Volontairement dépouillé : pas de bouton, pas d'encadré. Un e-mail qui
-  // ressemble à une campagne n'obtient pas de réponse ; celui-ci en attend une.
-  // Et il ne présume rien : demander « qu'est-ce qui coince ? » à quelqu'un dont
-  // tout va bien, c'est lui donner une question à laquelle il n'a pas de réponse.
-  html: shell({
-    heading: "Comment ça se passe ?",
-    preheader: "On prend des nouvelles, et on reste dispo.",
-    bodyHtml:
-      paragraph(hello(ctx)) +
-      paragraph(
-        "Une semaine que votre test a démarré. On voulait savoir <strong>comment ça se passe</strong> de votre côté.",
-      ) +
-      paragraph(
-        "Et si vous avez besoin de nous — une fonctionnalité à revoir, une question de vos équipes, un point à caler ensemble —, on reste disponibles jusqu'à la fin du test.",
-      ) +
-      paragraph("Répondez directement à cet e-mail, on lit tout.") +
-      signature(),
-  }),
-});
+/**
+ * Les cinq visages : répondre sans avoir à rédiger.
+ *
+ * « Répondez à cet e-mail » suppose de trouver quoi écrire, et c'est
+ * exactement l'effort qui fait qu'on ne répond pas. Un clic, lui, coûte une
+ * seconde — et une réponse tiède vaut mieux qu'un silence dont on ne sait pas
+ * s'il veut dire « tout va bien » ou « on a laissé tomber ».
+ *
+ * En TABLEAU et non en flex : les messageries (Outlook en tête) ignorent la
+ * mise en page moderne, et cinq visages empilés en colonne ne se lisent plus
+ * comme une échelle. Le libellé sous chaque visage parce qu'un emoji ne se rend
+ * pas partout — mal affiché, il reste un mot cliquable.
+ */
+const smileyLinks = (runId: number | string) =>
+  SATISFACTION_LEVELS.map((level) => ({ ...level, url: satisfactionUrl(SITE_URL, runId, level.value) }))
+    .filter((l): l is typeof l & { url: string } => l.url !== null);
 
-const finProche = (ctx: JourneyEmailContext): BuiltEmail => {
-  const end = frDate(ctx.endDate);
+const smileys = (links: { emoji: string; label: string; url: string }[]): string =>
+  `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:4px 0 20px;"><tr>` +
+  links
+    .map(
+      (level) =>
+        `<td style="padding:0 6px 0 0;text-align:center;">` +
+        `<a href="${level.url}" style="display:inline-block;padding:10px 12px;border:1px solid ${BORDER};border-radius:10px;text-decoration:none;color:${MUTED};font-family:${FONT};font-size:11px;line-height:1.3;min-width:56px;">` +
+        `<span style="font-size:26px;line-height:1.2;">${level.emoji}</span><br>${escape(level.label)}` +
+        `</a></td>`,
+    )
+    .join("") +
+  `</tr></table>`;
+
+const checkIn = (ctx: JourneyEmailContext): BuiltEmail => {
+  const intro = bloc(ctx, "check-in", "intro");
+  const question = bloc(ctx, "check-in", "question");
+  const dispo = bloc(ctx, "check-in", "dispo");
+  const reponse = bloc(ctx, "check-in", "reponse");
+  const links = ctx.runId != null ? smileyLinks(ctx.runId) : [];
   return {
-    subject: "Votre test se termine dans 5 jours",
+    subject: sujet(ctx, "check-in"),
     text: [
       hello(ctx),
       "",
-      `Votre phase de test s'arrête${end ? ` le ${end}` : " dans quelques jours"}.`,
+      intro.text,
+      ...(links.length > 0
+        ? ["", question.text, ...links.map((l) => `  ${l.emoji} ${l.label} : ${l.url}`)]
+        : []),
       "",
-      "Avant ça, on vous propose 30 minutes pour faire le bilan : ce qui a marché, ce qui manque, et la suite si vous voulez continuer.",
+      dispo.text,
       "",
-      "Répondez à cet e-mail avec deux créneaux qui vous arrangent.",
+      reponse.text,
       textSignature(),
     ].join("\n"),
+    // Volontairement dépouillé : pas de bouton, pas d'encadré. Un e-mail qui
+    // ressemble à une campagne n'obtient pas de réponse ; celui-ci en attend une.
+    // Et il ne présume rien : demander « qu'est-ce qui coince ? » à quelqu'un dont
+    // tout va bien, c'est lui donner une question à laquelle il n'a pas de réponse.
     html: shell({
-      heading: "Votre test se termine bientôt",
-      preheader: "Faisons le bilan avant l'échéance.",
+      heading: texte(ctx, "check-in", "titre"),
+      preheader: texte(ctx, "check-in", "apercu"),
       bodyHtml:
         paragraph(hello(ctx)) +
-        paragraph(
-          `Votre phase de test s'arrête${end ? ` le <strong>${end}</strong>` : " dans quelques jours"}.`,
-        ) +
-        paragraph(
-          "Avant ça, on vous propose <strong>30 minutes</strong> pour faire le bilan : ce qui a marché, ce qui manque, et la suite si vous voulez continuer.",
-        ) +
-        paragraph(
-          "Répondez à cet e-mail avec deux créneaux qui vous arrangent.",
-        ) +
+        paragraph(intro.html) +
+        (links.length > 0 ? paragraph(question.html) + smileys(links) : "") +
+        paragraph(dispo.html) +
+        paragraph(reponse.html) +
+        signature(),
+    }),
+  };
+};
+
+const finProche = (ctx: JourneyEmailContext): BuiltEmail => {
+  const intro = bloc(ctx, "fin-proche", "intro");
+  const bilan = bloc(ctx, "fin-proche", "bilan");
+  const encadre = bloc(ctx, "fin-proche", "encadre");
+  return {
+    subject: sujet(ctx, "fin-proche"),
+    text: [hello(ctx), "", intro.text, "", bilan.text, "", encadre.text, textSignature()].join("\n"),
+    html: shell({
+      heading: texte(ctx, "fin-proche", "titre"),
+      preheader: texte(ctx, "fin-proche", "apercu"),
+      bodyHtml:
+        paragraph(hello(ctx)) +
+        paragraph(intro.html) +
+        paragraph(bilan.html) +
+        paragraph(encadre.html) +
         signature(),
     }),
   };
 };
 
 const dernierJour = (ctx: JourneyEmailContext): BuiltEmail => {
-  const end = frDate(ctx.endDate);
+  const intro = bloc(ctx, "dernier-jour", "intro");
+  const encadre = bloc(ctx, "dernier-jour", "encadre");
   return {
-    subject: `${end ? `${end.charAt(0).toUpperCase()}${end.slice(1)}` : "Demain"}, vos accès s'arrêtent`,
-    text: [
-      hello(ctx),
-      "",
-      `${end ? `Le ${end}` : "Demain"}, les comptes de ${ctx.clientName ?? "votre entreprise"} passent en lecture seule.`,
-      "",
-      "Vos chantiers et vos pointages sont conservés 30 jours. Au-delà, ils sont supprimés.",
-      textSignature(),
-    ].join("\n"),
+    subject: sujet(ctx, "dernier-jour"),
+    text: [hello(ctx), "", intro.text, "", encadre.text, textSignature()].join("\n"),
     html: shell({
-      heading: "Vos accès s'arrêtent bientôt",
-      preheader: "Vos données sont conservées 30 jours.",
+      heading: texte(ctx, "dernier-jour", "titre"),
+      preheader: texte(ctx, "dernier-jour", "apercu"),
       bodyHtml:
-        paragraph(hello(ctx)) +
-        paragraph(
-          `${end ? `Le <strong>${end}</strong>` : "Demain"}, les comptes de <strong>${company(ctx)}</strong> passent en lecture seule.`,
-        ) +
-        callout(
-          "Vos chantiers et vos pointages sont conservés <strong>30 jours</strong>. Au-delà, ils sont supprimés.",
-        ) +
-        signature(),
+        paragraph(hello(ctx)) + paragraph(intro.html) + callout(encadre.html) + signature(),
     }),
   };
 };
 
-const decision = (ctx: JourneyEmailContext): BuiltEmail => ({
-  subject: "Fin de votre test — votre décision",
-  text: [
-    hello(ctx),
-    "",
-    "Votre phase de test est terminée. Trois réponses possibles, et la troisième compte autant que les deux autres :",
-    "",
-    "  • Je continue",
-    "  • J'ai besoin de plus de temps",
-    "  • Je m'arrête",
-    "",
-    "Si TIM n'est pas le bon outil pour vous, dites-le-nous : ça nous aide plus qu'un silence poli.",
-    "",
-    "Répondez simplement à cet e-mail.",
-    textSignature(),
-  ].join("\n"),
-  html: shell({
-    heading: "Votre décision",
-    preheader: "Continuer, prolonger, ou s'arrêter.",
-    bodyHtml:
-      paragraph(hello(ctx)) +
-      paragraph(
-        "Votre phase de test est terminée. Trois réponses possibles :",
-      ) +
-      bullets([
-        "<strong>Je continue</strong>",
-        "J'ai besoin de <strong>plus de temps</strong>",
-        "<strong>Je m'arrête</strong>",
-      ]) +
-      callout(
-        "La troisième compte autant que les deux autres. Si TIM n'est pas le bon outil pour vous, dites-le-nous : ça nous aide plus qu'un silence poli.",
-      ) +
-      paragraph("Répondez simplement à cet e-mail.") +
-      signature(),
-  }),
-});
+const decision = (ctx: JourneyEmailContext): BuiltEmail => {
+  const intro = bloc(ctx, "decision", "intro");
+  const encadre = bloc(ctx, "decision", "encadre");
+  const reponse = bloc(ctx, "decision", "reponse");
+  return {
+    subject: sujet(ctx, "decision"),
+    text: [
+      hello(ctx),
+      "",
+      intro.text,
+      "",
+      "  • Je continue",
+      "  • J'ai besoin de plus de temps",
+      "  • Je m'arrête",
+      "",
+      encadre.text,
+      "",
+      reponse.text,
+      textSignature(),
+    ].join("\n"),
+    html: shell({
+      heading: texte(ctx, "decision", "titre"),
+      preheader: texte(ctx, "decision", "apercu"),
+      bodyHtml:
+        paragraph(hello(ctx)) +
+        paragraph(intro.html) +
+        bullets([
+          "<strong>Je continue</strong>",
+          "J'ai besoin de <strong>plus de temps</strong>",
+          "<strong>Je m'arrête</strong>",
+        ]) +
+        callout(encadre.html) +
+        paragraph(reponse.html) +
+        signature(),
+    }),
+  };
+};
 
 /**
  * Les participants annoncés, en lignes lisibles.
@@ -663,12 +725,14 @@ function attendeeLines(ctx: JourneyEmailContext): string[] {
 const creneauConfirme = (ctx: JourneyEmailContext): BuiltEmail => {
   const when = frDateTime(ctx.sessionAt);
   const link = ctx.sessionLink?.trim() || null;
+  const intro = bloc(ctx, "creneau-confirme", "intro");
+  const preparation = bloc(ctx, "creneau-confirme", "preparation");
   return {
-    subject: "Votre session de prise en main est réservée",
+    subject: sujet(ctx, "creneau-confirme"),
     text: [
       hello(ctx),
       "",
-      "Votre session de prise en main est confirmée.",
+      intro.text,
       "",
       when ? `Quand : ${when}` : "",
       `Durée : 45 minutes`,
@@ -678,17 +742,17 @@ const creneauConfirme = (ctx: JourneyEmailContext): BuiltEmail => {
       ...(attendeeLines(ctx).length
         ? ["Invités à cette session :", ...attendeeLines(ctx).map((l) => `  • ${l}`), ""]
         : []),
-      "Besoin de déplacer ce rendez-vous ? Répondez simplement à cet e-mail.",
+      preparation.text,
       textSignature(),
     ]
       .filter((l) => l !== "")
       .join("\n"),
     html: shell({
-      heading: "Votre session de prise en main est réservée",
-      preheader: when ? `C'est calé : ${when}.` : "C'est calé.",
+      heading: texte(ctx, "creneau-confirme", "titre"),
+      preheader: texte(ctx, "creneau-confirme", "apercu"),
       bodyHtml:
         paragraph(hello(ctx)) +
-        paragraph("Votre session de prise en main est confirmée.") +
+        paragraph(intro.html) +
         callout(
           [
             when ? `<strong>${when}</strong>` : null,
@@ -704,9 +768,7 @@ const creneauConfirme = (ctx: JourneyEmailContext): BuiltEmail => {
               `<strong>Invités à cette session</strong><br>${attendeeLines(ctx).map(escape).join("<br>")}`,
             )
           : "") +
-        paragraph(
-          `<span style="color:${MUTED};font-size:14px;">Besoin de déplacer ce rendez-vous&nbsp;? Répondez simplement à cet e-mail.</span>`,
-        ) +
+        paragraph(`<span style="color:${MUTED};font-size:14px;">${preparation.html}</span>`) +
         signature(),
     }),
   };
@@ -723,12 +785,14 @@ const creneauConfirme = (ctx: JourneyEmailContext): BuiltEmail => {
 const rappelCreneau = (ctx: JourneyEmailContext): BuiltEmail => {
   const when = frDateTime(ctx.sessionAt);
   const link = ctx.sessionLink?.trim() || null;
+  const intro = bloc(ctx, "rappel-creneau", "intro");
+  const preparation = bloc(ctx, "rappel-creneau", "preparation");
   return {
-    subject: "Votre session de prise en main, c'est demain",
+    subject: sujet(ctx, "rappel-creneau"),
     text: [
       hello(ctx),
       "",
-      when ? `Votre session de prise en main a lieu ${when}.` : "Votre session de prise en main a lieu demain.",
+      intro.text,
       "Comptez 45 minutes.",
       ctx.sessionModality ? `Où   : ${ctx.sessionModality}` : "",
       link ? `Lien : ${link}` : "",
@@ -736,9 +800,7 @@ const rappelCreneau = (ctx: JourneyEmailContext): BuiltEmail => {
       ...(attendeeLines(ctx).length
         ? ["Attendus à cette session :", ...attendeeLines(ctx).map((l) => `  • ${l}`), ""]
         : []),
-      "Pour que la séance serve à quelque chose :",
-      "  • être devant un ordinateur, pas seulement un téléphone ;",
-      "  • avoir sous la main un chantier en cours et deux ou trois salariés à saisir.",
+      preparation.text,
       "",
       "Un empêchement ? Répondez à cet e-mail, on replacera le rendez-vous.",
       textSignature(),
@@ -746,10 +808,13 @@ const rappelCreneau = (ctx: JourneyEmailContext): BuiltEmail => {
       .filter((l) => l !== "")
       .join("\n"),
     html: shell({
-      heading: "C'est demain",
-      preheader: when ? `Votre session de prise en main : ${when}.` : "Votre session de prise en main a lieu demain.",
+      heading: texte(ctx, "rappel-creneau", "titre"),
+      preheader: texte(ctx, "rappel-creneau", "apercu"),
       bodyHtml:
         paragraph(hello(ctx)) +
+        // L'introduction manquait ICI : réécrite, elle ne changeait que la
+        // version texte, et les deux versions du même message se contredisaient.
+        paragraph(intro.html) +
         callout(
           [
             when ? `<strong>${when}</strong>` : "<strong>Demain</strong>",
@@ -765,11 +830,7 @@ const rappelCreneau = (ctx: JourneyEmailContext): BuiltEmail => {
               `<strong>Attendus à cette session</strong><br>${attendeeLines(ctx).map(escape).join("<br>")}`,
             )
           : "") +
-        paragraph(
-          "<strong>Pour que la séance serve à quelque chose</strong><br>" +
-            "Être devant un ordinateur, pas seulement un téléphone.<br>" +
-            "Avoir sous la main un chantier en cours et deux ou trois salariés à saisir.",
-        ) +
+        paragraph(preparation.html) +
         paragraph(
           `<span style="color:${MUTED};font-size:14px;">Un empêchement&nbsp;? Répondez à cet e-mail, on replacera le rendez-vous.</span>`,
         ) +
@@ -782,10 +843,12 @@ const rappelCreneau = (ctx: JourneyEmailContext): BuiltEmail => {
 
 const creneauReserve = (ctx: JourneyEmailContext): BuiltEmail => {
   const when = frDateTime(ctx.sessionAt);
+  const intro = bloc(ctx, "creneau-reserve", "intro");
+  const preparation = bloc(ctx, "creneau-reserve", "preparation");
   return {
-    subject: `Créneau réservé — ${ctx.clientName ?? "votre client"}`,
+    subject: sujet(ctx, "creneau-reserve"),
     text: [
-      `${ctx.clientName ?? "Votre client"} a réservé sa session de prise en main.`,
+      intro.text,
       "",
       when ? `Quand : ${when}` : "",
       ctx.sessionModality ? `Où   : ${ctx.sessionModality}` : "",
@@ -793,17 +856,15 @@ const creneauReserve = (ctx: JourneyEmailContext): BuiltEmail => {
       ...(attendeeLines(ctx).length
         ? ["Seront présents :", ...attendeeLines(ctx).map((l) => `  • ${l}`), ""]
         : []),
-      "Le rendez-vous est dans votre agenda. Assurez-vous que l'administrateur du compte sera bien là : c'est lui qu'on forme, et lui qui fera tourner l'outil ensuite.",
+      preparation.text,
     ]
       .filter(Boolean)
       .join("\n"),
     html: shell({
-      heading: "Créneau réservé",
-      preheader: `${ctx.clientName ?? "Votre client"} a choisi son horaire.`,
+      heading: texte(ctx, "creneau-reserve", "titre"),
+      preheader: texte(ctx, "creneau-reserve", "apercu"),
       bodyHtml:
-        paragraph(
-          `<strong>${company(ctx)}</strong> a réservé sa session de prise en main.`,
-        ) +
+        paragraph(intro.html) +
         callout(
           [
             when ? `<strong>${when}</strong>` : null,
@@ -817,9 +878,7 @@ const creneauReserve = (ctx: JourneyEmailContext): BuiltEmail => {
               `<strong>Seront présents</strong><br>${attendeeLines(ctx).map(escape).join("<br>")}`,
             )
           : "") +
-        paragraph(
-          "Le rendez-vous est dans votre agenda. Assurez-vous que <strong>l'administrateur du compte</strong> sera bien là : c'est lui qu'on forme, et lui qui fera tourner l'outil ensuite.",
-        ),
+        paragraph(preparation.html),
     }),
   };
 };

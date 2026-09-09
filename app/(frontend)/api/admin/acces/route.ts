@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { hasAdminRole } from "@/core/access";
 import { payloadClient } from "@/core/payload-client";
+import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
 import { readTimAccesses } from "@/modules/marketing/lib/credential-secrets";
 import { buildTimAccessEmail, buildTimAccessRecapEmail } from "@/modules/marketing/lib/emails";
 import { LICENCE_PROFILE_OPTIONS } from "@/modules/marketing/lib/onboarding";
@@ -129,6 +130,9 @@ export async function POST(req: Request) {
     ctx.payload.logger.info(
       `[accès] récapitulatif de ${ready.length} accès envoyé à ${to} (client ${body.clientId}).`,
     );
+    // Les identifiants ont quitté le logiciel : voir la note de l'envoi
+    // individuel côté espace client.
+    await armAutoStep(ctx.payload, body.clientId, "remise-acces");
     return NextResponse.json({ ok: true, to, count: ready.length });
   }
 
@@ -165,5 +169,6 @@ export async function POST(req: Request) {
   ctx.payload.logger.info(
     `[accès] accès TIM envoyés à ${personne.email} depuis le back-office (client ${body.clientId}).`,
   );
+  await armAutoStep(ctx.payload, body.clientId, "remise-acces");
   return NextResponse.json({ ok: true, to: personne.email });
 }

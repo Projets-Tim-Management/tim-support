@@ -1269,6 +1269,10 @@ export interface JourneyRun {
         doneAt?: string | null;
         doneBy?: (number | null) | User;
         note?: string | null;
+        /**
+         * Posé par l'envoi de l'alerte. Vider pour la faire repartir.
+         */
+        notifiedAt?: string | null;
         id?: string | null;
       }[]
     | null;
@@ -1302,6 +1306,9 @@ export interface JourneyRun {
    * Dérivé des étapes. « Perdu » et « Annulé » se posent à la main et ne sont plus recalculés.
    */
   status?: ('preparation' | 'en-cours' | 'gagne' | 'perdu' | 'annule') | null;
+  satisfaction?: number | null;
+  satisfactionAt?: string | null;
+  satisfactionComment?: string | null;
   notes?: string | null;
   client: number | PartnerClient;
   /**
@@ -1393,11 +1400,14 @@ export interface MarketingJourney {
       }[]
     | null;
   /**
-   * Objets et libellés modifiables sans déploiement. Un envoi sans échéance est déclenché par un événement (connexion, transmission du dossier…).
+   * Quand chaque message part, à qui, et sous quelle étape il s'affiche. Le TEXTE des messages, objet compris, se règle dans l'onglet « Textes des e-mails ». Un envoi sans échéance est déclenché par un événement (connexion, transmission du dossier…).
    */
   emails?:
     | {
         key: string;
+        /**
+         * Le nom de ce message dans le back-office. L'objet reçu par le destinataire se règle dans l'onglet « Textes des e-mails ».
+         */
         subject: string;
         audience?: ('client' | 'tim' | 'partenaire') | null;
         anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session') | null;
@@ -1415,6 +1425,14 @@ export interface MarketingJourney {
          */
         trigger?: string | null;
         detail?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  emailTexts?:
+    | {
+        key: string;
+        slot: string;
+        value?: string | null;
         id?: string | null;
       }[]
     | null;
@@ -3005,6 +3023,7 @@ export interface JourneyRunsSelect<T extends boolean = true> {
         doneAt?: T;
         doneBy?: T;
         note?: T;
+        notifiedAt?: T;
         id?: T;
       };
   emails?:
@@ -3025,6 +3044,9 @@ export interface JourneyRunsSelect<T extends boolean = true> {
         id?: T;
       };
   status?: T;
+  satisfaction?: T;
+  satisfactionAt?: T;
+  satisfactionComment?: T;
   notes?: T;
   client?: T;
   journey?: T;
@@ -3077,6 +3099,14 @@ export interface MarketingJourneysSelect<T extends boolean = true> {
         stepKey?: T;
         trigger?: T;
         detail?: T;
+        id?: T;
+      };
+  emailTexts?:
+    | T
+    | {
+        key?: T;
+        slot?: T;
+        value?: T;
         id?: T;
       };
   active?: T;

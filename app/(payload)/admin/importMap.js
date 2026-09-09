@@ -99,6 +99,9 @@ import { JourneyStepRowLabel as JourneyStepRowLabel_02522917a685fae4d72c3fe2c8b0
 import { JourneyEmailRowLabel as JourneyEmailRowLabel_2a7e629310745e0192957a9f1db82354 } from '../../../modules/marketing/admin/JourneyEmailRowLabel'
 import { AdminOnlyTabs as AdminOnlyTabs_7f44b13f20fa34f65e1be48236cbac4a } from '../../../modules/marketing/admin/AdminOnlyTabs'
 import { RunStatusCell as RunStatusCell_bca3b66a118f960c09383a20d2f2a00d } from '../../../modules/marketing/admin/RunStatusCell'
+import { SatisfactionBox as SatisfactionBox_eee4d8fe12891673593cce002ef3e281 } from '../../../modules/marketing/admin/SatisfactionBox'
+import { OpenClientLink as OpenClientLink_d4b8d6d6e20c151b58184f76753e2fca } from '../../../modules/marketing/admin/OpenClientLink'
+import { EmailTextsEditor as EmailTextsEditor_07d676442ac8a9e9108733789787e041 } from '../../../modules/marketing/admin/EmailTextsEditor'
 import { SequenceMessageRowLabel as SequenceMessageRowLabel_e7e48e4e23bef92699ec37deb7eff91a } from '../../../modules/marketing/admin/SequenceMessageRowLabel'
 import { ConnectMailbox as ConnectMailbox_1d8ffe1ffcea50c41520fe4ff870ae27 } from '../../../modules/partner/admin/ConnectMailbox'
 import { SequenceMessagePreview as SequenceMessagePreview_1d83c136501c19d8287861487b154c08 } from '../../../modules/marketing/admin/SequenceMessagePreview'
@@ -225,6 +228,9 @@ export const importMap = {
   "/modules/marketing/admin/JourneyEmailRowLabel#JourneyEmailRowLabel": JourneyEmailRowLabel_2a7e629310745e0192957a9f1db82354,
   "/modules/marketing/admin/AdminOnlyTabs#AdminOnlyTabs": AdminOnlyTabs_7f44b13f20fa34f65e1be48236cbac4a,
   "/modules/marketing/admin/RunStatusCell#RunStatusCell": RunStatusCell_bca3b66a118f960c09383a20d2f2a00d,
+  "/modules/marketing/admin/SatisfactionBox#SatisfactionBox": SatisfactionBox_eee4d8fe12891673593cce002ef3e281,
+  "/modules/marketing/admin/OpenClientLink#OpenClientLink": OpenClientLink_d4b8d6d6e20c151b58184f76753e2fca,
+  "/modules/marketing/admin/EmailTextsEditor#EmailTextsEditor": EmailTextsEditor_07d676442ac8a9e9108733789787e041,
   "/modules/marketing/admin/SequenceMessageRowLabel#SequenceMessageRowLabel": SequenceMessageRowLabel_e7e48e4e23bef92699ec37deb7eff91a,
   "/modules/partner/admin/ConnectMailbox#ConnectMailbox": ConnectMailbox_1d8ffe1ffcea50c41520fe4ff870ae27,
   "/modules/marketing/admin/SequenceMessagePreview#SequenceMessagePreview": SequenceMessagePreview_1d83c136501c19d8287861487b154c08,

@@ -17,6 +17,7 @@ import {
   PHASE_DE_TEST_STEPS,
   SYSTEM_STEPS,
   canAutoValidate,
+  selfValidationDate,
   computeEmailSchedule,
   stepDueDate,
   isAdminStep,
@@ -905,5 +906,59 @@ describe("fiabilité de la lecture des agendas", () => {
 
   it("est fiable sans aucun agenda connecté : il n'y avait rien à lire", () => {
     expect(mergeBusyReadings([]).reliable).toBe(true);
+  });
+});
+
+/**
+ * « Accès distribués aux utilisateurs » : l'étape que personne ne devait cocher.
+ *
+ * Elle attendait une déclaration à la place du client — et c'est le PARTENAIRE
+ * qui la trouvait rouge sur sa fiche, pour un geste qui n'est pas le sien.
+ * Savoir si les mots de passe ont circulé chez lui n'est pas observable, et
+ * n'est pas notre affaire : l'étape se coche donc sur un accès réellement
+ * transmis, ou d'elle-même le lendemain de l'échéance.
+ */
+describe("« Accès distribués » ne se coche plus à la main", () => {
+  it("est un constat du système : aucun bouton ne la propose", () => {
+    expect(isSystemStep("remise-acces")).toBe(true);
+    expect(isManualStep({ key: "remise-acces" })).toBe(false);
+    expect(canAutoValidate({ key: "remise-acces", autoValidate: false })).toBe(true);
+  });
+
+  it("s'acquiert le LENDEMAIN de son échéance", () => {
+    // Démarrage le 7, échéance à J+1 (le 8), acquisition le 9.
+    const at = selfValidationDate(
+      { key: "remise-acces", anchor: "debut", offsetDays: 1 },
+      "2026-09-07T00:00:00.000Z",
+    );
+    expect(at?.slice(0, 10)).toBe("2026-09-09");
+  });
+
+  it("suit le démarrage : une date figée daterait sur un calendrier disparu", () => {
+    const at = selfValidationDate(
+      { key: "remise-acces", anchor: "debut", offsetDays: 1 },
+      "2026-10-05T00:00:00.000Z",
+    );
+    expect(at?.slice(0, 10)).toBe("2026-10-07");
+  });
+
+  it("ne s'applique qu'à elle : les autres étapes ne s'acquièrent pas d'elles-mêmes", () => {
+    expect(
+      selfValidationDate({ key: "releve-j2", anchor: "debut", offsetDays: 2 }, "2026-09-07T00:00:00.000Z"),
+    ).toBeNull();
+    // Le Go/No-Go engage TIM : il lui faut une décision, jamais une expiration.
+    expect(
+      selfValidationDate({ key: "validation-admin", anchor: "debut", offsetDays: 0 }, "2026-09-07T00:00:00.000Z"),
+    ).toBeNull();
+  });
+
+  it("sans démarrage, rien à dater", () => {
+    expect(selfValidationDate({ key: "remise-acces", anchor: "debut", offsetDays: 1 }, null)).toBeNull();
+  });
+
+  it("l'échéance atteinte, l'étape compte comme faite sans réenregistrement", () => {
+    const step = { key: "remise-acces", state: "auto", autoAt: "2026-09-09T00:00:00.000Z" };
+    expect(isStepDone(step, Date.parse("2026-09-08T12:00:00.000Z"))).toBe(false);
+    expect(isStepDone(step, Date.parse("2026-09-09T12:00:00.000Z"))).toBe(true);
   });
 });

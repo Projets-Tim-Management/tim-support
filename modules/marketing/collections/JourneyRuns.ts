@@ -37,6 +37,7 @@ import {
   AUTO_VALIDATE_DELAY_HOURS,
   NEVER_AUTO_VALIDATE,
   canAutoValidate,
+  selfValidationDate,
   mergeRunSteps,
   clampMailDate,
   computeEmailSchedule,
@@ -70,6 +71,8 @@ type RunStep = {
   actor?: string;
   state?: string;
   doneAt?: string | null;
+  /** Échéance de la validation automatique — lue et avancée par `armAutoSteps`. */
+  autoAt?: string | null;
   [k: string]: unknown;
 };
 
@@ -365,7 +368,7 @@ const reconcileFacts: CollectionBeforeChangeHook = async ({ data, originalDoc, r
       .catch(() => 0),
   ]);
 
-  const sessionAt = data?.sessionAt ?? originalDoc?.sessionAt;
+  const sessionAt = (data?.sessionAt ?? originalDoc?.sessionAt) as string | null | undefined;
   const acquis: Record<string, boolean> = {
     "compte-espace-client": Boolean(account) && account?.active !== false,
     "rdv-prise-en-main": Boolean(sessionAt),
@@ -414,6 +417,8 @@ const armAutoSteps: CollectionBeforeChangeHook = ({ data, originalDoc, operation
   void _drop;
 
   const at = new Date(Date.now() + AUTO_VALIDATE_DELAY_HOURS * 3_600_000).toISOString();
+  const startDate = (data?.startDate ?? originalDoc?.startDate) as string | null | undefined;
+  const endDate = (data?.endDate ?? originalDoc?.endDate) as string | null | undefined;
   let changed = false;
   const next = steps.map((s) => {
     // Désarmement rétroactif : un parcours lancé avant cette règle a pu armer le
@@ -424,10 +429,46 @@ const armAutoSteps: CollectionBeforeChangeHook = ({ data, originalDoc, operation
       changed = true;
       return { ...s, state: "a-faire", autoAt: null };
     }
-    if (s.key && armed.has(s.key) && canAutoValidate(s) && (s.state ?? "a-faire") === "a-faire") {
-      changed = true;
-      return { ...s, state: "auto", autoAt: at };
+    const state = (s.state ?? "a-faire") as string;
+
+    if (s.key && armed.has(s.key) && canAutoValidate(s)) {
+      if (state === "a-faire") {
+        changed = true;
+        return { ...s, state: "auto", autoAt: at };
+      }
+      /**
+       * Déjà en attente sur une échéance PLUS LOINTAINE : le fait constaté
+       * l'avance. Jamais l'inverse — un constat rapproche l'acquisition, il ne
+       * la repousse pas.
+       *
+       * C'est ce qui fait qu'un accès réellement transmis coche « Accès
+       * distribués » sans attendre le lendemain de l'échéance.
+       */
+      if (state === "auto" && s.autoAt && Date.parse(s.autoAt) > Date.parse(at)) {
+        changed = true;
+        return { ...s, autoAt: at };
+      }
     }
+
+    /**
+     * Étapes qui s'acquièrent d'elles-mêmes passé leur échéance : on pose la
+     * date d'acquisition dès qu'elle est calculable, et on la SUIT si le
+     * démarrage bouge. `isStepDone` fait le reste à la lecture — aucun travail
+     * de fond n'est nécessaire pour basculer l'état.
+     *
+     * Jamais sur une étape déjà faite, ni sur une échéance déjà avancée par un
+     * fait constaté : ce serait la repousser.
+     */
+    if (state !== "fait") {
+      const selfAt = selfValidationDate(s, startDate, endDate, sessionAt as string | null);
+      if (selfAt && !(state === "auto" && s.autoAt && Date.parse(s.autoAt) <= Date.parse(selfAt))) {
+        if (s.state !== "auto" || s.autoAt !== selfAt) {
+          changed = true;
+          return { ...s, state: "auto", autoAt: selfAt };
+        }
+      }
+    }
+
     return s;
   });
 
@@ -1631,6 +1672,25 @@ export const JourneyRuns: CollectionConfig = {
                   ],
                 },
                 { name: "note", type: "textarea", label: "Note" },
+                {
+                  /**
+                   * Date à laquelle le partenaire a été prévenu que cette étape
+                   * l'attendait.
+                   *
+                   * Le cron passe toutes les heures : sans cette marque, la même
+                   * alerte repartirait à chaque passage tant que l'étape n'est
+                   * pas validée. Elle ne dit rien de l'étape elle-même — la
+                   * vider fait simplement repartir l'annonce.
+                   */
+                  name: "notifiedAt",
+                  type: "date",
+                  label: "Partenaire prévenu le",
+                  admin: {
+                    readOnly: true,
+                    date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" },
+                    description: "Posé par l'envoi de l'alerte. Vider pour la faire repartir.",
+                  },
+                },
               ],
             },
             {
@@ -1736,6 +1796,44 @@ export const JourneyRuns: CollectionConfig = {
         components: { Cell: "/modules/marketing/admin/RunStatusCell#RunStatusCell" },
       },
     },
+    /**
+     * La réponse du client à « Comment ça se passe ? », renvoyée dans le
+     * parcours.
+     *
+     * En barre latérale et non dans un onglet : c'est un fait qu'on veut voir en
+     * ouvrant la fiche, pas une donnée qu'on va chercher. Une mauvaise note se
+     * rappelle le jour même — la découvrir au bilan, c'est la découvrir trop
+     * tard.
+     *
+     * En lecture seule : elle vient du client. La corriger à sa place en ferait
+     * notre avis sur notre propre travail.
+     */
+    {
+      name: "satisfaction",
+      type: "number",
+      label: "Satisfaction du client",
+      min: 1,
+      max: 5,
+      admin: {
+        position: "sidebar",
+        readOnly: true,
+        components: {
+          Field: "/modules/marketing/admin/SatisfactionBox#SatisfactionBox",
+        },
+      },
+    },
+    {
+      name: "satisfactionAt",
+      type: "date",
+      label: "Répondu le",
+      admin: { position: "sidebar", readOnly: true, hidden: true },
+    },
+    {
+      name: "satisfactionComment",
+      type: "textarea",
+      label: "Ce que le client a ajouté",
+      admin: { position: "sidebar", readOnly: true, hidden: true },
+    },
     { name: "notes", type: "textarea", label: "Notes internes", admin: { position: "sidebar" } },
 
     // ─── Identité et calendrier, en barre latérale ───────────────────────────
@@ -1753,6 +1851,16 @@ export const JourneyRuns: CollectionConfig = {
       // Pré-rempli quand on arrive depuis la fiche client
       // (« Démarrer une phase de test » → ?client=<id>).
       defaultValue: ({ req }) => req?.searchParams?.get?.("client") || undefined,
+    },
+    {
+      // Collé sous le champ Client : c'est en lisant le nom qu'on décide d'aller
+      // voir la fiche, et l'aller-retour est constant pendant un parcours.
+      name: "openClientLink",
+      type: "ui",
+      admin: {
+        position: "sidebar",
+        components: { Field: "/modules/marketing/admin/OpenClientLink#OpenClientLink" },
+      },
     },
     {
       name: "journey",

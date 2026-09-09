@@ -16,6 +16,8 @@ export type JourneyRunLike = {
   id: number | string;
   client?: unknown;
   partner?: unknown;
+  /** Le modèle suivi — il porte les textes repris à la main. */
+  journey?: unknown;
   startDate?: string | null;
   endDate?: string | null;
   sessionAt?: string | null;
@@ -27,7 +29,7 @@ export type JourneyRunLike = {
   attendeeRole?: string | null;
   attendeeEmail?: string | null;
   sessionGuests?: { email?: string | null; name?: string | null }[] | null;
-  steps?: { key?: string; anchor?: string; offsetDays?: number }[];
+  steps?: { key?: string | null; anchor?: string | null; offsetDays?: number | null }[];
 };
 
 /**
@@ -129,6 +131,8 @@ export async function buildJourneyContext(
 
   return {
     ctx: {
+      // Les visages de « Comment ça se passe ? » renvoient la réponse ICI.
+      runId: run.id,
       clientName: c?.companyName ?? null,
       contactFirstName: a?.firstName ?? null,
       partnerName: p?.displayName ?? null,

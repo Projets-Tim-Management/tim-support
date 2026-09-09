@@ -84,6 +84,9 @@ import * as migration_20260908_154930_liens_developpement from './20260908_15493
 import * as migration_20260908_172250_suppression_features from './20260908_172250_suppression_features';
 import * as migration_20260908_173328_ticket_entreprise_cliente from './20260908_173328_ticket_entreprise_cliente';
 import * as migration_20260909_074226_espace_client_hors_phase_de_test from './20260909_074226_espace_client_hors_phase_de_test';
+import * as migration_20260909_141218_alerte_etape_partenaire from './20260909_141218_alerte_etape_partenaire';
+import * as migration_20260909_143014_satisfaction_parcours from './20260909_143014_satisfaction_parcours';
+import * as migration_20260909_150344_textes_emails_parcours from './20260909_150344_textes_emails_parcours';
 
 export const migrations = [
   {
@@ -514,6 +517,21 @@ export const migrations = [
   {
     up: migration_20260909_074226_espace_client_hors_phase_de_test.up,
     down: migration_20260909_074226_espace_client_hors_phase_de_test.down,
-    name: '20260909_074226_espace_client_hors_phase_de_test'
+    name: '20260909_074226_espace_client_hors_phase_de_test',
+  },
+  {
+    up: migration_20260909_141218_alerte_etape_partenaire.up,
+    down: migration_20260909_141218_alerte_etape_partenaire.down,
+    name: '20260909_141218_alerte_etape_partenaire',
+  },
+  {
+    up: migration_20260909_143014_satisfaction_parcours.up,
+    down: migration_20260909_143014_satisfaction_parcours.down,
+    name: '20260909_143014_satisfaction_parcours',
+  },
+  {
+    up: migration_20260909_150344_textes_emails_parcours.up,
+    down: migration_20260909_150344_textes_emails_parcours.down,
+    name: '20260909_150344_textes_emails_parcours'
   },
 ];

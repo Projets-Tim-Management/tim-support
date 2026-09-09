@@ -350,6 +350,31 @@ export const SYSTEM_STEPS: Record<string, SystemStepDef> = {
       hint: "Fiche client, onglet « Dossier & accès » : recopiez le dossier dans TIM, puis générez les mots de passe des utilisateurs.",
     },
   },
+  "remise-acces": {
+    /**
+     * Le seul constat qui repose sur une ÉCHÉANCE autant que sur un fait.
+     *
+     * Ce que le client fait de ses identifiants se passe chez lui : il imprime
+     * les fiches, il les tend en réunion de chantier. Rien n'en revient. On a
+     * donc longtemps demandé à TIM ou au partenaire de cocher « le client a
+     * distribué les accès » — c'est-à-dire de déclarer un fait qu'ils n'ont pas
+     * constaté, sur une étape qui n'est même pas la leur.
+     *
+     * Deux constats la cochent désormais, et aucun humain :
+     *  - un accès RÉELLEMENT transmis (le client s'envoie les identifiants
+     *    depuis son espace, ou nous le faisons pour lui) : là, on sait ;
+     *  - à défaut, le lendemain de l'échéance. Savoir si les mots de passe ont
+     *    circulé n'est pas notre affaire, et un parcours ne doit pas rester
+     *    bloqué sur une case que personne n'a le droit de cocher honnêtement.
+     */
+    trigger: "au premier accès transmis, ou le lendemain de l'échéance",
+    action: {
+      label: "Envoyer les accès",
+      on: "client",
+      hint: "Fiche client, onglet « Dossier & accès » : envoyez les identifiants, à tous ou un par un.",
+    },
+    wait: "Le client distribue les identifiants à ses équipes",
+  },
   signature: {
     trigger: "quand la date de signature est enregistrée",
     action: {
@@ -361,7 +386,40 @@ export const SYSTEM_STEPS: Record<string, SystemStepDef> = {
   },
 };
 
-/** L'étape se coche-t-elle sur constat du système (donc jamais à la main) ? */
+/**
+ * Étapes qui s'acquièrent D'ELLES-MÊMES, N jours après leur échéance.
+ *
+ * Le complément des constats : certaines étapes dépendent d'un geste qu'on ne
+ * peut pas observer et qui ne nous regarde pas. Les laisser en attente
+ * indéfiniment bloque la lecture du parcours et fait apparaître un retard qui
+ * n'en est pas un ; demander à quelqu'un de les cocher lui fait déclarer un
+ * fait qu'il n'a pas constaté.
+ *
+ * Le délai n'est pas zéro : l'échéance passe à minuit, et il faut laisser la
+ * journée au geste réel — un envoi d'accès depuis l'espace client avance
+ * l'acquisition sans attendre.
+ */
+export const SELF_VALIDATING_STEPS: Record<string, number> = { "remise-acces": 1 };
+
+/**
+ * Quand cette étape s'acquerra-t-elle toute seule ? `null` si jamais.
+ *
+ * Calculée depuis l'échéance de l'étape, donc elle SUIT un démarrage déplacé :
+ * une date figée à la création daterait l'acquisition sur un calendrier qui
+ * n'existe plus.
+ */
+export const selfValidationDate = (
+  step: { key?: string | null; anchor?: string | null; offsetDays?: number | null },
+  startDate?: string | null,
+  endDate?: string | null,
+  sessionAt?: string | null,
+): string | null => {
+  const days = step.key ? SELF_VALIDATING_STEPS[step.key] : undefined;
+  if (days === undefined) return null;
+  const due = stepDueDate(step, startDate, endDate, sessionAt);
+  return due ? addDays(due, days) : null;
+};
+
 /**
  * Réconcilie les étapes d'un parcours EN COURS avec le modèle courant.
  *
@@ -661,7 +719,9 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
     label: "Accès distribués aux utilisateurs",
     actor: "client",
     phase: "pendant-test",
-    detail: "C'est le client qui remet les identifiants à ses utilisateurs.",
+    autoValidate: true,
+    detail:
+      "C'est le client qui remet les identifiants à ses utilisateurs. L'étape se coche au premier accès transmis depuis l'espace client, ou d'elle-même le lendemain.",
     anchor: "debut",
     offsetDays: 1,
   },

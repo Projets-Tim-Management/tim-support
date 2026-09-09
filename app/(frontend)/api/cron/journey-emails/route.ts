@@ -17,7 +17,17 @@ import {
 import { hasTemplate } from "@/modules/marketing/lib/emails";
 import { DEFAULT_SEND_HOUR, PHASE_DE_TEST_EMAILS } from "@/modules/marketing/lib/journey";
 import { notifyAdminsAccessMissing } from "@/modules/marketing/lib/notify";
-import { sendJourneyEmail, sendPartnerWeeklyRecap } from "@/modules/marketing/lib/send";
+import {
+  isPartnerStepHour,
+  partnerStepsDue,
+  type PartnerStep,
+  type StepContact,
+} from "@/modules/marketing/lib/partner-steps";
+import {
+  sendJourneyEmail,
+  sendPartnerStepAlert,
+  sendPartnerWeeklyRecap,
+} from "@/modules/marketing/lib/send";
 
 /**
  * Envoi quotidien des messages datés du parcours.
@@ -49,6 +59,9 @@ type Run = {
   displayName?: string | null;
   currentStepLabel?: string | null;
   emails?: ScheduledEmail[];
+  /** Étapes du parcours : c'est là que vivent celles qui attendent le partenaire. */
+  steps?: PartnerStep[];
+  sessionAt?: string | null;
   /** Personnes attendues à la session : destinataires des rappels de créneau. */
   attendeeEmail?: string | null;
   sessionGuests?: { email?: string | null }[] | null;
@@ -68,6 +81,52 @@ const idOf = (ref: unknown): number | string | null => {
   if (typeof ref === "object") return ((ref as { id?: number | string }).id ?? null) as number | string | null;
   return ref as number | string;
 };
+
+/**
+ * QUI appeler chez ce client.
+ *
+ * Ces étapes se font au téléphone : « le partenaire se connecte au compte du
+ * client et note ce qu'il constate » commence par un appel. Chercher le bon
+ * interlocuteur dans la fiche est précisément le travail que l'alerte doit
+ * éviter — d'où le numéro dans le message.
+ *
+ * On PRIVILÉGIE un contact qui a un numéro : le premier de la liste peut très
+ * bien n'avoir qu'une adresse, et une alerte « à contacter » sans moyen de le
+ * faire ne vaut pas mieux que rien.
+ */
+async function callableContact(
+  payload: Awaited<ReturnType<typeof payloadClient>>,
+  clientId: number | string,
+): Promise<StepContact | null> {
+  try {
+    const res = await payload.find({
+      collection: "client-contacts",
+      where: { client: { equals: clientId } },
+      limit: 20,
+      depth: 0,
+      overrideAccess: true,
+    });
+    const docs = res.docs as Array<{
+      firstName?: string | null;
+      lastName?: string | null;
+      role?: string | null;
+      phone?: string | null;
+      email?: string | null;
+    }>;
+    if (docs.length === 0) return null;
+    const pick = docs.find((c) => c.phone?.trim()) ?? docs[0];
+    return {
+      name: [pick.firstName, pick.lastName].filter(Boolean).join(" ").trim() || null,
+      role: pick.role ?? null,
+      phone: pick.phone ?? null,
+      email: pick.email ?? null,
+    };
+  } catch {
+    // Le contact est un CONFORT : sans lui le message reste juste, il oblige
+    // seulement à ouvrir la fiche. On n'annule pas l'alerte pour ça.
+    return null;
+  }
+}
 
 /**
  * Les faits dont dépendent les envois conditionnels, lus en une fois.
@@ -221,6 +280,63 @@ export async function GET(req: Request) {
     }
   }
 
+  // ── Étapes qui attendent le partenaire ────────────────────────────────────
+  /**
+   * « Appelez telle entreprise et validez l'étape. »
+   *
+   * Six étapes du parcours attendent le partenaire. Elles portaient une
+   * échéance qui ne servait qu'à dessiner la barre d'étapes : personne n'était
+   * prévenu, et une étape se découvrait en ouvrant la fiche, par hasard.
+   *
+   * ⚠️ À une HEURE précise, comme le récapitulatif : une échéance tombe à
+   * minuit et ce cron passe toutes les heures — l'alerte serait partie à 1 h du
+   * matin. Le doublon, lui, est écarté par `notifiedAt`, posé sur chaque étape
+   * annoncée.
+   */
+  let alerts = 0;
+  if (isPartnerStepHour(now)) {
+    for (const run of res.docs as Run[]) {
+      const due = partnerStepsDue(run, now);
+      if (due.length === 0) continue;
+
+      const partnerId = idOf(run.partner);
+      if (partnerId == null) {
+        note("step_no_partner");
+        continue;
+      }
+      const partner = (await payload
+        .findByID({ collection: "partners", id: partnerId, depth: 0, overrideAccess: true })
+        .catch(() => null)) as { id: number | string; email?: string } | null;
+      if (!partner?.email) {
+        note("step_partner_no_email");
+        continue;
+      }
+      if (dry) {
+        alerts++;
+        continue;
+      }
+
+      const clientId = idOf(run.client);
+      const client = clientId != null
+        ? ((await payload
+            .findByID({ collection: "partner-clients", id: clientId, depth: 0, overrideAccess: true })
+            .catch(() => null)) as { companyName?: string } | null)
+        : null;
+
+      const r = await sendPartnerStepAlert(payload, {
+        runId: run.id,
+        partner,
+        steps: due,
+        clientId,
+        clientName: client?.companyName ?? run.displayName?.split(" — ")[0] ?? null,
+        contact: clientId != null ? await callableContact(payload, clientId) : null,
+        endDate: run.endDate,
+      });
+      if (r.sent) alerts++;
+      else note(`step_${r.reason}`);
+    }
+  }
+
   // ── Récapitulatif hebdomadaire des partenaires (le lundi) ─────────────────
   // Greffé sur ce cron plutôt que déclaré à part : un cron de moins à
   // surveiller, et surtout une seule exécution à comprendre quand on se demande
@@ -271,6 +387,7 @@ export async function GET(req: Request) {
   const summary = {
     ok: true,
     dry,
+    alerts,
     recaps,
     runs: res.docs.length,
     sent: sent.length,
