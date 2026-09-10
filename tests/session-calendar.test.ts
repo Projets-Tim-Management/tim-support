@@ -66,8 +66,8 @@ describe("créneau posé pour la première fois", () => {
     const r = await syncSessionEvent(payload, RUN, null);
     expect(calls).toEqual(["create"]);
     expect(r.action).toBe("created");
-    expect(r.sessionEventId).toBe("evt-1");
-    expect(r.sessionLink).toBe("https://meet.google.com/abc-defg-hij");
+    expect(r.eventId).toBe("evt-1");
+    expect(r.link).toBe("https://meet.google.com/abc-defg-hij");
   });
 
   it("agit que le créneau vienne de l'espace client ou d'une saisie à la main", async () => {
@@ -76,7 +76,7 @@ describe("créneau posé pour la première fois", () => {
     calls.length = 0;
     const aLaMain = await syncSessionEvent(payload, { ...RUN }, null);
     expect(parLeClient.action).toBe(aLaMain.action);
-    expect(parLeClient.sessionLink).toBe(aLaMain.sessionLink);
+    expect(parLeClient.link).toBe(aLaMain.link);
   });
 });
 
@@ -91,7 +91,7 @@ describe("créneau déplacé", () => {
     expect(calls).toEqual(["update"]);
     expect(provider.createEvent).not.toHaveBeenCalled();
     expect(r.action).toBe("updated");
-    expect(r.sessionEventId).toBe("evt-1");
+    expect(r.eventId).toBe("evt-1");
   });
 });
 
@@ -104,16 +104,16 @@ describe("créneau retiré", () => {
     );
     expect(calls).toEqual(["delete"]);
     expect(r.action).toBe("deleted");
-    expect(r.sessionEventId).toBeNull();
+    expect(r.eventId).toBeNull();
     // Sans ça, l'écran continuerait d'afficher un lien vers une réunion annulée.
-    expect(r.sessionLink).toBeNull();
+    expect(r.link).toBeNull();
   });
 });
 
 describe("session sur place", () => {
   it("n'expose aucun lien de visio", async () => {
     const r = await syncSessionEvent(payload, { ...RUN, sessionMode: "sur-place" }, null);
-    expect(r.sessionLink).toBeNull();
+    expect(r.link).toBeNull();
   });
 });
 
@@ -142,7 +142,7 @@ describe("panne d'agenda", () => {
     // Aucune exception : c'est le point. Le client ne doit pas être puni pour un
     // jeton expiré côté partenaire.
     expect(r.action).toBe("none");
-    expect(r.sessionEventId).toBeUndefined();
+    expect(r.eventId).toBeUndefined();
   });
 
   it("oublie un événement disparu de l'agenda plutôt que de s'acharner dessus", async () => {
@@ -154,6 +154,6 @@ describe("panne d'agenda", () => {
     );
     // L'identifiant est effacé : la prochaine sauvegarde recréera un événement
     // au lieu d'échouer indéfiniment sur celui qui n'existe plus.
-    expect(r.sessionEventId).toBeNull();
+    expect(r.eventId).toBeNull();
   });
 });

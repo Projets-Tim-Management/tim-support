@@ -96,7 +96,17 @@ export const ClientPortalAccounts: CollectionConfig = {
           // la recherche ne le voit pas et l'invitation ne part jamais.
           req,
         );
-        if (!sent.sent) {
+        /**
+         * « Pas de parcours » n'est plus une anomalie : on ouvre parfois un
+         * espace à un prospect sans enclencher de phase de test (bouton
+         * « Ouvrir un espace client » sur la fiche). L'invitation part alors à
+         * la demande, depuis l'encart de l'onglet.
+         *
+         * Les autres échecs restent des avertissements : un accès ouvert dont
+         * l'invitation n'est pas partie est le pire des états — tout a l'air
+         * fait, et le client n'a rien reçu.
+         */
+        if (!sent.sent && sent.reason !== "no_run") {
           req.payload.logger.warn(
             `[parcours] accès espace client ${doc?.email} ouvert, mais invitation NON envoyée (${sent.reason}).`,
           );
@@ -131,6 +141,24 @@ export const ClientPortalAccounts: CollectionConfig = {
       admin: {
         description:
           "Décoché = le client ne peut pas demander de code. C'est la case qui OUVRE l'espace : la cocher envoie l'invitation (une seule fois) et coche l'étape du parcours. Elle se coche d'elle-même à la validation du Go/No-Go.",
+      },
+    },
+    /**
+     * Date d'envoi de l'invitation — écrite par l'envoi ISOLÉ (hors phase de
+     * test), qui n'a pas de parcours où se marquer.
+     *
+     * Quand un parcours existe, la trace vit sur sa ligne d'e-mail : c'est elle
+     * qui fait foi, et l'encart lit les deux. Deux sources, mais une seule à la
+     * fois — un accès n'a jamais les deux histoires.
+     */
+    {
+      name: "invitationSentAt",
+      type: "date",
+      label: "Invitation envoyée le",
+      admin: {
+        readOnly: true,
+        date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" },
+        description: "Renseignée par l'envoi depuis l'encart, hors phase de test.",
       },
     },
     {

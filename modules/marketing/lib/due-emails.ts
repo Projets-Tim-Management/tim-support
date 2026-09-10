@@ -195,7 +195,8 @@ export const CRON_GRACE_MINUTES = 15;
  * chaque cadence d'une heure au printemps — assez pour tomber systématiquement
  * à côté du bon passage horaire.
  */
-const aParis = (ms: number): { jour: string; heure: number } => {
+/** Jour et heure à PARIS — le cron tourne en UTC, les envois se pensent ici. */
+export const aParis = (ms: number): { jour: string; heure: number } => {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Europe/Paris",
     weekday: "short",

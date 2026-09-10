@@ -48,7 +48,9 @@ export const metadata: Metadata = {
  */
 export default async function DossierPage() {
   const ctx = await getPortalClient();
-  if (!ctx) redirect("/espace-client");
+  // Sans session, on passe par la connexion — en DISANT où l'on allait,
+  // sinon le lien reçu par e-mail se perd sur l'accueil.
+  if (!ctx) redirect("/espace-client?next=/espace-client/dossier");
 
   const payload = await payloadClient();
   const counts = await Promise.all(

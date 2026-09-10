@@ -12,7 +12,9 @@ export const metadata: Metadata = {
 
 export default async function PriseEnMainPage() {
   const ctx = await getPortalClient();
-  if (!ctx) redirect("/espace-client");
+  // Sans session, on passe par la connexion — en DISANT où l'on allait,
+  // sinon le lien reçu par e-mail se perd sur l'accueil.
+  if (!ctx) redirect("/espace-client?next=/espace-client/prise-en-main");
 
   return (
     <div className="px-6 py-10 sm:px-8">

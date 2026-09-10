@@ -95,7 +95,7 @@ export const PORTAL_SECTIONS: PortalSection[] = [
     // devenue — une liste d'utilisateurs avec leur profil de licence, et non plus
     // la seule personne à contacter.
     intro:
-      "Les personnes qui utiliseront TIM chez vous, avec leur profil de licence. Nous créons leurs accès à partir de cette liste ; vous les récupérez dans votre espace et vous les leur remettez vous-même.",
+      "Les personnes qui utiliseront TIM, avec leur profil de licence. Nous créons leurs accès à partir de cette liste.",
     columns: ["firstName", "lastName", "email", "licenceProfile"],
     fields: [
       { name: "firstName", label: "Prénom", type: "text", placeholder: "Luis", required: true, half: true },
@@ -136,7 +136,7 @@ export const PORTAL_SECTIONS: PortalSection[] = [
     collection: "client-employees",
     min: 1,
     intro:
-      "Tout votre effectif entre dans TIM : pointage, planning, affectation aux chantiers. Les personnes qui utiliseront le logiciel se déclarent à part, dans « Utilisateurs TIM ».",
+      "Tout votre effectif : pointage, planning, chantiers. Les utilisateurs du logiciel se déclarent dans « Utilisateurs TIM ».",
     columns: ["matricule", "firstName", "lastName", "poste"],
     fields: [
       {

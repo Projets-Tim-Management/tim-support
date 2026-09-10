@@ -1,6 +1,7 @@
 import type { Payload } from "payload";
 
 import { decryptSecret, encryptSecret } from "@/core/lib/secrets";
+import { profileRank } from "@/modules/partner/lib/pricing";
 
 /**
  * Mots de passe des accès de test : chiffrés au repos, lus par exception.
@@ -134,12 +135,32 @@ export async function readTimAccesses(
   } as any);
 
   const docs = ((res as { docs?: unknown[] })?.docs ?? []) as Array<Record<string, unknown>>;
-  return docs.map((d) => ({
-    id: d.id as number | string,
-    firstName: (d.firstName as string) ?? null,
-    lastName: (d.lastName as string) ?? null,
-    email: (d.email as string) ?? null,
-    licenceProfile: (d.licenceProfile as string) ?? null,
-    timPassword: readPassword(d.timPassword as string | null),
-  }));
+  return (
+    docs
+      .map((d) => ({
+        id: d.id as number | string,
+        firstName: (d.firstName as string) ?? null,
+        lastName: (d.lastName as string) ?? null,
+        email: (d.email as string) ?? null,
+        licenceProfile: (d.licenceProfile as string) ?? null,
+        timPassword: readPassword(d.timPassword as string | null),
+      }))
+      /**
+       * Rangés par NIVEAU, pas par nom.
+       *
+       * Une liste alphabétique met un compagnon entre deux conducteurs : celui
+       * qui distribue les accès doit alors relire chaque ligne pour savoir à qui
+       * il parle. Par niveau, les trois écrans qui lisent cette liste — espace
+       * client, récapitulatif par e-mail, feuille d'impression — se parcourent
+       * du haut vers le terrain, et se recoupent entre eux.
+       *
+       * Le nom départage à niveau égal : sans lui, l'ordre viendrait de la base
+       * et bougerait d'un affichage à l'autre.
+       */
+      .sort(
+        (a, b) =>
+          profileRank(a.licenceProfile) - profileRank(b.licenceProfile) ||
+          (a.lastName ?? "").localeCompare(b.lastName ?? "", "fr"),
+      )
+  );
 }

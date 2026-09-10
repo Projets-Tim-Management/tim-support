@@ -499,6 +499,7 @@ export interface PartnerClient {
    * Contact, puis envoi des factures.
    */
   email: string;
+  portalOpened?: boolean | null;
   clientStatus?:
     | (
         | 'nouvelle'
@@ -1122,6 +1123,10 @@ export interface ClientPortalAccount {
    * Décoché = le client ne peut pas demander de code. C'est la case qui OUVRE l'espace : la cocher envoie l'invitation (une seule fois) et coche l'étape du parcours. Elle se coche d'elle-même à la validation du Go/No-Go.
    */
   active?: boolean | null;
+  /**
+   * Renseignée par l'envoi depuis l'encart, hors phase de test.
+   */
+  invitationSentAt?: string | null;
   lastLoginAt?: string | null;
   codeHash?: string | null;
   codeExpiresAt?: string | null;
@@ -1227,6 +1232,15 @@ export interface JourneyRun {
       }[]
     | null;
   sessionEventId?: string | null;
+  /**
+   * Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.
+   */
+  reviewAt?: string | null;
+  /**
+   * Créé avec l'événement d'agenda. À remplir à la main si vous calez le rendez-vous vous-même.
+   */
+  reviewLink?: string | null;
+  reviewEventId?: string | null;
   extensions?:
     | {
         /**
@@ -1259,11 +1273,15 @@ export interface JourneyRun {
         actor?: ('partenaire' | 'admin' | 'client') | null;
         phase?: ('avant-test' | 'pendant-test' | 'sortie-test') | null;
         detail?: string | null;
-        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session') | null;
+        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session' | 'bilan') | null;
         offsetDays?: number | null;
         doneAt?: string | null;
         doneBy?: (number | null) | User;
         note?: string | null;
+        /**
+         * Posé par l'envoi de l'alerte. Vider pour la faire repartir.
+         */
+        notifiedAt?: string | null;
         id?: string | null;
       }[]
     | null;
@@ -1297,6 +1315,9 @@ export interface JourneyRun {
    * Dérivé des étapes. « Perdu » et « Annulé » se posent à la main et ne sont plus recalculés.
    */
   status?: ('preparation' | 'en-cours' | 'gagne' | 'perdu' | 'annule') | null;
+  satisfaction?: number | null;
+  satisfactionAt?: string | null;
+  satisfactionComment?: string | null;
   notes?: string | null;
   client: number | PartnerClient;
   /**
@@ -1379,7 +1400,7 @@ export interface MarketingJourney {
          * Sans effet si aucun fait observable n'est associé à cette étape. Les étapes que le logiciel sait constater (voir SYSTEM_STEPS) se valident seules de toute façon : cette règle vit dans le code, pas dans cette case.
          */
         autoValidate?: boolean | null;
-        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session') | null;
+        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session' | 'bilan') | null;
         /**
          * Négatif = avant l'ancrage. Ex. -7 = une semaine avant.
          */
@@ -1388,14 +1409,17 @@ export interface MarketingJourney {
       }[]
     | null;
   /**
-   * Objets et libellés modifiables sans déploiement. Un envoi sans échéance est déclenché par un événement (connexion, transmission du dossier…).
+   * Quand chaque message part, à qui, et sous quelle étape il s'affiche. Le TEXTE des messages, objet compris, se règle dans l'onglet « Textes des e-mails ». Un envoi sans échéance est déclenché par un événement (connexion, transmission du dossier…).
    */
   emails?:
     | {
         key: string;
+        /**
+         * Le nom de ce message dans le back-office. L'objet reçu par le destinataire se règle dans l'onglet « Textes des e-mails ».
+         */
         subject: string;
         audience?: ('client' | 'tim' | 'partenaire') | null;
-        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session') | null;
+        anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session' | 'bilan') | null;
         offsetDays?: number | null;
         /**
          * Heure de Paris. Une date sans heure partirait à minuit.
@@ -1410,6 +1434,14 @@ export interface MarketingJourney {
          */
         trigger?: string | null;
         detail?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  emailTexts?:
+    | {
+        key: string;
+        slot: string;
+        value?: string | null;
         id?: string | null;
       }[]
     | null;
@@ -2728,6 +2760,7 @@ export interface PartnersSelect<T extends boolean = true> {
 export interface PartnerClientsSelect<T extends boolean = true> {
   companyName?: T;
   email?: T;
+  portalOpened?: T;
   clientStatus?: T;
   partner?: T;
   lossReason?: T;
@@ -2971,6 +3004,9 @@ export interface JourneyRunsSelect<T extends boolean = true> {
         id?: T;
       };
   sessionEventId?: T;
+  reviewAt?: T;
+  reviewLink?: T;
+  reviewEventId?: T;
   extensions?:
     | T
     | {
@@ -2999,6 +3035,7 @@ export interface JourneyRunsSelect<T extends boolean = true> {
         doneAt?: T;
         doneBy?: T;
         note?: T;
+        notifiedAt?: T;
         id?: T;
       };
   emails?:
@@ -3019,6 +3056,9 @@ export interface JourneyRunsSelect<T extends boolean = true> {
         id?: T;
       };
   status?: T;
+  satisfaction?: T;
+  satisfactionAt?: T;
+  satisfactionComment?: T;
   notes?: T;
   client?: T;
   journey?: T;
@@ -3071,6 +3111,14 @@ export interface MarketingJourneysSelect<T extends boolean = true> {
         stepKey?: T;
         trigger?: T;
         detail?: T;
+        id?: T;
+      };
+  emailTexts?:
+    | T
+    | {
+        key?: T;
+        slot?: T;
+        value?: T;
         id?: T;
       };
   active?: T;
@@ -3337,6 +3385,7 @@ export interface ClientPortalAccountsSelect<T extends boolean = true> {
   firstName?: T;
   lastName?: T;
   active?: T;
+  invitationSentAt?: T;
   lastLoginAt?: T;
   codeHash?: T;
   codeExpiresAt?: T;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { hasAdminRole, isPartnerMetier, partnerIdOf } from "@/core/access";
 import { payloadClient } from "@/core/payload-client";
+import { readEmailTexts } from "@/modules/marketing/lib/email-overrides";
 import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
 import { sessionSummary, stepDueDate } from "@/modules/marketing/lib/journey";
 import {
@@ -165,7 +166,16 @@ export async function GET(req: Request) {
         ? stepDueDate(dossierStep, run.startDate ?? null, run.endDate ?? null)
         : null;
 
+      // Les mêmes reprises qu'à l'envoi : un aperçu qui ignore ce qui a été
+      // réécrit dans le modèle montre un message que personne ne recevra.
+      const texts = await readEmailTexts(payload, (run as { journey?: unknown }).journey, key);
+
       const built = template({
+        // Sans lui, l'aperçu perd les liens qui RENVOIENT une réponse dans le
+        // parcours — les cinq visages de « Comment ça se passe ? » — et montre
+        // donc un message différent de celui qui part.
+        runId: run.id,
+        texts,
         clientName: c?.companyName,
         dossierDeadline,
         partnerName: p?.displayName,

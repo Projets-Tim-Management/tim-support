@@ -366,11 +366,36 @@ export default function SectionEditor({
           pas après. Masqué quand le dossier est verrouillé, comme le reste. */}
       {!locked && (
         <div className="mb-3 flex justify-end">
+          {/**
+           * Deux habillages, et surtout DEUX LANGAGES DE STYLE.
+           *
+           * Ce composant sert les deux faces : l'espace client (Tailwind) et la
+           * console de préparation, à l'intérieur du back-office — qui ne charge
+           * PAS Tailwind. Une classe utilitaire n'y produit donc rien, et le
+           * bouton y tombait au rendu brut du navigateur. Côté admin, on emploie
+           * les classes du back-office (`jr-btn`), les seules qui existent là-bas.
+           *
+           * Le poids diffère aussi : côté client, l'import est l'action qui sauve
+           * une soirée à qui a quarante salariés à saisir — elle doit se voir.
+           * Côté TIM, la console empile cinq sections, et on vient le plus
+           * souvent relire deux lignes : le geste reste, il ne s'annonce plus.
+           */}
           <button
             type="button"
             onClick={() => setImporting(true)}
-            className="rounded-md border border-border bg-white px-3 py-1.5 text-sm font-semibold text-foreground transition hover:bg-surface"
+            className={
+              admin
+                ? "jr-btn jr-btn--small jr-btn--quiet"
+                : "rounded-md border border-border bg-white px-3 py-1.5 text-sm font-semibold text-foreground transition hover:bg-surface"
+            }
           >
+            {admin && (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <path d="M7 10l5 5 5-5" />
+                <path d="M12 15V3" />
+              </svg>
+            )}
             Importer un fichier
           </button>
         </div>

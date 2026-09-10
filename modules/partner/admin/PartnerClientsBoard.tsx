@@ -159,10 +159,21 @@ const apporteurLabel = (p: PartnerRef): string | null => {
   return p.societe || p.name || p.email || null;
 };
 
+/**
+ * ⚠️ Fuseau explicite, même dans le navigateur.
+ *
+ * Ces dates — signature, démarrage de contrat, résiliation — sont stockées en
+ * UTC. Sans fuseau, elles se lisent dans celui du poste : une signature du
+ * 1er octobre à 23 h s'affichait « 02/10 » ici et « 01/10 » sur la fiche, qui
+ * précise Paris. Deux dates pour un même fait, et rien pour dire laquelle est
+ * la bonne.
+ */
 const frDate = (d?: string | null) => {
   if (!d) return null;
   const parsed = new Date(d);
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleDateString("fr-FR");
+  return Number.isNaN(parsed.getTime())
+    ? null
+    : parsed.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" });
 };
 
 /** « Dernière activité » relative à partir de updatedAt (comme un CRM). */

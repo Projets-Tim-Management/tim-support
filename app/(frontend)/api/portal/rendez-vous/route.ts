@@ -39,6 +39,34 @@ type Run = {
   sessionLink?: string;
 };
 
+/**
+ * Créneaux déjà pris chez CE partenaire, tous clients confondus.
+ *
+ * Les DEUX rendez-vous comptent — la prise en main et le bilan. Ne regarder que
+ * l'un des deux laissait poser un bilan sur une formation déjà calée : le
+ * partenaire découvrait le conflit dans son agenda, trop tard pour déplacer.
+ *
+ * Partagé avec la réservation du bilan : deux listes de créneaux pris, c'est
+ * deux occasions d'en oublier une.
+ */
+export async function takenForPartner(
+  payload: Awaited<ReturnType<typeof payloadClient>>,
+  partnerId: number | string,
+  exceptRunId?: number | string,
+): Promise<string[]> {
+  const booked = await payload.find({
+    collection: "journey-runs",
+    where: { partner: { equals: partnerId } },
+    limit: 500,
+    depth: 0,
+    overrideAccess: true,
+  });
+  return booked.docs
+    .filter((d) => exceptRunId == null || String(d.id) !== String(exceptRunId))
+    .flatMap((d) => [(d as Run).sessionAt, (d as { reviewAt?: string }).reviewAt])
+    .filter((v): v is string => Boolean(v));
+}
+
 async function context(clientId: number | string) {
   const payload = await payloadClient();
 
@@ -60,20 +88,7 @@ async function context(clientId: number | string) {
     overrideAccess: true,
   });
 
-  // Créneaux déjà pris chez CE partenaire, tous clients confondus.
-  const booked = await payload.find({
-    collection: "journey-runs",
-    where: { partner: { equals: run.partner }, sessionAt: { exists: true } },
-    limit: 500,
-    depth: 0,
-    overrideAccess: true,
-  });
-  const taken = booked.docs
-    .filter((d) => String(d.id) !== String(run.id))
-    .map((d) => (d as Run).sessionAt)
-    .filter((v): v is string => Boolean(v));
-
-  return { payload, run, partner, taken };
+  return { payload, run, partner, taken: await takenForPartner(payload, run.partner, run.id) };
 }
 
 /** Offre courante, agendas connectés compris. */

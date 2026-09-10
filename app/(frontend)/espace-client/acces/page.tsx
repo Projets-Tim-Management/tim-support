@@ -17,21 +17,6 @@ const PROFILE_LABEL: Record<string, string> = Object.fromEntries(
   LICENCE_PROFILE_OPTIONS.map((p) => [p.value, p.label]),
 );
 
-/**
- * Rang d'un profil dans la hiérarchie — l'ordre de la grille tarifaire
- * (administrateur, conducteur, chef de chantier, chef d'équipe, compagnon).
- *
- * C'est l'ordre dans lequel on prévient les gens : l'administrateur d'abord,
- * parce que c'est lui qui paramètre et qui répondra aux questions des autres.
- * Un profil inconnu — ou absent — passe en fin de liste plutôt que de fausser
- * le classement.
- */
-const PROFILE_RANK = new Map<string, number>(
-  LICENCE_PROFILE_OPTIONS.map((p, i) => [p.value as string, i]),
-);
-const rank = (profile?: string | null): number =>
-  PROFILE_RANK.get(profile ?? "") ?? LICENCE_PROFILE_OPTIONS.length;
-
 type Credential = {
   id: number | string;
   firstName?: string | null;
@@ -56,7 +41,9 @@ type Credential = {
  */
 export default async function AccesPage() {
   const ctx = await getPortalClient();
-  if (!ctx) redirect("/espace-client");
+  // Sans session, on passe par la connexion — en DISANT où l'on allait,
+  // sinon le lien reçu par e-mail se perd sur l'accueil.
+  if (!ctx) redirect("/espace-client?next=/espace-client/acces");
 
   const payload = await payloadClient();
   // Lecture déchiffrée : les mots de passe sont chiffrés au repos et masqués par
@@ -64,16 +51,12 @@ export default async function AccesPage() {
   // chercher précisément ce qu'il doit distribuer à ses équipes.
   // Les accès vivent désormais sur les UTILISATEURS déclarés : les comptes sont
   // créés dans TIM, on ne conserve ici que ce qui se distribue aux équipes.
-  const credentials = ((await readTimAccesses(payload, ctx.client.id)) as Credential[])
-    .filter((c) => c.timPassword)
-    // Par profil, puis par nom : deux chefs de chantier se suivent dans l'ordre
-    // de l'annuaire, ce qui aide à cocher une liste papier.
-    .sort(
-      (a, b) =>
-        rank(a.licenceProfile) - rank(b.licenceProfile) ||
-        (a.lastName ?? "").localeCompare(b.lastName ?? "", "fr") ||
-        (a.firstName ?? "").localeCompare(b.firstName ?? "", "fr"),
-    );
+  // Par profil, puis par nom — l'ordre vient de `readTimAccesses`, partagé avec
+  // le récapitulatif par e-mail et la feuille d'impression du back-office : les
+  // trois se recoupent ligne à ligne.
+  const credentials = ((await readTimAccesses(payload, ctx.client.id)) as Credential[]).filter(
+    (c) => c.timPassword,
+  );
 
   /**
    * Regroupement par profil, dans l'ordre de la hiérarchie.

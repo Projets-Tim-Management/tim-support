@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { hasAdminRole } from "@/core/access";
 import { payloadClient } from "@/core/payload-client";
 import { findOpenRun, sendJourneyEmail } from "@/modules/marketing/lib/send";
+import { INVITATION_KEY, buildStandaloneInvitation } from "@/modules/marketing/lib/portal-invite";
 
 /**
  * État de l'espace client d'une entreprise, et renvoi de son invitation.
@@ -13,6 +14,11 @@ import { findOpenRun, sendJourneyEmail } from "@/modules/marketing/lib/send";
  *                     l'invitation (le client a perdu le message, l'a classé en
  *                     indésirable, ou l'adresse vient d'être corrigée)
  *
+ * SANS PHASE DE TEST, l'invitation part quand même : on ouvre parfois un espace
+ * à un prospect pour lui faire essayer le produit. Le message est alors composé
+ * hors parcours (voir lib/portal-invite) et sa date se marque sur l'accès, qui
+ * est le seul endroit où l'écrire — il n'y a pas de parcours pour la porter.
+ *
  * Le renvoi force l'envoi : le garde-fou « déjà envoyé » protège des doublons
  * automatiques, pas d'une demande explicite d'un admin. C'est tout l'intérêt du
  * bouton — sans lui, un message perdu laissait le client dehors sans recours.
@@ -21,13 +27,15 @@ import { findOpenRun, sendJourneyEmail } from "@/modules/marketing/lib/send";
  * espaces clients.
  */
 
-const KEY = "invitation-espace-client";
+const KEY = INVITATION_KEY;
 
 type Account = {
   id: number | string;
   email?: string;
+  firstName?: string | null;
   active?: boolean;
   lastLoginAt?: string | null;
+  invitationSentAt?: string | null;
 };
 
 type RunEmailRow = { key?: string; sentAt?: string | null };
@@ -67,7 +75,9 @@ export async function GET(req: Request) {
     email: account?.email ?? null,
     active: account?.active !== false,
     lastLoginAt: account?.lastLoginAt ?? null,
-    invitationSentAt: rows.find((e) => e.key === KEY)?.sentAt ?? null,
+    // Deux traces possibles, jamais les deux à la fois : la ligne du parcours
+    // quand il y en a un, sinon la date posée sur l'accès par l'envoi isolé.
+    invitationSentAt: rows.find((e) => e.key === KEY)?.sentAt ?? account?.invitationSentAt ?? null,
     hasRun: Boolean(run),
   });
 }
@@ -95,7 +105,54 @@ export async function POST(req: Request) {
   }
 
   const run = await findOpenRun(ctx.payload, ctx.clientId);
-  if (!run) return NextResponse.json({ error: "no_run" }, { status: 409 });
+
+  /**
+   * Pas de parcours : envoi ISOLÉ. Un seul message, à la demande, sans séquence
+   * derrière — c'est exactement ce qu'on veut pour un prospect à qui on ouvre un
+   * espace d'essai.
+   */
+  if (!run) {
+    if (!account.email) return NextResponse.json({ error: "no_recipient" }, { status: 409 });
+
+    const client = (await ctx.payload
+      .findByID({ collection: "partner-clients", id: ctx.clientId, depth: 0, overrideAccess: true })
+      .catch(() => null)) as { companyName?: string | null } | null;
+
+    const built = buildStandaloneInvitation({
+      clientName: client?.companyName ?? null,
+      contactFirstName: account.firstName ?? null,
+    });
+    if (!built) return NextResponse.json({ error: "no_template" }, { status: 500 });
+
+    try {
+      await ctx.payload.sendEmail({
+        to: account.email,
+        subject: built.subject,
+        html: built.html,
+        text: built.text,
+      });
+    } catch (err) {
+      ctx.payload.logger.error(`[espace client] invitation isolée à ${account.email} échouée : ${err}`);
+      return NextResponse.json({ error: "send_failed" }, { status: 502 });
+    }
+
+    // La date se marque sur l'ACCÈS : sans parcours, c'est le seul endroit où
+    // l'écrire — et l'encart la relit pour dire quand l'invitation est partie.
+    await ctx.payload
+      .update({
+        collection: "client-portal-accounts",
+        id: account.id,
+        data: { invitationSentAt: new Date().toISOString() } as never,
+        overrideAccess: true,
+      })
+      .catch((err) =>
+        // L'e-mail EST parti : un marquage raté ne doit pas le faire croire
+        // perdu. On le trace, sans renvoyer d'erreur.
+        ctx.payload.logger.error(`[espace client] date d'invitation non marquée (${account.id}) : ${err}`),
+      );
+
+    return NextResponse.json({ resent: true, standalone: true });
+  }
 
   const result = await sendJourneyEmail(ctx.payload, { run, key: KEY, force: true });
   if (!result.sent) {

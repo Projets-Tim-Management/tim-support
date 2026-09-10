@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
+import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
 import { readTimAccesses } from "@/modules/marketing/lib/credential-secrets";
 import { buildTimAccessEmail } from "@/modules/marketing/lib/emails";
 import { LICENCE_PROFILE_OPTIONS } from "@/modules/marketing/lib/onboarding";
@@ -76,5 +77,16 @@ export async function POST(req: Request) {
   payload.logger.info(
     `[accès] accès TIM envoyés à ${personne.email} (client ${ctx.client.id}).`,
   );
+
+  /**
+   * « Accès distribués aux utilisateurs » : un accès vient d'être transmis.
+   *
+   * C'est le seul constat possible de cette étape — le reste se passe chez le
+   * client, sur papier. Un envoi suffit à dire qu'il s'y est mis ; le lendemain
+   * de l'échéance, l'étape s'acquiert de toute façon (SELF_VALIDATING_STEPS).
+   * Silencieux : un parcours absent ne doit pas faire échouer l'envoi.
+   */
+  await armAutoStep(payload, ctx.client.id, "remise-acces");
+
   return NextResponse.json({ ok: true, to: personne.email });
 }

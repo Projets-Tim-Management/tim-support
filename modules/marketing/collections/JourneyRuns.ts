@@ -37,6 +37,7 @@ import {
   AUTO_VALIDATE_DELAY_HOURS,
   NEVER_AUTO_VALIDATE,
   canAutoValidate,
+  selfValidationDate,
   mergeRunSteps,
   clampMailDate,
   computeEmailSchedule,
@@ -70,6 +71,8 @@ type RunStep = {
   actor?: string;
   state?: string;
   doneAt?: string | null;
+  /** Échéance de la validation automatique — lue et avancée par `armAutoSteps`. */
+  autoAt?: string | null;
   [k: string]: unknown;
 };
 
@@ -365,7 +368,7 @@ const reconcileFacts: CollectionBeforeChangeHook = async ({ data, originalDoc, r
       .catch(() => 0),
   ]);
 
-  const sessionAt = data?.sessionAt ?? originalDoc?.sessionAt;
+  const sessionAt = (data?.sessionAt ?? originalDoc?.sessionAt) as string | null | undefined;
   const acquis: Record<string, boolean> = {
     "compte-espace-client": Boolean(account) && account?.active !== false,
     "rdv-prise-en-main": Boolean(sessionAt),
@@ -404,6 +407,10 @@ const armAutoSteps: CollectionBeforeChangeHook = ({ data, originalDoc, operation
   // Le créneau vient d'être réservé (par le client ou saisi à la main).
   const sessionAt = data?.sessionAt ?? originalDoc?.sessionAt;
   if (sessionAt && !originalDoc?.sessionAt) armed.add("rdv-prise-en-main");
+  // Le bilan vient d'être réservé — la RÉSERVATION, pas le bilan lui-même :
+  // celui-ci reste au partenaire, qui le coche une fois l'entretien tenu.
+  const reviewAt = (data?.reviewAt ?? originalDoc?.reviewAt) as string | null | undefined;
+  if (reviewAt && !originalDoc?.reviewAt) armed.add("rdv-bilan");
 
   // Ajoutées par les autres modules via le contexte (compte espace client,
   // transmission du dossier) : ils n'ont pas à connaître la forme des étapes.
@@ -414,6 +421,8 @@ const armAutoSteps: CollectionBeforeChangeHook = ({ data, originalDoc, operation
   void _drop;
 
   const at = new Date(Date.now() + AUTO_VALIDATE_DELAY_HOURS * 3_600_000).toISOString();
+  const startDate = (data?.startDate ?? originalDoc?.startDate) as string | null | undefined;
+  const endDate = (data?.endDate ?? originalDoc?.endDate) as string | null | undefined;
   let changed = false;
   const next = steps.map((s) => {
     // Désarmement rétroactif : un parcours lancé avant cette règle a pu armer le
@@ -424,10 +433,46 @@ const armAutoSteps: CollectionBeforeChangeHook = ({ data, originalDoc, operation
       changed = true;
       return { ...s, state: "a-faire", autoAt: null };
     }
-    if (s.key && armed.has(s.key) && canAutoValidate(s) && (s.state ?? "a-faire") === "a-faire") {
-      changed = true;
-      return { ...s, state: "auto", autoAt: at };
+    const state = (s.state ?? "a-faire") as string;
+
+    if (s.key && armed.has(s.key) && canAutoValidate(s)) {
+      if (state === "a-faire") {
+        changed = true;
+        return { ...s, state: "auto", autoAt: at };
+      }
+      /**
+       * Déjà en attente sur une échéance PLUS LOINTAINE : le fait constaté
+       * l'avance. Jamais l'inverse — un constat rapproche l'acquisition, il ne
+       * la repousse pas.
+       *
+       * C'est ce qui fait qu'un accès réellement transmis coche « Accès
+       * distribués » sans attendre le lendemain de l'échéance.
+       */
+      if (state === "auto" && s.autoAt && Date.parse(s.autoAt) > Date.parse(at)) {
+        changed = true;
+        return { ...s, autoAt: at };
+      }
     }
+
+    /**
+     * Étapes qui s'acquièrent d'elles-mêmes passé leur échéance : on pose la
+     * date d'acquisition dès qu'elle est calculable, et on la SUIT si le
+     * démarrage bouge. `isStepDone` fait le reste à la lecture — aucun travail
+     * de fond n'est nécessaire pour basculer l'état.
+     *
+     * Jamais sur une étape déjà faite, ni sur une échéance déjà avancée par un
+     * fait constaté : ce serait la repousser.
+     */
+    if (state !== "fait") {
+      const selfAt = selfValidationDate(s, startDate, endDate, sessionAt as string | null);
+      if (selfAt && !(state === "auto" && s.autoAt && Date.parse(s.autoAt) <= Date.parse(selfAt))) {
+        if (s.state !== "auto" || s.autoAt !== selfAt) {
+          changed = true;
+          return { ...s, state: "auto", autoAt: selfAt };
+        }
+      }
+    }
+
     return s;
   });
 
@@ -648,6 +693,8 @@ const computeState: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
     // dès que le client réserve — la réservation enregistre le parcours, ce
     // hook tourne, et l'envoi se programme tout seul.
     (data?.sessionAt ?? originalDoc?.sessionAt) as string | null | undefined,
+    // Même chose pour le rappel du BILAN, accroché à son propre créneau.
+    (data?.reviewAt ?? originalDoc?.reviewAt) as string | null | undefined,
   );
 
   // Une date reprise à la main reste dans la fenêtre de son étape. L'écran pose
@@ -679,6 +726,7 @@ const computeState: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
         startDate,
         endDate,
         (data?.sessionAt ?? originalDoc?.sessionAt) as string | null | undefined,
+        (data?.reviewAt ?? originalDoc?.reviewAt) as string | null | undefined,
       )[0]?.scheduledAt ?? null;
     const window = allowComputedDate(mailDateWindow(mail.stepKey as string, dated), computedAt);
     const inside = clampMailDate(mail.scheduledAt, window);
@@ -774,7 +822,7 @@ const syncSessionCalendar: CollectionAfterChangeHook = async ({ doc, previousDoc
   if (before === after && !modeChanged && !placeChanged && !missingEvent) return doc;
 
   const result = await syncSessionEvent(req.payload, doc as never, before);
-  if (result.action === "none" && result.sessionEventId === undefined) return doc;
+  if (result.action === "none" && result.eventId === undefined) return doc;
 
   ctx[SKIP] = true;
   try {
@@ -787,6 +835,50 @@ const syncSessionCalendar: CollectionAfterChangeHook = async ({ doc, previousDoc
     });
   } catch (err) {
     req.payload.logger.error(`[agenda] écriture du lien sur le parcours ${doc.id} échouée : ${err}`);
+  } finally {
+    delete ctx[SKIP];
+  }
+  return doc;
+};
+
+/**
+ * Même chose pour le BILAN de fin de test.
+ *
+ * Un hook à part plutôt qu'une condition de plus dans le précédent : les deux
+ * rendez-vous bougent indépendamment, et mêler leurs conditions rendrait
+ * illisible ce qui déclenche quoi. Le mécanisme, lui, est partagé — c'est
+ * `syncSessionEvent` qui sait faire, on lui dit seulement DE QUEL rendez-vous
+ * il s'agit.
+ *
+ * La modalité est celle de la prise en main : mêmes gens, même façon de se
+ * voir. Elle est donc surveillée ici aussi — passer de visio à sur place doit
+ * retirer la conférence des DEUX événements.
+ */
+const syncReviewCalendar: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
+  const ctx = (req.context ?? {}) as Record<string, unknown>;
+  if (ctx[SKIP]) return doc;
+
+  const before = (previousDoc?.reviewAt ?? null) as string | null;
+  const after = (doc?.reviewAt ?? null) as string | null;
+  const modeChanged = (previousDoc?.sessionMode ?? null) !== (doc?.sessionMode ?? null);
+  const placeChanged = (previousDoc?.sessionLocation ?? null) !== (doc?.sessionLocation ?? null);
+  const missingEvent = Boolean(after) && !doc?.reviewEventId && !doc?.reviewLink;
+  if (before === after && !modeChanged && !placeChanged && !missingEvent) return doc;
+
+  const result = await syncSessionEvent(req.payload, doc as never, before, "bilan");
+  if (result.action === "none" && result.eventId === undefined) return doc;
+
+  ctx[SKIP] = true;
+  try {
+    await req.payload.update({
+      collection: "journey-runs",
+      id: doc.id,
+      data: sessionSyncPatch(result, "bilan"),
+      overrideAccess: true,
+      req,
+    });
+  } catch (err) {
+    req.payload.logger.error(`[agenda] écriture du lien de bilan sur ${doc.id} échouée : ${err}`);
   } finally {
     delete ctx[SKIP];
   }
@@ -1228,6 +1320,7 @@ export const JourneyRuns: CollectionConfig = {
     ],
     afterChange: [
       syncSessionCalendar,
+      syncReviewCalendar,
       syncClientStatus,
       notifyNewRequest,
       notifyQuoteNeeded,
@@ -1418,6 +1511,45 @@ export const JourneyRuns: CollectionConfig = {
               type: "text",
               admin: { hidden: true },
             },
+          ],
+        },
+        {
+          /**
+           * Le BILAN de fin de test — un second rendez-vous, distinct de la
+           * prise en main.
+           *
+           * Distinct et pas réutilisé : la prise en main a eu lieu, son créneau
+           * est la trace de ce qui s'est passé. Écrire le bilan par-dessus
+           * l'effacerait, et le générateur de créneaux s'arrête de toute façon
+           * au démarrage du test — un bilan est par définition après.
+           *
+           * La MODALITÉ, elle, est reprise de la prise en main : même partenaire,
+           * même client, même façon de se voir. Deux réglages pour la même
+           * question finiraient par se contredire.
+           */
+          label: "Bilan de fin de test",
+          description:
+            "Réservé par le client depuis son espace, dans les derniers jours du test. Se tient comme la prise en main (visio ou sur place).",
+          fields: [
+            {
+              name: "reviewAt",
+              type: "date",
+              label: "Créneau retenu",
+              admin: {
+                date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" },
+                description:
+                  "Attention : une saisie à la main ne crée PAS l'événement dans l'agenda et ne génère donc aucun lien de visio — à coller vous-même dans ce cas.",
+              },
+            },
+            {
+              name: "reviewLink",
+              type: "text",
+              label: "Lien de visio",
+              admin: {
+                description: "Créé avec l'événement d'agenda. À remplir à la main si vous calez le rendez-vous vous-même.",
+              },
+            },
+            { name: "reviewEventId", type: "text", admin: { hidden: true } },
           ],
         },
         {
@@ -1631,6 +1763,25 @@ export const JourneyRuns: CollectionConfig = {
                   ],
                 },
                 { name: "note", type: "textarea", label: "Note" },
+                {
+                  /**
+                   * Date à laquelle le partenaire a été prévenu que cette étape
+                   * l'attendait.
+                   *
+                   * Le cron passe toutes les heures : sans cette marque, la même
+                   * alerte repartirait à chaque passage tant que l'étape n'est
+                   * pas validée. Elle ne dit rien de l'étape elle-même — la
+                   * vider fait simplement repartir l'annonce.
+                   */
+                  name: "notifiedAt",
+                  type: "date",
+                  label: "Partenaire prévenu le",
+                  admin: {
+                    readOnly: true,
+                    date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" },
+                    description: "Posé par l'envoi de l'alerte. Vider pour la faire repartir.",
+                  },
+                },
               ],
             },
             {
@@ -1736,6 +1887,44 @@ export const JourneyRuns: CollectionConfig = {
         components: { Cell: "/modules/marketing/admin/RunStatusCell#RunStatusCell" },
       },
     },
+    /**
+     * La réponse du client à « Comment ça se passe ? », renvoyée dans le
+     * parcours.
+     *
+     * En barre latérale et non dans un onglet : c'est un fait qu'on veut voir en
+     * ouvrant la fiche, pas une donnée qu'on va chercher. Une mauvaise note se
+     * rappelle le jour même — la découvrir au bilan, c'est la découvrir trop
+     * tard.
+     *
+     * En lecture seule : elle vient du client. La corriger à sa place en ferait
+     * notre avis sur notre propre travail.
+     */
+    {
+      name: "satisfaction",
+      type: "number",
+      label: "Satisfaction du client",
+      min: 1,
+      max: 5,
+      admin: {
+        position: "sidebar",
+        readOnly: true,
+        components: {
+          Field: "/modules/marketing/admin/SatisfactionBox#SatisfactionBox",
+        },
+      },
+    },
+    {
+      name: "satisfactionAt",
+      type: "date",
+      label: "Répondu le",
+      admin: { position: "sidebar", readOnly: true, hidden: true },
+    },
+    {
+      name: "satisfactionComment",
+      type: "textarea",
+      label: "Ce que le client a ajouté",
+      admin: { position: "sidebar", readOnly: true, hidden: true },
+    },
     { name: "notes", type: "textarea", label: "Notes internes", admin: { position: "sidebar" } },
 
     // ─── Identité et calendrier, en barre latérale ───────────────────────────
@@ -1753,6 +1942,16 @@ export const JourneyRuns: CollectionConfig = {
       // Pré-rempli quand on arrive depuis la fiche client
       // (« Démarrer une phase de test » → ?client=<id>).
       defaultValue: ({ req }) => req?.searchParams?.get?.("client") || undefined,
+    },
+    {
+      // Collé sous le champ Client : c'est en lisant le nom qu'on décide d'aller
+      // voir la fiche, et l'aller-retour est constant pendant un parcours.
+      name: "openClientLink",
+      type: "ui",
+      admin: {
+        position: "sidebar",
+        components: { Field: "/modules/marketing/admin/OpenClientLink#OpenClientLink" },
+      },
     },
     {
       name: "journey",

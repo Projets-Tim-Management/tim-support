@@ -15,10 +15,13 @@ export const metadata: Metadata = {
 
 
 export default async function SectionPage({ params }: { params: Promise<{ section: string }> }) {
+  const cle = (await params).section;
   const ctx = await getPortalClient();
-  if (!ctx) redirect("/espace-client");
+  // Sans session, on passe par la connexion — en DISANT où l'on allait, sinon
+  // le lien reçu par e-mail se perd sur l'accueil.
+  if (!ctx) redirect(`/espace-client?next=/espace-client/dossier/${cle}`);
 
-  const section = sectionByKey((await params).section);
+  const section = sectionByKey(cle);
   if (!section) notFound();
 
   return (

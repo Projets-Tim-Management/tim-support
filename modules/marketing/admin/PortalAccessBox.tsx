@@ -77,15 +77,19 @@ export function PortalAccessBox() {
 
       if (!res.ok) {
         setError(
-          body?.error === "no_run"
-            ? "Aucune phase de test ouverte : l'invitation ne peut pas être composée."
-            : body?.error === "no_recipient"
+          body?.error === "no_recipient"
               ? "Aucune adresse sur l'accès."
               : "L'envoi a échoué. Réessayez.",
         );
         return;
       }
-      setDone(body?.opened ? "Espace ouvert, invitation envoyée." : "Invitation renvoyée.");
+      setDone(
+        body?.opened
+          ? "Espace ouvert, invitation envoyée."
+          : sent
+            ? "Invitation renvoyée."
+            : "Invitation envoyée.",
+      );
       await load();
     } catch {
       setError("L'envoi a échoué. Réessayez.");
@@ -103,8 +107,9 @@ export function PortalAccessBox() {
           <strong>Aucun accès</strong> pour ce client.
         </p>
         <p className="jr-gen__hint">
-          L&apos;adresse s&apos;enregistre au démarrage de la phase de test, et l&apos;espace
-          s&apos;ouvre à la validation du Go / No-Go. Rien à créer ici.
+          {state.hasRun
+            ? "L'adresse s'enregistre au démarrage de la phase de test, et l'espace s'ouvre à la validation du Go / No-Go. Rien à créer ici."
+            : "Créez-en un ci-dessous : l'adresse du référent suffit. Rien ne partira — l'invitation s'envoie ensuite, à la demande, depuis ce bloc."}
         </p>
       </div>
     );
@@ -121,7 +126,10 @@ export function PortalAccessBox() {
           </>
         ) : (
           <>
-            <span className="jr-gen__warn">En attente du Go</span> — adresse enregistrée&nbsp;:{" "}
+            <span className="jr-gen__warn">
+              {state.hasRun ? "En attente du Go" : "Accès fermé"}
+            </span>{" "}
+            — adresse enregistrée&nbsp;:{" "}
             <strong>{state.email}</strong>
           </>
         )}
@@ -136,15 +144,21 @@ export function PortalAccessBox() {
 
       <p className="jr-gen__hint">
         {state.active
-          ? "Le client reçoit un lien vers son espace ; il s'y connecte avec cette adresse et un code à 6 chiffres, sans mot de passe. Renvoyez l'invitation s'il ne l'a pas reçue, l'a perdue, ou si vous venez de corriger l'adresse."
-          : "L'espace s'ouvrira tout seul à la validation du Go / No-Go, et l'invitation partira à ce moment-là. Ce bouton n'est là que pour l'ouvrir avant, en secours."}
+          ? state.hasRun || sent
+            ? "Le client reçoit un lien vers son espace ; il s'y connecte avec cette adresse et un code à 6 chiffres, sans mot de passe. Renvoyez l'invitation s'il ne l'a pas reçue, l'a perdue, ou si vous venez de corriger l'adresse."
+            : "Aucune phase de test : rien n'est parti tout seul. Envoyez l'invitation quand vous voulez que le client entre — un seul message, sans séquence derrière. Vous pouvez aussi ne rien envoyer et vous servir de l'accès vous-même."
+          : state.hasRun
+            ? "L'espace s'ouvrira tout seul à la validation du Go / No-Go, et l'invitation partira à ce moment-là. Ce bouton n'est là que pour l'ouvrir avant, en secours."
+            : "L'accès est enregistré mais fermé : le client ne peut pas demander de code. Ouvrez-le quand vous voulez qu'il puisse entrer."}
       </p>
 
       <button type="button" className="jr-btn" disabled={busy} onClick={() => void act()}>
         {busy
           ? "Envoi…"
           : state.active
-            ? "Renvoyer l'invitation"
+            ? sent
+              ? "Renvoyer l'invitation"
+              : "Envoyer l'invitation"
             : "Ouvrir l'espace maintenant"}
       </button>
 

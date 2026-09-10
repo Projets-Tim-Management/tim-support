@@ -2,8 +2,14 @@ import type { Payload, PayloadRequest } from "payload";
 
 import { JOURNEY_EMAILS, type JourneyEmailContext } from "@/modules/marketing/lib/emails";
 import { buildJourneyContext, type JourneyRunLike } from "@/modules/marketing/lib/journey-context";
+import { readEmailTexts } from "@/modules/marketing/lib/email-overrides";
 import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
 import { declaredAudience, stepDoneBySending } from "@/modules/marketing/lib/journey";
+import {
+  buildPartnerStepEmail,
+  type DueStep,
+  type StepContact,
+} from "@/modules/marketing/lib/partner-steps";
 import { journeyReplyTo } from "@/modules/marketing/lib/reply-routing";
 import { withSystemWrite } from "@/modules/marketing/lib/system-write";
 import { journeyMailHeaders } from "@/modules/support/lib/brevo";
@@ -152,7 +158,15 @@ export async function sendJourneyEmail(
   if (recipients.length === 0) return { sent: false, reason: "no_recipient" };
   const to = recipients.join(",");
 
-  const built = template({ ...ctx, ...extra });
+  /**
+   * Les textes repris à la main sur le modèle, s'il y en a.
+   *
+   * Lus ICI et pas à la copie du parcours : une coquille corrigée dans le
+   * modèle vaut pour les envois à venir de tous les tests, y compris ceux qui
+   * tournent déjà. Une lecture de plus par envoi, quelques-uns par jour.
+   */
+  const texts = await readEmailTexts(payload, (fresh as { journey?: unknown }).journey, key, req);
+  const built = template({ ...ctx, texts, ...extra });
 
   try {
     await payload.sendEmail({
@@ -335,6 +349,95 @@ export async function sendPartnerWeeklyRecap(
 
   payload.logger.info(
     `[parcours] récap hebdo envoyé au partenaire ${partner.id} (${runs.length} phase(s)).`,
+  );
+  return { sent: true };
+}
+
+/**
+ * L'alerte « une action vous attend » d'un partenaire, sur UN parcours.
+ *
+ * Elle ne passe pas par `sendJourneyEmail` : ce n'est pas un message du
+ * parcours (elle n'est ni dans le modèle, ni datée, ni visible dans l'onglet
+ * « E-mails »), c'est une notification interne — le pendant, côté partenaire,
+ * des alertes que `notify.ts` envoie aux admins.
+ *
+ * Le marquage se fait APRÈS l'envoi, et seulement sur les étapes annoncées :
+ * un `notifiedAt` posé d'avance éteindrait l'alerte d'une étape dont le message
+ * n'est jamais parti — exactement le défaut qu'on corrige ici.
+ */
+export async function sendPartnerStepAlert(
+  payload: Payload,
+  args: {
+    runId: number | string;
+    partner: { id: number | string; email?: string | null };
+    steps: DueStep[];
+    clientId?: number | string | null;
+    clientName?: string | null;
+    contact?: StepContact | null;
+    endDate?: string | null;
+  },
+): Promise<SendResult> {
+  if (!args.partner.email) return { sent: false, reason: "no_recipient" };
+  if (args.steps.length === 0) return { sent: false, reason: "already_sent" };
+
+  const mail = buildPartnerStepEmail({
+    runId: args.runId,
+    clientId: args.clientId,
+    clientName: args.clientName,
+    steps: args.steps,
+    contact: args.contact,
+    endDate: args.endDate,
+  });
+
+  try {
+    await payload.sendEmail({
+      to: args.partner.email,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+    });
+  } catch (err) {
+    payload.logger.error(
+      `[parcours] alerte d'étape au partenaire ${args.partner.id} (parcours ${args.runId}) échouée : ${err}`,
+    );
+    return { sent: false, reason: "send_failed" };
+  }
+
+  const keys = new Set(args.steps.map((d) => d.step.key).filter(Boolean) as string[]);
+  try {
+    // Relu avant d'écrire : le parcours a pu bouger depuis le chargement du lot
+    // (une étape validée à la main pendant que le cron tourne), et réécrire le
+    // tableau depuis une copie ancienne annulerait cette validation.
+    const fresh = (await payload.findByID({
+      collection: "journey-runs",
+      id: args.runId,
+      depth: 0,
+      overrideAccess: true,
+    })) as { steps?: { key?: string | null }[] } | null;
+
+    const at = new Date().toISOString();
+    await withSystemWrite(undefined, () =>
+      payload.update({
+        collection: "journey-runs",
+        id: args.runId,
+        data: {
+          steps: (fresh?.steps ?? []).map((s) =>
+            s.key && keys.has(s.key) ? { ...s, notifiedAt: at } : s,
+          ),
+        } as never,
+        overrideAccess: true,
+      }),
+    );
+  } catch (err) {
+    // ⚠️ L'e-mail est parti : sans ce marquage, il repartira à chaque passage du
+    // cron. Journalisé fort, donc, plutôt qu'avalé.
+    payload.logger.error(
+      `[parcours] marquage des étapes annoncées sur ${args.runId} échoué : ${err}`,
+    );
+  }
+
+  payload.logger.info(
+    `[parcours] ${args.steps.length} étape(s) annoncée(s) au partenaire ${args.partner.id} (parcours ${args.runId}).`,
   );
   return { sent: true };
 }

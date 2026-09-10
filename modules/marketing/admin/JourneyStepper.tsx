@@ -154,7 +154,7 @@ export function JourneyStepper() {
    * (`steps.0.key`, `steps.0.state`…) : on remonte les lignes tant qu'une clé
    * existe, plutôt que de dépendre de la structure interne des `rows`.
    */
-  const { steps, mails, startDate, sessionAt, durationWeeks, extraDays, status, clientId } =
+  const { steps, mails, startDate, sessionAt, reviewAt, durationWeeks, extraDays, status, clientId } =
     useFormFields(([fields]) => {
     const collected: StepView[] = [];
     for (let i = 0; fields[`steps.${i}.key`] !== undefined; i += 1) {
@@ -204,6 +204,9 @@ export function JourneyStepper() {
       // Le rappel de la veille s'ancre sur le créneau : sans cette date, son
       // échéance calculée serait vide et le « rétablir » l'effacerait.
       sessionAt: (fields.sessionAt?.value as string | undefined) ?? null,
+      // Le rappel du bilan s'accroche à SON créneau : sans lui, la barre
+      // d'étapes afficherait le message comme non daté alors qu'il l'est.
+      reviewAt: (fields.reviewAt?.value as string | undefined) ?? null,
       durationWeeks: Number(fields.durationWeeks?.value ?? 0) || null,
       extraDays: extra,
       status: (fields.status?.value as string | undefined) ?? "preparation",
@@ -265,9 +268,15 @@ export function JourneyStepper() {
         key: s.key,
         // `sessionAt` n'est pas optionnel ici : « Session de prise en main
         // réalisée » s'ancre dessus. Sans lui, elle n'aurait jamais d'échéance.
-        due: stepDueDate(s, startDate, computeEndDate(startDate, durationWeeks, extraDays), sessionAt),
+        due: stepDueDate(
+          s,
+          startDate,
+          computeEndDate(startDate, durationWeeks, extraDays),
+          sessionAt,
+          reviewAt,
+        ),
       })),
-    [steps, startDate, durationWeeks, extraDays, sessionAt],
+    [steps, startDate, durationWeeks, extraDays, sessionAt, reviewAt],
   );
 
   /**
@@ -560,6 +569,7 @@ export function JourneyStepper() {
                                 startDate,
                                 endDate,
                                 sessionAt,
+                                reviewAt,
                               )[0]?.scheduledAt ?? null;
                             return (
                               <span key={`date-${m.key}`} className="jr-step__maildate">
