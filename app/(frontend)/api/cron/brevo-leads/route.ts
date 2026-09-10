@@ -5,21 +5,33 @@ import { syncBrevoLeads } from "@/modules/partner/lib/brevo-import";
 import { auditBrevoLeads, importLostDeals } from "@/modules/partner/lib/brevo-history";
 
 /**
- * Entrée quotidienne des leads du site vitrine.
+ * Entrée des leads du site vitrine depuis Brevo.
  *
- * Les formulaires du site créent une opportunité dans le CRM Brevo ; ce cron la
- * fait entrer dans les Opportunités TIM, dans la colonne de son étape. Sans lui,
- * les leads vivent dans un outil que le Kanban ignore.
+ * ⚠️ PLUS PROGRAMMÉ depuis le 10/09/2026 — retiré de `vercel.json`.
  *
- * Déclenché par Vercel Cron (voir vercel.json), qui ajoute
- * « Authorization: Bearer <CRON_SECRET> ».
+ * La collecte est passée sur nos propres formulaires : le site poste
+ * directement sur `/api/forms/<formId>/submissions`, qui crée l'opportunité. Ce
+ * cron était le FILET de la bascule, le temps de vérifier que rien ne se perdait
+ * en route. Plus aucune affaire n'arrive dans Brevo — confirmé par l'équipe —,
+ * il n'attrapait donc plus que le vide.
+ *
+ * Ce qui reste de Brevo est l'ENVOI et le SUIVI d'e-mails : ouvertures, rejets,
+ * désinscriptions. Ce volet n'est pas concerné, et `email-suppressions` continue
+ * de tourner tous les jours à 5 h.
+ *
+ * La route, elle, est conservée : elle porte encore les deux gestes ponctuels de
+ * reprise (`audit=1`, `lost=1`) et se lance à la main au besoin. Sans entrée
+ * dans `vercel.json`, elle ne part plus toute seule.
+ *
+ * Se déclenchait par Vercel Cron, qui ajoute
+ * « Authorization: Bearer <CRON_SECRET> » — toujours exigé pour un appel manuel.
  *
  * Paramètres :
  *  - `dry=1`   : liste ce qui serait créé, sans rien écrire ;
  *  - `since=`  : date ISO de début (défaut : 7 jours) ;
  *  - `all=1`   : tout l'historique — la REPRISE INITIALE, à ne lancer qu'une fois.
  *
- * Deux gestes PONCTUELS, avant la coupure de Brevo (voir brevo-history) :
+ * Deux gestes PONCTUELS, hérités de la reprise (voir brevo-history) :
  *  - `audit=1` : ce que Brevo contient et que TIM n'a pas. N'écrit rien ;
  *  - `lost=1`  : reprend les affaires « Perdue », en brouillon, motif à qualifier.
  */
