@@ -33,6 +33,14 @@ export interface PublicForm {
   version: string;
   successText: string;
   errorText: string;
+  /**
+   * Le bouton de l'écran de succès — réserver un créneau, le plus souvent.
+   *
+   * Les DEUX clés, ou aucune : un libellé sans adresse donne un bouton mort,
+   * une adresse sans libellé n'a rien à afficher. La vitrine n'a donc qu'une
+   * question à se poser — « y a-t-il un CTA ? ».
+   */
+  successCta?: { label: string; url: string };
   legalNotice?: string;
   honeypot: string;
   fields: PublicField[];
@@ -48,6 +56,8 @@ export interface FormDoc {
   updatedAt?: string | null;
   successText?: string | null;
   errorText?: string | null;
+  successCtaLabel?: string | null;
+  successCtaUrl?: string | null;
   legalNotice?: string | null;
   fields?:
     | {
@@ -140,6 +150,21 @@ export function toPublicForm(doc: FormDoc | null | undefined): PublicForm | null
   // Vide = la vitrine n'affiche rien. La clé est donc absente plutôt que nulle.
   const legalNotice = text(doc.legalNotice);
   if (legalNotice) form.legalNotice = legalNotice;
+
+  /**
+   * Le CTA n'est servi que COMPLET, et que si son adresse est du web.
+   *
+   * L'adresse finit dans un `href` sur le site public : un `javascript:` resté
+   * en base — saisi avant que la validation n'existe, ou écrit par un import —
+   * s'exécuterait chez chaque visiteur. La saisie est déjà refusée côté
+   * back-office ; ce second filtre porte sur ce qu'on SERT, qui est le seul
+   * endroit dont dépend la vitrine.
+   */
+  const ctaLabel = text(doc.successCtaLabel);
+  const ctaUrl = text(doc.successCtaUrl);
+  if (ctaLabel && /^https?:\/\/\S+$/i.test(ctaUrl)) {
+    form.successCta = { label: ctaLabel, url: ctaUrl };
+  }
 
   return form;
 }

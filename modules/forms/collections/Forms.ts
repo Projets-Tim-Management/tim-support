@@ -207,6 +207,52 @@ export const Forms: CollectionConfig = {
       },
     },
     {
+      /**
+       * L'APPEL À L'ACTION de l'écran de succès — le plus souvent : réserver un
+       * créneau de présentation.
+       *
+       * Le moment qui suit l'envoi est celui où l'intention est la plus forte de
+       * tout le parcours : la personne vient de donner son nom, son téléphone et
+       * ses besoins. On lui proposait « on vous recontacte sous 24 h » et on la
+       * laissait partir — alors que le rendez-vous est déjà proposé, mais dans
+       * l'accusé de réception, qui arrive quand l'élan est retombé.
+       *
+       * Réglé ICI et pas en dur sur la vitrine : l'adresse de prise de rendez-vous
+       * change avec le compte, et elle est déjà surchargeable de notre côté pour
+       * l'accusé de réception (LEAD_CALENDLY_URL). Une troisième copie du même
+       * lien aurait divergé au premier changement.
+       */
+      name: "successCtaLabel",
+      type: "text",
+      label: "Bouton après l'envoi",
+      admin: {
+        description:
+          "Libellé du bouton affiché sur l'écran de confirmation, ex. « Réserver un créneau ». Vide = aucun bouton.",
+      },
+    },
+    {
+      name: "successCtaUrl",
+      type: "text",
+      label: "Adresse du bouton",
+      /**
+       * `http(s)` uniquement, et vérifié à l'enregistrement.
+       *
+       * Cette adresse est posée telle quelle dans un `href` par la vitrine : un
+       * `javascript:` saisi ici s'exécuterait chez chaque visiteur qui envoie le
+       * formulaire. Le refus au moment de la saisie est le seul endroit où la
+       * correction ne coûte rien.
+       */
+      validate: (value: unknown) =>
+        !value || /^https?:\/\/\S+$/i.test(String(value).trim())
+          ? true
+          : "Adresse attendue en http:// ou https://.",
+      admin: {
+        description:
+          "Où mène le bouton, ex. la page Calendly. Les deux champs vont ensemble : l'un sans l'autre n'affiche rien.",
+        condition: (_, sibling) => Boolean(sibling?.successCtaLabel),
+      },
+    },
+    {
       name: "legalNotice",
       type: "textarea",
       label: "Mention d'information",

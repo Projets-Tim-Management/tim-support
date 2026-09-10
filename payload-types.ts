@@ -805,6 +805,14 @@ export interface Form {
    */
   errorText: string;
   /**
+   * Libellé du bouton affiché sur l'écran de confirmation, ex. « Réserver un créneau ». Vide = aucun bouton.
+   */
+  successCtaLabel?: string | null;
+  /**
+   * Où mène le bouton, ex. la page Calendly. Les deux champs vont ensemble : l'un sans l'autre n'affiche rien.
+   */
+  successCtaUrl?: string | null;
+  /**
    * Mention RGPD affichée près du bouton d'envoi, avec le lien vers la politique de confidentialité. Vide = rien ne s'affiche.
    */
   legalNotice?: string | null;
@@ -3243,6 +3251,8 @@ export interface FormsSelect<T extends boolean = true> {
       };
   successText?: T;
   errorText?: T;
+  successCtaLabel?: T;
+  successCtaUrl?: T;
   legalNotice?: T;
   active?: T;
   seedVersion?: T;
