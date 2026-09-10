@@ -233,3 +233,70 @@ describe("origines autorisées", () => {
     expect(isAllowedOrigin("https://autre.example")).toBe(true);
   });
 });
+
+/**
+ * Le bouton de l'écran de succès.
+ *
+ * Le moment qui suit l'envoi est celui où l'intention est la plus forte : la
+ * personne vient de donner son nom, son téléphone et ses besoins. Le rendez-vous
+ * lui était déjà proposé — mais dans l'accusé de réception, qui arrive quand
+ * l'élan est retombé.
+ */
+describe("bouton de l'écran de succès", () => {
+  const base: FormDoc = {
+    formId: "demo",
+    successText: "Envoyé.",
+    errorText: "Raté.",
+    fields: [{ name: "email", type: "email", label: "E-mail", required: true }],
+  };
+
+  it("sert le bouton quand le libellé ET l'adresse sont là", () => {
+    const form = toPublicForm({
+      ...base,
+      successCtaLabel: "Réserver un créneau",
+      successCtaUrl: "https://calendly.com/cpiancatelli/30min",
+    });
+    expect(form?.successCta).toEqual({
+      label: "Réserver un créneau",
+      url: "https://calendly.com/cpiancatelli/30min",
+    });
+  });
+
+  /**
+   * L'un sans l'autre ne s'affiche pas : un libellé sans adresse donne un bouton
+   * mort, une adresse sans libellé n'a rien à écrire dessus. La vitrine n'a donc
+   * qu'une question à se poser — « y a-t-il un CTA ? ».
+   */
+  it("n'en sert AUCUN si l'un des deux manque", () => {
+    expect(toPublicForm({ ...base, successCtaLabel: "Réserver" })?.successCta).toBeUndefined();
+    expect(
+      toPublicForm({ ...base, successCtaUrl: "https://calendly.com/x" })?.successCta,
+    ).toBeUndefined();
+    expect(toPublicForm(base)?.successCta).toBeUndefined();
+  });
+
+  /**
+   * L'adresse finit dans un `href` sur le site public : un `javascript:` resté
+   * en base s'exécuterait chez chaque visiteur qui envoie le formulaire.
+   */
+  it("REFUSE une adresse qui n'est pas du web", () => {
+    for (const url of [
+      "javascript:alert(1)",
+      "data:text/html,<script>alert(1)</script>",
+      "/relatif",
+      "calendly.com/sans-schema",
+      "  ",
+    ]) {
+      expect(
+        toPublicForm({ ...base, successCtaLabel: "Réserver", successCtaUrl: url })?.successCta,
+        url,
+      ).toBeUndefined();
+    }
+  });
+
+  it("ne change rien aux formulaires qui n'en ont pas", () => {
+    const form = toPublicForm(base);
+    expect(form).toBeTruthy();
+    expect(Object.keys(form!)).not.toContain("successCta");
+  });
+});
