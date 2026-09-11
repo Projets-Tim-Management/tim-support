@@ -895,6 +895,7 @@ export interface Development {
   checklistProgress?: string | null;
   startedAt?: string | null;
   deliveredAt?: string | null;
+  announcedAt?: string | null;
   /**
    * Jamais communiqué au client.
    */
@@ -923,9 +924,9 @@ export interface DevStatus {
    */
   phase: 'entree' | 'etude' | 'realisation' | 'livraison' | 'hors-flux';
   /**
-   * Démarre le travail : Date le démarrage la première fois qu'un développement atteint ce statut. — Marque la livraison : Date la livraison : c'est chez l'utilisateur. — Clôt le dossier : Plus rien n'est attendu — le développement sort des vues de travail.
+   * Démarre le travail : Date le démarrage la première fois qu'un développement atteint ce statut. — Marque la livraison : Date la livraison : c'est chez l'utilisateur. — Clôt le dossier : Plus rien n'est attendu — le développement sort des vues de travail. — Prévient les demandeurs : E-mail aux clients « Demandé par » : c'est disponible, on propose une démo ou un échange.
    */
-  roles?: ('demarre' | 'livre' | 'cloture')[] | null;
+  roles?: ('demarre' | 'livre' | 'cloture' | 'annonce')[] | null;
   /**
    * Ce qui distingue ce statut du voisin. Affiché sous le sélecteur d'une fiche et au survol de la colonne.
    */
@@ -2571,6 +2572,7 @@ export interface DevelopmentsSelect<T extends boolean = true> {
   checklistProgress?: T;
   startedAt?: T;
   deliveredAt?: T;
+  announcedAt?: T;
   internalNotes?: T;
   feature?: T;
   rank?: T;

@@ -1589,3 +1589,217 @@ body.tim-dev-kanban .collection-list__list-selection {
   align-items: center;
   color: var(--tim-info);
 }
+
+/* ── Prévenir les demandeurs (popup d'annonce d'un dev livré) ────────────── */
+.dev-announce__open {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dev-announce__open:hover { background: var(--tim-primary-dark); }
+.dev-announce__again {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--tim-blue);
+  font: inherit;
+  font-size: 0.72rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* La popup : par-dessus tout, centrée. Deux volets — le message à gauche, ce
+   qu'on règle à droite — parce qu'on relit ce qu'on envoie AVANT d'envoyer. */
+.dev-popup {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--tim-foreground) 45%, transparent);
+}
+/* Presque toute la hauteur : l'aperçu est un e-mail complet, il doit se lire
+   sans ascenseur dans l'ascenseur. */
+.dev-popup__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(1080px, 96vw);
+  height: min(80vh, 1100px);
+  background: var(--tim-white);
+  border-radius: var(--tim-radius);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 22%);
+  overflow: hidden;
+}
+.dev-popup__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.35rem 0.9rem;
+  border-bottom: 1px solid var(--tim-border);
+}
+.dev-popup__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.dev-popup__sub {
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--tim-muted);
+}
+.dev-popup__close {
+  flex: none;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-muted);
+  cursor: pointer;
+}
+.dev-popup__close:hover { color: var(--tim-foreground); border-color: var(--tim-foreground); }
+.dev-popup__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 1fr);
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+}
+.dev-popup__mail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 1rem 1.35rem 1.1rem;
+  background: var(--tim-surface);
+  border-right: 1px solid var(--tim-border);
+}
+.dev-popup__subject {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+.dev-popup__subject span {
+  flex: none;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+.dev-popup__frame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+}
+.dev-popup__frame--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: var(--tim-muted);
+}
+.dev-popup__side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1.35rem 1.1rem;
+}
+.dev-popup__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
+@media (max-width: 800px) {
+  .dev-popup__body { grid-template-columns: 1fr; overflow-y: auto; }
+  .dev-popup__mail { border-right: 0; border-bottom: 1px solid var(--tim-border); }
+  .dev-popup__frame { min-height: 18rem; }
+}
+
+.dev-announce__list {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.dev-announce__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font-weight: 400;
+}
+.dev-announce__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.dev-announce__email {
+  font-size: 0.86rem;
+  color: var(--tim-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dev-announce__company {
+  font-size: 0.74rem;
+  color: var(--tim-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dev-announce__remove {
+  flex: none;
+  padding: 0 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--tim-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.dev-announce__remove:hover { color: var(--tim-red); }
+.dev-announce__add {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.45rem;
+}
+.dev-announce__add input { flex: 1; min-width: 0; }
+.dev-announce__send {
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dev-announce__send:hover { background: var(--tim-primary-dark); }
+.dev-announce__send:disabled { opacity: 0.5; cursor: not-allowed; }

@@ -20,6 +20,7 @@ import { ChecklistAutoCollapse as ChecklistAutoCollapse_d2dfe6020c139da8b2e0560d
 import { DevLinks as DevLinks_bb94574dbd75fe3b474718650b711418 } from '../../../modules/dev/admin/DevLinks'
 import { DevStatusCell as DevStatusCell_5e03f36098db4cf88c65d19b2866a269 } from '../../../modules/dev/admin/DevStatusCell'
 import { DevStatusField as DevStatusField_819319c999294b546c0f69c780077993 } from '../../../modules/dev/admin/DevStatusField'
+import { AnnounceField as AnnounceField_fe4176c29c337c2b2c538bcba6a619f2 } from '../../../modules/dev/admin/AnnounceField'
 import { DevCell as DevCell_ff22fda9c901dfff8262e74b909f96af } from '../../../modules/dev/admin/DevCell'
 import { DevSelectField as DevSelectField_7f5a2bfdf035052e7caaeb96cf6a1598 } from '../../../modules/dev/admin/DevSelectField'
 import { ChecklistCell as ChecklistCell_8af2bc43e2f51c59acdebf4eb772057c } from '../../../modules/dev/admin/ChecklistCell'
@@ -149,6 +150,7 @@ export const importMap = {
   "/modules/dev/admin/DevLinks#DevLinks": DevLinks_bb94574dbd75fe3b474718650b711418,
   "/modules/dev/admin/DevStatusCell#DevStatusCell": DevStatusCell_5e03f36098db4cf88c65d19b2866a269,
   "/modules/dev/admin/DevStatusField#DevStatusField": DevStatusField_819319c999294b546c0f69c780077993,
+  "/modules/dev/admin/AnnounceField#AnnounceField": AnnounceField_fe4176c29c337c2b2c538bcba6a619f2,
   "/modules/dev/admin/DevCell#DevCell": DevCell_ff22fda9c901dfff8262e74b909f96af,
   "/modules/dev/admin/DevSelectField#DevSelectField": DevSelectField_7f5a2bfdf035052e7caaeb96cf6a1598,
   "/modules/dev/admin/ChecklistCell#ChecklistCell": ChecklistCell_8af2bc43e2f51c59acdebf4eb772057c,

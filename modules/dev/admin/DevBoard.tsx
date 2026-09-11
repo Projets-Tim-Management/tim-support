@@ -3,10 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { AnnounceDrawer, type AnnounceTarget } from "@/modules/dev/admin/AnnounceDrawer";
 import { initialsOf } from "@/modules/dev/admin/team";
 import { devMeta, paletteColor } from "@/modules/dev/lib/devMeta";
 import { platformKind } from "@/modules/dev/lib/platforms";
-import { DEV_PHASES, type DevStatusDoc } from "@/modules/dev/lib/devStatus";
+import { DEV_PHASES, statusHasRole, type DevStatusDoc } from "@/modules/dev/lib/devStatus";
 
 /**
  * Vue Kanban des développements : une colonne par statut, les colonnes
@@ -44,6 +45,8 @@ type DevDoc = {
   opportunities?: Ref[] | Ref;
   /** Web, Mobile, ou les deux. */
   platforms?: Ref[] | Ref;
+  /** Les demandeurs déjà prévenus que c'est livré (voir AnnounceDrawer). */
+  announcedAt?: string | null;
 };
 
 const nameOf = (ref: unknown): string => {
@@ -109,6 +112,12 @@ export function DevBoard() {
    * vient poser.
    */
   const [over, setOver] = useState<{ status: string; index: number } | null>(null);
+  /**
+   * Carte déposée dans une colonne qui « prévient les demandeurs » (« Terminé ») :
+   * la fenêtre d'annonce s'ouvre, une fois le statut enregistré. Depuis le
+   * tableau comme depuis la fiche — c'est ici qu'on termine un développement.
+   */
+  const [announcing, setAnnouncing] = useState<AnnounceTarget | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -261,6 +270,20 @@ export function DevBoard() {
       } catch {
         setDocs(before);
         setError("Le classement n'a pas été enregistré.");
+        return;
+      }
+
+      // Arrivée dans « Terminé » (un statut qui prévient les demandeurs), avec
+      // des clients qui attendaient et pas encore prévenus : on propose
+      // l'envoi tout de suite, statut déjà enregistré.
+      const changedColumn = changed.some((c) => String(c.id) === String(id) && c.status != null);
+      const requesters = Array.isArray(moved.opportunities)
+        ? moved.opportunities.length
+        : moved.opportunities == null
+          ? 0
+          : 1;
+      if (changedColumn && statusHasRole(status, "annonce") && !moved.announcedAt && requesters > 0) {
+        setAnnouncing({ id: moved.id, title: moved.title ?? "" });
       }
     },
     [byStatus, docs],
@@ -284,6 +307,15 @@ export function DevBoard() {
 
   return (
     <>
+      <AnnounceDrawer
+        dev={announcing}
+        onClose={() => setAnnouncing(null)}
+        onSent={(at) =>
+          setDocs((current) =>
+            (current ?? []).map((d) => (String(d.id) === String(announcing?.id) ? { ...d, announcedAt: at } : d)),
+          )
+        }
+      />
       {error ? (
         <p className="tim-kanban__error" onClick={() => setError(null)}>
           {error}

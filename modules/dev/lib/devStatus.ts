@@ -49,7 +49,7 @@ export const DEV_PHASE_OPTIONS = DEV_PHASES.map(({ label, value }) => ({ label, 
  * serait qu'une étiquette : le système ne saurait pas qu'y arriver signifie
  * « le travail a commencé » et n'aurait plus daté aucun jalon.
  */
-export type DevStatusRole = "demarre" | "livre" | "cloture";
+export type DevStatusRole = "demarre" | "livre" | "cloture" | "annonce";
 
 export const DEV_STATUS_ROLES: { value: DevStatusRole; label: string; hint: string }[] = [
   {
@@ -66,6 +66,17 @@ export const DEV_STATUS_ROLES: { value: DevStatusRole; label: string; hint: stri
     value: "cloture",
     label: "Clôt le dossier",
     hint: "Plus rien n'est attendu — le développement sort des vues de travail.",
+  },
+  {
+    /**
+     * L'annonce aux clients qui l'ont demandé — UNE fois, au premier statut
+     * qui porte ce rôle. Séparé de « livre » : « En production » livre sans
+     * annoncer (on observe d'abord), « Terminé » annonce. Un statut créé en
+     * back-office choisit son moment.
+     */
+    value: "annonce",
+    label: "Prévient les demandeurs",
+    hint: "E-mail aux clients « Demandé par » : c'est disponible, on propose une démo ou un échange.",
   },
 ];
 
@@ -149,7 +160,7 @@ export const DEV_STATUS_SEED: DevStatusSeed[] = [
   // que le client ne trouvera pas. Sa couleur tranche volontairement entre les
   // deux verts de la phase — c'est la colonne qu'on ne doit pas oublier.
   { key: "a-documenter", name: "À documenter", color: "rose", phase: "livraison", position: 130, roles: ["demarre", "livre"], hint: "En production, mais la fiche du site support reste à écrire." },
-  { key: "termine", name: "Terminé", color: "green", phase: "livraison", position: 140, roles: ["demarre", "livre", "cloture"], hint: "Livré et documenté. Plus rien à faire." },
+  { key: "termine", name: "Terminé", color: "green", phase: "livraison", position: 140, roles: ["demarre", "livre", "cloture", "annonce"], hint: "Livré et documenté. Les clients qui l'attendaient sont prévenus." },
 
   // ── Hors flux ────────────────────────────────────────────────────────────
   { key: "en-attente", name: "En attente", color: "slate", phase: "hors-flux", position: 200, roles: [], hint: "Bloqué par un tiers, une décision ou un prérequis." },
