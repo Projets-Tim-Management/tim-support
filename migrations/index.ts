@@ -93,6 +93,7 @@ import * as migration_20260911_094157_add_task_calendar from './20260911_094157_
 import * as migration_20260911_101500_desarmer_remise_acces_sans_provisionnement from './20260911_101500_desarmer_remise_acces_sans_provisionnement';
 import * as migration_20260911_112418_annonce_livraison_aux_demandeurs from './20260911_112418_annonce_livraison_aux_demandeurs';
 import * as migration_20260911_112500_role_annonce_sur_termine from './20260911_112500_role_annonce_sur_termine';
+import * as migration_20260911_123348_duree_rappel_agenda from './20260911_123348_duree_rappel_agenda';
 
 export const migrations = [
   {
@@ -563,11 +564,16 @@ export const migrations = [
   {
     up: migration_20260911_112418_annonce_livraison_aux_demandeurs.up,
     down: migration_20260911_112418_annonce_livraison_aux_demandeurs.down,
-    name: '20260911_112418_annonce_livraison_aux_demandeurs'
+    name: '20260911_112418_annonce_livraison_aux_demandeurs',
   },
   {
     up: migration_20260911_112500_role_annonce_sur_termine.up,
     down: migration_20260911_112500_role_annonce_sur_termine.down,
     name: '20260911_112500_role_annonce_sur_termine',
+  },
+  {
+    up: migration_20260911_123348_duree_rappel_agenda.up,
+    down: migration_20260911_123348_duree_rappel_agenda.down,
+    name: '20260911_123348_duree_rappel_agenda'
   },
 ];

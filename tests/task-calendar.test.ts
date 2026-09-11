@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_TASK_EVENT_MINUTES,
+  eventMinutes,
   eventNeedsSync,
   eventSummary,
   taskSyncPatch,
@@ -71,6 +73,23 @@ describe("eventNeedsSync", () => {
   it("jamais demandée, toujours pas demandée : rien", () => {
     const off = { ...base, calendarSync: false };
     expect(eventNeedsSync(off, { ...off, dueDate: "2026-09-20T08:00:00.000Z" })).toBe(false);
+  });
+});
+
+describe("eventMinutes", () => {
+  it("5 min par défaut : un rappel, pas un rendez-vous", () => {
+    expect(DEFAULT_TASK_EVENT_MINUTES).toBe(5);
+    expect(eventMinutes({})).toBe(5);
+    expect(eventMinutes({ calendarMinutes: null })).toBe(5);
+  });
+  it("prend une durée de la liste, refuse le reste", () => {
+    expect(eventMinutes({ calendarMinutes: 45 })).toBe(45);
+    expect(eventMinutes({ calendarMinutes: 60 })).toBe(60);
+    expect(eventMinutes({ calendarMinutes: 7 })).toBe(5);
+  });
+  it("un changement de durée resynchronise l'événement", () => {
+    const before = { ...base, calendarEventId: "e1", calendarMinutes: 5 };
+    expect(eventNeedsSync(before, { ...before, calendarMinutes: 30 })).toBe(true);
   });
 });
 
