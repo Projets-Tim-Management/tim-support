@@ -414,6 +414,35 @@ export const SYSTEM_STEPS: Record<string, SystemStepDef> = {
 export const SELF_VALIDATING_STEPS: Record<string, number> = { "remise-acces": 1 };
 
 /**
+ * PRÉALABLE d'une acquisition à l'échéance : l'étape dont le fait doit exister.
+ *
+ * « Accès distribués aux utilisateurs » ne peut pas devenir vraie toute seule
+ * tant que les accès n'ont pas été CRÉÉS par TIM (« Provisionnement des
+ * accès »). Sans cette règle, le compte à rebours était posé dès la création de
+ * la fiche, et l'étape se serait acquise le lendemain de l'échéance sur un
+ * client sans le moindre identifiant. Constaté sur Instalclim le 11/09/2026.
+ *
+ * Un préalable ARMÉ (en attente de sa propre validation automatique) compte
+ * comme acquis : il s'acquerra de lui-même, et toujours avant l'échéance d'ici.
+ */
+export const SELF_VALIDATION_REQUIRES: Record<string, string> = {
+  // = STEP_TEST_STARTS, déclaré plus bas ; en dur ici pour ne pas lire une
+  // constante avant son initialisation au chargement du module.
+  "remise-acces": "provisionnement",
+};
+
+export const selfValidationAllowed = (
+  step: { key?: string | null },
+  steps: Array<{ key?: string | null; state?: string | null; autoAt?: string | null }>,
+): boolean => {
+  const prereq = step.key ? SELF_VALIDATION_REQUIRES[step.key] : undefined;
+  if (!prereq) return true;
+  const p = steps.find((s) => s.key === prereq);
+  if (!p) return false;
+  return p.state === "fait" || (p.state === "auto" && Boolean(p.autoAt));
+};
+
+/**
  * Quand cette étape s'acquerra-t-elle toute seule ? `null` si jamais.
  *
  * Calculée depuis l'échéance de l'étape, donc elle SUIT un démarrage déplacé :
@@ -1271,6 +1300,93 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
 ];
 
 /**
+ * NATURE d'un envoi, en un mot, telle qu'on la lit dans la barre d'étapes.
+ *
+ * L'objet d'un e-mail dit ce qu'il contient, pas ce qu'il EST : « Il reste à
+ * réserver votre session » est une relance, « 45 minutes pour rendre votre
+ * équipe autonome » une invitation — et rien, sur la ligne, ne le disait. Il
+ * fallait ouvrir l'aperçu pour comprendre pourquoi deux messages servaient la
+ * même étape. Constaté le 11/09/2026.
+ *
+ * Indexé par `key`, stable, plutôt que porté par le modèle en base : c'est une
+ * lecture, pas un réglage.
+ */
+export const EMAIL_KIND: Record<string, string> = {
+  "demande-recue": "Notification TIM",
+  "invitation-espace-client": "Invitation",
+  "code-connexion": "Code de connexion",
+  "creneau-confirme": "Confirmation",
+  "creneau-reserve-tim": "Notification TIM",
+  "creneau-reserve": "Notification partenaire",
+  "dossier-recu": "Accusé de réception",
+  "dossier-a-verifier": "Notification TIM",
+  "devis-a-rediger": "Notification TIM",
+  "demande-contrat-tim": "Notification TIM",
+  "relance-creneau": "Relance",
+  "relance-dossier": "Relance",
+  "bilan-confirme": "Confirmation",
+  "rappel-bilan": "Rappel de la veille",
+  "rappel-creneau": "Rappel de la veille",
+  "prise-en-main": "Invitation",
+  "acces-prets": "Remise des accès",
+  "suivi-chantier": "Conseil d'usage",
+  "check-in": "Prise de nouvelles",
+  "fin-proche": "Invitation",
+  "dernier-jour": "Rappel",
+  decision: "Décision",
+  "recap-partenaire": "Récapitulatif",
+};
+
+export const emailKind = (key: string | null | undefined): string =>
+  (key && EMAIL_KIND[key]) || "E-mail";
+
+/** « 9 h », « 17 h 30 » — l'heure telle qu'on la dit, pas telle qu'on la stocke. */
+const heureParlee = (hhmm?: string | null): string => {
+  const [h, m] = (hhmm ?? DEFAULT_SEND_HOUR).split(":").map(Number);
+  return m ? `${h} h ${String(m).padStart(2, "0")}` : `${h} h`;
+};
+
+/**
+ * QUAND un envoi part, en français, d'après son ancrage — « 3 jours avant le
+ * démarrage, à 9 h », « la veille du créneau de prise en main, à 17 h ».
+ *
+ * La colonne des dates montre le résultat (« 18 sept. ») ; sans la règle qui
+ * l'a produit, on ne sait ni pourquoi ce jour-là, ni ce qu'un changement de
+ * démarrage fera bouger. Pour un envoi sur événement, c'est le fait déclencheur.
+ */
+export const emailScheduleLabel = (m: {
+  anchor?: string | null;
+  offsetDays?: number | null;
+  sendHour?: string | null;
+  trigger?: string | null;
+}): string | null => {
+  if (!m.anchor || m.anchor === "aucun") return m.trigger ?? null;
+  if (m.anchor === "milieu") return `à mi-parcours, à ${heureParlee(m.sendHour)}`;
+
+  const ref: Record<string, { du: string; le: string }> = {
+    debut: { du: "du démarrage", le: "le démarrage" },
+    fin: { du: "de la fin du test", le: "la fin du test" },
+    session: { du: "du créneau de prise en main", le: "le créneau de prise en main" },
+    bilan: { du: "du créneau de bilan", le: "le créneau de bilan" },
+  };
+  const r = ref[m.anchor];
+  if (!r) return null;
+
+  const n = m.offsetDays ?? 0;
+  const jour =
+    n === 0
+      ? `le jour ${r.du}`
+      : n === -1
+        ? `la veille ${r.du}`
+        : n === 1
+          ? `le lendemain ${r.du}`
+          : n < 0
+            ? `${-n} jours avant ${r.le}`
+            : `${n} jours après ${r.le}`;
+  return `${jour}, à ${heureParlee(m.sendHour)}`;
+};
+
+/**
  * Public déclaré d'un envoi, d'après le MODÈLE.
  *
  * Sert de recours quand la ligne d'envoi manque au parcours — cas d'un parcours
@@ -1458,109 +1574,19 @@ export const computeEndDate = (
   return addDays(startDate, weeks * 7 + extraDays);
 };
 
-const startOfDay = (iso: string): string => {
-  const d = new Date(iso);
-  return new Date(
-    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0),
-  ).toISOString();
-};
-
-const endOfDay = (iso: string): string => {
-  const d = new Date(iso);
-  return new Date(
-    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 0, 0),
-  ).toISOString();
-};
-
 /**
- * Fenêtre dans laquelle la date d'un envoi peut être déplacée.
+ * La date d'un envoi se règle LIBREMENT.
  *
- * Les dates par défaut viennent du calendrier du parcours. On n'autorise qu'un
- * ajustement « un peu avant / un peu après », borné par les étapes VOISINES :
+ * Elle était bornée par les étapes voisines (« entre l'étape précédente et la
+ * suivante »), pour qu'un message ne parte jamais à contretemps. En pratique,
+ * la règle bloquait l'urgence : un test à lancer vite exige d'envoyer la
+ * relance du dossier AUJOURD'HUI, hors de toute fenêtre calculée (Instalclim,
+ * 11/09/2026). Le calendrier propose ; la main décide. Décision du 11/09/2026.
  *
- *     étape précédente        cette étape         étape suivante
- *     ──────┬──────────────────────┬──────────────────┬──────────
- *           │◄──── déplacement autorisé ────────────►│
- *
- * La borne haute est la fin de la journée de l'étape suivante : un e-mail qui
- * partirait après elle annoncerait une chose déjà faite. La borne basse est le
- * début de la journée de l'étape précédente, pour la raison symétrique —
- * annoncer une action dont le préalable n'a pas encore eu lieu.
- *
- * Seules les étapes DATÉES bornent : une étape déclenchée par un événement ne
- * dit rien sur l'ordre du calendrier, et la sauter est donc correct.
+ * Deux garde-fous subsistent, et suffisent : les CONDITIONS d'envoi (une
+ * relance ne part pas si la chose est faite, voir SEND_CONDITIONS) et le délai
+ * de rattrapage du cron (un envoi trop ancien est abandonné, pas rattrapé).
  */
-export type MailDateWindow = { min: string | null; max: string | null };
-
-export function mailDateWindow(
-  stepKey: string | null | undefined,
-  steps: Array<{ key?: string | null; due?: string | null }>,
-): MailDateWindow {
-  const index = steps.findIndex((s) => s.key && s.key === stepKey);
-  if (index === -1) return { min: null, max: null };
-
-  let min: string | null = null;
-  for (let i = index - 1; i >= 0; i -= 1) {
-    if (steps[i]?.due) {
-      min = steps[i]!.due!;
-      break;
-    }
-  }
-  let max: string | null = null;
-  for (let i = index + 1; i < steps.length; i += 1) {
-    if (steps[i]?.due) {
-      max = steps[i]!.due!;
-      break;
-    }
-  }
-
-  return { min: min ? startOfDay(min) : null, max: max ? endOfDay(max) : null };
-}
-
-/**
- * Élargit la fenêtre pour qu'elle CONTIENNE la date du calendrier.
- *
- * Les bornes viennent des étapes voisines ; la date d'un envoi, de son propre
- * ancrage. Les deux ne parlent pas toujours du même repère : « Votre session,
- * c'est demain » s'ancre sur le CRÉNEAU réservé, l'étape qui l'accueille sur le
- * lundi de démarrage. Une session tenue avant le démarrage — le cas normal —
- * place donc le rappel avant sa propre étape, hors d'une fenêtre censée le
- * contenir. Constaté sur trois parcours le 01/09/2026.
- *
- * La fenêtre borne un déplacement À LA MAIN. Elle n'a pas à déclarer illégale
- * la date que le parcours calcule lui-même : sans cet élargissement, le premier
- * réglage manuel d'un tel envoi le déplaçait de plusieurs jours, en silence.
- */
-export function allowComputedDate(
-  window: MailDateWindow,
-  computedAt?: string | null,
-): MailDateWindow {
-  if (!computedAt) return window;
-  const t = Date.parse(computedAt);
-  if (Number.isNaN(t)) return window;
-  return {
-    min: window.min && t < Date.parse(window.min) ? startOfDay(computedAt) : window.min,
-    max: window.max && t > Date.parse(window.max) ? endOfDay(computedAt) : window.max,
-  };
-}
-
-/**
- * Ramène une date dans la fenêtre autorisée.
- *
- * `null` la traverse sans être corrigé : c'est « ne pas envoyer », un choix
- * délibéré et non une date hors bornes.
- */
-export const clampMailDate = (
-  at: string | null | undefined,
-  window: MailDateWindow,
-): string | null => {
-  if (!at) return null;
-  const t = Date.parse(at);
-  if (Number.isNaN(t)) return null;
-  if (window.min && t < Date.parse(window.min)) return window.min;
-  if (window.max && t > Date.parse(window.max)) return window.max;
-  return at;
-};
 
 /** Échéance d'une étape, dérivée de son ancrage. Null si aucune. */
 export const stepDueDate = (

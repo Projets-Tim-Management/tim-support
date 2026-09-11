@@ -108,8 +108,10 @@
   /* Colonnes de droite en largeur FIXE. Chaque ligne étant sa propre grille,
      des colonnes `auto` se dimensionnent indépendamment : les dates ne
      tombaient pas au même endroit d'une ligne à l'autre. La dernière colonne
-     est assez large pour DEUX boutons (Annuler + Valider). */
-  grid-template-columns: 1.5rem minmax(0, 1fr) auto 10rem 5.5rem 3.75rem;
+     est assez large pour DEUX boutons (Annuler + Valider).
+     Même gabarit pour les lignes d'e-mail (.jr-mailrow) : leurs dates tombent
+     dans la colonne des échéances, sous celles des étapes. */
+  grid-template-columns: 1.5rem minmax(0, 1fr) 10rem 5.5rem 3.75rem;
   align-items: center;
   gap: 0.625rem;
   padding: 0.5rem 0.5rem 0.5rem 0.25rem;
@@ -123,6 +125,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Calée sur la ligne du TITRE, pas centrée sur le bloc titre + détail :
+     centrée, la pastille flottait entre les deux lignes et ne se lisait plus
+     comme le numéro de ce titre-là. Le titre a la même hauteur qu'elle. */
+  align-self: start;
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 999px;
@@ -140,6 +146,9 @@
 }
 
 .jr-step__label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem; /* = .jr-step__mark : le numéro et le titre s'alignent */
   font-size: 0.875rem;
   color: var(--tim-foreground);
 }
@@ -193,25 +202,6 @@
   color: var(--tim-muted);
   white-space: nowrap;
   text-align: right;
-}
-
-/* Échéance de l'étape, quand elle cohabite avec la date d'un envoi. Elle prime
-   visuellement : c'est la date de CE qu'il y a à faire ; celle du message, en
-   dessous, est un réglage. */
-.jr-step__due {
-  display: block;
-  color: var(--tim-foreground);
-}
-
-/* La date d'un MESSAGE, sous celle de l'étape : l'enveloppe dit lequel des deux
-   on lit, sans avoir à comparer les valeurs. */
-.jr-step__maildate {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.1875rem;
-  font-size: 0.6875rem;
-  color: var(--tim-muted);
 }
 
 /* Étape sans date parce que son repère n'existe pas encore (le créneau n'est
@@ -1429,48 +1419,124 @@
   color: var(--tim-danger-text);
 }
 
-/* ─── Pastilles d'envoi sur une étape ────────────────────────────────────────
-   Cliquables : elles ouvrent l'aperçu du message exact qui partira. */
-.jr-step__mails {
+/* ─── E-mails d'une étape, un par ligne, sous elle ───────────────────────────
+   Des enveloppes sans texte disaient « trois e-mails ici », pas lesquels ni
+   pourquoi. Chaque ligne annonce la nature du message (relance, rappel,
+   invitation…), son objet, sa condition d'envoi et son moment. */
+.jr-step__mailrows {
+  grid-column: 1 / -1;
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.1875rem;
+  flex-direction: column;
+  gap: 0;
+  list-style: none;
+  /* Décalées vers la droite et tenues par un filet vertical, comme les
+     sous-lignes d'un plan : c'est ce qui dit « ces messages sont À cette
+     étape ». Le filet part du centre de la pastille de numéro (1.5rem / 2). */
+  margin: 0.25rem 0 0.125rem 0.75rem;
+  padding: 0 0 0 1rem;
+  border-left: 2px solid var(--tim-elevation-150);
 }
 
-.jr-mailbtn {
+.jr-mailrow {
+  display: grid;
+  /* Même gabarit que .jr-step, à la première colonne près : l'enveloppe est
+     plus petite que le numéro, et le décalage de gauche vient du conteneur.
+     Les colonnes de droite gardent leurs largeurs fixes : la date d'un envoi
+     s'aligne sous l'échéance de son étape. */
+  grid-template-columns: 1.25rem minmax(0, 1fr) 10rem 5.5rem 3.75rem;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.125rem 0;
+}
+
+/* L'enveloppe, colorée par destinataire, sous le numéro de l'étape : c'est le
+   lien visuel « ce message appartient à cette étape ». */
+.jr-mailrow__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.375rem;
-  height: 1.375rem;
+  justify-self: center;
+  align-self: start; /* sur la ligne de l'objet, comme le numéro sur le titre */
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.6875rem;
+  background: var(--tim-gray-bg);
+  color: var(--tim-gray);
+}
+
+.jr-mailrow__icon--client { background: var(--tim-amber-bg); color: var(--tim-amber); }
+.jr-mailrow__icon--tim { background: var(--tim-purple-bg); color: var(--tim-purple); }
+.jr-mailrow__icon--partenaire { background: var(--tim-blue-bg); color: var(--tim-blue); }
+
+.jr-mailrow__main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  min-width: 0;
+}
+
+.jr-mailrow__head {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+  min-height: 1.25rem; /* = .jr-mailrow__icon : l'enveloppe et l'objet s'alignent */
+}
+
+/* La NATURE, en capitales discrètes : « RELANCE », « RAPPEL DE LA VEILLE ». C'est
+   le mot que l'objet ne dit pas, et celui qu'on cherche des yeux. */
+.jr-mailrow__kind {
+  flex: none;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+
+.jr-mailrow__subject {
+  min-width: 0;
   padding: 0;
   border: 0;
-  border-radius: var(--tim-radius-sm);
+  background: none;
   font-size: 0.75rem;
+  text-align: left;
+  color: var(--tim-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   cursor: pointer;
-  background: var(--tim-gray-bg);
-  color: var(--tim-gray);
-  transition: filter 0.15s ease;
 
-  &:hover { filter: brightness(0.94); }
+  &:hover { text-decoration: underline; }
 }
 
-.jr-mailbtn--client { background: var(--tim-amber-bg); color: var(--tim-amber); }
-.jr-mailbtn--tim { background: var(--tim-purple-bg); color: var(--tim-purple); }
-.jr-mailbtn--partenaire { background: var(--tim-blue-bg); color: var(--tim-blue); }
-
-/* Déjà parti : l'aperçu reste consultable, mais ce n'est plus une échéance. */
-.jr-mailbtn--sent { opacity: 0.5; }
-
-/* Sans objet : le client a fait ce qu'on lui demandait, l'envoi est écarté.
-   Éteint, pas alarmant — c'est une bonne nouvelle. L'aperçu reste ouvrable :
-   savoir ce qu'on n'a PAS envoyé compte autant. */
-.jr-mailbtn--moot {
-  background: var(--tim-gray-bg);
-  color: var(--tim-gray);
-  opacity: 0.6;
+/* Condition et moment : « ne part que si le dossier n'est pas transmis ·
+   3 jours avant le démarrage, à 9 h ». */
+.jr-mailrow__meta {
+  font-size: 0.6875rem;
+  color: var(--tim-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+/* Déclenché par un fait, pas par une date. */
+.jr-mailrow__event {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-style: italic;
+  color: var(--tim-muted);
+  cursor: help;
+}
+
+/* Parti, ou sans objet : la ligne reste lisible mais s'efface. */
+.jr-mailrow--sent .jr-mailrow__subject,
+.jr-mailrow--moot .jr-mailrow__subject { color: var(--tim-muted); }
+.jr-mailrow--moot .jr-mailrow__icon { opacity: 0.6; }
+
+/* Étape faite : ses envois sont de l'histoire, on garde une ligne courte. */
+.jr-step--done .jr-mailrow__meta { display: none; }
 
 /* ─── Date d'envoi, modifiable sur la ligne de l'étape ───────────────────────
    Elle vivait dans un onglet séparé, ce qui obligeait à retrouver de tête à
@@ -1557,13 +1623,14 @@
   background: var(--tim-white);
 }
 
-/* Bornes rappelées sous le champ : sans elles, un sélecteur qui refuse une
-   date passe pour un bug plutôt que pour une règle. */
-.jr-datepop__bounds {
+/* Date passée hors du délai de rattrapage : le cron l'abandonnera. Dit au
+   moment du réglage, pas découvert demain dans l'onglet E-mails. */
+.jr-datepop__warn {
   margin: 0.375rem 0 0;
   font-size: 0.6875rem;
   line-height: 1.4;
-  color: var(--tim-blue);
+  font-weight: 600;
+  color: var(--tim-danger-text);
 }
 
 .jr-datepop__state {
@@ -1594,6 +1661,16 @@
 }
 
 .jr-datepop__btn--reset { color: var(--tim-blue); }
+
+/* L'urgence, mise en avant : c'est le geste qu'on vient chercher quand on
+   ouvre ce panneau en dehors du calendrier prévu. */
+.jr-datepop__btn--asap {
+  background: var(--tim-primary);
+  border-color: var(--tim-primary);
+  color: var(--tim-white);
+
+  &:hover { background: var(--tim-primary-dark); border-color: var(--tim-primary-dark); color: var(--tim-white); }
+}
 
 /* ─── Aperçu d'e-mail ────────────────────────────────────────────────────────── */
 .jr-mailview__body {

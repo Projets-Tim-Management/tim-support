@@ -108,6 +108,21 @@ export const SEND_CONDITIONS: Record<string, (f: SendFacts) => boolean> = {
 };
 
 /**
+ * La même table, dite au lecteur : ce qu'un envoi conditionnel EXIGE pour partir.
+ *
+ * Affichée sur la ligne du message, dans la barre d'étapes. Sans elle, une
+ * relance ressemble à n'importe quel envoi daté, et on s'étonne qu'elle ne
+ * parte pas — ou on craint qu'elle parte alors que le client a déjà fait ce
+ * qu'on lui demande.
+ */
+export const CONDITION_LABEL: Record<string, string> = {
+  "prise-en-main": "ne part que si aucun créneau n'est réservé",
+  "relance-creneau": "ne part que si aucun créneau n'est réservé",
+  "relance-dossier": "ne part que si le dossier n'est pas encore transmis",
+  [ACCESS_EMAIL_KEY]: "retenu tant que les accès ne sont pas créés",
+};
+
+/**
  * L'envoi est-il encore justifié ? `true` pour tout message sans condition —
  * l'absence de règle ne doit jamais bloquer un envoi.
  */

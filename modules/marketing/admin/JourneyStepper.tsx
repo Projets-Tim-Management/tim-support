@@ -8,15 +8,15 @@ import { EmailPreview } from "@/modules/marketing/admin/EmailPreview";
 import { MailDateEditor } from "@/modules/marketing/admin/MailDateEditor";
 import { Tooltip } from "@/modules/marketing/admin/Tooltip";
 import { useSaveAfterDispatch } from "@/modules/marketing/admin/useSaveAfterDispatch";
-import { raisonSansObjet } from "@/modules/marketing/lib/due-emails";
+import { CONDITION_LABEL, raisonSansObjet } from "@/modules/marketing/lib/due-emails";
 import {
   AUDIENCE_LABEL,
-  allowComputedDate,
   STEP_VALIDATION_EFFECT,
   SYSTEM_STEPS,
   attachEmailsToSteps,
   computeEmailSchedule,
-  mailDateWindow,
+  emailKind,
+  emailScheduleLabel,
   JOURNEY_ACTORS,
   JOURNEY_PHASES,
   computeEndDate,
@@ -24,6 +24,7 @@ import {
   isStepPending,
   isAdminStep,
   runStatusMeta,
+  selfValidationDate,
   stepDueDate,
   stepTooltip,
 } from "@/modules/marketing/lib/journey";
@@ -56,6 +57,15 @@ const IconUndo = () => (
        stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M6 3.5L3 6.5l3 3" />
     <path d="M3 6.5h5.5a3.5 3.5 0 110 7H7" />
+  </svg>
+);
+
+/** Œil — « voir le message tel qu'il partira ». */
+const IconEye = () => (
+  <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none"
+       stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8s-2.5 4.5-6.5 4.5S1.5 8 1.5 8z" />
+    <circle cx="8" cy="8" r="2" />
   </svg>
 );
 
@@ -400,13 +410,27 @@ export function JourneyStepper() {
                 const canUndo = isDone && step.index === lastDoneIndex && !system;
                 const locked = isAdminStep(step) && !isAdmin;
                 const due = stepDueDate(step, startDate, endDate, sessionAt);
+                /**
+                 * Automatisme posé par l'ÉCHÉANCE, et non par un fait constaté.
+                 *
+                 * « Accès distribués aux utilisateurs » s'acquiert d'elle-même
+                 * le lendemain de son échéance, parce que personne ne peut
+                 * constater ce geste à la place du client. L'annuler n'a pas de
+                 * sens — et le serveur la réarme d'ailleurs à l'enregistrement
+                 * suivant : le bouton ↩ remettait l'étape « à faire » pour la
+                 * voir repasser « auto » dans la seconde. Constaté le 11/09/2026.
+                 * Quand l'automatisme vient d'un fait (un accès transmis, fenêtre
+                 * de 2 h), l'annulation garde tout son sens.
+                 */
+                const selfAt = selfValidationDate(step, startDate, endDate, sessionAt);
+                const armedByDeadline =
+                  pending &&
+                  selfAt != null &&
+                  step.autoAt != null &&
+                  Date.parse(step.autoAt) === Date.parse(selfAt);
                 const late = !isDone && due != null && today != null && Date.parse(due) < today;
 
                 const stepMails = step.key ? (mailsByStep.get(step.key) ?? []) : [];
-                // Les envois déclenchés par un événement (connexion à l'espace
-                // client, dossier transmis…) n'ont pas de date à régler : leur
-                // proposer un champ laisserait croire à un oubli.
-                const datedMails = stepMails.filter((m) => m.anchor && m.anchor !== "aucun");
 
                 return (
                   <li
@@ -476,37 +500,6 @@ export function JourneyStepper() {
                       )}
                     </span>
 
-                    {/* Enveloppes : voir le message exact qui partira. La date,
-                        elle, vit dans la colonne des échéances — voir plus bas. */}
-                    <span className="jr-step__mails">
-                      {stepMails.map((m) => (
-                        <Tooltip
-                          key={m.key}
-                          interactive
-                          content={[
-                            sansObjet[m.key]
-                              ? "Ne partira pas"
-                              : m.sentAt
-                                ? "E-mail envoyé"
-                                : "E-mail automatique",
-                            `À ${AUDIENCE_LABEL[m.audience ?? "client"] ?? "—"} — « ${m.subject} »`,
-                            sansObjet[m.key]
-                              ? `Sans objet : ${sansObjet[m.key]}.`
-                              : "Cliquer pour voir le message exact qui part.",
-                          ]}
-                        >
-                          <button
-                            type="button"
-                            aria-label={`Voir l'e-mail « ${m.subject} »`}
-                            className={`jr-mailbtn jr-mailbtn--${m.audience ?? "client"}${m.sentAt ? " jr-mailbtn--sent" : ""}${sansObjet[m.key] ? " jr-mailbtn--moot" : ""}`}
-                            onClick={() => setPreview(m.key)}
-                          >
-                            <span aria-hidden>✉</span>
-                          </button>
-                        </Tooltip>
-                      ))}
-                    </span>
-
                     <span className="jr-step__who">
                       {step.actor && (
                         <Tooltip
@@ -533,76 +526,24 @@ export function JourneyStepper() {
                       {pending && step.autoAt && nowMs != null ? (
                         <Tooltip
                           className="jr-step__auto"
-                          content={[
-                            "Validation automatique",
-                            `Déclenchée ${SYSTEM_STEPS[step.key]?.trigger ?? "par le système"}.`,
-                            "Annulable jusqu'à l'échéance ; ensuite l'étape est acquise.",
-                          ]}
+                          content={
+                            armedByDeadline
+                              ? [
+                                  "Validation automatique à l'échéance",
+                                  `S'acquiert d'elle-même le ${fmtFullDate(step.autoAt)}, ou plus tôt ${SYSTEM_STEPS[step.key]?.trigger?.split(", ou ")[0] ?? "dès que le fait est constaté"}.`,
+                                  "Pas d'annulation : personne ne peut constater ce geste à la place du client. Vous pouvez l'acter tout de suite si vous le savez fait.",
+                                ]
+                              : [
+                                  "Validation automatique",
+                                  `Déclenchée ${SYSTEM_STEPS[step.key]?.trigger ?? "par le système"}.`,
+                                  "Annulable jusqu'à l'échéance ; ensuite l'étape est acquise.",
+                                ]
+                          }
                         >
                           auto {countdown(step.autoAt, nowMs)}
                         </Tooltip>
                       ) : isDone ? (
                         fmtDate(step.doneAt)
-                      ) : datedMails.length > 0 ? (
-                        <>
-                          {/* L'échéance de l'ÉTAPE d'abord, celles de ses
-                              messages ensuite.
-
-                              La colonne ne montrait que la date des envois :
-                              tant qu'un message partait le jour même de l'étape,
-                              les deux se confondaient. Ce n'est plus vrai —
-                              « Votre session, c'est demain » part la VEILLE. La
-                              colonne annonçait donc le 13 pour une étape due le
-                              14, contredite par sa propre infobulle.
-
-                              Toujours affichée, même quand les dates coïncident :
-                              une règle qui s'applique une fois sur deux oblige à
-                              se demander, à chaque ligne, ce qu'on est en train
-                              de lire. */}
-                          {due && <span className="jr-step__due">{fmtDate(due)}</span>}
-                          {datedMails.map((m) => {
-                            // Date que le calendrier produirait sans dérogation :
-                            // c'est la cible du « rétablir », heure comprise.
-                            const computedAt =
-                              computeEmailSchedule(
-                                [{ ...m, overridden: false }],
-                                startDate,
-                                endDate,
-                                sessionAt,
-                                reviewAt,
-                              )[0]?.scheduledAt ?? null;
-                            return (
-                              <span key={`date-${m.key}`} className="jr-step__maildate">
-                                <span aria-hidden>✉</span>
-                                <MailDateEditor
-                                  subject={m.subject}
-                                  scheduledAt={m.scheduledAt}
-                                  overridden={m.overridden}
-                                  sentAt={m.sentAt}
-                                  sansObjet={sansObjet[m.key]}
-                                  readOnly={closed}
-                                  computedAt={computedAt}
-                                  /**
-                                   * Bornée par les étapes voisines de SON étape —
-                                   * celle qu'il déclare, pas celle sous laquelle il
-                                   * s'affiche : c'est la seule que le serveur fera
-                                   * respecter. Un envoi sans étape déclarée n'est
-                                   * borné par rien, ici comme là-bas.
-                                   *
-                                   * Élargie à sa date calculée : la fenêtre borne un
-                                   * déplacement, elle ne rend pas illégal ce que le
-                                   * parcours a lui-même programmé.
-                                   */
-                                  window={allowComputedDate(
-                                    mailDateWindow(m.stepKey ?? null, datedSteps),
-                                    computedAt,
-                                  )}
-                                  onChange={(at, ov) => setMailDate(m.index, at, ov)}
-                                />
-                              </span>
-                            );
-                          })}
-                        </>
                       ) : due ? (
                         // Le retard est signalé par la COULEUR (jr-step--late) :
                         // répéter « en retard » doublait la largeur de la colonne
@@ -632,7 +573,7 @@ export function JourneyStepper() {
                           sinon l'étape resterait à faire sans moyen de la faire. */}
                       {!closed && !locked && pending && (
                         <>
-                          {(!system || system.action) && (
+                          {(!system || system.action) && !armedByDeadline && (
                             <Tooltip
                               interactive
                               content={[
@@ -717,6 +658,128 @@ export function JourneyStepper() {
                         </Tooltip>
                       )}
                     </span>
+
+                    {/* Les e-mails de l'étape, UN PAR LIGNE, sous elle.
+
+                        Ils étaient des enveloppes alignées à droite, sans texte :
+                        on voyait qu'une étape « avait trois e-mails », pas
+                        lesquels, ni pourquoi deux d'entre eux — l'invitation et
+                        sa relance — servaient la même chose. Chaque ligne dit
+                        désormais sa NATURE, son objet, sa condition, son moment
+                        et son destinataire ; la date se règle au même endroit
+                        que celles des étapes, dans la même colonne. */}
+                    {stepMails.length > 0 && (
+                      <ul className="jr-step__mailrows" aria-label={`E-mails liés à « ${step.label} »`}>
+                        {stepMails.map((m) => {
+                          const dated = Boolean(m.anchor && m.anchor !== "aucun");
+                          const moot = sansObjet[m.key];
+                          const condition = CONDITION_LABEL[m.key];
+                          const moment = emailScheduleLabel(m);
+                          // Date que le calendrier produirait sans dérogation :
+                          // c'est la cible du « rétablir », heure comprise.
+                          const computedAt = dated
+                            ? (computeEmailSchedule(
+                                [{ ...m, overridden: false }],
+                                startDate,
+                                endDate,
+                                sessionAt,
+                                reviewAt,
+                              )[0]?.scheduledAt ?? null)
+                            : null;
+                          const audience = m.audience ?? "client";
+
+                          return (
+                            <li
+                              key={m.key}
+                              className={[
+                                "jr-mailrow",
+                                m.sentAt && "jr-mailrow--sent",
+                                moot && "jr-mailrow--moot",
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
+                            >
+                              <span className={`jr-mailrow__icon jr-mailrow__icon--${audience}`} aria-hidden>
+                                ✉
+                              </span>
+
+                              <span className="jr-mailrow__main">
+                                <span className="jr-mailrow__head">
+                                  <span className="jr-mailrow__kind">{emailKind(m.key)}</span>
+                                  <button
+                                    type="button"
+                                    className="jr-mailrow__subject"
+                                    title="Voir le message exact qui part"
+                                    onClick={() => setPreview(m.key)}
+                                  >
+                                    « {m.subject} »
+                                  </button>
+                                </span>
+                                <span className="jr-mailrow__meta">
+                                  {moot
+                                    ? `Ne partira pas : ${moot}.`
+                                    : [condition, moment].filter(Boolean).join(" · ")}
+                                </span>
+                              </span>
+
+                              <span className="jr-step__who">
+                                <Tooltip
+                                  className={`jr-step__actor jr-step__actor--${audience}`}
+                                  content={[
+                                    `Destinataire : ${AUDIENCE_LABEL[audience] ?? audience}`,
+                                    ...(m.trigger ? [m.trigger] : []),
+                                  ]}
+                                >
+                                  → {AUDIENCE_LABEL[audience] ?? audience}
+                                </Tooltip>
+                              </span>
+
+                              <span className="jr-step__when">
+                                {dated ? (
+                                  <MailDateEditor
+                                    subject={m.subject}
+                                    scheduledAt={m.scheduledAt}
+                                    overridden={m.overridden}
+                                    sentAt={m.sentAt}
+                                    sansObjet={moot}
+                                    readOnly={closed}
+                                    computedAt={computedAt}
+                                    onChange={(at, ov) => setMailDate(m.index, at, ov)}
+                                  />
+                                ) : m.sentAt ? (
+                                  <span className="jr-maildate jr-maildate--sent">
+                                    envoyé {fmtDate(m.sentAt)}
+                                  </span>
+                                ) : (
+                                  // Pas de date à régler : c'est un FAIT qui le
+                                  // déclenche. Une colonne vide se lirait
+                                  // « date oubliée ».
+                                  <Tooltip
+                                    className="jr-mailrow__event"
+                                    content={["Déclenché par un événement", m.trigger ?? "Sans date."]}
+                                  >
+                                    sur événement
+                                  </Tooltip>
+                                )}
+                              </span>
+
+                              <span className="jr-step__action">
+                                <Tooltip content={["Voir le message", "Tel qu'il partira, avec les données du client."]}>
+                                  <button
+                                    type="button"
+                                    aria-label={`Voir l'e-mail « ${m.subject} »`}
+                                    className="jr-icon-btn jr-icon-btn--undo"
+                                    onClick={() => setPreview(m.key)}
+                                  >
+                                    <IconEye />
+                                  </button>
+                                </Tooltip>
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
                   </li>
                 );
               })}

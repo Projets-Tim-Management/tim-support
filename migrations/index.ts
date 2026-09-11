@@ -89,6 +89,7 @@ import * as migration_20260909_143014_satisfaction_parcours from './20260909_143
 import * as migration_20260909_150344_textes_emails_parcours from './20260909_150344_textes_emails_parcours';
 import * as migration_20260909_164004_bilan_fin_de_test from './20260909_164004_bilan_fin_de_test';
 import * as migration_20260910_055118_bouton_apres_envoi from './20260910_055118_bouton_apres_envoi';
+import * as migration_20260911_101500_desarmer_remise_acces_sans_provisionnement from './20260911_101500_desarmer_remise_acces_sans_provisionnement';
 
 export const migrations = [
   {
@@ -545,5 +546,10 @@ export const migrations = [
     up: migration_20260910_055118_bouton_apres_envoi.up,
     down: migration_20260910_055118_bouton_apres_envoi.down,
     name: '20260910_055118_bouton_apres_envoi'
+  },
+  {
+    up: migration_20260911_101500_desarmer_remise_acces_sans_provisionnement.up,
+    down: migration_20260911_101500_desarmer_remise_acces_sans_provisionnement.down,
+    name: '20260911_101500_desarmer_remise_acces_sans_provisionnement',
   },
 ];
