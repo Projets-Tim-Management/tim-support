@@ -57,7 +57,6 @@ const MARKETING_REASONS = [
   "besoin-different",
   "solution-interne",
   "test-non-concluant",
-  "a-qualifier",
   "autre",
 ];
 

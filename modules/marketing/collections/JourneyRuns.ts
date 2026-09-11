@@ -879,18 +879,29 @@ const syncReviewCalendar: CollectionAfterChangeHook = async ({ doc, previousDoc,
 /**
  * Répercute l'avancement du parcours sur le STATUT du client apporté — c'est
  * le parcours qui pilote la fiche, pas l'inverse :
- *   test démarré  → « En test »
- *   parcours gagné → « Actif »  (⇒ facturation + commission partenaire démarrent)
- *   parcours perdu → « Archivé »
- * « Annulé » (No-Go avant démarrage) ne touche à rien : le client reste prospect.
+ *   phase de test lancée (préparation) → « En phase de test »
+ *   test démarré                       → « En phase de test »
+ *   parcours gagné                     → « Actif »  (⇒ facturation + commission)
+ *   parcours perdu                     → « Archivé »
+ *   No-Go (annulé) avant démarrage     → retour « En attente d'engagement »,
+ *                                        seulement si c'est ce parcours qui
+ *                                        avait passé la fiche en test.
+ *
+ * La PRÉPARATION compte déjà comme « en phase de test » : dès qu'un partenaire
+ * a lancé le parcours, l'opportunité n'est plus un prospect en attente — elle a
+ * un lundi de démarrage, un dossier à remplir, une session à caler. La laisser
+ * « En attente d'engagement » jusqu'au provisionnement faisait mentir la liste
+ * des prospects (Instalclim, 11/09/2026).
  *
  * N'écrit QUE si le statut change réellement, pour ne pas réenregistrer la fiche
  * client (et son historique de CA) à chaque sauvegarde du parcours.
  */
 const CLIENT_STATUS_BY_RUN = {
+  preparation: "en-test",
   "en-cours": "en-test",
   gagne: "actif",
   perdu: "archive",
+  annule: "attente-engagement",
 } as const;
 
 const syncClientStatus: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
@@ -907,6 +918,9 @@ const syncClientStatus: CollectionAfterChangeHook = async ({ doc, previousDoc, r
     clientId,
   );
   if (client?.clientStatus === target) return doc;
+  // Un No-Go ne ramène en arrière QUE ce que le parcours avait avancé : une
+  // fiche restée au pipeline pour une autre raison n'a pas à bouger.
+  if (status === "annule" && client?.clientStatus !== "en-test") return doc;
 
   /**
    * Affaire gagnée : c'est la date de début de contrat qui déclenche le calcul
