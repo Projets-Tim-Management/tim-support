@@ -6,9 +6,12 @@
  * + réseaux sociaux + pied de page foncé. C'est l'habillage des messages
  * adressés aux CLIENTS et aux PARTENAIRES.
  *
- * `internalNotice()` : enveloppe sobre, sans habillage marketing, pour les
- * alertes internes. Une notification qui dit « untel attend une décision » n'a
- * pas besoin de réseaux sociaux — elle a besoin d'un lien.
+ * `teamShell()` : la charte ÉQUIPE — partenaires et TIM. Barre marine, pastille
+ * de destinataire, liseré de couleur, fiche de faits, un bouton. Ni réseaux
+ * sociaux, ni encadré d'aide, ni logo : ce sont des messages de travail, et ils
+ * doivent se reconnaître d'un coup d'œil comme tels — jamais confondus avec ce
+ * que reçoit un client. `internalNotice()` en est le raccourci pour les alertes
+ * TIM (faits + message + lien).
  *
  * ⚠️ Rien ici ne dépend d'un module métier : ni ticket, ni parcours. Les
  * gabarits spécifiques vivent dans leur module et appellent ces briques.
@@ -318,15 +321,142 @@ export function refBox(label: string, value: string): string {
     </td></tr></table>`;
 }
 
+// ─── Charte ÉQUIPE : partenaires et TIM ──────────────────────────────────────
+
+export type TeamAudience = "partenaire" | "tim";
+
 /**
- * Enveloppe des alertes INTERNES : sobre, sans habillage marketing.
+ * Couleur du destinataire — les MÊMES que dans le back-office (pastilles
+ * d'acteur : partenaire en bleu, TIM en violet). Ce qu'on lit dans l'e-mail
+ * ressemble à ce qu'on retrouve dans l'écran qu'il ouvre.
+ */
+const TEAM_ACCENT: Record<TeamAudience, string> = { partenaire: "#1e6fd9", tim: "#6b46c1" };
+const TEAM_CHIP: Record<TeamAudience, string> = { partenaire: "Espace partenaire", tim: "Équipe TIM" };
+const TEAM_OUTER = "#e9ecf3"; // fond général, plus froid que celui des clients
+const TEAM_SOFT = "#f5f6fa"; // fonds d'encadrés et de pied
+
+/** Bouton d'action de la charte équipe : marine, pas rouge — le rouge est au client. */
+export const teamButton = (label: string, url: string): string =>
+  `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 4px;"><tr><td>
+     <a href="${url}" style="display:inline-block;padding:12px 22px;background:${NAVY};border-radius:8px;color:#ffffff;font-family:${FONT};font-size:14px;font-weight:700;text-decoration:none;">${escape(label)}</a>
+   </td></tr></table>`;
+
+/**
+ * Fiche de faits : libellé à gauche, valeur à droite, une ligne par fait.
+ * Libellés et valeurs sont ÉCHAPPÉS ici — les appelants passent du texte brut.
+ */
+export const teamRows = (rows: Array<[string, string]>): string =>
+  rows.length
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:14px 0 6px;border-top:1px solid ${BORDER};">${rows
+        .map(
+          ([k, v]) =>
+            `<tr><td style="padding:8px 14px 8px 0;border-bottom:1px solid ${BORDER};font-family:${FONT};font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:${MUTED};white-space:nowrap;vertical-align:top;">${escape(k)}</td><td style="padding:8px 0;border-bottom:1px solid ${BORDER};font-family:${FONT};font-size:14px;line-height:1.45;font-weight:600;color:${INK};">${escape(v)}</td></tr>`,
+        )
+        .join("")}</table>`
+    : "";
+
+/** Encadré de consigne ou de contexte, liseré de la couleur du destinataire. Texte brut, échappé ici. */
+export const teamNote = (text: string, audience: TeamAudience = "tim"): string =>
+  `<div style="margin:16px 0;padding:12px 16px;background:${TEAM_SOFT};border-left:3px solid ${TEAM_ACCENT[audience]};border-radius:0 8px 8px 0;font-family:${FONT};font-size:14px;line-height:1.55;color:${BODY};white-space:pre-wrap;">${escape(text)}</div>`;
+
+/** Titre de section, en capitales discrètes. Texte brut, échappé ici. */
+export const teamSection = (title: string, audience: TeamAudience = "tim"): string =>
+  `<p style="margin:22px 0 6px;font-family:${FONT};font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${TEAM_ACCENT[audience]};">${escape(title)}</p>`;
+
+/** Paragraphe courant de la charte équipe. HTML déjà sûr. */
+export const teamParagraph = (html: string): string =>
+  `<p style="margin:0 0 12px;font-family:${FONT};font-size:14px;line-height:1.6;color:${BODY};">${html}</p>`;
+
+/**
+ * Enveloppe de la charte ÉQUIPE.
  *
- * Une notification qui dit « untel attend une décision » n'a pas besoin de
- * réseaux sociaux ni de pied de page corporate — elle a besoin des faits et
- * d'un lien pour agir.
+ * Ce qui la distingue de `shell()`, volontairement :
+ *  - une barre MARINE avec un mot-symbole en texte (pas le logo image : un
+ *    message de travail doit se lire images bloquées, et ne pas ressembler à
+ *    une campagne) ;
+ *  - une PASTILLE qui dit à qui l'on parle — « Espace partenaire » en bleu,
+ *    « Équipe TIM » en violet — et un liseré de la même couleur ;
+ *  - un surtitre, un titre, des faits, un bouton marine ; ni réseaux sociaux,
+ *    ni encadré d'aide, ni pied corporate.
  *
- * ⚠️ TOUT LE TEXTE REÇU EST ÉCHAPPÉ ICI, et les appelants passent donc des
- * valeurs BRUTES.
+ * `heading`, `kicker` et `preheader` sont échappés ici ; `bodyHtml` est du HTML
+ * déjà sûr (composé avec teamRows / teamNote / teamParagraph, qui échappent).
+ */
+export function teamShell(opts: {
+  audience: TeamAudience;
+  heading: string;
+  /** Surtitre, au-dessus du titre : « Phase de test », « Rappels », « Support ». */
+  kicker?: string;
+  preheader?: string;
+  bodyHtml: string;
+  cta?: { label: string; url: string };
+  /** Liens secondaires, sous le bouton. */
+  links?: Array<{ label: string; url: string }>;
+  recipientEmail?: string;
+}): string {
+  const { audience, bodyHtml, cta, links = [], recipientEmail } = opts;
+  const accent = TEAM_ACCENT[audience];
+  const heading = escape(opts.heading);
+  const kicker = opts.kicker ? escape(opts.kicker) : null;
+  const preheader = escape(opts.preheader ?? "");
+
+  return `<!doctype html>
+<html lang="fr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+</head>
+<body style="margin:0;padding:0;background:${TEAM_OUTER};">
+<span style="display:none!important;visibility:hidden;opacity:0;height:0;width:0;overflow:hidden;mso-hide:all;">${preheader}</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${TEAM_OUTER};">
+  <tr><td align="center" style="padding:24px 16px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid ${BORDER};border-radius:14px;overflow:hidden;">
+
+      <!-- Barre marine : mot-symbole + pastille du destinataire -->
+      <tr><td style="padding:14px 24px;background:${NAVY};">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td style="font-family:${FONT};font-size:17px;font-weight:800;letter-spacing:.02em;color:#ffffff;">TIM <span style="font-weight:500;color:${NAVY_SOFT};">· Support</span></td>
+          <td align="right"><span style="display:inline-block;padding:4px 10px;background:${accent};border-radius:999px;font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#ffffff;">${TEAM_CHIP[audience]}</span></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="height:4px;background:${accent};font-size:0;line-height:0;">&nbsp;</td></tr>
+
+      <!-- Corps -->
+      <tr><td style="padding:26px 28px 24px;">
+        ${kicker ? `<p style="margin:0 0 6px;font-family:${FONT};font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${accent};">${kicker}</p>` : ""}
+        <h1 style="margin:0 0 14px;font-family:${FONT};font-size:22px;line-height:1.25;font-weight:800;color:${INK};">${heading}</h1>
+        ${bodyHtml}
+        ${cta ? teamButton(cta.label, cta.url) : ""}
+        ${
+          links.length
+            ? `<p style="margin:12px 0 0;font-family:${FONT};font-size:12px;color:${MUTED};">${links
+                .map((l) => `<a href="${l.url}" style="color:${MUTED};text-decoration:underline;">${escape(l.label)}</a>`)
+                .join(" · ")}</p>`
+            : ""
+        }
+      </td></tr>
+
+      <!-- Pied : discret, sans réseaux ni adresse -->
+      <tr><td style="padding:14px 28px;background:${TEAM_SOFT};border-top:1px solid ${BORDER};">
+        <p style="margin:0;font-family:${FONT};font-size:12px;line-height:1.5;color:${MUTED};">${
+          audience === "tim"
+            ? `Notification interne · ${COMPANY_NAME}.`
+            : `L'équipe support ${COMPANY_NAME} — vous pouvez répondre à ce message.`
+        } <a href="${adminUrl("")}" style="color:${MUTED};text-decoration:underline;">Ouvrir le back-office</a>${
+          recipientEmail ? `<br>Envoyé à ${escape(recipientEmail)}` : ""
+        }</p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body></html>`;
+}
+
+/**
+ * Alerte INTERNE (ou action attendue d'un partenaire) : des faits, un message,
+ * un lien. Raccourci de `teamShell` — TOUT LE TEXTE REÇU EST ÉCHAPPÉ, les
+ * appelants passent des valeurs BRUTES.
  *
  * L'échappement vivait auparavant chez chaque appelant : deux d'entre eux
  * l'avaient, quatre l'avaient oublié, et il n'existait aucun endroit d'où le
@@ -340,6 +470,10 @@ export function refBox(label: string, value: string): string {
  */
 export function internalNotice(args: {
   heading: string;
+  /** Surtitre : de quel chantier vient l'alerte (« Phase de test », « Support »…). */
+  kicker?: string;
+  /** Défaut : TIM. `partenaire` quand l'action attendue est la sienne. */
+  audience?: TeamAudience;
   /** Libellé et valeur, en TEXTE BRUT — l'échappement se fait ici. */
   rows: Array<[string, string]>;
   message?: string;
@@ -347,35 +481,13 @@ export function internalNotice(args: {
   /** Liens secondaires en pied (fiche client, fiche partenaire…). */
   links?: Array<{ label: string; url: string }>;
 }): string {
-  const { rows, cta, links = [] } = args;
-  const heading = escape(args.heading);
-  const message = args.message ? escape(args.message) : undefined;
-  const rowsHtml = rows
-    .map(
-      ([k, v]) =>
-        `<tr><td style="padding:3px 14px 3px 0;font-family:${FONT};font-size:13px;color:${MUTED};white-space:nowrap;vertical-align:top;">${escape(k)}</td><td style="padding:3px 0;font-family:${FONT};font-size:13px;color:${INK};">${escape(v)}</td></tr>`,
-    )
-    .join("");
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:24px;background:${OUTER};">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid ${BORDER};border-radius:12px;">
-    <tr><td style="padding:22px 24px;">
-      <p style="margin:0 0 16px;font-family:${FONT};font-size:18px;font-weight:800;color:${INK};">${heading}</p>
-      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">${rowsHtml}</table>
-      ${
-        message
-          ? `<div style="margin:0 0 18px;padding:14px 16px;background:${OUTER};border:1px solid ${BORDER};border-radius:8px;font-family:${FONT};font-size:14px;line-height:1.55;color:${BODY};white-space:pre-wrap;">${message}</div>`
-          : ""
-      }
-      <a href="${cta.url}" style="display:inline-block;padding:11px 22px;background:${BRAND};border-radius:8px;color:#ffffff;font-family:${FONT};font-size:14px;font-weight:700;text-decoration:none;">${escape(cta.label)}</a>
-      ${
-        links.length
-          ? `<p style="margin:14px 0 0;font-family:${FONT};font-size:12px;color:${MUTED};">${links
-              .map((l) => `<a href="${l.url}" style="color:${MUTED};text-decoration:underline;">${escape(l.label)}</a>`)
-              .join(" · ")}</p>`
-          : ""
-      }
-    </td></tr>
-  </table>
-</body></html>`;
+  const audience = args.audience ?? "tim";
+  return teamShell({
+    audience,
+    heading: args.heading,
+    kicker: args.kicker,
+    bodyHtml: teamRows(args.rows) + (args.message ? teamNote(args.message, audience) : ""),
+    cta: args.cta,
+    links: args.links,
+  });
 }

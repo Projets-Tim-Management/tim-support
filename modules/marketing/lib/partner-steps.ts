@@ -233,6 +233,8 @@ export const buildPartnerStepEmail = (args: {
   return {
     subject,
     html: internalNotice({
+      audience: "partenaire",
+      kicker: "Phase de test",
       heading: count === 1 ? "Une action vous attend" : `${count} actions vous attendent`,
       rows,
       message,

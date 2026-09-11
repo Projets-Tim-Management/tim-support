@@ -108,6 +108,7 @@ export function newTicketNoticeEmail(args: {
   return {
     subject: `🎫 Nouveau ticket #${number} — ${subject}`,
     html: internalNotice({
+      kicker: "Support · Tickets",
       heading: `Nouveau ticket #${number}`,
       rows: [
         // Valeurs BRUTES : `internalNotice` échappe lui-même (une seule règle,
@@ -150,6 +151,7 @@ export function ticketReplyNoticeEmail(args: {
   return {
     subject: `💬 ${tag}Réponse au ticket #${number} — ${subject}`,
     html: internalNotice({
+      kicker: "Support · Tickets",
       heading: journey
         ? `Réponse pendant une phase de test — ticket #${number}`
         : `Nouvelle réponse — ticket #${number}`,

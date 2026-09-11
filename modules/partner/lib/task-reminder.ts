@@ -8,7 +8,7 @@
  * le back-office — puis y aller d'un clic si on décide d'agir.
  */
 
-import { adminUrl } from "@/core/lib/email-template";
+import { adminUrl, teamNote, teamRows, teamShell } from "@/core/lib/email-template";
 
 export type BuiltEmail = { subject: string; text: string; html: string };
 
@@ -36,9 +36,6 @@ const frDateTime = (iso?: string | null): string | null => {
   });
 };
 
-const escape = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
 export function buildTaskReminderEmail(task: Task): BuiltEmail {
   const client = typeof task.client === "object" && task.client ? task.client : null;
   const company = client?.companyName ?? null;
@@ -56,13 +53,21 @@ export function buildTaskReminderEmail(task: Task): BuiltEmail {
     link ? `\nOuvrir la fiche : ${link}` : null,
   ].filter(Boolean) as string[];
 
-  const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#333">
-  <p style="font-size:17px;font-weight:700;margin:0 0 12px">${task.highPriority ? "⚑ " : ""}${escape(name)}</p>
-  ${company ? `<p style="margin:0 0 4px"><strong>Opportunité :</strong> ${escape(company)}</p>` : ""}
-  ${due ? `<p style="margin:0 0 4px"><strong>Échéance :</strong> ${escape(due)}</p>` : ""}
-  ${task.content?.trim() ? `<p style="margin:12px 0;white-space:pre-wrap">${escape(task.content.trim())}</p>` : ""}
-  ${link ? `<p style="margin:18px 0 0"><a href="${link}" style="background:#fe5464;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:700">Ouvrir la fiche</a></p>` : ""}
-</div>`;
+  // Charte ÉQUIPE (partenaire) : le nom de la tâche en titre, les faits en
+  // fiche, la note telle qu'elle a été saisie, et le bouton vers la fiche.
+  // Tout ce qui vient d'une saisie est échappé par les briques de la charte.
+  const html = teamShell({
+    audience: "partenaire",
+    kicker: task.highPriority ? "Rappel · Priorité haute" : "Rappel",
+    heading: name,
+    preheader: [company, due].filter(Boolean).join(" · "),
+    bodyHtml:
+      teamRows([
+        ...(company ? ([["Opportunité", company]] as [string, string][]) : []),
+        ...(due ? ([["Échéance", due]] as [string, string][]) : []),
+      ]) + (task.content?.trim() ? teamNote(task.content.trim(), "partenaire") : ""),
+    cta: link ? { label: "Ouvrir la fiche", url: link } : undefined,
+  });
 
   return { subject, text: lines.join("\n"), html };
 }

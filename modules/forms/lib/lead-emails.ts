@@ -255,6 +255,7 @@ export function newLeadNoticeEmail(ctx: LeadNoticeContext): BuiltEmail {
     subject,
     text,
     html: internalNotice({
+      kicker: "Site vitrine · Formulaire",
       heading: "Nouveau lead du site vitrine",
       rows,
       message: ctx.brouillon
