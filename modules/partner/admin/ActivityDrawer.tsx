@@ -50,6 +50,7 @@ export interface ActivityInitial {
   dueDate?: string | null;
   reminderAt?: string | null;
   highPriority?: boolean | null;
+  calendarSync?: boolean | null;
 }
 
 /** Ce que le drawer renvoie ; l'appelant se charge d'écrire. */
@@ -62,6 +63,8 @@ export interface ActivityDraft {
   dueDate?: string;
   reminderAt?: string;
   highPriority?: boolean;
+  /** Un événement dans l'agenda connecté du partenaire, à l'échéance. */
+  calendarSync?: boolean;
   /** E-mail */
   to?: string;
   cc?: string;
@@ -277,6 +280,7 @@ export function ActivityDrawer({
   companyName,
   clientId,
   templateContext,
+  calendarReady,
   busy,
   error,
   onClose,
@@ -291,6 +295,12 @@ export function ActivityDrawer({
   clientId?: number | string;
   /** Valeurs de remplacement des variables d'un modèle. */
   templateContext?: TemplateContext;
+  /**
+   * Le partenaire a-t-il un agenda connecté ET désigné pour recevoir les
+   * événements ? `null` = pas encore su. Sans agenda, l'interrupteur
+   * « Ajouter à l'agenda » ne promet rien : il dit où le connecter.
+   */
+  calendarReady?: boolean | null;
   busy: boolean;
   error: string | null;
   onClose: () => void;
@@ -315,6 +325,7 @@ export function ActivityDrawer({
     () => isoToLocal(initial?.reminderAt) || toLocalInput(atNineIn(1)),
   );
   const [priority, setPriority] = useState(Boolean(initial?.highPriority));
+  const [toCalendar, setToCalendar] = useState(Boolean(initial?.calendarSync));
   /** Destinataires en JETONS + ce que l'utilisateur est en train de taper. */
   const [tos, setTos] = useState<string[]>(() => (defaultTo ? [defaultTo] : []));
   const [toDraft, setToDraft] = useState("");
@@ -368,14 +379,43 @@ export function ActivityDrawer({
   const { ref: chipsRef, edges: chipEdges } = useScrollEdges<HTMLDivElement>();
   const { ref: dueRef, edges: dueEdges } = useScrollEdges<HTMLDivElement>();
 
+  /**
+   * Y a-t-il quelque chose à perdre ? Du texte tapé, un titre changé, un
+   * fichier joint. Tant que non, le panneau se ferme d'un clic dehors ou d'un
+   * Échap ; dès que oui, il ne se ferme plus par accident.
+   */
+  const dirty =
+    content.trim() !== (initial?.content ?? "").trim() ||
+    title.trim() !== (initial?.title ?? "").trim() ||
+    files.length > 0;
+
   // Échap ferme : un panneau qu'on ne sait pas fermer au clavier est un piège.
+  // Mais un Échap sur un message à moitié écrit demande confirmation — un
+  // réflexe de clavier ne doit pas coûter dix minutes de rédaction.
+  const requestClose = useCallback(() => {
+    if (busy) return;
+    if (dirty && !window.confirm("Fermer sans enregistrer ? Ce que vous avez écrit sera perdu.")) return;
+    onClose();
+  }, [busy, dirty, onClose]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) onClose();
+      if (e.key === "Escape") requestClose();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [busy, onClose]);
+  }, [requestClose]);
+
+  /**
+   * Fermeture au clic sur le FOND — seulement si le clic y a commencé ET fini.
+   *
+   * Sélectionner du texte dans le panneau et relâcher la souris au-delà de son
+   * bord produit un « click » dont la cible est le fond : le panneau se
+   * fermait, et tout ce qui était écrit disparaissait. On retient donc où la
+   * pression a commencé. Et avec du contenu saisi, le fond ne ferme plus du
+   * tout : il faut le bouton « Annuler » ou Échap, qui confirme.
+   */
+  const pressedOnBackdrop = useRef(false);
 
   // Le fond ne défile plus derrière le panneau (sinon la molette emporte la
   // page entière dès que le curseur sort du drawer).
@@ -491,6 +531,10 @@ export function ActivityDrawer({
             dueDate: due ? new Date(due).toISOString() : undefined,
             reminderAt: wantsReminder && reminder ? new Date(reminder).toISOString() : undefined,
             highPriority: priority,
+            // Agenda déconnecté : on ne touche pas au réglage existant. Corriger
+            // une note ne doit pas retirer, en silence, une tâche de l'agenda
+            // qu'elle rejoindra dès que le partenaire se reconnecte.
+            calendarSync: calendarReady === false ? Boolean(initial?.calendarSync) : toCalendar,
           }
         : {}),
       ...(isEmail
@@ -584,8 +628,13 @@ export function ActivityDrawer({
       role="dialog"
       aria-modal="true"
       aria-label={meta.title}
+      onMouseDown={(e) => {
+        pressedOnBackdrop.current = e.target === e.currentTarget;
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
+        const onBackdrop = e.target === e.currentTarget && pressedOnBackdrop.current;
+        pressedOnBackdrop.current = false;
+        if (onBackdrop && !busy && !dirty) onClose();
       }}
     >
       <div className="tim-adrawer__panel" ref={panelRef}>
@@ -603,7 +652,7 @@ export function ActivityDrawer({
           <button
             type="button"
             className="tim-adrawer__close"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={busy}
             aria-label="Fermer"
           >
@@ -903,6 +952,38 @@ export function ActivityDrawer({
                 />
               )}
 
+              {/* L'agenda : un double de la tâche, à l'échéance, chez le
+                  partenaire. Sans agenda connecté, l'interrupteur reste gris et
+                  dit quoi faire — un interrupteur qui « marche » sans effet
+                  apprendrait à ne plus le croire. */}
+              <div className="tim-adrawer__switch-row">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={toCalendar && calendarReady !== false}
+                  disabled={calendarReady === false}
+                  className={`tim-adrawer__switch${
+                    toCalendar && calendarReady !== false ? " tim-adrawer__switch--on" : ""
+                  }`}
+                  onClick={() => setToCalendar((v) => !v)}
+                >
+                  <span className="tim-adrawer__switch-knob" />
+                </button>
+                <span className="tim-adrawer__switch-label">
+                  {calendarReady === false
+                    ? "Agenda non connecté"
+                    : toCalendar
+                      ? "Ajouté à l'agenda (30 min à l'échéance)"
+                      : "Pas dans l'agenda"}
+                </span>
+              </div>
+              {calendarReady === false && (
+                <span className="tim-adrawer__hint">
+                  Connectez un agenda depuis la fiche partenaire, onglet « Agenda &amp; rendez-vous »,
+                  et désignez-y l'agenda qui reçoit les rendez-vous.
+                </span>
+              )}
+
               <div className="tim-adrawer__switch-row">
                 <button
                   type="button"
@@ -1030,7 +1111,7 @@ export function ActivityDrawer({
         </div>
 
         <footer className="tim-adrawer__foot">
-          <button type="button" className="tim-adrawer__btn" onClick={onClose} disabled={busy}>
+          <button type="button" className="tim-adrawer__btn" onClick={requestClose} disabled={busy}>
             Annuler
           </button>
           <button

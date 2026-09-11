@@ -4,7 +4,20 @@ import { ROLES } from "@/core/access";
 import { eur } from "@/modules/partner/lib/format";
 import { PROFILS } from "@/modules/partner/lib/pricing";
 import { TIMEZONE as PARIS } from "@/modules/marketing/lib/scheduling";
-import { adminUrl, escape, internalNotice } from "@/core/lib/email-template";
+import {
+  BORDER,
+  FONT,
+  INK,
+  MUTED,
+  adminUrl,
+  escape,
+  internalNotice,
+  teamNote,
+  teamParagraph,
+  teamRows,
+  teamSection,
+  teamShell,
+} from "@/core/lib/email-template";
 
 /**
  * Notifications internes du parcours — envoyées sur événement, pas par le cron.
@@ -170,44 +183,26 @@ export function buildTestRequestEmail(
         "",
         ...textLinks,
       ].join("\n"),
-      html: `
-        <div style="font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;color:#505050;line-height:1.5;max-width:560px">
-          <p><strong>${escape(partner)}</strong> demande une phase de test pour <strong>${escape(client)}</strong>.</p>
-
-          <table style="border-collapse:collapse;margin:16px 0;font-size:14px">
-            ${facts
-              .map(
-                ([k, v]) =>
-                  `<tr><td style="padding:3px 16px 3px 0;color:#8a8f98;white-space:nowrap">${escape(k)}</td><td><strong>${escape(v)}</strong></td></tr>`,
-              )
-              .join("")}
-          </table>
-
-          ${
-            ctx.checklist
-              ? `<div style="background:#f8f9fb;border-left:3px solid #fe5464;padding:10px 14px;margin:16px 0">
-                   <p style="margin:0 0 4px;font-weight:700">À vérifier avant de valider</p>
-                   <p style="margin:0;font-size:14px">${escape(ctx.checklist)}</p>
-                 </div>`
-              : ""
-          }
-
-          <p style="font-size:14px">Tant que l'étape « Validation TIM » n'est pas validée, le parcours
-             reste en préparation : <strong>aucun accès n'est créé et aucun e-mail ne part chez le
-             client</strong>.</p>
-
-          <p style="margin-top:24px">
-            <a href="${links.run}" style="background:#fe5464;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600">
-              Valider la demande
-            </a>
-          </p>
-
-          <p style="font-size:13px;color:#8a8f98;margin-top:16px">
-            ${links.client ? `<a href="${links.client}" style="color:#8a8f98">Fiche client</a>` : ""}
-            ${links.client && links.partner ? " · " : ""}
-            ${links.partner ? `<a href="${links.partner}" style="color:#8a8f98">Fiche partenaire</a>` : ""}
-          </p>
-        </div>`,
+      html: teamShell({
+        audience: "tim",
+        kicker: "Phase de test · Go / No-Go",
+        heading: `Nouvelle demande : ${client}`,
+        preheader: `${partner} demande une phase de test pour ${client}.`,
+        bodyHtml:
+          teamParagraph(
+            `<strong>${escape(partner)}</strong> demande une phase de test pour <strong>${escape(client)}</strong>.`,
+          ) +
+          teamRows(facts) +
+          (ctx.checklist ? teamSection("À vérifier avant de valider") + teamNote(ctx.checklist) : "") +
+          teamParagraph(
+            "Tant que l'étape « Validation TIM » n'est pas validée, le parcours reste en préparation : <strong>aucun accès n'est créé et aucun e-mail ne part chez le client</strong>.",
+          ),
+        cta: { label: "Valider la demande", url: links.run },
+        links: [
+          ...(links.client ? [{ label: "Fiche client", url: links.client }] : []),
+          ...(links.partner ? [{ label: "Fiche partenaire", url: links.partner }] : []),
+        ],
+      }),
     };
   }
 }
@@ -251,6 +246,37 @@ export type QuoteContext = {
   } | null;
   partner: { id?: number | string; displayName?: string | null; email?: string | null } | null;
 };
+
+/**
+ * Le périmètre du devis, ligne à ligne, dans la charte équipe.
+ *
+ * C'est exactement ce qu'il faut recopier dans le devis : profil, quantité,
+ * prix négocié, sous-total, et le total mensuel HT en pied.
+ */
+const cell = (html: string, align: "left" | "right" = "left", extra = "") =>
+  `<td align="${align}" style="padding:7px ${align === "right" ? "0 7px 8px" : "8px 7px 0"};font-family:${FONT};font-size:14px;color:${INK};${extra}">${html}</td>`;
+
+function quoteTable(
+  lines: Array<{ label: string; qty: number; price: number; total: number }>,
+  totalQty: number,
+  totalHT: number,
+): string {
+  const head = (label: string, align: "left" | "right" = "left") =>
+    `<th align="${align}" style="padding:4px ${align === "right" ? "0 4px 8px" : "8px 4px 0"};font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${MUTED};">${label}</th>`;
+  const body = lines.length
+    ? lines
+        .map(
+          (l) =>
+            `<tr>${cell(escape(l.label), "left", `border-top:1px solid ${BORDER};`)}${cell(String(l.qty), "right", `border-top:1px solid ${BORDER};`)}${cell(eur.format(l.price), "right", `border-top:1px solid ${BORDER};`)}${cell(eur.format(l.total), "right", `border-top:1px solid ${BORDER};`)}</tr>`,
+        )
+        .join("")
+    : `<tr><td colspan="4" style="padding:8px 0;font-family:${FONT};font-size:14px;color:${MUTED};">Aucune licence saisie sur la fiche client.</td></tr>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 8px;">
+    <tr>${head("Profil")}${head("Qté", "right")}${head("Prix", "right")}${head("Sous-total", "right")}</tr>
+    ${body}
+    <tr>${cell("<strong>Total</strong>", "left", `border-top:2px solid ${INK};`)}${cell(`<strong>${totalQty}</strong>`, "right", `border-top:2px solid ${INK};`)}${cell("", "right", `border-top:2px solid ${INK};`)}${cell(`<strong>${eur.format(totalHT)} HT / mois</strong>`, "right", `border-top:2px solid ${INK};`)}</tr>
+  </table>`;
+}
 
 /**
  * Demande à TIM de rédiger le devis.
@@ -317,67 +343,23 @@ export function buildQuoteEmail(
         ...(links.client ? [`Fiche client (licences) : ${links.client}`] : []),
         `Phase de test           : ${links.run}`,
       ].join("\n"),
-      html: `
-        <div style="font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;color:#505050;line-height:1.5;max-width:560px">
-          <p><strong>${escape(client)}</strong> souhaite continuer après sa phase de test.</p>
-          <p style="font-size:14px">Le devis est à établir par <strong>TIM</strong> ;
-             <strong>${escape(partner)}</strong> le transmettra au client.</p>
-
-          <table style="border-collapse:collapse;margin:16px 0;font-size:14px">
-            ${facts
-              .map(
-                ([k, v]) =>
-                  `<tr><td style="padding:3px 16px 3px 0;color:#8a8f98;white-space:nowrap">${escape(k)}</td><td><strong>${escape(v)}</strong></td></tr>`,
-              )
-              .join("")}
-          </table>
-
-          <p style="margin:16px 0 6px;font-weight:700">Périmètre à chiffrer</p>
-          <table style="border-collapse:collapse;font-size:14px;width:100%">
-            <thead>
-              <tr style="color:#8a8f98;font-size:12px;text-transform:uppercase">
-                <th align="left" style="padding:4px 8px 4px 0">Profil</th>
-                <th align="right" style="padding:4px 8px">Qté</th>
-                <th align="right" style="padding:4px 8px">Prix</th>
-                <th align="right" style="padding:4px 0 4px 8px">Sous-total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${
-                lines.length
-                  ? lines
-                      .map(
-                        (l) =>
-                          `<tr style="border-top:1px solid #eceef2">
-                             <td style="padding:4px 8px 4px 0">${escape(l.label)}</td>
-                             <td align="right" style="padding:4px 8px">${l.qty}</td>
-                             <td align="right" style="padding:4px 8px">${eur.format(l.price)}</td>
-                             <td align="right" style="padding:4px 0 4px 8px">${eur.format(l.total)}</td>
-                           </tr>`,
-                      )
-                      .join("")
-                  : `<tr><td colspan="4" style="padding:8px 0;color:#8a8f98">Aucune licence saisie sur la fiche client.</td></tr>`
-              }
-              <tr style="border-top:2px solid #d2d2d6;font-weight:700">
-                <td style="padding:6px 8px 6px 0">Total</td>
-                <td align="right" style="padding:6px 8px">${totalQty}</td>
-                <td></td>
-                <td align="right" style="padding:6px 0 6px 8px">${eur.format(totalHT)} HT / mois</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <p style="margin-top:24px">
-            ${
-              links.client
-                ? `<a href="${links.client}" style="background:#fe5464;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600">Ouvrir la fiche client</a>`
-                : ""
-            }
-          </p>
-          <p style="font-size:13px;color:#8a8f98">
-            <a href="${links.run}" style="color:#8a8f98">Voir la phase de test</a>
-          </p>
-        </div>`,
+      html: teamShell({
+        audience: "tim",
+        kicker: "Phase de test · Devis",
+        heading: `Devis à rédiger : ${client}`,
+        preheader: `${client} souhaite continuer — ${totalQty} licence${totalQty > 1 ? "s" : ""}, ${eur.format(totalHT)} HT / mois.`,
+        bodyHtml:
+          teamParagraph(
+            `<strong>${escape(client)}</strong> souhaite continuer après sa phase de test. Le devis est à établir par <strong>TIM</strong> ; <strong>${escape(partner)}</strong> le transmettra au client.`,
+          ) +
+          teamRows(facts) +
+          teamSection("Périmètre à chiffrer") +
+          quoteTable(lines, totalQty, totalHT),
+        cta: links.client
+          ? { label: "Ouvrir la fiche client", url: links.client }
+          : { label: "Voir la phase de test", url: links.run },
+        links: links.client ? [{ label: "Voir la phase de test", url: links.run }] : [],
+      }),
     };
   }
 }
@@ -432,6 +414,7 @@ export function buildDossierToCheckEmail(
         : adminUrl(`/collections/journey-runs/${run.id}`),
     ].join("\n"),
     html: internalNotice({
+      kicker: "Phase de test · Dossier",
       heading: "Dossier de démarrage à vérifier",
       rows,
       message:
@@ -466,6 +449,7 @@ export function buildContractRequestEmail(
       `${adminUrl(`/collections/journey-runs/${run.id}`)}`,
     ].join("\n"),
     html: internalNotice({
+      kicker: "Phase de test · Contrat",
       heading: "Contrat à établir",
       rows: [
         ["Client", client],
@@ -572,6 +556,7 @@ export async function notifyAdminsSessionBooked(
         .filter((l) => l !== "")
         .join("\n"),
       html: internalNotice({
+        kicker: "Phase de test · Session",
         heading: "Prise en main calée",
         rows: [
           // Valeurs BRUTES : `internalNotice` échappe lui-même.
@@ -612,6 +597,7 @@ export async function notifyAdminsAccessMissing(
 
     const url = adminUrl(`/collections/journey-runs/${run.id}`);
     const html = internalNotice({
+      kicker: "Phase de test · Accès",
       heading: "Accès à créer aujourd'hui",
       rows: [
         ["Client", clientName ?? "—"],

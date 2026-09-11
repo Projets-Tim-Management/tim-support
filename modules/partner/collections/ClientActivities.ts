@@ -1,9 +1,20 @@
-import type { CollectionBeforeChangeHook, CollectionConfig } from "payload";
+import type {
+  CollectionAfterChangeHook,
+  CollectionAfterDeleteHook,
+  CollectionBeforeChangeHook,
+  CollectionConfig,
+} from "payload";
 
 import { metierOwnedAccess } from "@/core/access";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { setPartnerFromClient } from "@/modules/marketing/collections/clientOwned";
 import { ACTIVITY_OPTIONS, TASK_KIND_OPTIONS, activityKind } from "@/modules/partner/lib/activity";
+import {
+  eventNeedsSync,
+  syncTaskEvent,
+  taskSyncPatch,
+  type TaskLike,
+} from "@/modules/partner/lib/task-calendar";
 
 /**
  * Historique d'une opportunité : tout ce qui a été fait, dans l'ordre.
@@ -67,6 +78,48 @@ const setDisplayName: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
   return data;
 };
 
+/**
+ * L'événement d'agenda de la tâche, tenu à jour après chaque enregistrement.
+ *
+ * Après coup et jamais bloquant : la tâche est déjà écrite quand on parle à
+ * l'agenda, et un agenda qui refuse ne fait perdre ni la tâche ni son rappel.
+ * Le résultat (identifiant, lien) est réécrit sur la tâche sous un drapeau de
+ * contexte — sans lui, cette écriture repasserait ici et bouclerait.
+ */
+const SKIP_CALENDAR = "taskCalendarWrite";
+
+const syncTaskCalendar: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
+  const ctx = (req.context ?? {}) as Record<string, unknown>;
+  if (ctx[SKIP_CALENDAR]) return doc;
+  if (!eventNeedsSync(previousDoc as TaskLike | undefined, doc as TaskLike)) return doc;
+
+  const result = await syncTaskEvent(req.payload, doc as TaskLike);
+  if (result.action === "none") return doc;
+
+  ctx[SKIP_CALENDAR] = true;
+  try {
+    await req.payload.update({
+      collection: "client-activities",
+      id: doc.id,
+      data: taskSyncPatch(result),
+      overrideAccess: true,
+      req,
+    });
+  } catch (err) {
+    req.payload.logger.error(`[agenda] écriture de l'événement sur la tâche ${doc.id} échouée : ${err}`);
+  } finally {
+    delete ctx[SKIP_CALENDAR];
+  }
+  return doc;
+};
+
+/** Tâche supprimée : son événement ne doit pas survivre dans l'agenda. */
+const removeTaskCalendar: CollectionAfterDeleteHook = async ({ doc, req }) => {
+  if (!doc?.calendarEventId) return doc;
+  await syncTaskEvent(req.payload, { ...(doc as TaskLike), calendarSync: false });
+  return doc;
+};
+
 /** Champ visible uniquement pour les tâches. */
 const taskOnly = (data?: { type?: string }) => data?.type === "tache";
 
@@ -97,6 +150,8 @@ export const ClientActivities: CollectionConfig = {
       stampDone,
       setDisplayName,
     ],
+    afterChange: [syncTaskCalendar],
+    afterDelete: [removeTaskCalendar],
   },
   fields: [
     {
@@ -204,6 +259,20 @@ export const ClientActivities: CollectionConfig = {
      * chaque passage. Posée par le cron, jamais à la main.
      */
     { name: "reminderSentAt", type: "date", admin: { hidden: true } },
+    {
+      name: "calendarSync",
+      type: "checkbox",
+      label: "Ajouter à l'agenda",
+      defaultValue: false,
+      admin: {
+        condition: taskOnly,
+        description:
+          "Un événement de 30 min à l'échéance, dans l'agenda connecté du partenaire. Rien ne se passe s'il n'en a pas connecté.",
+      },
+    },
+    // Écrits par la synchronisation (voir task-calendar), jamais à la main.
+    { name: "calendarEventId", type: "text", admin: { hidden: true } },
+    { name: "calendarLink", type: "text", admin: { hidden: true } },
 
     // ── E-mail : envoyé depuis la fiche, ou capté dans un échange ────────────
     {

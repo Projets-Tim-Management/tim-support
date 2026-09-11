@@ -1,5 +1,14 @@
 import { PARIS_TZ, dayKey } from "@/core/lib/dates";
-import { BODY, BORDER, BRAND, FONT, INK, MUTED, OUTER, SITE_URL, escape } from "@/core/lib/email-template";
+import {
+  BRAND,
+  FONT,
+  INK,
+  MUTED,
+  SITE_URL,
+  escape,
+  teamParagraph,
+  teamShell,
+} from "@/core/lib/email-template";
 import { taskKindLabel } from "@/modules/partner/lib/activity";
 
 /**
@@ -135,7 +144,7 @@ const htmlLine = (t: DigestTask, color: string, withHour = true): string => {
 };
 
 const section = (title: string, count: number, color: string, rows: string): string =>
-  `<p style="margin:20px 0 6px;font-family:${FONT};font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${color};">${title} (${count})</p>
+  `<p style="margin:20px 0 6px;font-family:${FONT};font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${color};">${title} (${count})</p>
    <table role="presentation" cellpadding="0" cellspacing="0" width="100%">${rows}</table>`;
 
 /**
@@ -182,49 +191,42 @@ export function buildTaskDigestEmail(partnerName: string | null, g: DigestGroups
     .filter((l) => l !== null)
     .join("\n");
 
-  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:24px;background:${OUTER};">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid ${BORDER};border-radius:12px;">
-    <tr><td style="padding:22px 24px;">
-      <p style="margin:0 0 4px;font-family:${FONT};font-size:18px;font-weight:800;color:${INK};">Vos rappels du jour</p>
-      <p style="margin:0 0 8px;font-family:${FONT};font-size:14px;line-height:1.55;color:${BODY};">${
-        partnerName ? `Bonjour ${escape(partnerName)}, v` : "V"
-      }oici ce qui vous attend${g.late.length ? ", en commençant par les retards" : ""}.</p>
-      ${
-        g.late.length
-          ? section(
-              "En retard",
-              g.late.length,
-              BRAND,
-              lateShown.map((t) => htmlLine(t, BRAND)).join("") +
-                (lateRest > 0
-                  ? `<tr><td colspan="2" style="padding:5px 0;font-family:${FONT};font-size:13px;color:${MUTED};">… et ${lateRest} autre${
-                      lateRest > 1 ? "s" : ""
-                    }.</td></tr>`
-                  : ""),
-            )
-          : ""
-      }
-      ${
-        g.today.length
-          ? section("Aujourd'hui", g.today.length, INK, g.today.map((t) => htmlLine(t, INK)).join(""))
-          : `<p style="margin:20px 0 6px;font-family:${FONT};font-size:14px;color:${MUTED};">Rien à faire aujourd'hui.</p>`
-      }
-      ${g.week
+  // Charte ÉQUIPE (partenaire) : les retards en rouge, le jour en noir, la
+  // semaine en gris — et un seul bouton.
+  const html = teamShell({
+    audience: "partenaire",
+    kicker: "Rappels · Ce matin",
+    heading: "Vos rappels du jour",
+    preheader: subject,
+    bodyHtml:
+      teamParagraph(
+        `${partnerName ? `Bonjour ${escape(partnerName)}, v` : "V"}oici ce qui vous attend${
+          g.late.length ? ", en commençant par les retards" : ""
+        }.`,
+      ) +
+      (g.late.length
+        ? section(
+            "En retard",
+            g.late.length,
+            BRAND,
+            lateShown.map((t) => htmlLine(t, BRAND)).join("") +
+              (lateRest > 0
+                ? `<tr><td colspan="2" style="padding:5px 0;font-family:${FONT};font-size:13px;color:${MUTED};">… et ${lateRest} autre${
+                    lateRest > 1 ? "s" : ""
+                  }.</td></tr>`
+                : ""),
+          )
+        : "") +
+      (g.today.length
+        ? section("Aujourd'hui", g.today.length, INK, g.today.map((t) => htmlLine(t, INK)).join(""))
+        : `<p style="margin:20px 0 6px;font-family:${FONT};font-size:14px;color:${MUTED};">Rien à faire aujourd'hui.</p>`) +
+      g.week
         .map((d) =>
-          section(
-            d.label,
-            d.tasks.length,
-            MUTED,
-            d.tasks.map((t) => htmlLine(t, MUTED)).join(""),
-          ),
+          section(d.label, d.tasks.length, MUTED, d.tasks.map((t) => htmlLine(t, MUTED)).join("")),
         )
-        .join("")}
-      <a href="${url}" style="display:inline-block;margin-top:22px;padding:11px 22px;background:${BRAND};border-radius:8px;color:#ffffff;font-family:${FONT};font-size:14px;font-weight:700;text-decoration:none;">Ouvrir mes rappels</a>
-      <p style="margin:18px 0 0;font-family:${FONT};font-size:15px;color:${BODY};">L'équipe support TIM</p>
-    </td></tr>
-  </table>
-</body></html>`;
+        .join(""),
+    cta: { label: "Ouvrir mes rappels", url },
+  });
 
   return { subject, text, html };
 }

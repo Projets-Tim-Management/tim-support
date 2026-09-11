@@ -49,12 +49,26 @@ export function TicketReply() {
   const { id } = useDocumentInfo();
   const { setModified } = useForm();
   const inputRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   const { value: status, setValue: setStatus } = useField<string>({ path: "status" });
   const { value: clientName } = useField<string>({ path: "name" });
   const { value: clientEmail } = useField<string>({ path: "email" });
 
   const [body, setBody] = useState("");
+
+  /**
+   * La zone de saisie SUIT le texte : quatre lignes fixes obligeaient à
+   * relire une réponse de dix lignes par un hublot, avec l'ascenseur. Elle
+   * grandit à mesure qu'on écrit, jusqu'au plafond posé en CSS (max-height),
+   * et retombe à sa hauteur de repos une fois vidée.
+   */
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [body]);
   const [files, setFiles] = useState<File[]>([]);
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -231,11 +245,12 @@ export function TicketReply() {
       </div>
 
       <textarea
+        ref={bodyRef}
         className="ticket-reply__input"
         value={body}
         onChange={onBodyChange}
         placeholder="Votre réponse… (envoyée par e-mail au client, avec suivi dans le fil)"
-        rows={4}
+        rows={5}
       />
 
       {files.length > 0 ? (

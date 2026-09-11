@@ -20,7 +20,6 @@ import { sessionSyncPatch, syncSessionEvent } from "@/modules/marketing/lib/sess
 import { JOURNEY_SYSTEM_WRITE, withSystemWrite } from "@/modules/marketing/lib/system-write";
 import {
   DEFAULT_DURATION_WEEKS,
-  allowComputedDate,
   compressLeadOffsets,
   restoreOffsets,
   JOURNEY_ACTORS,
@@ -37,17 +36,16 @@ import {
   AUTO_VALIDATE_DELAY_HOURS,
   NEVER_AUTO_VALIDATE,
   canAutoValidate,
+  isDeadlineArming,
+  selfValidationAllowed,
   selfValidationDate,
   mergeRunSteps,
-  clampMailDate,
   computeEmailSchedule,
   computeEndDate,
   isAdminStep,
   isMonday,
   isSessionNotAfterStart,
   isStepDone,
-  mailDateWindow,
-  stepDueDate,
   totalExtensionDays,
 } from "@/modules/marketing/lib/journey";
 
@@ -454,32 +452,58 @@ const armAutoSteps: CollectionBeforeChangeHook = ({ data, originalDoc, operation
       }
     }
 
-    /**
-     * Étapes qui s'acquièrent d'elles-mêmes passé leur échéance : on pose la
-     * date d'acquisition dès qu'elle est calculable, et on la SUIT si le
-     * démarrage bouge. `isStepDone` fait le reste à la lecture — aucun travail
-     * de fond n'est nécessaire pour basculer l'état.
-     *
-     * Jamais sur une étape déjà faite, ni sur une échéance déjà avancée par un
-     * fait constaté : ce serait la repousser.
-     */
-    if (state !== "fait") {
-      const selfAt = selfValidationDate(s, startDate, endDate, sessionAt as string | null);
-      if (selfAt && !(state === "auto" && s.autoAt && Date.parse(s.autoAt) <= Date.parse(selfAt))) {
-        if (s.state !== "auto" || s.autoAt !== selfAt) {
-          changed = true;
-          return { ...s, state: "auto", autoAt: selfAt };
-        }
+    return s;
+  });
+
+  /**
+   * Étapes qui s'acquièrent d'elles-mêmes passé leur échéance : on pose la
+   * date d'acquisition dès qu'elle est calculable, et on la SUIT si le
+   * démarrage bouge. `isStepDone` fait le reste à la lecture — aucun travail
+   * de fond n'est nécessaire pour basculer l'état.
+   *
+   * Jamais sur une étape déjà faite, ni sur une échéance déjà avancée par un
+   * fait constaté : ce serait la repousser.
+   *
+   * Second passage, sur les étapes DÉJÀ armées par le premier : le préalable
+   * (« Provisionnement des accès ») peut venir d'être armé dans cette même
+   * requête, et l'acquisition d'ici doit le voir tout de suite — sinon elle
+   * attendrait un enregistrement qui ne vient peut-être jamais.
+   */
+  const withSelf = next.map((s) => {
+    const state = (s.state ?? "a-faire") as string;
+    if (state === "fait") return s;
+    const selfAt = selfValidationDate(s, startDate, endDate, sessionAt as string | null);
+    if (!selfAt) return s;
+
+    // Préalable pas fait : PAS de compte à rebours D'ÉCHÉANCE, quelle que soit
+    // sa date. Un parcours armé avant cette règle, puis dont le démarrage a
+    // bougé, garde une date qui ne correspond plus à rien : la comparer à
+    // l'échéance courante le laisserait s'acquérir sur le vieux calendrier.
+    // Un compte à rebours posé par un FAIT (accès transmis, + 2 h), lui, est
+    // gardé : il dit qu'un accès a bel et bien circulé, même si l'étape de
+    // provisionnement n'a pas été cochée — il ne serait pas honnête de
+    // l'effacer, et on le réarmerait à chaque transmission pour l'écarter
+    // aussitôt.
+    if (!selfValidationAllowed(s, next)) {
+      if (state === "auto" && !armed.has(s.key ?? "") && isDeadlineArming(s.autoAt)) {
+        changed = true;
+        return { ...s, state: "a-faire", autoAt: null };
       }
+      return s;
     }
 
+    if (state === "auto" && s.autoAt && Date.parse(s.autoAt) <= Date.parse(selfAt)) return s;
+    if (s.state !== "auto" || s.autoAt !== selfAt) {
+      changed = true;
+      return { ...s, state: "auto", autoAt: selfAt };
+    }
     return s;
   });
 
   // Rien à armer ni à désarmer : on ne réécrit pas le tableau des étapes pour
   // rien — une mise à jour qui ne les touche pas ne doit pas les republier.
   if (!changed) return rest;
-  return { ...rest, steps: next };
+  return { ...rest, steps: withSelf };
 };
 
 /**
@@ -697,46 +721,13 @@ const computeState: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
     (data?.reviewAt ?? originalDoc?.reviewAt) as string | null | undefined,
   );
 
-  // Une date reprise à la main reste dans la fenêtre de son étape. L'écran pose
-  // déjà les bornes sur le champ, mais `min`/`max` d'un `datetime-local` ne font
-  // qu'orienter le sélecteur : une saisie au clavier ou un appel direct à l'API
-  // les traverse. La règle doit donc vivre ICI aussi, sinon elle n'existe pas.
-  const dated = steps.map((s) => ({
-    key: s.key,
-    // Même quatrième argument que l'écran : une étape ancrée sur le créneau
-    // (« Session de prise en main réalisée ») serait sinon sans date ici, et
-    // les fenêtres calculées de part et d'autre ne coïncideraient plus.
-    due: stepDueDate(
-      s as never,
-      startDate,
-      endDate,
-      (data?.sessionAt ?? originalDoc?.sessionAt) as string | null | undefined,
-    ),
-  }));
-  const bounded = emails.map((mail) => {
-    if (!mail.overridden || !mail.scheduledAt) return mail;
-    // La fenêtre est élargie à la date que le calendrier produirait pour CET
-    // envoi : elle borne une reprise à la main, elle ne condamne pas la
-    // programmation du parcours. Sans ça, un rappel ancré sur le créneau —
-    // antérieur à l'étape qui l'accueille — sautait de plusieurs jours au
-    // premier réglage manuel, sans que rien ne le signale.
-    const computedAt =
-      computeEmailSchedule(
-        [{ ...mail, overridden: false }],
-        startDate,
-        endDate,
-        (data?.sessionAt ?? originalDoc?.sessionAt) as string | null | undefined,
-        (data?.reviewAt ?? originalDoc?.reviewAt) as string | null | undefined,
-      )[0]?.scheduledAt ?? null;
-    const window = allowComputedDate(mailDateWindow(mail.stepKey as string, dated), computedAt);
-    const inside = clampMailDate(mail.scheduledAt, window);
-    return inside === mail.scheduledAt ? mail : { ...mail, scheduledAt: inside };
-  });
+  // Une date reprise à la main est gardée TELLE QUELLE : le calendrier propose,
+  // la main décide (voir journey.ts, « La date d'un envoi se règle librement »).
 
   return {
     ...data,
     endDate,
-    emails: bounded,
+    emails,
     status,
     stepsTotal: steps.length,
     stepsDone: done.size,

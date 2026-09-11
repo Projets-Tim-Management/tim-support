@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { clampMailDate, type MailDateWindow } from "@/modules/marketing/lib/journey";
+import { LATE_GRACE_HOURS, nextCronPass } from "@/modules/marketing/lib/due-emails";
 
 /**
  * Date d'envoi d'un e-mail, modifiable là où elle se lit — dans la barre
@@ -13,10 +13,16 @@ import { clampMailDate, type MailDateWindow } from "@/modules/marketing/lib/jour
  * ligne 7 » et l'étape concernée. La date est désormais affichée contre son
  * étape, et un clic dessus ouvre de quoi la changer.
  *
- * Trois gestes, qui couvrent tout ce qu'on veut faire d'un envoi :
+ * Quatre gestes, qui couvrent tout ce qu'on veut faire d'un envoi :
  *   - choisir une date  → elle est FIXÉE (elle cesse de suivre le calendrier) ;
+ *   - dès que possible  → date = maintenant, le prochain passage du cron l'emporte ;
  *   - ne pas envoyer    → date vidée, l'e-mail ne partira pas ;
  *   - rétablir          → retour à la date calculée par le parcours.
+ *
+ * La date est LIBRE : aucune borne. Elle était contrainte entre les étapes
+ * voisines, ce qui interdisait justement l'urgence (relancer aujourd'hui un
+ * dossier dont l'étape est dans dix jours). Le seul vrai risque — programmer
+ * dans le passé un message que le cron abandonnera — est DIT, pas interdit.
  *
  * Rendu par PORTAIL sur <body> : la liste d'étapes a son propre `overflow`, qui
  * rognerait un panneau positionné dans le flux.
@@ -59,7 +65,6 @@ export function MailDateEditor({
   sentAt,
   readOnly,
   sansObjet,
-  window: bounds,
   onChange,
 }: {
   subject: string;
@@ -76,18 +81,18 @@ export function MailDateEditor({
    * l'envoi quoi qu'on inscrive ici.
    */
   sansObjet?: string | null;
-  /** Bornes autorisées, déduites des étapes voisines. */
-  window: MailDateWindow;
   onChange: (at: string | null, overridden: boolean) => void;
 }) {
-  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
+  // `now` est lu à l'OUVERTURE du panneau, pas au rendu : une horloge lue
+  // pendant le rendu est impure, et le panneau ne vit que quelques secondes.
+  const [anchor, setAnchor] = useState<{ x: number; y: number; now: number } | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const close = useCallback(() => setAnchor(null), []);
 
   const toggle = useCallback((e: React.MouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setAnchor((a) => (a ? null : { x: r.right, y: r.bottom + 6 }));
+    setAnchor((a) => (a ? null : { x: r.right, y: r.bottom + 6, now: Date.now() }));
   }, []);
 
   // Fermeture au clic extérieur et à Échap : un panneau flottant qui reste
@@ -140,6 +145,21 @@ export function MailDateEditor({
     return <span className="jr-maildate jr-maildate--ro">{label}</span>;
   }
 
+  const at = scheduledAt ? Date.parse(scheduledAt) : NaN;
+  const tropAncien =
+    anchor != null && !Number.isNaN(at) && anchor.now - at > LATE_GRACE_HOURS * 3_600_000;
+  const prochain = nextCronPass(scheduledAt);
+  const passage =
+    prochain != null
+      ? new Date(prochain).toLocaleString("fr-FR", {
+          weekday: "long",
+          day: "2-digit",
+          month: "long",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : null;
+
   return (
     <>
       <button
@@ -184,22 +204,20 @@ export function MailDateEditor({
               type="datetime-local"
               className="jr-datepop__input"
               value={toLocalInput(scheduledAt)}
-              min={toLocalInput(bounds.min)}
-              max={toLocalInput(bounds.max)}
               autoFocus
               onChange={(e) => {
                 if (!e.target.value) return onChange(null, true);
-                // `min`/`max` ne font qu'orienter le sélecteur : une date tapée
-                // au clavier les traverse. On recadre donc à l'écriture.
-                onChange(clampMailDate(new Date(e.target.value).toISOString(), bounds), true);
+                onChange(new Date(e.target.value).toISOString(), true);
               }}
             />
 
-            {(bounds.min || bounds.max) && (
-              <p className="jr-datepop__bounds">
-                Déplaçable {bounds.min ? `du ${fmtDay(bounds.min)}` : ""}
-                {bounds.max ? ` au ${fmtDay(bounds.max)}` : ""} — la date doit rester entre
-                l&apos;étape précédente et la suivante.
+            {/* Programmé dans le passé, au-delà du délai de rattrapage : le
+                cron l'abandonnera sans rien dire. Mieux vaut le dire ICI, au
+                moment où l'on règle, qu'attendre un « Non parti » demain. */}
+            {tropAncien && (
+              <p className="jr-datepop__warn">
+                Date passée depuis plus de {LATE_GRACE_HOURS} h : le message ne partira pas.
+                Choisissez « dès que possible » ou une date à venir.
               </p>
             )}
 
@@ -209,9 +227,31 @@ export function MailDateEditor({
                 : overridden
                   ? "Date fixée : elle ne bougera plus si la durée du test change."
                   : "Suit le calendrier : elle se recalcule avec la durée du test."}
+              {/* Le cron passe à l'heure pile : « 14:37 » veut dire « 15 h ».
+                  Sans cette phrase, un envoi réglé à l'instant a l'air en retard
+                  pendant vingt minutes. */}
+              {!off && passage && !tropAncien && (
+                <>
+                  {" "}
+                  Part au passage de {passage}.
+                </>
+              )}
             </p>
 
             <div className="jr-datepop__actions">
+              {/* L'urgence : « il me le faut aujourd'hui ». La date passe à
+                  maintenant, et le prochain passage horaire du cron l'emporte —
+                  le libellé le dit, pour ne pas promettre un envoi instantané. */}
+              <button
+                type="button"
+                className="jr-datepop__btn jr-datepop__btn--asap"
+                onClick={() => {
+                  onChange(new Date().toISOString(), true);
+                  close();
+                }}
+              >
+                Dès que possible
+              </button>
               {!off && (
                 <button
                   type="button"

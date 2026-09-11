@@ -17,6 +17,8 @@ import {
   PHASE_DE_TEST_STEPS,
   SYSTEM_STEPS,
   canAutoValidate,
+  isDeadlineArming,
+  selfValidationAllowed,
   selfValidationDate,
   computeEmailSchedule,
   stepDueDate,
@@ -954,6 +956,36 @@ describe("« Accès distribués » ne se coche plus à la main", () => {
 
   it("sans démarrage, rien à dater", () => {
     expect(selfValidationDate({ key: "remise-acces", anchor: "debut", offsetDays: 1 }, null)).toBeNull();
+  });
+
+  /**
+   * « Accès distribués » ne peut pas devenir vraie sans accès CRÉÉS : le
+   * compte à rebours attend le provisionnement. Sans cette règle, il était posé
+   * dès la création de la fiche (Instalclim, 11/09/2026), et « annuler » ne
+   * tenait pas — le serveur réarmait à l'enregistrement suivant.
+   */
+  it("attend le provisionnement avant de s'armer à l'échéance", () => {
+    const remise = { key: "remise-acces" };
+    expect(selfValidationAllowed(remise, [{ key: "provisionnement", state: "a-faire" }])).toBe(false);
+    expect(selfValidationAllowed(remise, [])).toBe(false);
+    expect(selfValidationAllowed(remise, [{ key: "provisionnement", state: "fait" }])).toBe(true);
+    // Armé = en route vers l'acquisition : ça suffit, il s'acquerra avant.
+    expect(
+      selfValidationAllowed(remise, [
+        { key: "provisionnement", state: "auto", autoAt: "2026-09-13T10:00:00.000Z" },
+      ]),
+    ).toBe(true);
+  });
+
+  it("les autres étapes n'ont pas de préalable", () => {
+    expect(selfValidationAllowed({ key: "releve-j2" }, [])).toBe(true);
+  });
+
+  it("distingue un compte à rebours d'échéance (minuit UTC) d'un fait (+ 2 h)", () => {
+    expect(isDeadlineArming("2026-09-16T00:00:00.000Z")).toBe(true);
+    expect(isDeadlineArming("2026-09-11T11:42:17.000Z")).toBe(false);
+    expect(isDeadlineArming(null)).toBe(false);
+    expect(isDeadlineArming("pas une date")).toBe(false);
   });
 
   it("l'échéance atteinte, l'étape compte comme faite sans réenregistrement", () => {

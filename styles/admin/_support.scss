@@ -264,15 +264,27 @@ $reply-status-colors: (
   width: 100%;
   border: 1px solid var(--tim-border);
   border-radius: var(--tim-radius-sm);
-  padding: 0.65rem 0.8rem;
+  padding: 0.75rem 0.9rem;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
   color: var(--tim-foreground);
-  resize: vertical;
   background: var(--tim-surface);
+  /* Hauteur pilotée par le contenu (voir TicketReply : elle suit le texte).
+     Le plafond garde les boutons d'envoi à l'écran sur une longue réponse ;
+     au-delà, la zone défile. Pas de poignée : elle contredirait l'ajustement
+     automatique. */
+  min-height: 7.5rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  resize: none;
+  transition: min-height 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
+/* Une fois dedans, on écrit : la zone s'ouvre davantage avant même la première
+   ligne, pour qu'on ne rédige pas une réponse dans une fente. */
 .ticket-reply__input:focus {
   outline: none;
+  min-height: 12rem;
   border-color: var(--tim-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--tim-primary) 18%, transparent);
   background: var(--tim-white);

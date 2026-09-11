@@ -52,6 +52,11 @@ type Activity = {
   highPriority?: boolean;
   taskKind?: string | null;
   done?: boolean;
+  /** Tâche : quand elle a été cochée. C'est CE moment qui la place dans la chronologie. */
+  doneAt?: string | null;
+  calendarSync?: boolean;
+  /** Lien vers l'événement d'agenda, quand il a été créé. */
+  calendarLink?: string | null;
   recipients?: string | null;
   /** Sur un échange CAPTÉ (copie cachée) : d'où il vient. Absent sinon. */
   emailDirection?: "recu" | "envoye" | null;
@@ -79,6 +84,17 @@ const dt = (iso?: string | null, withTime = true): string => {
     ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
   });
 };
+
+/**
+ * L'instant qui place une activité dans la chronologie.
+ *
+ * Une tâche TERMINÉE se range au moment où elle a été faite, pas à celui où on
+ * l'a notée : « rappeler le gérant » créée lundi et cochée jeudi est un fait de
+ * jeudi. Rangée lundi, elle se lisait comme faite le jour de sa création — et
+ * une tâche cochée en retard affichait l'heure de sa saisie.
+ */
+const stampOf = (a: Activity): string | undefined =>
+  a.type === "tache" && a.done && a.doneAt ? a.doneAt : a.occurredAt;
 
 /** Jour d'un instant, ou « — » quand la date manque (cf. core/lib/dates). */
 const dayOf = (iso?: string): string => (iso ? dayKey(iso) : "—");
@@ -132,6 +148,30 @@ export function ClientHistory() {
   });
 
   const [items, setItems] = useState<Activity[] | null>(null);
+
+  /**
+   * Le partenaire a-t-il un agenda prêt à recevoir des événements ? Lu une
+   * fois par fiche : le tiroir de tâche s'en sert pour dire la vérité sur
+   * « Ajouter à l'agenda ». `null` tant qu'on ne sait pas — l'interrupteur
+   * reste alors utilisable, le serveur tranchera.
+   */
+  const [calendarReady, setCalendarReady] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (partnerId == null) return;
+    let cancelled = false;
+    fetch(`/api/calendar/connections?partnerId=${partnerId}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { connections?: { calendars?: { target?: boolean }[] }[] } | null) => {
+        if (cancelled || !j) return;
+        setCalendarReady(
+          Boolean(j.connections?.some((c) => (c.calendars ?? []).some((cal) => cal.target))),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [partnerId]);
   const [contact, setContact] = useState<{ full: string; first: string } | null>(null);
   /**
    * Premier lundi démarrable, calculé avec le MÊME délai de préparation que le
@@ -268,7 +308,11 @@ export function ClientHistory() {
       open: all
         .filter((a) => a.type === "tache" && !a.done)
         .sort((x, y) => Date.parse(x.dueDate ?? "") - Date.parse(y.dueDate ?? "")),
-      timeline: all.filter((a) => !(a.type === "tache" && !a.done)),
+      // Retriée sur l'instant AFFICHÉ : l'API trie sur la création, et une
+      // tâche terminée se place à sa validation.
+      timeline: all
+        .filter((a) => !(a.type === "tache" && !a.done))
+        .sort((x, y) => Date.parse(stampOf(y) ?? "") - Date.parse(stampOf(x) ?? "")),
     };
   }, [items]);
 
@@ -290,10 +334,10 @@ export function ClientHistory() {
   const days = useMemo(() => {
     const out: { key: string; label: string; items: Activity[] }[] = [];
     for (const a of shown) {
-      const key = dayOf(a.occurredAt);
+      const key = dayOf(stampOf(a));
       const last = out[out.length - 1];
       if (last?.key === key) last.items.push(a);
-      else out.push({ key, label: dayLabel(a.occurredAt), items: [a] });
+      else out.push({ key, label: dayLabel(stampOf(a)), items: [a] });
     }
     return out;
   }, [shown]);
@@ -347,6 +391,7 @@ export function ClientHistory() {
             body.dueDate = draft.dueDate ?? null;
             body.reminderAt = draft.reminderAt ?? null;
             body.highPriority = Boolean(draft.highPriority);
+            body.calendarSync = Boolean(draft.calendarSync);
             // Rappel MODIFIÉ (déplacé, ajouté ou retiré) : on efface la trace
             // d'envoi. Ne l'effacer qu'au retrait laissait un rappel déjà parti
             // marqué comme traité — repoussé à la semaine suivante, il ne serait
@@ -383,7 +428,14 @@ export function ClientHistory() {
   const toggleDone = useCallback(
     async (a: Activity) => {
       // Optimiste : cocher une tâche doit répondre tout de suite.
-      setItems((cur) => (cur ?? []).map((x) => (x.id === a.id ? { ...x, done: !a.done } : x)));
+      // `doneAt` aussi : c'est lui qui place la tâche dans la chronologie. Sans
+      // lui, elle apparaîtrait un instant au jour de sa création, puis sauterait
+      // à aujourd'hui au rechargement.
+      setItems((cur) =>
+        (cur ?? []).map((x) =>
+          x.id === a.id ? { ...x, done: !a.done, doneAt: a.done ? null : new Date().toISOString() } : x,
+        ),
+      );
       try {
         const res = await fetch(`${API}/${a.id}`, {
           method: "PATCH",
@@ -394,7 +446,9 @@ export function ClientHistory() {
         if (!res.ok) throw new Error();
         await load();
       } catch {
-        setItems((cur) => (cur ?? []).map((x) => (x.id === a.id ? { ...x, done: a.done } : x)));
+        setItems((cur) =>
+          (cur ?? []).map((x) => (x.id === a.id ? { ...x, done: a.done, doneAt: a.doneAt } : x)),
+        );
         setError("Impossible de mettre à jour cette tâche.");
       }
     },
@@ -451,9 +505,11 @@ export function ClientHistory() {
                   dueDate: editing.dueDate,
                   reminderAt: editing.reminderAt,
                   highPriority: editing.highPriority,
+                  calendarSync: editing.calendarSync,
                 }
               : null
           }
+          calendarReady={calendarReady}
           defaultTo={clientEmail}
           companyName={companyName}
           clientId={id}
@@ -526,6 +582,18 @@ export function ClientHistory() {
                     >
                       {rel.text}
                     </span>
+                  )}
+                  {/* Le double dans l'agenda existe : on le montre, et on y va. */}
+                  {t.calendarLink && (
+                    <a
+                      className="tim-history__cal"
+                      href={t.calendarLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Ouvrir l'événement dans l'agenda"
+                    >
+                      Agenda ↗
+                    </a>
                   )}
                   <div className="tim-history__row-actions">
                     {removing === t.id ? (
@@ -673,10 +741,22 @@ export function ClientHistory() {
                           {a.title || k?.label}
                         </strong>
                         {a.done && a.type === "tache" && (
-                          <span className="tim-history__done">terminée</span>
+                          <span
+                            className="tim-history__done"
+                            title={`Créée le ${dt(a.occurredAt)}${a.doneAt ? ` · terminée le ${dt(a.doneAt)}` : ""}`}
+                          >
+                            terminée
+                          </span>
                         )}
-                        <span className="tim-history__hour" title={dt(a.occurredAt)}>
-                          {hourOf(a.occurredAt)}
+                        {/* L'heure de la validation pour une tâche faite ; la
+                            création reste lisible, en second. */}
+                        {a.done && a.type === "tache" && a.doneAt && (
+                          <span className="tim-history__created" title={`Créée le ${dt(a.occurredAt)}`}>
+                            créée le {dt(a.occurredAt, false)}
+                          </span>
+                        )}
+                        <span className="tim-history__hour" title={dt(stampOf(a))}>
+                          {hourOf(stampOf(a))}
                         </span>
                       </p>
 

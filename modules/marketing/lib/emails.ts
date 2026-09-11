@@ -5,10 +5,15 @@ import {
   MUTED,
   OUTER,
   SITE_URL,
+  adminUrl,
   escape,
   paragraph,
   refBox,
   shell,
+  teamParagraph,
+  teamRows,
+  teamSection,
+  teamShell,
 } from "@/core/lib/email-template";
 // Le fuseau des créneaux, pris à sa source : c'est en heure de Paris que le
 // partenaire déclare ses disponibilités, et en UTC qu'on les stocke.
@@ -1018,25 +1023,30 @@ const creneauReserve = (ctx: JourneyEmailContext): BuiltEmail => {
     ]
       .filter(Boolean)
       .join("\n"),
-    html: shell({
-      heading: texte(ctx, "creneau-reserve", "titre"),
-      preheader: texte(ctx, "creneau-reserve", "apercu"),
+    // Charte ÉQUIPE : le partenaire ne reçoit pas l'habillage du client. Les
+    // faits (quand, où, qui) en fiche, et le bouton vers la phase de test.
+    html: teamShell({
+      audience: "partenaire",
+      kicker: "Phase de test · Session de prise en main",
+      // Texte BRUT : c'est l'enveloppe qui échappe (à l'inverse de `shell`,
+      // qui reçoit du HTML déjà sûr). `sujet` rend le bloc dépouillé, sans
+      // échappement — exactement ce qu'il faut ici.
+      heading: sujet(ctx, "creneau-reserve", "titre"),
+      preheader: sujet(ctx, "creneau-reserve", "apercu"),
       bodyHtml:
-        paragraph(intro.html) +
-        callout(
-          [
-            when ? `<strong>${when}</strong>` : null,
-            ctx.sessionModality ? escape(ctx.sessionModality) : null,
-          ]
-            .filter(Boolean)
-            .join("<br>"),
-        ) +
+        teamParagraph(intro.html) +
+        teamRows([
+          ...(when ? ([["Quand", when]] as [string, string][]) : []),
+          ...(ctx.sessionModality ? ([["Où", ctx.sessionModality]] as [string, string][]) : []),
+        ]) +
         (attendeeLines(ctx).length
-          ? paragraph(
-              `<strong>Seront présents</strong><br>${attendeeLines(ctx).map(escape).join("<br>")}`,
-            )
+          ? teamSection("Seront présents", "partenaire") +
+            teamParagraph(attendeeLines(ctx).map(escape).join("<br>"))
           : "") +
-        paragraph(preparation.html),
+        teamParagraph(preparation.html),
+      cta: ctx.runId
+        ? { label: "Ouvrir la phase de test", url: adminUrl(`/collections/journey-runs/${ctx.runId}`) }
+        : undefined,
     }),
   };
 };
@@ -1073,23 +1083,18 @@ const recapPartenaire = (ctx: JourneyEmailContext): BuiltEmail => {
       url,
       textSignature(),
     ].join("\n"),
-    html: shell({
+    // Charte ÉQUIPE : un client par ligne, le compte à rebours en valeur.
+    html: teamShell({
+      audience: "partenaire",
+      kicker: "Phases de test · Le point de la semaine",
       heading: "Vos phases de test cette semaine",
       preheader: runs.map((r) => r.clientName).join(", ") || "Le point de la semaine.",
       bodyHtml:
-        paragraph("Voici où en sont vos phases de test cette semaine.") +
+        teamParagraph("Voici où en sont vos phases de test cette semaine.") +
         (runs.length
-          ? bullets(
-              runs.map(
-                (r) =>
-                  `<strong>${escape(r.clientName)}</strong>${
-                    ligne(r) ? ` — ${escape(ligne(r))}` : ""
-                  }`,
-              ),
-            )
-          : paragraph("Aucune phase de test en cours pour le moment.")) +
-        button("Ouvrir mes phases de test", url) +
-        signature(),
+          ? teamRows(runs.map((r) => [r.clientName, ligne(r) || "en préparation"] as [string, string]))
+          : teamParagraph("Aucune phase de test en cours pour le moment.")),
+      cta: { label: "Ouvrir mes phases de test", url },
     }),
   };
 };
