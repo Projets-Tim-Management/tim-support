@@ -206,6 +206,20 @@
   background: var(--tim-red-bg);
   color: var(--tim-red);
 }
+/* Double de la tâche dans l'agenda : même pastille que l'échéance, cliquable. */
+.tim-history__cal {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--tim-blue-bg);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--tim-blue);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover { filter: brightness(0.95); }
+}
 
 /* ─── Chronologie ────────────────────────────────────────────────────────── */
 .tim-history__day {
@@ -299,6 +313,12 @@
   font-weight: 600;
   color: var(--tim-muted);
   font-variant-numeric: tabular-nums;
+}
+.tim-history__created {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  color: var(--tim-muted);
+  white-space: nowrap;
 }
 .tim-history__done {
   flex: 0 0 auto;
@@ -803,6 +823,20 @@
   font-size: 0.86rem;
   font-weight: 600;
   color: var(--tim-foreground);
+}
+/* Interrupteur sans effet possible (pas d'agenda) : gris, et on dit pourquoi. */
+.tim-adrawer__switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.tim-adrawer__switch:disabled + .tim-adrawer__switch-label {
+  color: var(--tim-muted);
+}
+.tim-adrawer__hint {
+  margin-top: -0.35rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: var(--tim-muted);
 }
 
 .tim-adrawer__foot {

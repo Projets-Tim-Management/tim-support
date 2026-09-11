@@ -36,6 +36,7 @@ import {
   AUTO_VALIDATE_DELAY_HOURS,
   NEVER_AUTO_VALIDATE,
   canAutoValidate,
+  isDeadlineArming,
   selfValidationAllowed,
   selfValidationDate,
   mergeRunSteps,
@@ -474,14 +475,17 @@ const armAutoSteps: CollectionBeforeChangeHook = ({ data, originalDoc, operation
     const selfAt = selfValidationDate(s, startDate, endDate, sessionAt as string | null);
     if (!selfAt) return s;
 
-    // Préalable pas fait : PAS de compte à rebours, quelle que soit la date
-    // qu'il porte. Un parcours armé avant cette règle, puis dont le démarrage a
+    // Préalable pas fait : PAS de compte à rebours D'ÉCHÉANCE, quelle que soit
+    // sa date. Un parcours armé avant cette règle, puis dont le démarrage a
     // bougé, garde une date qui ne correspond plus à rien : la comparer à
     // l'échéance courante le laisserait s'acquérir sur le vieux calendrier.
-    // Et un fait qui l'aurait armé (un accès transmis) suppose des accès
-    // créés, donc un préalable acquis — on ne désarme rien de légitime.
+    // Un compte à rebours posé par un FAIT (accès transmis, + 2 h), lui, est
+    // gardé : il dit qu'un accès a bel et bien circulé, même si l'étape de
+    // provisionnement n'a pas été cochée — il ne serait pas honnête de
+    // l'effacer, et on le réarmerait à chaque transmission pour l'écarter
+    // aussitôt.
     if (!selfValidationAllowed(s, next)) {
-      if (state === "auto") {
+      if (state === "auto" && !armed.has(s.key ?? "") && isDeadlineArming(s.autoAt)) {
         changed = true;
         return { ...s, state: "a-faire", autoAt: null };
       }

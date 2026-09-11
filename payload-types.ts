@@ -1518,6 +1518,12 @@ export interface ClientActivity {
   done?: boolean | null;
   doneAt?: string | null;
   reminderSentAt?: string | null;
+  /**
+   * Un événement de 30 min à l'échéance, dans l'agenda connecté du partenaire. Rien ne se passe s'il n'en a pas connecté.
+   */
+  calendarSync?: boolean | null;
+  calendarEventId?: string | null;
+  calendarLink?: string | null;
   emailDirection?: ('recu' | 'envoye') | null;
   sourceMessageId?: string | null;
   capturedFrom?: string | null;
@@ -2879,6 +2885,9 @@ export interface ClientActivitiesSelect<T extends boolean = true> {
   done?: T;
   doneAt?: T;
   reminderSentAt?: T;
+  calendarSync?: T;
+  calendarEventId?: T;
+  calendarLink?: T;
   emailDirection?: T;
   sourceMessageId?: T;
   capturedFrom?: T;

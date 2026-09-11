@@ -17,6 +17,7 @@ import {
   PHASE_DE_TEST_STEPS,
   SYSTEM_STEPS,
   canAutoValidate,
+  isDeadlineArming,
   selfValidationAllowed,
   selfValidationDate,
   computeEmailSchedule,
@@ -978,6 +979,13 @@ describe("« Accès distribués » ne se coche plus à la main", () => {
 
   it("les autres étapes n'ont pas de préalable", () => {
     expect(selfValidationAllowed({ key: "releve-j2" }, [])).toBe(true);
+  });
+
+  it("distingue un compte à rebours d'échéance (minuit UTC) d'un fait (+ 2 h)", () => {
+    expect(isDeadlineArming("2026-09-16T00:00:00.000Z")).toBe(true);
+    expect(isDeadlineArming("2026-09-11T11:42:17.000Z")).toBe(false);
+    expect(isDeadlineArming(null)).toBe(false);
+    expect(isDeadlineArming("pas une date")).toBe(false);
   });
 
   it("l'échéance atteinte, l'étape compte comme faite sans réenregistrement", () => {

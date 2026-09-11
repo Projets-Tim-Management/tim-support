@@ -431,6 +431,24 @@ export const SELF_VALIDATION_REQUIRES: Record<string, string> = {
   "remise-acces": "provisionnement",
 };
 
+/**
+ * Cette date d'acquisition vient-elle de l'ÉCHÉANCE, et non d'un fait ?
+ *
+ * Une acquisition à l'échéance tombe à minuit UTC (échéance + n jours, voir
+ * `addDays`) ; un fait constaté arme à « maintenant + 2 h », jamais pile à
+ * minuit. C'est ce qui permet de retirer un compte à rebours d'échéance devenu
+ * illégitime — y compris posé sur un ancien calendrier — sans toucher à celui
+ * qu'un accès réellement transmis vient de poser.
+ */
+export const isDeadlineArming = (autoAt?: string | null): boolean => {
+  if (!autoAt) return false;
+  const d = new Date(autoAt);
+  if (Number.isNaN(d.getTime())) return false;
+  return (
+    d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0
+  );
+};
+
 export const selfValidationAllowed = (
   step: { key?: string | null },
   steps: Array<{ key?: string | null; state?: string | null; autoAt?: string | null }>,
