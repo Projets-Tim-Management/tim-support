@@ -111,8 +111,9 @@ function Carte({
         )}
         {etat && <span className={`dash-chip dash-chip--${etat.ton}`}>{etat.texte}</span>}
         {/* Le lien de visio EST le geste de 10 h : il mérite un bouton, pas une
-            fiche de plus à ouvrir pour le retrouver. */}
-        {item.link && (
+            fiche de plus à ouvrir pour le retrouver. Session faite : plus rien
+            à rejoindre. */}
+        {item.link && !item.done && (
           <a className="dash-chip dash-chip--join" href={item.link} target="_blank" rel="noreferrer">
             Rejoindre
           </a>
@@ -188,9 +189,14 @@ export default function TodayAgenda({
                 etat={
                   item.done
                     ? { texte: "Faite", ton: "done" }
-                    : jour === aujourdHui
-                      ? { texte: "Aujourd'hui", ton: "today" }
-                      : null
+                    : item.kind === "session" && Date.parse(item.at) < now
+                      ? // Créneau passé, étape pas encore acquise (elle le sera
+                        // d'elle-même le lendemain) : on le dit, plutôt que de
+                        // laisser croire à une session à venir.
+                        { texte: "Passée — à valider", ton: "late" }
+                      : jour === aujourdHui
+                        ? { texte: "Aujourd'hui", ton: "today" }
+                        : null
                 }
                 onToggle={onToggle}
               />

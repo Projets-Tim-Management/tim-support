@@ -146,9 +146,12 @@ export function AccessDelivery({ clientId, reloadToken }: { clientId: number | s
           aria-label="Adresse de destination du récapitulatif"
           onChange={(e) => setTo(e.target.value)}
         />
+        {/* Contour, pas plein : c'est un envoi qu'on fait une fois, à côté de
+            l'adresse — en rouge plein il criait plus fort que le reste de la
+            fiche. */}
         <button
           type="button"
-          className="jr-btn jr-btn--small"
+          className="jr-btn jr-btn--small jr-btn--ghost"
           disabled={busy !== null || to.trim() === ""}
           onClick={() =>
             void post("all", { all: true, to: to.trim() }, (sent, count) =>

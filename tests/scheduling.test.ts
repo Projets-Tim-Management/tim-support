@@ -958,6 +958,20 @@ describe("« Accès distribués » ne se coche plus à la main", () => {
     expect(selfValidationDate({ key: "remise-acces", anchor: "debut", offsetDays: 1 }, null)).toBeNull();
   });
 
+  it("la session de prise en main s'acquiert le lendemain du créneau", () => {
+    const at = selfValidationDate(
+      { key: "prise-en-main", anchor: "session", offsetDays: 0 },
+      "2026-09-14T00:00:00.000Z",
+      "2026-10-12T00:00:00.000Z",
+      "2026-09-07T14:00:00.000Z",
+    );
+    expect(at).toBe("2026-09-08T00:00:00.000Z");
+    // Sans créneau réservé, rien à dater : la session n'a pas eu lieu.
+    expect(
+      selfValidationDate({ key: "prise-en-main", anchor: "session", offsetDays: 0 }, "2026-09-14T00:00:00.000Z", null, null),
+    ).toBeNull();
+  });
+
   /**
    * « Accès distribués » ne peut pas devenir vraie sans accès CRÉÉS : le
    * compte à rebours attend le provisionnement. Sans cette règle, il était posé
