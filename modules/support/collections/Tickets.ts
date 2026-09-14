@@ -5,6 +5,7 @@ import { documentsField } from "@/core/fields/documents";
 import { referenceNumber } from "@/core/fields/referenceNumber";
 import { stampDocuments } from "@/core/hooks/documents";
 import { TICKET_RETENTION_DAYS } from "@/modules/support/lib/retention";
+import { guardAttentionFlags, keepMessages } from "@/modules/support/hooks/keep-messages";
 import { stampResolvedAt } from "@/modules/support/hooks/resolved-at";
 
 /**
@@ -74,7 +75,9 @@ export const Tickets: CollectionConfig = {
   },
   disableDuplicate: true,
   defaultSort: "-createdAt", // les plus récents en premier
-  hooks: { beforeChange: [stampResolvedAt, stampDocuments] },
+  // `keepMessages` en premier : aucun enregistrement — quel qu'en soit le
+  // chemin — ne doit faire disparaître un message du fil (voir le hook).
+  hooks: { beforeChange: [keepMessages, guardAttentionFlags, stampResolvedAt, stampDocuments] },
   fields: [
     // ─── Colonne principale : deux onglets sur un ticket existant ────────────
     // « Conversation » (le fil + la réponse) et « E-mails » (ce que Brevo sait

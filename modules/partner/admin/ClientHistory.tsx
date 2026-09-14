@@ -55,6 +55,7 @@ type Activity = {
   /** Tâche : quand elle a été cochée. C'est CE moment qui la place dans la chronologie. */
   doneAt?: string | null;
   calendarSync?: boolean;
+  calendarMinutes?: number | null;
   /** Lien vers l'événement d'agenda, quand il a été créé. */
   calendarLink?: string | null;
   recipients?: string | null;
@@ -119,6 +120,16 @@ const dayLabel = (iso?: string): string => {
 };
 
 /** Heure seule : la date est déjà portée par l'en-tête du jour. */
+/** « 2 févr. 26 à 11h30 » — jour, mois court, année sur deux chiffres, heure. */
+const shortDateTime = (iso?: string | null): string => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const day = d.toLocaleDateString("fr-FR", { timeZone: PARIS_TZ, day: "numeric", month: "short", year: "2-digit" });
+  const time = d.toLocaleTimeString("fr-FR", { timeZone: PARIS_TZ, hour: "2-digit", minute: "2-digit" }).replace(":", "h");
+  return `${day} à ${time}`;
+};
+
 const hourOf = (iso?: string): string =>
   iso
     ? new Date(iso).toLocaleTimeString("fr-FR", { timeZone: PARIS_TZ, hour: "2-digit", minute: "2-digit" })
@@ -392,6 +403,7 @@ export function ClientHistory() {
             body.reminderAt = draft.reminderAt ?? null;
             body.highPriority = Boolean(draft.highPriority);
             body.calendarSync = Boolean(draft.calendarSync);
+            if (draft.calendarMinutes != null) body.calendarMinutes = draft.calendarMinutes;
             // Rappel MODIFIÉ (déplacé, ajouté ou retiré) : on efface la trace
             // d'envoi. Ne l'effacer qu'au retrait laissait un rappel déjà parti
             // marqué comme traité — repoussé à la semaine suivante, il ne serait
@@ -506,6 +518,7 @@ export function ClientHistory() {
                   reminderAt: editing.reminderAt,
                   highPriority: editing.highPriority,
                   calendarSync: editing.calendarSync,
+                  calendarMinutes: editing.calendarMinutes,
                 }
               : null
           }
@@ -748,17 +761,16 @@ export function ClientHistory() {
                             terminée
                           </span>
                         )}
-                        {/* L'heure de la validation pour une tâche faite ; la
-                            création reste lisible, en second. */}
-                        {a.done && a.type === "tache" && a.doneAt && (
-                          <span className="tim-history__created" title={`Créée le ${dt(a.occurredAt)}`}>
-                            créée le {dt(a.occurredAt, false)}
+                        {/* Une tâche faite a ses deux dates en dessous, sur
+                            deux lignes (voir plus bas) ; les autres lignes
+                            gardent l'heure seule : leur jour est celui du groupe. */}
+                        {!(a.done && a.type === "tache" && a.doneAt) && (
+                          <span className="tim-history__hour" title={dt(stampOf(a))}>
+                            {hourOf(stampOf(a))}
                           </span>
                         )}
-                        <span className="tim-history__hour" title={dt(stampOf(a))}>
-                          {hourOf(stampOf(a))}
-                        </span>
                       </p>
+
 
                       {a.content &&
                         // Notes ET e-mails sont rédigés en Markdown : les
@@ -823,7 +835,32 @@ export function ClientHistory() {
                         </div>
                       )}
 
-                      {(who || a.recipients || a.attachments?.length || a.attachmentNames) && (
+                      {/* Pied de carte, sur toute la largeur : les dates d'une
+                          tâche faite à gauche, l'auteur et les destinataires à
+                          droite. Un léger fond et un filet le séparent du
+                          contenu sans ajouter une ligne de plus. */}
+                      {(a.done && a.type === "tache" && a.doneAt) ||
+                      who ||
+                      a.recipients ||
+                      a.attachments?.length ||
+                      a.attachmentNames ? (
+                      <div className="tim-history__foot">
+                        {a.done && a.type === "tache" && a.doneAt && (
+                          <p className="tim-history__dates">
+                            <span className="tim-history__date" title={`Créée le ${dt(a.occurredAt)}`}>
+                              <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M8 3.5v9M3.5 8h9" />
+                              </svg>
+                              Créé le {shortDateTime(a.occurredAt)}
+                            </span>
+                            <span className="tim-history__date tim-history__date--done" title={`Terminée le ${dt(a.doneAt)}`}>
+                              <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 8.5l3.5 3.5L13 4.5" />
+                              </svg>
+                              Fait le {shortDateTime(a.doneAt)}
+                            </span>
+                          </p>
+                        )}
                         <p className="tim-history__meta">
                           {who && <span>{who}</span>}
                           {/* « à » pour ce qui part, « de » pour ce qui arrive :
@@ -855,7 +892,8 @@ export function ClientHistory() {
                             ) : null,
                           )}
                         </p>
-                      )}
+                      </div>
+                      ) : null}
                     </div>
                   </li>
                 );

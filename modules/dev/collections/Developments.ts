@@ -342,6 +342,19 @@ export const Developments: CollectionConfig = {
         },
       },
     },
+    /**
+     * « Prévenir les demandeurs » : la fenêtre qui s'ouvre quand le statut
+     * choisi porte le rôle `annonce`, et le bouton pour la rouvrir plus tard.
+     * Sous le statut, parce que c'est lui qui la déclenche.
+     */
+    {
+      name: "announceBar",
+      type: "ui",
+      admin: {
+        position: "sidebar",
+        components: { Field: "/modules/dev/admin/AnnounceField#AnnounceField" },
+      },
+    },
     {
       type: "row",
       admin: { position: "sidebar" },
@@ -508,6 +521,20 @@ export const Developments: CollectionConfig = {
             },
           },
         ],
+      },
+      /**
+       * Quand les clients « Demandé par » ont été prévenus. Posée par la route
+       * d'annonce (api/dev/announce) après le premier envoi ; lue par la
+       * fenêtre pour ne pas proposer d'écrire deux fois. Jamais saisie.
+       */
+      {
+        name: "announcedAt",
+        type: "date",
+        label: "Clients prévenus le",
+        admin: {
+          hidden: true,
+          date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" },
+        },
       },
       {
         name: "internalNotes",

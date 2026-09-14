@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { DEFAULT_TASK_EVENT_MINUTES, TASK_EVENT_DURATIONS } from "@/modules/partner/lib/task-calendar";
 import { createPortal } from "react-dom";
 
 import { ActivityIcon } from "@/modules/partner/admin/ActivityIcons";
@@ -51,6 +53,7 @@ export interface ActivityInitial {
   reminderAt?: string | null;
   highPriority?: boolean | null;
   calendarSync?: boolean | null;
+  calendarMinutes?: number | null;
 }
 
 /** Ce que le drawer renvoie ; l'appelant se charge d'écrire. */
@@ -65,6 +68,8 @@ export interface ActivityDraft {
   highPriority?: boolean;
   /** Un événement dans l'agenda connecté du partenaire, à l'échéance. */
   calendarSync?: boolean;
+  /** Sa durée, en minutes (voir TASK_EVENT_DURATIONS). */
+  calendarMinutes?: number;
   /** E-mail */
   to?: string;
   cc?: string;
@@ -326,6 +331,7 @@ export function ActivityDrawer({
   );
   const [priority, setPriority] = useState(Boolean(initial?.highPriority));
   const [toCalendar, setToCalendar] = useState(Boolean(initial?.calendarSync));
+  const [minutes, setMinutes] = useState<number>(initial?.calendarMinutes ?? DEFAULT_TASK_EVENT_MINUTES);
   /** Destinataires en JETONS + ce que l'utilisateur est en train de taper. */
   const [tos, setTos] = useState<string[]>(() => (defaultTo ? [defaultTo] : []));
   const [toDraft, setToDraft] = useState("");
@@ -535,6 +541,7 @@ export function ActivityDrawer({
             // une note ne doit pas retirer, en silence, une tâche de l'agenda
             // qu'elle rejoindra dès que le partenaire se reconnecte.
             calendarSync: calendarReady === false ? Boolean(initial?.calendarSync) : toCalendar,
+            calendarMinutes: minutes,
           }
         : {}),
       ...(isEmail
@@ -973,7 +980,7 @@ export function ActivityDrawer({
                   {calendarReady === false
                     ? "Agenda non connecté"
                     : toCalendar
-                      ? "Ajouté à l'agenda (30 min à l'échéance)"
+                      ? "Ajouté à l'agenda, à l'échéance"
                       : "Pas dans l'agenda"}
                 </span>
               </div>
@@ -982,6 +989,24 @@ export function ActivityDrawer({
                   Connectez un agenda depuis la fiche partenaire, onglet « Agenda &amp; rendez-vous »,
                   et désignez-y l'agenda qui reçoit les rendez-vous.
                 </span>
+              )}
+              {/* La durée du créneau : 5 min par défaut — un rappel, pas un
+                  rendez-vous —, jusqu'à 1 h quand la tâche EST le rendez-vous. */}
+              {toCalendar && calendarReady !== false && (
+                <div className="tim-adrawer__chips tim-adrawer__chips--durations" role="radiogroup" aria-label="Durée dans l'agenda">
+                  {TASK_EVENT_DURATIONS.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      role="radio"
+                      aria-checked={minutes === m}
+                      className={`tim-adrawer__chip tim-adrawer__chip--small${minutes === m ? " tim-adrawer__chip--on" : ""}`}
+                      onClick={() => setMinutes(m)}
+                    >
+                      {m === 60 ? "1 h" : `${m} min`}
+                    </button>
+                  ))}
+                </div>
               )}
 
               <div className="tim-adrawer__switch-row">

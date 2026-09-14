@@ -138,20 +138,23 @@ type OpenTask = {
  * Le Kanban se balaie, il ne se lit pas : une date au format « 28/09 » oblige à
  * calculer, ces mots-là non.
  */
-const dueLabel = (iso?: string | null): { text: string; late: boolean } | null => {
+const dueLabel = (
+  iso?: string | null,
+): { text: string; late: boolean; today: boolean } | null => {
   if (!iso) return null;
   const day = (d: Date) => d.toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" });
   const target = new Date(iso);
   if (Number.isNaN(target.getTime())) return null;
   const today = day(new Date());
   const key = day(target);
-  if (key < today) return { text: "en retard", late: true };
-  if (key === today) return { text: "aujourd'hui", late: false };
+  const later = (text: string) => ({ text, late: false, today: false });
+  if (key < today) return { text: "en retard", late: true, today: false };
+  if (key === today) return { text: "aujourd'hui", late: false, today: true };
   const days = Math.round((Date.parse(`${key}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
-  if (days === 1) return { text: "demain", late: false };
-  if (days < 7) return { text: `dans ${days} j`, late: false };
-  if (days < 31) return { text: `dans ${Math.round(days / 7)} sem.`, late: false };
-  return { text: target.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }), late: false };
+  if (days === 1) return later("demain");
+  if (days < 7) return later(`dans ${days} j`);
+  if (days < 31) return later(`dans ${Math.round(days / 7)} sem.`);
+  return later(target.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }));
 };
 
 const apporteurLabel = (p: PartnerRef): string | null => {
@@ -922,7 +925,7 @@ export function PartnerClientsBoard() {
                                 )}
                                 {due && (
                                   <span
-                                    className={`tim-kanban__task-due${due.late ? " is-late" : ""}`}
+                                    className={`tim-kanban__task-due${due.late ? " is-late" : ""}${due.today ? " is-today" : ""}`}
                                   >
                                     {due.text}
                                   </span>

@@ -12,7 +12,7 @@ import { taskKindLabel } from "@/modules/partner/lib/activity";
  * partenaire a désigné (le même que celui qui reçoit les sessions de prise en
  * main). Même mécanique que `session-calendar` — un seul endroit décide de
  * créer, déplacer ou retirer —, en plus simple : pas d'invité, pas de visio,
- * une demi-heure au moment de l'échéance.
+ * quelques minutes au moment de l'échéance (durée au choix, 5 min par défaut).
  *
  *   pas d'événement + demandé      → création
  *   événement + échéance déplacée  → déplacement
@@ -23,8 +23,18 @@ import { taskKindLabel } from "@/modules/partner/lib/activity";
  * simplement pas son double dans l'agenda — et le journal dit pourquoi.
  */
 
-/** Durée de l'événement : le temps de faire ce que la tâche demande. */
-export const TASK_EVENT_MINUTES = 30;
+/**
+ * Durées proposées pour l'événement : un rappel court par défaut — il ne doit
+ * pas bloquer l'agenda —, jusqu'à une heure quand la tâche EST un rendez-vous.
+ */
+export const TASK_EVENT_DURATIONS = [5, 10, 15, 20, 30, 45, 60] as const;
+export const DEFAULT_TASK_EVENT_MINUTES = 5;
+
+/** Durée retenue : celle de la tâche si elle est dans la liste, sinon le défaut. */
+export const eventMinutes = (t: { calendarMinutes?: number | null }): number =>
+  (TASK_EVENT_DURATIONS as readonly number[]).includes(t.calendarMinutes ?? -1)
+    ? (t.calendarMinutes as number)
+    : DEFAULT_TASK_EVENT_MINUTES;
 
 export type TaskSyncResult = {
   eventId?: string | null;
@@ -44,6 +54,7 @@ export type TaskLike = {
   taskKind?: string | null;
   dueDate?: string | null;
   calendarSync?: boolean | null;
+  calendarMinutes?: number | null;
   calendarEventId?: string | null;
 };
 
@@ -75,7 +86,7 @@ export const eventNeedsSync = (before: TaskLike | null | undefined, after: TaskL
   if (!wantsEvent(after)) return false;
   if (!after.calendarEventId) return true; // demandé mais jamais créé : rattrapage
   const diff = (k: "dueDate" | "title" | "taskKind" | "content") => (b[k] ?? null) !== (after[k] ?? null);
-  return diff("dueDate") || diff("title") || diff("taskKind") || diff("content");
+  return diff("dueDate") || diff("title") || diff("taskKind") || diff("content") || eventMinutes(b) !== eventMinutes(after);
 };
 
 /** Ce qu'il faut écrire sur la tâche après une synchronisation. */
@@ -146,7 +157,7 @@ export async function syncTaskEvent(payload: Payload, task: TaskLike): Promise<T
       .filter(Boolean)
       .join("\n\n"),
     start: at,
-    end: new Date(Date.parse(at) + TASK_EVENT_MINUTES * 60_000).toISOString(),
+    end: new Date(Date.parse(at) + eventMinutes(task) * 60_000).toISOString(),
     // L'agenda est celui du partenaire : personne à inviter.
     attendees: [] as string[],
     online: false,

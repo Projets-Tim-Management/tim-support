@@ -531,7 +531,6 @@ export interface PartnerClient {
         | 'besoin-different'
         | 'solution-interne'
         | 'test-non-concluant'
-        | 'a-qualifier'
         | 'peu-utilise'
         | 'complexite'
         | 'support'
@@ -895,6 +894,7 @@ export interface Development {
   checklistProgress?: string | null;
   startedAt?: string | null;
   deliveredAt?: string | null;
+  announcedAt?: string | null;
   /**
    * Jamais communiqué au client.
    */
@@ -923,9 +923,9 @@ export interface DevStatus {
    */
   phase: 'entree' | 'etude' | 'realisation' | 'livraison' | 'hors-flux';
   /**
-   * Démarre le travail : Date le démarrage la première fois qu'un développement atteint ce statut. — Marque la livraison : Date la livraison : c'est chez l'utilisateur. — Clôt le dossier : Plus rien n'est attendu — le développement sort des vues de travail.
+   * Démarre le travail : Date le démarrage la première fois qu'un développement atteint ce statut. — Marque la livraison : Date la livraison : c'est chez l'utilisateur. — Clôt le dossier : Plus rien n'est attendu — le développement sort des vues de travail. — Prévient les demandeurs : E-mail aux clients « Demandé par » : c'est disponible, on propose une démo ou un échange.
    */
-  roles?: ('demarre' | 'livre' | 'cloture')[] | null;
+  roles?: ('demarre' | 'livre' | 'cloture' | 'annonce')[] | null;
   /**
    * Ce qui distingue ce statut du voisin. Affiché sous le sélecteur d'une fiche et au survol de la colonne.
    */
@@ -1519,9 +1519,13 @@ export interface ClientActivity {
   doneAt?: string | null;
   reminderSentAt?: string | null;
   /**
-   * Un événement de 30 min à l'échéance, dans l'agenda connecté du partenaire. Rien ne se passe s'il n'en a pas connecté.
+   * Un événement à l'échéance, dans l'agenda connecté du partenaire. Rien ne se passe s'il n'en a pas connecté.
    */
   calendarSync?: boolean | null;
+  /**
+   * 5 · 10 · 15 · 20 · 30 · 45 · 60 minutes.
+   */
+  calendarMinutes?: number | null;
   calendarEventId?: string | null;
   calendarLink?: string | null;
   emailDirection?: ('recu' | 'envoye') | null;
@@ -1811,7 +1815,6 @@ export interface Sequence {
         | 'besoin-different'
         | 'solution-interne'
         | 'test-non-concluant'
-        | 'a-qualifier'
         | 'peu-utilise'
         | 'complexite'
         | 'support'
@@ -2571,6 +2574,7 @@ export interface DevelopmentsSelect<T extends boolean = true> {
   checklistProgress?: T;
   startedAt?: T;
   deliveredAt?: T;
+  announcedAt?: T;
   internalNotes?: T;
   feature?: T;
   rank?: T;
@@ -2886,6 +2890,7 @@ export interface ClientActivitiesSelect<T extends boolean = true> {
   doneAt?: T;
   reminderSentAt?: T;
   calendarSync?: T;
+  calendarMinutes?: T;
   calendarEventId?: T;
   calendarLink?: T;
   emailDirection?: T;

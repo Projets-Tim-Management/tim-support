@@ -91,6 +91,11 @@ import * as migration_20260909_164004_bilan_fin_de_test from './20260909_164004_
 import * as migration_20260910_055118_bouton_apres_envoi from './20260910_055118_bouton_apres_envoi';
 import * as migration_20260911_094157_add_task_calendar from './20260911_094157_add_task_calendar';
 import * as migration_20260911_101500_desarmer_remise_acces_sans_provisionnement from './20260911_101500_desarmer_remise_acces_sans_provisionnement';
+import * as migration_20260911_112418_annonce_livraison_aux_demandeurs from './20260911_112418_annonce_livraison_aux_demandeurs';
+import * as migration_20260911_112500_role_annonce_sur_termine from './20260911_112500_role_annonce_sur_termine';
+import * as migration_20260911_123348_duree_rappel_agenda from './20260911_123348_duree_rappel_agenda';
+import * as migration_20260911_130800_motif_a_qualifier_vers_autre from './20260911_130800_motif_a_qualifier_vers_autre';
+import * as migration_20260911_130900_retrait_motif_a_qualifier from './20260911_130900_retrait_motif_a_qualifier';
 
 export const migrations = [
   {
@@ -556,6 +561,31 @@ export const migrations = [
   {
     up: migration_20260911_101500_desarmer_remise_acces_sans_provisionnement.up,
     down: migration_20260911_101500_desarmer_remise_acces_sans_provisionnement.down,
-    name: '20260911_101500_desarmer_remise_acces_sans_provisionnement'
+    name: '20260911_101500_desarmer_remise_acces_sans_provisionnement',
+  },
+  {
+    up: migration_20260911_112418_annonce_livraison_aux_demandeurs.up,
+    down: migration_20260911_112418_annonce_livraison_aux_demandeurs.down,
+    name: '20260911_112418_annonce_livraison_aux_demandeurs',
+  },
+  {
+    up: migration_20260911_112500_role_annonce_sur_termine.up,
+    down: migration_20260911_112500_role_annonce_sur_termine.down,
+    name: '20260911_112500_role_annonce_sur_termine',
+  },
+  {
+    up: migration_20260911_123348_duree_rappel_agenda.up,
+    down: migration_20260911_123348_duree_rappel_agenda.down,
+    name: '20260911_123348_duree_rappel_agenda',
+  },
+  {
+    up: migration_20260911_130800_motif_a_qualifier_vers_autre.up,
+    down: migration_20260911_130800_motif_a_qualifier_vers_autre.down,
+    name: '20260911_130800_motif_a_qualifier_vers_autre',
+  },
+  {
+    up: migration_20260911_130900_retrait_motif_a_qualifier.up,
+    down: migration_20260911_130900_retrait_motif_a_qualifier.down,
+    name: '20260911_130900_retrait_motif_a_qualifier'
   },
 ];

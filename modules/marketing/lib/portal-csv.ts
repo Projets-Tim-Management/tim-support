@@ -88,6 +88,52 @@ export function csvTemplate(section: PortalSection, sep = ";"): string {
   return `﻿${toCsvLine(header, sep)}\n${toCsvLine(example, sep)}\n`;
 }
 
+/* ─── Export des lignes saisies ──────────────────────────────────────────── */
+
+/** « 12/03/1985 » depuis un ISO ; ce qui n'est pas une date ISO ressort tel quel. */
+const frDate = (value: unknown): string => {
+  const iso = value ? String(value).slice(0, 10) : "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+};
+
+/** Une valeur enregistrée, écrite comme on la saisirait : libellé de la liste, date française, oui/non. */
+export const cellToCsv = (field: PortalField, value: unknown): string => {
+  if (value === null || value === undefined) return "";
+  if (field.options?.length) {
+    return field.options.find((o) => o.value === String(value))?.label ?? String(value);
+  }
+  switch (field.type) {
+    case "date":
+      return frDate(value);
+    case "checkbox":
+      return value ? "oui" : "non";
+    default:
+      return String(value);
+  }
+};
+
+/**
+ * Ce qui est saisi, dans un fichier qui se ROUVRE ET SE RÉIMPORTE tel quel.
+ *
+ * Mêmes en-têtes que le modèle (le « (obligatoire) » compris — l'import
+ * l'ignore), mêmes écritures que la grille : ce qu'on exporte pour corriger
+ * dans Excel revient sans surprise. Point-virgule et BOM, pour les mêmes
+ * raisons que le modèle.
+ *
+ * `fields` : les colonnes à écrire — celles du client, ou, côté TIM, aussi les
+ * colonnes réservées (mots de passe) : c'est l'équipe qui exporte, pour elle.
+ */
+export function csvExport(
+  fields: PortalField[],
+  rows: Record<string, unknown>[],
+  sep = ";",
+): string {
+  const header = fields.map((f) => (f.required ? `${f.label} (obligatoire)` : f.label));
+  const lines = rows.map((row) => toCsvLine(fields.map((f) => cellToCsv(f, row[f.name])), sep));
+  return `\uFEFF${[toCsvLine(header, sep), ...lines].join("\n")}\n`;
+}
+
 /** Les valeurs acceptées par les listes de choix, à rappeler dans la fenêtre d'aide. */
 export const choicesOf = (section: PortalSection): { label: string; values: string[] }[] =>
   importableFields(section)

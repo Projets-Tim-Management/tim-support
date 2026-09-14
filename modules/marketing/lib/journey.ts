@@ -411,7 +411,17 @@ export const SYSTEM_STEPS: Record<string, SystemStepDef> = {
  * journée au geste réel — un envoi d'accès depuis l'espace client avance
  * l'acquisition sans attendre.
  */
-export const SELF_VALIDATING_STEPS: Record<string, number> = { "remise-acces": 1 };
+export const SELF_VALIDATING_STEPS: Record<string, number> = {
+  "remise-acces": 1,
+  /**
+   * La session de prise en main : tenue à l'heure réservée, elle est acquise
+   * le lendemain. Le partenaire peut toujours la cocher lui-même (ou l'acter
+   * tout de suite) ; sans geste, elle ne reste plus « à faire » pendant des
+   * jours sur le tableau de bord alors que le créneau est passé (NATURA
+   * CREATION, session du 07/09 encore ouverte le 11/09/2026).
+   */
+  "prise-en-main": 1,
+};
 
 /**
  * PRÉALABLE d'une acquisition à l'échéance : l'étape dont le fait doit exister.

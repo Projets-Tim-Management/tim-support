@@ -2,6 +2,7 @@ import type { PayloadRequest } from "payload";
 
 import { taskKindLabel } from "@/modules/partner/lib/activity";
 
+import { isStepDone } from "@/modules/marketing/lib/journey";
 import { enRetard, parisDayKey, type AgendaItem } from "./agenda";
 
 /**
@@ -22,6 +23,17 @@ type RunRow = {
   sessionMode?: string | null;
   sessionLink?: string | null;
   client?: { companyName?: string } | number | string | null;
+  steps?: { key?: string | null; state?: string | null; autoAt?: string | null }[] | null;
+};
+
+/**
+ * La session a-t-elle eu lieu ? C'est l'étape « Session de prise en main
+ * réalisée » du parcours qui le dit — cochée par le partenaire, ou acquise
+ * d'elle-même le lendemain du créneau (voir SELF_VALIDATING_STEPS).
+ */
+const sessionFaite = (r: RunRow, nowMs: number): boolean => {
+  const step = (r.steps ?? []).find((s) => s.key === "prise-en-main");
+  return step ? isStepDone(step, nowMs) : false;
 };
 
 type TaskRow = {
@@ -165,6 +177,7 @@ export async function getTodayAgenda(
         href: `${adminRoute}/collections/journey-runs/${r.id}`,
         link: r.sessionLink ?? null,
         mode: r.sessionMode ?? null,
+        done: sessionFaite(r, maintenant),
       })),
     ...taches.filter((t) => t.dueDate).map(versItem),
   ];

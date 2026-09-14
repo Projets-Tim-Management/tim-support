@@ -314,11 +314,28 @@
   color: var(--tim-muted);
   font-variant-numeric: tabular-nums;
 }
-.tim-history__created {
-  flex: 0 0 auto;
+/* Les deux dates d'une tâche faite, l'une sous l'autre, chacune avec son
+   icône : « + » pour la création, « ✔ » pour la validation. */
+.tim-history__dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.9rem;
+  margin: 0;
+}
+.tim-history__date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   font-size: 0.72rem;
   color: var(--tim-muted);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+.tim-history__date svg { flex: none; }
+.tim-history__date--done {
+  color: var(--tim-green);
+  font-weight: 600;
 }
 .tim-history__done {
   flex: 0 0 auto;
@@ -335,6 +352,13 @@
   border: 0;
   background: none;
   padding: 0.45rem 0;
+}
+/* Sans carte, pas de pied de carte : le journal reste une ligne nue. */
+.tim-history__item--system .tim-history__foot {
+  margin: 0.2rem 0 0;
+  padding: 0;
+  border-top: 0;
+  background: none;
 }
 /* ─── E-mails : ce qui part, ce qui arrive ───────────────────────────────────
    Un fil se relit comme une conversation, et la première question est « qui
@@ -390,14 +414,29 @@
   color: var(--tim-foreground);
   white-space: pre-wrap;
 }
+/* Pied de carte : déborde du padding pour occuper toute la largeur, fond
+   léger, filet en haut. Dates à gauche, auteur/destinataires à droite. */
+.tim-history__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.2rem 0.9rem;
+  margin: 0.35rem -0.75rem -0.55rem;
+  padding: 0.4rem 0.75rem;
+  border-top: 1px solid var(--tim-border);
+  border-radius: 0 0 calc(var(--tim-radius) - 1px) calc(var(--tim-radius) - 1px);
+  background: var(--tim-surface);
+}
 .tim-history__meta {
   display: flex;
   flex-wrap: wrap;
   gap: 0.15rem 0.7rem;
-  margin: 0.15rem 0 0;
+  margin: 0 0 0 auto;
   font-size: 0.75rem;
   color: var(--tim-muted);
 }
+.tim-history__meta:empty { display: none; }
 /* Séparateur en losange entre les informations de pied : plus lisible qu'un
    point médian noyé dans du texte gris. */
 .tim-history__meta > * + *::before {
@@ -695,6 +734,16 @@
   font-weight: 600;
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+/* Les durées d'agenda : des pastilles plus petites, sur une ligne, sous
+   l'interrupteur qu'elles précisent. */
+.tim-adrawer__chips--durations {
+  margin-top: -0.25rem;
+  flex-wrap: wrap;
+}
+.tim-adrawer__chip--small {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.76rem;
 }
 .tim-adrawer__chip:hover {
   background: var(--tim-surface);

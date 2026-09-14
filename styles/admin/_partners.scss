@@ -1796,7 +1796,7 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
 .tim-kanban__task-due {
   flex: 0 0 auto;
   padding: 0.05rem 0.4rem;
-  border-radius: 999px;
+  border-radius: 4px;
   background: var(--tim-white);
   font-size: 0.7rem;
   font-weight: 800;
@@ -1806,6 +1806,13 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
 .tim-kanban__task-due.is-late {
   background: var(--tim-red-bg);
   color: var(--tim-red);
+}
+/* Aujourd'hui = à faire dans la journée : la bordure bleue la fait ressortir
+   au balayage, sans la confondre avec le rouge du retard. Bordure dessinée en
+   ombre interne : la pastille garde la hauteur des autres. */
+.tim-kanban__task-due.is-today {
+  box-shadow: inset 0 0 0 1.5px var(--tim-blue);
+  color: var(--tim-blue);
 }
 .tim-kanban__task--more {
   padding: 0;

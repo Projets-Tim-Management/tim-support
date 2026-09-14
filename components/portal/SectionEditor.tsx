@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import ImportDialog from "@/components/portal/ImportDialog";
 import { IconCheck, IconCross } from "@/components/ui/icons";
+import { csvExport, importableFields } from "@/modules/marketing/lib/portal-csv";
 import { coerceCell, parseClipboard, parseDateText } from "@/modules/marketing/lib/portal-paste";
 import {
   fieldRequired,
@@ -344,6 +345,26 @@ export default function SectionEditor({
   const columns = useMemo(() => fields, [fields]);
   const [importing, setImporting] = useState(false);
 
+  /** Les lignes ENREGISTRÉES : la dernière est la ligne vide de saisie, elle ne compte pas. */
+  const saved = useMemo(() => rows.filter((r) => r.row.id).map((r) => r.row), [rows]);
+
+  /**
+   * Le tableau, en CSV, tel qu'on le réimporterait. Fabriqué ici, depuis les
+   * lignes déjà chargées : pas de requête de plus. Côté TIM, les colonnes
+   * réservées (mots de passe) partent aussi — c'est l'équipe qui exporte, pour
+   * elle ; côté client, seulement ce qu'il saisit.
+   */
+  const exporter = () => {
+    const cols = admin ? section.fields.filter((f) => !f.readOnly) : importableFields(section);
+    const csv = csvExport(cols, saved);
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${section.label.toLowerCase().replace(/\s+/g, "-")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) return <p className="text-muted">Chargement…</p>;
 
   return (
@@ -363,9 +384,31 @@ export default function SectionEditor({
 
       {/* L'import, AU-DESSUS du tableau et non en dessous : quelqu'un qui a
           quarante salariés à saisir doit le voir avant de commencer à taper,
-          pas après. Masqué quand le dossier est verrouillé, comme le reste. */}
-      {!locked && (
-        <div className="mb-3 flex justify-end">
+          pas après. Masqué quand le dossier est verrouillé, comme le reste.
+          L'export, lui, reste : lire ne modifie rien. */}
+      {(!locked || saved.length > 0) && (
+        <div className="mb-3 flex justify-end gap-2">
+          {saved.length > 0 && (
+            <button
+              type="button"
+              onClick={exporter}
+              className={
+                admin
+                  ? "jr-btn jr-btn--small jr-btn--quiet"
+                  : "rounded-md border border-border bg-white px-3 py-1.5 text-sm font-semibold text-foreground transition hover:bg-surface"
+              }
+              title="Télécharger ce tableau en CSV — il se réimporte tel quel"
+            >
+              {admin && (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <path d="M17 8l-5-5-5 5" />
+                  <path d="M12 3v12" />
+                </svg>
+              )}
+              Exporter ({saved.length})
+            </button>
+          )}
           {/**
            * Deux habillages, et surtout DEUX LANGAGES DE STYLE.
            *
@@ -380,6 +423,7 @@ export default function SectionEditor({
            * Côté TIM, la console empile cinq sections, et on vient le plus
            * souvent relire deux lignes : le geste reste, il ne s'annonce plus.
            */}
+          {!locked && (
           <button
             type="button"
             onClick={() => setImporting(true)}
@@ -398,6 +442,7 @@ export default function SectionEditor({
             )}
             Importer un fichier
           </button>
+          )}
         </div>
       )}
 

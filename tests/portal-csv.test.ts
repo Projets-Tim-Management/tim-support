@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  cellToCsv,
   choicesOf,
   convertCell,
+  csvExport,
   csvTemplate,
   detectSeparator,
   importableFields,
@@ -334,5 +336,52 @@ describe("le fichier tel qu'un tableur le rend", () => {
     expect(rapport.missingRequired).toEqual([]);
     expect(rapport.ko).toBe(0);
     expect(rapport.ok).toBe(1);
+  });
+});
+
+/**
+ * Export : ce qu'on télécharge se ROUVRE dans Excel et se RÉIMPORTE tel quel.
+ * Un export qui ne repasserait pas par l'import serait un fichier de plus à
+ * corriger à la main.
+ */
+describe("export des lignes saisies", () => {
+  const fields = importableFields(salaries);
+  const rows = [
+    {
+      company: "BTP Sud",
+      firstName: "Luis",
+      lastName: "Martin; fils",
+      contractType: "cdi",
+      birthDate: "1988-04-12T00:00:00.000Z",
+      nationality: "FR",
+    },
+  ];
+
+  it("écrit les libellés des listes, les dates en français, et protège le séparateur", () => {
+    const csv = csvExport(fields, rows);
+    expect(csv.startsWith("\uFEFF")).toBe(true);
+    const lignes = csv.trim().split("\n");
+    expect(lignes[0]).toContain("Société (obligatoire)");
+    expect(lignes[1]).toContain("CDI");
+    expect(lignes[1]).toContain("12/04/1988");
+    expect(lignes[1]).toContain('"Martin; fils"');
+  });
+
+  it("se réimporte sans perte", () => {
+    const rapport = readImport(salaries, csvExport(fields, rows), validateRow);
+    expect(rapport.unknownColumns).toEqual([]);
+    expect(rapport.ok).toBe(1);
+    const data = rapport.rows[0].data;
+    expect(data.company).toBe("BTP Sud");
+    expect(data.lastName).toBe("Martin; fils");
+    expect(data.contractType).toBe("cdi");
+    expect(String(data.birthDate)).toMatch(/^1988-04-12/);
+  });
+
+  it("une case vide reste vide, une case cochée dit oui", () => {
+    const check = { name: "x", label: "X", type: "checkbox" } as PortalField;
+    expect(cellToCsv(check, true)).toBe("oui");
+    expect(cellToCsv(check, false)).toBe("non");
+    expect(cellToCsv({ name: "y", label: "Y", type: "text" } as PortalField, null)).toBe("");
   });
 });

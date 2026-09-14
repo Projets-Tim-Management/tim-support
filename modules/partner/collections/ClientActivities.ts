@@ -10,6 +10,8 @@ import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { setPartnerFromClient } from "@/modules/marketing/collections/clientOwned";
 import { ACTIVITY_OPTIONS, TASK_KIND_OPTIONS, activityKind } from "@/modules/partner/lib/activity";
 import {
+  DEFAULT_TASK_EVENT_MINUTES,
+  TASK_EVENT_DURATIONS,
   eventNeedsSync,
   syncTaskEvent,
   taskSyncPatch,
@@ -267,7 +269,23 @@ export const ClientActivities: CollectionConfig = {
       admin: {
         condition: taskOnly,
         description:
-          "Un événement de 30 min à l'échéance, dans l'agenda connecté du partenaire. Rien ne se passe s'il n'en a pas connecté.",
+          "Un événement à l'échéance, dans l'agenda connecté du partenaire. Rien ne se passe s'il n'en a pas connecté.",
+      },
+    },
+    {
+      name: "calendarMinutes",
+      type: "number",
+      label: "Durée dans l'agenda (min)",
+      defaultValue: DEFAULT_TASK_EVENT_MINUTES,
+      // Un nombre, pas un select : le tiroir propose la liste sous forme de
+      // pastilles, et la synchronisation lit un entier — sans conversion.
+      validate: (value: number | null | undefined) =>
+        value == null || (TASK_EVENT_DURATIONS as readonly number[]).includes(value)
+          ? true
+          : `Durées possibles : ${TASK_EVENT_DURATIONS.join(", ")} minutes.`,
+      admin: {
+        condition: (data) => taskOnly(data) && Boolean(data?.calendarSync),
+        description: `${TASK_EVENT_DURATIONS.join(" · ")} minutes.`,
       },
     },
     // Écrits par la synchronisation (voir task-calendar), jamais à la main.

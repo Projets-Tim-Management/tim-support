@@ -187,7 +187,10 @@ export async function importLostDeals(
           phone,
           partner: partner as never,
           clientStatus: "perdue" as const,
-          lossReason: "a-qualifier" as never,
+          // « Autre motif » : le motif provisoire « À qualifier » a été retiré
+          // le 11/09/2026, une fois l'historique repris — et c'est ce motif
+          // que l'équipe a retenu pour ces fiches.
+          lossReason: "autre" as never,
           source: "site-vitrine" as never,
           brevoDealId: deal.id,
           leadNotes: notes,
