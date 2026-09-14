@@ -10,15 +10,17 @@ import { useEffect, useRef, useState } from "react";
 import { hasAdminRole, isSupport } from "@/core/access";
 
 import { useAvatarUrl } from "../graphics/Avatar";
+import GlobalSearch from "./GlobalSearch";
 import ImpersonationControl from "./ImpersonationControl";
 
 /**
  * Barre du haut unique (façon Pennylane), rendue via admin.components.header.
  * Remplace l'app-header natif de Payload (masqué en CSS pour n'avoir QU'UNE barre).
  *
- *   [ collapse · « Voir comme » ............. cloche · compte ]
+ *   [ collapse · « Voir comme » ............. recherche · cloche · compte ]
  *
  * - « Voir comme » : impersonation (voir la vue d'un compte) → ImpersonationControl.
+ * - Recherche : aller à une page ou une fiche en tapant → GlobalSearch.
  * - Cloche : tickets à traiter (admins + support).
  * - Compte : profil + déconnexion.
  */
@@ -128,8 +130,9 @@ export default function PartnerSwitcher() {
         <ImpersonationControl />
       </div>
 
-      {/* ── Droite : notifications + compte ── */}
+      {/* ── Droite : recherche + notifications + compte ── */}
       <div className="tim-topbar__right">
+        <GlobalSearch />
         {canSeeTickets && (
           <div className="tim-notif">
             <button
