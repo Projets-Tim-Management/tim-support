@@ -575,12 +575,26 @@ export interface PartnerClient {
     chefEquipePrice?: number | null;
     compagnonQty?: number | null;
     compagnonPrice?: number | null;
+    adminDiscountPct?: number | null;
+    adminDiscountAmount?: number | null;
+    conducteurDiscountPct?: number | null;
+    conducteurDiscountAmount?: number | null;
+    chefChantierDiscountPct?: number | null;
+    chefChantierDiscountAmount?: number | null;
+    chefEquipeDiscountPct?: number | null;
+    chefEquipeDiscountAmount?: number | null;
+    compagnonDiscountPct?: number | null;
+    compagnonDiscountAmount?: number | null;
   };
   paymentMethod?: ('prelevement-gocardless' | 'virement') | null;
   /**
    * Délai de règlement du virement.
    */
   paymentTerms?: ('1er-du-mois' | '7j' | '15j' | '30j' | '45j' | '60j') | null;
+  /**
+   * Les licences de la fiche sont toujours PAR MOIS ; une facture trimestrielle en couvre trois. Doit correspondre à la fréquence de l'abonnement Pennylane.
+   */
+  billingPeriod?: ('mensuelle' | 'trimestrielle' | 'semestrielle' | 'annuelle') | null;
   signatureDate?: string | null;
   /**
    * Début de l'abonnement mensuel : le CA et la commission ne comptent qu'à partir de cette date.
@@ -2803,9 +2817,20 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         chefEquipePrice?: T;
         compagnonQty?: T;
         compagnonPrice?: T;
+        adminDiscountPct?: T;
+        adminDiscountAmount?: T;
+        conducteurDiscountPct?: T;
+        conducteurDiscountAmount?: T;
+        chefChantierDiscountPct?: T;
+        chefChantierDiscountAmount?: T;
+        chefEquipeDiscountPct?: T;
+        chefEquipeDiscountAmount?: T;
+        compagnonDiscountPct?: T;
+        compagnonDiscountAmount?: T;
       };
   paymentMethod?: T;
   paymentTerms?: T;
+  billingPeriod?: T;
   signatureDate?: T;
   contractStartDate?: T;
   contractDocument?: T;

@@ -90,10 +90,11 @@ export const profileRank = (key?: string | null): number => {
  * aucune quantité (le cas d'un premier contact), on liste toute la grille.
  */
 export function tarifsMarkdown(licences?: Record<string, number | undefined> | null): string {
-  const lignes = PROFILS.map((p) => ({
-    label: p.label,
-    qty: Number(licences?.[`${p.key}Qty`] ?? 0),
-    price: Number(licences?.[`${p.key}Price`] ?? LICENCE_BASE_PRICES[p.key]),
+  const lignes = licenceLinesOf(licences).map((l) => ({
+    label: l.label,
+    qty: l.qty,
+    // Le prix annoncé est celui qui sera facturé : remise de ligne déduite.
+    price: effectiveUnitPrice(l),
   }));
   const chosen = lignes.filter((l) => l.qty > 0);
   const shown = chosen.length ? chosen : lignes;
@@ -126,20 +127,51 @@ export function suggestedUnitPrice(basePrice: number, discountPct: number): numb
   return round2(basePrice * (1 - discountPct / 100));
 }
 
-export type LicenceLine = { qty: number; price: number };
+/**
+ * Une ligne de licences : la quantité, le prix unitaire saisi, et une remise
+ * FACULTATIVE sur cette ligne — en % ou en € par licence (l'une OU l'autre ;
+ * l'interface n'en propose qu'une à la fois). Ce sont les mêmes remises que
+ * Pennylane pose sur une ligne d'abonnement : ce qui permet d'écrire sur la
+ * fiche exactement ce qui est facturé, y compris « 1 chef de chantier offert ».
+ */
+export type LicenceLine = { qty: number; price: number; discountPct?: number; discountAmount?: number };
+
+/** Prix unitaire réellement facturé : le prix saisi, remise déduite, jamais négatif. */
+export function effectiveUnitPrice(l: Pick<LicenceLine, "price" | "discountPct" | "discountAmount">): number {
+  const price = Number(l.price) || 0;
+  const amount = Number(l.discountAmount) || 0;
+  const pct = Number(l.discountPct) || 0;
+  return round2(Math.max(0, price - amount) * (1 - Math.min(100, Math.max(0, pct)) / 100));
+}
 
 /**
- * Totaux d'un client à partir des lignes { quantité, prix unitaire SAISI }.
- * - Le CA HT = Σ (quantité × prix saisi) : ce sont les prix fixés par le
- *   partenaire (il a le dernier mot) → AUCUNE remise n'est appliquée d'office.
+ * Les lignes d'une fiche, lues dans le groupe `licences` (adminQty, adminPrice,
+ * adminDiscountPct, adminDiscountAmount, …), dans l'ordre des profils. Un seul
+ * endroit sait comment ces champs se nomment.
+ */
+export function licenceLinesOf(
+  licences?: Record<string, number | null | undefined> | null,
+): (LicenceLine & { key: ProfilKey; label: string })[] {
+  return PROFILS.map((p) => ({
+    key: p.key,
+    label: p.label,
+    qty: Number(licences?.[`${p.key}Qty`] ?? 0) || 0,
+    price: Number(licences?.[`${p.key}Price`] ?? LICENCE_BASE_PRICES[p.key]) || 0,
+    discountPct: Number(licences?.[`${p.key}DiscountPct`] ?? 0) || 0,
+    discountAmount: Number(licences?.[`${p.key}DiscountAmount`] ?? 0) || 0,
+  }));
+}
+
+/**
+ * Totaux d'un client à partir des lignes { quantité, prix unitaire SAISI, remise }.
+ * - Le CA HT = Σ (quantité × prix effectif) : les prix fixés par le partenaire
+ *   (il a le dernier mot), moins la remise qu'il a lui-même posée sur la ligne.
+ *   La remise VOLUME du barème, elle, n'est jamais appliquée d'office.
  * - `suggestedDiscountPct` = remise volume du barème, purement INDICATIVE.
  */
 export function computeClientCA(lines: LicenceLine[]) {
   const totalLicences = lines.reduce((s, l) => s + (Number(l.qty) || 0), 0);
-  const caHT = lines.reduce(
-    (s, l) => s + (Number(l.qty) || 0) * (Number(l.price) || 0),
-    0,
-  );
+  const caHT = lines.reduce((s, l) => s + (Number(l.qty) || 0) * effectiveUnitPrice(l), 0);
   const suggestedDiscountPct = volumeDiscountPct(totalLicences);
   return { totalLicences, caHT: round2(caHT), suggestedDiscountPct };
 }

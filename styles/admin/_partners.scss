@@ -89,6 +89,101 @@
   text-decoration: underline;
 }
 
+/* ─── Remise sur une ligne de licences (DiscountControl) ──────────────────────
+   Tout sur la ligne du prix : [prix] ⋮  puis, remise choisie : [prix] − [12] % = 6,00 € ⋮.
+   Sert dans la fiche ET dans l'encart de rapprochement. */
+.lic-price {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+.lic-discount__menu {
+  position: relative;
+  display: inline-flex;
+}
+.lic-discount__kebab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--tim-radius-sm);
+  background: none;
+  color: var(--tim-muted);
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+.lic-discount__kebab:hover,
+.lic-discount__kebab[aria-expanded="true"] {
+  color: var(--tim-foreground);
+  background: var(--tim-elevation-100);
+}
+/* Une remise posée : le bouton reste allumé, on la voit même sans lire la ligne. */
+.lic-discount__kebab--on {
+  color: var(--tim-primary);
+}
+.lic-discount__kebab:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+/* Le menu, ancré sous le bouton, aligné à droite comme celui de Pennylane. */
+.lic-discount__pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 13rem;
+  padding: 0.3rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--tim-foreground) 35%, transparent);
+  text-align: left;
+}
+.lic-discount__pop button {
+  padding: 0.5rem 0.7rem;
+  border: none;
+  border-radius: var(--tim-radius-sm);
+  background: none;
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.lic-discount__pop button:hover {
+  background: var(--tim-surface);
+}
+.lic-discount__pop .lic-discount__pop-danger {
+  color: var(--tim-danger-text);
+}
+.lic-discount__minus {
+  color: var(--tim-muted);
+  font-size: 0.85rem;
+}
+.lic-input--sm {
+  width: 58px;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.82rem;
+}
+.lic-discount__unit {
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+}
+.lic-discount__net {
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+
 /* Bouton de sauvegarde intelligent du client apporté (Publier / Brouillon) */
 .smart-save {
   display: inline-flex;
@@ -218,6 +313,47 @@
   font-weight: 700;
   color: var(--tim-foreground);
   text-transform: capitalize;
+}
+/* Tampon Pennylane à côté du mois : vert conforme, ambre écart. */
+.cli-history__stamp {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  vertical-align: middle;
+}
+.cli-history__stamp--ok {
+  color: var(--tim-green);
+  background: var(--tim-green-bg);
+}
+.cli-history__stamp--ko {
+  color: var(--tim-amber);
+  background: var(--tim-amber-bg);
+}
+/* Colonne « Paiement » : l'état de la facture du mois, vu de Pennylane. */
+.cli-history__pay {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+.cli-history__pay-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.cli-history__pay-num {
+  font-size: 0.74rem;
+  color: var(--tim-muted);
+}
+.cli-history__pay-none {
+  font-size: 0.74rem;
+  color: var(--tim-muted);
+  white-space: normal;
 }
 .cli-history__range {
   display: block;

@@ -2,8 +2,10 @@
 
 import { useField, useFormFields } from "@payloadcms/ui";
 
+import { DiscountControl } from "@/modules/partner/admin/DiscountControl";
 import { eur } from "@/modules/partner/lib/format";
 import {
+  effectiveUnitPrice,
   LICENCE_BASE_PRICES,
   PROFILS,
   suggestedUnitPrice,
@@ -21,8 +23,13 @@ import {
 function LicenceRow({ pKey, label, discount }: { pKey: ProfilKey; label: string; discount: number }) {
   const qty = useField<number>({ path: `licences.${pKey}Qty` });
   const price = useField<number>({ path: `licences.${pKey}Price` });
+  const discountPct = useField<number>({ path: `licences.${pKey}DiscountPct` });
+  const discountAmount = useField<number>({ path: `licences.${pKey}DiscountAmount` });
   const q = Number(qty.value ?? 0);
   const p = Number(price.value ?? 0);
+  const dPct = Number(discountPct.value ?? 0);
+  const dAmt = Number(discountAmount.value ?? 0);
+  const net = effectiveUnitPrice({ price: p, discountPct: dPct, discountAmount: dAmt });
 
   // Prix conseillé (grille TIM) : entier si ≥ 10 € (lisibilité), 2 décimales
   // si < 10 € (petits prix : Chef de chantier 9,9 · Chef d'équipe 8,8 · Compagnon 6,00…).
@@ -52,15 +59,26 @@ function LicenceRow({ pKey, label, discount }: { pKey: ProfilKey; label: string;
         />
       </td>
       <td className="lic-num">
-        <input
-          type="number"
-          min={0}
-          inputMode="decimal"
-          className="lic-input"
-          placeholder="0"
-          value={p === 0 ? "" : p}
-          onChange={(e) => price.setValue(e.target.value === "" ? 0 : Number(e.target.value))}
-        />
+        <span className="lic-price">
+          <input
+            type="number"
+            min={0}
+            inputMode="decimal"
+            className="lic-input"
+            placeholder="0"
+            value={p === 0 ? "" : p}
+            onChange={(e) => price.setValue(e.target.value === "" ? 0 : Number(e.target.value))}
+          />
+          {/* Remise sur la ligne (facultative) : % ou € par licence, comme dans Pennylane. */}
+          <DiscountControl
+            price={p}
+            value={{ pct: dPct, amount: dAmt }}
+            onChange={(d) => {
+              discountPct.setValue(d.pct);
+              discountAmount.setValue(d.amount);
+            }}
+          />
+        </span>
         {showSuggest && (
           <button
             type="button"
@@ -72,7 +90,7 @@ function LicenceRow({ pKey, label, discount }: { pKey: ProfilKey; label: string;
           </button>
         )}
       </td>
-      <td className="lic-sub">{eur.format(q * p)}</td>
+      <td className="lic-sub">{eur.format(q * net)}</td>
     </tr>
   );
 }
@@ -83,9 +101,13 @@ export function LicencesTable() {
     let brut = 0;
     for (const pr of PROFILS) {
       const q = Number(fields[`licences.${pr.key}Qty`]?.value ?? 0);
-      const p = Number(fields[`licences.${pr.key}Price`]?.value ?? 0);
+      const net = effectiveUnitPrice({
+        price: Number(fields[`licences.${pr.key}Price`]?.value ?? 0),
+        discountPct: Number(fields[`licences.${pr.key}DiscountPct`]?.value ?? 0),
+        discountAmount: Number(fields[`licences.${pr.key}DiscountAmount`]?.value ?? 0),
+      });
       tQty += q;
-      brut += q * p;
+      brut += q * net;
     }
     return { totalQty: tQty, caHT: brut };
   });

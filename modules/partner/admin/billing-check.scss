@@ -1,0 +1,779 @@
+/* Contrôle de facturation : écran /admin/facturation (BillingCheckView) et
+   encart « Facturation Pennylane » de la fiche client (PennylaneCompare).
+   Aucune couleur en dur : tout vient des jetons de styles/_tokens.scss. */
+
+.bil {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-bottom: 2rem;
+}
+
+.bil-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.bil-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.bil-h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.bil-sub {
+  margin: 0.25rem 0 0;
+  max-width: 64ch;
+  font-size: 0.9rem;
+  color: var(--tim-muted);
+}
+.bil-muted {
+  color: var(--tim-muted);
+}
+
+/* « Lu chez Pennylane il y a 12 min · Actualiser » */
+.bil-refresh {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+.bil-refresh__btn {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    border-color: var(--tim-primary);
+    color: var(--tim-primary);
+  }
+}
+
+/* ─── Tuiles de synthèse ──────────────────────────────────────────────────── */
+.bil-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.75rem;
+}
+.bil-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 5%, transparent);
+}
+/* L'icône dans un carré arrondi de sa couleur : c'est lui qu'on repère de loin. */
+.bil-tile__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  color: var(--tim-slate);
+  background: var(--tim-slate-bg);
+  /* Le SVG est en ligne par défaut : sa ligne de base le décale vers le bas et
+     la gauche dans le carré. En bloc, il se centre vraiment. */
+  line-height: 0;
+
+  svg {
+    display: block;
+    width: 20px;
+    height: 20px;
+  }
+}
+.bil-tile__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+.bil-tile__value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.bil-tile__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+.bil-tile--ok .bil-tile__icon {
+  color: var(--tim-green);
+  background: var(--tim-green-bg);
+}
+.bil-tile--ok .bil-tile__value {
+  color: var(--tim-green);
+}
+.bil-tile--warn .bil-tile__icon {
+  color: var(--tim-amber);
+  background: var(--tim-amber-bg);
+}
+.bil-tile--warn .bil-tile__value {
+  color: var(--tim-amber);
+}
+.bil-tile--bad .bil-tile__icon {
+  color: var(--tim-red);
+  background: var(--tim-red-bg);
+}
+.bil-tile--bad .bil-tile__value {
+  color: var(--tim-red);
+}
+
+/* ─── Filtres — le contrôle segmenté des onglets de fiche (tabs-field) ────── */
+.bil-filters {
+  display: inline-flex;
+  gap: 0.15rem;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 0.2rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+.bil-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.95rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--tim-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    color: var(--tim-foreground);
+  }
+}
+.bil-filter__n {
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+  background: var(--tim-elevation-150);
+}
+.bil-filter--on {
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 8%, transparent);
+
+  &:hover {
+    background: var(--tim-white);
+    color: var(--tim-foreground);
+  }
+  .bil-filter__n {
+    color: var(--tim-foreground);
+    background: var(--tim-elevation-150);
+  }
+}
+
+/* ─── Liste des clients (une ligne dépliable par fiche) ───────────────────── */
+.bil-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+/* L'état se lit sur le badge : pas de liseré de couleur en plus. */
+.bil-item {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.bil-item__head {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.9rem;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+  &:hover {
+    background: var(--tim-elevation-100);
+  }
+  /* Le chevron dit que la ligne s'ouvre ; il tourne quand elle est ouverte. */
+  &::after {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-right: 1.5px solid var(--tim-muted);
+    border-bottom: 1.5px solid var(--tim-muted);
+    transform: rotate(-45deg);
+    transition: transform 0.15s ease;
+    justify-self: end;
+    margin-right: 0.25rem;
+  }
+}
+.bil-item[open] > .bil-item__head::after {
+  transform: rotate(45deg);
+}
+.bil-item__name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  font-weight: 700;
+  color: var(--tim-foreground);
+
+  a {
+    color: inherit;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:hover {
+      color: var(--tim-primary);
+      text-decoration: underline;
+    }
+  }
+}
+.bil-status {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.bil-item__pl {
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+.bil-item__amounts {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--tim-foreground);
+}
+.bil-item__count {
+  display: flex;
+  gap: 0.25rem;
+  min-width: 2.5rem;
+  justify-content: flex-end;
+}
+.bil-count {
+  min-width: 1.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+.bil-count--error {
+  color: var(--tim-red);
+  background: var(--tim-red-bg);
+}
+.bil-count--warn {
+  color: var(--tim-amber);
+  background: var(--tim-amber-bg);
+}
+
+@media (max-width: 720px) {
+  .bil-item__head {
+    grid-template-columns: auto 1fr auto auto;
+  }
+  .bil-item__pl,
+  .bil-item__amounts {
+    grid-column: 2 / -1;
+  }
+}
+
+/* ─── Verdict ─────────────────────────────────────────────────────────────── */
+.bil-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.bil-badge--ok {
+  color: var(--tim-green);
+  background: var(--tim-green-bg);
+}
+.bil-badge--ecart {
+  color: var(--tim-amber);
+  background: var(--tim-amber-bg);
+}
+.bil-badge--sans-abonnement,
+.bil-badge--non-rapproche {
+  color: var(--tim-red);
+  background: var(--tim-red-bg);
+}
+
+/* ─── Détail d'un contrôle ────────────────────────────────────────────────── */
+.bil-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0.25rem 0.9rem 0.9rem;
+  border-top: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+}
+.bil-issues {
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.bil-issue {
+  padding: 0.35rem 0.6rem 0.35rem 1.6rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.85rem;
+  position: relative;
+
+  &::before {
+    content: "";
+    position: absolute;
+    left: 0.6rem;
+    top: 0.72rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: currentColor;
+  }
+}
+.bil-issue--error {
+  color: var(--tim-red);
+  background: var(--tim-red-bg);
+}
+.bil-issue--warn {
+  color: var(--tim-amber);
+  background: var(--tim-amber-bg);
+}
+
+.bil-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 0;
+  font-size: 0.83rem;
+
+  > div {
+    display: flex;
+    gap: 0.4rem;
+  }
+  dt {
+    color: var(--tim-muted);
+    &::after {
+      content: " :";
+    }
+  }
+  dd {
+    margin: 0;
+    color: var(--tim-foreground);
+    font-weight: 600;
+  }
+}
+
+/* Tableau profil par profil — même graphie que le tableau des licences. */
+.bil-rows {
+  width: 100%;
+  overflow-x: auto;
+}
+.bil-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.bil-table th {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--tim-muted);
+  border-bottom: 1px solid var(--tim-border);
+  white-space: nowrap;
+}
+.bil-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+.bil-table .bil-num {
+  text-align: right;
+  white-space: nowrap;
+}
+.bil-profil {
+  font-weight: 600;
+  color: var(--tim-foreground);
+  white-space: nowrap;
+}
+.bil-row--qty td {
+  background: var(--tim-red-bg);
+}
+.bil-row--price td {
+  background: var(--tim-amber-bg);
+}
+.bil-row--extra td {
+  color: var(--tim-muted);
+}
+.bil-tag {
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--tim-slate);
+  background: var(--tim-slate-bg);
+}
+.bil-total td {
+  font-weight: 800;
+  border-top: 2px solid var(--tim-border);
+  border-bottom: none;
+  padding-top: 0.55rem;
+  color: var(--tim-foreground);
+}
+.bil-diff {
+  font-weight: 800;
+}
+.bil-diff--zero {
+  color: var(--tim-muted-light);
+  font-weight: 400;
+}
+.bil-diff--plus {
+  color: var(--tim-red);
+}
+.bil-diff--minus {
+  color: var(--tim-red);
+}
+.bil-price--none {
+  color: var(--tim-muted-light);
+}
+.bil-price--flag {
+  color: var(--tim-amber);
+  font-weight: 700;
+}
+/* Quantité Pennylane venant de plusieurs lignes : le détail par entité dessous. */
+.bil-plqty__lines {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+/* Prix avant remise, rappelé sous le prix effectif. */
+.bil-price__list {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+
+/* Édition de la fiche depuis l'encart (BillingRows). Mêmes champs que
+   le tableau des licences de la fiche (.lic-input). */
+.bil-input {
+  width: 84px;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  text-align: right;
+  font: inherit;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+
+  &:focus {
+    outline: none;
+    border-color: var(--tim-primary);
+    box-shadow: 0 0 0 2px var(--tim-primary-light);
+  }
+}
+.bil-table--edit tbody tr:focus-within td {
+  background: var(--tim-elevation-100);
+}
+.bil-edit-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.bil-edit-bar__spacer {
+  flex: 1;
+}
+.bil-edit-bar__add {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-muted);
+  font: inherit;
+  font-size: 0.82rem;
+}
+.bil-edit-bar__error {
+  font-size: 0.82rem;
+  color: var(--tim-danger-text);
+}
+.bil-btn {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    border-color: var(--tim-primary);
+    color: var(--tim-primary);
+  }
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+}
+.bil-btn--primary {
+  border-color: var(--tim-primary);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+
+  &:hover {
+    background: var(--tim-primary-dark);
+    color: var(--tim-white);
+  }
+  &:disabled:hover {
+    background: var(--tim-primary);
+  }
+}
+
+/* ─── Factures et paiements ───────────────────────────────────────────────── */
+.bil-invoices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.bil-invoices__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--tim-muted);
+}
+.bil-invoices__link {
+  color: var(--tim-foreground);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--tim-primary);
+    text-decoration: underline;
+  }
+}
+.bil-invoices__more {
+  margin: 0;
+  font-size: 0.76rem;
+}
+.bil-pay {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.bil-pay--payee {
+  color: var(--tim-green);
+  background: var(--tim-green-bg);
+}
+.bil-pay--partielle {
+  color: var(--tim-amber);
+  background: var(--tim-amber-bg);
+}
+.bil-pay--retard {
+  color: var(--tim-red);
+  background: var(--tim-red-bg);
+}
+.bil-pay--a-echoir,
+.bil-pay--autre {
+  color: var(--tim-slate);
+  background: var(--tim-slate-bg);
+}
+.bil-pay--annulee {
+  color: var(--tim-gray);
+  background: var(--tim-gray-bg);
+}
+
+/* ─── Orphelins ───────────────────────────────────────────────────────────── */
+.bil-orphans {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--tim-red);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.bil-orphan-list {
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+.bil-orphan {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+  font-size: 0.88rem;
+}
+.bil-orphan__name {
+  flex: 1;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.bil-orphan__amount {
+  font-variant-numeric: tabular-nums;
+  color: var(--tim-foreground);
+}
+
+/* ─── États vides / erreurs ───────────────────────────────────────────────── */
+.bil-empty {
+  margin: 0;
+  padding: 2rem;
+  border: 1px dashed var(--tim-border);
+  border-radius: var(--tim-radius);
+  text-align: center;
+  color: var(--tim-muted);
+}
+.bil-error {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--tim-danger);
+  border-radius: var(--tim-radius);
+  background: var(--tim-red-bg);
+  color: var(--tim-danger-text);
+  font-size: 0.9rem;
+
+  code {
+    font-size: 0.85em;
+  }
+}
+
+/* ─── Encart sur la fiche client (sous le tableau des licences) ───────────── */
+.bil-box {
+  margin-top: 1.25rem;
+  border: 1px solid var(--tim-border);
+  border-left-width: 4px;
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.bil-box--ok {
+  border-left-color: var(--tim-green);
+}
+.bil-box--ecart {
+  border-left-color: var(--tim-amber);
+}
+.bil-box--sans-abonnement,
+.bil-box--non-rapproche {
+  border-left-color: var(--tim-red);
+}
+.bil-box--none {
+  border-left-color: var(--tim-border);
+}
+.bil-box__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.bil-box__spacer {
+  flex: 1;
+}
+.bil-box__hint {
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--tim-muted);
+}
+.bil-box__link {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--tim-primary);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+.bil-box__btn {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--tim-primary);
+    color: var(--tim-primary);
+  }
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+.bil-box .bil-detail {
+  padding-top: 0;
+}
+.bil-box__body {
+  padding: 0.65rem 0.9rem 0.9rem;
+  font-size: 0.88rem;
+  color: var(--tim-muted);
+}
