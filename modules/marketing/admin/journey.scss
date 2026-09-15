@@ -1144,7 +1144,8 @@
   font-weight: 600;
 }
 
-.jr-cnx__unlink {
+.jr-cnx__unlink,
+.jr-cnx__refresh {
   border: 0;
   background: transparent;
   font: inherit;
@@ -1153,7 +1154,20 @@
   text-decoration: underline;
   cursor: pointer;
 
-  &:hover { color: var(--tim-danger-text); }
+  &:disabled { cursor: default; opacity: 0.6; }
+}
+.jr-cnx__unlink:hover { color: var(--tim-danger-text); }
+.jr-cnx__refresh:hover { color: var(--tim-foreground); }
+/* Agenda partagé « voir seulement » : compte pour les conflits, pas de RDV dedans. */
+.jr-cnx__ro {
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--tim-slate);
+  background: var(--tim-slate-bg);
+  vertical-align: middle;
 }
 
 .jr-cnx__table {

@@ -108,6 +108,14 @@ export const CalendarConnections: CollectionConfig = {
         { name: "calendarId", type: "text", required: true, admin: { readOnly: true } },
         { name: "name", type: "text", admin: { readOnly: true } },
         {
+          // Partagé « voir seulement » : compte pour les conflits, ne reçoit pas.
+          name: "readOnly",
+          type: "checkbox",
+          label: "Lecture seule",
+          defaultValue: false,
+          admin: { readOnly: true },
+        },
+        {
           name: "busy",
           type: "checkbox",
           label: "Compte pour mes indisponibilités",

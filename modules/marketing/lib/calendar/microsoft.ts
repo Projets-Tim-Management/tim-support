@@ -114,14 +114,15 @@ export const microsoftProvider: CalendarProvider = {
   },
 
   async listCalendars(accessToken) {
-    const data = await api<{ value?: { id: string; name?: string; isDefaultCalendar?: boolean }[] }>(
+    const data = await api<{ value?: { id: string; name?: string; isDefaultCalendar?: boolean; canEdit?: boolean }[] }>(
       accessToken,
-      "/me/calendars?$select=id,name,isDefaultCalendar&$top=100",
+      "/me/calendars?$select=id,name,isDefaultCalendar,canEdit&$top=100",
     );
     return (data.value ?? []).map<RemoteCalendar>((c) => ({
       id: c.id,
       name: c.name ?? c.id,
       primary: Boolean(c.isDefaultCalendar),
+      readOnly: c.canEdit === false,
     }));
   },
 

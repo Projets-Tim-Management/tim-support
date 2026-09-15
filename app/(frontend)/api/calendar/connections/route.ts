@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 
 import { hasAdminRole, isPartnerMetier, partnerIdOf } from "@/core/access";
 import { payloadClient } from "@/core/payload-client";
-import { providerConfigured, type Connection } from "@/modules/marketing/lib/calendar";
+import { accessTokenFor, getProvider, mergeCalendars, providerConfigured, type Connection } from "@/modules/marketing/lib/calendar";
 
 /**
  * Agendas connectés d'un partenaire, pour l'écran de réglage.
  *
  * GET    ?partnerId=…            → connexions + fournisseurs configurés
  * PATCH  { id, calendars }       → quels agendas comptent / lequel reçoit
+ * PUT    { id }                  → relit la liste des agendas chez le fournisseur
+ *                                  (un agenda partagé depuis apparaît), réglages conservés
  * DELETE ?id=…                   → déconnecte
  *
  * Aucun jeton ne sort d'ici : la réponse ne contient que ce qui s'affiche.
@@ -72,12 +74,13 @@ export async function PATCH(req: Request) {
   if (!ok) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   // Liste blanche : seuls les deux drapeaux de réglage sont modifiables ici.
-  // Un `calendarId` venu du client ne doit pas pouvoir remplacer l'existant.
+  // Un `calendarId` venu du client ne doit pas pouvoir remplacer l'existant,
+  // et un agenda en lecture seule ne peut pas devenir la cible.
   const incoming = Array.isArray(body.calendars) ? (body.calendars as Record<string, unknown>[]) : [];
   const flags = new Map(incoming.map((c) => [String(c.calendarId), c]));
   const calendars = (current.calendars ?? []).map((c) => {
     const patch = flags.get(String(c.calendarId));
-    return patch ? { ...c, busy: Boolean(patch.busy), target: Boolean(patch.target) } : c;
+    return patch ? { ...c, busy: Boolean(patch.busy), target: Boolean(patch.target) && !c.readOnly } : c;
   });
 
   await payload.update({
@@ -88,6 +91,39 @@ export async function PATCH(req: Request) {
   });
 
   return NextResponse.json({ ok: true });
+}
+
+export async function PUT(req: Request) {
+  let body: { id?: number | string } = {};
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "bad_body" }, { status: 400 });
+  }
+  if (!body.id) return NextResponse.json({ error: "missing_id" }, { status: 400 });
+
+  const payload = (await guard(req)).payload;
+  const current = (await payload
+    .findByID({ collection: "calendar-connections", id: body.id, depth: 0, overrideAccess: true })
+    .catch(() => null)) as (Connection & { partner?: number | string }) | null;
+  if (!current) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+  const { ok } = await guard(req, String(current.partner ?? ""));
+  if (!ok) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
+  const provider = getProvider(current.provider);
+  const token = provider ? await accessTokenFor(payload, current) : null;
+  if (!provider || !token) return NextResponse.json({ error: "expired" }, { status: 409 });
+
+  try {
+    const remote = await provider.listCalendars(token);
+    const calendars = mergeCalendars(current.calendars ?? [], remote);
+    await payload.update({ collection: "calendar-connections", id: body.id, data: { calendars }, overrideAccess: true });
+    return NextResponse.json({ ok: true, count: calendars.length });
+  } catch (err) {
+    payload.logger.error(`[agenda] relecture des agendas de la connexion ${body.id} échouée : ${err}`);
+    return NextResponse.json({ error: "provider_error" }, { status: 502 });
+  }
 }
 
 export async function DELETE(req: Request) {

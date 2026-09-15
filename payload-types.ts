@@ -2274,6 +2274,7 @@ export interface CalendarConnection {
     | {
         calendarId: string;
         name?: string | null;
+        readOnly?: boolean | null;
         busy?: boolean | null;
         /**
          * Un seul agenda, celui d'où partiront les invitations : c'est son nom que le client verra comme organisateur.
@@ -3458,6 +3459,7 @@ export interface CalendarConnectionsSelect<T extends boolean = true> {
     | {
         calendarId?: T;
         name?: T;
+        readOnly?: T;
         busy?: T;
         target?: T;
         id?: T;

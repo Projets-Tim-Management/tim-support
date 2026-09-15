@@ -30,6 +30,12 @@ export type RemoteCalendar = {
   id: string;
   name: string;
   primary?: boolean;
+  /**
+   * Vrai quand le compte ne peut pas y écrire (agenda partagé « voir
+   * seulement », abonnement ICS). Il compte pour les conflits, mais ne peut
+   * pas recevoir les rendez-vous.
+   */
+  readOnly?: boolean;
 };
 
 export type BusyPeriod = { start: string; end: string };
