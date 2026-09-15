@@ -1,14 +1,13 @@
 import type { AdminViewServerProps } from "payload";
 
-import { DefaultTemplate } from "@payloadcms/next/templates";
-import { Gutter } from "@payloadcms/ui";
-import Link from "next/link";
-
 import { Icons } from "@/admin/dashboard/icons";
 import { hasAdminRole } from "@/core/access";
-import { AgingChart, PartnerChart, ProfileChart, RevenueChart, ShareBar } from "@/modules/partner/admin/analytics/charts";
-import { DataTable, type Column, type Row } from "@/modules/partner/admin/analytics/DataTable";
-import { buildBillingAnalytics, type BillingAnalytics, type ClientDoc, type Delta, type PartnerDoc } from "@/modules/partner/lib/billing-analytics";
+import { AnalyticsPage } from "@/modules/analytics/admin/AnalyticsPage";
+import { AgingChart, PartnerChart, ProfileChart, RevenueChart, ShareBar } from "@/modules/analytics/admin/charts";
+import { DataTable, type Column, type Row } from "@/modules/analytics/admin/DataTable";
+import { Card, clientHref, fmtDay, Pct, PeriodFilter, periodFrom, Tile } from "@/modules/analytics/admin/ui";
+import { buildBillingAnalytics, type BillingAnalytics, type ClientDoc, type PartnerDoc } from "@/modules/analytics/lib/billing";
+import type { Delta } from "@/modules/analytics/lib/growth";
 import type { BillingReport } from "@/modules/partner/lib/billing-check";
 import { loadBillingReport } from "@/modules/partner/lib/billing-report";
 import { eur } from "@/modules/partner/lib/format";
@@ -26,62 +25,6 @@ import { isPennylaneConfigured, pennylaneErrorMessage } from "@/modules/partner/
  * graphiques et tableaux sont des client components alimentés en données
  * déjà calculées — aucune fonction ne franchit la frontière serveur/client.
  */
-
-const PERIODS = [
-  { months: 6, label: "6 mois" },
-  { months: 12, label: "12 mois" },
-  { months: 24, label: "24 mois" },
-];
-
-const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-const fmtDay = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }) : "—";
-
-/** Un pourcentage signé, coloré par sa direction : vert ça monte, rouge ça baisse. */
-function Pct({ d, title }: { d: Delta; title?: string }) {
-  if (d.pct == null) return <span className="an-pct an-pct--none" title="Pas de période précédente">—</span>;
-  const dir = d.pct > 0 ? "up" : d.pct < 0 ? "down" : "flat";
-  const sign = d.pct > 0 ? "+" : "";
-  return (
-    <span className={`an-pct an-pct--${dir}`} title={title}>
-      {dir === "up" ? "▲" : dir === "down" ? "▼" : "•"} {sign}
-      {d.pct.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %
-    </span>
-  );
-}
-
-function Tile({
-  icon,
-  label,
-  value,
-  sub,
-  tone,
-  delta,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: "ok" | "warn" | "bad";
-  /** Variation vs mois précédent, affichée à côté de la valeur. */
-  delta?: Delta;
-}) {
-  return (
-    <div className={`an-tile${tone ? ` an-tile--${tone}` : ""}`}>
-      <span className="an-tile__icon" aria-hidden>
-        {icon}
-      </span>
-      <span className="an-tile__text">
-        <span className="an-tile__value">
-          {value}
-          {delta && <Pct d={delta} title="vs mois précédent" />}
-        </span>
-        <span className="an-tile__label">{label}</span>
-        {sub && <span className="an-tile__sub">{sub}</span>}
-      </span>
-    </div>
-  );
-}
 
 /**
  * Évolution : trois grandeurs × trois horizons. Le CA compare des sommes
@@ -141,18 +84,6 @@ function GrowthTable({ a }: { a: BillingAnalytics }) {
   );
 }
 
-function Card({ title, sub, children, wide }: { title: string; sub?: string; children: React.ReactNode; wide?: boolean }) {
-  return (
-    <section className={`an-card${wide ? " an-card--wide" : ""}`}>
-      <header className="an-card__head">
-        <h2 className="an-card__title">{title}</h2>
-        {sub && <p className="an-card__sub">{sub}</p>}
-      </header>
-      {children}
-    </section>
-  );
-}
-
 const VERDICT_TONES = { ok: "ok", ecart: "warn", "sans-abonnement": "bad", "non-rapproche": "bad" } as const;
 const VERDICT_LABELS = { ok: "Conforme", ecart: "Écart", "sans-abonnement": "Sans abonnement", "non-rapproche": "Introuvable" };
 
@@ -208,8 +139,6 @@ const LATE_COLUMNS: Column[] = [
   { key: "remaining", label: "Reste dû", format: "eur" },
 ];
 
-const clientHref = (id: number | string) => `/admin/collections/partner-clients/${id}`;
-
 function Report({ a, months, pennylaneNote }: { a: BillingAnalytics; months: number; pennylaneNote: string | null }) {
   const { kpis } = a;
   const clientRows: Row[] = a.clients.map((c) => ({ ...c, href: clientHref(c.id) }));
@@ -219,18 +148,7 @@ function Report({ a, months, pennylaneNote }: { a: BillingAnalytics; months: num
 
   return (
     <>
-      <nav className="an-filters" aria-label="Période">
-        {PERIODS.map((p) => (
-          <Link
-            key={p.months}
-            href={`/admin/analyses/facturation?p=${p.months}`}
-            prefetch={false}
-            className={`an-filter${p.months === months ? " an-filter--on" : ""}`}
-          >
-            {p.label}
-          </Link>
-        ))}
-      </nav>
+      <PeriodFilter page="facturation" months={months} />
 
       {pennylaneNote && <p className="an-note">{pennylaneNote}</p>}
 
@@ -313,12 +231,9 @@ function Report({ a, months, pennylaneNote }: { a: BillingAnalytics; months: num
   );
 }
 
-export default async function BillingAnalyticsView({ initPageResult, params, searchParams }: AdminViewServerProps) {
-  const { req } = initPageResult;
-  const { payload, user } = req;
-  const sp = await searchParams;
-  const asked = Number(first(sp?.p));
-  const months = PERIODS.some((p) => p.months === asked) ? asked : 12;
+export default async function BillingView(view: AdminViewServerProps) {
+  const { payload, user } = view.initPageResult.req;
+  const months = periodFrom(await view.searchParams);
 
   let analytics: BillingAnalytics | null = null;
   let pennylaneNote: string | null = null;
@@ -368,28 +283,8 @@ export default async function BillingAnalyticsView({ initPageResult, params, sea
   }
 
   return (
-    <DefaultTemplate
-      i18n={req.i18n}
-      locale={initPageResult.locale}
-      params={params}
-      payload={payload}
-      permissions={initPageResult.permissions}
-      searchParams={searchParams}
-      user={user ?? undefined}
-      visibleEntities={initPageResult.visibleEntities}
-    >
-      <Gutter>
-        <div className="an">
-          <header className="an-head">
-            <h1 className="an-title">Facturation</h1>
-          </header>
-          {analytics ? (
-            <Report a={analytics} months={months} pennylaneNote={pennylaneNote} />
-          ) : (
-            <p className="an-empty">Cet écran est réservé aux administrateurs.</p>
-          )}
-        </div>
-      </Gutter>
-    </DefaultTemplate>
+    <AnalyticsPage view={view} page="facturation" title="Facturation">
+      {analytics && <Report a={analytics} months={months} pennylaneNote={pennylaneNote} />}
+    </AnalyticsPage>
   );
 }

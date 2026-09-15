@@ -23,7 +23,7 @@ export interface NavSubGroup {
 /** Lien libre vers une vue custom (hors collection). */
 export interface NavLink {
   label: string;
-  /** Chemin absolu, ex. « /admin/acquisition ». */
+  /** Chemin absolu, ex. « /admin/analyses/acquisition ». */
   href: string;
   /** Réservé aux admins : les autres rôles ne voient pas le lien. */
   adminOnly?: boolean;
@@ -77,7 +77,6 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     "journey-runs",
     "sequence-runs",
     "form-submissions",
-    { label: "Acquisition", href: "/admin/acquisition" },
     {
       label: "Paramètres",
       slugs: ["marketing-journeys", "sequences", "forms", "email-suppressions"],
@@ -98,7 +97,14 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
    * Les chiffres : une page par sujet, des tableaux et des graphiques. Réservé
    * aux admins. Aucune collection derrière : ce sont des vues calculées.
    */
-  Analyses: [{ label: "Facturation", href: "/admin/analyses/facturation", adminOnly: true }],
+  Analyses: [
+    { label: "Facturation", href: "/admin/analyses/facturation", adminOnly: true },
+    { label: "Clients & pipeline", href: "/admin/analyses/pipeline", adminOnly: true },
+    { label: "Acquisition", href: "/admin/analyses/acquisition", adminOnly: true },
+    { label: "Support", href: "/admin/analyses/support", adminOnly: true },
+    { label: "Développements", href: "/admin/analyses/developpements", adminOnly: true },
+    { label: "Partenaires", href: "/admin/analyses/partenaires", adminOnly: true },
+  ],
   Utilisateurs: [
     { label: "Missions", slugs: ["missions", "mission-submissions"] },
     { label: "Récompenses", slugs: ["rewards", "reward-orders"] },

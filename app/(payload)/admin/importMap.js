@@ -124,9 +124,13 @@ import { default as default_a0b3dc6cbedf342b789cbfbfb6915cb5 } from '../../../ad
 import { VercelBlobClientUploadHandler as VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e } from '@payloadcms/storage-vercel-blob/client'
 import { default as default_a8bdfd6ec46ed48bd1e9402d58bf4c34 } from '../../../admin/dashboard/DashboardView'
 import { default as default_6971e0609c24bbf2339323e60b70e021 } from '../../../modules/support/admin/NotificationsView'
-import { default as default_9d9414930c979dbddf13d0cf7ee23f41 } from '../../../modules/forms/admin/AcquisitionView'
 import { default as default_d8e7bbf9f25486534fff2dfe79658e80 } from '../../../modules/partner/admin/BillingCheckView'
-import { default as default_c76bd3175baccdc013222279c139fd90 } from '../../../modules/partner/admin/analytics/BillingAnalyticsView'
+import { default as default_3fac943f745ba0ff2dbf26360a2df675 } from '../../../modules/analytics/admin/BillingView'
+import { default as default_3125f72c9cf5e6cdd1ecf6cff4f3fd8c } from '../../../modules/analytics/admin/PipelineView'
+import { default as default_8052050c666bd08f67a59ad1c2e0cc41 } from '../../../modules/analytics/admin/AcquisitionView'
+import { default as default_c44913679fe220161a8e8e8eb237e954 } from '../../../modules/analytics/admin/SupportView'
+import { default as default_c9fb8c9feab8ca0ae0845a2ecdad7276 } from '../../../modules/analytics/admin/DevView'
+import { default as default_b668264def99eb7ac1a7b21a44406f51 } from '../../../modules/analytics/admin/PartnersView'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 /** @type import('payload').ImportMap */
@@ -257,8 +261,12 @@ export const importMap = {
   "@payloadcms/storage-vercel-blob/client#VercelBlobClientUploadHandler": VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e,
   "/admin/dashboard/DashboardView#default": default_a8bdfd6ec46ed48bd1e9402d58bf4c34,
   "/modules/support/admin/NotificationsView#default": default_6971e0609c24bbf2339323e60b70e021,
-  "/modules/forms/admin/AcquisitionView#default": default_9d9414930c979dbddf13d0cf7ee23f41,
   "/modules/partner/admin/BillingCheckView#default": default_d8e7bbf9f25486534fff2dfe79658e80,
-  "/modules/partner/admin/analytics/BillingAnalyticsView#default": default_c76bd3175baccdc013222279c139fd90,
+  "/modules/analytics/admin/BillingView#default": default_3fac943f745ba0ff2dbf26360a2df675,
+  "/modules/analytics/admin/PipelineView#default": default_3125f72c9cf5e6cdd1ecf6cff4f3fd8c,
+  "/modules/analytics/admin/AcquisitionView#default": default_8052050c666bd08f67a59ad1c2e0cc41,
+  "/modules/analytics/admin/SupportView#default": default_c44913679fe220161a8e8e8eb237e954,
+  "/modules/analytics/admin/DevView#default": default_c9fb8c9feab8ca0ae0845a2ecdad7276,
+  "/modules/analytics/admin/PartnersView#default": default_b668264def99eb7ac1a7b21a44406f51,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }

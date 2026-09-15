@@ -98,15 +98,31 @@ trimestrielle.
 - Les fiches anciennes se recalent d'elles-mêmes au prochain enregistrement ;
   `npx tsx scripts/historique-recaler.ts` (puis `--appliquer`) le fait d'un coup.
 
+## Le groupe « Analyses »
+
+Six pages (`modules/analytics/`, admins seulement), même coquille : onglets
+entre pages, filtre de période (3 / 6 / 12 / 24 mois), tuiles avec variation
+vs période précédente, graphiques Recharts, tableaux triables avec export CSV.
+Chaque page a sa couche de calcul pure et testée dans `modules/analytics/lib/`.
+
+| Page | Ce qu'elle montre |
+|---|---|
+| Facturation | CA sous contrat, licences, commissions, remises, impayés, conformité Pennylane, évolution mois / trimestre / année |
+| Clients & pipeline | entonnoir avec taux de passage, temps moyen par étape, parcours réels entre étapes (Sankey, depuis le journal « Étape : A → B »), créées / gagnées / perdues par mois, par provenance, par partenaire, motifs de perte et de résiliation, opportunités en cours par ancienneté |
+| Acquisition | leads du site vitrine (ex-écran Marketing → Acquisition, rapatrié ici) : par mois et par canal, conversion de chaque canal jusqu'à l'affaire gagnée, page, campagne, preuve d'attribution |
+| Support | tickets reçus / résolus, délai de résolution (moyenne, médiane, part sous 48 h, par priorité), par service, type, client ; tickets ouverts |
+| Développements | demandes reçues / livrées, délai demande → livraison, durée de réalisation, par phase, statut, type, client demandeur ; en cours |
+| Partenaires | opportunités et clients apportés, CA et commissions par partenaire et par modèle, points distribués / dépensés par source, missions et commandes à traiter |
+
 ## Analyses → Facturation
 
-`/admin/analyses/facturation` (`modules/partner/admin/analytics/`) : CA HT/mois
+`/admin/analyses/facturation` (`modules/analytics/admin/`) : CA HT/mois
 sous contrat, licences, commissions, remises, impayés, conformité ; évolution
 mois / trimestre / année ; graphiques (Recharts, palette `--tim-chart-*`
 validée) et tableaux triables avec export CSV. La facturation d'un client y
 **commence à son abonnement Pennylane** (sinon au contrat) : les dates de
 contrat antérieures à la bascule Pennylane ne créent aucun CA. Les chiffres
-sont calculés dans `modules/partner/lib/billing-analytics.ts` (pur, testé).
+sont calculés dans `modules/analytics/lib/billing.ts` (pur, testé).
 
 ## Comment les deux côtés sont reliés
 

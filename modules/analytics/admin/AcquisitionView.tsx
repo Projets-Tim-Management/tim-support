@@ -1,25 +1,38 @@
 import type { AdminViewServerProps } from "payload";
 
-import { DefaultTemplate } from "@payloadcms/next/templates";
-import { Gutter } from "@payloadcms/ui";
-import Link from "next/link";
 
+import { Icons } from "@/admin/dashboard/icons";
 import { hasAdminRole } from "@/core/access";
-import { clientStatusMeta } from "@/modules/partner/lib/clientStatus";
+import { AnalyticsPage } from "@/modules/analytics/admin/AnalyticsPage";
+import { MonthlyChart } from "@/modules/analytics/admin/charts";
+import { DataTable, type Column } from "@/modules/analytics/admin/DataTable";
+import { Card as AnCard, PeriodFilter, periodFrom, Tile } from "@/modules/analytics/admin/ui";
+import { buildAcquisitionAnalytics, type LeadClientRow, type LeadRow } from "@/modules/analytics/lib/acquisition";
 import AcqBars from "@/modules/forms/admin/AcqBars";
 import AcqSegments, { type Segment } from "@/modules/forms/admin/AcqSegments";
 import { InfoTip } from "@/modules/forms/admin/InfoTip";
 import { buildStats, type ClientRow, type Row, type SubmissionRow } from "@/modules/forms/lib/stats";
+import { clientStatusMeta } from "@/modules/partner/lib/clientStatus";
 
 /**
- * Écran « Acquisition » (/admin/acquisition) — d'où viennent les leads du site
- * vitrine, et lesquels aboutissent.
+ * Écran « Analyses → Acquisition » (/admin/analyses/acquisition) — d'où
+ * viennent les leads du site vitrine, lesquels aboutissent, et ce que chaque
+ * canal rapporte vraiment (la conversion, pas seulement le volume).
  *
  * Le comptage se fait ici, en base : c'est la source de vérité. GA4 ne voit que
  * les navigateurs qui le laissent parler.
  *
  * Server component : lecture directe par la Local API, aucun fetch client.
  */
+
+const CHANNEL_COLUMNS: Column[] = [
+  { key: "label", label: "Canal" },
+  { key: "leads", label: "Leads", format: "int" },
+  { key: "opportunities", label: "Opportunités", format: "int" },
+  { key: "won", label: "Gagnées", format: "int" },
+  { key: "lost", label: "Perdues", format: "int" },
+  { key: "conversion", label: "Conversion lead → gagnée", format: "pct" },
+];
 
 /** Couleurs des segments — jetons uniquement, jamais de valeur en dur. */
 const CANAL_COLORS: Record<string, string> = {
@@ -47,13 +60,6 @@ const statutSegments = (rows: Row[]): Segment[] =>
     color: clientStatusMeta(r.key)?.color ?? FALLBACK,
   }));
 
-const PERIODS = [
-  { label: "30 jours", days: 30 },
-  { label: "90 jours", days: 90 },
-  { label: "12 mois", days: 365 },
-  { label: "Tout", days: 0 },
-];
-
 function Card({ title, info, children }: { title: string; info: string[]; children: React.ReactNode }) {
   return (
     <section className="acq-card">
@@ -66,43 +72,22 @@ function Card({ title, info, children }: { title: string; info: string[]; childr
   );
 }
 
-function Tile({ label, value, sub, info }: { label: string; value: string; sub?: string; info: string[] }) {
-  return (
-    <div className="acq-tile">
-      <span className="acq-tile__label">
-        {label}
-        <InfoTip content={info} />
-      </span>
-      <span className="acq-tile__value">{value}</span>
-      {sub && <span className="acq-tile__sub">{sub}</span>}
-    </div>
-  );
-}
+export default async function AcquisitionView(view: AdminViewServerProps) {
+  const { payload, user } = view.initPageResult.req;
 
-export default async function AcquisitionView({
-  initPageResult,
-  params,
-  searchParams,
-}: AdminViewServerProps) {
-  const { req } = initPageResult;
-  const { payload, user } = req;
-
-  const body = !hasAdminRole(user) ? (
-    <p className="acq-empty">Cet écran est réservé aux administrateurs.</p>
-  ) : (
-    await content()
-  );
+  // La période se lit AVANT `content()` : la fonction la référence.
+  const months = periodFrom(await view.searchParams, 3);
+  const body = hasAdminRole(user) ? await content() : null;
 
   async function content() {
-    const raw = (await searchParams)?.j;
-    const asked = Number(Array.isArray(raw) ? raw[0] : raw);
-    const days = PERIODS.some((p) => p.days === asked) ? asked : 30;
-    const since = days ? new Date(Date.now() - days * 86_400_000).toISOString() : null;
+    const now = new Date();
+    const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months + 1, 1)).toISOString();
 
-    const subs = await payload.find({
+    // Toutes les soumissions (la tendance mensuelle et la variation ont besoin
+    // de la période précédente) ; les répartitions se limitent à la période.
+    const all = await payload.find({
       collection: "form-submissions",
-      where: since ? { createdAt: { greater_than: since } } : {},
-      limit: 5000,
+      limit: 10000,
       depth: 0,
       overrideAccess: true,
       select: {
@@ -112,8 +97,10 @@ export default async function AcquisitionView({
         sourcePagePath: true,
         utmCampaign: true,
         lpVariant: true,
+        createdAt: true,
       } as never,
     });
+    const subs = { docs: all.docs.filter((d) => (d as { createdAt?: string }).createdAt! >= since) };
 
     // Les opportunités NÉES d'un formulaire : c'est leur devenir qui dit si un
     // canal rapporte, et pas seulement s'il fait du volume.
@@ -124,37 +111,41 @@ export default async function AcquisitionView({
       depth: 0,
       draft: true,
       overrideAccess: true,
-      select: { clientStatus: true, lossReason: true } as never,
+      select: { clientStatus: true, lossReason: true, formSubmission: true } as never,
     });
 
     const stats = buildStats(
       subs.docs as SubmissionRow[],
       clients.docs as ClientRow[],
     );
+    const acq = buildAcquisitionAnalytics(all.docs as LeadRow[], clients.docs as LeadClientRow[], months, now);
 
     const pct = (n: number | null) => (n === null ? "—" : `${Math.round(n * 100)} %`);
 
     return (
       <>
-        <header className="acq-head">
-          <div>
-            <h1 className="acq-title">Acquisition</h1>
-            <p className="acq-sub">
-              D&apos;où viennent les leads du site vitrine, et ce qu&apos;ils deviennent.
-            </p>
-          </div>
-          <nav className="acq-periods">
-            {PERIODS.map((p) => (
-              <Link
-                key={p.days}
-                href={`/admin/acquisition?j=${p.days}`}
-                className={`acq-period${p.days === days ? " acq-period--on" : ""}`}
-              >
-                {p.label}
-              </Link>
-            ))}
-          </nav>
-        </header>
+        <PeriodFilter page="acquisition" months={months} />
+
+        <div className="an-tiles">
+          <Tile icon={Icons.inbox()} label="Leads reçus" value={String(acq.kpis.leads.current)} delta={acq.kpis.leads} sub="formulaires du site vitrine" />
+          <Tile icon={Icons.checkCircle()} label="Affaires gagnées" value={String(acq.kpis.won)} sub={acq.kpis.conversion != null ? `${acq.kpis.conversion} % des leads de la période` : undefined} tone="ok" />
+          <Tile
+            icon={Icons.alert()}
+            label="Attribution SEA fiable"
+            value={pct(stats.fiabiliteSea)}
+            sub={stats.fiabiliteSea == null ? "aucun lead payant reçu" : "part attribuée par un clic constaté (gclid…)"}
+            tone={stats.fiabiliteSea != null && stats.fiabiliteSea < 0.8 ? "warn" : undefined}
+          />
+        </div>
+
+        <div className="an-grid">
+          <AnCard wide title="Leads par mois et par canal" sub="Une couleur par canal, fixe : le SEO reste le même bleu quel que soit le filtre.">
+            <MonthlyChart data={acq.monthly} series={acq.channelKeys.map((c) => ({ key: c.key, label: c.label }))} stacked />
+          </AnCard>
+          <AnCard wide title="Ce que chaque canal rapporte" sub="Leads de la période, fiches nées de ces leads, et leur devenir. La conversion compte les affaires gagnées sur les leads reçus.">
+            <DataTable columns={CHANNEL_COLUMNS} rows={acq.channels} sort={{ key: "leads", dir: "desc" }} csv="acquisition-par-canal" />
+          </AnCard>
+        </div>
 
         {stats.total === 0 ? (
           <p className="acq-empty">
@@ -163,40 +154,6 @@ export default async function AcquisitionView({
           </p>
         ) : (
           <>
-            <div className="acq-tiles">
-              <Tile
-                label="Soumissions"
-                value={String(stats.total)}
-                info={[
-                  "Soumissions",
-                  "Nombre de formulaires envoyés depuis le site vitrine sur la période, comptés en base au moment de leur réception.",
-                  "C'est la source de vérité : un bloqueur de publicité ou un refus de cookies fait taire GA4, pas une ligne en base.",
-                ]}
-              />
-              <Tile
-                label="Opportunités gagnées"
-                value={String(stats.gagnees)}
-                sub={`${stats.perdues} perdue${stats.perdues > 1 ? "s" : ""}`}
-                info={[
-                  "Opportunités gagnées",
-                  "Parmi les opportunités NÉES d'un formulaire, celles passées au statut « Gagnée ».",
-                  "Indépendant de la période choisie : une affaire se gagne souvent des mois après la demande.",
-                ]}
-              />
-              <Tile
-                label="Attribution SEA fiable"
-                value={pct(stats.fiabiliteSea)}
-                sub="part attribuée par un clic constaté"
-                info={[
-                  "Attribution SEA fiable",
-                  "Part des leads « Google Ads » reconnus grâce à un identifiant de clic réellement présent (gclid, msclkid ou utm_medium payant).",
-                  "Le reste est déduit du fait que la page était une landing page de campagne — une présomption, pas un fait.",
-                  "Si ce taux baisse : le taggage automatique de Google Ads ne remonte plus, ou le cookie d'attribution ne tient pas.",
-                  "« — » signifie qu'aucun lead payant n'a été reçu : il n'y a rien à mesurer.",
-                ]}
-              />
-            </div>
-
             <div className="acq-grid">
               <Card
                 title="Par canal"
@@ -309,19 +266,8 @@ export default async function AcquisitionView({
   }
 
   return (
-    <DefaultTemplate
-      i18n={req.i18n}
-      locale={initPageResult.locale}
-      params={params}
-      payload={payload}
-      permissions={initPageResult.permissions}
-      searchParams={searchParams}
-      user={user ?? undefined}
-      visibleEntities={initPageResult.visibleEntities}
-    >
-      <Gutter>
-        <div className="acq">{body}</div>
-      </Gutter>
-    </DefaultTemplate>
+    <AnalyticsPage view={view} page="acquisition" title="Acquisition">
+      <div className="acq">{body}</div>
+    </AnalyticsPage>
   );
 }

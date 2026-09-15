@@ -1,8 +1,9 @@
-import type { BillingReport, ClientCheck, InvoiceSummary } from "./billing-check";
-import { round2 } from "./format";
-import type { HistoryEntry } from "./history";
-import { monthKey, monthStart } from "./month";
-import { effectiveUnitPrice, licenceLinesOf, PROFILS, type ProfilKey } from "./pricing";
+import type { BillingReport, ClientCheck, InvoiceSummary } from "@/modules/partner/lib/billing-check";
+import { round2 } from "@/modules/partner/lib/format";
+import { delta, type Delta } from "@/modules/analytics/lib/growth";
+import type { HistoryEntry } from "@/modules/partner/lib/history";
+import { monthKey, monthStart } from "@/modules/partner/lib/month";
+import { effectiveUnitPrice, licenceLinesOf, PROFILS, type ProfilKey } from "@/modules/partner/lib/pricing";
 
 /**
  * Analyse de la facturation : ce que les fiches disent qu'on doit facturer,
@@ -106,9 +107,6 @@ export type DiscountRow = {
 };
 
 export type LateRow = InvoiceSummary & { clientId: number | string; client: string; bucket: string };
-
-/** Une variation : la valeur de la période, celle d'avant, et le % (null si rien avant). */
-export type Delta = { current: number; previous: number; pct: number | null };
 
 /**
  * Évolution des trois grandeurs qui comptent, sur trois horizons.
@@ -458,12 +456,6 @@ function monthlySeries(
 }
 
 /* ─── Évolution ───────────────────────────────────────────────────────────── */
-
-const delta = (current: number, previous: number): Delta => ({
-  current: round2(current),
-  previous: round2(previous),
-  pct: previous > 0 ? round2(((current - previous) / previous) * 100) : null,
-});
 
 /**
  * Sur une série mensuelle (le mois en cours en dernier), les variations à un

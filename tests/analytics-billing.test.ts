@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildBillingAnalytics, type ClientDoc } from "@/modules/partner/lib/billing-analytics";
+import { buildBillingAnalytics, type ClientDoc } from "@/modules/analytics/lib/billing";
 import type { BillingReport, ClientCheck } from "@/modules/partner/lib/billing-check";
 
 /**

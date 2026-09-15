@@ -1,4 +1,4 @@
-/* Écrans « Analyses » (modules/partner/admin/analytics/). Aucune couleur en
+/* Écrans « Analyses » (modules/analytics/admin/). Aucune couleur en
    dur : tout vient des jetons de styles/_tokens.scss. Les animations sont
    courtes et désactivées si l'utilisateur préfère moins de mouvement. */
 
@@ -21,6 +21,139 @@
   font-weight: 800;
   color: var(--tim-foreground);
 }
+/* Onglets entre les pages Analyses, dans l'en-tête. */
+.an-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+}
+.an-page {
+  padding: 0.35rem 0.8rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    color: var(--tim-foreground);
+  }
+}
+.an-page--on {
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 8%, transparent);
+}
+
+/* ─── Entonnoir ───────────────────────────────────────────────────────────── */
+.an-funnel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.an-funnel__step {
+  animation: an-rise 0.35s ease both;
+}
+.an-funnel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.85rem;
+}
+.an-funnel__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.an-funnel__dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+.an-funnel__values {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  white-space: nowrap;
+
+  strong {
+    font-size: 1rem;
+    color: var(--tim-foreground);
+  }
+}
+.an-funnel__rate {
+  color: var(--tim-foreground);
+  font-weight: 600;
+}
+.an-funnel__total {
+  color: var(--tim-muted);
+  font-size: 0.78rem;
+}
+.an-funnel__track {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--tim-elevation-100);
+  overflow: hidden;
+}
+.an-funnel__bar {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  transform-origin: left center;
+  animation: an-grow 0.5s ease both;
+}
+
+/* ─── Flux entre étapes : la liste sous le dessin ─────────────────────────── */
+.an-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.an-flow__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.25rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.2rem 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+  }
+}
+.an-flow__swatch {
+  flex: 0 0 auto;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+.an-flow__path {
+  flex: 1;
+  color: var(--tim-foreground);
+}
+.an-flow__count {
+  font-variant-numeric: tabular-nums;
+  color: var(--tim-foreground);
+}
+
 .an-muted {
   color: var(--tim-muted-light);
 }
@@ -535,7 +668,9 @@
   .an-tile,
   .an-card,
   .an-row,
-  .an-share__seg {
+  .an-share__seg,
+  .an-funnel__step,
+  .an-funnel__bar {
     animation: none;
   }
 }
