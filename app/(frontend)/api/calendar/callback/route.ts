@@ -4,9 +4,10 @@ import { readState } from "@/core/lib/secrets";
 import { payloadClient } from "@/core/payload-client";
 import {
   getProvider,
+  mergeCalendars,
   redirectUri,
-  targetCalendarIndex,
   tokenFields,
+  type StoredCalendar,
 } from "@/modules/marketing/lib/calendar";
 
 /**
@@ -61,18 +62,7 @@ export async function GET(req: Request) {
       depth: 0,
       overrideAccess: true,
     });
-    const previous = existing.docs[0] as { id: number | string; refreshToken?: string } | undefined;
-
-    // Le premier agenda connecté reçoit les rendez-vous par défaut : sans cible,
-    // aucun événement ne serait créé et le partenaire ne comprendrait pas pourquoi.
-    const isFirst = !previous;
-    const chosen = isFirst ? targetCalendarIndex(calendars) : -1;
-    const rows = calendars.map((c, i) => ({
-      calendarId: c.id,
-      name: c.name,
-      busy: true,
-      target: i === chosen,
-    }));
+    const previous = existing.docs[0] as { id: number | string; refreshToken?: string; calendars?: StoredCalendar[] } | undefined;
 
     const identity = {
       partner: Number(state.partnerId),
@@ -81,18 +71,23 @@ export async function GET(req: Request) {
     };
 
     if (previous) {
-      // Les agendas déjà paramétrés ne sont PAS réécrits : le partenaire a pu
-      // choisir lesquels comptent, une reconnexion ne doit pas l'annuler.
+      // Reconnexion : la liste est relue (un agenda partagé depuis a pu
+      // apparaître), mais les cases déjà cochées sont conservées — le
+      // partenaire a choisi lesquels comptent, une reconnexion ne l'annule pas.
+      // Si la relecture a échoué, on ne touche pas à la liste.
       await payload.update({
         collection: "calendar-connections",
         id: previous.id,
-        data: identity,
+        data: calendars.length ? { ...identity, calendars: mergeCalendars(previous.calendars ?? [], calendars) } : identity,
         overrideAccess: true,
       });
     } else {
+      // Le premier agenda connecté reçoit les rendez-vous par défaut : sans
+      // cible, aucun événement ne serait créé et le partenaire ne comprendrait
+      // pas pourquoi.
       await payload.create({
         collection: "calendar-connections",
-        data: { ...identity, calendars: rows },
+        data: { ...identity, calendars: mergeCalendars([], calendars) },
         overrideAccess: true,
       });
     }

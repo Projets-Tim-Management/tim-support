@@ -121,14 +121,19 @@ export const googleProvider: CalendarProvider = {
   },
 
   async listCalendars(accessToken) {
-    const data = await api<{ items?: { id: string; summary?: string; primary?: boolean }[] }>(
+    // `freeBusyReader` : le rôle le plus bas qui permet de lire les
+    // disponibilités. Un agenda perso partagé « voir seulement » avec le compte
+    // TIM entre ainsi dans la liste — c'est précisément celui dont les
+    // rendez-vous manquaient aux conflits (constaté le 15/09/2026).
+    const data = await api<{ items?: { id: string; summary?: string; primary?: boolean; accessRole?: string }[] }>(
       accessToken,
-      "/users/me/calendarList?minAccessRole=writer&maxResults=100",
+      "/users/me/calendarList?minAccessRole=freeBusyReader&maxResults=100",
     );
     return (data.items ?? []).map<RemoteCalendar>((c) => ({
       id: c.id,
       name: c.summary ?? c.id,
       primary: Boolean(c.primary),
+      readOnly: !(c.accessRole === "owner" || c.accessRole === "writer"),
     }));
   },
 

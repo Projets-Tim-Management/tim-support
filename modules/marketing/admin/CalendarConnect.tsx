@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from "react";
  * conflits, lequel reçoit les rendez-vous.
  */
 
-type Calendar = { calendarId?: string; name?: string; busy?: boolean; target?: boolean };
+type Calendar = { calendarId?: string; name?: string; busy?: boolean; target?: boolean; readOnly?: boolean };
 type Connection = {
   id: number | string;
   provider?: string;
@@ -31,6 +31,7 @@ export function CalendarConnect() {
   const [providers, setProviders] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState<number | string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) {
@@ -117,6 +118,30 @@ export function CalendarConnect() {
     );
   };
 
+  /**
+   * Relit la liste des agendas chez le fournisseur : un agenda partagé avec le
+   * compte APRÈS la connexion n'apparaît pas tout seul. Réglages conservés.
+   */
+  const refresh = async (connection: Connection) => {
+    setRefreshing(connection.id);
+    const res = await fetch("/api/calendar/connections", {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: connection.id }),
+    });
+    setRefreshing(null);
+    if (res.status === 409) {
+      setNotice("Le compte doit être reconnecté avant de relire ses agendas.");
+      return;
+    }
+    if (!res.ok) {
+      setNotice("Impossible de relire les agendas pour l'instant.");
+      return;
+    }
+    await load();
+  };
+
   const disconnect = async (connection: Connection) => {
     await fetch(`/api/calendar/connections?id=${connection.id}`, {
       method: "DELETE",
@@ -149,6 +174,15 @@ export function CalendarConnect() {
             <span className="jr-cnx__provider">{PROVIDER_LABEL[c.provider ?? ""] ?? c.provider}</span>
             <span className="jr-cnx__mail">{c.accountEmail ?? "compte connecté"}</span>
             {c.status === "expired" && <span className="jr-cnx__warn">à reconnecter</span>}
+            <button
+              type="button"
+              className="jr-cnx__refresh"
+              title="Relire la liste des agendas (un agenda partagé depuis la connexion n'apparaît pas tout seul)"
+              disabled={refreshing === c.id}
+              onClick={() => void refresh(c)}
+            >
+              {refreshing === c.id ? "Relecture…" : "Actualiser les agendas"}
+            </button>
             <button type="button" className="jr-cnx__unlink" onClick={() => void disconnect(c)}>
               Déconnecter
             </button>
@@ -165,7 +199,14 @@ export function CalendarConnect() {
             <tbody>
               {c.calendars.map((cal) => (
                 <tr key={cal.calendarId}>
-                  <td>{cal.name ?? cal.calendarId}</td>
+                  <td>
+                    {cal.name ?? cal.calendarId}
+                    {cal.readOnly && (
+                      <span className="jr-cnx__ro" title="Partagé en lecture seule : compte pour les conflits, ne peut pas recevoir les rendez-vous">
+                        lecture seule
+                      </span>
+                    )}
+                  </td>
                   <td>
                     <input
                       type="checkbox"
@@ -178,6 +219,7 @@ export function CalendarConnect() {
                       type="radio"
                       name="calendar-target"
                       checked={Boolean(cal.target)}
+                      disabled={Boolean(cal.readOnly)}
                       onChange={() => setTarget(c, cal.calendarId)}
                     />
                   </td>

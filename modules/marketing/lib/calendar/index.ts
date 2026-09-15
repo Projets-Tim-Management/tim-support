@@ -3,7 +3,7 @@ import type { Payload } from "payload";
 import { decryptSecret, encryptSecret } from "@/core/lib/secrets";
 import { googleProvider } from "./google";
 import { microsoftProvider } from "./microsoft";
-import type { BusyPeriod, CalendarProvider, CalendarProviderId, OAuthTokens } from "./types";
+import type { BusyPeriod, CalendarProvider, CalendarProviderId, OAuthTokens, RemoteCalendar } from "./types";
 
 export * from "./types";
 
@@ -23,7 +23,7 @@ export type Connection = {
   accessToken?: string;
   refreshToken?: string;
   expiresAt?: string;
-  calendars?: { calendarId?: string; name?: string; busy?: boolean; target?: boolean }[];
+  calendars?: StoredCalendar[];
 };
 
 /** Enregistre des jetons fraîchement obtenus, chiffrés. */
@@ -201,11 +201,48 @@ export const mergeBusyReadings = (readings: BusyReading[]): BusyReading => ({
  *
  * Règle : l'agenda principal, à défaut le premier de la liste, sinon aucun.
  */
-export const targetCalendarIndex = (calendars: { primary?: boolean }[]): number => {
-  if (calendars.length === 0) return -1;
-  const primary = calendars.findIndex((c) => c.primary);
-  return primary === -1 ? 0 : primary;
+export const targetCalendarIndex = (calendars: { primary?: boolean; readOnly?: boolean }[]): number => {
+  // Un agenda en lecture seule ne peut pas recevoir d'événement : il n'est
+  // jamais candidat, même s'il est en tête de liste.
+  const writable = calendars.map((c, i) => ({ c, i })).filter(({ c }) => !c.readOnly);
+  if (writable.length === 0) return -1;
+  const primary = writable.find(({ c }) => c.primary);
+  return (primary ?? writable[0]).i;
 };
+
+export type StoredCalendar = {
+  calendarId: string;
+  name?: string | null;
+  busy?: boolean | null;
+  target?: boolean | null;
+  readOnly?: boolean | null;
+};
+
+/**
+ * La liste des agendas relue chez le fournisseur, fondue dans les réglages
+ * existants : un agenda déjà connu garde ses cases (« occupe », « reçoit »),
+ * un nouveau arrive coché pour les conflits, un disparu sort — on ne peut
+ * plus le lire. Si l'agenda cible n'est plus là (ou devenu lecture seule),
+ * la cible passe à l'agenda principal accessible en écriture.
+ */
+export function mergeCalendars(existing: StoredCalendar[], remote: RemoteCalendar[]): StoredCalendar[] {
+  const known = new Map(existing.map((c) => [String(c.calendarId), c]));
+  const rows: StoredCalendar[] = remote.map((r) => {
+    const prev = known.get(r.id);
+    return {
+      calendarId: r.id,
+      name: r.name,
+      busy: prev ? prev.busy !== false : true,
+      target: Boolean(prev?.target) && !r.readOnly,
+      readOnly: Boolean(r.readOnly),
+    };
+  });
+  if (!rows.some((c) => c.target)) {
+    const i = targetCalendarIndex(remote);
+    if (i >= 0) rows[i].target = true;
+  }
+  return rows;
+}
 
 /** Connexion qui doit RECEVOIR les événements, si le partenaire en a désigné une. */
 export async function targetConnection(

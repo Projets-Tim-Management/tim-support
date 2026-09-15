@@ -6,7 +6,7 @@ import {
   normalizeRanges,
   resolveRules,
 } from "@/modules/marketing/lib/scheduling";
-import { mergeBusyReadings, targetCalendarIndex } from "@/modules/marketing/lib/calendar/index";
+import { mergeBusyReadings, mergeCalendars, targetCalendarIndex } from "@/modules/marketing/lib/calendar/index";
 import { PORTAL_SECTIONS, validateRow } from "@/modules/marketing/lib/portal-sections";
 import { generatePassword } from "@/modules/marketing/lib/credentials";
 import { buildTimAccessEmail } from "@/modules/marketing/lib/emails";
@@ -871,6 +871,46 @@ describe("agenda qui reçoit les rendez-vous", () => {
 
   it("n'en désigne aucun sur une liste vide", () => {
     expect(targetCalendarIndex([])).toBe(-1);
+  });
+
+  it("ne désigne jamais un agenda en lecture seule, même principal ou premier", () => {
+    expect(targetCalendarIndex([{ primary: true, readOnly: true }, { primary: false }])).toBe(1);
+    expect(targetCalendarIndex([{ readOnly: true }, { readOnly: true }])).toBe(-1);
+  });
+});
+
+/**
+ * Relire la liste des agendas — à la reconnexion ou sur « Actualiser » — ne
+ * doit pas effacer les choix du partenaire, mais doit faire entrer un agenda
+ * partagé depuis : c'est celui dont les rendez-vous manquaient aux conflits.
+ */
+describe("fusion de la liste des agendas", () => {
+  const remote = [
+    { id: "main", name: "Principal", primary: true },
+    { id: "perso", name: "Perso (partagé)", readOnly: true },
+  ];
+
+  it("garde les cases cochées, ajoute le nouvel agenda pour les conflits", () => {
+    const out = mergeCalendars([{ calendarId: "main", name: "Principal", busy: false, target: true }], remote);
+    expect(out).toEqual([
+      { calendarId: "main", name: "Principal", busy: false, target: true, readOnly: false },
+      { calendarId: "perso", name: "Perso (partagé)", busy: true, target: false, readOnly: true },
+    ]);
+  });
+
+  it("sort un agenda disparu et redonne la cible à l'agenda principal accessible", () => {
+    const out = mergeCalendars([{ calendarId: "old", name: "Ancien", busy: true, target: true }], remote);
+    expect(out.map((c) => [c.calendarId, c.target])).toEqual([["main", true], ["perso", false]]);
+  });
+
+  it("retire la cible d'un agenda devenu lecture seule", () => {
+    const out = mergeCalendars([{ calendarId: "perso", busy: true, target: true }], remote);
+    expect(out.find((c) => c.calendarId === "perso")?.target).toBe(false);
+    expect(out.find((c) => c.calendarId === "main")?.target).toBe(true);
+  });
+
+  it("première connexion : tout compte pour les conflits, le principal reçoit", () => {
+    expect(mergeCalendars([], remote).map((c) => [c.busy, c.target])).toEqual([[true, true], [true, false]]);
   });
 
   it("n'en désigne jamais deux", () => {
