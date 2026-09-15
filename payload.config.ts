@@ -197,14 +197,6 @@ export default buildConfig({
           exact: true,
           meta: { title: "Notifications" },
         },
-        // Écran « Acquisition » : d'où viennent les leads du site vitrine et ce
-        // qu'ils deviennent — voir modules/forms/admin/AcquisitionView.
-        acquisition: {
-          Component: "/modules/forms/admin/AcquisitionView#default",
-          path: "/acquisition",
-          exact: true,
-          meta: { title: "Acquisition" },
-        },
         // Écran « Facturation » : les licences saisies sur chaque fiche face à
         // l'abonnement Pennylane — voir modules/partner/admin/BillingCheckView.
         facturation: {
@@ -212,6 +204,45 @@ export default buildConfig({
           path: "/facturation",
           exact: true,
           meta: { title: "Rapprochement" },
+        },
+        // Analyses : une page par sujet, graphiques et tableaux — voir
+        // modules/analytics/. Facturation, pipeline, acquisition, support,
+        // développements, partenaires.
+        analysesFacturation: {
+          Component: "/modules/analytics/admin/BillingView#default",
+          path: "/analyses/facturation",
+          exact: true,
+          meta: { title: "Analyses · Facturation" },
+        },
+        analysesPipeline: {
+          Component: "/modules/analytics/admin/PipelineView#default",
+          path: "/analyses/pipeline",
+          exact: true,
+          meta: { title: "Analyses · Clients & pipeline" },
+        },
+        analysesAcquisition: {
+          Component: "/modules/analytics/admin/AcquisitionView#default",
+          path: "/analyses/acquisition",
+          exact: true,
+          meta: { title: "Analyses · Acquisition" },
+        },
+        analysesSupport: {
+          Component: "/modules/analytics/admin/SupportView#default",
+          path: "/analyses/support",
+          exact: true,
+          meta: { title: "Analyses · Support" },
+        },
+        analysesDeveloppements: {
+          Component: "/modules/analytics/admin/DevView#default",
+          path: "/analyses/developpements",
+          exact: true,
+          meta: { title: "Analyses · Développements" },
+        },
+        analysesPartenaires: {
+          Component: "/modules/analytics/admin/PartnersView#default",
+          path: "/analyses/partenaires",
+          exact: true,
+          meta: { title: "Analyses · Partenaires" },
         },
       },
     },

@@ -92,8 +92,13 @@ $nav-icons: (
   /* Vues custom (liens libres de nav-structure.ts), même mécanisme. */
   /* Rapprochement : deux colonnes mises en regard, la coche entre les deux. */
   "facturation":             "<rect x='3' y='4' width='7' height='16' rx='1.5'/><rect x='14' y='4' width='7' height='16' rx='1.5'/><path d='M10 12h4'/><path d='M5.5 9h2M5.5 12h2M5.5 15h2M16.5 9h2M16.5 12h2M16.5 15h2'/>",
-  /* Acquisition : l'entonnoir. */
-  "acquisition":             "<path d='M3 4h18l-7 8v6l-4 2v-8z'/>",
+  /* Analyses : une icône par page. */
+  "analyses-facturation":    "<path d='M3 3v18h18'/><path d='M7 15v-4M12 15V8M17 15v-6'/>",
+  "analyses-pipeline":       "<path d='M4 4h16l-6 7v6l-4 2v-8z'/>",
+  "analyses-acquisition":    "<circle cx='11' cy='11' r='7'/><path d='M21 21l-4.5-4.5'/><path d='M11 8v6M8 11h6'/>",
+  "analyses-support":        "<circle cx='12' cy='12' r='9'/><circle cx='12' cy='12' r='3.5'/><path d='M14.5 9.5L18 6M9.5 9.5L6 6M14.5 14.5L18 18M9.5 14.5L6 18'/>",
+  "analyses-developpements": "<path d='M8.5 7L3.5 12l5 5'/><path d='M15.5 7l5 5-5 5'/>",
+  "analyses-partenaires":    "<circle cx='9' cy='8' r='3'/><path d='M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5'/><path d='M16 5.5a3 3 0 010 5.8M21.5 20c0-2.2-1.2-3.7-3.2-4.4'/>",
 
 );
 /**
@@ -818,6 +823,8 @@ $nav-icons: (
     /* Sans cette entrée, le groupe affichait un CARRÉ PLEIN : la pastille est
        dessinée pour tous les groupes, et sans masque elle reste un aplat. */
     "Développements": "<path d='M8.5 7L3.5 12l5 5'/><path d='M15.5 7l5 5-5 5'/>",
+    /* Analyses : une courbe qui monte. */
+    "Analyses":     "<path d='M3 17l6-6 4 4 8-8'/><path d='M14 7h7v7'/>",
     /* Facturation : une facture (feuille à coin plié, lignes de montants). */
     "Facturation":  "<path d='M6 2h9l5 5v15H6z'/><path d='M15 2v5h5'/><path d='M9 12h7M9 16h7M9 8h2'/>",
     "Système":      "<circle cx='12' cy='12' r='3'/><path d='M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.6 1.6 0 008 19.4a1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H2a2 2 0 110-4h.1A1.6 1.6 0 003.6 8a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H8a1.6 1.6 0 001-1.5V2a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V8a1.6 1.6 0 001.5 1H22a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z'/>",

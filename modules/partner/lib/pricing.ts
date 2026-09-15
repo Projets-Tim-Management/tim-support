@@ -32,11 +32,11 @@ export type BillableFacts = {
  * Source de vérité unique : les tuiles de la fiche partenaire, la colonne
  * « Commission / mois » et la ligne de total de la liste s'y réfèrent toutes.
  */
-export const isBillableClient = (facts?: BillableFacts | null): boolean => {
+export const isBillableClient = (facts?: BillableFacts | null, now: Date = new Date()): boolean => {
   if (facts?.clientStatus !== "actif") return false;
   const start = facts?.contractStartDate ? Date.parse(facts.contractStartDate) : NaN;
   // Contrat à venir → pas encore facturé (et date illisible → on ne facture pas).
-  return !Number.isNaN(start) && start <= Date.now();
+  return !Number.isNaN(start) && start <= now.getTime();
 };
 
 /** Prix de base /mois par profil (€ HT) — valeurs par défaut, surchargeables. */

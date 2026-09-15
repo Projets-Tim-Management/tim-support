@@ -1,4 +1,4 @@
-/* Écran « Acquisition » (modules/forms/admin/AcquisitionView.tsx).
+/* Écran « Analyses → Acquisition » (modules/analytics/admin/AcquisitionView.tsx).
    Aucune couleur en dur : tout vient des jetons de styles/_tokens.scss. */
 
 .acq {
@@ -6,90 +6,6 @@
   flex-direction: column;
   gap: 1.5rem;
   padding-bottom: 2rem;
-}
-
-.acq-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.acq-title {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--tim-foreground);
-}
-.acq-sub {
-  margin: 0.25rem 0 0;
-  font-size: 0.9rem;
-  color: var(--tim-muted);
-}
-
-.acq-periods {
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.25rem;
-  border: 1px solid var(--tim-border);
-  border-radius: var(--tim-radius);
-  background: var(--tim-white);
-}
-.acq-period {
-  padding: 0.35rem 0.75rem;
-  border-radius: calc(var(--tim-radius) - 2px);
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--tim-muted);
-  text-decoration: none;
-  white-space: nowrap;
-
-  &:hover {
-    color: var(--tim-foreground);
-    background: var(--tim-primary-light);
-  }
-}
-.acq-period--on {
-  color: var(--tim-white);
-  background: var(--tim-primary);
-
-  &:hover {
-    color: var(--tim-white);
-    background: var(--tim-primary);
-  }
-}
-
-.acq-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.75rem;
-}
-.acq-tile {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid var(--tim-border);
-  border-radius: var(--tim-radius);
-  background: var(--tim-white);
-}
-.acq-tile__label {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--tim-muted);
-}
-.acq-tile__value {
-  font-size: 1.75rem;
-  font-weight: 800;
-  line-height: 1.1;
-  color: var(--tim-foreground);
-}
-.acq-tile__sub {
-  font-size: 0.78rem;
-  color: var(--tim-muted);
 }
 
 .acq-grid {

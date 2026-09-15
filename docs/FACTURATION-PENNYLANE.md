@@ -81,9 +81,48 @@ compte.
 Sur la fiche client, l'historique mensuel gagne une colonne **Paiement**
 (admins) : la facture du mois et son état, « Aucune facture » si une était
 attendue, ou « couvert par la facture de … » pour les mois d'une facture
-trimestrielle. L'historique lui-même **démarre à la première facture
-Pennylane**, et chaque mois porte son tampon « Conforme / Écart Pennylane »
-(licences) posé à l'enregistrement.
+trimestrielle.
+
+## L'historique mensuel : règles
+
+`modules/partner/lib/history.ts` (décision du 15/09/2026) :
+
+- **Affaire non gagnée** (pipeline, test, perdue) : les licences saisies sont
+  un devis, un brouillon de suivi — **rien n'entre dans l'historique**.
+- **Gagnée** : la première ligne est datée du **mois de démarrage de la
+  facturation** — l'abonnement Pennylane dès qu'il existe, sinon la date de
+  contrat — jamais avant, même si on enregistre plus tôt. Ensuite une ligne par
+  mois où la configuration change ; le mois en cours se met à jour ; chaque
+  ligne porte son tampon « Conforme / Écart Pennylane ».
+- **Résiliée / archivée** : l'historique est conservé, on n'y ajoute plus rien.
+- Les fiches anciennes se recalent d'elles-mêmes au prochain enregistrement ;
+  `npx tsx scripts/historique-recaler.ts` (puis `--appliquer`) le fait d'un coup.
+
+## Le groupe « Analyses »
+
+Six pages (`modules/analytics/`, admins seulement), même coquille : onglets
+entre pages, filtre de période (3 / 6 / 12 / 24 mois), tuiles avec variation
+vs période précédente, graphiques Recharts, tableaux triables avec export CSV.
+Chaque page a sa couche de calcul pure et testée dans `modules/analytics/lib/`.
+
+| Page | Ce qu'elle montre |
+|---|---|
+| Facturation | CA sous contrat, licences, commissions, remises, impayés, conformité Pennylane, évolution mois / trimestre / année |
+| Clients & pipeline | entonnoir avec taux de passage, temps moyen par étape, parcours réels entre étapes (Sankey, depuis le journal « Étape : A → B »), créées / gagnées / perdues par mois, par provenance, par partenaire, motifs de perte et de résiliation, opportunités en cours par ancienneté |
+| Acquisition | leads du site vitrine (ex-écran Marketing → Acquisition, rapatrié ici) : par mois et par canal, conversion de chaque canal jusqu'à l'affaire gagnée, page, campagne, preuve d'attribution |
+| Support | tickets reçus / résolus, délai de résolution (moyenne, médiane, part sous 48 h, par priorité), par service, type, client ; tickets ouverts |
+| Développements | demandes reçues / livrées, délai demande → livraison, durée de réalisation, par phase, statut, type, client demandeur ; en cours |
+| Partenaires | opportunités et clients apportés, CA et commissions par partenaire et par modèle, points distribués / dépensés par source, missions et commandes à traiter |
+
+## Analyses → Facturation
+
+`/admin/analyses/facturation` (`modules/analytics/admin/`) : CA HT/mois
+sous contrat, licences, commissions, remises, impayés, conformité ; évolution
+mois / trimestre / année ; graphiques (Recharts, palette `--tim-chart-*`
+validée) et tableaux triables avec export CSV. La facturation d'un client y
+**commence à son abonnement Pennylane** (sinon au contrat) : les dates de
+contrat antérieures à la bascule Pennylane ne créent aucun CA. Les chiffres
+sont calculés dans `modules/analytics/lib/billing.ts` (pur, testé).
 
 ## Comment les deux côtés sont reliés
 

@@ -1,0 +1,676 @@
+/* Écrans « Analyses » (modules/analytics/admin/). Aucune couleur en
+   dur : tout vient des jetons de styles/_tokens.scss. Les animations sont
+   courtes et désactivées si l'utilisateur préfère moins de mouvement. */
+
+.an {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-bottom: 2rem;
+}
+.an-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.an-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+/* Onglets entre les pages Analyses, dans l'en-tête. */
+.an-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+}
+.an-page {
+  padding: 0.35rem 0.8rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    color: var(--tim-foreground);
+  }
+}
+.an-page--on {
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 8%, transparent);
+}
+
+/* ─── Entonnoir ───────────────────────────────────────────────────────────── */
+.an-funnel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.an-funnel__step {
+  animation: an-rise 0.35s ease both;
+}
+.an-funnel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.85rem;
+}
+.an-funnel__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.an-funnel__dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+.an-funnel__values {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  white-space: nowrap;
+
+  strong {
+    font-size: 1rem;
+    color: var(--tim-foreground);
+  }
+}
+.an-funnel__rate {
+  color: var(--tim-foreground);
+  font-weight: 600;
+}
+.an-funnel__total {
+  color: var(--tim-muted);
+  font-size: 0.78rem;
+}
+.an-funnel__track {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--tim-elevation-100);
+  overflow: hidden;
+}
+.an-funnel__bar {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  transform-origin: left center;
+  animation: an-grow 0.5s ease both;
+}
+
+/* ─── Flux entre étapes : la liste sous le dessin ─────────────────────────── */
+.an-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.an-flow__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.25rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.2rem 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+  }
+}
+.an-flow__swatch {
+  flex: 0 0 auto;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+.an-flow__path {
+  flex: 1;
+  color: var(--tim-foreground);
+}
+.an-flow__count {
+  font-variant-numeric: tabular-nums;
+  color: var(--tim-foreground);
+}
+
+.an-muted {
+  color: var(--tim-muted-light);
+}
+.an-empty {
+  margin: 0;
+  padding: 2rem;
+  border: 1px dashed var(--tim-border);
+  border-radius: var(--tim-radius);
+  text-align: center;
+  color: var(--tim-muted);
+}
+.an-note {
+  margin: 0;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--tim-warning);
+  border-radius: var(--tim-radius);
+  background: var(--tim-amber-bg);
+  color: var(--tim-warning-text);
+  font-size: 0.88rem;
+}
+
+/* ─── Filtre de période : le contrôle segmenté des onglets de fiche ───────── */
+.an-filters {
+  display: inline-flex;
+  gap: 0.15rem;
+  align-self: flex-start;
+  padding: 0.2rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+}
+.an-filter {
+  padding: 0.4rem 0.95rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    color: var(--tim-foreground);
+  }
+}
+.an-filter--on {
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 8%, transparent);
+
+  &:hover {
+    color: var(--tim-foreground);
+  }
+}
+
+/* ─── Tuiles ──────────────────────────────────────────────────────────────── */
+@keyframes an-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.an-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+.an-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 5%, transparent);
+  animation: an-rise 0.35s ease both;
+
+  @for $i from 1 through 6 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{($i - 1) * 50}ms;
+    }
+  }
+}
+.an-tile__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  color: var(--tim-slate);
+  background: var(--tim-slate-bg);
+  line-height: 0;
+
+  svg {
+    display: block;
+    width: 20px;
+    height: 20px;
+  }
+}
+.an-tile__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+/* Chiffre en grand : chiffres proportionnels (pas tabulaires, trop lâches ici). */
+.an-tile__value {
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--tim-foreground);
+  white-space: nowrap;
+}
+.an-tile__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+.an-tile__sub {
+  font-size: 0.74rem;
+  color: var(--tim-muted-light);
+  white-space: nowrap;
+}
+.an-tile--ok .an-tile__icon {
+  color: var(--tim-green);
+  background: var(--tim-green-bg);
+}
+.an-tile--warn .an-tile__icon {
+  color: var(--tim-amber);
+  background: var(--tim-amber-bg);
+}
+.an-tile--bad .an-tile__icon {
+  color: var(--tim-red);
+  background: var(--tim-red-bg);
+}
+.an-tile--bad .an-tile__value {
+  color: var(--tim-red);
+}
+
+/* ─── Cartes ──────────────────────────────────────────────────────────────── */
+.an-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.an-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 1rem 1.1rem 1.1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  animation: an-rise 0.4s ease both;
+}
+.an-card--wide {
+  grid-column: 1 / -1;
+}
+@media (max-width: 960px) {
+  .an-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.an-card__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.an-card__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.an-card__sub {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+}
+
+/* ─── Infobulle des graphiques ────────────────────────────────────────────── */
+.an-tip {
+  min-width: 12rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-tooltip-bg);
+  color: var(--tim-tooltip-text);
+  font-size: 0.8rem;
+  box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--tim-foreground) 50%, transparent);
+}
+.an-tip__title {
+  margin-bottom: 0.3rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.an-tip__row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.1rem 0;
+}
+/* Clé de série : un court trait, pas un pavé. */
+.an-tip__key {
+  width: 0.9rem;
+  height: 2px;
+  border-radius: 1px;
+}
+.an-tip__value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.an-tip__name {
+  opacity: 0.8;
+}
+
+/* ─── Barre de part-à-tout (2 à 4 segments) ───────────────────────────────── */
+.an-share {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.an-share__bar {
+  display: flex;
+  gap: 2px; /* l'espace de surface qui sépare les segments, pas un trait */
+  height: 14px;
+  border-radius: 7px;
+  overflow: hidden;
+}
+.an-share__seg {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  transform-origin: left center;
+  animation: an-grow 0.5s ease both;
+}
+@keyframes an-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: none;
+  }
+}
+.an-share__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+}
+.an-share__swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+}
+.an-share__value {
+  font-weight: 700;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.an-share__label {
+  color: var(--tim-muted);
+}
+
+/* ─── Tableaux ────────────────────────────────────────────────────────────── */
+.an-table-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.an-table-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.an-search {
+  flex: 0 1 16rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.85rem;
+
+  &:focus {
+    outline: none;
+    border-color: var(--tim-primary);
+    box-shadow: 0 0 0 2px var(--tim-primary-light);
+  }
+}
+.an-table-bar__count {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+}
+.an-btn {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    border-color: var(--tim-primary);
+    color: var(--tim-primary);
+  }
+  &:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+}
+.an-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+.an-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.an-table th {
+  padding: 0;
+  border-bottom: 1px solid var(--tim-border);
+  text-align: left;
+  white-space: nowrap;
+}
+.an-th {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  border: none;
+  background: none;
+  color: var(--tim-muted);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-align: inherit;
+  cursor: pointer;
+  transition: color 0.12s ease;
+
+  &:hover {
+    color: var(--tim-foreground);
+  }
+}
+.an-th--on {
+  color: var(--tim-primary);
+}
+.an-th__arrow {
+  font-size: 0.75rem;
+  opacity: 0.5;
+}
+.an-th--on .an-th__arrow {
+  opacity: 1;
+}
+.an-table .an-num .an-th {
+  justify-content: flex-end;
+}
+.an-table td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 55%, transparent);
+  color: var(--tim-foreground);
+  vertical-align: middle;
+}
+.an-table .an-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.an-row {
+  animation: an-rise 0.3s ease both;
+  transition: background 0.12s ease;
+
+  &:hover {
+    background: var(--tim-surface);
+  }
+}
+.an-link {
+  color: var(--tim-foreground);
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--tim-primary);
+    text-decoration: underline;
+  }
+}
+.an-total td {
+  border-top: 2px solid var(--tim-border);
+  border-bottom: none;
+  padding-top: 0.55rem;
+  font-weight: 800;
+}
+.an-empty-cell {
+  padding: 1.25rem 0.5rem;
+  text-align: center;
+  color: var(--tim-muted);
+}
+.an-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.an-badge--ok {
+  color: var(--tim-green);
+  background: var(--tim-green-bg);
+}
+.an-badge--warn {
+  color: var(--tim-amber);
+  background: var(--tim-amber-bg);
+}
+.an-badge--bad {
+  color: var(--tim-red);
+  background: var(--tim-red-bg);
+}
+.an-badge--muted {
+  color: var(--tim-slate);
+  background: var(--tim-slate-bg);
+}
+
+/* ─── Variations (% signé) et tableau d'évolution ─────────────────────────── */
+.an-pct {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  vertical-align: middle;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.an-pct--up {
+  color: var(--tim-green);
+  background: var(--tim-green-bg);
+}
+.an-pct--down {
+  color: var(--tim-red);
+  background: var(--tim-red-bg);
+}
+.an-pct--flat,
+.an-pct--none {
+  color: var(--tim-slate);
+  background: var(--tim-slate-bg);
+}
+.an-growth th {
+  vertical-align: bottom;
+}
+/* Un en-tête qui ne trie pas : même graphie, sans curseur ni survol. */
+.an-th--static {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  cursor: default;
+
+  &:hover {
+    color: var(--tim-muted);
+  }
+}
+.an-growth__sub {
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--tim-muted-light);
+}
+.an-growth__label {
+  font-weight: 700;
+}
+.an-growth__cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.an-growth__value {
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .an-tile,
+  .an-card,
+  .an-row,
+  .an-share__seg,
+  .an-funnel__step,
+  .an-funnel__bar {
+    animation: none;
+  }
+}
