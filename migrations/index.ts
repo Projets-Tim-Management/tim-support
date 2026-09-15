@@ -96,6 +96,8 @@ import * as migration_20260911_112500_role_annonce_sur_termine from './20260911_
 import * as migration_20260911_123348_duree_rappel_agenda from './20260911_123348_duree_rappel_agenda';
 import * as migration_20260911_130800_motif_a_qualifier_vers_autre from './20260911_130800_motif_a_qualifier_vers_autre';
 import * as migration_20260911_130900_retrait_motif_a_qualifier from './20260911_130900_retrait_motif_a_qualifier';
+import * as migration_20260915_065605_licences_remise_par_ligne from './20260915_065605_licences_remise_par_ligne';
+import * as migration_20260915_072421_periodicite_facturation from './20260915_072421_periodicite_facturation';
 
 export const migrations = [
   {
@@ -586,6 +588,16 @@ export const migrations = [
   {
     up: migration_20260911_130900_retrait_motif_a_qualifier.up,
     down: migration_20260911_130900_retrait_motif_a_qualifier.down,
-    name: '20260911_130900_retrait_motif_a_qualifier'
+    name: '20260911_130900_retrait_motif_a_qualifier',
+  },
+  {
+    up: migration_20260915_065605_licences_remise_par_ligne.up,
+    down: migration_20260915_065605_licences_remise_par_ligne.down,
+    name: '20260915_065605_licences_remise_par_ligne',
+  },
+  {
+    up: migration_20260915_072421_periodicite_facturation.up,
+    down: migration_20260915_072421_periodicite_facturation.down,
+    name: '20260915_072421_periodicite_facturation'
   },
 ];

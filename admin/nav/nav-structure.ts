@@ -25,6 +25,8 @@ export interface NavLink {
   label: string;
   /** Chemin absolu, ex. « /admin/acquisition ». */
   href: string;
+  /** Réservé aux admins : les autres rôles ne voient pas le lien. */
+  adminOnly?: boolean;
 }
 
 /** Un item de groupe : un slug, un sous-groupe repliable, ou un lien libre. */
@@ -44,13 +46,21 @@ export const NAV_ORDER = [
   "Support",
   "Développements",
   "Partenaires",
+  "Facturation",
   "Utilisateurs",
   "Éditorial",
   "Marketing",
   "Système",
 ];
 
-/** Layout par groupe de 1er niveau (clé = valeur exacte de `admin.group`). */
+/**
+ * Layout par groupe de 1er niveau (clé = valeur exacte de `admin.group`).
+ *
+ * Un groupe peut n'avoir AUCUNE collection derrière lui (« Facturation ») : il
+ * n'existe que par ses liens libres. Il est alors rendu quand même, à sa place
+ * dans NAV_ORDER, avec l'icône déclarée sous son libellé dans `$group-icons`
+ * (nav.scss) — et disparaît si aucun de ses liens n'est visible pour le rôle.
+ */
 export const NAV_LAYOUT: Record<string, NavItem[]> = {
   Éditorial: [
     "features",
@@ -78,6 +88,11 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
    * « Utilisateur », le programme de points vu du partenaire.
    */
   Partenaires: ["partners", "partner-clients"],
+  /**
+   * Ce que TIM facture. Aucune collection : l'écran lit Pennylane à la demande.
+   * Réservé aux admins, les partenaires n'en voient rien.
+   */
+  Facturation: [{ label: "Rapprochement", href: "/admin/facturation", adminOnly: true }],
   Utilisateurs: [
     { label: "Missions", slugs: ["missions", "mission-submissions"] },
     { label: "Récompenses", slugs: ["rewards", "reward-orders"] },

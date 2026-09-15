@@ -4,7 +4,7 @@ import { useFormFields } from "@payloadcms/ui";
 import { useEffect, useState } from "react";
 
 import { eur, fieldRelId, round2 } from "@/modules/partner/lib/format";
-import { PROFILS } from "@/modules/partner/lib/pricing";
+import { effectiveUnitPrice, PROFILS } from "@/modules/partner/lib/pricing";
 
 /**
  * Récap live de la barre latérale d'un client apporté : Total licences, CA HT,
@@ -20,9 +20,13 @@ export function PartnerCommissionBox() {
     let brut = 0;
     for (const pr of PROFILS) {
       const q = Number(fields[`licences.${pr.key}Qty`]?.value ?? 0);
-      const p = Number(fields[`licences.${pr.key}Price`]?.value ?? 0);
+      const net = effectiveUnitPrice({
+        price: Number(fields[`licences.${pr.key}Price`]?.value ?? 0),
+        discountPct: Number(fields[`licences.${pr.key}DiscountPct`]?.value ?? 0),
+        discountAmount: Number(fields[`licences.${pr.key}DiscountAmount`]?.value ?? 0),
+      });
       tQty += q;
-      brut += q * p;
+      brut += q * net;
     }
     return { totalQty: tQty, caHT: round2(brut), partnerId: fieldRelId(fields.partner?.value) };
   });

@@ -205,6 +205,14 @@ export default buildConfig({
           exact: true,
           meta: { title: "Acquisition" },
         },
+        // Écran « Facturation » : les licences saisies sur chaque fiche face à
+        // l'abonnement Pennylane — voir modules/partner/admin/BillingCheckView.
+        facturation: {
+          Component: "/modules/partner/admin/BillingCheckView#default",
+          path: "/facturation",
+          exact: true,
+          meta: { title: "Rapprochement" },
+        },
       },
     },
   },

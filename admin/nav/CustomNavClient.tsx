@@ -87,6 +87,21 @@ function NavLink({
 export default function CustomNavClient({ groups }: Props) {
   const { config } = useConfig();
   const { user } = useAuth();
+
+  /**
+   * Groupes VIRTUELS : un libellé du layout qui n'a que des liens libres, sans
+   * aucune collection. Ils n'existent pas pour `groupNavItems` — on les fabrique
+   * ici, à condition qu'au moins un de leurs liens soit visible pour ce rôle.
+   */
+  const virtualGroups = (real: NavGroupData[]): NavGroupData[] => {
+    const known = new Set(real.map((g) => g.label));
+    return Object.entries(NAV_LAYOUT)
+      .filter(
+        ([label, items]) =>
+          !known.has(label) && items.some((it) => isLink(it) && (!it.adminOnly || hasAdminRole(user))),
+      )
+      .map(([label]) => ({ label, entities: [] }));
+  };
   const i18n = useTranslation().i18n as I18n;
   const isActive = useIsActive();
   const pathname = usePathname();
@@ -106,13 +121,16 @@ export default function CustomNavClient({ groups }: Props) {
     });
   };
 
+  // Un groupe « contient » la page active par ses collections OU par ses liens
+  // libres (une vue custom comme le rapprochement Pennylane).
   const groupHasActive = (group: NavGroupData) =>
-    group.entities.some((e) => isActive(activeHref(e)));
+    group.entities.some((e) => isActive(activeHref(e))) ||
+    (NAV_LAYOUT[group.label] ?? []).some((it) => isLink(it) && isActive(it.href));
 
   // Accordéon : un seul groupe de 1er niveau ouvert à la fois. Au chargement, on
   // ouvre celui qui contient la page active (sinon aucun).
   const [openGroup, setOpenGroup] = useState<string | null>(
-    () => groups.find(groupHasActive)?.label ?? null,
+    () => [...groups, ...virtualGroups(groups)].find(groupHasActive)?.label ?? null,
   );
 
   /**
@@ -124,7 +142,7 @@ export default function CustomNavClient({ groups }: Props) {
     const i = NAV_ORDER.indexOf(label);
     return i === -1 ? NAV_ORDER.length : i;
   };
-  const ordered = [...groups].sort((a, b) => rank(a.label) - rank(b.label));
+  const ordered = [...groups, ...virtualGroups(groups)].sort((a, b) => rank(a.label) - rank(b.label));
 
   const renderLink = (entity: NavEntity) => (
     <NavLink
@@ -203,7 +221,11 @@ export default function CustomNavClient({ groups }: Props) {
               // rien à chercher dans `bySlug`. Même rendu que les autres liens —
               // un <div> quand il est actif, avec l'indicateur, sinon un <Link>.
               if (isLink(item)) {
+                if (item.adminOnly && !hasAdminRole(user)) return null;
                 const on = isActive(item.href);
+                // Même mécanisme d'icône que les collections : un identifiant
+                // `nav-<dernier segment de l'URL>`, réglé dans `$nav-icons`.
+                const id = `nav-${item.href.split("/").filter(Boolean).pop()}`;
                 const label = (
                   <Fragment>
                     {on && <div className={`${baseClass}__link-indicator`} />}
@@ -211,11 +233,11 @@ export default function CustomNavClient({ groups }: Props) {
                   </Fragment>
                 );
                 return on ? (
-                  <div key={item.href} className={`${baseClass}__link`}>
+                  <div key={item.href} className={`${baseClass}__link`} id={id}>
                     {label}
                   </div>
                 ) : (
-                  <NextLink key={item.href} className={`${baseClass}__link`} href={item.href} prefetch={false}>
+                  <NextLink key={item.href} className={`${baseClass}__link`} href={item.href} id={id} prefetch={false}>
                     {label}
                   </NextLink>
                 );

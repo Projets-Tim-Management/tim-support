@@ -37,10 +37,16 @@ import { requireContractStart } from "@/modules/partner/hooks/requireContractSta
 import { requireLossReason } from "@/modules/partner/hooks/requireLossReason";
 import { LOSS_REASON_OPTIONS, needsLossReason } from "@/modules/partner/lib/lossReason";
 import { journalEntries, logActivity } from "@/modules/partner/lib/journal";
+import { pennylaneStampFor, type PennylaneStamp } from "@/modules/partner/lib/billing-check";
+import { BILLING_PERIOD_OPTIONS } from "@/modules/partner/lib/billing-period";
+import { monthKey, monthStart } from "@/modules/partner/lib/month";
+import { peekPennylane } from "@/modules/partner/lib/pennylane";
 import {
   computeClientCA,
+  effectiveUnitPrice,
   isBillableClient,
   LICENCE_BASE_PRICES,
+  licenceLinesOf,
   PROFILS,
 } from "@/modules/partner/lib/pricing";
 
@@ -67,10 +73,7 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
   // Repli sur originalDoc si `licences` absent d'une mise à jour partielle
   // (sinon le CA serait remis à zéro en éditant un autre champ).
   const lic = (data?.licences ?? originalDoc?.licences ?? {}) as Record<string, number | undefined>;
-  const lines = PROFILS.map((p) => ({
-    qty: lic[`${p.key}Qty`] ?? 0,
-    price: lic[`${p.key}Price`] ?? LICENCE_BASE_PRICES[p.key],
-  }));
+  const lines = licenceLinesOf(lic);
   const { totalLicences, caHT, suggestedDiscountPct } = computeClientCA(lines);
 
   // Taux de commission du partenaire lié (figé dans chaque période d'historique).
@@ -89,12 +92,17 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
   const commission = round2((caHT * commissionRate) / 100);
 
   // Détail complet par profil (pour le drawer d'historique).
-  const detail = PROFILS.map((p, i) => ({
-    key: p.key,
-    label: p.label,
-    qty: lines[i].qty,
-    price: lines[i].price,
-    subtotal: Math.round(lines[i].qty * lines[i].price * 100) / 100,
+  // `price` = prix effectif (remise déduite) : c'est lui que l'historique doit
+  // raconter, et lui que la signature ci-dessous compare.
+  const detail = lines.map((l) => ({
+    key: l.key,
+    label: l.label,
+    qty: l.qty,
+    price: effectiveUnitPrice(l),
+    listPrice: l.price,
+    discountPct: l.discountPct || undefined,
+    discountAmount: l.discountAmount || undefined,
+    subtotal: round2(l.qty * effectiveUnitPrice(l)),
   }));
 
   // Historique = facturation MENSUELLE : une seule ligne par mois (datée du 1er).
@@ -107,13 +115,33 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
     commission?: number;
     commissionRate?: number;
     detail?: unknown;
+    pennylane?: PennylaneStamp;
+  };
+
+  /**
+   * Conformité à Pennylane, tamponnée sur la ligne du mois. Lue dans le cache
+   * (jamais d'attente à l'enregistrement) : sans instantané, on garde le
+   * dernier tampon connu plutôt que d'effacer une information encore vraie.
+   */
+  const snap = peekPennylane();
+  const facts = {
+    id: originalDoc?.id ?? "—",
+    name: String(data?.companyName ?? originalDoc?.companyName ?? ""),
+    siren: (data?.siren ?? originalDoc?.siren) as string | null,
+    raisonSociale: (data?.raisonSociale ?? originalDoc?.raisonSociale) as string | null,
+    clientStatus: (data?.clientStatus ?? originalDoc?.clientStatus) as string | null,
+    paymentMethod: (data?.paymentMethod ?? originalDoc?.paymentMethod) as string | null,
+    paymentTerms: (data?.paymentTerms ?? originalDoc?.paymentTerms) as string | null,
+    billingPeriod: (data?.billingPeriod ?? originalDoc?.billingPeriod) as string | null,
+    licences: lic,
   };
   const now = new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-  const monthKey = `${now.getUTCFullYear()}-${now.getUTCMonth()}`;
+  const thisMonthStart = monthStart(now);
+  const thisMonthKey = monthKey(now);
   const prev = (Array.isArray(data?.history) ? data.history : originalDoc?.history) ?? [];
   const history = [...(prev as HistEntry[])];
   const last = history[history.length - 1];
+  const stamp: PennylaneStamp | undefined = snap ? pennylaneStampFor(facts, snap) : last?.pennylane;
   // Signature stable (indépendante de l'ordre des clés jsonb) : qté×prix / profil + taux.
   const sig = (arr: unknown): string =>
     (Array.isArray(arr) ? (arr as { key?: string; qty?: number; price?: number }[]) : [])
@@ -122,31 +150,22 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
   const configChanged =
     !last || sig(last.detail) !== sig(detail) || Number(last.commissionRate ?? -1) !== commissionRate;
   if (configChanged) {
-    const lastKey = last?.at
-      ? (() => {
-          const d = new Date(last.at);
-          return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
-        })()
-      : null;
-    const entry: HistEntry = { at: monthStart, totalLicences, caHT, commission, commissionRate, detail };
-    if (last && lastKey === monthKey) history[history.length - 1] = entry; // même mois → maj
+    const lastKey = last?.at ? monthKey(last.at) : null;
+    const entry: HistEntry = { at: thisMonthStart, totalLicences, caHT, commission, commissionRate, detail, pennylane: stamp };
+    if (last && lastKey === thisMonthKey) history[history.length - 1] = entry; // même mois → maj
     else history.push(entry); // nouveau mois / première ligne
+  } else if (last && snap) {
+    // Rien n'a changé sur la fiche, mais Pennylane a pu être corrigé depuis :
+    // le tampon de la dernière ligne suit.
+    history[history.length - 1] = { ...last, pennylane: stamp };
   }
 
   // Consolidation : une seule ligne par mois (dernier état), datée du 1er,
   // triée. Nettoie les données héritées de l'ancien hook (dates au jour, doublons).
-  const monthKeyOf = (iso: string) => {
-    const d = new Date(iso);
-    return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
-  };
-  const monthStartOf = (iso: string) => {
-    const d = new Date(iso);
-    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString();
-  };
   const byMonth = new Map<string, HistEntry>();
   for (const e of history) {
     if (!e.at) continue;
-    byMonth.set(monthKeyOf(e.at), { ...e, at: monthStartOf(e.at) });
+    byMonth.set(monthKey(e.at), { ...e, at: monthStart(e.at) });
   }
   const cleanHistory = [...byMonth.values()].sort((a, b) => Date.parse(a.at ?? "") - Date.parse(b.at ?? ""));
 
@@ -821,7 +840,20 @@ export const PartnerClients: CollectionConfig = {
                 hiddenNum("chefEquipePrice", LICENCE_BASE_PRICES.chefEquipe),
                 hiddenNum("compagnonQty", 0),
                 hiddenNum("compagnonPrice", LICENCE_BASE_PRICES.compagnon),
+                // Remise facultative par ligne, en % OU en € par licence (deux
+                // nombres plutôt qu'un type + une valeur : pas d'enum en base).
+                ...PROFILS.flatMap((p) => [hiddenNum(`${p.key}DiscountPct`, 0), hiddenNum(`${p.key}DiscountAmount`, 0)]),
               ],
+            },
+            // Ce que Pennylane facture, face à ce qui est saisi juste au-dessus.
+            // Réservé à TIM : ce qu'on facture ne regarde pas le partenaire.
+            {
+              name: "pennylaneBox",
+              type: "ui",
+              admin: {
+                condition: adminOnlyTab,
+                components: { Field: "/modules/partner/admin/PennylaneCompare#PennylaneCompare" },
+              },
             },
             // Historique mensuel, sous le tableau des licences.
             {
@@ -872,6 +904,23 @@ export const PartnerClients: CollectionConfig = {
                     { label: "45 jours", value: "45j" },
                     { label: "60 jours", value: "60j" },
                   ],
+                },
+              ],
+            },
+            {
+              type: "row",
+              fields: [
+                {
+                  name: "billingPeriod",
+                  type: "select",
+                  label: "Périodicité de facturation",
+                  defaultValue: "mensuelle",
+                  admin: {
+                    width: "50%",
+                    description:
+                      "Les licences de la fiche sont toujours PAR MOIS ; une facture trimestrielle en couvre trois. Doit correspondre à la fréquence de l'abonnement Pennylane.",
+                  },
+                  options: BILLING_PERIOD_OPTIONS,
                 },
               ],
             },

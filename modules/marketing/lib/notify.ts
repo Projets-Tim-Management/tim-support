@@ -2,7 +2,7 @@ import type { Payload } from "payload";
 
 import { ROLES } from "@/core/access";
 import { eur } from "@/modules/partner/lib/format";
-import { PROFILS } from "@/modules/partner/lib/pricing";
+import { effectiveUnitPrice, licenceLinesOf } from "@/modules/partner/lib/pricing";
 import { TIMEZONE as PARIS } from "@/modules/marketing/lib/scheduling";
 import {
   BORDER,
@@ -300,11 +300,12 @@ export function buildQuoteEmail(
 
     // Une ligne par profil réellement commandé : un devis à zéro licence sur
     // trois profils n'apprend rien et allonge la lecture.
-    const lines = PROFILS.map((profil) => {
-      const qty = Number(lic[`${profil.key}Qty`] ?? 0);
-      const price = Number(lic[`${profil.key}Price`] ?? 0);
-      return { label: profil.label, qty, price, total: qty * price };
-    }).filter((l) => l.qty > 0);
+    const lines = licenceLinesOf(lic)
+      .map((l) => {
+        const price = effectiveUnitPrice(l);
+        return { label: l.label, qty: l.qty, price, total: l.qty * price };
+      })
+      .filter((l) => l.qty > 0);
 
     const totalQty = lines.reduce((n, l) => n + l.qty, 0);
     const totalHT = lines.reduce((n, l) => n + l.total, 0);

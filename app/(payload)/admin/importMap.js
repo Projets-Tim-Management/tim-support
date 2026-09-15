@@ -73,6 +73,7 @@ import { SequenceState as SequenceState_76fc64c304fa617805830e30067a8b3b } from 
 import { ClientHistory as ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1 } from '../../../modules/partner/admin/ClientHistory'
 import { NeedFromOpportunity as NeedFromOpportunity_706b11bee372d49b265857d9536df99c } from '../../../modules/dev/admin/CreateDevelopment'
 import { LicencesTable as LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338 } from '../../../modules/partner/admin/LicencesTable'
+import { PennylaneCompare as PennylaneCompare_15129f9dfdba74a12c4653c08d159168 } from '../../../modules/partner/admin/PennylaneCompare'
 import { PartnerClientHistory as PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2 } from '../../../modules/partner/admin/PartnerClientHistory'
 import { OnboardingRecap as OnboardingRecap_d713ec8857fdf2ef0b320360e45593af } from '../../../modules/marketing/admin/OnboardingRecap'
 import { PreparationConsole as PreparationConsole_9e99600200a0e8a19593b41642fef9dc } from '../../../modules/marketing/admin/PreparationConsole'
@@ -124,6 +125,7 @@ import { VercelBlobClientUploadHandler as VercelBlobClientUploadHandler_16c82c5e
 import { default as default_a8bdfd6ec46ed48bd1e9402d58bf4c34 } from '../../../admin/dashboard/DashboardView'
 import { default as default_6971e0609c24bbf2339323e60b70e021 } from '../../../modules/support/admin/NotificationsView'
 import { default as default_9d9414930c979dbddf13d0cf7ee23f41 } from '../../../modules/forms/admin/AcquisitionView'
+import { default as default_d8e7bbf9f25486534fff2dfe79658e80 } from '../../../modules/partner/admin/BillingCheckView'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 /** @type import('payload').ImportMap */
@@ -203,6 +205,7 @@ export const importMap = {
   "/modules/partner/admin/ClientHistory#ClientHistory": ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1,
   "/modules/dev/admin/CreateDevelopment#NeedFromOpportunity": NeedFromOpportunity_706b11bee372d49b265857d9536df99c,
   "/modules/partner/admin/LicencesTable#LicencesTable": LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338,
+  "/modules/partner/admin/PennylaneCompare#PennylaneCompare": PennylaneCompare_15129f9dfdba74a12c4653c08d159168,
   "/modules/partner/admin/PartnerClientHistory#PartnerClientHistory": PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2,
   "/modules/marketing/admin/OnboardingRecap#OnboardingRecap": OnboardingRecap_d713ec8857fdf2ef0b320360e45593af,
   "/modules/marketing/admin/PreparationConsole#PreparationConsole": PreparationConsole_9e99600200a0e8a19593b41642fef9dc,
@@ -254,5 +257,6 @@ export const importMap = {
   "/admin/dashboard/DashboardView#default": default_a8bdfd6ec46ed48bd1e9402d58bf4c34,
   "/modules/support/admin/NotificationsView#default": default_6971e0609c24bbf2339323e60b70e021,
   "/modules/forms/admin/AcquisitionView#default": default_9d9414930c979dbddf13d0cf7ee23f41,
+  "/modules/partner/admin/BillingCheckView#default": default_d8e7bbf9f25486534fff2dfe79658e80,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }
