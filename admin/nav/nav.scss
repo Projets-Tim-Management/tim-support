@@ -94,6 +94,8 @@ $nav-icons: (
   "facturation":             "<rect x='3' y='4' width='7' height='16' rx='1.5'/><rect x='14' y='4' width='7' height='16' rx='1.5'/><path d='M10 12h4'/><path d='M5.5 9h2M5.5 12h2M5.5 15h2M16.5 9h2M16.5 12h2M16.5 15h2'/>",
   /* Acquisition : l'entonnoir. */
   "acquisition":             "<path d='M3 4h18l-7 8v6l-4 2v-8z'/>",
+  /* Analyses → Facturation : des barres et une courbe. */
+  "analyses-facturation":    "<path d='M3 3v18h18'/><path d='M7 15v-4M12 15V8M17 15v-6'/>",
 
 );
 /**
@@ -818,6 +820,8 @@ $nav-icons: (
     /* Sans cette entrée, le groupe affichait un CARRÉ PLEIN : la pastille est
        dessinée pour tous les groupes, et sans masque elle reste un aplat. */
     "Développements": "<path d='M8.5 7L3.5 12l5 5'/><path d='M15.5 7l5 5-5 5'/>",
+    /* Analyses : une courbe qui monte. */
+    "Analyses":     "<path d='M3 17l6-6 4 4 8-8'/><path d='M14 7h7v7'/>",
     /* Facturation : une facture (feuille à coin plié, lignes de montants). */
     "Facturation":  "<path d='M6 2h9l5 5v15H6z'/><path d='M15 2v5h5'/><path d='M9 12h7M9 16h7M9 8h2'/>",
     "Système":      "<circle cx='12' cy='12' r='3'/><path d='M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.6 1.6 0 008 19.4a1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H2a2 2 0 110-4h.1A1.6 1.6 0 003.6 8a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H8a1.6 1.6 0 001-1.5V2a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V8a1.6 1.6 0 001.5 1H22a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z'/>",

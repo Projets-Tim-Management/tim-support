@@ -213,6 +213,14 @@ export default buildConfig({
           exact: true,
           meta: { title: "Rapprochement" },
         },
+        // Analyses → Facturation : CA, licences, partenaires, impayés, remises —
+        // graphiques et tableaux, voir modules/partner/admin/analytics/.
+        analysesFacturation: {
+          Component: "/modules/partner/admin/analytics/BillingAnalyticsView#default",
+          path: "/analyses/facturation",
+          exact: true,
+          meta: { title: "Analyses · Facturation" },
+        },
       },
     },
   },

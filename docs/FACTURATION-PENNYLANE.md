@@ -81,9 +81,32 @@ compte.
 Sur la fiche client, l'historique mensuel gagne une colonne **Paiement**
 (admins) : la facture du mois et son état, « Aucune facture » si une était
 attendue, ou « couvert par la facture de … » pour les mois d'une facture
-trimestrielle. L'historique lui-même **démarre à la première facture
-Pennylane**, et chaque mois porte son tampon « Conforme / Écart Pennylane »
-(licences) posé à l'enregistrement.
+trimestrielle.
+
+## L'historique mensuel : règles
+
+`modules/partner/lib/history.ts` (décision du 15/09/2026) :
+
+- **Affaire non gagnée** (pipeline, test, perdue) : les licences saisies sont
+  un devis, un brouillon de suivi — **rien n'entre dans l'historique**.
+- **Gagnée** : la première ligne est datée du **mois de démarrage de la
+  facturation** — l'abonnement Pennylane dès qu'il existe, sinon la date de
+  contrat — jamais avant, même si on enregistre plus tôt. Ensuite une ligne par
+  mois où la configuration change ; le mois en cours se met à jour ; chaque
+  ligne porte son tampon « Conforme / Écart Pennylane ».
+- **Résiliée / archivée** : l'historique est conservé, on n'y ajoute plus rien.
+- Les fiches anciennes se recalent d'elles-mêmes au prochain enregistrement ;
+  `npx tsx scripts/historique-recaler.ts` (puis `--appliquer`) le fait d'un coup.
+
+## Analyses → Facturation
+
+`/admin/analyses/facturation` (`modules/partner/admin/analytics/`) : CA HT/mois
+sous contrat, licences, commissions, remises, impayés, conformité ; évolution
+mois / trimestre / année ; graphiques (Recharts, palette `--tim-chart-*`
+validée) et tableaux triables avec export CSV. La facturation d'un client y
+**commence à son abonnement Pennylane** (sinon au contrat) : les dates de
+contrat antérieures à la bascule Pennylane ne créent aucun CA. Les chiffres
+sont calculés dans `modules/partner/lib/billing-analytics.ts` (pur, testé).
 
 ## Comment les deux côtés sont reliés
 

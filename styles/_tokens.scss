@@ -48,6 +48,20 @@
   --tim-indigo:    #4338ca;  --tim-indigo-bg: #e6e7fc; /* démo programmée    */
   --tim-rose:      #9f1239;  --tim-rose-bg:   #fce7ef; /* perdue             */
 
+  /* ─── Séries des graphiques (écrans Analyses) ─────────────────────────────
+     Palette catégorielle à ordre FIXE, validée (contraste ≥ 3:1 sur blanc,
+     séparation daltonienne ΔE ≥ 9, vision normale ≥ 22) par le validateur du
+     skill dataviz. Une série garde sa couleur quel que soit le filtre :
+     Admin = 1, Conducteur = 2, Chef de chantier = 3, Chef d'équipe = 4,
+     Compagnon = 5. Une seule série ? La 1 (rouge TIM). */
+  --tim-chart-1: #fe5464;
+  --tim-chart-2: #2a78d6;
+  --tim-chart-3: #1baf7a;
+  --tim-chart-4: #eda100;
+  --tim-chart-5: #4a3aa7;
+  --tim-chart-muted: #c9ccd3; /* le reste, quand une série est mise en avant */
+  --tim-chart-grid:  #eef0f3; /* grille : un cran au-dessus du fond, trait fin */
+
   /* ─── Plateformes (badge bleu identique au front) ─────────────────────────*/
   /* Infobulle : fond sombre volontairement hors palette claire — une bulle qui
      reprendrait les tons de la page se confondrait avec elle. */

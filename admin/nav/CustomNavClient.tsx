@@ -224,8 +224,9 @@ export default function CustomNavClient({ groups }: Props) {
                 if (item.adminOnly && !hasAdminRole(user)) return null;
                 const on = isActive(item.href);
                 // Même mécanisme d'icône que les collections : un identifiant
-                // `nav-<dernier segment de l'URL>`, réglé dans `$nav-icons`.
-                const id = `nav-${item.href.split("/").filter(Boolean).pop()}`;
+                // `nav-<chemin après /admin, tirets>`, réglé dans `$nav-icons`
+                // (« /admin/analyses/facturation » → `nav-analyses-facturation`).
+                const id = `nav-${item.href.split("/").filter((seg) => seg && seg !== "admin").join("-")}`;
                 const label = (
                   <Fragment>
                     {on && <div className={`${baseClass}__link-indicator`} />}

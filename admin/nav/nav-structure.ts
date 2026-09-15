@@ -47,6 +47,7 @@ export const NAV_ORDER = [
   "Développements",
   "Partenaires",
   "Facturation",
+  "Analyses",
   "Utilisateurs",
   "Éditorial",
   "Marketing",
@@ -93,6 +94,11 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
    * Réservé aux admins, les partenaires n'en voient rien.
    */
   Facturation: [{ label: "Rapprochement", href: "/admin/facturation", adminOnly: true }],
+  /**
+   * Les chiffres : une page par sujet, des tableaux et des graphiques. Réservé
+   * aux admins. Aucune collection derrière : ce sont des vues calculées.
+   */
+  Analyses: [{ label: "Facturation", href: "/admin/analyses/facturation", adminOnly: true }],
   Utilisateurs: [
     { label: "Missions", slugs: ["missions", "mission-submissions"] },
     { label: "Récompenses", slugs: ["rewards", "reward-orders"] },

@@ -126,6 +126,7 @@ import { default as default_a8bdfd6ec46ed48bd1e9402d58bf4c34 } from '../../../ad
 import { default as default_6971e0609c24bbf2339323e60b70e021 } from '../../../modules/support/admin/NotificationsView'
 import { default as default_9d9414930c979dbddf13d0cf7ee23f41 } from '../../../modules/forms/admin/AcquisitionView'
 import { default as default_d8e7bbf9f25486534fff2dfe79658e80 } from '../../../modules/partner/admin/BillingCheckView'
+import { default as default_c76bd3175baccdc013222279c139fd90 } from '../../../modules/partner/admin/analytics/BillingAnalyticsView'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
 /** @type import('payload').ImportMap */
@@ -258,5 +259,6 @@ export const importMap = {
   "/modules/support/admin/NotificationsView#default": default_6971e0609c24bbf2339323e60b70e021,
   "/modules/forms/admin/AcquisitionView#default": default_9d9414930c979dbddf13d0cf7ee23f41,
   "/modules/partner/admin/BillingCheckView#default": default_d8e7bbf9f25486534fff2dfe79658e80,
+  "/modules/partner/admin/analytics/BillingAnalyticsView#default": default_c76bd3175baccdc013222279c139fd90,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }

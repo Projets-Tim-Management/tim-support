@@ -37,9 +37,9 @@ import { requireContractStart } from "@/modules/partner/hooks/requireContractSta
 import { requireLossReason } from "@/modules/partner/hooks/requireLossReason";
 import { LOSS_REASON_OPTIONS, needsLossReason } from "@/modules/partner/lib/lossReason";
 import { journalEntries, logActivity } from "@/modules/partner/lib/journal";
-import { pennylaneStampFor, type PennylaneStamp } from "@/modules/partner/lib/billing-check";
+import { pennylaneStampFor } from "@/modules/partner/lib/billing-check";
 import { BILLING_PERIOD_OPTIONS } from "@/modules/partner/lib/billing-period";
-import { monthKey, monthStart } from "@/modules/partner/lib/month";
+import { nextHistory, type HistoryEntry } from "@/modules/partner/lib/history";
 import { peekPennylane } from "@/modules/partner/lib/pennylane";
 import {
   computeClientCA,
@@ -105,69 +105,41 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
     subtotal: round2(l.qty * effectiveUnitPrice(l)),
   }));
 
-  // Historique = facturation MENSUELLE : une seule ligne par mois (datée du 1er).
-  // Les variations dans le mois mettent à jour la ligne du mois ; un nouveau mois
-  // (ou un changement de config/taux) ajoute une ligne. Sinon → rien.
-  type HistEntry = {
-    at?: string;
-    totalLicences?: number;
-    caHT?: number;
-    commission?: number;
-    commissionRate?: number;
-    detail?: unknown;
-    pennylane?: PennylaneStamp;
-  };
-
   /**
-   * Conformité à Pennylane, tamponnée sur la ligne du mois. Lue dans le cache
-   * (jamais d'attente à l'enregistrement) : sans instantané, on garde le
-   * dernier tampon connu plutôt que d'effacer une information encore vraie.
+   * Historique mensuel — règles dans modules/partner/lib/history.ts : rien tant
+   * que l'affaire n'est pas gagnée (les licences sont un devis), une ligne par
+   * mois à partir du démarrage de la facturation, jamais avant.
+   *
+   * Le démarrage, c'est l'abonnement Pennylane dès qu'on le connaît (tampon en
+   * cache, jamais d'attente à l'enregistrement), sinon la date de contrat.
    */
   const snap = peekPennylane();
+  const clientStatus = (data?.clientStatus ?? originalDoc?.clientStatus) as string | null;
   const facts = {
     id: originalDoc?.id ?? "—",
     name: String(data?.companyName ?? originalDoc?.companyName ?? ""),
     siren: (data?.siren ?? originalDoc?.siren) as string | null,
     raisonSociale: (data?.raisonSociale ?? originalDoc?.raisonSociale) as string | null,
-    clientStatus: (data?.clientStatus ?? originalDoc?.clientStatus) as string | null,
+    clientStatus,
     paymentMethod: (data?.paymentMethod ?? originalDoc?.paymentMethod) as string | null,
     paymentTerms: (data?.paymentTerms ?? originalDoc?.paymentTerms) as string | null,
     billingPeriod: (data?.billingPeriod ?? originalDoc?.billingPeriod) as string | null,
     licences: lic,
   };
-  const now = new Date();
-  const thisMonthStart = monthStart(now);
-  const thisMonthKey = monthKey(now);
-  const prev = (Array.isArray(data?.history) ? data.history : originalDoc?.history) ?? [];
-  const history = [...(prev as HistEntry[])];
-  const last = history[history.length - 1];
-  const stamp: PennylaneStamp | undefined = snap ? pennylaneStampFor(facts, snap) : last?.pennylane;
-  // Signature stable (indépendante de l'ordre des clés jsonb) : qté×prix / profil + taux.
-  const sig = (arr: unknown): string =>
-    (Array.isArray(arr) ? (arr as { key?: string; qty?: number; price?: number }[]) : [])
-      .map((d) => `${d.key}:${d.qty}x${d.price}`)
-      .join("|");
-  const configChanged =
-    !last || sig(last.detail) !== sig(detail) || Number(last.commissionRate ?? -1) !== commissionRate;
-  if (configChanged) {
-    const lastKey = last?.at ? monthKey(last.at) : null;
-    const entry: HistEntry = { at: thisMonthStart, totalLicences, caHT, commission, commissionRate, detail, pennylane: stamp };
-    if (last && lastKey === thisMonthKey) history[history.length - 1] = entry; // même mois → maj
-    else history.push(entry); // nouveau mois / première ligne
-  } else if (last && snap) {
-    // Rien n'a changé sur la fiche, mais Pennylane a pu être corrigé depuis :
-    // le tampon de la dernière ligne suit.
-    history[history.length - 1] = { ...last, pennylane: stamp };
-  }
+  const prev = ((Array.isArray(data?.history) ? data.history : originalDoc?.history) ?? []) as HistoryEntry[];
+  const stamp = snap ? pennylaneStampFor(facts, snap) : undefined;
+  const lastStamp = prev[prev.length - 1]?.pennylane;
+  const contractStart = (data?.contractStartDate ?? originalDoc?.contractStartDate) as string | null | undefined;
+  const billingStart = stamp?.start ?? lastStamp?.start ?? contractStart ?? null;
 
-  // Consolidation : une seule ligne par mois (dernier état), datée du 1er,
-  // triée. Nettoie les données héritées de l'ancien hook (dates au jour, doublons).
-  const byMonth = new Map<string, HistEntry>();
-  for (const e of history) {
-    if (!e.at) continue;
-    byMonth.set(monthKey(e.at), { ...e, at: monthStart(e.at) });
-  }
-  const cleanHistory = [...byMonth.values()].sort((a, b) => Date.parse(a.at ?? "") - Date.parse(b.at ?? ""));
+  const cleanHistory = nextHistory(prev, {
+    clientStatus,
+    billingStart,
+    now: new Date(),
+    entry: { totalLicences, caHT, commission, commissionRate, detail },
+    stamp,
+    freshStamp: Boolean(snap),
+  });
 
   // Le partenaire fixe les prix → le CA HT est directement Σ(qté × prix), sans
   // remise appliquée. `discountPct` reste stocké à titre indicatif.
