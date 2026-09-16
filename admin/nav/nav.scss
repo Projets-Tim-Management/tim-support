@@ -91,6 +91,8 @@ $nav-icons: (
   "mailbox-connections":     "<path d='M4 4h16v9h-4.5L14 16h-4l-1.5-3H4z'/><path d='M4 13v5a2 2 0 002 2h12a2 2 0 002-2v-5'/>",
   /* Connexions API : une prise. Reprise plus bas pour l'état actif (#nav-integrations). */
   "integrations":            "<path d='M12 22v-5'/><path d='M9 8V2M15 8V2'/><path d='M18 8v5a6 6 0 01-12 0V8z'/>",
+  /* Connexions du support (Paramètres) : une clé — les variables, pas les fiches. */
+  "connexions-support":      "<circle cx='7.5' cy='15.5' r='4.5'/><path d='M10.7 12.3L21 2'/><path d='M15 8l3 3M18 5l3 3'/>",
   /* Vues custom (liens libres de nav-structure.ts), même mécanisme. */
   /* Rapprochement : deux colonnes mises en regard, la coche entre les deux. */
   "facturation":             "<rect x='3' y='4' width='7' height='16' rx='1.5'/><rect x='14' y='4' width='7' height='16' rx='1.5'/><path d='M10 12h4'/><path d='M5.5 9h2M5.5 12h2M5.5 15h2M16.5 9h2M16.5 12h2M16.5 15h2'/>",

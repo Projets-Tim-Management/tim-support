@@ -30,6 +30,7 @@ import { Tickets } from "./modules/support/collections/Tickets";
 import { Developments } from "./modules/dev/collections/Developments";
 import { DevStatuses } from "./modules/dev/collections/DevStatuses";
 import { Integrations } from "./modules/dev/collections/Integrations";
+import { SupportConnectionsGlobal } from "./modules/dev/globals/SupportConnections";
 import { Forms } from "./modules/forms/collections/Forms";
 import { FormSubmissions } from "./modules/forms/collections/FormSubmissions";
 import { MarketingJourneys } from "./modules/marketing/collections/MarketingJourneys";
@@ -200,6 +201,13 @@ export default buildConfig({
         },
         // Écran « Facturation » : les licences saisies sur chaque fiche face à
         // l'abonnement Pennylane — voir modules/partner/admin/BillingCheckView.
+        // Connexions du support (Paramètres) : état des variables, test, notes.
+        connexionsSupport: {
+          Component: "/modules/dev/admin/SupportConnectionsView#default",
+          path: "/connexions-support",
+          exact: true,
+          meta: { title: "Connexions du support" },
+        },
         facturation: {
           Component: "/modules/partner/admin/BillingCheckView#default",
           path: "/facturation",
@@ -487,7 +495,7 @@ export default buildConfig({
        */
     }),
   ],
-  globals: [Appearance],
+  globals: [Appearance, SupportConnectionsGlobal],
 
   db: postgresAdapter({
     // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :

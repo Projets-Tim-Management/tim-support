@@ -172,9 +172,11 @@ export interface Config {
   fallbackLocale: null;
   globals: {
     appearance: Appearance;
+    'support-connections': SupportConnection;
   };
   globalsSelect: {
     appearance: AppearanceSelect<false> | AppearanceSelect<true>;
+    'support-connections': SupportConnectionsSelect<false> | SupportConnectionsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -3742,11 +3744,49 @@ export interface Appearance {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "support-connections".
+ */
+export interface SupportConnection {
+  id: number;
+  entries?:
+    | {
+        key: string;
+        notes?: string | null;
+        lastTestAt?: string | null;
+        lastTestOk?: boolean | null;
+        lastTestMessage?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "appearance_select".
  */
 export interface AppearanceSelect<T extends boolean = true> {
   logo?: T;
   icon?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "support-connections_select".
+ */
+export interface SupportConnectionsSelect<T extends boolean = true> {
+  entries?:
+    | T
+    | {
+        key?: T;
+        notes?: T;
+        lastTestAt?: T;
+        lastTestOk?: T;
+        lastTestMessage?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
