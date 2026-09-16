@@ -91,7 +91,9 @@ export function ConnectionCard({ def, env, configured, initial }: { def: Support
           <span className="sc-card__name">{def.name}</span>
           <span className={`sc-card__state sc-card__state--${tone}`}>
             {etat}
-            {entry.lastTestMessage && <span className="sc-card__last">— {entry.lastTestMessage}</span>}
+            {entry.lastTestMessage && (
+              <span className={`sc-card__last sc-card__last--${entry.lastTestOk ? "ok" : "ko"}`}>{entry.lastTestMessage}</span>
+            )}
           </span>
         </span>
         <span className="sc-card__actions">
