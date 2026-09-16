@@ -143,9 +143,36 @@ describe("demande du lead", () => {
 
 describe("soumission incomplète", () => {
   it("ne fabrique pas d'e-mail quand il n'y en a pas", () => {
-    // Sans e-mail, la fiche entrera en brouillon : c'est voulu, pas un défaut.
+    // Sans e-mail, la fiche entre quand même, « Nouvelle » : le téléphone sert.
     const o = build({ email: "" });
     expect(o.email).toBeUndefined();
     expect(o.contact.email).toBeUndefined();
+    expect(o.issues).toEqual([]);
+  });
+
+  /**
+   * ALTER PROTECT, 15/09/2026 : « koneyayakn@gmail.cóm » — le navigateur
+   * encode l'accent en `xn--co-pka`, la base refusait l'adresse, et avec elle
+   * toute la fiche. Un lead payant disparu pour un accent.
+   */
+  it("écarte une adresse mal formée, la garde en réserve, et ne perd pas le lead", () => {
+    const o = build({ email: "koneyayakn@gmail.xn--co-pka" });
+    expect(o.email).toBeUndefined();
+    expect(o.contact.email).toBeUndefined();
+    expect(o.issues).toEqual([{ field: "email", raw: "koneyayakn@gmail.xn--co-pka", message: expect.stringContaining("mal formée") }]);
+    // Le nom d'entreprise ne dépend pas de l'adresse invalide.
+    expect(o.companyName).not.toContain("xn--");
+  });
+
+  it("écarte un téléphone illisible de la même façon", () => {
+    const o = build({ telephone: "appelez-moi" });
+    expect(o.phone).toBeUndefined();
+    expect(o.issues.map((i) => i.field)).toEqual(["phone"]);
+  });
+
+  it("accepte une adresse ordinaire sans réserve", () => {
+    const o = build({ email: "Pierre.Ibled@instalclim.fr" });
+    expect(o.email).toBe("pierre.ibled@instalclim.fr");
+    expect(o.issues).toEqual([]);
   });
 });

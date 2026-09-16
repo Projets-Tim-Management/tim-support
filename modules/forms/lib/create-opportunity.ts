@@ -1,4 +1,4 @@
-import type { Payload } from "payload";
+import type { Payload, Where } from "payload";
 
 import { logActivity } from "@/modules/partner/lib/journal";
 import { vitrinePartnerEmail, vitrinePartnerId } from "@/modules/partner/lib/vitrine-partner";
@@ -17,8 +17,8 @@ import type { OpportunityDraft } from "@/modules/forms/lib/to-opportunity";
  */
 
 export type OpportunityOutcome =
-  | { status: "opportunite" | "brouillon"; clientId: number | string }
-  | { status: "rattachee"; clientId: number | string }
+  | { status: "opportunite"; clientId: number | string; issues: number }
+  | { status: "rattachee"; clientId: number | string; issues: number }
   | { status: "echec"; error: string };
 
 export async function createOpportunity(
@@ -44,12 +44,13 @@ export async function createOpportunity(
    * Et surtout, on ne remplace pas la « demande du lead » d'origine : elle est
    * la trace de ce qu'il voulait la première fois.
    */
-  if (draft.email) {
+  // Par l'e-mail quand on l'a, sinon par le téléphone : un lead dont l'adresse
+  // est mal tapée peut très bien être déjà connu par son numéro.
+  const matchOn: Where | null = draft.email ? { email: { equals: draft.email } } : draft.phone ? { phone: { equals: draft.phone } } : null;
+  if (matchOn) {
     const same = await payload.find({
       collection: "partner-clients",
-      where: {
-        and: [{ email: { equals: draft.email } }, { partner: { equals: partner } }],
-      },
+      where: { and: [matchOn, { partner: { equals: partner } }] },
       limit: 1,
       depth: 0,
       overrideAccess: true,
@@ -63,42 +64,40 @@ export async function createOpportunity(
       }).catch((e) =>
         payload.logger.error(`[formulaires] journal de ${existing.id} échoué : ${e}`),
       );
-      return { status: "rattachee", clientId: existing.id };
+      return { status: "rattachee", clientId: existing.id, issues: draft.issues.length };
     }
   }
 
-  const data = {
-    companyName: draft.companyName,
-    phone: draft.phone,
-    partner: partner as never,
-    clientStatus: "nouvelle" as const,
-    source: draft.source as never,
-    collaborateurs: draft.collaborateurs,
-    leadNotes: draft.leadNotes,
-    formSubmission: submissionId as never,
-  };
-
   /**
-   * Sans adresse e-mail, la fiche ne peut pas être publiée (champ requis pour la
-   * facturation) : elle entre en BROUILLON plutôt que d'être perdue.
+   * TOUJOURS publiée, « Nouvelle » — même sans e-mail valide.
    *
-   * `_status` est posé EXPLICITEMENT dans l'autre cas. La collection a les
-   * brouillons activés, et une création sans mention laisse la fiche en
-   * brouillon : elle n'apparaît alors pas dans le Kanban, et le lead reste
-   * invisible pour l'équipe — exactement ce que cette étape doit supprimer.
+   * Une fiche entrait en brouillon quand l'adresse manquait : invisible du
+   * Kanban, sans rappel, sans séquence — un lead payant tombé dans un trou
+   * (ALTER PROTECT, 15/09/2026 : « gmail.cóm »). L'e-mail n'est requis qu'à
+   * partir de la phase de test (voir PartnerClients) ; avant, ce qui compte
+   * c'est de rappeler. Ce qui n'a pas pu entrer tel quel est porté par
+   * `intakeIssues`, l'alerte en tête de fiche, jusqu'à correction.
+   *
+   * `_status` est posé EXPLICITEMENT : la collection a les brouillons
+   * activés, et une création sans mention laisse la fiche en brouillon.
    */
-  const doc = draft.email
-    ? await payload.create({
-        collection: "partner-clients",
-        data: { ...data, email: draft.email, _status: "published" },
-        overrideAccess: true,
-      })
-    : await payload.create({
-        collection: "partner-clients",
-        data,
-        draft: true,
-        overrideAccess: true,
-      });
+  const doc = await payload.create({
+    collection: "partner-clients",
+    data: {
+      companyName: draft.companyName,
+      email: draft.email,
+      phone: draft.phone,
+      partner: partner as never,
+      clientStatus: "nouvelle" as const,
+      source: draft.source as never,
+      collaborateurs: draft.collaborateurs,
+      leadNotes: draft.leadNotes,
+      formSubmission: submissionId as never,
+      intakeIssues: draft.issues as never,
+      _status: "published",
+    },
+    overrideAccess: true,
+  });
 
   // La personne à rappeler. Une fiche sans contact oblige à rouvrir la soumission
   // pour retrouver un numéro qu'on vient de lire.
@@ -117,5 +116,5 @@ export async function createOpportunity(
       );
   }
 
-  return { status: draft.email ? "opportunite" : "brouillon", clientId: doc.id };
+  return { status: "opportunite", clientId: doc.id, issues: draft.issues.length };
 }

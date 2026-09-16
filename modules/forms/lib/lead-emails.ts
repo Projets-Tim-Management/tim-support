@@ -209,8 +209,8 @@ export interface LeadNoticeContext extends LeadEmailContext {
   variante?: string;
   /** Identifiant de l'opportunité créée, pour le lien direct. */
   clientId?: number | string;
-  /** Vrai quand la fiche est entrée en brouillon (soumission sans e-mail). */
-  brouillon?: boolean;
+  /** Réserves posées sur la fiche : elle existe, « Nouvelle », mais quelque chose est à corriger. */
+  issues?: string[];
 }
 
 /**
@@ -244,8 +244,8 @@ export function newLeadNoticeEmail(ctx: LeadNoticeContext): BuiltEmail {
     subject,
     "",
     ...rows.map(([k, v]) => `${k} : ${v}`),
-    ...(ctx.brouillon
-      ? ["", "⚠️ Fiche créée en BROUILLON : aucune adresse e-mail exploitable."]
+    ...(ctx.issues?.length
+      ? ["", "⚠️ Fiche créée avec des réserves :", ...ctx.issues.map((i) => `• ${i}`)]
       : []),
     "",
     ctx.clientId ? adminUrl(`/collections/partner-clients/${ctx.clientId}`) : adminUrl("/collections/form-submissions"),
@@ -258,8 +258,8 @@ export function newLeadNoticeEmail(ctx: LeadNoticeContext): BuiltEmail {
       kicker: "Site vitrine · Formulaire",
       heading: "Nouveau lead du site vitrine",
       rows,
-      message: ctx.brouillon
-        ? "Fiche créée en brouillon : aucune adresse e-mail exploitable. À compléter avant de la publier."
+      message: ctx.issues?.length
+        ? `Fiche créée « Nouvelle » avec des réserves — à corriger sur la fiche : ${ctx.issues.join(" · ")}`
         : undefined,
       cta: {
         label: ctx.clientId ? "Ouvrir l'opportunité" : "Voir les soumissions",

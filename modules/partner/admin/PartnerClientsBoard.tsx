@@ -52,6 +52,7 @@ type ClientDoc = {
   lossReasonDetail?: string | null;
   updatedAt?: string;
   _status?: string;
+  intakeIssues?: { field?: string; message?: string }[] | null;
   partner?: PartnerRef;
 };
 
@@ -296,6 +297,9 @@ export function PartnerClientsBoard() {
           "updatedAt",
           "partner",
           "_status",
+          // La réserve d'entrée (e-mail mal formé…) : un mot sur la carte, pour
+          // qu'on sache qu'il faut corriger avant d'écrire.
+          "intakeIssues",
         ]
           .map((f) => `select[${f}]=true`)
           .join("&");
@@ -759,6 +763,15 @@ export function PartnerClientsBoard() {
                         {c.companyName || "Client sans nom"}
                         {c._status === "draft" && <span className="tim-kanban__draft">brouillon</span>}
                       </div>
+                      {Array.isArray(c.intakeIssues) && c.intakeIssues.length > 0 && (
+                        <span
+                          className="tim-kanban__intake"
+                          onMouseEnter={(e) => showTip(e, (c.intakeIssues as { message?: string }[]).map((i) => i.message).filter(Boolean).join(" · "))}
+                          onMouseLeave={() => setTip(null)}
+                        >
+                          Non conforme
+                        </span>
+                      )}
 
                       {c.caPaye ? <div className="tim-kanban__amount">{eur.format(c.caPaye)}</div> : null}
 

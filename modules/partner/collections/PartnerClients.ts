@@ -61,6 +61,30 @@ import { isBillableClient, LICENCE_BASE_PRICES, PROFILS } from "@/modules/partne
  */
 const adminOnlyTab: Condition = (_data, _siblingData, { user }) => hasAdminRole(user);
 
+/**
+ * L'adresse e-mail devient obligatoire à la phase de test : l'espace client,
+ * les accès, les factures en ont besoin. Avant, un lead sans adresse valide
+ * doit pouvoir vivre dans le Kanban — c'est le téléphone qui sert.
+ */
+const requireEmailFromTest: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
+  const status = (data?.clientStatus ?? originalDoc?.clientStatus) as string | undefined;
+  const email = String(data?.email ?? originalDoc?.email ?? "").trim();
+  const draft = data?._status === "draft";
+  if (!draft && email === "" && (status === "en-test" || hasContractPhase(status))) {
+    throw new Error("L'adresse e-mail est obligatoire à partir de la phase de test (espace client, accès, factures).");
+  }
+  return data;
+};
+
+/** Une réserve d'entrée disparaît dès que son champ est renseigné. */
+const clearIntakeIssues: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
+  const issues = (data?.intakeIssues ?? originalDoc?.intakeIssues) as { field?: string }[] | null | undefined;
+  if (!issues?.length) return data;
+  const value = (f: string) => String((data?.[f] ?? originalDoc?.[f]) ?? "").trim();
+  const kept = issues.filter((i) => !(i.field && value(i.field) !== ""));
+  return kept.length === issues.length ? data : { ...data, intakeIssues: kept };
+};
+
 /** Recalcule les totaux CA + l'historique mensuel à chaque enregistrement. */
 const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
   // Repli sur originalDoc si `licences` absent d'une mise à jour partielle
@@ -418,8 +442,10 @@ export const PartnerClients: CollectionConfig = {
     // calcul, plutôt que d'échouer à mi-chemin sur une fiche déjà recalculée.
     beforeChange: [
       requireTestSchedule,
+      requireEmailFromTest,
       requireContractStart,
       requireLossReason,
+      clearIntakeIssues,
       enforcePartnerField(),
       setStatusRank,
       computeCA,
@@ -461,6 +487,27 @@ export const PartnerClients: CollectionConfig = {
         components: { Field: "/modules/partner/admin/InseeLookup#InseeLookup" },
       },
     },
+    /**
+     * Ce qui n'a pas pu entrer tel quel depuis le formulaire (e-mail mal
+     * formé, téléphone illisible). La fiche existe, « Nouvelle » — on ne perd
+     * pas un lead pour un accent — et l'alerte reste en tête jusqu'à ce que le
+     * champ soit corrigé (voir clearIntakeIssues).
+     */
+    {
+      name: "intakeAlert",
+      type: "ui",
+      admin: { components: { Field: "/modules/partner/admin/IntakeAlert#IntakeAlert" } },
+    },
+    {
+      name: "intakeIssues",
+      type: "array",
+      admin: { hidden: true },
+      fields: [
+        { name: "field", type: "text" },
+        { name: "raw", type: "text" },
+        { name: "message", type: "text" },
+      ],
+    },
     {
       type: "row",
       fields: [
@@ -473,14 +520,14 @@ export const PartnerClients: CollectionConfig = {
         },
         {
           // En tête de fiche et non dans « Facturation client » : cet onglet est
-          // rangé en dernier, et le champ est REQUIS à la publication. C'est
-          // d'ailleurs son premier usage — écrire à la personne bien avant de
-          // lui envoyer une facture.
+          // rangé en dernier. Le champ n'est plus requis à la création : un
+          // lead dont l'adresse est mal tapée doit ENTRER dans le Kanban, avec
+          // une alerte, plutôt que d'être perdu (voir requireEmailFromTest —
+          // l'adresse devient obligatoire à la phase de test).
           name: "email",
           type: "email",
           label: "Adresse e-mail",
-          required: true,
-          admin: { width: "50%", description: "Contact, puis envoi des factures." },
+          admin: { width: "50%", description: "Contact, puis envoi des factures. Obligatoire dès la phase de test." },
         },
       ],
     },

@@ -1,3 +1,4 @@
+import { validatePhone } from "@/core/lib/validators";
 import type { Attribution } from "@/modules/forms/lib/ingest";
 import type { Channel } from "@/modules/forms/lib/form-schema";
 import type { PublicForm } from "@/modules/forms/lib/public-schema";
@@ -23,10 +24,19 @@ export const SOURCE_BY_CHANNEL: Record<Channel, string> = {
   chatgpt: "chatgpt-ads-sea",
 };
 
+/** Un champ du formulaire qu'on n'a pas pu reprendre tel quel : la fiche le signale. */
+export type IntakeIssue = { field: "email" | "phone"; raw: string; message: string };
+
 export interface OpportunityDraft {
   companyName: string;
   email?: string;
   phone?: string;
+  /**
+   * Ce qui n'a pas pu entrer sur la fiche (e-mail mal formé, téléphone
+   * illisible) : la fiche est créée quand même, « Nouvelle », avec l'alerte —
+   * un lead ne se perd pas pour un accent dans « gmail.cóm ».
+   */
+  issues: IntakeIssue[];
   source: string;
   /** Effectif, en clair (« 11 - 25 »). Voir le champ dans PartnerClients. */
   collaborateurs?: string;
@@ -51,6 +61,20 @@ export function splitName(full?: unknown): { firstName?: string; lastName?: stri
   if (parts.length === 1) return { firstName: parts[0] };
   return { firstName: parts.slice(0, -1).join(" "), lastName: parts[parts.length - 1] };
 }
+
+/**
+ * Une adresse e-mail plausible — au sens de ce que la base acceptera : un
+ * local sans espace, un domaine en lettres/chiffres/tirets, une extension en
+ * LETTRES (deux au moins). « koneyayakn@gmail.cóm » devient chez le navigateur
+ * `gmail.xn--co-pka` : l'extension porte des chiffres et des tirets, la base
+ * la refuserait — et toute la fiche avec elle. On l'écarte ici, en réserve.
+ */
+export const isPlausibleEmail = (value: string): boolean => {
+  const m = /^[^\s@]+@([a-z0-9-]+\.)+([a-z]{2,})$/i.exec(value);
+  if (!m) return false;
+  // Un label « xn-- » est un caractère accentué encodé : une faute de frappe, pas un domaine.
+  return !value.split("@")[1].split(".").some((label) => label.toLowerCase().startsWith("xn--"));
+};
 
 /** `"0620311882"` → `"+33 6 20 31 18 82"`. Laisse tel quel ce qu'il ne sait pas lire. */
 export function normalizePhone(raw?: unknown): string | undefined {
@@ -107,9 +131,15 @@ export function buildOpportunity(args: {
   const { form, answers, attribution, channel } = args;
   const receivedAt = args.receivedAt ?? new Date();
 
-  const email = str(answers.email).toLowerCase();
-  const phone = normalizePhone(answers.telephone);
-  const companyName = companyNameOf(answers, email);
+  const issues: IntakeIssue[] = [];
+  const rawEmail = str(answers.email).toLowerCase();
+  const email = rawEmail && isPlausibleEmail(rawEmail) ? rawEmail : "";
+  if (rawEmail && !email) issues.push({ field: "email", raw: rawEmail, message: "Adresse e-mail mal formée — à corriger avant tout envoi." });
+  const rawPhone = str(answers.telephone);
+  const normalized = normalizePhone(rawPhone);
+  const phone = normalized && validatePhone(normalized) === true ? normalized : undefined;
+  if (rawPhone && !phone) issues.push({ field: "phone", raw: rawPhone, message: "Numéro de téléphone illisible — à corriger." });
+  const companyName = companyNameOf(answers, email || rawEmail);
   const { firstName, lastName } = splitName(answers.nom);
 
   const civilite = labelOf(form, "genre", str(answers.genre));
@@ -140,6 +170,7 @@ export function buildOpportunity(args: {
     companyName,
     email: email || undefined,
     phone,
+    issues,
     source: SOURCE_BY_CHANNEL[channel],
     collaborateurs: effectif || undefined,
     leadNotes: lines.join("\n"),

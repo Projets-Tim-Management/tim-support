@@ -35,10 +35,11 @@ export async function sendLeadEmails(
     attribution: Attribution;
     channel: Channel;
     clientId?: number | string;
-    brouillon?: boolean;
+    /** Réserves posées sur la fiche (e-mail mal formé…) : l'alerte interne les dit. */
+    issues?: string[];
   },
 ): Promise<void> {
-  const { form, answers, attribution, channel, clientId, brouillon } = args;
+  const { form, answers, attribution, channel, clientId, issues } = args;
 
   const besoinValues = Array.isArray(answers.besoins) ? answers.besoins : [];
   const ctx = {
@@ -69,7 +70,7 @@ export async function sendLeadEmails(
     campagne: attribution.utmCampaign,
     variante: attribution.lpVariant,
     clientId,
-    brouillon,
+    issues,
   });
 
   await payload
