@@ -4,7 +4,7 @@ import { isAdmin } from "@/core/access";
 
 /**
  * Ce qu'on GARDE sur les connexions du support : le dernier test, et des
- * notes. Pas de clé — elles vivent sur Vercel (voir lib/support-connections).
+ * notes. Pas de clé — elles vivent sur Vercel (voir core/lib/support-connections).
  * Une ligne par connexion, identifiée par sa clé de code.
  */
 export const SupportConnectionsGlobal: GlobalConfig = {

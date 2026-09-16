@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SUPPORT_CONNECTIONS, connectionEnv, envState, isConfigured } from "@/modules/dev/lib/support-connections";
+import { SUPPORT_CONNECTIONS, connectionEnv, envState, isConfigured } from "@/core/lib/support-connections";
 
 /**
  * L'écran « Connexions du support » lit les variables d'environnement pour

@@ -3,12 +3,15 @@
 import { toast } from "@payloadcms/ui";
 import { useState } from "react";
 
-import type { EnvState, SupportConnection } from "@/modules/dev/lib/support-connections";
+import type { EnvState, SupportConnection } from "@/core/lib/support-connections";
 
 /**
- * Une connexion du support, en carte : à quoi elle sert, ses variables (posée
- * ou manquante — jamais la valeur), le bouton « Tester », le dernier résultat,
- * et des notes qu'on garde.
+ * Une connexion du support, en carte REPLIÉE : la barre dit le nom, l'état
+ * (liseré et texte) et porte le bouton « Tester » ; dépliée, on lit à quoi
+ * elle sert, ses variables (posée ou manquante — jamais la valeur), le dernier
+ * résultat, et des notes qu'on garde. Quatre cartes ouvertes faisaient un mur ;
+ * quatre barres se lisent d'un coup d'œil, et on n'ouvre que celle qui pose
+ * question.
  *
  * Le test et les notes passent par /api/admin/support-connections ; aucune clé
  * ne transite, dans un sens ni dans l'autre.
@@ -77,8 +80,10 @@ export function ConnectionCard({ def, env, configured, initial }: { def: Support
         : `Échec le ${quand(entry.lastTestAt)}`;
 
   return (
-    <article className={`sc-card sc-card--${tone}`}>
-      <header className="sc-card__head">
+    <details className={`sc-card sc-card--${tone}`}>
+      {/* La barre plie et déplie ; le bouton « Tester » y vit sans la faire
+          bouger (stopPropagation + preventDefault sur un <summary>). */}
+      <summary className="sc-card__head">
         <span className="sc-card__mark" aria-hidden>
           {def.mark}
         </span>
@@ -87,12 +92,26 @@ export function ConnectionCard({ def, env, configured, initial }: { def: Support
           <span className={`sc-card__state sc-card__state--${tone}`}>{etat}</span>
         </span>
         <span className="sc-card__actions">
-          <button type="button" className="tim-btn tim-btn--primary" disabled={busy != null || !configured} onClick={() => void test()} title={def.testLabel}>
+          <button
+            type="button"
+            className="tim-btn tim-btn--primary"
+            disabled={busy != null || !configured}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void test();
+            }}
+            title={def.testLabel}
+          >
             {busy === "test" ? "Test en cours…" : "Tester"}
           </button>
+          <span className="sc-card__chevron" aria-hidden>
+            ›
+          </span>
         </span>
-      </header>
+      </summary>
 
+      <div className="sc-card__body">
       <p className="sc-card__purpose">{def.purpose}</p>
 
       <div className="sc-card__cols">
@@ -149,6 +168,7 @@ export function ConnectionCard({ def, env, configured, initial }: { def: Support
         />
         {busy === "notes" && <span className="sc-card__saving">Enregistrement…</span>}
       </section>
-    </article>
+      </div>
+    </details>
   );
 }

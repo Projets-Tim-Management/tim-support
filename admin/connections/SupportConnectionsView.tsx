@@ -4,17 +4,21 @@ import { DefaultTemplate } from "@payloadcms/next/templates";
 import { Gutter } from "@payloadcms/ui";
 
 import { hasAdminRole } from "@/core/access";
-import { ConnectionCard, type Entry } from "@/modules/dev/admin/ConnectionCard";
-import { SUPPORT_CONNECTIONS, connectionEnv, isConfigured } from "@/modules/dev/lib/support-connections";
+import { ConnectionCard, type Entry } from "@/admin/connections/ConnectionCard";
+import { SUPPORT_CONNECTIONS, connectionEnv, isConfigured } from "@/core/lib/support-connections";
 
 /**
- * Écran « Connexions du support » (/admin/connexions-support, Paramètres).
+ * Écran « Connexions du support » (/admin/connexions-support, menu Système).
  *
  * Les API que ce back-office utilise lui-même — Pennylane, Brevo, INSEE,
  * Google — et pour chacune : à quoi elle sert, quelles variables elle attend
  * et si elles sont posées, un bouton pour la tester, le dernier résultat, des
  * notes. AUCUNE clé ne se saisit ni ne s'affiche ici : elles vivent sur Vercel,
  * un coffre par environnement. L'écran lit `process.env` au rendu.
+ *
+ * Rien à voir avec les développements : c'est l'outillage du back-office
+ * lui-même, d'où sa place dans le groupe Système, avec les comptes et les
+ * boîtes connectées.
  *
  * Server component : `process.env` n'est lisible que côté serveur, et c'est
  * bien — l'état des variables ne doit jamais partir dans un bundle client.

@@ -121,16 +121,20 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
   Développements: [
     "developments",
     "integrations",
-    {
-      label: "Paramètres",
-      slugs: ["dev-statuses"],
-      // Les connexions DU SUPPORT (Pennylane, Brevo, INSEE, Google) : état des
-      // variables, test, notes — aucune clé saisie ici, elles vivent sur Vercel.
-      links: [{ label: "Connexions du support", href: "/admin/connexions-support", adminOnly: true }],
-    },
+    { label: "Paramètres", slugs: ["dev-statuses"] },
   ],
-  /** Les réglages : comptes, apparence, boîtes connectées. */
-  Système: ["users", "appearance", "mailbox-connections", "media"],
+  /**
+   * Les réglages : comptes, apparence, boîtes connectées — et les connexions
+   * DU SUPPORT (Pennylane, Brevo, INSEE, Google) : état des variables, test,
+   * notes. Aucune clé saisie là : elles vivent sur Vercel.
+   */
+  Système: [
+    "users",
+    "appearance",
+    "mailbox-connections",
+    "media",
+    { label: "Connexions du support", href: "/admin/connexions-support", adminOnly: true },
+  ],
 };
 
 export function isSubGroup(item: NavItem): item is NavSubGroup {

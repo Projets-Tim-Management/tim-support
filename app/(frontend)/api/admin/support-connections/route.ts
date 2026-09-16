@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 import { hasAdminRole } from "@/core/access";
 import { payloadClient } from "@/core/payload-client";
-import { SUPPORT_CONNECTIONS, type SupportConnection } from "@/modules/dev/lib/support-connections";
-import { testConnection } from "@/modules/dev/lib/support-connections-test";
+import { SUPPORT_CONNECTIONS, type SupportConnection } from "@/core/lib/support-connections";
+import { testConnection } from "@/core/lib/support-connections-test";
 
 /**
  * POST /api/admin/support-connections
