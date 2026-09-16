@@ -101,6 +101,7 @@ import * as migration_20260915_072421_periodicite_facturation from './20260915_0
 import * as migration_20260915_161444_agendas_lecture_seule from './20260915_161444_agendas_lecture_seule';
 import * as migration_20260916_102116_validation_mensuelle_rapprochement from './20260916_102116_validation_mensuelle_rapprochement';
 import * as migration_20260916_132627_connexions_api from './20260916_132627_connexions_api';
+import * as migration_20260916_134810_connexions_api_types_multiples from './20260916_134810_connexions_api_types_multiples';
 
 export const migrations = [
   {
@@ -616,6 +617,11 @@ export const migrations = [
   {
     up: migration_20260916_132627_connexions_api.up,
     down: migration_20260916_132627_connexions_api.down,
-    name: '20260916_132627_connexions_api'
+    name: '20260916_132627_connexions_api',
+  },
+  {
+    up: migration_20260916_134810_connexions_api_types_multiples.up,
+    down: migration_20260916_134810_connexions_api_types_multiples.down,
+    name: '20260916_134810_connexions_api_types_multiples'
   },
 ];

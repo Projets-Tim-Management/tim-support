@@ -26,6 +26,7 @@ import { DevSelectField as DevSelectField_7f5a2bfdf035052e7caaeb96cf6a1598 } fro
 import { ChecklistCell as ChecklistCell_8af2bc43e2f51c59acdebf4eb772057c } from '../../../modules/dev/admin/ChecklistCell'
 import { DevViewSwitcher as DevViewSwitcher_e17c34097fb47fa6e17560f990543519 } from '../../../modules/dev/admin/DevViewSwitcher'
 import { SecretField as SecretField_aefc30d9068f7c5cbbee6b30a555ffd6 } from '../../../modules/dev/admin/SecretField'
+import { IntegrationsGallery as IntegrationsGallery_ac65d026d1cfcac9d68a94db8e6b357e } from '../../../modules/dev/admin/IntegrationsGallery'
 import { DevStatusNameCell as DevStatusNameCell_edf2fab7585bd587bc345570e4e95412 } from '../../../modules/dev/admin/DevStatusNameCell'
 import { PaletteColorField as PaletteColorField_f12f393f1d861dcc9adf7448d16ac553 } from '../../../modules/dev/admin/PaletteColorField'
 import { DevRolesCell as DevRolesCell_8df41335d2dbe76b59544d2e11d56ce2 } from '../../../modules/dev/admin/DevRolesCell'
@@ -164,6 +165,7 @@ export const importMap = {
   "/modules/dev/admin/ChecklistCell#ChecklistCell": ChecklistCell_8af2bc43e2f51c59acdebf4eb772057c,
   "/modules/dev/admin/DevViewSwitcher#DevViewSwitcher": DevViewSwitcher_e17c34097fb47fa6e17560f990543519,
   "/modules/dev/admin/SecretField#SecretField": SecretField_aefc30d9068f7c5cbbee6b30a555ffd6,
+  "/modules/dev/admin/IntegrationsGallery#IntegrationsGallery": IntegrationsGallery_ac65d026d1cfcac9d68a94db8e6b357e,
   "/modules/dev/admin/DevStatusNameCell#DevStatusNameCell": DevStatusNameCell_edf2fab7585bd587bc345570e4e95412,
   "/modules/dev/admin/PaletteColorField#PaletteColorField": PaletteColorField_f12f393f1d861dcc9adf7448d16ac553,
   "/modules/dev/admin/DevRolesCell#DevRolesCell": DevRolesCell_8df41335d2dbe76b59544d2e11d56ce2,

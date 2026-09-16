@@ -987,8 +987,11 @@ export interface Platform {
 export interface Integration {
   id: number;
   name: string;
-  kind?: ('compta' | 'paie' | 'erp' | 'crm' | 'documents' | 'donnees' | 'messagerie' | 'autre') | null;
   status?: ('etude' | 'en-cours' | 'connectee' | 'abandonnee') | null;
+  /**
+   * Un ou plusieurs domaines couverts par le logiciel.
+   */
+  kind?: ('compta' | 'paie' | 'erp' | 'crm' | 'documents' | 'donnees' | 'messagerie' | 'autre')[] | null;
   website?: string | null;
   /**
    * Ce que fait le logiciel, pour qui, et pourquoi on s'y connecte. Markdown accepté.
@@ -2710,8 +2713,8 @@ export interface DevelopmentsSelect<T extends boolean = true> {
  */
 export interface IntegrationsSelect<T extends boolean = true> {
   name?: T;
-  kind?: T;
   status?: T;
+  kind?: T;
   website?: T;
   summary?: T;
   capabilities?: T;

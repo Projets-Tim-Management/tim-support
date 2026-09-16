@@ -78,6 +78,10 @@ export const Integrations: CollectionConfig = {
     listSearchableFields: ["name", "contactName", "contactEmail"],
     group: "Développements",
     description: "Une fiche par logiciel tiers que le logiciel TIM connecte (ou connectera) : l'interlocuteur, le compte démo, la doc, les échanges.",
+    components: {
+      // En galerie, pas en tableau : un logiciel se reconnaît à son logo.
+      beforeListTable: ["/modules/dev/admin/IntegrationsGallery#IntegrationsGallery"],
+    },
   },
   access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
   defaultSort: "name",
@@ -89,24 +93,26 @@ export const Integrations: CollectionConfig = {
     {
       type: "row",
       fields: [
-        { name: "name", type: "text", label: "Logiciel", required: true, admin: { width: "50%", placeholder: "Sage, Silae, Cegid, Yousign…" } },
-        {
-          name: "kind",
-          type: "select",
-          label: "Type",
-          options: [...INTEGRATION_KINDS],
-          defaultValue: "autre",
-          admin: { width: "25%" },
-        },
+        { name: "name", type: "text", label: "Logiciel", required: true, admin: { width: "60%", placeholder: "Sage, Silae, Cegid, Yousign…" } },
         {
           name: "status",
           type: "select",
           label: "État",
           options: [...INTEGRATION_STATUS],
           defaultValue: "etude",
-          admin: { width: "25%" },
+          admin: { width: "40%" },
         },
       ],
+    },
+    {
+      // Un logiciel couvre souvent plusieurs domaines (paie ET comptabilité) :
+      // plusieurs types, sur toute la largeur pour qu'ils se lisent.
+      name: "kind",
+      type: "select",
+      hasMany: true,
+      label: "Types",
+      options: [...INTEGRATION_KINDS],
+      admin: { description: "Un ou plusieurs domaines couverts par le logiciel." },
     },
     {
       name: "website",
@@ -328,6 +334,7 @@ export const Integrations: CollectionConfig = {
       admin: {
         position: "sidebar",
         description: "Le logo du logiciel — on le reconnaît avant de lire.",
+        className: "direct-upload--logo",
         components: { Field: "/admin/fields/DirectUpload#default" },
       },
     },
