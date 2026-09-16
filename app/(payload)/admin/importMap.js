@@ -123,6 +123,7 @@ import { default as default_3cb4a5c74877e195c5857e84f524e351 } from '../../../ad
 import { default as default_055834be697654d564715e5f4ed084b8 } from '../../../admin/providers/RoleBodyClass'
 import { default as default_0c7a18af881eb624fa2c205ee8033462 } from '../../../admin/providers/RowClick'
 import { default as default_a0b3dc6cbedf342b789cbfbfb6915cb5 } from '../../../admin/providers/TabIcons'
+import { default as default_65ef55331b21a1936ed46e30c0e0c98a } from '../../../admin/providers/Assistant'
 import { VercelBlobClientUploadHandler as VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e } from '@payloadcms/storage-vercel-blob/client'
 import { default as default_a8bdfd6ec46ed48bd1e9402d58bf4c34 } from '../../../admin/dashboard/DashboardView'
 import { default as default_6971e0609c24bbf2339323e60b70e021 } from '../../../modules/support/admin/NotificationsView'
@@ -263,6 +264,7 @@ export const importMap = {
   "/admin/providers/RoleBodyClass#default": default_055834be697654d564715e5f4ed084b8,
   "/admin/providers/RowClick#default": default_0c7a18af881eb624fa2c205ee8033462,
   "/admin/providers/TabIcons#default": default_a0b3dc6cbedf342b789cbfbfb6915cb5,
+  "/admin/providers/Assistant#default": default_65ef55331b21a1936ed46e30c0e0c98a,
   "@payloadcms/storage-vercel-blob/client#VercelBlobClientUploadHandler": VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e,
   "/admin/dashboard/DashboardView#default": default_a8bdfd6ec46ed48bd1e9402d58bf4c34,
   "/modules/support/admin/NotificationsView#default": default_6971e0609c24bbf2339323e60b70e021,

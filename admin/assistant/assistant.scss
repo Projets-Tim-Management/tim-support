@@ -1,0 +1,151 @@
+/* L'assistant : une bulle fixée en bas à droite, un fil de messages quand on
+   l'ouvre. Voir admin/assistant/AssistantWidget.tsx. */
+.ta {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+/* La bulle : la marque, et le compte des sujets. */
+.ta-fab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 1.35rem;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--tim-foreground) 45%, transparent);
+  transition: transform 0.15s ease, background 0.12s ease;
+
+  &:hover { background: var(--tim-primary-dark); transform: translateY(-1px); }
+  &:focus-visible { outline: 2px solid var(--tim-primary); outline-offset: 3px; }
+}
+.ta-fab__badge {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.25rem;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  border: 2px solid var(--tim-white);
+  background: var(--tim-foreground);
+  color: var(--tim-white);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.1rem;
+  text-align: center;
+}
+
+/* Le panneau : une conversation, avec sa tête et son fil. */
+.ta-panel {
+  width: min(22rem, calc(100vw - 2.5rem));
+  max-height: min(34rem, calc(100vh - 7rem));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+  border-radius: 1rem;
+  background: var(--tim-white);
+  box-shadow: 0 24px 48px -20px color-mix(in srgb, var(--tim-foreground) 45%, transparent);
+  overflow: hidden;
+  animation: ta-in 0.16s ease;
+}
+@keyframes ta-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.ta-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 0.9rem 0.85rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+  background: var(--tim-surface);
+}
+.ta-head__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-weight: 800;
+}
+.ta-head__title { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.ta-head__name { font-size: 0.92rem; font-weight: 800; color: var(--tim-foreground); }
+.ta-head__sub { font-size: 0.74rem; color: var(--tim-muted); }
+.ta-head__close {
+  margin-left: auto;
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--tim-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  &:hover { background: var(--tim-elevation-100); color: var(--tim-foreground); }
+}
+
+.ta-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.9rem 0.9rem 0.75rem;
+  overflow-y: auto;
+}
+/* La bulle de l'assistant : comme un message reçu. */
+.ta-bubble {
+  align-self: flex-start;
+  max-width: 92%;
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.9rem 0.9rem 0.9rem 0.25rem;
+  background: var(--tim-elevation-100);
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: var(--tim-foreground);
+  p { margin: 0; }
+  p + p { margin-top: 0.25rem; }
+}
+.ta-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+/* Un sujet par message : la phrase, l'indice, le geste. Le liseré dit l'urgence. */
+.ta-msg {
+  align-self: flex-start;
+  max-width: 92%;
+  padding: 0.6rem 0.8rem 0.55rem;
+  border-radius: 0.9rem 0.9rem 0.9rem 0.25rem;
+  background: var(--tim-white);
+  border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+  border-left-width: 3px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.ta-msg--danger { border-left-color: var(--tim-red); }
+.ta-msg--warn { border-left-color: var(--tim-amber); }
+.ta-msg--info { border-left-color: var(--tim-blue); }
+.ta-msg__text { margin: 0; font-weight: 600; color: var(--tim-foreground); }
+.ta-msg__hint { margin: 0.15rem 0 0; font-size: 0.76rem; color: var(--tim-muted); }
+.ta-msg__cta {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--tim-primary);
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+.ta-time { margin: 0.25rem 0 0; font-size: 0.7rem; color: var(--tim-muted-light); text-align: center; }

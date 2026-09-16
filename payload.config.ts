@@ -174,6 +174,8 @@ export default buildConfig({
         "/admin/providers/RowClick#default",
         // Icône devant chaque onglet de fiche (reconnue par son libellé).
         "/admin/providers/TabIcons#default",
+        // L'assistant : bulle en bas à droite, ce qu'il reste à faire, en messages.
+        "/admin/providers/Assistant#default",
       ],
       graphics: {
         Logo: "/admin/graphics/Logo#Logo",
