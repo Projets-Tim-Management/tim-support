@@ -72,6 +72,16 @@ type AskKind = "cloture" | "contrat";
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
+/**
+ * Le rendez-vous est passé : une session dure autour de 45 minutes, on la
+ * garde une heure après son début, puis elle sort de la carte — un créneau
+ * d'il y a trois jours n'est plus une information, c'est du bruit.
+ */
+const sessionOver = (iso: string): boolean => {
+  const at = Date.parse(iso);
+  return !Number.isNaN(at) && at + 3_600_000 < Date.now();
+};
+
 /** « mer. 2 sept. à 09:00 » — un rendez-vous se lit en entier, jour compris. */
 const sessionWhen = (iso: string): string => {
   const d = new Date(iso);
@@ -825,8 +835,9 @@ export function PartnerClientsBoard() {
                           les quatre semaines, les tâches s'y raccrochent. */}
                       {/* Le RENDEZ-VOUS de prise en main : une date à laquelle
                           quelqu'un doit être présent. Il n'apparaissait que dans
-                          la fiche du parcours — trois clics plus loin. */}
-                      {run?.sessionAt && (
+                          la fiche du parcours — trois clics plus loin. Une fois
+                          passé, il disparaît : la carte dit ce qui reste à faire. */}
+                      {run?.sessionAt && !sessionOver(run.sessionAt) && (
                         <div className="tim-kanban__session">
                           <span className="tim-kanban__session-when">
                             {sessionWhen(run.sessionAt)}
