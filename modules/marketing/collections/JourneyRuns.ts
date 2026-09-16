@@ -39,6 +39,8 @@ import {
   isDeadlineArming,
   selfValidationAllowed,
   selfValidationDate,
+  stepDoneBySending,
+  tooEarlyToValidate,
   mergeRunSteps,
   computeEmailSchedule,
   computeEndDate,
@@ -414,6 +416,22 @@ const armAutoSteps: CollectionBeforeChangeHook = ({ data, originalDoc, operation
   // transmission du dossier) : ils n'ont pas à connaître la forme des étapes.
   for (const key of ((data?.autoSteps ?? []) as string[]) ?? []) armed.add(key);
 
+  /**
+   * Rattrapage : un conseil d'usage DÉJÀ PARTI dont l'étape est restée « à
+   * faire ». L'envoi arme l'étape depuis le 02/09/2026 ; un message parti
+   * avant (SOUVET VMB, le 1er septembre) laissait son étape ouverte à jamais,
+   * et comme elle est système — sans bouton — tout le parcours restait figé
+   * derrière. On arme donc sur la foi du `sentAt` : c'est lui qui prouve que
+   * le conseil est parti, et le délai compté depuis cette date est en général
+   * déjà écoulé, l'étape est acquise sur-le-champ.
+   */
+  const emails = (data?.emails ?? originalDoc?.emails ?? []) as RunEmail[];
+  const sentBy = new Map<string, string>();
+  for (const e of emails) {
+    const stepKey = stepDoneBySending(e.key);
+    if (stepKey && typeof e.sentAt === "string" && e.sentAt) sentBy.set(stepKey, e.sentAt);
+  }
+
   // `autoSteps` est un canal de passage, pas une donnée : il ne doit pas être stocké.
   const { autoSteps: _drop, ...rest } = data ?? {};
   void _drop;
@@ -432,6 +450,12 @@ const armAutoSteps: CollectionBeforeChangeHook = ({ data, originalDoc, operation
       return { ...s, state: "a-faire", autoAt: null };
     }
     const state = (s.state ?? "a-faire") as string;
+
+    const sentAt = s.key ? sentBy.get(s.key) : undefined;
+    if (sentAt && state === "a-faire" && canAutoValidate(s)) {
+      changed = true;
+      return { ...s, state: "auto", autoAt: new Date(Date.parse(sentAt) + AUTO_VALIDATE_DELAY_HOURS * 3_600_000).toISOString() };
+    }
 
     if (s.key && armed.has(s.key) && canAutoValidate(s)) {
       if (state === "a-faire") {
@@ -571,6 +595,44 @@ const guardSystemSteps: CollectionBeforeChangeHook = ({ data, originalDoc, req }
           (def.action
             ? def.action.hint
             : "Elle ne se valide pas à la main : rien ne se produirait."),
+      );
+    }
+  }
+  return data;
+};
+
+/**
+ * Une étape DATÉE ne se coche pas avant son jour.
+ *
+ * Un relevé d'usage « avant bilan » coché cinq jours avant ne constate rien ;
+ * un bilan ne s'est pas tenu avant son créneau. L'écran cache déjà le bouton,
+ * mais un bouton caché n'est qu'un affichage : l'agenda du tableau de bord,
+ * l'onglet « Correction manuelle » et l'API permettent la même écriture. La
+ * règle vit donc ici, pour tout le monde — voir NOT_BEFORE_DUE.
+ *
+ * Seul le passage « à faire » → « fait » est visé. Les écritures SYSTÈME n'ont
+ * pas d'utilisateur : elles ne cochent jamais ces étapes-là.
+ */
+const guardDatedSteps: CollectionBeforeChangeHook = ({ data, originalDoc, req }) => {
+  const next = (data?.steps ?? []) as RunStep[];
+  const previous = (originalDoc?.steps ?? []) as RunStep[];
+  if (!next.length || !previous.length || !req.user) return data;
+
+  const ctx = {
+    startDate: (data?.startDate ?? originalDoc?.startDate) as string | null,
+    endDate: (data?.endDate ?? originalDoc?.endDate) as string | null,
+    sessionAt: (data?.sessionAt ?? originalDoc?.sessionAt) as string | null,
+    reviewAt: (data?.reviewAt ?? originalDoc?.reviewAt) as string | null,
+  };
+  const before = new Map(previous.map((s) => [s.key, s]));
+  for (const step of next) {
+    const old = before.get(step.key);
+    if (!old || (step.state ?? "a-faire") !== "fait" || (old.state ?? "a-faire") === "fait") continue;
+    const opens = tooEarlyToValidate(step as never, ctx);
+    if (opens) {
+      const jour = new Date(opens).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "long" });
+      throw new Error(
+        `L'étape « ${step.label ?? step.key} » se fait le ${jour}, pas avant : c'est ce jour-là que le constat a un sens.`,
       );
     }
   }
@@ -1318,6 +1380,7 @@ export const JourneyRuns: CollectionConfig = {
       guardStructuralEdits,
       guardAdminSteps,
       guardSystemSteps,
+      guardDatedSteps,
       reconcileFacts,
       armAutoSteps,
       computeState,

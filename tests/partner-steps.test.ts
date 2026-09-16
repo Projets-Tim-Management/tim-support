@@ -5,6 +5,7 @@ import {
   decidePartnerStep,
   isPartnerStepHour,
   partnerStepsDue,
+  partnerStepsOnAgenda,
   type PartnerStep,
 } from "@/modules/marketing/lib/partner-steps";
 
@@ -111,6 +112,57 @@ describe("les étapes dues d'un parcours", () => {
   it("les retient toutes quand plusieurs sont en retard — un seul appel", () => {
     const due = partnerStepsDue(RUN, Date.parse("2026-09-20T06:00:00.000Z"));
     expect(due.map((d) => d.step.key)).toEqual(["releve-j2", "releve-j7"]);
+  });
+});
+
+describe("les étapes du partenaire sur un agenda", () => {
+  /**
+   * L'alerte part une fois ; l'agenda, lui, doit montrer l'étape tant qu'elle
+   * n'est pas faite — et la semaine qui vient. Constaté le 16/09/2026 : le
+   * relevé J+2 d'Instalclim, dû le jour même, n'était ni « aujourd'hui » ni
+   * « en retard » sur le tableau de bord.
+   */
+  it("retient les étapes du partenaire, échues OU à venir, avec leur date", () => {
+    const sur = partnerStepsOnAgenda(RUN);
+    expect(sur.map((s) => s.step.key)).toEqual(["releve-j2", "releve-j7"]);
+    expect(sur[0].due).toBe("2026-09-09T00:00:00.000Z");
+    expect(sur[1].due).toBe("2026-09-14T00:00:00.000Z");
+    expect(sur.every((s) => !s.done)).toBe(true);
+  });
+
+  it("garde une étape faite, marquée — l'agenda la barre, il ne l'efface pas", () => {
+    const run = {
+      ...RUN,
+      steps: [{ ...RUN.steps[0], state: "fait" }, RUN.steps[3]],
+    };
+    expect(partnerStepsOnAgenda(run).map((s) => [s.step.key, s.done])).toEqual([
+      ["releve-j2", true],
+      ["releve-j7", false],
+    ]);
+  });
+
+  it("ignore l'alerte déjà envoyée : avoir été prévenu n'a jamais fait l'action", () => {
+    const run = { ...RUN, steps: [{ ...RUN.steps[0], notifiedAt: "2026-09-09T06:00:00.000Z" }] };
+    expect(partnerStepsOnAgenda(run).map((s) => s.step.key)).toEqual(["releve-j2"]);
+  });
+
+  it("écarte ce qui est bloqué, automatique, ou s'acquiert tout seul", () => {
+    const run = {
+      ...RUN,
+      sessionAt: "2026-09-08T08:00:00.000Z",
+      steps: [
+        { ...RUN.steps[0], state: "bloque" },
+        { ...RUN.steps[3], state: "auto", autoAt: "2026-09-15T00:00:00.000Z" },
+        { key: "prise-en-main", label: "Session réalisée", actor: "partenaire", state: "a-faire", anchor: "session", offsetDays: 0 },
+        { key: "bilan-tenu", label: "Bilan", actor: "partenaire", state: "a-faire", anchor: "bilan", offsetDays: 0 },
+      ] as PartnerStep[],
+    };
+    // Sans date de bilan, l'étape « bilan » n'a rien à quoi s'accrocher.
+    expect(partnerStepsOnAgenda(run)).toEqual([]);
+    // Avec, elle prend sa place.
+    expect(
+      partnerStepsOnAgenda({ ...run, reviewAt: "2026-10-01T09:00:00.000Z" }).map((s) => s.step.key),
+    ).toEqual(["bilan-tenu"]);
   });
 });
 

@@ -12,6 +12,7 @@ import { CONDITION_LABEL, raisonSansObjet } from "@/modules/marketing/lib/due-em
 import {
   AUDIENCE_LABEL,
   STEP_VALIDATION_EFFECT,
+  STEPS_DONE_ON_SEND,
   SYSTEM_STEPS,
   attachEmailsToSteps,
   computeEmailSchedule,
@@ -22,6 +23,8 @@ import {
   computeEndDate,
   isStepDone,
   isStepPending,
+  firstActionableStep,
+  tooEarlyToValidate,
   isAdminStep,
   runStatusMeta,
   selfValidationDate,
@@ -57,6 +60,15 @@ const IconUndo = () => (
        stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M6 3.5L3 6.5l3 3" />
     <path d="M3 6.5h5.5a3.5 3.5 0 110 7H7" />
+  </svg>
+);
+
+/** Horloge — « pas encore » : l'étape datée s'ouvre le jour dit. */
+const IconClock = () => (
+  <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none"
+       stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="8" cy="8" r="6" />
+    <path d="M8 5v3.5l2.25 1.5" />
   </svg>
 );
 
@@ -312,6 +324,10 @@ export function JourneyStepper() {
   const doneCount = steps.filter((s) => isStepDone(s)).length;
   const currentIndex = steps.findIndex((s) => !isStepDone(s));
   const lastDoneIndex = currentIndex === -1 ? steps.length - 1 : currentIndex - 1;
+  // Le bouton suit la première étape qui attend UNE MAIN — pas forcément la
+  // courante : une étape système ou armée n'attend personne (voir journey.ts).
+  // Avant le montage (`nowMs` inconnu), même convention que `isDone` : 0.
+  const actionableIndex = firstActionableStep(steps, nowMs ?? 0);
   const closed = status === "gagne" || status === "perdu" || status === "annule";
 
   /** Coche (ou décoche) une étape, puis enregistre : un clic = un état persisté. */
@@ -428,9 +444,20 @@ export function JourneyStepper() {
                   selfAt != null &&
                   step.autoAt != null &&
                   Date.parse(step.autoAt) === Date.parse(selfAt);
-                const late = !isDone && due != null && today != null && Date.parse(due) < today;
+                // Un message qui part tout seul n'est jamais « en retard » : le
+                // retard signale une ACTION qui attend quelqu'un, pas un envoi
+                // programmé. Le rouge sur « Conseil d'usage envoyé » faisait
+                // chercher un geste là où il n'y en a pas.
+                const late =
+                  !isDone && due != null && today != null && Date.parse(due) < today && !STEPS_DONE_ON_SEND.has(step.key ?? "");
 
                 const stepMails = step.key ? (mailsByStep.get(step.key) ?? []) : [];
+                // Une étape datée ne se coche pas avant son jour (voir
+                // NOT_BEFORE_DUE) : à la place du bouton, la date d'ouverture.
+                const opensOn =
+                  nowMs != null && !isDone
+                    ? tooEarlyToValidate(step, { startDate, endDate, sessionAt, reviewAt }, nowMs)
+                    : null;
 
                 return (
                   <li
@@ -591,26 +618,43 @@ export function JourneyStepper() {
                               </button>
                             </Tooltip>
                           )}
-                          <Tooltip
-                            interactive
-                            content={["Valider maintenant", "Sans attendre la fin du délai."]}
-                          >
-                            <button
-                              type="button"
-                              aria-label="Valider maintenant"
-                              className="jr-icon-btn jr-icon-btn--ok"
-                              onClick={() => setStep(step.index, true)}
+                          {/* « Acter tout de suite » n'a pas de sens avant le jour
+                              d'une étape datée : une session ne s'est pas tenue
+                              avant son créneau. */}
+                          {!opensOn && (
+                            <Tooltip
+                              interactive
+                              content={["Valider maintenant", "Sans attendre la fin du délai."]}
                             >
-                              <IconCheck />
-                            </button>
-                          </Tooltip>
+                              <button
+                                type="button"
+                                aria-label="Valider maintenant"
+                                className="jr-icon-btn jr-icon-btn--ok"
+                                onClick={() => setStep(step.index, true)}
+                              >
+                                <IconCheck />
+                              </button>
+                            </Tooltip>
+                          )}
                         </>
                       )}
 
                       {/* Étape humaine : le clic EST la déclaration. Le libellé
                           dit laquelle — « je l'ai fait » n'a pas le même sens
                           que « le client me l'a confirmé ». */}
-                      {!closed && !locked && !pending && !system && isCurrent && (
+                      {!closed && !locked && !pending && !system && step.index === actionableIndex && opensOn && (
+                        <Tooltip
+                          content={[
+                            `S'ouvre le ${fmtDate(opensOn)}`,
+                            "Cette étape se constate le jour dit, pas avant.",
+                          ]}
+                        >
+                          <span className="jr-step__opens" aria-label={`S'ouvre le ${fmtDate(opensOn)}`}>
+                            <IconClock />
+                          </span>
+                        </Tooltip>
+                      )}
+                      {!closed && !locked && !pending && !system && step.index === actionableIndex && !opensOn && (
                         <Tooltip
                           interactive
                           content={[

@@ -99,6 +99,13 @@ import * as migration_20260911_130900_retrait_motif_a_qualifier from './20260911
 import * as migration_20260915_065605_licences_remise_par_ligne from './20260915_065605_licences_remise_par_ligne';
 import * as migration_20260915_072421_periodicite_facturation from './20260915_072421_periodicite_facturation';
 import * as migration_20260915_161444_agendas_lecture_seule from './20260915_161444_agendas_lecture_seule';
+import * as migration_20260916_102116_validation_mensuelle_rapprochement from './20260916_102116_validation_mensuelle_rapprochement';
+import * as migration_20260916_132627_connexions_api from './20260916_132627_connexions_api';
+import * as migration_20260916_134810_connexions_api_types_multiples from './20260916_134810_connexions_api_types_multiples';
+import * as migration_20260916_140335_connexions_support_global from './20260916_140335_connexions_support_global';
+import * as migration_20260916_151848_reserves_entree_lead from './20260916_151848_reserves_entree_lead';
+import * as migration_20260916_160333_depense_assistant from './20260916_160333_depense_assistant';
+import * as migration_20260916_161320_depense_assistant_mois from './20260916_161320_depense_assistant_mois';
 
 export const migrations = [
   {
@@ -604,6 +611,41 @@ export const migrations = [
   {
     up: migration_20260915_161444_agendas_lecture_seule.up,
     down: migration_20260915_161444_agendas_lecture_seule.down,
-    name: '20260915_161444_agendas_lecture_seule'
+    name: '20260915_161444_agendas_lecture_seule',
+  },
+  {
+    up: migration_20260916_102116_validation_mensuelle_rapprochement.up,
+    down: migration_20260916_102116_validation_mensuelle_rapprochement.down,
+    name: '20260916_102116_validation_mensuelle_rapprochement',
+  },
+  {
+    up: migration_20260916_132627_connexions_api.up,
+    down: migration_20260916_132627_connexions_api.down,
+    name: '20260916_132627_connexions_api',
+  },
+  {
+    up: migration_20260916_134810_connexions_api_types_multiples.up,
+    down: migration_20260916_134810_connexions_api_types_multiples.down,
+    name: '20260916_134810_connexions_api_types_multiples',
+  },
+  {
+    up: migration_20260916_140335_connexions_support_global.up,
+    down: migration_20260916_140335_connexions_support_global.down,
+    name: '20260916_140335_connexions_support_global',
+  },
+  {
+    up: migration_20260916_151848_reserves_entree_lead.up,
+    down: migration_20260916_151848_reserves_entree_lead.down,
+    name: '20260916_151848_reserves_entree_lead',
+  },
+  {
+    up: migration_20260916_160333_depense_assistant.up,
+    down: migration_20260916_160333_depense_assistant.down,
+    name: '20260916_160333_depense_assistant',
+  },
+  {
+    up: migration_20260916_161320_depense_assistant_mois.up,
+    down: migration_20260916_161320_depense_assistant_mois.down,
+    name: '20260916_161320_depense_assistant_mois'
   },
 ];

@@ -552,7 +552,7 @@
 .tim-mcard:hover {
   transform: translateY(-2px);
   border-color: var(--tim-primary);
-  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--tim-primary) 32%, transparent);
+  box-shadow: 0 8px 20px -14px color-mix(in srgb, var(--tim-foreground) 18%, transparent);
 }
 .tim-mcard.is-done {
   opacity: 0.85;

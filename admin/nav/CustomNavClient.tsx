@@ -11,7 +11,7 @@ import { Fragment, useState } from "react";
 import { hasAdminRole } from "@/core/access";
 
 import CollapsibleGroup from "./CollapsibleGroup";
-import { NAV_LAYOUT, NAV_ORDER, isLink, isSubGroup, type NavItem } from "./nav-structure";
+import { NAV_LAYOUT, NAV_ORDER, isLink, isSubGroup, type NavItem, type NavLink } from "./nav-structure";
 import { useNavRail } from "./useNavRail";
 
 const baseClass = "nav";
@@ -190,6 +190,35 @@ export default function CustomNavClient({ groups }: Props) {
         });
         const leftovers = group.entities.filter((e) => !placed.has(e.slug));
 
+        /**
+         * Lien libre vers une vue custom : aucune collection derrière, donc rien
+         * à chercher dans `bySlug`. Même rendu que les autres liens — un <div>
+         * quand il est actif, avec l'indicateur, sinon un <Link>. Même mécanisme
+         * d'icône : un identifiant `nav-<chemin après /admin, tirets>`, réglé
+         * dans `$nav-icons` (« /admin/analyses/facturation » →
+         * `nav-analyses-facturation`).
+         */
+        const renderFreeLink = (item: NavLink) => {
+          if (item.adminOnly && !hasAdminRole(user)) return null;
+          const on = isActive(item.href);
+          const id = `nav-${item.href.split("/").filter((seg) => seg && seg !== "admin").join("-")}`;
+          const label = (
+            <Fragment>
+              {on && <div className={`${baseClass}__link-indicator`} />}
+              <span className={`${baseClass}__link-label`}>{item.label}</span>
+            </Fragment>
+          );
+          return on ? (
+            <div key={item.href} className={`${baseClass}__link`} id={id}>
+              {label}
+            </div>
+          ) : (
+            <NextLink key={item.href} className={`${baseClass}__link`} href={item.href} id={id} prefetch={false}>
+              {label}
+            </NextLink>
+          );
+        };
+
         return (
           <CollapsibleGroup
             key={group.label}
@@ -220,29 +249,7 @@ export default function CustomNavClient({ groups }: Props) {
               // Lien libre vers une vue custom : aucune collection derrière, donc
               // rien à chercher dans `bySlug`. Même rendu que les autres liens —
               // un <div> quand il est actif, avec l'indicateur, sinon un <Link>.
-              if (isLink(item)) {
-                if (item.adminOnly && !hasAdminRole(user)) return null;
-                const on = isActive(item.href);
-                // Même mécanisme d'icône que les collections : un identifiant
-                // `nav-<chemin après /admin, tirets>`, réglé dans `$nav-icons`
-                // (« /admin/analyses/facturation » → `nav-analyses-facturation`).
-                const id = `nav-${item.href.split("/").filter((seg) => seg && seg !== "admin").join("-")}`;
-                const label = (
-                  <Fragment>
-                    {on && <div className={`${baseClass}__link-indicator`} />}
-                    <span className={`${baseClass}__link-label`}>{item.label}</span>
-                  </Fragment>
-                );
-                return on ? (
-                  <div key={item.href} className={`${baseClass}__link`} id={id}>
-                    {label}
-                  </div>
-                ) : (
-                  <NextLink key={item.href} className={`${baseClass}__link`} href={item.href} id={id} prefetch={false}>
-                    {label}
-                  </NextLink>
-                );
-              }
+              if (isLink(item)) return renderFreeLink(item);
 
               if (!isSubGroup(item)) {
                 const entity = bySlug.get(item);
@@ -252,9 +259,11 @@ export default function CustomNavClient({ groups }: Props) {
               const entities = item.slugs
                 .map((s) => bySlug.get(s))
                 .filter((e): e is NavEntity => Boolean(e));
-              if (entities.length === 0) return null;
+              const links = (item.links ?? []).filter((l) => !l.adminOnly || hasAdminRole(user));
+              if (entities.length === 0 && links.length === 0) return null;
 
-              const subContainsActive = entities.some((e) => isActive(activeHref(e)));
+              const subContainsActive =
+                entities.some((e) => isActive(activeHref(e))) || links.some((l) => isActive(l.href));
 
               return (
                 <CollapsibleGroup
@@ -263,6 +272,7 @@ export default function CustomNavClient({ groups }: Props) {
                   defaultOpen={keepOpen || subContainsActive}
                 >
                   {entities.map(renderLink)}
+                  {links.map(renderFreeLink)}
                 </CollapsibleGroup>
               );
             })}

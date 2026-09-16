@@ -1,6 +1,6 @@
 import { adminUrl, internalNotice } from "@/core/lib/email-template";
 import { aParis } from "@/modules/marketing/lib/due-emails";
-import { stepDueDate } from "@/modules/marketing/lib/journey";
+import { SELF_VALIDATING_STEPS, stepDueDate } from "@/modules/marketing/lib/journey";
 import { TIMEZONE as PARIS } from "@/modules/marketing/lib/scheduling";
 
 /**
@@ -88,6 +88,7 @@ export const decidePartnerStep = (
     startDate?: string | null;
     endDate?: string | null;
     sessionAt?: string | null;
+    reviewAt?: string | null;
     nowMs: number;
   },
 ): StepDecision => {
@@ -97,7 +98,7 @@ export const decidePartnerStep = (
   if (step.autoValidate === true || step.state === "auto") return { notify: false, reason: "auto" };
   if (step.notifiedAt) return { notify: false, reason: "already_notified" };
 
-  const due = stepDueDate(step, ctx.startDate, ctx.endDate, ctx.sessionAt);
+  const due = stepDueDate(step, ctx.startDate, ctx.endDate, ctx.sessionAt, ctx.reviewAt);
   if (!due) return { notify: false, reason: "no_date" };
   const at = Date.parse(due);
   if (Number.isNaN(at)) return { notify: false, reason: "no_date" };
@@ -113,6 +114,7 @@ export const partnerStepsDue = (
     startDate?: string | null;
     endDate?: string | null;
     sessionAt?: string | null;
+    reviewAt?: string | null;
   },
   nowMs: number,
 ): DueStep[] => {
@@ -122,9 +124,52 @@ export const partnerStepsDue = (
       startDate: run.startDate,
       endDate: run.endDate,
       sessionAt: run.sessionAt,
+      reviewAt: run.reviewAt,
       nowMs,
     });
     if (decision.notify) out.push({ step: decision.step, due: decision.due, lateDays: decision.lateDays });
+  }
+  return out;
+};
+
+export type AgendaStep = { step: PartnerStep; due: string; done: boolean };
+
+/**
+ * Les étapes du partenaire qui ont leur place sur un AGENDA.
+ *
+ * L'alerte ci-dessus part une fois, le jour venu — et c'est tout. Le lendemain,
+ * l'étape non faite n'apparaissait ni dans « aujourd'hui », ni dans « en
+ * retard » : ces deux listes ne lisent que les tâches saisies à la main, et
+ * une étape de parcours n'en est pas une. Constaté le 16/09/2026 sur le relevé
+ * J+2 d'Instalclim, dû le jour même et invisible du tableau de bord.
+ *
+ * Même règle d'admission que l'alerte (acteur partenaire, ni bloquée, ni
+ * automatique, datée), à trois différences près, qui sont celles d'un agenda :
+ *   - les échéances À VENIR sont retenues — un calendrier montre la semaine ;
+ *   - les étapes FAITES aussi, marquées — l'agenda les garde, barrées, plutôt
+ *     que de les faire disparaître ;
+ *   - `notifiedAt` ne compte pas : avoir été prévenu n'a jamais fait l'action.
+ *
+ * Les étapes qui s'acquièrent d'elles-mêmes (SELF_VALIDATING_STEPS) restent
+ * dehors : elles n'attendent personne, et la session de prise en main a déjà
+ * sa propre carte, à l'heure du créneau.
+ */
+export const partnerStepsOnAgenda = (run: {
+  steps?: PartnerStep[] | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  sessionAt?: string | null;
+  reviewAt?: string | null;
+}): AgendaStep[] => {
+  const out: AgendaStep[] = [];
+  for (const step of run.steps ?? []) {
+    if (step.actor !== "partenaire") continue;
+    if (step.state === "bloque") continue;
+    if (step.autoValidate === true || step.state === "auto") continue;
+    if (step.key && step.key in SELF_VALIDATING_STEPS) continue;
+    const due = stepDueDate(step, run.startDate, run.endDate, run.sessionAt, run.reviewAt);
+    if (!due || Number.isNaN(Date.parse(due))) continue;
+    out.push({ step, due, done: step.state === "fait" });
   }
   return out;
 };

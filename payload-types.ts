@@ -69,6 +69,7 @@ export interface Config {
   collections: {
     tickets: Ticket;
     developments: Development;
+    integrations: Integration;
     'dev-statuses': DevStatus;
     features: Feature;
     'feature-categories': FeatureCategory;
@@ -109,6 +110,9 @@ export interface Config {
     tickets: {
       developments: 'developments';
     };
+    integrations: {
+      developments: 'developments';
+    };
     partners: {
       clients: 'partner-clients';
       ledger: 'point-transactions';
@@ -125,6 +129,7 @@ export interface Config {
   collectionsSelect: {
     tickets: TicketsSelect<false> | TicketsSelect<true>;
     developments: DevelopmentsSelect<false> | DevelopmentsSelect<true>;
+    integrations: IntegrationsSelect<false> | IntegrationsSelect<true>;
     'dev-statuses': DevStatusesSelect<false> | DevStatusesSelect<true>;
     features: FeaturesSelect<false> | FeaturesSelect<true>;
     'feature-categories': FeatureCategoriesSelect<false> | FeatureCategoriesSelect<true>;
@@ -167,9 +172,11 @@ export interface Config {
   fallbackLocale: null;
   globals: {
     appearance: Appearance;
+    'support-connections': SupportConnection;
   };
   globalsSelect: {
     appearance: AppearanceSelect<false> | AppearanceSelect<true>;
+    'support-connections': SupportConnectionsSelect<false> | SupportConnectionsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -494,11 +501,19 @@ export interface Partner {
  */
 export interface PartnerClient {
   id: number;
+  intakeIssues?:
+    | {
+        field?: string | null;
+        raw?: string | null;
+        message?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   companyName: string;
   /**
-   * Contact, puis envoi des factures.
+   * Contact, puis envoi des factures. Obligatoire dès la phase de test.
    */
-  email: string;
+  email?: string | null;
   portalOpened?: boolean | null;
   clientStatus?:
     | (
@@ -678,6 +693,9 @@ export interface PartnerClient {
           | number
           | boolean
           | null;
+        validatedAt?: string | null;
+        validatedBy?: (number | null) | User;
+        invoiceDate?: string | null;
         id?: string | null;
       }[]
     | null;
@@ -897,6 +915,7 @@ export interface Development {
   type?: ('feature' | 'evolution' | 'bug' | 'depannage' | 'technique' | 'etude') | null;
   priority?: ('urgente' | 'haute' | 'normale' | 'basse') | null;
   platforms?: (number | Platform)[] | null;
+  integrations?: (number | Integration)[] | null;
   assignee?: (number | User)[] | null;
   opportunities?: (number | PartnerClient)[] | null;
   tickets?: (number | Ticket)[] | null;
@@ -966,6 +985,102 @@ export interface Platform {
    * Laisser vide pour générer automatiquement depuis le titre.
    */
   slug: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Une fiche par logiciel tiers que le logiciel TIM connecte (ou connectera) : l'interlocuteur, le compte démo, la doc, les échanges.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "integrations".
+ */
+export interface Integration {
+  id: number;
+  name: string;
+  status?: ('etude' | 'en-cours' | 'connectee' | 'abandonnee') | null;
+  /**
+   * Un ou plusieurs domaines couverts par le logiciel.
+   */
+  kind?: ('compta' | 'paie' | 'erp' | 'crm' | 'documents' | 'donnees' | 'messagerie' | 'autre')[] | null;
+  website?: string | null;
+  /**
+   * Ce que fait le logiciel, pour qui, et pourquoi on s'y connecte. Markdown accepté.
+   */
+  summary?: string | null;
+  /**
+   * Ce qu'on peut lire, écrire, recevoir (webhooks) — et ce qu'on ne peut pas. Markdown accepté.
+   */
+  capabilities?: string | null;
+  docUrl?: string | null;
+  /**
+   * Console développeur, statut de l'API, changelog, portail partenaire…
+   */
+  links?:
+    | {
+        url: string;
+        label?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  contactName?: string | null;
+  contactRole?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  /**
+   * Disponibilités, canal préféré, autres personnes à connaître chez eux.
+   */
+  contactNotes?: string | null;
+  demoUrl?: string | null;
+  demoEmail?: string | null;
+  demoPassword?: string | null;
+  /**
+   * Environnement (sandbox / prod), données de test, limites, clé API de test à demander à…
+   */
+  demoNotes?: string | null;
+  exchanges?:
+    | {
+        body?: string | null;
+        /**
+         * Facultatif — le membre de l'équipe TIM qui s'en occupe.
+         */
+        askedTo?: (number | null) | User;
+        author?: (number | null) | User;
+        at?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Contrats, présentations, exports d'exemple, comptes rendus.
+   */
+  documents?:
+    | {
+        file: number | Media;
+        /**
+         * Ce qu'on cherchera dans six mois. À défaut, le nom du fichier.
+         */
+        label?: string | null;
+        /**
+         * D'où vient cette pièce, ce qu'elle montre.
+         */
+        note?: string | null;
+        addedAt?: string | null;
+        addedBy?: (number | null) | User;
+        id?: string | null;
+      }[]
+    | null;
+  developments?: {
+    docs?: (number | Development)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
+   * Le logo du logiciel — on le reconnaît avant de lire.
+   */
+  logo?: (number | null) | Media;
+  /**
+   * Qui suit cette connexion de notre côté.
+   */
+  assignee?: (number | null) | User;
   updatedAt: string;
   createdAt: string;
 }
@@ -2323,6 +2438,10 @@ export interface PayloadLockedDocument {
         value: number | Development;
       } | null)
     | ({
+        relationTo: 'integrations';
+        value: number | Integration;
+      } | null)
+    | ({
         relationTo: 'dev-statuses';
         value: number | DevStatus;
       } | null)
@@ -2581,6 +2700,7 @@ export interface DevelopmentsSelect<T extends boolean = true> {
   type?: T;
   priority?: T;
   platforms?: T;
+  integrations?: T;
   assignee?: T;
   opportunities?: T;
   tickets?: T;
@@ -2594,6 +2714,59 @@ export interface DevelopmentsSelect<T extends boolean = true> {
   feature?: T;
   rank?: T;
   statusRank?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "integrations_select".
+ */
+export interface IntegrationsSelect<T extends boolean = true> {
+  name?: T;
+  status?: T;
+  kind?: T;
+  website?: T;
+  summary?: T;
+  capabilities?: T;
+  docUrl?: T;
+  links?:
+    | T
+    | {
+        url?: T;
+        label?: T;
+        id?: T;
+      };
+  contactName?: T;
+  contactRole?: T;
+  contactEmail?: T;
+  contactPhone?: T;
+  contactNotes?: T;
+  demoUrl?: T;
+  demoEmail?: T;
+  demoPassword?: T;
+  demoNotes?: T;
+  exchanges?:
+    | T
+    | {
+        body?: T;
+        askedTo?: T;
+        author?: T;
+        at?: T;
+        id?: T;
+      };
+  documents?:
+    | T
+    | {
+        file?: T;
+        label?: T;
+        note?: T;
+        addedAt?: T;
+        addedBy?: T;
+        id?: T;
+      };
+  developments?: T;
+  logo?: T;
+  assignee?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2791,6 +2964,14 @@ export interface PartnersSelect<T extends boolean = true> {
  * via the `definition` "partner-clients_select".
  */
 export interface PartnerClientsSelect<T extends boolean = true> {
+  intakeIssues?:
+    | T
+    | {
+        field?: T;
+        raw?: T;
+        message?: T;
+        id?: T;
+      };
   companyName?: T;
   email?: T;
   portalOpened?: T;
@@ -2867,6 +3048,9 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         commissionRate?: T;
         commission?: T;
         detail?: T;
+        validatedAt?: T;
+        validatedBy?: T;
+        invoiceDate?: T;
         id?: T;
       };
   notes?: T;
@@ -3568,9 +3752,34 @@ export interface Appearance {
    */
   logo?: (number | null) | Media;
   /**
-   * Affichée quand le menu est réduit à sa colonne d'icônes. CARRÉE, sans texte — c'est la marque seule. Un logo large mis ici serait illisible.
+   * Affichée quand le menu est réduit à sa colonne d'icônes, et dans l'onglet du navigateur (favicon). CARRÉE, sans texte — c'est la marque seule. Un logo large mis ici serait illisible.
    */
   icon?: (number | null) | Media;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "support-connections".
+ */
+export interface SupportConnection {
+  id: number;
+  entries?:
+    | {
+        key: string;
+        notes?: string | null;
+        lastTestAt?: string | null;
+        lastTestOk?: boolean | null;
+        lastTestMessage?: string | null;
+        spendDay?: string | null;
+        spendEur?: number | null;
+        spendQuestions?: number | null;
+        spendMonth?: string | null;
+        spendMonthEur?: number | null;
+        spendMonthQuestions?: number | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -3581,6 +3790,31 @@ export interface Appearance {
 export interface AppearanceSelect<T extends boolean = true> {
   logo?: T;
   icon?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "support-connections_select".
+ */
+export interface SupportConnectionsSelect<T extends boolean = true> {
+  entries?:
+    | T
+    | {
+        key?: T;
+        notes?: T;
+        lastTestAt?: T;
+        lastTestOk?: T;
+        lastTestMessage?: T;
+        spendDay?: T;
+        spendEur?: T;
+        spendQuestions?: T;
+        spendMonth?: T;
+        spendMonthEur?: T;
+        spendMonthQuestions?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

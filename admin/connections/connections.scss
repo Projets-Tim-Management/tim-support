@@ -1,0 +1,127 @@
+/* Écran « Connexions du support » (admin/connections/) — voir SupportConnectionsView. */
+
+/* ─── Connexions du support (Système) ────────────────────────────────────────
+   Une carte par API du back-office : à quoi elle sert, ses variables (posée /
+   manquante, jamais la valeur), « Tester », le dernier résultat, des notes.
+   L'état se lit sur la barre : le texte (OK / échec / manquant) et, à côté,
+   le message du dernier test — « Réponse OK — des clients sont lisibles ». */
+.sc { display: flex; flex-direction: column; gap: 1.25rem; padding-bottom: 2rem; }
+.sc-head { display: flex; flex-direction: column; gap: 0.25rem; }
+.sc-title { margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--tim-foreground); }
+.sc-sub { margin: 0; font-size: 0.9rem; color: var(--tim-muted); max-width: 48rem; }
+.sc-empty { color: var(--tim-muted); }
+.sc-list { display: flex; flex-direction: column; gap: 1rem; }
+
+.sc-card {
+  display: block;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+  border-radius: 0.75rem;
+  background: var(--tim-white);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 4%, transparent);
+}
+
+/* La barre : repliée par défaut, elle dit tout ce qu'il faut savoir sans ouvrir. */
+.sc-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.2rem;
+  cursor: pointer;
+  list-style: none;
+  &::-webkit-details-marker { display: none; }
+  &:hover { background: var(--tim-surface); }
+}
+.sc-card__chevron {
+  display: inline-flex;
+  margin-left: 0.5rem;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--tim-muted-light);
+  transition: transform 0.15s ease;
+}
+.sc-card[open] .sc-card__chevron { transform: rotate(90deg); }
+.sc-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0.25rem 1.2rem 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--tim-border) 60%, transparent);
+}
+.sc-card__mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2.5rem; height: 2.5rem; border-radius: 0.65rem;
+  background: var(--tim-primary-light); color: var(--tim-primary-dark);
+  font-size: 1.05rem; font-weight: 800;
+}
+.sc-card__title { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.sc-card__name { font-size: 1.05rem; font-weight: 800; }
+.sc-card__state { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: 0.78rem; font-weight: 700; color: var(--tim-muted); }
+/* Le message du dernier test, en étiquette sur la barre : c'est lui qu'on est venu lire. */
+.sc-card__last {
+  padding: 0.15rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 40rem;
+}
+.sc-card__last--ok { background: var(--tim-green-bg); color: var(--tim-green); }
+.sc-card__last--ko { background: var(--tim-red-bg); color: var(--tim-red); }
+/* La dépense du mois, sur la barre d'Anthropic : neutre, c'est un montant, pas un verdict. */
+.sc-card__last--spend { background: var(--tim-surface); color: var(--tim-foreground); font-variant-numeric: tabular-nums; }
+/* « OK le… » et « Échec le… » restent gris : c'est l'étiquette qui porte la
+   couleur, deux fois vert se lisait comme un cri. Manquant reste ambre — il
+   n'a pas d'étiquette. */
+.sc-card__state--missing { color: var(--tim-amber); }
+.sc-card__actions { display: inline-flex; align-items: center; margin-left: auto; }
+.sc-card__purpose { margin: 0; font-size: 0.9rem; color: var(--tim-foreground); max-width: 60rem; }
+
+/* Dépense de l'assistant : deux tuiles, le chiffre d'abord. */
+.sc-spend { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.75rem; margin: 0; }
+.sc-spend__cell {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 10px;
+  background: var(--tim-surface);
+}
+.sc-spend__cell dt { font-size: 0.74rem; font-weight: 700; color: var(--tim-muted); }
+.sc-spend__cell dd { margin: 0; font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.sc-spend__sub { font-size: 0.78rem; color: var(--tim-muted); }
+
+.sc-card__cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; }
+.sc-card__section { display: flex; flex-direction: column; gap: 0.45rem; min-width: 0; }
+.sc-card__h { margin: 0; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tim-muted); }
+
+.sc-env { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+.sc-env__row {
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+.sc-env__dot { width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--tim-muted-light); align-self: center; }
+.sc-env__row--set .sc-env__dot { background: var(--tim-green); }
+.sc-env__row--missing .sc-env__dot { background: var(--tim-red); }
+.sc-env__name { font-size: 0.78rem; }
+.sc-env__state { font-weight: 700; color: var(--tim-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sc-env__row--set .sc-env__state { color: var(--tim-green); }
+.sc-env__row--missing .sc-env__state { color: var(--tim-red); }
+.sc-env__hint { color: var(--tim-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-card__where { margin: 0.2rem 0 0; font-size: 0.76rem; color: var(--tim-muted); }
+
+.sc-scope { margin: 0; padding-left: 1.1rem; font-size: 0.85rem; color: var(--tim-foreground); }
+.sc-card__links { display: flex; flex-wrap: wrap; gap: 0.9rem; margin: 0; font-size: 0.82rem; font-weight: 600;
+  a { color: var(--tim-primary); text-decoration: none; &:hover { text-decoration: underline; } }
+}
+
+.sc-card__notes { position: relative; }
+.sc-notes {
+  width: 100%; padding: 0.5rem 0.7rem; border: 1px solid var(--tim-border); border-radius: var(--tim-radius-sm);
+  background: var(--tim-white); font: inherit; font-size: 0.85rem; resize: vertical;
+}
+.sc-card__saving { position: absolute; right: 0.5rem; top: 0; font-size: 0.72rem; color: var(--tim-muted); }

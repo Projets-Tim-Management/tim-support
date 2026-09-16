@@ -25,6 +25,8 @@ import { DevCell as DevCell_ff22fda9c901dfff8262e74b909f96af } from '../../../mo
 import { DevSelectField as DevSelectField_7f5a2bfdf035052e7caaeb96cf6a1598 } from '../../../modules/dev/admin/DevSelectField'
 import { ChecklistCell as ChecklistCell_8af2bc43e2f51c59acdebf4eb772057c } from '../../../modules/dev/admin/ChecklistCell'
 import { DevViewSwitcher as DevViewSwitcher_e17c34097fb47fa6e17560f990543519 } from '../../../modules/dev/admin/DevViewSwitcher'
+import { SecretField as SecretField_aefc30d9068f7c5cbbee6b30a555ffd6 } from '../../../modules/dev/admin/SecretField'
+import { IntegrationsGallery as IntegrationsGallery_ac65d026d1cfcac9d68a94db8e6b357e } from '../../../modules/dev/admin/IntegrationsGallery'
 import { DevStatusNameCell as DevStatusNameCell_edf2fab7585bd587bc345570e4e95412 } from '../../../modules/dev/admin/DevStatusNameCell'
 import { PaletteColorField as PaletteColorField_f12f393f1d861dcc9adf7448d16ac553 } from '../../../modules/dev/admin/PaletteColorField'
 import { DevRolesCell as DevRolesCell_8df41335d2dbe76b59544d2e11d56ce2 } from '../../../modules/dev/admin/DevRolesCell'
@@ -67,6 +69,7 @@ import { AddClientButton as AddClientButton_ce0017323009dc202b417bbc2eca1cd0 } f
 import { PartnerActivity as PartnerActivity_0cefa807c5e124a83847213cf92a333a } from '../../../modules/partner/admin/PartnerActivity'
 import { default as default_8a9381e16c061227fc1bf73c50e6e581 } from '../../../modules/partner/admin/PartnersListLite'
 import { InseeLookup as InseeLookup_408c5271613c1beb0676cb0c9b2b5bf9 } from '../../../modules/partner/admin/InseeLookup'
+import { IntakeAlert as IntakeAlert_92bcaf44d181e654ac91523931975e59 } from '../../../modules/partner/admin/IntakeAlert'
 import { ClientStatusCell as ClientStatusCell_358b486afee2c4532aca3d72ba0365eb } from '../../../modules/partner/admin/ClientStatusCell'
 import { ClientStatusField as ClientStatusField_4cf9c5082e5cc09e6363544e31423ee7 } from '../../../modules/marketing/admin/ClientStatusField'
 import { SequenceState as SequenceState_76fc64c304fa617805830e30067a8b3b } from '../../../modules/marketing/admin/SequenceState'
@@ -121,9 +124,11 @@ import { default as default_3cb4a5c74877e195c5857e84f524e351 } from '../../../ad
 import { default as default_055834be697654d564715e5f4ed084b8 } from '../../../admin/providers/RoleBodyClass'
 import { default as default_0c7a18af881eb624fa2c205ee8033462 } from '../../../admin/providers/RowClick'
 import { default as default_a0b3dc6cbedf342b789cbfbfb6915cb5 } from '../../../admin/providers/TabIcons'
+import { default as default_65ef55331b21a1936ed46e30c0e0c98a } from '../../../admin/providers/Assistant'
 import { VercelBlobClientUploadHandler as VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e } from '@payloadcms/storage-vercel-blob/client'
 import { default as default_a8bdfd6ec46ed48bd1e9402d58bf4c34 } from '../../../admin/dashboard/DashboardView'
 import { default as default_6971e0609c24bbf2339323e60b70e021 } from '../../../modules/support/admin/NotificationsView'
+import { default as default_31771f6a3fa0ba20a52c3d00b490cd26 } from '../../../admin/connections/SupportConnectionsView'
 import { default as default_d8e7bbf9f25486534fff2dfe79658e80 } from '../../../modules/partner/admin/BillingCheckView'
 import { default as default_3fac943f745ba0ff2dbf26360a2df675 } from '../../../modules/analytics/admin/BillingView'
 import { default as default_3125f72c9cf5e6cdd1ecf6cff4f3fd8c } from '../../../modules/analytics/admin/PipelineView'
@@ -162,6 +167,8 @@ export const importMap = {
   "/modules/dev/admin/DevSelectField#DevSelectField": DevSelectField_7f5a2bfdf035052e7caaeb96cf6a1598,
   "/modules/dev/admin/ChecklistCell#ChecklistCell": ChecklistCell_8af2bc43e2f51c59acdebf4eb772057c,
   "/modules/dev/admin/DevViewSwitcher#DevViewSwitcher": DevViewSwitcher_e17c34097fb47fa6e17560f990543519,
+  "/modules/dev/admin/SecretField#SecretField": SecretField_aefc30d9068f7c5cbbee6b30a555ffd6,
+  "/modules/dev/admin/IntegrationsGallery#IntegrationsGallery": IntegrationsGallery_ac65d026d1cfcac9d68a94db8e6b357e,
   "/modules/dev/admin/DevStatusNameCell#DevStatusNameCell": DevStatusNameCell_edf2fab7585bd587bc345570e4e95412,
   "/modules/dev/admin/PaletteColorField#PaletteColorField": PaletteColorField_f12f393f1d861dcc9adf7448d16ac553,
   "/modules/dev/admin/DevRolesCell#DevRolesCell": DevRolesCell_8df41335d2dbe76b59544d2e11d56ce2,
@@ -204,6 +211,7 @@ export const importMap = {
   "/modules/partner/admin/PartnerActivity#PartnerActivity": PartnerActivity_0cefa807c5e124a83847213cf92a333a,
   "/modules/partner/admin/PartnersListLite#default": default_8a9381e16c061227fc1bf73c50e6e581,
   "/modules/partner/admin/InseeLookup#InseeLookup": InseeLookup_408c5271613c1beb0676cb0c9b2b5bf9,
+  "/modules/partner/admin/IntakeAlert#IntakeAlert": IntakeAlert_92bcaf44d181e654ac91523931975e59,
   "/modules/partner/admin/ClientStatusCell#ClientStatusCell": ClientStatusCell_358b486afee2c4532aca3d72ba0365eb,
   "/modules/marketing/admin/ClientStatusField#ClientStatusField": ClientStatusField_4cf9c5082e5cc09e6363544e31423ee7,
   "/modules/marketing/admin/SequenceState#SequenceState": SequenceState_76fc64c304fa617805830e30067a8b3b,
@@ -258,9 +266,11 @@ export const importMap = {
   "/admin/providers/RoleBodyClass#default": default_055834be697654d564715e5f4ed084b8,
   "/admin/providers/RowClick#default": default_0c7a18af881eb624fa2c205ee8033462,
   "/admin/providers/TabIcons#default": default_a0b3dc6cbedf342b789cbfbfb6915cb5,
+  "/admin/providers/Assistant#default": default_65ef55331b21a1936ed46e30c0e0c98a,
   "@payloadcms/storage-vercel-blob/client#VercelBlobClientUploadHandler": VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e,
   "/admin/dashboard/DashboardView#default": default_a8bdfd6ec46ed48bd1e9402d58bf4c34,
   "/modules/support/admin/NotificationsView#default": default_6971e0609c24bbf2339323e60b70e021,
+  "/admin/connections/SupportConnectionsView#default": default_31771f6a3fa0ba20a52c3d00b490cd26,
   "/modules/partner/admin/BillingCheckView#default": default_d8e7bbf9f25486534fff2dfe79658e80,
   "/modules/analytics/admin/BillingView#default": default_3fac943f745ba0ff2dbf26360a2df675,
   "/modules/analytics/admin/PipelineView#default": default_3125f72c9cf5e6cdd1ecf6cff4f3fd8c,

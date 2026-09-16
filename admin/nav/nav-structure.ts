@@ -18,6 +18,8 @@ export interface NavSubGroup {
   label: string;
   /** Slugs des collections rangées dans ce sous-groupe, dans l'ordre. */
   slugs: string[];
+  /** Liens libres (vues custom) rendus après les collections du sous-groupe. */
+  links?: NavLink[];
 }
 
 /** Lien libre vers une vue custom (hors collection). */
@@ -118,10 +120,21 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
    */
   Développements: [
     "developments",
+    "integrations",
     { label: "Paramètres", slugs: ["dev-statuses"] },
   ],
-  /** Les réglages : comptes, apparence, boîtes connectées. */
-  Système: ["users", "appearance", "mailbox-connections", "media"],
+  /**
+   * Les réglages : comptes, apparence, boîtes connectées — et les connexions
+   * DU SUPPORT (Pennylane, Brevo, INSEE, Google) : état des variables, test,
+   * notes. Aucune clé saisie là : elles vivent sur Vercel.
+   */
+  Système: [
+    "users",
+    "appearance",
+    "mailbox-connections",
+    "media",
+    { label: "Connexions du support", href: "/admin/connexions-support", adminOnly: true },
+  ],
 };
 
 export function isSubGroup(item: NavItem): item is NavSubGroup {

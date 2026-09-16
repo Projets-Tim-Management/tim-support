@@ -183,8 +183,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
         payload.logger.error(`[formulaires] opportunité non créée (${submissionId}) : ${outcome.error}`);
         await markSubmission(payload, submission.id, { processingStatus: "echec", processingError: outcome.error });
       } else {
-        const status = outcome.status === "rattachee" ? "opportunite" : outcome.status;
-        await markSubmission(payload, submission.id, { processingStatus: status, client: outcome.clientId });
+        await markSubmission(payload, submission.id, { processingStatus: "opportunite", client: outcome.clientId });
         payload.logger.info(
           `[formulaires] ${outcome.status === "rattachee" ? "soumission rattachée à" : "opportunité"} ${outcome.clientId} (${submissionId}).`,
         );
@@ -199,7 +198,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
         attribution,
         channel,
         clientId: outcome.status === "echec" ? undefined : outcome.clientId,
-        brouillon: outcome.status === "brouillon",
+        issues: outcome.status === "echec" ? [] : opportunity.issues.map((i) => `${i.message} (« ${i.raw} »)`),
       });
     } catch (e) {
       const error = (e as Error).message;

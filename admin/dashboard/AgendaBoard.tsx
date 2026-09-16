@@ -53,7 +53,7 @@ export default function AgendaBoard({
    */
   const basculer = useCallback(async (item: AgendaItem) => {
     const id = idTache(item);
-    if (!id) return; // une session ne se coche pas ici
+    if (!id && !item.etape) return; // une session ne se coche pas ici
     const vise = !item.done;
 
     /**
@@ -75,21 +75,34 @@ export default function AgendaBoard({
     marquer(vise);
     setErreur(null);
     try {
-      const res = await fetch(`/payload-api/client-activities/${id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ done: vise }),
-      });
+      /**
+       * Une ÉTAPE de parcours s'écrit sur le parcours, par la même règle que
+       * la fiche (état, date, auteur — voir la route). C'est ce qui fait que
+       * cocher ici ou là-bas revient au même : il n'y a qu'une case.
+       */
+      const res = item.etape
+        ? await fetch("/api/admin/journey-step", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ runId: item.etape.runId, key: item.etape.key, done: vise }),
+          })
+        : await fetch(`/payload-api/client-activities/${id}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ done: vise }),
+          });
       if (!res.ok) throw new Error(String(res.status));
     } catch {
       // Dire l'échec, et pas seulement défaire : une ligne qui revient toute
       // seule à son état passe pour un clic raté, et on recommence.
       marquer(!vise);
+      const quoi = item.etape ? "L'étape" : "La tâche";
       setErreur(
         vise
-          ? "La tâche n'a pas pu être marquée comme faite."
-          : "La tâche n'a pas pu être rouverte.",
+          ? `${quoi} n'a pas pu être marquée comme faite.`
+          : `${quoi} n'a pas pu être rouverte.`,
       );
     }
   }, []);

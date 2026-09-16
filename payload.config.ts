@@ -29,6 +29,8 @@ import { RewardOrders } from "./modules/partner/collections/RewardOrders";
 import { Tickets } from "./modules/support/collections/Tickets";
 import { Developments } from "./modules/dev/collections/Developments";
 import { DevStatuses } from "./modules/dev/collections/DevStatuses";
+import { Integrations } from "./modules/dev/collections/Integrations";
+import { SupportConnectionsGlobal } from "./core/globals/SupportConnections";
 import { Forms } from "./modules/forms/collections/Forms";
 import { FormSubmissions } from "./modules/forms/collections/FormSubmissions";
 import { MarketingJourneys } from "./modules/marketing/collections/MarketingJourneys";
@@ -154,6 +156,9 @@ export default buildConfig({
     user: Users.slug,
     // Fond blanc systématique (aligné sur le front), pas de thème sombre.
     theme: "light",
+    // Onglet du navigateur : l'« icône seule » d'Apparence, servie par une
+    // route (les métadonnées de l'admin sont statiques — voir api/favicon).
+    meta: { icons: [{ rel: "icon", url: "/api/favicon" }] },
     // Avatar du compte = photo de profil (champ `avatar` de Users) si présente,
     // sinon initiale. Voir admin/graphics/Avatar.tsx.
     avatar: { Component: "/admin/graphics/Avatar#default" },
@@ -169,6 +174,8 @@ export default buildConfig({
         "/admin/providers/RowClick#default",
         // Icône devant chaque onglet de fiche (reconnue par son libellé).
         "/admin/providers/TabIcons#default",
+        // L'assistant : bulle en bas à droite, ce qu'il reste à faire, en messages.
+        "/admin/providers/Assistant#default",
       ],
       graphics: {
         Logo: "/admin/graphics/Logo#Logo",
@@ -199,6 +206,13 @@ export default buildConfig({
         },
         // Écran « Facturation » : les licences saisies sur chaque fiche face à
         // l'abonnement Pennylane — voir modules/partner/admin/BillingCheckView.
+        // Connexions du support (Système) : état des variables, test, notes.
+        connexionsSupport: {
+          Component: "/admin/connections/SupportConnectionsView#default",
+          path: "/connexions-support",
+          exact: true,
+          meta: { title: "Connexions du support" },
+        },
         facturation: {
           Component: "/modules/partner/admin/BillingCheckView#default",
           path: "/facturation",
@@ -256,6 +270,7 @@ export default buildConfig({
       Tickets,
       // Suivi des développements (ce qui est demandé, ce qui est en cours)
       Developments,
+      Integrations,
       DevStatuses,
       // Features (+ leurs paramètres : catégories, plateformes)
       Features,
@@ -485,7 +500,7 @@ export default buildConfig({
        */
     }),
   ],
-  globals: [Appearance],
+  globals: [Appearance, SupportConnectionsGlobal],
 
   db: postgresAdapter({
     // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :

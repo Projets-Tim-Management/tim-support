@@ -677,23 +677,10 @@
   display: flex;
   margin-bottom: 0.75rem;
 }
+/* Le bouton d'action TIM, tel quel (voir .tim-btn dans _base.scss). */
 .tim-add-client {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  appearance: none;
-  cursor: pointer;
-  padding: 0.5rem 1rem;
-  border: 0;
-  border-radius: var(--tim-radius-sm);
-  background: var(--tim-primary);
-  color: var(--tim-white);
-  font-size: 0.85rem;
-  font-weight: 600;
-  transition: background-color 0.12s ease;
-}
-.tim-add-client:hover {
-  background: var(--tim-primary-dark);
+  @extend .tim-btn;
+  @extend .tim-btn--primary;
 }
 
 /* ─── Tableau de relations (champ `join` d'une fiche) ────────────────────────*/
@@ -1571,28 +1558,12 @@
   gap: 0.6rem;
   margin-top: 1.4rem;
 }
+/* Les boutons du Kanban = le bouton d'action TIM (voir .tim-btn dans _base.scss). */
 .tim-kanban__btn {
-  appearance: none;
-  cursor: pointer;
-  padding: 0.5rem 1.1rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--tim-foreground);
-  background: var(--tim-white);
-  border: 1px solid var(--tim-border);
-  border-radius: var(--tim-radius-sm);
+  @extend .tim-btn;
 }
 .tim-kanban__btn--primary {
-  color: var(--tim-white);
-  background: var(--tim-primary);
-  border-color: var(--tim-primary);
-}
-.tim-kanban__btn--primary:hover {
-  background: var(--tim-primary-dark);
-}
-.tim-kanban__btn:disabled {
-  opacity: 0.55;
-  cursor: default;
+  @extend .tim-btn--primary;
 }
 
 /* En mode Kanban, on masque le tableau natif Payload et ses contrôles/pagination
@@ -2372,4 +2343,46 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+/* ─── Alerte d'entrée : la fiche est là, mais quelque chose est à corriger ────
+   Ambre, en tête de fiche, tant que le champ n'est pas repris. */
+.tim-intake {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--tim-amber);
+  border-radius: var(--tim-radius);
+  background: var(--tim-amber-bg);
+}
+.tim-intake__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: var(--tim-amber);
+  color: var(--tim-white);
+  font-weight: 800;
+}
+.tim-intake__body { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.tim-intake__title { margin: 0; font-size: 0.9rem; font-weight: 800; color: var(--tim-amber); }
+.tim-intake__list { margin: 0; padding-left: 1.1rem; font-size: 0.85rem; color: var(--tim-foreground); code { font-size: 0.8rem; } }
+.tim-intake__hint { margin: 0; font-size: 0.78rem; color: var(--tim-muted); }
+
+/* Carte Kanban : la même réserve, en un mot. */
+.tim-kanban__intake {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 6px;
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }

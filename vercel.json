@@ -39,6 +39,10 @@
     {
       "path": "/api/cron/mailbox-sync",
       "schedule": "20 * * * *"
+    },
+    {
+      "path": "/api/cron/billing-validation",
+      "schedule": "50 5 * * *"
     }
   ]
 }

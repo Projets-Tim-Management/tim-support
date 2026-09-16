@@ -39,16 +39,9 @@ import { LOSS_REASON_OPTIONS, needsLossReason } from "@/modules/partner/lib/loss
 import { journalEntries, logActivity } from "@/modules/partner/lib/journal";
 import { pennylaneStampFor } from "@/modules/partner/lib/billing-check";
 import { BILLING_PERIOD_OPTIONS } from "@/modules/partner/lib/billing-period";
-import { nextHistory, type HistoryEntry } from "@/modules/partner/lib/history";
+import { buildHistoryEntry, nextHistory, type HistoryEntry } from "@/modules/partner/lib/history";
 import { peekPennylane } from "@/modules/partner/lib/pennylane";
-import {
-  computeClientCA,
-  effectiveUnitPrice,
-  isBillableClient,
-  LICENCE_BASE_PRICES,
-  licenceLinesOf,
-  PROFILS,
-} from "@/modules/partner/lib/pricing";
+import { isBillableClient, LICENCE_BASE_PRICES, PROFILS } from "@/modules/partner/lib/pricing";
 
 /**
  * Opportunités — les entreprises BTP qu'un partenaire a amenées à Tim, du
@@ -68,13 +61,35 @@ import {
  */
 const adminOnlyTab: Condition = (_data, _siblingData, { user }) => hasAdminRole(user);
 
+/**
+ * L'adresse e-mail devient obligatoire à la phase de test : l'espace client,
+ * les accès, les factures en ont besoin. Avant, un lead sans adresse valide
+ * doit pouvoir vivre dans le Kanban — c'est le téléphone qui sert.
+ */
+const requireEmailFromTest: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
+  const status = (data?.clientStatus ?? originalDoc?.clientStatus) as string | undefined;
+  const email = String(data?.email ?? originalDoc?.email ?? "").trim();
+  const draft = data?._status === "draft";
+  if (!draft && email === "" && (status === "en-test" || hasContractPhase(status))) {
+    throw new Error("L'adresse e-mail est obligatoire à partir de la phase de test (espace client, accès, factures).");
+  }
+  return data;
+};
+
+/** Une réserve d'entrée disparaît dès que son champ est renseigné. */
+const clearIntakeIssues: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
+  const issues = (data?.intakeIssues ?? originalDoc?.intakeIssues) as { field?: string }[] | null | undefined;
+  if (!issues?.length) return data;
+  const value = (f: string) => String((data?.[f] ?? originalDoc?.[f]) ?? "").trim();
+  const kept = issues.filter((i) => !(i.field && value(i.field) !== ""));
+  return kept.length === issues.length ? data : { ...data, intakeIssues: kept };
+};
+
 /** Recalcule les totaux CA + l'historique mensuel à chaque enregistrement. */
 const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req }) => {
   // Repli sur originalDoc si `licences` absent d'une mise à jour partielle
   // (sinon le CA serait remis à zéro en éditant un autre champ).
   const lic = (data?.licences ?? originalDoc?.licences ?? {}) as Record<string, number | undefined>;
-  const lines = licenceLinesOf(lic);
-  const { totalLicences, caHT, suggestedDiscountPct } = computeClientCA(lines);
 
   // Taux de commission du partenaire lié (figé dans chaque période d'historique).
   const pref = (data?.partner ?? originalDoc?.partner) as unknown;
@@ -89,21 +104,10 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
       /* taux indisponible → 0 */
     }
   }
-  const commission = round2((caHT * commissionRate) / 100);
 
-  // Détail complet par profil (pour le drawer d'historique).
-  // `price` = prix effectif (remise déduite) : c'est lui que l'historique doit
-  // raconter, et lui que la signature ci-dessous compare.
-  const detail = lines.map((l) => ({
-    key: l.key,
-    label: l.label,
-    qty: l.qty,
-    price: effectiveUnitPrice(l),
-    listPrice: l.price,
-    discountPct: l.discountPct || undefined,
-    discountAmount: l.discountAmount || undefined,
-    subtotal: round2(l.qty * effectiveUnitPrice(l)),
-  }));
+  // Une seule façon de calculer une ligne (lib/history.ts) : la validation
+  // mensuelle écrit la même, par un autre chemin.
+  const { totalLicences, caHT, commission, detail, suggestedDiscountPct } = buildHistoryEntry(lic, commissionRate);
 
   /**
    * Historique mensuel — règles dans modules/partner/lib/history.ts : rien tant
@@ -438,8 +442,10 @@ export const PartnerClients: CollectionConfig = {
     // calcul, plutôt que d'échouer à mi-chemin sur une fiche déjà recalculée.
     beforeChange: [
       requireTestSchedule,
+      requireEmailFromTest,
       requireContractStart,
       requireLossReason,
+      clearIntakeIssues,
       enforcePartnerField(),
       setStatusRank,
       computeCA,
@@ -481,6 +487,27 @@ export const PartnerClients: CollectionConfig = {
         components: { Field: "/modules/partner/admin/InseeLookup#InseeLookup" },
       },
     },
+    /**
+     * Ce qui n'a pas pu entrer tel quel depuis le formulaire (e-mail mal
+     * formé, téléphone illisible). La fiche existe, « Nouvelle » — on ne perd
+     * pas un lead pour un accent — et l'alerte reste en tête jusqu'à ce que le
+     * champ soit corrigé (voir clearIntakeIssues).
+     */
+    {
+      name: "intakeAlert",
+      type: "ui",
+      admin: { components: { Field: "/modules/partner/admin/IntakeAlert#IntakeAlert" } },
+    },
+    {
+      name: "intakeIssues",
+      type: "array",
+      admin: { hidden: true },
+      fields: [
+        { name: "field", type: "text" },
+        { name: "raw", type: "text" },
+        { name: "message", type: "text" },
+      ],
+    },
     {
       type: "row",
       fields: [
@@ -493,14 +520,14 @@ export const PartnerClients: CollectionConfig = {
         },
         {
           // En tête de fiche et non dans « Facturation client » : cet onglet est
-          // rangé en dernier, et le champ est REQUIS à la publication. C'est
-          // d'ailleurs son premier usage — écrire à la personne bien avant de
-          // lui envoyer une facture.
+          // rangé en dernier. Le champ n'est plus requis à la création : un
+          // lead dont l'adresse est mal tapée doit ENTRER dans le Kanban, avec
+          // une alerte, plutôt que d'être perdu (voir requireEmailFromTest —
+          // l'adresse devient obligatoire à la phase de test).
           name: "email",
           type: "email",
           label: "Adresse e-mail",
-          required: true,
-          admin: { width: "50%", description: "Contact, puis envoi des factures." },
+          admin: { width: "50%", description: "Contact, puis envoi des factures. Obligatoire dès la phase de test." },
         },
       ],
     },
@@ -1172,6 +1199,14 @@ export const PartnerClients: CollectionConfig = {
         { name: "commissionRate", type: "number" },
         { name: "commission", type: "number" },
         { name: "detail", type: "json" }, // [{ key, label, qty, price, subtotal }]
+        /**
+         * Validation mensuelle (écran Rapprochement) : quelqu'un a constaté
+         * que la fiche et l'abonnement Pennylane disent la même chose pour la
+         * facture de ce mois. Sans elle, la ligne n'est qu'un attendu.
+         */
+        { name: "validatedAt", type: "date" },
+        { name: "validatedBy", type: "relationship", relationTo: "users" },
+        { name: "invoiceDate", type: "date" }, // la facture visée (ISO jour)
       ],
     },
 

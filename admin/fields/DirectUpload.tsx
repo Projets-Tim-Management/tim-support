@@ -40,6 +40,9 @@ export default function DirectUpload(props: any) {
   const label = props?.field?.label ?? props?.field?.name;
   const hasMany = Boolean(props?.field?.hasMany);
   const readOnly = Boolean(props?.readOnly);
+  // `admin.className` du champ, comme sur un champ natif : c'est ce qui permet
+  // à un logo (entier, hauteur bornée) de ne pas être rogné comme un avatar.
+  const className: string = props?.field?.admin?.className ?? "";
   const custom = props?.field?.admin?.custom ?? {};
   const accept: string = custom.accept ?? "image/*";
   const noun: string = custom.noun ?? "une image";
@@ -117,7 +120,7 @@ export default function DirectUpload(props: any) {
   const showZone = hasMany || items.length === 0;
 
   return (
-    <div className="field-type direct-upload">
+    <div className={`field-type direct-upload${className ? ` ${className}` : ""}`}>
       {label && <FieldLabel label={label} path={path} />}
 
       {items.length > 0 && (

@@ -1,12 +1,14 @@
-import type { PayloadRequest } from "payload";
+import type { PayloadRequest, Where } from "payload";
 
 import { taskKindLabel } from "@/modules/partner/lib/activity";
 
+import { CLOSED_STATUSES } from "@/modules/marketing/lib/due-emails";
 import { isStepDone } from "@/modules/marketing/lib/journey";
+import { partnerStepsOnAgenda, type PartnerStep } from "@/modules/marketing/lib/partner-steps";
 import { enRetard, parisDayKey, type AgendaItem } from "./agenda";
 
 /**
- * Les rendez-vous du jour, lus en deux requêtes ciblées.
+ * Les rendez-vous du jour, lus en trois requêtes ciblées.
  *
  * Même discipline que le reste du dashboard (voir data.ts) : lecture serveur,
  * `depth: 0`, sélection minimale, aucune agrégation en base — la journée d'une
@@ -17,13 +19,18 @@ import { enRetard, parisDayKey, type AgendaItem } from "./agenda";
  * la journée à laquelle il appartient.
  */
 
-type RunRow = {
+export type RunRow = {
   id: number | string;
+  status?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  reviewAt?: string | null;
   sessionAt?: string | null;
   sessionMode?: string | null;
   sessionLink?: string | null;
-  client?: { companyName?: string } | number | string | null;
-  steps?: { key?: string | null; state?: string | null; autoAt?: string | null }[] | null;
+  client?: { id?: number | string; companyName?: string } | number | string | null;
+  partner?: { id?: number | string; displayName?: string | null } | number | string | null;
+  steps?: (PartnerStep & { autoAt?: string | null })[] | null;
 };
 
 /**
@@ -62,19 +69,79 @@ const idClient = (c: TaskRow["client"]): number | string | null => {
  * seconde pour désigner le prochain rendez-vous : deux lectures, et la liste
  * peut ne pas correspondre à ce qu'elle met en avant.
  */
-export async function getTodayAgenda(
-  req: PayloadRequest,
-  adminRoute: string,
-  maintenant: number = Date.now(),
-): Promise<{
+export type AgendaData = {
   now: number;
   /** Tout le mois affiché : le jour sélectionné se filtre à l'écran. */
   items: AgendaItem[];
   /** Tâches datées d'avant aujourd'hui et toujours pas cochées. */
   retard: AgendaItem[];
-}> {
-  const payload = req.payload;
+};
+
+/** Les six semaines de la grille, autour du jour courant. */
+export const fenetreAgenda = (maintenant: number): { jour: string; debut: string; fin: string } => {
   const jour = parisDayKey(maintenant);
+  const premier = Date.parse(`${jour.slice(0, 7)}-01T00:00:00.000Z`);
+  return {
+    jour,
+    debut: new Date(premier - 10 * 86_400_000).toISOString(),
+    fin: new Date(premier + 50 * 86_400_000).toISOString(),
+  };
+};
+
+/**
+ * Les parcours qui ont quelque chose à mettre sur l'agenda : une session dans
+ * la fenêtre, OU encore ouverts — leurs étapes qui attendent le partenaire
+ * sont datées, et ces dates sont des rendez-vous comme les autres.
+ *
+ * Exportée à part : l'accueil lit les MÊMES parcours pour ses cartes de phase
+ * de test, et une lecture suffit pour les deux (voir data-home.ts).
+ */
+export async function chargerParcoursAgenda(
+  req: PayloadRequest,
+  maintenant: number,
+  partnerId?: number | string | null,
+): Promise<RunRow[]> {
+  const { debut, fin } = fenetreAgenda(maintenant);
+  const fenetre: Where = {
+    or: [
+      {
+        and: [{ sessionAt: { greater_than_equal: debut } }, { sessionAt: { less_than_equal: fin } }],
+      },
+      { status: { not_in: CLOSED_STATUSES } },
+    ],
+  };
+  return req.payload
+    .find({
+      collection: "journey-runs",
+      where: partnerId != null ? { and: [{ partner: { equals: partnerId } }, fenetre] } : fenetre,
+      // `depth: 1` pour le nom du client : une ligne d'agenda sans nom
+      // d'entreprise n'aide personne à savoir qui il voit à 10 h.
+      depth: 1,
+      limit: 300,
+      overrideAccess: true,
+      req,
+    })
+    .then((r) => r.docs as RunRow[])
+    .catch(() => [] as RunRow[]);
+}
+
+export async function getTodayAgenda(
+  req: PayloadRequest,
+  adminRoute: string,
+  maintenant: number = Date.now(),
+  options: {
+    /** Un partenaire ne voit que SES parcours et SES tâches. */
+    partnerId?: number | string | null;
+    /** Parcours déjà lus par l'appelant : on ne les relit pas. */
+    parcours?: RunRow[];
+  } = {},
+): Promise<AgendaData> {
+  const payload = req.payload;
+  const { partnerId } = options;
+  const { jour, debut, fin } = fenetreAgenda(maintenant);
+  /** Restreint une requête de tâches au partenaire, quand il y en a un. */
+  const scope = (clauses: Where[]): Where[] =>
+    partnerId != null ? [{ partner: { equals: partnerId } }, ...clauses] : clauses;
 
   /**
    * Fenêtre unique : les six semaines de la grille.
@@ -83,36 +150,18 @@ export async function getTodayAgenda(
    * poignée de lignes, on le charge une fois et l'écran filtre. Trois requêtes
    * au total, au lieu d'une par jour consulté.
    */
-  const premier = Date.parse(`${jour.slice(0, 7)}-01T00:00:00.000Z`);
-  const debut = new Date(premier - 10 * 86_400_000).toISOString();
-  const fin = new Date(premier + 50 * 86_400_000).toISOString();
-
-  const [sessions, taches, tachesEnRetard] = await Promise.all([
-    payload
-      .find({
-        collection: "journey-runs",
-        where: {
-          and: [{ sessionAt: { greater_than_equal: debut } }, { sessionAt: { less_than_equal: fin } }],
-        },
-        // `depth: 1` pour le nom du client : une ligne d'agenda sans nom
-        // d'entreprise n'aide personne à savoir qui il voit à 10 h.
-        depth: 1,
-        limit: 200,
-        overrideAccess: true,
-        req,
-      })
-      .then((r) => r.docs as RunRow[])
-      .catch(() => [] as RunRow[]),
+  const [parcours, taches, tachesEnRetard] = await Promise.all([
+    options.parcours ?? chargerParcoursAgenda(req, maintenant, partnerId),
     payload
       .find({
         collection: "client-activities",
         where: {
-          and: [
+          and: scope([
             // Le champ s'appelle `type` (note / email / tache / systeme).
             { type: { equals: "tache" } },
             { dueDate: { greater_than_equal: debut } },
             { dueDate: { less_than_equal: fin } },
-          ],
+          ]),
         },
         depth: 1,
         limit: 500,
@@ -133,12 +182,12 @@ export async function getTodayAgenda(
       .find({
         collection: "client-activities",
         where: {
-          and: [
+          and: scope([
             { type: { equals: "tache" } },
             { done: { not_equals: true } },
             { dueDate: { greater_than_equal: new Date(maintenant - 30 * 86_400_000).toISOString() } },
             { dueDate: { less_than: `${jour}T00:00:00.000Z` } },
-          ],
+          ]),
         },
         depth: 1,
         limit: 20,
@@ -164,9 +213,36 @@ export async function getTodayAgenda(
     done: Boolean(t.done),
   });
 
+  const dansLaFenetre = (iso: string): boolean => iso >= debut && iso <= fin;
+
+  /**
+   * Une étape de parcours devient une ligne d'agenda — et une ligne qu'on
+   * COCHE : `etape` porte de quoi écrire sur le parcours, et le parcours porte
+   * l'état qu'on relit ici. Une seule vérité, deux écrans.
+   *
+   * On ouvre le PARCOURS, pas la fiche client : c'est là que vivent l'étape,
+   * sa note, et les autres relevés autour.
+   */
+  const etapes: AgendaItem[] = parcours
+    .filter((r) => !CLOSED_STATUSES.includes(r.status ?? ""))
+    .flatMap((r) =>
+      partnerStepsOnAgenda(r).map(({ step, due, done }) => ({
+        id: `etape-${r.id}-${step.key ?? ""}`,
+        at: due,
+        kind: "etape",
+        label: "Phase de test",
+        title: step.label ?? "Étape du parcours",
+        client: nomClient(r.client),
+        href: `${adminRoute}/collections/journey-runs/${r.id}`,
+        done,
+        allDay: true,
+        etape: { runId: r.id, key: step.key ?? "" },
+      })),
+    );
+
   const items: AgendaItem[] = [
-    ...sessions
-      .filter((r) => r.sessionAt)
+    ...parcours
+      .filter((r) => r.sessionAt && dansLaFenetre(r.sessionAt))
       .map((r) => ({
         id: `session-${r.id}`,
         at: r.sessionAt as string,
@@ -180,11 +256,21 @@ export async function getTodayAgenda(
         done: sessionFaite(r, maintenant),
       })),
     ...taches.filter((t) => t.dueDate).map(versItem),
+    ...etapes.filter((e) => dansLaFenetre(e.at)),
   ];
+
+  // Même borne que les tâches : au-delà de 30 jours, ce n'est plus un retard.
+  const plancherRetard = new Date(maintenant - 30 * 86_400_000).toISOString();
 
   return {
     now: maintenant,
     items: items.sort((a, b) => Date.parse(a.at) - Date.parse(b.at)),
-    retard: enRetard(tachesEnRetard.filter((t) => t.dueDate).map(versItem), jour),
+    retard: enRetard(
+      [
+        ...tachesEnRetard.filter((t) => t.dueDate).map(versItem),
+        ...etapes.filter((e) => e.at >= plancherRetard),
+      ],
+      jour,
+    ),
   };
 }

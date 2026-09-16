@@ -16,7 +16,7 @@ import { buildTaskDigestEmail, dayKey, groupTasksForDigest } from "@/modules/par
 /** 25 août 2026, 08:00 à Paris (UTC+2 en été). */
 const NOW = new Date("2026-08-25T06:00:00.000Z");
 
-const task = (id: number, iso: string, over: Record<string, unknown> = {}) => ({
+const task = (id: number | string, iso: string, over: Record<string, unknown> = {}) => ({
   id,
   title: `Tâche ${id}`,
   dueDate: iso,
@@ -76,6 +76,26 @@ describe("regroupement des rappels", () => {
   it("ne remonte rien au-delà de l'horizon demandé", () => {
     const g = groupTasksForDigest([task(1, "2026-09-05T07:00:00.000Z")], NOW, 7);
     expect(g.total).toBe(0);
+  });
+});
+
+describe("une étape de parcours dans le récapitulatif", () => {
+  it("se lit comme une étape, sans heure, et mène au parcours", () => {
+    const g = groupTasksForDigest(
+      [
+        task(1, "2026-08-25T14:00:00.000Z"),
+        task("etape-7-releve-j2", "2026-08-25T00:00:00.000Z", {
+          title: "Relevé d'usage J+2",
+          journeyRunId: 7,
+        }),
+      ],
+      NOW,
+    );
+    expect(g.today).toHaveLength(2);
+    const mail = buildTaskDigestEmail("Gaëlle", g);
+    expect(mail.text).toContain("• Phase de test · Relevé d'usage J+2 — KUHN CONSTRUCTION");
+    expect(mail.text).toContain("• 16:00 Tâche 1 — KUHN CONSTRUCTION");
+    expect(mail.html).toContain("/admin/collections/journey-runs/7");
   });
 });
 

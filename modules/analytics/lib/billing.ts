@@ -50,6 +50,12 @@ export type MonthPoint = {
   /** Clients facturables ce mois-là. */
   clients: number;
   licences: number;
+  /**
+   * Parmi eux, ceux dont le mois est SIGNÉ sur le rapprochement (la fiche
+   * et l'abonnement Pennylane alignés). Les autres ne sont qu'un attendu :
+   * le mois est « estimé » tant que tout n'est pas signé.
+   */
+  validated: number;
 };
 
 export type ProfileStat = {
@@ -428,6 +434,7 @@ function monthlySeries(
     let expected = 0;
     let count = 0;
     let licences = 0;
+    let validated = 0;
     for (const c of clients) {
       const start = starts.get(String(c.id));
       if (!start || Date.parse(start) > asOf.getTime()) continue;
@@ -441,6 +448,8 @@ function monthlySeries(
 
       licences += inForce.totalLicences ?? 0;
       count += 1;
+      // Signé pour CE mois — pas la ligne en vigueur, qui peut venir d'un mois plus ancien.
+      if ((c.history ?? []).some((h) => h.at && monthKey(h.at) === key && h.validatedAt)) validated += 1;
     }
     const inv = invoicesByMonth.get(key);
     out.push({
@@ -450,6 +459,7 @@ function monthlySeries(
       paid: round2(inv?.paid ?? 0),
       clients: count,
       licences,
+      validated,
     });
   }
   return out;

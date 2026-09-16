@@ -36,7 +36,11 @@ Puis :
   • \`next-env.d.ts\` est GÉNÉRÉ et bascule dev/build : le restaurer
     (\`git checkout -- next-env.d.ts\`) plutôt que le committer.
   • message en français, « Domaine : ce que ça fait », puis le POURQUOI — le
-    diff dit déjà le quoi. Finir par le trailer Co-Authored-By.`;
+    diff dit déjà le quoi. Finir par le trailer Co-Authored-By.
+  • le commit change-t-il une RÈGLE du support (calcul, état, rappel, rôle,
+    ce que voit l'assistant) ? Alors mettre à jour docs/REGLES-SUPPORT.md dans
+    le même commit — c'est ce que Claude lit pour répondre. Sinon, ne pas y
+    toucher.`;
 
 const PUSH = `RAPPEL — push (docs/COMMIT-ET-DEPLOIEMENT.md)
 

@@ -62,6 +62,19 @@
   height: 120px;
   object-fit: cover;
 }
+/* Un LOGO se montre en entier : jamais rogné, seulement borné en hauteur —
+   un logo horizontal doit rester lisible, un carré ne doit pas déborder. */
+.direct-upload--logo .direct-upload__thumb {
+  padding: 0.6rem;
+}
+.direct-upload--logo .direct-upload__thumb img,
+.direct-upload--logo.direct-upload .direct-upload__grid--single .direct-upload__thumb img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+}
 .direct-upload__doc {
   display: flex;
   align-items: center;

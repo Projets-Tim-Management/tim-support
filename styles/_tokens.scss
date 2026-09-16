@@ -60,6 +60,9 @@
   --tim-chart-4: #eda100;
   --tim-chart-5: #4a3aa7;
   --tim-chart-muted: #c9ccd3; /* le reste, quand une série est mise en avant */
+  /* Accueil, graphique des mois : le violet des prospects, validé avec le
+     rouge marque des bâtons et le vert des clients signés (ΔE ≥ 16 en CVD). */
+  --tim-chart-violet: #5b5bd6;
   --tim-chart-grid:  #eef0f3; /* grille : un cran au-dessus du fond, trait fin */
 
   /* ─── Plateformes (badge bleu identique au front) ─────────────────────────*/

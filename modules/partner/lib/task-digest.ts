@@ -36,6 +36,13 @@ export interface DigestTask {
   dueDate?: string | null;
   highPriority?: boolean;
   client?: { id?: number | string; companyName?: string } | number | string | null;
+  /**
+   * Étape d'un PARCOURS (relevé d'usage, bilan…), et non tâche saisie à la
+   * main : elle n'a pas d'heure, et son lien mène au parcours — c'est là
+   * qu'elle se coche. Sans elle dans ce message, une étape due aujourd'hui ne
+   * figurait nulle part le lendemain (constaté le 16/09/2026, relevé J+2).
+   */
+  journeyRunId?: number | string | null;
 }
 
 export interface DigestGroups {
@@ -117,27 +124,37 @@ export function groupTasksForDigest(tasks: DigestTask[], now: Date, days = 7): D
 /** Au-delà, la liste des retards devient un mur : on compte le reste. */
 const MAX_LATE = 10;
 
+/** Une étape de parcours se lit comme telle : « Phase de test · Relevé J+2 ». */
+const titre = (t: DigestTask): string =>
+  t.journeyRunId != null ? `Phase de test · ${label(t)}` : label(t);
+
+/** Où cocher : la fiche client pour une tâche, le parcours pour une étape. */
+const lien = (t: DigestTask): string =>
+  t.journeyRunId != null
+    ? `${SITE_URL}/admin/collections/journey-runs/${t.journeyRunId}`
+    : `${SITE_URL}/admin/collections/partner-clients/${
+        typeof t.client === "object" && t.client ? t.client.id : ""
+      }`;
+
 const line = (t: DigestTask, withHour = true): string => {
   const parts = [
     t.highPriority ? "⚑" : null,
-    withHour ? hour(t.dueDate) : null,
-    label(t),
+    withHour && t.journeyRunId == null ? hour(t.dueDate) : null,
+    titre(t),
     clientName(t) ? `— ${clientName(t)}` : null,
   ].filter(Boolean);
   return parts.join(" ");
 };
 
 const htmlLine = (t: DigestTask, color: string, withHour = true): string => {
-  const url = `${SITE_URL}/admin/collections/partner-clients/${
-    typeof t.client === "object" && t.client ? t.client.id : ""
-  }`;
+  const url = lien(t);
   const co = clientName(t);
   return `<tr>
     <td style="padding:5px 12px 5px 0;font-family:${FONT};font-size:13px;font-weight:700;color:${color};white-space:nowrap;vertical-align:top;">${
       t.highPriority ? "⚑ " : ""
-    }${withHour ? escape(hour(t.dueDate)) : "—"}</td>
+    }${withHour && t.journeyRunId == null ? escape(hour(t.dueDate)) : "—"}</td>
     <td style="padding:5px 0;font-family:${FONT};font-size:14px;line-height:1.5;color:${INK};">
-      <a href="${url}" style="color:${INK};text-decoration:none;font-weight:600;">${escape(label(t))}</a>
+      <a href="${url}" style="color:${INK};text-decoration:none;font-weight:600;">${escape(titre(t))}</a>
       ${co ? `<span style="color:${MUTED};"> — ${escape(co)}</span>` : ""}
     </td>
   </tr>`;

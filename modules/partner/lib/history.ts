@@ -1,6 +1,8 @@
 import type { PennylaneStamp } from "./billing-check";
 import { hasContractPhase } from "./clientStatus";
+import { round2 } from "./format";
 import { monthKey, monthStart } from "./month";
+import { computeClientCA, effectiveUnitPrice, licenceLinesOf } from "./pricing";
 
 /**
  * L'historique mensuel d'une fiche : ce qui a été FACTURÉ, mois après mois.
@@ -23,7 +25,51 @@ export type HistoryEntry = {
   commissionRate?: number;
   detail?: unknown;
   pennylane?: PennylaneStamp;
+  /**
+   * Validation du mois : quelqu'un a constaté que la fiche et l'abonnement
+   * Pennylane disent la même chose pour la facture de ce mois. Absent tant
+   * que personne ne l'a signé — la ligne n'est alors qu'un ATTENDU.
+   */
+  validatedAt?: string | null;
+  validatedBy?: number | string | { id?: number | string } | null;
+  /** La date de la facture visée par cette validation (ISO jour). */
+  invoiceDate?: string | null;
 };
+
+/**
+ * Ce qu'une ligne d'historique raconte d'une configuration de licences :
+ * totaux, commission, et le détail par profil au prix effectif (remise
+ * déduite) — c'est lui que la signature compare.
+ *
+ * Partagé par le hook d'enregistrement de la fiche et par la validation
+ * mensuelle : une seule façon de calculer, donc la même ligne quel que soit
+ * le chemin qui l'écrit.
+ */
+export function buildHistoryEntry(
+  licences: Record<string, number | null | undefined> | null | undefined,
+  commissionRate: number,
+): Omit<HistoryEntry, "at"> & { suggestedDiscountPct: number } {
+  const lines = licenceLinesOf(licences);
+  const { totalLicences, caHT, suggestedDiscountPct } = computeClientCA(lines);
+  const detail = lines.map((l) => ({
+    key: l.key,
+    label: l.label,
+    qty: l.qty,
+    price: effectiveUnitPrice(l),
+    listPrice: l.price,
+    discountPct: l.discountPct || undefined,
+    discountAmount: l.discountAmount || undefined,
+    subtotal: round2(l.qty * effectiveUnitPrice(l)),
+  }));
+  return {
+    totalLicences,
+    caHT,
+    commissionRate,
+    commission: round2((caHT * commissionRate) / 100),
+    detail,
+    suggestedDiscountPct,
+  };
+}
 
 export type HistoryPolicy = "write" | "keep" | "none";
 

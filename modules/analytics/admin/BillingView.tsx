@@ -4,6 +4,7 @@ import { Icons } from "@/admin/dashboard/icons";
 import { hasAdminRole } from "@/core/access";
 import { AnalyticsPage } from "@/modules/analytics/admin/AnalyticsPage";
 import { AgingChart, PartnerChart, ProfileChart, RevenueChart, ShareBar } from "@/modules/analytics/admin/charts";
+import { ValidationStrip } from "@/modules/analytics/admin/ValidationStrip";
 import { DataTable, type Column, type Row } from "@/modules/analytics/admin/DataTable";
 import { Card, clientHref, fmtDay, Pct, PeriodFilter, periodFrom, Tile } from "@/modules/analytics/admin/ui";
 import { buildBillingAnalytics, type BillingAnalytics, type ClientDoc, type PartnerDoc } from "@/modules/analytics/lib/billing";
@@ -177,9 +178,10 @@ function Report({ a, months, pennylaneNote }: { a: BillingAnalytics; months: num
         <Card
           wide
           title="Chiffre d'affaires mensuel"
-          sub="Ce que les fiches disent qu'on doit facturer chaque mois — à partir du démarrage de l'abonnement Pennylane de chaque client — face à ce que Pennylane a émis. Les deux en € HT, sur une seule échelle."
+          sub="Ce que les fiches disent qu'on doit facturer chaque mois — à partir du démarrage de l'abonnement Pennylane de chaque client — face à ce que Pennylane a émis. Les deux en € HT, sur une seule échelle. Dessous : ce qui est signé sur le rapprochement, mois par mois — le reste n'est qu'un attendu."
         >
           <RevenueChart data={a.series} />
+          <ValidationStrip months={a.series.map((m) => ({ month: m.month, billed: m.clients, validated: m.validated }))} />
         </Card>
 
         <Card wide title="Évolution" sub="Variation du CA, des licences et des clients facturés : sur un mois, un trimestre, un an. Survolez une case pour la valeur d'avant.">

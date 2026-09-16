@@ -133,10 +133,11 @@ describe("alerte interne", () => {
     expect(mail.html).toContain("/admin/collections/partner-clients/42");
   });
 
-  it("signale une fiche entrée en brouillon", () => {
-    const mail = newLeadNoticeEmail({ companyName: "Sans Mail", brouillon: true, clientId: 7 });
-    expect(mail.text).toContain("BROUILLON");
-    expect(mail.html).toContain("brouillon");
+  it("signale une fiche créée avec des réserves", () => {
+    const mail = newLeadNoticeEmail({ companyName: "Sans Mail", issues: ["Adresse e-mail mal formée (« a@b »)"], clientId: 7 });
+    expect(mail.text).toContain("réserves");
+    expect(mail.text).toContain("Adresse e-mail mal formée");
+    expect(mail.html).toContain("Nouvelle");
   });
 
   it("renvoie vers les soumissions quand aucune fiche n'a pu être créée", () => {

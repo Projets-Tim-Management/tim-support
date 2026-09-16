@@ -170,6 +170,77 @@ export const isStepDone = (
   return !Number.isNaN(at) && at <= nowMs;
 };
 
+/**
+ * Étapes DATÉES par nature : un relevé d'usage se fait LE JOUR DIT, pas avant.
+ *
+ * Coché le 16 pour un relevé « avant bilan » prévu le 21, il ne dit plus rien
+ * de l'usage à la veille du bilan — c'est le constat qui a de la valeur, pas
+ * la case (SOUVET VMB, 16/09/2026). La session de prise en main et le bilan,
+ * eux, ne peuvent pas avoir été tenus avant leur créneau. Les autres étapes
+ * n'ont pas ce caractère : un client peut décider avant la fin du test, un
+ * devis partir en avance.
+ *
+ * Même parti pris que SELF_VALIDATING_STEPS : la table de code prime sur le
+ * modèle, un parcours lancé il y a un mois suit la même règle qu'un nouveau.
+ */
+export const NOT_BEFORE_DUE = new Set([
+  "prise-en-main",
+  "releve-j2",
+  "releve-j7",
+  "releve-mi-parcours",
+  "releve-fin",
+  "bilan",
+]);
+
+/**
+ * Le jour à partir duquel une étape datée PEUT être cochée — `null` quand
+ * l'étape n'est pas de celles-là, ou qu'elle n'a pas encore de date.
+ *
+ * Le bilan suit son CRÉNEAU quand il est réservé : c'est ce jour-là qu'il se
+ * tient, pas la date par défaut du modèle.
+ */
+export const validationOpensOn = (
+  step: { key?: string | null; anchor?: string | null; offsetDays?: number | null },
+  ctx: { startDate?: string | null; endDate?: string | null; sessionAt?: string | null; reviewAt?: string | null },
+): string | null => {
+  if (!step.key || !NOT_BEFORE_DUE.has(step.key)) return null;
+  if (step.key === "bilan" && ctx.reviewAt) return ctx.reviewAt;
+  return stepDueDate(step, ctx.startDate, ctx.endDate, ctx.sessionAt, ctx.reviewAt);
+};
+
+/**
+ * Trop tôt pour cocher ? Renvoie la date d'ouverture (ISO) si oui, `null`
+ * sinon. Comparaison au JOUR de Paris : une échéance à minuit UTC est déjà
+ * « aujourd'hui » à 2 h du matin ici.
+ */
+export const tooEarlyToValidate = (
+  step: { key?: string | null; anchor?: string | null; offsetDays?: number | null },
+  ctx: { startDate?: string | null; endDate?: string | null; sessionAt?: string | null; reviewAt?: string | null },
+  nowMs: number = Date.now(),
+): string | null => {
+  const opens = validationOpensOn(step, ctx);
+  if (!opens || Number.isNaN(Date.parse(opens))) return null;
+  return parisDay(opens) > parisDay(new Date(nowMs).toISOString()) ? opens : null;
+};
+
+/**
+ * L'étape qu'on PEUT cocher à la main : la première non acquise qui attend
+ * une main — ni système, ni armée.
+ *
+ * Ce n'est pas toujours l'étape courante. Une étape système ou déjà armée
+ * (un conseil d'usage qui part tout seul, un compte à rebours) n'attend
+ * personne — la laisser verrouiller les suivantes figeait tout le parcours.
+ * Constaté sur SOUVET VMB le 16/09/2026 : le conseil d'usage était parti le
+ * 1er septembre, la veille de la règle qui le coche à l'envoi ; l'étape est
+ * restée « à faire », et trois relevés d'usage en retard n'avaient aucun
+ * bouton. Renvoie -1 quand rien n'attend personne.
+ */
+export const firstActionableStep = (
+  steps: { key?: string | null; state?: string | null; autoAt?: string | null }[],
+  nowMs: number = Date.now(),
+): number =>
+  steps.findIndex((s) => !isStepDone(s, nowMs) && !isSystemStep(s.key) && !isStepPending(s, nowMs));
+
 /** Étape en attente de validation automatique (délai non encore écoulé). */
 export const isStepPending = (
   step: { key?: string | null; state?: string | null; autoAt?: string | null },

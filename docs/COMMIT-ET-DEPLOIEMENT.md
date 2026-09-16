@@ -40,6 +40,18 @@ lancé `npm run dev` ou `npm run build`. C'est un fichier **généré** : le
 restaurer (`git checkout -- next-env.d.ts`) plutôt que de le committer, sinon il
 crée du bruit au prochain démarrage du serveur de dev.
 
+## Le référentiel des règles
+
+`docs/REGLES-SUPPORT.md` décrit comment chaque chiffre, état, rappel et rôle
+du support est calculé. C'est ce que l'assistant (Claude) lit pour répondre —
+et ce que l'équipe consulte quand un chiffre surprend.
+
+**Avant chaque commit, se poser la question : ce commit change-t-il une règle
+que ce document décrit, ou en ajoute-t-il une ?** Si oui, mettre le document à
+jour dans le même commit (une règle absente = une réponse inventée ou un « je
+ne sais pas »). Si non — un style, un correctif sans effet sur les règles, une
+dépendance — ne pas y toucher : le document doit rester court et vrai.
+
 ## Le message de commit
 
 En français, sur le modèle des commits existants :
