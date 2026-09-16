@@ -681,3 +681,37 @@
     animation: none;
   }
 }
+
+/* ─── Validation du rapprochement, mois par mois, sous un graphique ────────
+   Une pastille par mois : vert tout signé, ambre en cours, gris estimé. Un
+   chiffre qui n'est pas signé n'est qu'un attendu, et on le dit. */
+.an-valid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.an-valid__month {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--tim-elevation-100);
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+.an-valid__label {
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--tim-foreground);
+}
+.an-valid__state {
+  color: var(--tim-muted);
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+.an-valid__month--ok { background: var(--tim-green-bg); .an-valid__label, .an-valid__state { color: var(--tim-green); } }
+.an-valid__month--part { background: var(--tim-amber-bg); .an-valid__label, .an-valid__state { color: var(--tim-amber); } }

@@ -29,6 +29,7 @@ import {
   monthLabel,
   useChartColors,
 } from "@/modules/analytics/admin/charts";
+import { ValidationStrip } from "@/modules/analytics/admin/ValidationStrip";
 import { eur } from "@/modules/partner/lib/format";
 
 import type { MonthRow } from "./data-home";
@@ -146,6 +147,9 @@ export default function MonthlyOverview({ months }: { months: MonthRow[] }) {
               <Line yAxisId="nb" name="Clients signés" type="monotone" dataKey="clients" stroke={green} strokeWidth={LINE_WIDTH} dot={dot(green)} activeDot={activeDot(green)} />
             </ComposedChart>
           </ResponsiveContainer>
+          {/* Ce qui est signé sur le rapprochement : le CA d'un mois non signé
+              n'est qu'un attendu, et on le dit sous le graphique. */}
+          <ValidationStrip months={shown.map((m) => ({ month: m.month, billed: m.billed, validated: m.validated }))} />
         </div>
       )}
     </section>

@@ -80,6 +80,9 @@ export type MonthRow = {
   prospects: number;
   /** Signatures ce mois-là. */
   clients: number;
+  /** Fiches qui pèsent dans le CA du mois, et parmi elles celles dont le mois est signé sur le rapprochement. */
+  billed: number;
+  validated: number;
 };
 
 export type HomeData = {
@@ -185,17 +188,22 @@ export function monthlyRows(fiches: Doc[], nowMs: number, months = 12): MonthRow
     const asOf = Math.min(finDuMois, nowMs);
 
     let ca = 0;
+    let billed = 0;
+    let validated = 0;
     for (const c of fiches) {
       const start = c.contractStartDate ? Date.parse(c.contractStartDate) : NaN;
       if (Number.isNaN(start) || start > asOf) continue;
       if (c.resiliationDate && Date.parse(c.resiliationDate) < debut) continue;
-      const enVigueur = ((c.history ?? []) as Doc[])
-        .filter((h) => h?.at && Date.parse(h.at) <= finDuMois)
-        .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
-      ca += Number(enVigueur?.caHT) || 0;
+      const lignes = ((c.history ?? []) as Doc[]).filter((h) => h?.at && Date.parse(h.at) <= finDuMois);
+      const enVigueur = [...lignes].sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0];
+      if (!enVigueur) continue;
+      ca += Number(enVigueur.caHT) || 0;
+      billed += 1;
+      // Signé pour CE mois — pas la ligne en vigueur, qui peut venir d'un mois plus ancien.
+      if (lignes.some((h) => h.at.slice(0, 7) === month.slice(0, 7) && h.validatedAt)) validated += 1;
     }
 
-    return { month, ca: Math.round(ca), prospects: prospects[i].count, clients: signes[i].count };
+    return { month, ca: Math.round(ca), prospects: prospects[i].count, clients: signes[i].count, billed, validated };
   });
 }
 
