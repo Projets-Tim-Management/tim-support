@@ -44,6 +44,14 @@ const nextConfig: NextConfig = {
     "/**": [
       "./node_modules/@img/sharp-linux-x64/**",
       "./node_modules/@img/sharp-libvips-linux-x64/**",
+      /**
+       * Le référentiel des règles est LU À L'EXÉCUTION par l'assistant
+       * (core/lib/ai-assistant.ts, readFileSync). Next ne trace que les
+       * fichiers qu'il repère à l'analyse : sans cette ligne, le fichier
+       * manque dans la fonction déployée et Claude répond « référentiel
+       * introuvable » — en prod seulement, jamais en local.
+       */
+      "./docs/REGLES-SUPPORT.md",
     ],
   },
   images: {

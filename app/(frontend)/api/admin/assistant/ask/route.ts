@@ -38,7 +38,8 @@ export async function POST(req: Request) {
   if (!last || last.role !== "user") return NextResponse.json({ error: "bad_request" }, { status: 400 });
   if (last.content.length > 2000) return NextResponse.json({ error: "Question trop longue (2 000 caractères au plus)." }, { status: 400 });
 
-  const today = new Date().toISOString().slice(0, 10);
+  // Jour de Paris, comme le plafond en euros : les deux compteurs tournent ensemble à minuit.
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", dateStyle: "short" }).format(new Date());
   const key = String(user.id);
   const c = counters.get(key);
   const n = c?.day === today ? c.n : 0;

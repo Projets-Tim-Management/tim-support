@@ -13,7 +13,7 @@ import { payloadClient } from "@/core/payload-client";
  */
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   let url = "/favicon.png";
   try {
     const payload = await payloadClient();
@@ -26,7 +26,8 @@ export async function GET() {
   }
   // Les navigateurs gardent un favicon longtemps de toute façon ; on ne rajoute
   // pas de cache par-dessus, pour que le changement finisse par se voir.
-  return NextResponse.redirect(new URL(url, process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"), {
+  // Résolue sur l'origine de la requête : la même en local, en preview et en prod.
+  return NextResponse.redirect(new URL(url, req.url), {
     status: 302,
     headers: { "Cache-Control": "no-cache" },
   });

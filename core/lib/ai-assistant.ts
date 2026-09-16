@@ -74,7 +74,9 @@ export const scopeOf = (user: Doc | null): Scope | null => {
 
 let rulesCache: string | null = null;
 const rules = (): string => {
-  if (rulesCache) return rulesCache;
+  // En cache en production (le fichier ne change qu'au déploiement) ; relu à
+  // chaque question en dev, pour voir une modification sans redémarrer.
+  if (rulesCache && process.env.NODE_ENV === "production") return rulesCache;
   try {
     rulesCache = readFileSync(join(process.cwd(), "docs", "REGLES-SUPPORT.md"), "utf8");
   } catch {
@@ -82,6 +84,9 @@ const rules = (): string => {
   }
   return rulesCache;
 };
+
+/** Jour civil de Paris, « AAAA-MM-JJ ». */
+const parisToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", dateStyle: "short" }).format(new Date());
 
 const systemPrompt = (scope: Scope): string =>
   [
@@ -251,11 +256,13 @@ export async function runTool(payload: Payload, scope: Scope, name: string, inpu
       if (scope.support) return { erreur: "Hors périmètre." };
       const { getTodayAgenda } = await import("@/admin/dashboard/data-agenda");
       const jours = Math.min(31, Math.max(1, Number(input.jours) || 7));
-      const du = typeof input.du === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.du) ? input.du : new Date().toISOString().slice(0, 10);
+      const du = typeof input.du === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.du) ? input.du : parisToday();
       const debut = Date.parse(`${du}T00:00:00.000Z`);
       const fin = debut + jours * 86_400_000;
-      // L'agenda lit le mois autour de « maintenant » : on le lit autour du jour demandé.
-      const a = await getTodayAgenda({ payload } as never, "/admin", debut + 12 * 3_600_000, { partnerId: scope.partnerId });
+      // L'agenda charge une fenêtre fixe autour de « maintenant » (du 1er − 10 j
+      // au 1er + 50 j) : on la centre sur le MILIEU de la plage demandée, pour
+      // qu'une plage de 31 jours partant d'une fin de mois tienne dedans.
+      const a = await getTodayAgenda({ payload } as never, "/admin", debut + (jours * 86_400_000) / 2, { partnerId: scope.partnerId });
       const dans = a.items.filter((i) => Date.parse(i.at) >= debut && Date.parse(i.at) < fin);
       const parJour = new Map<string, unknown[]>();
       for (const i of dans) {
@@ -276,7 +283,7 @@ export async function runTool(payload: Payload, scope: Scope, name: string, inpu
       if (input.clientId) clauses.push({ client: { equals: Number(input.clientId) } });
       else clauses.push({ dueDate: { less_than: new Date(Date.now() + 7 * 86_400_000).toISOString() } });
       const r = await payload.find({ ...base, collection: "client-activities", where: scoped(scope, clauses), limit: 50, sort: "dueDate" });
-      const today = new Date().toISOString().slice(0, 10);
+      const today = parisToday();
       return {
         taches: (r.docs as Doc[]).map((t) => ({ id: t.id, client: nameOf(t.client), clientId: t.client?.id ?? t.client, titre: t.title, echeance: day(t.dueDate), etat: day(t.dueDate)! < today ? "en retard" : day(t.dueDate) === today ? "aujourd'hui" : "à venir" })),
       };
@@ -394,7 +401,12 @@ export async function answer(payload: Payload, user: Doc, history: ChatTurn[]): 
   const client = new Anthropic();
   const tools = toolsFor(scope);
 
-  const messages: Anthropic.MessageParam[] = history.slice(-MAX_HISTORY).map((t) => ({ role: t.role, content: t.content }));
+  // Les derniers tours — en commençant par un tour UTILISATEUR : l'API refuse
+  // une conversation qui s'ouvre sur l'assistant, et la coupe à MAX_HISTORY
+  // tombe une fois sur deux sur une réponse.
+  const recent = history.slice(-MAX_HISTORY);
+  const firstUser = recent.findIndex((t) => t.role === "user");
+  const messages: Anthropic.MessageParam[] = (firstUser >= 0 ? recent.slice(firstUser) : recent).map((t) => ({ role: t.role, content: t.content }));
   const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, calls: 0 };
 
   for (let turn = 0; turn < MAX_TURNS; turn += 1) {
