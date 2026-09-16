@@ -111,6 +111,19 @@ async function testGoogle(payload: Payload): Promise<Omit<TestResult, "at">> {
     : { ok: true, message: `${google.length} agenda(s) Google répondent.` };
 }
 
+async function testAnthropic(): Promise<Omit<TestResult, "at">> {
+  const { default: Anthropic } = await import("@anthropic-ai/sdk");
+  const { AI_MODEL } = await import("./ai-assistant");
+  try {
+    const client = new Anthropic({ timeout: TIMEOUT_MS, maxRetries: 0 });
+    const r = await client.messages.create({ model: AI_MODEL, max_tokens: 16, messages: [{ role: "user", content: "Réponds « ok »." }] });
+    return { ok: true, message: `Claude répond (${AI_MODEL}, ${r.usage.input_tokens + r.usage.output_tokens} tokens).` };
+  } catch (e) {
+    const status = (e as { status?: number }).status;
+    return { ok: false, message: status === 401 ? "Clé refusée (401) : invalide ou révoquée." : status === 429 ? "Quota ou plafond atteint (429)." : failure(e) };
+  }
+}
+
 export async function testConnection(key: SupportConnection["key"], payload: Payload): Promise<TestResult> {
   const def = SUPPORT_CONNECTIONS.find((c) => c.key === key);
   const at = new Date().toISOString();
@@ -120,6 +133,14 @@ export async function testConnection(key: SupportConnection["key"], payload: Pay
     return { ok: false, message: `Variable(s) manquante(s) : ${missing.join(", ")}.`, at };
   }
   const r =
-    key === "pennylane" ? await testPennylane() : key === "brevo" ? await testBrevo() : key === "insee" ? await testInsee() : await testGoogle(payload);
+    key === "pennylane"
+      ? await testPennylane()
+      : key === "brevo"
+        ? await testBrevo()
+        : key === "insee"
+          ? await testInsee()
+          : key === "google"
+            ? await testGoogle(payload)
+            : await testAnthropic();
   return { ...r, at };
 }

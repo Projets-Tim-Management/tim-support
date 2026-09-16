@@ -1,5 +1,6 @@
-/* L'assistant : une bulle fixée en bas à droite, un fil de messages quand on
-   l'ouvre. Voir admin/assistant/AssistantWidget.tsx. */
+/* L'assistant : une bulle fixée en bas à droite, un panneau à deux onglets —
+   « À faire » (les rappels) et « Discussion » (Claude). Le fil défile, le
+   champ de question reste en bas. Voir admin/assistant/AssistantWidget.tsx. */
 .ta {
   position: fixed;
   right: 1.25rem;
@@ -11,7 +12,7 @@
   gap: 0.75rem;
 }
 
-/* La bulle : la marque, et le compte des sujets. */
+/* ─── La bulle : la marque, et le compte des sujets ───────────────────────── */
 .ta-fab {
   position: relative;
   display: inline-flex;
@@ -48,10 +49,10 @@
   text-align: center;
 }
 
-/* Le panneau : une conversation, avec sa tête et son fil. */
+/* ─── Le panneau : tête, onglets, fil, champ ──────────────────────────────── */
 .ta-panel {
-  width: min(22rem, calc(100vw - 2.5rem));
-  max-height: min(34rem, calc(100vh - 7rem));
+  width: min(24rem, calc(100vw - 2.5rem));
+  height: min(36rem, calc(100vh - 7rem));
   display: flex;
   flex-direction: column;
   border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
@@ -65,12 +66,13 @@
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
+
 .ta-head {
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  padding: 0.85rem 0.9rem 0.85rem 1rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+  flex: none;
+  padding: 0.8rem 0.9rem 0.7rem 1rem;
   background: var(--tim-surface);
 }
 .ta-head__avatar {
@@ -101,14 +103,58 @@
   &:hover { background: var(--tim-elevation-100); color: var(--tim-foreground); }
 }
 
+/* Deux onglets, le trait sous l'actif — la barre reste dans le fond de la tête. */
+.ta-tabs {
+  display: flex;
+  flex: none;
+  padding: 0 0.5rem;
+  background: var(--tim-surface);
+  border-bottom: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+}
+.ta-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+  cursor: pointer;
+  &:hover { color: var(--tim-foreground); }
+}
+.ta-tab--on { color: var(--tim-foreground); border-bottom-color: var(--tim-primary); }
+.ta-tab__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2rem;
+  height: 1.2rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.ta-tab__count--soft { background: var(--tim-elevation-150); color: var(--tim-foreground); }
+
+/* Le fil : la seule partie qui défile. */
 .ta-thread {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
   padding: 0.9rem 0.9rem 0.75rem;
   overflow-y: auto;
+  scroll-behavior: smooth;
 }
-/* La bulle de l'assistant : comme un message reçu. */
+/* Une bulle de l'assistant : comme un message reçu. */
 .ta-bubble {
   align-self: flex-start;
   max-width: 92%;
@@ -121,13 +167,16 @@
   p { margin: 0; }
   p + p { margin-top: 0.25rem; }
 }
+.ta-time { margin: 0.25rem 0 0; font-size: 0.7rem; color: var(--tim-muted-light); text-align: center; }
+
+/* ─── À faire : un rappel par carte, le liseré dit l'urgence, le « ? » interroge Claude ── */
 .ta-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
-/* Un sujet par message : la phrase, l'indice, le geste. Le liseré dit l'urgence. */
 .ta-msg {
-  align-self: flex-start;
-  max-width: 92%;
-  padding: 0.6rem 0.8rem 0.55rem;
-  border-radius: 0.9rem 0.9rem 0.9rem 0.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.6rem 0.6rem 0.55rem 0.8rem;
+  border-radius: 0.75rem;
   background: var(--tim-white);
   border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
   border-left-width: 3px;
@@ -137,6 +186,7 @@
 .ta-msg--danger { border-left-color: var(--tim-red); }
 .ta-msg--warn { border-left-color: var(--tim-amber); }
 .ta-msg--info { border-left-color: var(--tim-blue); }
+.ta-msg__body { flex: 1; min-width: 0; }
 .ta-msg__text { margin: 0; font-weight: 600; color: var(--tim-foreground); }
 .ta-msg__hint { margin: 0.15rem 0 0; font-size: 0.76rem; color: var(--tim-muted); }
 .ta-msg__cta {
@@ -148,4 +198,116 @@
   text-decoration: none;
   &:hover { text-decoration: underline; }
 }
-.ta-time { margin: 0.25rem 0 0; font-size: 0.7rem; color: var(--tim-muted-light); text-align: center; }
+.ta-msg__ask {
+  flex: none;
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 999px;
+  background: var(--tim-white);
+  color: var(--tim-muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease;
+  &:hover { color: var(--tim-primary); border-color: var(--tim-primary); }
+}
+
+/* ─── Discussion : vos questions à droite, Claude à gauche, le champ en bas ── */
+.ta-suggest { display: flex; flex-direction: column; gap: 0.35rem; }
+.ta-suggest__btn {
+  align-self: flex-start;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 999px;
+  background: var(--tim-white);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+  cursor: pointer;
+  text-align: left;
+  &:hover { border-color: var(--tim-primary); color: var(--tim-primary); }
+}
+.ta-turn {
+  max-width: 92%;
+  padding: 0.55rem 0.8rem;
+  border-radius: 0.9rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ta-turn--user {
+  align-self: flex-end;
+  border-bottom-right-radius: 0.25rem;
+  background: var(--tim-primary);
+  color: var(--tim-white);
+}
+.ta-turn--assistant {
+  align-self: flex-start;
+  border-bottom-left-radius: 0.25rem;
+  background: var(--tim-elevation-100);
+  color: var(--tim-foreground);
+  a { color: var(--tim-primary); font-weight: 600; }
+}
+.ta-turn__text { margin: 0; }
+.ta-dots { display: inline-flex; gap: 0.25rem; padding: 0.2rem 0;
+  i { width: 0.45rem; height: 0.45rem; border-radius: 999px; background: var(--tim-muted-light); animation: ta-dot 1s infinite ease-in-out; }
+  i:nth-child(2) { animation-delay: 0.15s; }
+  i:nth-child(3) { animation-delay: 0.3s; }
+}
+@keyframes ta-dot { 0%, 80%, 100% { opacity: 0.35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+.ta-error { margin: 0; font-size: 0.78rem; color: var(--tim-red); }
+
+.ta-ask {
+  display: flex;
+  flex: none;
+  gap: 0.4rem;
+  padding: 0.6rem 0.75rem 0.3rem;
+  border-top: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+  background: var(--tim-white);
+}
+.ta-ask__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 999px;
+  background: var(--tim-white);
+  font: inherit;
+  font-size: 0.85rem;
+  &:focus { outline: none; border-color: var(--tim-primary); box-shadow: 0 0 0 3px var(--tim-primary-light); }
+  &:disabled { background: var(--tim-surface); }
+}
+.ta-ask__send {
+  flex: none;
+  width: 2.3rem;
+  height: 2.3rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  cursor: pointer;
+  &:disabled { opacity: 0.45; cursor: default; }
+  &:not(:disabled):hover { background: var(--tim-primary-dark); }
+}
+.ta-ask__note {
+  flex: none;
+  margin: 0;
+  padding: 0.1rem 0.9rem 0.6rem;
+  font-size: 0.68rem;
+  color: var(--tim-muted-light);
+  background: var(--tim-white);
+}
+.ta-ask__clear {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.68rem;
+  color: var(--tim-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  &:hover { color: var(--tim-primary); }
+}

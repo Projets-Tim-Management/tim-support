@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { buildAssistant } from "@/admin/assistant/data-assistant";
+import { isAiConfigured } from "@/core/lib/ai-assistant";
 import { payloadClient } from "@/core/payload-client";
 
 /**
@@ -14,5 +15,6 @@ export async function GET(req: Request) {
   const { user } = await payload.auth({ headers: req.headers });
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const data = await buildAssistant(payload, user as never);
-  return NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
+  // `ai` : le champ de question n'apparaît que si Claude est branché.
+  return NextResponse.json({ ...data, ai: isAiConfigured() }, { headers: { "Cache-Control": "no-store" } });
 }

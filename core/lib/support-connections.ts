@@ -20,7 +20,7 @@ export type EnvVar = {
 };
 
 export type SupportConnection = {
-  key: "pennylane" | "brevo" | "insee" | "google";
+  key: "pennylane" | "brevo" | "insee" | "google" | "anthropic";
   name: string;
   /** Pictogramme : une lettre, sans dépendre d'un logo externe. */
   mark: string;
@@ -102,6 +102,21 @@ export const SUPPORT_CONNECTIONS: SupportConnection[] = [
       { name: "GOOGLE_MAIL_CLIENT_SECRET", required: true, hint: "Son secret." },
     ],
     testLabel: "Rafraîchir les agendas connectés",
+  },
+  {
+    key: "anthropic",
+    name: "Anthropic (Claude)",
+    mark: "A",
+    purpose:
+      "L'assistant qui répond aux questions, en bas à droite : Claude lit le support par des outils de lecture et explique. Sans elle, les rappels restent, le champ de question disparaît.",
+    scope: ["Aucune donnée écrite chez eux", "Les questions et les données lues pour y répondre transitent par l'API (conservation 30 jours par défaut)", "Modèle : Claude Haiku 4.5 — le moins cher"],
+    docUrl: "https://docs.anthropic.com/",
+    consoleUrl: "https://console.anthropic.com/settings/keys",
+    env: [
+      { name: "ANTHROPIC_API_KEY", required: true, hint: "Clé API du compte Anthropic (plafond de dépense à régler sur la console)." },
+      { name: "ASSISTANT_AI_DAILY_LIMIT", required: false, hint: "Questions par jour et par compte — défaut 100." },
+    ],
+    testLabel: "Poser une question minimale à Claude",
   },
 ];
 

@@ -1,0 +1,57 @@
+import { NextResponse } from "next/server";
+
+import { payloadClient } from "@/core/payload-client";
+import { answer, isAiConfigured, scopeOf, type ChatTurn } from "@/core/lib/ai-assistant";
+
+/**
+ * POST /api/admin/assistant/ask  { messages: [{ role, content }] } → { text, usage }
+ *
+ * La conversation vit dans le navigateur (les derniers tours sont renvoyés à
+ * chaque question) ; ici on vérifie la personne, on borne, on répond, on
+ * journalise ce que ça a coûté. Un plafond de questions par jour et par
+ * compte, pour qu'une boucle ou une distraction ne fasse pas une facture.
+ */
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+const DAILY_LIMIT = Number(process.env.ASSISTANT_AI_DAILY_LIMIT) || 100;
+/** Compteur du jour par compte — en mémoire, remis à zéro au redémarrage : un garde-fou, pas une comptabilité. */
+const counters = new Map<string, { day: string; n: number }>();
+
+export async function POST(req: Request) {
+  const payload = await payloadClient();
+  const { user } = await payload.auth({ headers: req.headers });
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!scopeOf(user as never)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!isAiConfigured()) {
+    return NextResponse.json({ error: "L'assistant n'est pas connecté à Claude : ANTHROPIC_API_KEY manque sur Vercel." }, { status: 503 });
+  }
+
+  const body = (await req.json().catch(() => ({}))) as { messages?: ChatTurn[] };
+  const messages = (body.messages ?? []).filter(
+    (m): m is ChatTurn => Boolean(m) && (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim() !== "",
+  );
+  const last = messages[messages.length - 1];
+  if (!last || last.role !== "user") return NextResponse.json({ error: "bad_request" }, { status: 400 });
+  if (last.content.length > 2000) return NextResponse.json({ error: "Question trop longue (2 000 caractères au plus)." }, { status: 400 });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const key = String(user.id);
+  const c = counters.get(key);
+  const n = c?.day === today ? c.n : 0;
+  if (n >= DAILY_LIMIT) {
+    return NextResponse.json({ error: `Plafond atteint : ${DAILY_LIMIT} questions par jour.` }, { status: 429 });
+  }
+  counters.set(key, { day: today, n: n + 1 });
+
+  try {
+    const r = await answer(payload, user as never, messages);
+    payload.logger.info(
+      `[assistant] ${user.email} · ${r.usage.calls} appel(s) · entrée ${r.usage.input} (cache lu ${r.usage.cacheRead}, écrit ${r.usage.cacheWrite}) · sortie ${r.usage.output}`,
+    );
+    return NextResponse.json(r, { headers: { "Cache-Control": "no-store" } });
+  } catch (e) {
+    payload.logger.error(`[assistant] réponse impossible pour ${user.email} : ${e}`);
+    return NextResponse.json({ error: "Claude n'a pas répondu. Réessayez dans un instant." }, { status: 502 });
+  }
+}
