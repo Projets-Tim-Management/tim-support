@@ -70,12 +70,27 @@
 }
 .sc-card__last--ok { background: var(--tim-green-bg); color: var(--tim-green); }
 .sc-card__last--ko { background: var(--tim-red-bg); color: var(--tim-red); }
+/* La dépense du mois, sur la barre d'Anthropic : neutre, c'est un montant, pas un verdict. */
+.sc-card__last--spend { background: var(--tim-surface); color: var(--tim-foreground); font-variant-numeric: tabular-nums; }
 /* « OK le… » et « Échec le… » restent gris : c'est l'étiquette qui porte la
    couleur, deux fois vert se lisait comme un cri. Manquant reste ambre — il
    n'a pas d'étiquette. */
 .sc-card__state--missing { color: var(--tim-amber); }
 .sc-card__actions { display: inline-flex; align-items: center; margin-left: auto; }
 .sc-card__purpose { margin: 0; font-size: 0.9rem; color: var(--tim-foreground); max-width: 60rem; }
+
+/* Dépense de l'assistant : deux tuiles, le chiffre d'abord. */
+.sc-spend { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.75rem; margin: 0; }
+.sc-spend__cell {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 10px;
+  background: var(--tim-surface);
+}
+.sc-spend__cell dt { font-size: 0.74rem; font-weight: 700; color: var(--tim-muted); }
+.sc-spend__cell dd { margin: 0; font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.sc-spend__sub { font-size: 0.78rem; color: var(--tim-muted); }
 
 .sc-card__cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; }
 .sc-card__section { display: flex; flex-direction: column; gap: 0.45rem; min-width: 0; }

@@ -27,6 +27,10 @@ export const SupportConnectionsGlobal: GlobalConfig = {
         { name: "spendDay", type: "text" },
         { name: "spendEur", type: "number" },
         { name: "spendQuestions", type: "number" },
+        /** Même chose au mois (« AAAA-MM ») : ce que la facture Anthropic du mois va dire. */
+        { name: "spendMonth", type: "text" },
+        { name: "spendMonthEur", type: "number" },
+        { name: "spendMonthQuestions", type: "number" },
       ],
     },
   ],

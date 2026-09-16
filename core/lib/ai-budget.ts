@@ -10,6 +10,10 @@ import type { Payload } from "payload";
  * Trois garde-fous se cumulent : ce plafond en euros, le plafond de questions
  * par jour et par compte (route ask), et le plafond de dépense mensuel de la
  * console Anthropic — le seul que rien ici ne peut contourner.
+ *
+ * On tient aussi le cumul du mois — sans plafond, pour information : c'est ce
+ * que la facture Anthropic va dire, lisible sur la carte « Connexions du
+ * support » sans aller sur leur console.
  */
 
 /** Tarif de Claude Haiku 4.5, en dollars par million de tokens. */
@@ -27,9 +31,49 @@ export const costUsd = (u: Usage): number =>
 export const costEur = (u: Usage): number => costUsd(u) / USD_PER_EUR;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-type Entry = Record<string, any> & { key: string; spendDay?: string | null; spendEur?: number | null; spendQuestions?: number | null };
+export type SpendEntry = {
+  spendDay?: string | null;
+  spendEur?: number | null;
+  spendQuestions?: number | null;
+  spendMonth?: string | null;
+  spendMonthEur?: number | null;
+  spendMonthQuestions?: number | null;
+};
+type Entry = Record<string, any> & { key: string } & SpendEntry;
 
+/** Jour civil de Paris, « AAAA-MM-JJ » ; ses 7 premiers caractères font le mois. */
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", dateStyle: "short" }).format(new Date());
+
+export type Spend = { eur: number; questions: number };
+export type SpendSummary = { today: Spend; month: Spend; dailyBudgetEur: number };
+
+/**
+ * Lit la dépense d'une entrée : le jour et le mois, chacun remis à zéro dès
+ * que la date mémorisée n'est plus la courante. Pure — c'est elle qu'on teste.
+ */
+export function summarizeSpend(e: SpendEntry | null | undefined, day = today()): SpendSummary {
+  const month = day.slice(0, 7);
+  const sameDay = e?.spendDay === day;
+  const sameMonth = e?.spendMonth === month;
+  return {
+    today: { eur: sameDay ? Number(e?.spendEur) || 0 : 0, questions: sameDay ? Number(e?.spendQuestions) || 0 : 0 },
+    month: { eur: sameMonth ? Number(e?.spendMonthEur) || 0 : 0, questions: sameMonth ? Number(e?.spendMonthQuestions) || 0 : 0 },
+    dailyBudgetEur: dailyBudgetEur(),
+  };
+}
+
+/** Ajoute une réponse aux compteurs du jour et du mois. Pure — testée. */
+export function addSpend(e: SpendEntry | null | undefined, eur: number, day = today()): Required<SpendEntry> {
+  const s = summarizeSpend(e, day);
+  return {
+    spendDay: day,
+    spendEur: s.today.eur + eur,
+    spendQuestions: s.today.questions + 1,
+    spendMonth: day.slice(0, 7),
+    spendMonthEur: s.month.eur + eur,
+    spendMonthQuestions: s.month.questions + 1,
+  };
+}
 
 async function readEntries(payload: Payload): Promise<Entry[]> {
   const g = (await payload.findGlobal({ slug: "support-connections", depth: 0, overrideAccess: true })) as { entries?: Entry[] | null };
@@ -37,24 +81,17 @@ async function readEntries(payload: Payload): Promise<Entry[]> {
 }
 
 /** La dépense du jour, en euros, et le nombre de questions. */
-export async function spentToday(payload: Payload): Promise<{ eur: number; questions: number }> {
+export async function spentToday(payload: Payload): Promise<Spend> {
   const e = (await readEntries(payload)).find((x) => x.key === "anthropic");
-  if (!e || e.spendDay !== today()) return { eur: 0, questions: 0 };
-  return { eur: Number(e.spendEur) || 0, questions: Number(e.spendQuestions) || 0 };
+  return summarizeSpend(e).today;
 }
 
-/** Ajoute une réponse à la dépense du jour et renvoie le nouveau total. */
-export async function recordSpend(payload: Payload, usage: Usage): Promise<{ eur: number; questions: number }> {
+/** Ajoute une réponse à la dépense du jour et du mois ; renvoie le total du jour. */
+export async function recordSpend(payload: Payload, usage: Usage): Promise<Spend> {
   const entries = await readEntries(payload);
   const idx = entries.findIndex((x) => x.key === "anthropic");
   const current: Entry = idx >= 0 ? entries[idx] : { key: "anthropic" };
-  const sameDay = current.spendDay === today();
-  const next: Entry = {
-    ...current,
-    spendDay: today(),
-    spendEur: (sameDay ? Number(current.spendEur) || 0 : 0) + costEur(usage),
-    spendQuestions: (sameDay ? Number(current.spendQuestions) || 0 : 0) + 1,
-  };
+  const next: Entry = { ...current, ...addSpend(current, costEur(usage)) };
   if (idx >= 0) entries[idx] = next;
   else entries.push(next);
   await payload.updateGlobal({ slug: "support-connections", data: { entries } as never, overrideAccess: true });

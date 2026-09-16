@@ -5,6 +5,7 @@ import { Gutter } from "@payloadcms/ui";
 
 import { hasAdminRole } from "@/core/access";
 import { ConnectionCard, type Entry } from "@/admin/connections/ConnectionCard";
+import { summarizeSpend, type SpendEntry } from "@/core/lib/ai-budget";
 import { SUPPORT_CONNECTIONS, connectionEnv, isConfigured } from "@/core/lib/support-connections";
 
 /**
@@ -29,7 +30,7 @@ export default async function SupportConnectionsView({ initPageResult, params, s
   const isAdmin = hasAdminRole(user);
 
   const global = isAdmin
-    ? ((await payload.findGlobal({ slug: "support-connections", depth: 0, overrideAccess: true })) as { entries?: ({ key: string } & Entry)[] | null })
+    ? ((await payload.findGlobal({ slug: "support-connections", depth: 0, overrideAccess: true })) as { entries?: ({ key: string } & Entry & SpendEntry)[] | null })
     : null;
   const entries = new Map((global?.entries ?? []).map((e) => [e.key, e]));
 
@@ -66,6 +67,7 @@ export default async function SupportConnectionsView({ initPageResult, params, s
                     env={connectionEnv(def)}
                     configured={isConfigured(def)}
                     initial={{ notes: e?.notes ?? null, lastTestAt: e?.lastTestAt ?? null, lastTestOk: e?.lastTestOk ?? null, lastTestMessage: e?.lastTestMessage ?? null }}
+                    spend={def.key === "anthropic" ? summarizeSpend(e) : undefined}
                   />
                 );
               })}

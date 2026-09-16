@@ -3774,6 +3774,9 @@ export interface SupportConnection {
         spendDay?: string | null;
         spendEur?: number | null;
         spendQuestions?: number | null;
+        spendMonth?: string | null;
+        spendMonthEur?: number | null;
+        spendMonthQuestions?: number | null;
         id?: string | null;
       }[]
     | null;
@@ -3807,6 +3810,9 @@ export interface SupportConnectionsSelect<T extends boolean = true> {
         spendDay?: T;
         spendEur?: T;
         spendQuestions?: T;
+        spendMonth?: T;
+        spendMonthEur?: T;
+        spendMonthQuestions?: T;
         id?: T;
       };
   updatedAt?: T;

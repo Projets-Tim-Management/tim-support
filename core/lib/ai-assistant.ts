@@ -192,7 +192,7 @@ const TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "connexions_support",
-    description: "L'état des connexions du support (admins) : Pennylane, Brevo, INSEE, Google, Anthropic — configurée ou non, dernier test, notes. Jamais les clés.",
+    description: "L'état des connexions du support (admins) : Pennylane, Brevo, INSEE, Google, Anthropic — configurée ou non, dernier test, notes — et pour Anthropic la dépense de l'assistant (aujourd'hui, mois en cours). Jamais les clés.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
 ];
@@ -329,12 +329,22 @@ export async function runTool(payload: Payload, scope: Scope, name: string, inpu
     case "connexions_support": {
       if (!scope.admin) return { erreur: "Réservé aux administrateurs." };
       const { SUPPORT_CONNECTIONS, isConfigured } = await import("@/core/lib/support-connections");
+      const { summarizeSpend } = await import("@/core/lib/ai-budget");
       const g = (await payload.findGlobal({ slug: "support-connections", depth: 0, overrideAccess: true })) as { entries?: Doc[] | null };
       const entries = new Map((g.entries ?? []).map((e) => [e.key, e]));
       return {
         connexions: SUPPORT_CONNECTIONS.map((c) => {
           const e = entries.get(c.key);
-          return { nom: c.name, configuree: isConfigured(c), dernierTest: e?.lastTestAt ?? null, dernierTestOk: e?.lastTestOk ?? null, message: e?.lastTestMessage ?? null, notes: e?.notes ?? null };
+          return {
+            nom: c.name,
+            configuree: isConfigured(c),
+            dernierTest: e?.lastTestAt ?? null,
+            dernierTestOk: e?.lastTestOk ?? null,
+            message: e?.lastTestMessage ?? null,
+            notes: e?.notes ?? null,
+            // La dépense de l'assistant lui-même : le jour (plafonné) et le mois (ce que la facture dira).
+            ...(c.key === "anthropic" ? { depenseAssistant: summarizeSpend(e) } : {}),
+          };
         }),
       };
     }

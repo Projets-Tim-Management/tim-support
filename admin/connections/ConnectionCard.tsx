@@ -3,6 +3,7 @@
 import { toast } from "@payloadcms/ui";
 import { useState } from "react";
 
+import type { SpendSummary } from "@/core/lib/ai-budget";
 import type { EnvState, SupportConnection } from "@/core/lib/support-connections";
 
 /**
@@ -15,6 +16,10 @@ import type { EnvState, SupportConnection } from "@/core/lib/support-connections
  *
  * Le test et les notes passent par /api/admin/support-connections ; aucune clé
  * ne transite, dans un sens ni dans l'autre.
+ *
+ * Anthropic porte en plus sa dépense : le mois en cours sur la barre (ce que
+ * la facture va dire), le détail jour / mois dans le corps — compté depuis les
+ * tokens réels, voir core/lib/ai-budget.ts.
  */
 export type Entry = {
   notes?: string | null;
@@ -26,7 +31,28 @@ export type Entry = {
 const quand = (iso: string) =>
   new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
-export function ConnectionCard({ def, env, configured, initial }: { def: SupportConnection; env: EnvState[]; configured: boolean; initial: Entry }) {
+/** Des centimes, lisibles : « 0,04 € », « 2,35 € » — et « < 0,01 € » plutôt que « 0,00 € » pour une dépense réelle. */
+export const euros = (n: number) =>
+  n > 0 && n < 0.01 ? "< 0,01 €" : n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const moisCourant = () => new Date().toLocaleDateString("fr-FR", { month: "long", timeZone: "Europe/Paris" });
+
+const questions = (n: number) => `${n} question${n > 1 ? "s" : ""}`;
+
+export function ConnectionCard({
+  def,
+  env,
+  configured,
+  initial,
+  spend,
+}: {
+  def: SupportConnection;
+  env: EnvState[];
+  configured: boolean;
+  initial: Entry;
+  /** Dépense de l'assistant — seulement pour Anthropic. */
+  spend?: SpendSummary;
+}) {
   const [entry, setEntry] = useState<Entry>(initial);
   const [notes, setNotes] = useState(initial.notes ?? "");
   const [busy, setBusy] = useState<"test" | "notes" | null>(null);
@@ -94,6 +120,11 @@ export function ConnectionCard({ def, env, configured, initial }: { def: Support
             {entry.lastTestMessage && (
               <span className={`sc-card__last sc-card__last--${entry.lastTestOk ? "ok" : "ko"}`}>{entry.lastTestMessage}</span>
             )}
+            {spend && (
+              <span className="sc-card__last sc-card__last--spend" title={`${questions(spend.month.questions)} en ${moisCourant()}`}>
+                {euros(spend.month.eur)} en {moisCourant()}
+              </span>
+            )}
           </span>
         </span>
         <span className="sc-card__actions">
@@ -157,6 +188,30 @@ export function ConnectionCard({ def, env, configured, initial }: { def: Support
           </p>
         </section>
       </div>
+
+      {spend && (
+        <section className="sc-card__section">
+          <h3 className="sc-card__h">Dépense de l&apos;assistant</h3>
+          <dl className="sc-spend">
+            <div className="sc-spend__cell">
+              <dt>Aujourd&apos;hui</dt>
+              <dd>{euros(spend.today.eur)}</dd>
+              <span className="sc-spend__sub">
+                {questions(spend.today.questions)} · plafond {euros(spend.dailyBudgetEur)}
+              </span>
+            </div>
+            <div className="sc-spend__cell">
+              <dt>En {moisCourant()}</dt>
+              <dd>{euros(spend.month.eur)}</dd>
+              <span className="sc-spend__sub">{questions(spend.month.questions)} · ce que la facture Anthropic dira</span>
+            </div>
+          </dl>
+          <p className="sc-card__where">
+            Compté depuis les tokens réels de chaque réponse, au tarif de Haiku 4.5, converti en euros (indicatif). Le plafond mensuel se règle
+            sur la console Anthropic.
+          </p>
+        </section>
+      )}
 
       <section className="sc-card__section sc-card__notes">
         <h3 className="sc-card__h">Notes</h3>

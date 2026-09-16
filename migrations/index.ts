@@ -105,6 +105,7 @@ import * as migration_20260916_134810_connexions_api_types_multiples from './202
 import * as migration_20260916_140335_connexions_support_global from './20260916_140335_connexions_support_global';
 import * as migration_20260916_151848_reserves_entree_lead from './20260916_151848_reserves_entree_lead';
 import * as migration_20260916_160333_depense_assistant from './20260916_160333_depense_assistant';
+import * as migration_20260916_161320_depense_assistant_mois from './20260916_161320_depense_assistant_mois';
 
 export const migrations = [
   {
@@ -640,6 +641,11 @@ export const migrations = [
   {
     up: migration_20260916_160333_depense_assistant.up,
     down: migration_20260916_160333_depense_assistant.down,
-    name: '20260916_160333_depense_assistant'
+    name: '20260916_160333_depense_assistant',
+  },
+  {
+    up: migration_20260916_161320_depense_assistant_mois.up,
+    down: migration_20260916_161320_depense_assistant_mois.down,
+    name: '20260916_161320_depense_assistant_mois'
   },
 ];
