@@ -501,11 +501,19 @@ export interface Partner {
  */
 export interface PartnerClient {
   id: number;
+  intakeIssues?:
+    | {
+        field?: string | null;
+        raw?: string | null;
+        message?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   companyName: string;
   /**
-   * Contact, puis envoi des factures.
+   * Contact, puis envoi des factures. Obligatoire dès la phase de test.
    */
-  email: string;
+  email?: string | null;
   portalOpened?: boolean | null;
   clientStatus?:
     | (
@@ -2956,6 +2964,14 @@ export interface PartnersSelect<T extends boolean = true> {
  * via the `definition` "partner-clients_select".
  */
 export interface PartnerClientsSelect<T extends boolean = true> {
+  intakeIssues?:
+    | T
+    | {
+        field?: T;
+        raw?: T;
+        message?: T;
+        id?: T;
+      };
   companyName?: T;
   email?: T;
   portalOpened?: T;

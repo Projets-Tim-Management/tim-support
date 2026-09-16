@@ -103,6 +103,7 @@ import * as migration_20260916_102116_validation_mensuelle_rapprochement from '.
 import * as migration_20260916_132627_connexions_api from './20260916_132627_connexions_api';
 import * as migration_20260916_134810_connexions_api_types_multiples from './20260916_134810_connexions_api_types_multiples';
 import * as migration_20260916_140335_connexions_support_global from './20260916_140335_connexions_support_global';
+import * as migration_20260916_151848_reserves_entree_lead from './20260916_151848_reserves_entree_lead';
 
 export const migrations = [
   {
@@ -628,6 +629,11 @@ export const migrations = [
   {
     up: migration_20260916_140335_connexions_support_global.up,
     down: migration_20260916_140335_connexions_support_global.down,
-    name: '20260916_140335_connexions_support_global'
+    name: '20260916_140335_connexions_support_global',
+  },
+  {
+    up: migration_20260916_151848_reserves_entree_lead.up,
+    down: migration_20260916_151848_reserves_entree_lead.down,
+    name: '20260916_151848_reserves_entree_lead'
   },
 ];

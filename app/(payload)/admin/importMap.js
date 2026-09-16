@@ -69,6 +69,7 @@ import { AddClientButton as AddClientButton_ce0017323009dc202b417bbc2eca1cd0 } f
 import { PartnerActivity as PartnerActivity_0cefa807c5e124a83847213cf92a333a } from '../../../modules/partner/admin/PartnerActivity'
 import { default as default_8a9381e16c061227fc1bf73c50e6e581 } from '../../../modules/partner/admin/PartnersListLite'
 import { InseeLookup as InseeLookup_408c5271613c1beb0676cb0c9b2b5bf9 } from '../../../modules/partner/admin/InseeLookup'
+import { IntakeAlert as IntakeAlert_92bcaf44d181e654ac91523931975e59 } from '../../../modules/partner/admin/IntakeAlert'
 import { ClientStatusCell as ClientStatusCell_358b486afee2c4532aca3d72ba0365eb } from '../../../modules/partner/admin/ClientStatusCell'
 import { ClientStatusField as ClientStatusField_4cf9c5082e5cc09e6363544e31423ee7 } from '../../../modules/marketing/admin/ClientStatusField'
 import { SequenceState as SequenceState_76fc64c304fa617805830e30067a8b3b } from '../../../modules/marketing/admin/SequenceState'
@@ -210,6 +211,7 @@ export const importMap = {
   "/modules/partner/admin/PartnerActivity#PartnerActivity": PartnerActivity_0cefa807c5e124a83847213cf92a333a,
   "/modules/partner/admin/PartnersListLite#default": default_8a9381e16c061227fc1bf73c50e6e581,
   "/modules/partner/admin/InseeLookup#InseeLookup": InseeLookup_408c5271613c1beb0676cb0c9b2b5bf9,
+  "/modules/partner/admin/IntakeAlert#IntakeAlert": IntakeAlert_92bcaf44d181e654ac91523931975e59,
   "/modules/partner/admin/ClientStatusCell#ClientStatusCell": ClientStatusCell_358b486afee2c4532aca3d72ba0365eb,
   "/modules/marketing/admin/ClientStatusField#ClientStatusField": ClientStatusField_4cf9c5082e5cc09e6363544e31423ee7,
   "/modules/marketing/admin/SequenceState#SequenceState": SequenceState_76fc64c304fa617805830e30067a8b3b,
