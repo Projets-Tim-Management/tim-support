@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { collapsePhoneGroups } from "@/core/lib/phone";
 import { StartTestModal } from "@/modules/marketing/admin/StartTestModal";
 import { ActivityIcon } from "@/modules/partner/admin/ActivityIcons";
 import { LossReasonModal, type LossOutcome } from "@/modules/partner/admin/LossReasonModal";
@@ -43,6 +44,8 @@ type ClientDoc = {
   companyName?: string;
   raisonSociale?: string;
   email?: string;
+  /** Chiffres nationaux du téléphone (« 0650461234 »), pour la recherche. */
+  phoneDigits?: string | null;
   clientStatus?: string;
   caPaye?: number;
   signatureDate?: string;
@@ -287,6 +290,8 @@ export function PartnerClientsBoard() {
           // Pré-remplit le modal de démarrage : l'adresse est déjà sur la fiche,
           // la faire retaper depuis le Kanban n'apporte rien qu'une faute de frappe.
           "email",
+          // Pour retrouver une fiche en tapant un bout de numéro (« 065046 »).
+          "phoneDigits",
           "clientStatus",
           "caPaye",
           "signatureDate",
@@ -472,7 +477,7 @@ export function PartnerClientsBoard() {
       try {
         const res = await fetch(
           "/payload-api/client-contacts?limit=2000&depth=0" +
-            "&select[client]=true&select[firstName]=true&select[lastName]=true&select[email]=true",
+            "&select[client]=true&select[firstName]=true&select[lastName]=true&select[email]=true&select[phoneDigits]=true",
           { credentials: "include" },
         );
         const json = res.ok ? await res.json() : { docs: [] };
@@ -483,12 +488,13 @@ export function PartnerClientsBoard() {
           firstName?: string;
           lastName?: string;
           email?: string;
+          phoneDigits?: string | null;
         }[]) {
           const ref = c.client;
           const cid = ref && typeof ref === "object" ? ref.id : ref;
           if (cid == null) continue;
           map[String(cid)] =
-            `${map[String(cid)] ?? ""} ${c.firstName ?? ""} ${c.lastName ?? ""} ${c.email ?? ""}`;
+            `${map[String(cid)] ?? ""} ${c.firstName ?? ""} ${c.lastName ?? ""} ${c.email ?? ""} ${c.phoneDigits ?? ""}`;
         }
         setContactsByClient(map);
       } catch {
@@ -501,20 +507,24 @@ export function PartnerClientsBoard() {
   }, []);
 
   /**
-   * Filtre de recherche : société, raison sociale, adresse e-mail, nom et
-   * prénom des contacts.
+   * Filtre de recherche : société, raison sociale, adresse e-mail, nom,
+   * prénom et téléphone des contacts, téléphone de la fiche.
    *
    * Chaque MOT doit être trouvé, dans n'importe quel champ et n'importe quel
    * ordre : « dupont paris » retrouve la fiche que « paris dupont » aurait
    * manquée avec une simple sous-chaîne. Accents ignorés — on tape rarement
    * « Coutansais » avec la bonne cédille dans une barre de recherche.
+   *
+   * Un numéro se tape comme on veut — « 065046 », « 06 50 46 », « +33 6 50 46 » :
+   * les groupes de chiffres de la recherche sont repliés en un mot, et les
+   * fiches portent leur numéro en chiffres nationaux (phoneDigits).
    */
   const filtered = useMemo(() => {
-    const terms = normalize(search).split(" ").filter(Boolean);
+    const terms = normalize(collapsePhoneGroups(search)).split(" ").filter(Boolean);
     if (!terms.length) return clients;
     return clients.filter((c) => {
       const hay = normalize(
-        [c.companyName, c.raisonSociale, c.email, contactsByClient[String(c.id)]]
+        [c.companyName, c.raisonSociale, c.email, c.phoneDigits, contactsByClient[String(c.id)]]
           .filter(Boolean)
           .join(" "),
       );
@@ -669,7 +679,7 @@ export function PartnerClientsBoard() {
           className="tim-kanban__search-input"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher une société, un e-mail, un nom…"
+          placeholder="Rechercher une société, un e-mail, un nom, un téléphone…"
           aria-label="Rechercher une opportunité"
         />
         {search && (

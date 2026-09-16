@@ -42,6 +42,7 @@ import { BILLING_PERIOD_OPTIONS } from "@/modules/partner/lib/billing-period";
 import { buildHistoryEntry, nextHistory, type HistoryEntry } from "@/modules/partner/lib/history";
 import { peekPennylane } from "@/modules/partner/lib/pennylane";
 import { isBillableClient, LICENCE_BASE_PRICES, PROFILS } from "@/modules/partner/lib/pricing";
+import { setPhoneDigits } from "@/core/hooks/phoneDigits";
 
 /**
  * Opportunités — les entreprises BTP qu'un partenaire a amenées à Tim, du
@@ -441,6 +442,7 @@ export const PartnerClients: CollectionConfig = {
     // requireTestSchedule en TÊTE : le passage « En test » est refusé avant tout
     // calcul, plutôt que d'échouer à mi-chemin sur une fiche déjà recalculée.
     beforeChange: [
+      setPhoneDigits,
       requireTestSchedule,
       requireEmailFromTest,
       requireContractStart,
@@ -1154,6 +1156,10 @@ export const PartnerClients: CollectionConfig = {
                   validate: validatePhone,
                   admin: { width: "50%", placeholder: "+33 6 12 34 56 78" },
                 },
+                // Le même numéro en chiffres nationaux (« 0650461234 »), pour
+                // le retrouver en tapant « 065046 » ou « 06 50 46 » — tenu par
+                // setPhoneDigits, jamais saisi.
+                { name: "phoneDigits", type: "text", index: true, admin: { hidden: true } },
                 {
                   name: "recipient",
                   type: "text",

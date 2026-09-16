@@ -4,6 +4,7 @@ import type { CollectionBeforeChangeHook, CollectionConfig } from "payload";
 
 import { metierOwnedAccess } from "@/core/access";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
+import { setPhoneDigits } from "@/core/hooks/phoneDigits";
 import { validatePhone } from "@/core/lib/validators";
 
 /**
@@ -62,7 +63,7 @@ export const ClientContacts: CollectionConfig = {
   hooks: {
     // partner dérivé du client (tous rôles), puis forcé sur SA fiche pour un rôle
     // partenaire (anti-usurpation) ; displayName calculé pour le titre.
-    beforeChange: [setPartnerFromClient, enforcePartnerField(), setDisplayName],
+    beforeChange: [setPartnerFromClient, enforcePartnerField(), setDisplayName, setPhoneDigits],
   },
   fields: [
     {
@@ -159,6 +160,8 @@ export const ClientContacts: CollectionConfig = {
       validate: validatePhone,
       admin: { placeholder: "+33 6 12 34 56 78" },
     },
+    // Chiffres nationaux du numéro (« 0650461234 »), pour la recherche — tenu par setPhoneDigits.
+    { name: "phoneDigits", type: "text", index: true, admin: { hidden: true } },
     // Clé de scoping partenaire — dérivée du client, non éditable en UI.
     {
       name: "partner",

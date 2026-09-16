@@ -650,6 +650,7 @@ export interface PartnerClient {
   billingAddress?: string | null;
   billingAddressComplement?: string | null;
   phone?: string | null;
+  phoneDigits?: string | null;
   /**
    * Nom du destinataire de la facture (optionnel).
    */
@@ -1294,6 +1295,7 @@ export interface ClientContact {
   role?: string | null;
   email?: string | null;
   phone?: string | null;
+  phoneDigits?: string | null;
   partner?: (number | null) | Partner;
   displayName?: string | null;
   updatedAt: string;
@@ -3027,6 +3029,7 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   billingAddress?: T;
   billingAddressComplement?: T;
   phone?: T;
+  phoneDigits?: T;
   recipient?: T;
   billingRemarks?: T;
   documents?:
@@ -3077,6 +3080,7 @@ export interface ClientContactsSelect<T extends boolean = true> {
   role?: T;
   email?: T;
   phone?: T;
+  phoneDigits?: T;
   partner?: T;
   displayName?: T;
   updatedAt?: T;
