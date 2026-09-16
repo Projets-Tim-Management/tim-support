@@ -7,9 +7,12 @@ import Link from "next/link";
 import { Icons } from "@/admin/dashboard/icons";
 import { hasAdminRole } from "@/core/access";
 import { BillingCheckDetail, VerdictBadge } from "@/modules/partner/admin/BillingCheckTable";
+import { ValidateMonth } from "@/modules/partner/admin/ValidateMonth";
 import type { BillingReport, ClientCheck, Verdict } from "@/modules/partner/lib/billing-check";
 import { plStatusLabel } from "@/modules/partner/lib/billing-check";
 import { loadBillingReport } from "@/modules/partner/lib/billing-report";
+import { monthValidation, type MonthValidation } from "@/modules/partner/lib/billing-validation";
+import type { HistoryEntry } from "@/modules/partner/lib/history";
 import { clientStatusMeta } from "@/modules/partner/lib/clientStatus";
 import { eur } from "@/modules/partner/lib/format";
 import { isPennylaneConfigured, pennylaneErrorMessage } from "@/modules/partner/lib/pennylane";
@@ -23,19 +26,35 @@ import { isPennylaneConfigured, pennylaneErrorMessage } from "@/modules/partner/
  * et on va corriger là où c'est faux. Les écarts sont en tête de liste ; les
  * conformes ferment la marche.
  *
+ * Une seule écriture : la VALIDATION du mois (case « Conforme »), qui signe
+ * que la fiche et l'abonnement disent la même chose pour la prochaine facture
+ * — voir lib/billing-validation.ts. C'est elle qui alimente l'historique et
+ * la liste de ce qui reste à faire.
+ *
  * Server component : la Local API pour les fiches, l'API Pennylane (en cache
  * une heure) pour les abonnements. `?refresh=1` force une relecture.
  */
 
-type Filter = "a-traiter" | "tous" | "ok";
+type Filter = "a-traiter" | "tous" | "ok" | "a-valider" | "valides";
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "tous", label: "Tous" },
+  { key: "a-valider", label: "À valider" },
+  { key: "valides", label: "Validés" },
   { key: "ok", label: "Conformes" },
   { key: "a-traiter", label: "À traiter" },
 ];
 
-const keep = (f: Filter, v: Verdict) => (f === "tous" ? true : f === "ok" ? v === "ok" : v !== "ok");
+const keep = (f: Filter, v: Verdict, m: MonthValidation) =>
+  f === "tous"
+    ? true
+    : f === "ok"
+      ? v === "ok"
+      : f === "a-valider"
+        ? m.state === "a-valider" || m.state === "a-revalider"
+        : f === "valides"
+          ? m.state === "valide"
+          : v !== "ok";
 
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
@@ -101,7 +120,7 @@ function Tile({ icon, label, value, tone = "neutral" }: { icon: React.ReactNode;
   );
 }
 
-function Row({ check }: { check: ClientCheck }) {
+function Row({ check, month }: { check: ClientCheck; month: MonthValidation }) {
   const st = clientStatusMeta(check.client.clientStatus);
   const pl = check.pennylane;
   const errors = check.issues.filter((i) => i.severity === "error").length;
@@ -133,6 +152,9 @@ function Row({ check }: { check: ClientCheck }) {
             {pl?.subscriptionId ? eur.format(check.totals.plHT) : "—"}
           </span>
         </span>
+        {/* Le mois visé et sa case : signer, c'est ici. Réservé aux fiches
+            gagnées — les autres ne sont pas facturées. */}
+        {check.client.clientStatus === "actif" && <ValidateMonth clientId={check.client.id} initial={month} />}
         <span className="bil-item__count">
           {check.latePayments.length > 0 && (
             <span className="bil-pay bil-pay--retard">
@@ -148,15 +170,20 @@ function Row({ check }: { check: ClientCheck }) {
   );
 }
 
-function Report({ report, filter }: { report: BillingReport; filter: Filter }) {
+function Report({ report, filter, months }: { report: BillingReport; filter: Filter; months: Map<string, MonthValidation> }) {
   const { summary } = report;
-  const shown = report.checks.filter((c) => keep(filter, c.verdict));
+  const mv = (c: ClientCheck) => months.get(String(c.client.id))!;
+  const shown = report.checks.filter((c) => keep(filter, c.verdict, mv(c)));
   const aTraiter = summary.total - summary.ok;
+  const aValider = report.checks.filter((c) => ["a-valider", "a-revalider"].includes(mv(c).state)).length;
+  const valides = report.checks.filter((c) => mv(c).state === "valide").length;
 
   return (
     <>
       <div className="bil-tiles">
         <Tile icon={Icons.users()} label="Clients contrôlés" value={summary.total} />
+        <Tile icon={Icons.check()} label="À valider" value={aValider} tone="warn" />
+        <Tile icon={Icons.checkCircle()} label="Validés" value={valides} tone="ok" />
         <Tile icon={Icons.checkCircle()} label="Conformes" value={summary.ok} tone="ok" />
         <Tile icon={Icons.alert()} label="Écarts" value={summary.ecart} tone="warn" />
         <Tile icon={TileIcons.noInvoice} label="Sans abonnement" value={summary.sansAbonnement + summary.nonRapproche} tone="bad" />
@@ -166,7 +193,16 @@ function Report({ report, filter }: { report: BillingReport; filter: Filter }) {
 
       <nav className="bil-filters" aria-label="Filtre">
         {FILTERS.map((f) => {
-          const n = f.key === "tous" ? summary.total : f.key === "ok" ? summary.ok : aTraiter;
+          const n =
+            f.key === "tous"
+              ? summary.total
+              : f.key === "ok"
+                ? summary.ok
+                : f.key === "a-valider"
+                  ? aValider
+                  : f.key === "valides"
+                    ? valides
+                    : aTraiter;
           return (
             <Link
               key={f.key}
@@ -184,12 +220,14 @@ function Report({ report, filter }: { report: BillingReport; filter: Filter }) {
         <p className="bil-empty">
           {filter === "a-traiter"
             ? "Rien à traiter : toutes les fiches sont conformes à Pennylane."
-            : "Aucune fiche dans ce filtre."}
+            : filter === "a-valider"
+              ? "Rien à valider : toutes les factures à venir sont signées."
+              : "Aucune fiche dans ce filtre."}
         </p>
       ) : (
         <div className="bil-list">
           {shown.map((c) => (
-            <Row key={c.client.id} check={c} />
+            <Row key={c.client.id} check={c} month={mv(c)} />
           ))}
         </div>
       )}
@@ -242,6 +280,31 @@ export default async function BillingCheckView({ initPageResult, params, searchP
   }
   const fetchedAt = report?.fetchedAt ?? null;
 
+  /**
+   * L'état du mois de chaque fiche : l'historique (où vit la signature) face
+   * au rapprochement. Une lecture, `depth: 0`, le seul champ utile.
+   */
+  const months = new Map<string, MonthValidation>();
+  if (report) {
+    const docs = await payload
+      .find({
+        collection: "partner-clients",
+        where: { id: { in: report.checks.map((c) => c.client.id) } },
+        limit: 5000,
+        pagination: false,
+        depth: 0,
+        overrideAccess: true,
+        select: { history: true } as never,
+      })
+      .then((r) => r.docs as { id: number | string; history?: HistoryEntry[] | null }[])
+      .catch(() => [] as { id: number | string; history?: HistoryEntry[] | null }[]);
+    const histories = new Map(docs.map((d) => [String(d.id), d.history ?? []]));
+    const now = new Date();
+    for (const c of report.checks) {
+      months.set(String(c.client.id), monthValidation(histories.get(String(c.client.id)) ?? [], c, now));
+    }
+  }
+
   const body = !isAdmin ? (
     <p className="bil-empty">Cet écran est réservé aux administrateurs.</p>
   ) : !configured ? (
@@ -252,7 +315,7 @@ export default async function BillingCheckView({ initPageResult, params, searchP
   ) : failure || !report ? (
     <p className="bil-error">{failure ?? "Lecture Pennylane impossible."}</p>
   ) : (
-    <Report report={report} filter={filter} />
+    <Report report={report} filter={filter} months={months} />
   );
 
   return (

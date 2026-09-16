@@ -3,6 +3,7 @@ import type { PayloadRequest, Where } from "payload";
 import { CLOSED_STATUSES } from "@/modules/marketing/lib/due-emails";
 import { STEPS_DONE_ON_SEND, isStepDone } from "@/modules/marketing/lib/journey";
 import { countByMonth, lastMonths } from "@/modules/analytics/lib/growth";
+import { pendingValidations } from "@/modules/partner/lib/billing-validation";
 import { isPipelineStatus } from "@/modules/partner/lib/clientStatus";
 import { isBillableClient } from "@/modules/partner/lib/pricing";
 
@@ -276,6 +277,10 @@ export async function getHomeData(
     (c) => isPipelineStatus(c.clientStatus) && c.createdAt && now - Date.parse(c.createdAt) <= 7 * DAY_MS,
   );
 
+  // Ce qui reste à signer sur le rapprochement, depuis la base seule : le
+  // chiffre du CA mène alors à l'écran de validation plutôt qu'à l'analyse.
+  const aValider = admin ? pendingValidations(fiches as never, new Date(now)).length : 0;
+
   const figures: KeyFigure[] = admin
     ? [
         {
@@ -284,9 +289,11 @@ export async function getHomeData(
           tone: "brand",
           label: "CA mensuel HT",
           value: euros(caMensuel),
-          sub: `${factures.length} client${factures.length > 1 ? "s" : ""} facturé${factures.length > 1 ? "s" : ""}`,
-          href: "/admin/analyses/facturation",
-          cta: "Analyse facturation",
+          sub: aValider
+            ? `${aValider} facture${aValider > 1 ? "s" : ""} à valider`
+            : `${factures.length} client${factures.length > 1 ? "s" : ""} facturé${factures.length > 1 ? "s" : ""}, tout est validé`,
+          href: aValider ? "/admin/facturation?f=a-valider" : "/admin/analyses/facturation",
+          cta: aValider ? "Rapprochement" : "Analyse facturation",
         },
         {
           key: "clients",

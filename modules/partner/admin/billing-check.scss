@@ -211,7 +211,7 @@
 }
 .bil-item__head {
   display: grid;
-  grid-template-columns: auto 1fr auto auto auto auto;
+  grid-template-columns: auto 1fr auto auto auto auto auto;
   align-items: center;
   gap: 0.75rem;
   padding: 0.65rem 0.9rem;
@@ -776,4 +776,64 @@
   padding: 0.65rem 0.9rem 0.9rem;
   font-size: 0.88rem;
   color: var(--tim-muted);
+}
+
+/* ─── Validation du mois : « Octobre · facture le 4 » et la case ───────────
+   Signer, c'est cocher. La case n'est active que si rien ne bloque ; grisée,
+   son infobulle dit quoi corriger. Une fois signée, la ligne passe en vert
+   et dit qui, quand. Si la fiche bouge après, elle repasse en ambre. */
+.bil-validate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  white-space: nowrap;
+}
+.bil-validate__month {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+}
+.bil-validate__label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--tim-foreground);
+}
+.bil-validate__invoice {
+  font-size: 0.7rem;
+  color: var(--tim-muted);
+}
+.bil-validate__box {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+  cursor: pointer;
+
+  input { margin: 0; accent-color: var(--tim-green); cursor: inherit; }
+}
+.bil-validate__box--off {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.bil-validate--valide .bil-validate__box {
+  border-color: var(--tim-green);
+  background: var(--tim-green-bg);
+  color: var(--tim-green);
+}
+.bil-validate--a-revalider .bil-validate__box {
+  border-color: var(--tim-amber);
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+  input { accent-color: var(--tim-amber); }
+}
+.bil-validate--ecart .bil-validate__box {
+  border-style: dashed;
 }

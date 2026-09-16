@@ -678,6 +678,9 @@ export interface PartnerClient {
           | number
           | boolean
           | null;
+        validatedAt?: string | null;
+        validatedBy?: (number | null) | User;
+        invoiceDate?: string | null;
         id?: string | null;
       }[]
     | null;
@@ -2867,6 +2870,9 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         commissionRate?: T;
         commission?: T;
         detail?: T;
+        validatedAt?: T;
+        validatedBy?: T;
+        invoiceDate?: T;
         id?: T;
       };
   notes?: T;

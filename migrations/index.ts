@@ -99,6 +99,7 @@ import * as migration_20260911_130900_retrait_motif_a_qualifier from './20260911
 import * as migration_20260915_065605_licences_remise_par_ligne from './20260915_065605_licences_remise_par_ligne';
 import * as migration_20260915_072421_periodicite_facturation from './20260915_072421_periodicite_facturation';
 import * as migration_20260915_161444_agendas_lecture_seule from './20260915_161444_agendas_lecture_seule';
+import * as migration_20260916_102116_validation_mensuelle_rapprochement from './20260916_102116_validation_mensuelle_rapprochement';
 
 export const migrations = [
   {
@@ -604,6 +605,11 @@ export const migrations = [
   {
     up: migration_20260915_161444_agendas_lecture_seule.up,
     down: migration_20260915_161444_agendas_lecture_seule.down,
-    name: '20260915_161444_agendas_lecture_seule'
+    name: '20260915_161444_agendas_lecture_seule',
+  },
+  {
+    up: migration_20260916_102116_validation_mensuelle_rapprochement.up,
+    down: migration_20260916_102116_validation_mensuelle_rapprochement.down,
+    name: '20260916_102116_validation_mensuelle_rapprochement'
   },
 ];

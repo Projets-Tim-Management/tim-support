@@ -25,7 +25,7 @@ Linear (Inbox), Notion Home, Attio, Pipedrive, HubSpot, Stripe — le même moti
 | En-tête | « Bonjour Charlie · mercredi 16 septembre », la phrase du matin (« 4 actions aujourd'hui, 2 en retard »), « + Nouveau » | `HomeHeader`, `NewMenu` |
 | Aujourd'hui | le mois et la journée, tâches **et** étapes de parcours, cochables des deux côtés | `AgendaBoard`, `data-agenda.ts`, `api/admin/journey-step` |
 | Phases de test | une carte par parcours ouvert : J+x sur N, la barre, la prochaine étape et **qui** doit la faire, l'échéance | `TestCards` |
-| En chiffres | CA mensuel HT, clients actifs, opportunités ouvertes, tickets ouverts — pictogramme teinté, valeur, contexte, flèche → chacun mène à sa page Analyses | `KeyFigures` |
+| En chiffres | CA mensuel HT (avec le nombre de factures à valider sur le rapprochement), clients actifs, opportunités ouvertes, tickets ouverts — pictogramme teinté, valeur, contexte, flèche → chacun mène à sa page | `KeyFigures` |
 
 | Sur 3 / 6 / 12 mois | un seul graphique : le CA HT en bâtons dégradés (axe € à gauche), nouveaux prospects (violet) et clients signés (vert) en lignes (axe nombre à droite) ; commutateur de période, 3 mois par défaut, douze mois servis une fois | `MonthlyOverview` |
 
