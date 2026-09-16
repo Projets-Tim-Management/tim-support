@@ -70,8 +70,9 @@
 }
 .sc-card__last--ok { background: var(--tim-green-bg); color: var(--tim-green); }
 .sc-card__last--ko { background: var(--tim-red-bg); color: var(--tim-red); }
-.sc-card__state--ok { color: var(--tim-green); }
-.sc-card__state--ko { color: var(--tim-red); }
+/* « OK le… » et « Échec le… » restent gris : c'est l'étiquette qui porte la
+   couleur, deux fois vert se lisait comme un cri. Manquant reste ambre — il
+   n'a pas d'étiquette. */
 .sc-card__state--missing { color: var(--tim-amber); }
 .sc-card__actions { display: inline-flex; align-items: center; margin-left: auto; }
 .sc-card__purpose { margin: 0; font-size: 0.9rem; color: var(--tim-foreground); max-width: 60rem; }
