@@ -23,9 +23,17 @@ const teinte = (kind: string): { color: string; background: string } => {
   const m =
     kind === "session"
       ? { color: "var(--tim-indigo)", bg: "var(--tim-indigo-bg)" }
-      : taskKindMeta(kind);
+      : kind === "etape"
+        ? // Une étape de parcours, à distinguer d'une tâche saisie à la main :
+          // elle vient du déroulé de la phase de test, pas d'un rappel posé.
+          { color: "var(--tim-purple)", bg: "var(--tim-purple-bg)" }
+        : taskKindMeta(kind);
   return { color: m.color, background: m.bg };
 };
+
+/** « Programmé à 09:30 » — ou « Dans la journée » pour ce qui n'a pas d'heure. */
+const horaire = (item: AgendaItem): string =>
+  item.allDay ? "Dans la journée" : `Programmé à ${parisTime(item.at)}`;
 
 /** « aujourd'hui », « demain », ou la date en toutes lettres. */
 const titreDuJour = (jour: string, aujourdHui: string): string => {
@@ -50,15 +58,25 @@ const titreDuJour = (jour: string, aujourdHui: string): string => {
  * « Session de prise en main réalisée » du parcours qui le dit. On n'affiche
  * donc rien plutôt qu'un état qu'on ne saurait pas tenir.
  */
-function Etat({ item, onToggle }: { item: AgendaItem; onToggle?: (item: AgendaItem) => void }) {
+function Etat({ item, onToggle, now }: { item: AgendaItem; onToggle?: (item: AgendaItem) => void; now: number }) {
   if (item.kind === "session") return null;
 
-  const libelle = item.done ? "Faite — cliquer pour rouvrir" : "Marquer comme faite";
+  /**
+   * Une étape de parcours DATÉE ne se coche pas avant son jour : le serveur
+   * la refuse (guardDatedSteps), inutile de proposer une case qui échouera.
+   * Une tâche, elle, est un rappel — la faire en avance est permis.
+   */
+  const tropTot = Boolean(item.etape) && !item.done && parisDayKey(item.at) > parisDayKey(now);
+  const libelle = tropTot
+    ? "Se coche le jour dit, pas avant"
+    : item.done
+      ? "Faite — cliquer pour rouvrir"
+      : "Marquer comme faite";
   const contenu = item.done ? Icons.checkCircle() : Icons.circle();
   const classe = `dash-agenda__state${item.done ? " dash-agenda__state--done" : ""}`;
 
   // Le clic EST le geste : il coche la tâche en base, il ne la prépare pas.
-  if (!onToggle) {
+  if (!onToggle || tropTot) {
     return (
       <span className={classe} title={libelle} aria-label={libelle}>
         {contenu}
@@ -84,17 +102,19 @@ function Carte({
   quand,
   etat,
   onToggle,
+  now,
 }: {
   item: AgendaItem;
   quand: string;
   etat: { texte: string; ton: "late" | "today" | "done" } | null;
   onToggle?: (item: AgendaItem) => void;
+  now: number;
 }) {
   const lignes = lignesAgenda(item);
   return (
     <li className={`dash-agenda__card${item.done ? " dash-agenda__card--done" : ""}`}>
       <div className="dash-agenda__top">
-        <Etat item={item} onToggle={onToggle} />
+        <Etat item={item} onToggle={onToggle} now={now} />
         <Link className="dash-agenda__what" href={item.href}>
           {lignes.principal}
         </Link>
@@ -174,6 +194,7 @@ export default function TodayAgenda({
                 quand={`Était prévu ${depuisQuand(item, jourCourant)}`}
                 etat={{ texte: "En retard", ton: "late" }}
                 onToggle={onToggle}
+                now={now}
               />
             ))}
           </ul>
@@ -185,7 +206,7 @@ export default function TodayAgenda({
               <Carte
                 key={item.id}
                 item={item}
-                quand={`Programmé à ${parisTime(item.at)}`}
+                quand={horaire(item)}
                 etat={
                   item.done
                     ? { texte: "Faite", ton: "done" }
@@ -199,6 +220,7 @@ export default function TodayAgenda({
                         : null
                 }
                 onToggle={onToggle}
+                now={now}
               />
             ))}
           </ul>

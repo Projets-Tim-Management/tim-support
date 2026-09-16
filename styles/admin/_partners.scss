@@ -677,23 +677,10 @@
   display: flex;
   margin-bottom: 0.75rem;
 }
+/* Le bouton d'action TIM, tel quel (voir .tim-btn dans _base.scss). */
 .tim-add-client {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  appearance: none;
-  cursor: pointer;
-  padding: 0.5rem 1rem;
-  border: 0;
-  border-radius: var(--tim-radius-sm);
-  background: var(--tim-primary);
-  color: var(--tim-white);
-  font-size: 0.85rem;
-  font-weight: 600;
-  transition: background-color 0.12s ease;
-}
-.tim-add-client:hover {
-  background: var(--tim-primary-dark);
+  @extend .tim-btn;
+  @extend .tim-btn--primary;
 }
 
 /* ─── Tableau de relations (champ `join` d'une fiche) ────────────────────────*/
@@ -1571,28 +1558,12 @@
   gap: 0.6rem;
   margin-top: 1.4rem;
 }
+/* Les boutons du Kanban = le bouton d'action TIM (voir .tim-btn dans _base.scss). */
 .tim-kanban__btn {
-  appearance: none;
-  cursor: pointer;
-  padding: 0.5rem 1.1rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--tim-foreground);
-  background: var(--tim-white);
-  border: 1px solid var(--tim-border);
-  border-radius: var(--tim-radius-sm);
+  @extend .tim-btn;
 }
 .tim-kanban__btn--primary {
-  color: var(--tim-white);
-  background: var(--tim-primary);
-  border-color: var(--tim-primary);
-}
-.tim-kanban__btn--primary:hover {
-  background: var(--tim-primary-dark);
-}
-.tim-kanban__btn:disabled {
-  opacity: 0.55;
-  cursor: default;
+  @extend .tim-btn--primary;
 }
 
 /* En mode Kanban, on masque le tableau natif Payload et ses contrôles/pagination

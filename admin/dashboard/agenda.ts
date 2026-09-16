@@ -29,6 +29,13 @@ export type AgendaItem = {
   mode?: string | null;
   /** Déjà cochée : on la garde, barrée, plutôt que de la faire disparaître. */
   done?: boolean;
+  /** Sans heure : une étape de parcours est due « dans la journée », pas à 2 h du matin. */
+  allDay?: boolean;
+  /**
+   * Étape d'un parcours (kind `etape`) : de quoi la cocher côté parcours.
+   * Cocher ici ÉCRIT sur le parcours — c'est la même case, vue d'un autre écran.
+   */
+  etape?: { runId: number | string; key: string };
 };
 
 /** Jour civil à Paris, pour comparer des instants stockés en UTC. */

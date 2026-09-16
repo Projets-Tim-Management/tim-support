@@ -1,8 +1,10 @@
-/* Styles du tableau de bord (composants dans admin/dashboard/). */
+/* Styles du tableau de bord (composants dans admin/dashboard/).
 
-/* ─── DASHBOARD (admin/dashboard/) ───────────────────────────────────────────
-   Tableau de bord par compartiment : KPI cards, graphiques SVG faits main,
-   actions rapides à icônes+tooltips. Cf. admin/dashboard/CHECKLIST.md. */
+   Deux écrans partagent ce fichier :
+   - l'ACCUEIL (.home-*) : admin et partenaire-métier — à traiter, agenda,
+     phases de test, pipeline, quatre chiffres ;
+   - les vues par compartiment (.dash-*) : le support (tickets) et le
+     partenaire-utilisateur (programme de points, .pu-*). */
 
 .dash {
   display: flex;
@@ -30,56 +32,7 @@
 }
 
 /* Actions rapides : boutons icône + badge « + » + tooltip CSS */
-.dash-qa {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.dash-qa__btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: var(--tim-radius-sm);
-  border: 1px solid var(--tim-border);
-  background: var(--tim-white);
-  color: var(--tim-foreground);
-  transition: border-color 0.12s ease, color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
-}
-.dash-qa__btn:hover {
-  color: var(--tim-primary);
-  border-color: var(--tim-primary);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px -10px color-mix(in srgb, var(--tim-primary) 50%, transparent);
-}
-/* Tooltip CSS partagé (dash-qa) */
-.dash-qa__btn::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%) translateY(4px);
-  white-space: nowrap;
-  background: var(--tim-foreground);
-  color: var(--tim-white);
-  font-size: 0.72rem;
-  font-weight: 500;
-  padding: 0.25rem 0.5rem;
-  border-radius: var(--tim-radius-sm);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s ease, transform 0.12s ease;
-  z-index: 20;
-}
-.dash-qa__btn:hover::after,
-.dash-qa__btn:focus-visible::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
 
-/* Sections par compartiment */
 .dash__section {
   display: flex;
   flex-direction: column;
@@ -128,7 +81,7 @@
 .dash-tile--link:hover {
   transform: translateY(-2px);
   border-color: var(--tim-primary);
-  box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--tim-primary) 40%, transparent);
+  box-shadow: 0 8px 20px -14px color-mix(in srgb, var(--tim-foreground) 18%, transparent);
 }
 .dash-tile--accent {
   border-color: color-mix(in srgb, var(--tim-primary) 35%, var(--tim-border));
@@ -306,48 +259,7 @@
 }
 
 /* Barres horizontales */
-.dash-bars {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-.dash-bars__row {
-  display: grid;
-  grid-template-columns: minmax(6rem, 34%) 1fr auto;
-  align-items: center;
-  gap: 0.6rem;
-}
-.dash-bars__label {
-  font-size: 0.8rem;
-  color: var(--tim-foreground);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.dash-bars__track {
-  height: 10px;
-  background: var(--tim-elevation-100);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.dash-bars__fill {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--tim-primary);
-}
-.dash-bars__value {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--tim-foreground);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
 
-/* Donut */
 .dash-donut {
   display: flex;
   align-items: center;
@@ -417,39 +329,6 @@
 }
 
 /* Meter */
-.dash-meter {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.dash-meter__head {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-}
-.dash-meter__value {
-  font-size: 1.8rem;
-  font-weight: 800;
-  color: var(--tim-primary);
-  line-height: 1;
-}
-.dash-meter__caption {
-  font-size: 0.75rem;
-  color: var(--tim-muted);
-}
-.dash-meter__track {
-  height: 12px;
-  background: var(--tim-primary-light);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.dash-meter__fill {
-  height: 100%;
-  background: var(--tim-primary);
-  border-radius: 999px;
-}
-
-/* Liste compacte */
 .dash-list {
   list-style: none;
   margin: 0;
@@ -497,13 +376,14 @@
 .dash-card--link:hover {
   transform: translateY(-2px);
   border-color: var(--tim-primary);
-  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--tim-primary) 32%, transparent);
+  box-shadow: 0 8px 20px -14px color-mix(in srgb, var(--tim-foreground) 18%, transparent);
 }
 .dash-card__text {
   margin: 0;
   font-size: 0.85rem;
   color: var(--tim-muted);
 }
+
 
 
 
@@ -767,21 +647,10 @@
 }
 
 /* Appel à l'action de section : une seule par bloc, en rouge de marque. */
+/* Le bouton d'action TIM, tel quel (voir .tim-btn dans _base.scss). */
 .pu-cta {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.5rem 1.1rem;
-  border-radius: var(--tim-radius-sm);
-  background: var(--tim-primary);
-  color: var(--tim-white);
-  font-size: 0.86rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: background-color 0.12s ease;
-}
-.pu-cta:hover {
-  background: var(--tim-primary-dark);
-  color: var(--tim-white);
+  @extend .tim-btn;
+  @extend .tim-btn--primary;
 }
 
 
@@ -849,6 +718,8 @@
   color: var(--tim-muted);
 }
 
+
+
 /* ─── En-tête du tableau de bord : le mois, et la journée ─────────────────────
    Deux blocs de MÊME hauteur. Le calendrier fixe ses six semaines, donc il ne
    dicte pas une hauteur qui changerait de mois en mois ; la liste défile à
@@ -857,7 +728,7 @@
   display: grid;
   grid-template-columns: 22rem minmax(0, 1fr);
   gap: 1rem;
-  margin: 0 0 1.75rem;
+  margin: 0;
   /**
    * HAUTEUR FIXE, pour les deux.
    *
@@ -878,13 +749,26 @@
   }
 }
 
+/* Écran étroit : le calendrier passe au-dessus plutôt que d'écraser la liste,
+   et la hauteur redevient libre — deux blocs empilés dans 21,5 rem ne
+   laisseraient que trois lignes à la liste. */
+@media (max-width: 64rem) {
+  .dash-today {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+  .dash-agenda__body { max-height: 20rem; }
+}
+
+
 /* ─── Calendrier ─────────────────────────────────────────────────────────── */
 .dash-cal {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--tim-border);
-  border-radius: var(--tim-radius);
+  border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+  border-radius: 0.75rem;
   background: var(--tim-white);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 4%, transparent);
   overflow: hidden;
 }
 .dash-cal__head {
@@ -973,13 +857,15 @@
    abattu, pas seulement ce qui attend. */
 .dash-cal__day--clear .dash-cal__dot { background: var(--tim-success); }
 
+
 /* ─── Actions planifiées ─────────────────────────────────────────────────── */
 .dash-agenda {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--tim-border);
-  border-radius: var(--tim-radius);
-  background: var(--tim-surface);
+  border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+  border-radius: 0.75rem;
+  background: var(--tim-white);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 4%, transparent);
   overflow: hidden;
 }
 .dash-agenda__head {
@@ -1020,10 +906,10 @@
 }
 
 .dash-agenda__card {
-  margin-bottom: 0.6rem;
-  padding: 0.7rem 0.85rem;
-  border: 1px solid var(--tim-border);
-  border-radius: var(--tim-radius-sm);
+  margin-bottom: 0.5rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+  border-radius: 0.6rem;
   background: var(--tim-white);
 
   &:last-child { margin-bottom: 0; }
@@ -1127,17 +1013,7 @@
   text-decoration: none;
 
   &:hover { background: var(--tim-primary-dark); color: var(--tim-white); }
-}
 
-/* Écran étroit : le calendrier passe au-dessus plutôt que d'écraser la liste,
-   et la hauteur redevient libre — deux blocs empilés dans 21,5 rem ne
-   laisseraient que trois lignes à la liste. */
-@media (max-width: 64rem) {
-  .dash-today {
-    grid-template-columns: minmax(0, 1fr);
-    height: auto;
-  }
-  .dash-agenda__body { max-height: 20rem; }
 }
 
 /* Échec d'une écriture depuis le tableau de bord. Une ligne qui revient toute
@@ -1153,3 +1029,388 @@
 }
 
 .dash-agenda__count-late { color: var(--tim-red); font-weight: 700; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCUEIL (admin + partenaire-métier) — « qu'est-ce qui demande mon action ? »
+   Le mois et la journée en tête, puis les phases de test et quatre chiffres. Cartes blanches, bordure fine, rayon 12 px, beaucoup d'air,
+   une seule couleur d'accent : la marque.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.home {
+  --home-radius: 0.75rem;
+  --home-border: color-mix(in srgb, var(--tim-border) 70%, transparent);
+  --home-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 4%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  padding-bottom: 3rem;
+}
+
+/* ─── En-tête : le jour, la salutation, la phrase du matin, « + Nouveau » ───── */
+.home-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.home-head__date {
+  margin: 0 0 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+.home-head__title {
+  margin: 0;
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: var(--tim-foreground);
+}
+.home-head__summary {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  color: var(--tim-muted);
+}
+
+/* « + Nouveau » : un bouton plein, un menu qui nomme ce qu'il crée. */
+.home-new {
+  position: relative;
+
+  > summary { list-style: none; }
+  > summary::-webkit-details-marker { display: none; }
+}
+/* Le bouton d'action TIM (voir .tim-btn dans _base.scss), en <summary>. */
+.home-new__btn {
+  @extend .tim-btn;
+  @extend .tim-btn--primary;
+  user-select: none;
+}
+.home-new__plus { display: inline-flex; }
+.home-new__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 20;
+  min-width: 12rem;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  border: 1px solid var(--home-border);
+  border-radius: var(--home-radius);
+  background: var(--tim-white);
+  box-shadow: 0 16px 40px -16px color-mix(in srgb, var(--tim-foreground) 40%, transparent);
+}
+.home-new__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.5rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+  text-decoration: none;
+
+  &:hover { background: var(--tim-surface); color: var(--tim-primary); }
+}
+.home-new__icon { display: inline-flex; color: var(--tim-muted); svg { width: 16px; height: 16px; } }
+.home-new__item:hover .home-new__icon { color: var(--tim-primary); }
+
+/* ─── Têtes de section : titre, compte, lien « tout voir » ───────────────── */
+.home-section__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+}
+.home-section__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.005em;
+  color: var(--tim-foreground);
+}
+.home-section__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--tim-elevation-150);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.home-section__more {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover { color: var(--tim-primary); }
+}
+
+/* ─── État vide : positif, sobre ──────────────────────────────────────────── */
+.home-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px dashed var(--home-border);
+  border-radius: var(--home-radius);
+  background: var(--tim-white);
+}
+.home-empty__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--tim-green-bg);
+  color: var(--tim-green);
+  svg { width: 18px; height: 18px; }
+}
+.home-empty__text { margin: 0; font-size: 0.88rem; color: var(--tim-muted); }
+
+/* ─── Phases de test : une carte par parcours, sur UNE ligne ──────────────────
+   Les plus pressées d'abord (fin la plus proche) ; au-delà de la largeur, on
+   fait défiler vers la droite pour trouver les moins avancées. Une seule
+   ligne garde le bloc à hauteur constante, quel que soit le nombre de tests —
+   même défilement natif que la vitrine des récompenses (.pu-carousel) : pas
+   de JavaScript, utilisable au trackpad, au clavier et au doigt. */
+.home-tests__grid {
+  display: flex;
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0.15rem 0.15rem 0.6rem;   /* laisse passer l'ombre et le relief au survol */
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+
+  > li {
+    display: flex;
+    flex: 0 0 16.5rem;
+    scroll-snap-align: start;
+  }
+}
+.home-test {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.95rem 1rem 0.9rem;
+  border: 1px solid var(--home-border);
+  border-radius: var(--home-radius);
+  background: var(--tim-white);
+  box-shadow: var(--home-shadow);
+  color: var(--tim-foreground);
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--home-border));
+    box-shadow: 0 8px 20px -14px color-mix(in srgb, var(--tim-foreground) 18%, transparent);
+  }
+}
+.home-test--soon { border-color: color-mix(in srgb, var(--tim-amber) 35%, var(--home-border)); }
+.home-test--late { border-color: color-mix(in srgb, var(--tim-red) 35%, var(--home-border)); }
+.home-test__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.home-test__client {
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.home-test__due {
+  flex: none;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--tim-elevation-100);
+  color: var(--tim-muted);
+}
+.home-test__due--soon { background: var(--tim-amber-bg); color: var(--tim-amber); }
+.home-test__due--late { background: var(--tim-red-bg); color: var(--tim-red); }
+.home-test__partner { margin-top: -0.3rem; font-size: 0.78rem; color: var(--tim-muted); }
+.home-test__progress {
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--tim-elevation-150);
+  overflow: hidden;
+}
+.home-test__bar {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--tim-primary);
+  transition: width 0.3s ease;
+}
+.home-test--soon .home-test__bar { background: var(--tim-amber); }
+.home-test--late .home-test__bar { background: var(--tim-red); }
+.home-test__days {
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+  font-variant-numeric: tabular-nums;
+  strong { color: var(--tim-foreground); }
+}
+.home-test__next {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: auto;   /* toujours en pied de carte, alignée d'une carte à l'autre */
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--home-border);
+  min-width: 0;
+}
+/* Qui doit agir, en pastille : TIM en rouge marque, le partenaire en violet
+   (la couleur de « phase de test » partout ailleurs), le client en bleu. */
+.home-test__actor {
+  flex: none;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: var(--tim-elevation-100);
+  color: var(--tim-muted);
+}
+.home-test__actor--admin { background: var(--tim-primary-light); color: var(--tim-primary-dark); }
+.home-test__actor--partenaire { background: var(--tim-purple-bg); color: var(--tim-purple); }
+.home-test__actor--client { background: var(--tim-blue-bg); color: var(--tim-blue); }
+.home-test__actor--done { background: var(--tim-green-bg); color: var(--tim-green); }
+.home-test__step {
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── En chiffres : quatre portes vers les analyses ───────────────────────────
+   Un pictogramme teinté à gauche (une couleur par chiffre), le libellé, la
+   valeur en grand, une ligne de contexte, et la flèche en pied qui dit où l'on
+   va. Au survol, la flèche avance : la tuile est un lien, pas un cadran. */
+.home-figures__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.85rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  > li { display: flex; }
+}
+.home-figure {
+  --figure-ink: var(--tim-primary-dark);
+  --figure-bg: var(--tim-primary-light);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 0.9rem;
+  row-gap: 0.75rem;
+  flex: 1;
+  padding: 1rem 1.1rem 0.9rem;
+  border: 1px solid var(--home-border);
+  border-radius: var(--home-radius);
+  background: var(--tim-white);
+  box-shadow: var(--home-shadow);
+  color: var(--tim-foreground);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+
+  &:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--figure-ink) 45%, var(--home-border)); }
+  &:hover .home-figure__cta { color: var(--figure-ink); }
+  &:hover .home-figure__arrow { transform: translateX(3px); }
+}
+.home-figure--brand  { --figure-ink: var(--tim-primary-dark); --figure-bg: var(--tim-primary-light); }
+.home-figure--green  { --figure-ink: var(--tim-green);  --figure-bg: var(--tim-green-bg); }
+.home-figure--indigo { --figure-ink: var(--tim-indigo); --figure-bg: var(--tim-indigo-bg); }
+.home-figure--amber  { --figure-ink: var(--tim-amber);  --figure-bg: var(--tim-amber-bg); }
+
+.home-figure__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  background: var(--figure-bg);
+  color: var(--figure-ink);
+  svg { width: 22px; height: 22px; }
+}
+.home-figure__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.home-figure__label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+}
+.home-figure__value {
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.home-figure__sub { font-size: 0.76rem; color: var(--tim-muted); }
+.home-figure__cta {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--home-border);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+  transition: color 0.12s ease;
+}
+.home-figure__arrow {
+  display: inline-flex;
+  transition: transform 0.15s ease;
+  svg { width: 14px; height: 14px; }
+}
+
+/* ─── Les derniers mois : le CA en bâtons, les entrées en lignes ───────────
+   Un seul graphique, deux axes (€ à gauche, nombre à droite) : des euros et
+   des comptes ne partagent pas une échelle. */
+.home-months {
+  padding: 1rem 0.6rem 0.6rem;
+  border: 1px solid var(--home-border);
+  border-radius: var(--home-radius);
+  background: var(--tim-white);
+  box-shadow: var(--home-shadow);
+}

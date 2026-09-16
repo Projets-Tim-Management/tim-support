@@ -69,7 +69,6 @@
 /* Carte dépliée = carte « active » : liseré rouge à gauche pour se repérer. */
 .doc-array .array-field__row:has(.collapsible:not(.collapsible--collapsed)) {
   border-color: color-mix(in srgb, var(--tim-primary) 45%, var(--tim-border));
-  box-shadow: 0 6px 18px -12px color-mix(in srgb, var(--tim-primary) 40%, transparent);
 }
 
 /* En-tête de la carte : bande claire, haute, cliquable, survol vivant. */
@@ -536,7 +535,6 @@
 }
 .notif-item__link:hover {
   border-color: var(--tim-primary);
-  box-shadow: 0 1px 6px color-mix(in srgb, var(--tim-primary) 15%, transparent);
 }
 .notif-item--reply .notif-item__link {
   border-left: 3px solid var(--tim-info);
@@ -706,7 +704,6 @@
 }
 .pcard:hover {
   border-color: color-mix(in srgb, var(--tim-primary) 35%, var(--tim-border));
-  box-shadow: 0 8px 22px -14px color-mix(in srgb, var(--tim-primary) 40%, transparent);
 }
 .pcard__head {
   padding: 0.85rem 1rem;

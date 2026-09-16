@@ -88,7 +88,6 @@
 .tim-pswitch__btn:hover {
   border-color: var(--tim-primary);
   background: var(--tim-white);
-  box-shadow: 0 4px 14px -8px color-mix(in srgb, var(--tim-primary) 45%, transparent);
 }
 .tim-pswitch__avatar {
   display: inline-flex;
@@ -336,7 +335,6 @@
 .tim-gsearch.is-open .tim-gsearch__field {
   border-color: var(--tim-primary);
   background: var(--tim-white);
-  box-shadow: 0 4px 14px -8px color-mix(in srgb, var(--tim-primary) 45%, transparent);
 }
 .tim-gsearch__icon {
   flex: 0 0 auto;

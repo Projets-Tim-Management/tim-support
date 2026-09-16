@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
+import { CLOSED_STATUSES } from "@/modules/marketing/lib/due-emails";
+import { partnerStepsOnAgenda, type PartnerStep } from "@/modules/marketing/lib/partner-steps";
 import {
   buildTaskDigestEmail,
   groupTasksForDigest,
@@ -18,6 +20,11 @@ import {
  * UNE tâche au moment choisi, celui-là donne la vue d'ensemble — et rattrape les
  * tâches créées sans rappel, qui autrement n'alerteraient jamais personne.
  *
+ * Les ÉTAPES de parcours qui attendent le partenaire (relevés d'usage, bilan)
+ * y figurent au même titre : l'alerte « Une action vous attend » ne part
+ * qu'une fois, le jour venu, et sans ce rappel une étape non faite ne
+ * réapparaissait plus nulle part le lendemain.
+ *
  * Un seul envoi par partenaire, et AUCUN quand il n'a rien : un message
  * quotidien qui dit « rien à signaler » apprend à ne plus l'ouvrir.
  *
@@ -34,6 +41,18 @@ const MAX_TASKS = 2000;
 
 type Task = DigestTask & {
   partner?: { id?: number | string; email?: string | null; displayName?: string | null; societe?: string | null; name?: string | null } | number | string | null;
+};
+
+type Run = {
+  id: number | string;
+  status?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  sessionAt?: string | null;
+  reviewAt?: string | null;
+  steps?: PartnerStep[] | null;
+  client?: Task["client"];
+  partner?: Task["partner"];
 };
 
 export async function GET(req: Request) {
@@ -68,6 +87,31 @@ export async function GET(req: Request) {
     overrideAccess: true,
   });
 
+  /**
+   * Les étapes des parcours OUVERTS qui attendent le partenaire, ramenées à la
+   * forme d'une tâche : un intitulé, une échéance, un client, un partenaire.
+   * Même horizon que les tâches ; les étapes faites ne sont plus à rappeler.
+   */
+  const runs = await payload.find({
+    collection: "journey-runs",
+    where: { status: { not_in: CLOSED_STATUSES } },
+    depth: 1,
+    limit: 500,
+    overrideAccess: true,
+  });
+  const etapes: Task[] = (runs.docs as Run[]).flatMap((run) =>
+    partnerStepsOnAgenda(run)
+      .filter(({ due, done }) => !done && due <= horizon)
+      .map(({ step, due }) => ({
+        id: `etape-${run.id}-${step.key ?? ""}`,
+        title: step.label,
+        dueDate: due,
+        client: run.client,
+        partner: run.partner,
+        journeyRunId: run.id,
+      })),
+  );
+
   // Un e-mail par partenaire : regrouper AVANT d'envoyer, sinon un partenaire
   // qui a huit tâches reçoit huit messages.
   const byPartner = new Map<string, { partner: Exclude<Task["partner"], null | undefined>; tasks: Task[] }>();
@@ -76,7 +120,7 @@ export async function GET(req: Request) {
     skipped[r] = (skipped[r] ?? 0) + 1;
   };
 
-  for (const doc of res.docs as Task[]) {
+  for (const doc of [...(res.docs as Task[]), ...etapes]) {
     const p = doc.partner;
     const id = p && typeof p === "object" ? p.id : p;
     if (id == null) {
@@ -123,7 +167,7 @@ export async function GET(req: Request) {
   }
 
   payload.logger.info(
-    `[cron] rappels du matin : ${res.docs.length} tâche(s) ouverte(s), ${byPartner.size} partenaire(s), ` +
+    `[cron] rappels du matin : ${res.docs.length} tâche(s) ouverte(s), ${etapes.length} étape(s) de parcours, ${byPartner.size} partenaire(s), ` +
       `${sent.length} envoi(s)${dry ? " (à blanc)" : ""}${failed.length ? `, ${failed.length} échec(s)` : ""}.`,
   );
 
@@ -131,6 +175,7 @@ export async function GET(req: Request) {
     ok: true,
     dry,
     tasks: res.docs.length,
+    steps: etapes.length,
     partners: byPartner.size,
     sent,
     failed,

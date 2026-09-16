@@ -1,100 +1,43 @@
-# Dashboard admin — checklists (recherche + spec d'implémentation)
+# Accueil du back-office — ce qu'il fait, et pourquoi
 
-Trois checklists qui pilotent la construction du dashboard : **structure & données**,
-**UX/UI & graphiques**, **performance**. Chaque case cochée = décision appliquée
-dans le code (`admin/dashboard/`).
+Refonte du 16/09/2026. L'ancien tableau de bord empilait quatre compartiments
+de chiffres (support, partenaires, éditorial, système) et sept graphiques. Tout
+cela existe désormais, en mieux et sur une période choisie, dans **Analyses**.
+La page d'accueil ne répond plus qu'à une question : **« qu'est-ce qui demande
+mon action aujourd'hui ? »**
 
----
+## Ce qu'on a regardé ailleurs
 
-## A. Structure & données (le fond)
+Linear (Inbox), Notion Home, Attio, Pipedrive, HubSpot, Stripe — le même motif :
 
-Fondé sur les patterns récurrents des meilleurs dashboards (F-pattern, hiérarchie,
-5–9 métriques/écran, cards à icône + tendance).
+1. une salutation datée et **un seul** bouton de création (« + Nouveau ») ;
+2. le **temps** bien visible : le mois, la journée (en tête, côte à côte) ;
+3. **3–4 chiffres au plus**, chacun renvoyant vers l'analyse détaillée ;
+4. des **cartes d'objets vivants** (un test en cours, une opportunité) avec la
+   prochaine étape, plutôt que des agrégats ;
+5. bordures fines, beaucoup d'air, une seule couleur d'accent, états vides
+   positifs, tout cliquable.
 
-- [ ] **Une intention claire, lisible en 5 s** : « qu'est-ce qui demande mon action
-      aujourd'hui ? ». Le haut du dashboard répond à ça (tickets à traiter, soumissions
-      en attente, commandes à honorer).
-- [ ] **Hiérarchie F-pattern** : KPI les plus critiques en **haut-gauche**, taille
-      décroissante vers le bas-droite. Le chiffre le plus important est visuellement
-      dominant.
-- [ ] **5–9 métriques par écran** (pas plus) : on résiste à tout empiler. Le reste
-      va dans les vues de liste des collections.
-- [ ] **Par compartiment** (une section = un domaine), dans l'ordre de priorité
-      métier : **Support → Partenaires → Éditorial → Système**.
-- [ ] **Chaque KPI = card** : libellé (sentence case) · valeur (compacte : 1 284 /
-      12,9 k) · delta signé vs période nommée (couleur = direction × « est-ce bien »)
-      · mini-tendance (sparkline). Icône ligne à gauche.
-- [ ] **Indicateurs d'état réservés** : vert/ambre/rouge = statut (bon/attention/
-      critique), jamais une couleur de « série ». Toujours icône + libellé, pas la
-      couleur seule.
-- [ ] **Données FIABLES** : chaque métrique calculée depuis les champs réels des
-      collections (agrégation server-side, `overrideAccess` maîtrisé), pas d'estimation.
-      Documenter la source de chaque chiffre (champ + filtre) dans le code.
-- [ ] **Actions directes** : chaque card mène à la vue filtrée correspondante
-      (ex. « 5 tickets non lus » → liste tickets filtrée). Zéro cul-de-sac.
-- [ ] **États vides gérés** : « Rien à signaler 🎉 » plutôt qu'un 0 sec ou un graphe vide.
+## La page (admin et partenaire-métier, le même écran scopé)
 
-## B. UX / UI & graphiques (la forme)
+| Bloc | Contenu | Source |
+| --- | --- | --- |
+| En-tête | « Bonjour Charlie · mercredi 16 septembre », la phrase du matin (« 4 actions aujourd'hui, 2 en retard »), « + Nouveau » | `HomeHeader`, `NewMenu` |
+| Aujourd'hui | le mois et la journée, tâches **et** étapes de parcours, cochables des deux côtés | `AgendaBoard`, `data-agenda.ts`, `api/admin/journey-step` |
+| Phases de test | une carte par parcours ouvert : J+x sur N, la barre, la prochaine étape et **qui** doit la faire, l'échéance | `TestCards` |
+| En chiffres | CA mensuel HT, clients actifs, opportunités ouvertes, tickets ouverts — pictogramme teinté, valeur, contexte, flèche → chacun mène à sa page Analyses | `KeyFigures` |
 
-Méthode dataviz (choisir la forme AVANT la couleur ; valider la palette ; specs de
-marques) + principes NN/g (préattentif, anti-chartjunk, divulgation progressive).
+| Sur 3 / 6 / 12 mois | un seul graphique : le CA HT en bâtons dégradés (axe € à gauche), nouveaux prospects (violet) et clients signés (vert) en lignes (axe nombre à droite) ; commutateur de période, 3 mois par défaut, douze mois servis une fois | `MonthlyOverview` |
 
-- [ ] **La forme suit le job des données** (jamais « un joli graphe »):
-  - valeur unique (+ tendance) → **stat tile**, pas un graphe à 1 barre ;
-  - poignée de chiffres → **rangée de KPI** ;
-  - évolution dans le temps → **ligne / aire** (1 série) ;
-  - comparer des magnitudes → **barres** (horizontales si libellés longs) ;
-  - part d'un tout → **barre empilée** ou **donut** (≤ 5 parts) ;
-  - une part contre une limite (stock, quota) → **meter**.
-- [ ] **Une seule échelle Y** — jamais de double axe (erreur n°1). Deux mesures
-      d'échelles différentes = deux graphes.
-- [ ] **Couleur par le job** : catégoriel (identité, ordre fixe, jamais cyclé) /
-      séquentiel (magnitude, une teinte) / divergent (polarité) / statut (état).
-      Palette dérivée des tokens `var(--tim-…)`.
-- [ ] **Palette VALIDÉE** au script dataviz (CVD ΔE, contraste) — light **et** dark ;
-      on ne juge pas « à l'œil ».
-- [ ] **Specs de marques** : barres ≤ 24px, bout arrondi 4px ; lignes 2px ; aires à
-      ~10 % d'opacité ; grille hairline 1px récessive ; gap de 2px entre marques.
-- [ ] **Anti-chartjunk** : pas de 3D, d'ombres portées sur les données, de dégradés
-      décoratifs, de légendes redondantes. Le texte porte les tokens de texte, pas la
-      couleur de série.
-- [ ] **Légende dès 2 séries** ; labels directs sélectifs (jamais un chiffre sur
-      chaque point).
-- [ ] **Interaction** : tooltip au survol sur chaque graphe (crosshair sur les
-      lignes, par-marque sur barres/donut). Filtres de période sur une ligne au-dessus.
-- [ ] **Accessibilité** : identité jamais par la couleur seule (icône/label) ;
-      contrastes AA ; dark mode pensé (pas un simple flip).
-- [ ] **Boutons d'action = icône + tooltip** (créer un ticket, une récompense, etc.),
-      `aria-label` obligatoire, tooltip au survol/focus.
-- [ ] **Rendu vérifié à l'œil** après coup : pas de collision de labels, pas de
-      débordement horizontal, responsive.
+Le rôle **support** garde sa vue tickets (`SupportSection`) ; le
+**partenaire-utilisateur** garde son programme de points (`PartnerSection`).
 
-## C. Performance
+## Règles tenues
 
-Fondé sur : agréger côté serveur, charger l'essentiel d'abord, éviter le sur-fetch.
-
-- [ ] **Agrégation server-side** : compter/sommer via la DB (`count`, requêtes
-      ciblées), **jamais** `find` de tous les docs pour compter en JS.
-- [ ] **`depth: 0` + `limit` maîtrisé + `select`** sur toutes les lectures du
-      dashboard : on ne rapatrie que les champs utiles.
-- [ ] **Requêtes parallèles** (`Promise.all`) pour toutes les métriques d'un rendu.
-- [ ] **Server Component** : le dashboard lit via la Local API au rendu serveur,
-      zéro cascade de fetch client au montage.
-- [ ] **Graphiques SVG légers, faits main** (sparkline/barres/donut) — **aucune lib
-      de charting** (pas de Recharts/Chart.js) : moins de JS, pas de dépendance, CSP-safe.
-- [ ] **Séries bornées** : agrégats par jour/semaine sur une fenêtre fixe (ex. 30 j),
-      pas des milliers de points.
-- [ ] **Pas de travail bloquant** : si une métrique est lourde, la dégrader
-      proprement (placeholder) plutôt que bloquer tout le rendu.
-- [ ] **Cache raisonnable** : `React.cache` pour dédupliquer les lectures d'un même
-      rendu ; envisager une revalidation courte si besoin.
-- [ ] **Budget** : viser un rendu du dashboard < ~1 s en conditions normales ;
-      mesurer (les requêtes apparaissent dans les logs `next dev`).
-
----
-
-### Sources (recherche)
-- Dashboard design best practices 2025/2026 — [resolution.de](https://www.resolution.de/post/dashboard-design-best-practices/), [context.dev](https://www.context.dev/blog/dashboard-design-best-practices), [improvado.io](https://improvado.io/blog/dashboard-design-guide), [5of10.com](https://5of10.com/articles/dashboard-design-best-practices/)
-- UX / choix de graphiques — NN/g : [Choosing Chart Types](https://www.nngroup.com/videos/choosing-chart-types/), [Clutter-Free Charts](https://www.nngroup.com/videos/chartjunk/), [Preattentive dashboards](https://www.nngroup.com/articles/dashboards-preattentive/)
-- Performance dashboard — [zigpoll (loading perf)](https://www.zigpoll.com/content/how-can-we-optimize-the-loading-performance-of-our-interactive-dashboard-to-enhance-user-engagement-on-both-desktop-and-mobile-devices), [edgedelta (observability)](https://edgedelta.com/company/blog/importance-of-dashboard-performance-in-observability)
-- Méthode graphiques : skill dataviz (forme→couleur→validation, specs de marques).
+- **Lecture serveur, jamais plus de cinq requêtes en parallèle** (pooler
+  Supabase à 15) ; les parcours sont lus une fois pour l'agenda et les cartes.
+- **Une seule vérité** : cocher une étape sur l'accueil écrit sur le parcours,
+  par la même règle que la fiche (état, date, auteur) — les garde-fous de la
+  collection s'appliquent.
+- **Aucune couleur en dur** : tout passe par `var(--tim-…)`.
+- **Un seul graphique**, celui des douze mois ; les analyses fines vivent dans Analyses.

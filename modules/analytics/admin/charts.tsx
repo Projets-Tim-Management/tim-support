@@ -34,10 +34,11 @@ import type { ProfilKey } from "@/modules/partner/lib/pricing";
  * `var()`.
  */
 
-type Colors = { series: string[]; muted: string; grid: string; text: string; textMuted: string; surface: string };
+export type Colors = { series: string[]; violet: string; muted: string; grid: string; text: string; textMuted: string; surface: string };
 
 const FALLBACK: Colors = {
   series: ["#fe5464", "#2a78d6", "#1baf7a", "#eda100", "#4a3aa7"],
+  violet: "#5b5bd6",
   muted: "#c9ccd3",
   grid: "#eef0f3",
   text: "#505050",
@@ -46,13 +47,14 @@ const FALLBACK: Colors = {
 };
 
 /** Les jetons, lus une fois sur :root — même palette que le reste de l'admin. */
-function useChartColors(): Colors {
+export function useChartColors(): Colors {
   const [colors, setColors] = useState<Colors>(FALLBACK);
   useEffect(() => {
     const css = getComputedStyle(document.documentElement);
     const read = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
     setColors({
       series: [1, 2, 3, 4, 5].map((i) => read(`--tim-chart-${i}`, FALLBACK.series[i - 1])),
+      violet: read("--tim-chart-violet", FALLBACK.violet),
       muted: read("--tim-chart-muted", FALLBACK.muted),
       grid: read("--tim-chart-grid", FALLBACK.grid),
       text: read("--tim-foreground", FALLBACK.text),
@@ -66,17 +68,17 @@ function useChartColors(): Colors {
 /** Ordre FIXE des profils dans la palette : Admin = 1 … Compagnon = 5. */
 const PROFILE_SLOT: Record<ProfilKey, number> = { admin: 0, conducteur: 1, chefChantier: 2, chefEquipe: 3, compagnon: 4 };
 
-const monthLabel = (iso: string, long = false) =>
+export const monthLabel = (iso: string, long = false) =>
   new Date(iso).toLocaleDateString("fr-FR", { month: long ? "long" : "short", year: long ? "numeric" : "2-digit", timeZone: "UTC" });
 
 /** Ticks d'axe en € compacts : 1 200 → « 1,2 k€ ». */
-const compactEur = (v: number) => (Math.abs(v) >= 1000 ? `${(v / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} k€` : `${v} €`);
+export const compactEur = (v: number) => (Math.abs(v) >= 1000 ? `${(v / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} k€` : `${v} €`);
 
 type TipRow = { name: string; value: number; color: string };
 type TipPayload = readonly { name?: string | number; value?: number | string | readonly (number | string)[]; color?: string; fill?: string }[];
 
 /** Infobulle commune : le mois en titre, puis une ligne par série, la valeur en gras. */
-function Tip({ active, label, payload, title, unit = "eur" }: { active?: boolean; label?: string | number; payload?: TipPayload; title?: string; unit?: "eur" | "int" | "days" }) {
+export function Tip({ active, label, payload, title, unit = "eur" }: { active?: boolean; label?: string | number; payload?: TipPayload; title?: string; unit?: "eur" | "int" | "days" }) {
   if (!active || !payload?.length) return null;
   const rows: TipRow[] = payload.map((p) => ({ name: String(p.name ?? ""), value: Number(p.value ?? 0), color: p.color ?? p.fill ?? "" }));
   const fmt = (v: number) => (unit === "eur" ? eur.format(v) : unit === "days" ? `${v.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} j` : v.toLocaleString("fr-FR"));
@@ -94,7 +96,58 @@ function Tip({ active, label, payload, title, unit = "eur" }: { active?: boolean
   );
 }
 
-const axisStyle = (c: Colors) => ({ fontSize: 11, fill: c.textMuted });
+export const axisStyle = (c: Colors) => ({ fontSize: 11, fill: c.textMuted });
+
+/* ─── Le dessin commun à tous les graphiques (accueil compris) ───────────────
+   Bâtons en DÉGRADÉ de leur couleur — franc à l'extrémité qui porte la valeur,
+   presque effacé à la base : c'est la masse qui compte, pas l'aplat ; coins
+   6 px ; grille pointillée sans axe tracé ; lignes fines à points évidés ;
+   légende à puces rondes. Un seul endroit pour ces réglages : un graphique de
+   plus reprend ces briques, il ne les réinvente pas. */
+
+/** Les `<defs>` de dégradés, un par couleur. `horizontal` pour les barres couchées. */
+export function Gradients({ entries, horizontal = false }: { entries: { id: string; color: string }[]; horizontal?: boolean }) {
+  return (
+    <defs>
+      {entries.map((e) => (
+        <linearGradient key={e.id} id={e.id} x1="0" y1="0" x2={horizontal ? "1" : "0"} y2={horizontal ? "0" : "1"}>
+          {horizontal ? (
+            <>
+              <stop offset="0%" stopColor={e.color} stopOpacity={0.35} />
+              <stop offset="100%" stopColor={e.color} stopOpacity={0.95} />
+            </>
+          ) : (
+            <>
+              <stop offset="0%" stopColor={e.color} stopOpacity={0.9} />
+              <stop offset="100%" stopColor={e.color} stopOpacity={0.18} />
+            </>
+          )}
+        </linearGradient>
+      ))}
+    </defs>
+  );
+}
+
+export const gradientId = (scope: string, key: string | number) => `an-grad-${scope}-${String(key).replace(/[^a-z0-9_-]/gi, "")}`;
+export const gradientFill = (id: string) => `url(#${id})`;
+
+/** Coins arrondis des bâtons : debout, puis couchés. */
+export const BAR_RADIUS: [number, number, number, number] = [6, 6, 0, 0];
+export const HBAR_RADIUS: [number, number, number, number] = [0, 6, 6, 0];
+
+/** Grille pointillée, horizontale seulement (ou verticale pour les barres couchées). */
+export const gridProps = (c: Colors, horizontalBars = false) =>
+  horizontalBars
+    ? { stroke: c.grid, strokeDasharray: "3 4", horizontal: false }
+    : { stroke: c.grid, strokeDasharray: "3 4", vertical: false };
+
+/** Point évidé : anneau de la couleur de la série, cœur blanc. */
+export const lineDot = (c: Colors, color: string) => ({ r: 3.5, fill: c.surface, stroke: color, strokeWidth: 2 });
+export const lineActiveDot = (c: Colors, color: string) => ({ r: 6, fill: color, stroke: c.surface, strokeWidth: 2 });
+export const LINE_WIDTH = 2.25;
+
+/** Légende à puces rondes, en texte atténué. */
+export const legendProps = (c: Colors) => ({ iconType: "circle" as const, iconSize: 8, wrapperStyle: { fontSize: 12, color: c.textMuted, paddingTop: 8 } });
 
 /* ─── CA mensuel : attendu (fiches) vs facturé (Pennylane) ───────────────── */
 
@@ -104,25 +157,26 @@ export function RevenueChart({ data }: { data: MonthPoint[] }) {
   return (
     <ResponsiveContainer width="100%" height={280}>
       <ComposedChart data={rows} margin={{ top: 12, right: 12, left: 0, bottom: 0 }} barCategoryGap="35%">
-        <CartesianGrid stroke={c.grid} vertical={false} />
-        <XAxis dataKey="label" tick={axisStyle(c)} axisLine={{ stroke: c.grid }} tickLine={false} />
+        <Gradients entries={[{ id: gradientId("revenue", 1), color: c.series[1] }]} />
+        <CartesianGrid {...gridProps(c)} />
+        <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} />
         <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} tickFormatter={compactEur} width={64} />
         <Tooltip
-          cursor={{ stroke: c.muted, strokeWidth: 1 }}
+          cursor={{ fill: c.grid, opacity: 0.6 }}
           content={(p) => <Tip {...p} title={p.payload?.[0]?.payload?.long} />}
         />
-        <Legend iconType="plainline" wrapperStyle={{ fontSize: 12, color: c.text }} />
-        <Bar name="Facturé par Pennylane (HT)" dataKey="invoiced" fill={c.series[1]} radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive />
+        <Legend {...legendProps(c)} />
+        <Bar name="Facturé par Pennylane (HT)" dataKey="invoiced" fill={gradientFill(gradientId("revenue", 1))} radius={BAR_RADIUS} maxBarSize={24} isAnimationActive />
         <Area
           name="Attendu d'après les fiches (HT / mois)"
           type="monotone"
           dataKey="expected"
           stroke={c.series[0]}
-          strokeWidth={2}
+          strokeWidth={LINE_WIDTH}
           fill={c.series[0]}
-          fillOpacity={0.1}
-          dot={false}
-          activeDot={{ r: 5, stroke: c.surface, strokeWidth: 2 }}
+          fillOpacity={0.08}
+          dot={lineDot(c, c.series[0])}
+          activeDot={lineActiveDot(c, c.series[0])}
         />
       </ComposedChart>
     </ResponsiveContainer>
@@ -137,13 +191,14 @@ export function ProfileChart({ data }: { data: ProfileStat[] }) {
   return (
     <ResponsiveContainer width="100%" height={Math.max(160, rows.length * 44 + 24)}>
       <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 72, left: 8, bottom: 4 }} barCategoryGap="30%">
-        <CartesianGrid stroke={c.grid} horizontal={false} />
+        <Gradients horizontal entries={rows.map((r) => ({ id: gradientId("profile", r.key), color: c.series[PROFILE_SLOT[r.key]] }))} />
+        <CartesianGrid {...gridProps(c, true)} />
         <XAxis type="number" hide />
         <YAxis type="category" dataKey="label" width={150} tick={{ fontSize: 12, fill: c.text }} axisLine={false} tickLine={false} />
-        <Tooltip cursor={{ fill: c.grid }} content={(p) => <Tip {...p} />} />
-        <Bar name="CA HT / mois" dataKey="caHT" radius={[0, 4, 4, 0]} maxBarSize={22}>
+        <Tooltip cursor={{ fill: c.grid, opacity: 0.6 }} content={(p) => <Tip {...p} />} />
+        <Bar name="CA HT / mois" dataKey="caHT" radius={HBAR_RADIUS} maxBarSize={22}>
           {rows.map((r) => (
-            <Cell key={r.key} fill={c.series[PROFILE_SLOT[r.key]]} />
+            <Cell key={r.key} fill={gradientFill(gradientId("profile", r.key))} />
           ))}
           <LabelList dataKey="caHT" position="right" formatter={(v: unknown) => eur.format(Number(v))} style={{ fontSize: 12, fill: c.text }} />
         </Bar>
@@ -160,11 +215,12 @@ export function PartnerChart({ data }: { data: PartnerStat[] }) {
   return (
     <ResponsiveContainer width="100%" height={Math.max(120, rows.length * 40 + 24)}>
       <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 72, left: 8, bottom: 4 }} barCategoryGap="30%">
-        <CartesianGrid stroke={c.grid} horizontal={false} />
+        <Gradients horizontal entries={[{ id: gradientId("partner", 0), color: c.series[0] }]} />
+        <CartesianGrid {...gridProps(c, true)} />
         <XAxis type="number" hide />
         <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 12, fill: c.text }} axisLine={false} tickLine={false} />
-        <Tooltip cursor={{ fill: c.grid }} content={(p) => <Tip {...p} />} />
-        <Bar name="CA HT / mois apporté" dataKey="caHT" fill={c.series[0]} radius={[0, 4, 4, 0]} maxBarSize={22}>
+        <Tooltip cursor={{ fill: c.grid, opacity: 0.6 }} content={(p) => <Tip {...p} />} />
+        <Bar name="CA HT / mois apporté" dataKey="caHT" fill={gradientFill(gradientId("partner", 0))} radius={HBAR_RADIUS} maxBarSize={22}>
           <LabelList dataKey="caHT" position="right" formatter={(v: unknown) => eur.format(Number(v))} style={{ fontSize: 12, fill: c.text }} />
         </Bar>
       </BarChart>
@@ -179,11 +235,12 @@ export function AgingChart({ data }: { data: Bucket[] }) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <BarChart data={data} margin={{ top: 20, right: 12, left: 0, bottom: 0 }} barCategoryGap="35%">
-        <CartesianGrid stroke={c.grid} vertical={false} />
-        <XAxis dataKey="label" tick={axisStyle(c)} axisLine={{ stroke: c.grid }} tickLine={false} />
+        <Gradients entries={[{ id: gradientId("aging", 0), color: c.series[0] }]} />
+        <CartesianGrid {...gridProps(c)} />
+        <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} />
         <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} tickFormatter={compactEur} width={64} />
-        <Tooltip cursor={{ fill: c.grid }} content={(p) => <Tip {...p} />} />
-        <Bar name="Reste dû TTC" dataKey="caHT" fill={c.series[0]} radius={[4, 4, 0, 0]} maxBarSize={24}>
+        <Tooltip cursor={{ fill: c.grid, opacity: 0.6 }} content={(p) => <Tip {...p} />} />
+        <Bar name="Reste dû TTC" dataKey="caHT" fill={gradientFill(gradientId("aging", 0))} radius={BAR_RADIUS} maxBarSize={24}>
           <LabelList dataKey="count" position="top" formatter={(v: unknown) => (Number(v) ? `${v} fact.` : "")} style={{ fontSize: 11, fill: c.textMuted }} />
         </Bar>
       </BarChart>
@@ -239,16 +296,27 @@ export function MonthlyChart({ data, series, stacked = false, height = 240 }: { 
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart data={rows} margin={{ top: 12, right: 12, left: 0, bottom: 0 }} barCategoryGap="35%">
-        <CartesianGrid stroke={c.grid} vertical={false} />
-        <XAxis dataKey="label" tick={axisStyle(c)} axisLine={{ stroke: c.grid }} tickLine={false} />
+        <Gradients entries={series.map((s, i) => ({ id: gradientId("monthly", s.key), color: c.series[i % 5] }))} />
+        <CartesianGrid {...gridProps(c)} />
+        <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} />
         <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} allowDecimals={false} width={40} />
-        <Tooltip cursor={{ fill: c.grid }} content={(p) => <Tip {...p} unit="int" title={p.payload?.[0]?.payload?.long} />} />
-        {series.length > 1 && <Legend iconType="plainline" wrapperStyle={{ fontSize: 12, color: c.text }} />}
+        <Tooltip cursor={{ fill: c.grid, opacity: 0.6 }} content={(p) => <Tip {...p} unit="int" title={p.payload?.[0]?.payload?.long} />} />
+        {series.length > 1 && <Legend {...legendProps(c)} />}
         {series.map((s, i) =>
           s.kind === "line" ? (
-            <Line key={s.key} name={s.label} type="monotone" dataKey={s.key} stroke={c.series[i % 5]} strokeWidth={2} dot={false} activeDot={{ r: 5, stroke: c.surface, strokeWidth: 2 }} />
+            <Line key={s.key} name={s.label} type="monotone" dataKey={s.key} stroke={c.series[i % 5]} strokeWidth={LINE_WIDTH} dot={lineDot(c, c.series[i % 5])} activeDot={lineActiveDot(c, c.series[i % 5])} />
           ) : (
-            <Bar key={s.key} name={s.label} dataKey={s.key} fill={c.series[i % 5]} stackId={stacked ? "s" : undefined} radius={stacked && i < series.length - 1 ? 0 : [4, 4, 0, 0]} maxBarSize={24} />
+            // Empilé : le dégradé n'a de sens que sur le segment du haut, les
+            // autres gardent leur aplat — sinon la pile se lit comme des trous.
+            <Bar
+              key={s.key}
+              name={s.label}
+              dataKey={s.key}
+              fill={stacked && i < series.length - 1 ? c.series[i % 5] : gradientFill(gradientId("monthly", s.key))}
+              stackId={stacked ? "s" : undefined}
+              radius={stacked && i < series.length - 1 ? 0 : BAR_RADIUS}
+              maxBarSize={24}
+            />
           ),
         )}
       </ComposedChart>
@@ -266,12 +334,16 @@ export function CountBars({ data, unit = "int", colorByKey }: { data: { key: str
   return (
     <ResponsiveContainer width="100%" height={Math.max(120, rows.length * 36 + 24)}>
       <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 56, left: 8, bottom: 4 }} barCategoryGap="30%">
-        <CartesianGrid stroke={c.grid} horizontal={false} />
+        <Gradients
+          horizontal
+          entries={colorByKey ? rows.map((r) => ({ id: gradientId("count", r.key), color: r.color ?? c.series[0] })) : [{ id: gradientId("count", "all"), color: c.series[0] }]}
+        />
+        <CartesianGrid {...gridProps(c, true)} />
         <XAxis type="number" hide />
         <YAxis type="category" dataKey="label" width={170} tick={{ fontSize: 12, fill: c.text }} axisLine={false} tickLine={false} />
-        <Tooltip cursor={{ fill: c.grid }} content={(p) => <Tip {...p} unit={unit} />} />
-        <Bar name={unit === "days" ? "Jours" : "Nombre"} dataKey="count" fill={c.series[0]} radius={[0, 4, 4, 0]} maxBarSize={20}>
-          {colorByKey && rows.map((r) => <Cell key={r.key} fill={r.color ?? c.series[0]} />)}
+        <Tooltip cursor={{ fill: c.grid, opacity: 0.6 }} content={(p) => <Tip {...p} unit={unit} />} />
+        <Bar name={unit === "days" ? "Jours" : "Nombre"} dataKey="count" fill={gradientFill(gradientId("count", "all"))} radius={HBAR_RADIUS} maxBarSize={20}>
+          {colorByKey && rows.map((r) => <Cell key={r.key} fill={gradientFill(gradientId("count", r.key))} />)}
           <LabelList dataKey="count" position="right" formatter={fmt} style={{ fontSize: 12, fill: c.text }} />
         </Bar>
       </BarChart>

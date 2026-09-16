@@ -87,6 +87,18 @@ export const Icons = {
   media: () =>
     svg([<rect key="a" x="3" y="3" width="18" height="18" rx="2" />, <circle key="b" cx="8.5" cy="8.5" r="1.5" />, <polyline key="c" points="21 15 16 10 5 21" />]),
   plus: () => svg(<path d="M12 5v14M5 12h14" />),
+  arrowRight: () => svg(<path d="M5 12h14M13 6l6 6-6 6" />),
+  building: () =>
+    svg([
+      <path key="a" d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" />,
+      <path key="b" d="M16 9h2a2 2 0 0 1 2 2v10M8 7h4M8 11h4M8 15h4M4 21h16" />,
+    ]),
+  target: () =>
+    svg([
+      <circle key="a" cx="12" cy="12" r="9" />,
+      <circle key="b" cx="12" cy="12" r="5" />,
+      <circle key="c" cx="12" cy="12" r="1" />,
+    ]),
 } as const;
 
 export type IconName = keyof typeof Icons;

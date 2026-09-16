@@ -185,7 +185,14 @@
   border-radius: var(--tim-radius);
   background: var(--tim-surface);
 }
+/* Sert aussi en <button> (sélecteur de période de l'accueil) : même dessin
+   qu'en lien, d'où la remise à zéro du style natif du bouton. */
 .an-filter {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
   padding: 0.4rem 0.95rem;
   border-radius: var(--tim-radius-sm);
   font-size: 0.9rem;

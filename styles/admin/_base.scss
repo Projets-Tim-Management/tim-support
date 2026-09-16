@@ -48,6 +48,46 @@ body,
   border-color: var(--tim-primary-dark);
 }
 
+/* ─── LE bouton d'action TIM ─────────────────────────────────────────────────
+   Un seul design pour « Ajouter », « Créer », « Nouveau », « Enregistrer » :
+   rouge marque, coins --tim-radius-sm, 0,5 × 1 rem, 0,85 rem semi-gras, survol
+   plus foncé, anneau de focus clair. Les boutons historiques (`.tim-add-client`,
+   `.tim-kanban__btn--primary`, `.pu-cta`, `.home-new__btn`) l'ÉTENDENT : une
+   valeur change ici, elle change partout. Pour un nouveau bouton, on pose les
+   classes `tim-btn tim-btn--primary` — on ne redessine pas. */
+.tim-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  appearance: none;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+
+  &:hover { background: var(--tim-surface); }
+  &:focus-visible { outline: 2px solid var(--tim-primary); outline-offset: 2px; }
+  &:disabled { opacity: 0.55; cursor: default; }
+
+  svg { width: 14px; height: 14px; }
+}
+.tim-btn--primary {
+  border-color: var(--tim-primary);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+
+  &:hover { border-color: var(--tim-primary-dark); background: var(--tim-primary-dark); color: var(--tim-white); }
+}
+
 /* Bouton « Ajouter » des listes : Payload le rend en pastille discrète, collée
    au titre. On en fait l'action principale de la page — rouge TIM, poussée tout
    à droite de la ligne de titre. Vaut pour TOUTES les collections. */
@@ -108,7 +148,7 @@ input[type="checkbox"]:checked {
 .card:hover {
   transform: translateY(-2px);
   border-color: var(--tim-primary);
-  box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--tim-primary) 32%, transparent);
+  box-shadow: 0 8px 20px -14px color-mix(in srgb, var(--tim-foreground) 18%, transparent);
 }
 .card:hover .card__title {
   color: var(--tim-primary);
