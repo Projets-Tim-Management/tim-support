@@ -7,7 +7,12 @@ import { assigneeField } from "@/modules/dev/fields/assignee";
 import { PASSWORD_MASK, encryptPasswordValue } from "@/modules/marketing/lib/credential-secrets";
 
 /**
- * Connexions API — une fiche par logiciel auquel TIM se connecte.
+ * Connexions API — une fiche par logiciel tiers que le LOGICIEL TIM
+ * (app.tim-management.co) connecte ou connectera : paie, comptabilité,
+ * ERP, signature… chez les clients.
+ *
+ * Pas les outils du support (Pennylane, Brevo, INSEE, Google) : ceux-là sont
+ * de l'infrastructure, décrits dans le code et docs/. Ici, c'est le produit.
  *
  * Ce qu'on cherche en ouvrant la fiche, dans l'ordre : de quel logiciel il
  * s'agit et ce qu'on peut en tirer, QUI est notre interlocuteur chez eux, le
@@ -72,7 +77,7 @@ export const Integrations: CollectionConfig = {
     defaultColumns: ["logo", "name", "kind", "status", "contactName", "updatedAt"],
     listSearchableFields: ["name", "contactName", "contactEmail"],
     group: "Développements",
-    description: "Une fiche par logiciel auquel TIM se connecte : l'interlocuteur, le compte démo, la doc, les échanges.",
+    description: "Une fiche par logiciel tiers que le logiciel TIM connecte (ou connectera) : l'interlocuteur, le compte démo, la doc, les échanges.",
   },
   access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
   defaultSort: "name",
@@ -84,7 +89,7 @@ export const Integrations: CollectionConfig = {
     {
       type: "row",
       fields: [
-        { name: "name", type: "text", label: "Logiciel", required: true, admin: { width: "50%", placeholder: "Pennylane, Sage, Brevo…" } },
+        { name: "name", type: "text", label: "Logiciel", required: true, admin: { width: "50%", placeholder: "Sage, Silae, Cegid, Yousign…" } },
         {
           name: "kind",
           type: "select",

@@ -979,7 +979,7 @@ export interface Platform {
   createdAt: string;
 }
 /**
- * Une fiche par logiciel auquel TIM se connecte : l'interlocuteur, le compte démo, la doc, les échanges.
+ * Une fiche par logiciel tiers que le logiciel TIM connecte (ou connectera) : l'interlocuteur, le compte démo, la doc, les échanges.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "integrations".

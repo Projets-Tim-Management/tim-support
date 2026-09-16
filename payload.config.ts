@@ -46,7 +46,7 @@ import { CalendarConnections } from "./modules/marketing/collections/CalendarCon
 import { seedJourneys } from "./modules/marketing/lib/seed";
 import { seedForms } from "./modules/forms/lib/seed";
 import { seedSequences } from "./modules/marketing/lib/sequence-seed";
-import { seedDevStatuses, seedIntegrations } from "./modules/dev/lib/seed";
+import { seedDevStatuses } from "./modules/dev/lib/seed";
 import {
   hideUnlessAdmin,
   hideUnlessMetier,
@@ -457,7 +457,6 @@ export default buildConfig({
     // Colonnes de départ du suivi des développements — créées une seule fois,
     // dans une base vide (cf. modules/dev/lib/seed).
     await seedDevStatuses(payload);
-    await seedIntegrations(payload);
   },
 
   secret: process.env.PAYLOAD_SECRET || "",
