@@ -15,7 +15,8 @@ import {
   type SendFacts,
 } from "@/modules/marketing/lib/due-emails";
 import { hasTemplate } from "@/modules/marketing/lib/emails";
-import { DEFAULT_SEND_HOUR, PHASE_DE_TEST_EMAILS } from "@/modules/marketing/lib/journey";
+import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
+import { DEFAULT_SEND_HOUR, PHASE_DE_TEST_EMAILS, stepDoneBySending } from "@/modules/marketing/lib/journey";
 import { notifyAdminsAccessMissing } from "@/modules/marketing/lib/notify";
 import {
   isPartnerStepHour,
@@ -200,6 +201,34 @@ export async function GET(req: Request) {
   const note = (reason: DueReason | string) => {
     skipped[reason] = (skipped[reason] ?? 0) + 1;
   };
+
+  /**
+   * Rattrapage : un conseil d'usage DÉJÀ PARTI dont l'étape est restée « à
+   * faire ». L'envoi arme l'étape depuis le 02/09/2026 ; un message parti
+   * avant laissait son étape ouverte, et comme elle est système — sans bouton
+   * — elle figeait le parcours derrière elle (SOUVET VMB, 16/09/2026). Le
+   * hook `armAutoSteps` sait la coucher sur la foi du `sentAt` ; il lui faut
+   * juste un enregistrement, que personne n'a de raison de faire. C'est donc
+   * ce cron qui le provoque, une fois, pour chaque parcours concerné.
+   */
+  let rattrapes = 0;
+  for (const run of res.docs as Run[]) {
+    const steps = run.steps ?? [];
+    for (const mail of run.emails ?? []) {
+      if (!mail.sentAt) continue;
+      const stepKey = stepDoneBySending(mail.key);
+      if (!stepKey) continue;
+      const step = steps.find((s) => s.key === stepKey);
+      if (!step || (step.state ?? "a-faire") !== "a-faire") continue;
+      if (dry) {
+        rattrapes++;
+        continue;
+      }
+      await armAutoStep(payload, run.client, stepKey, undefined, run.id);
+      rattrapes++;
+    }
+  }
+  if (rattrapes) payload.logger.info(`[cron] ${rattrapes} étape(s) « cochée à l'envoi » rattrapée(s)${dry ? " (à blanc)" : ""}.`);
 
   for (const doc of res.docs as Run[]) {
     const run = doc;
@@ -388,6 +417,7 @@ export async function GET(req: Request) {
     ok: true,
     dry,
     alerts,
+    rattrapes,
     recaps,
     runs: res.docs.length,
     sent: sent.length,
