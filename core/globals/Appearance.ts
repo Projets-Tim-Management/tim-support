@@ -42,7 +42,7 @@ export const Appearance: GlobalConfig = {
       label: "Icône seule",
       admin: {
         description:
-          "Affichée quand le menu est réduit à sa colonne d'icônes. CARRÉE, sans texte — c'est la marque seule. Un logo large mis ici serait illisible.",
+          "Affichée quand le menu est réduit à sa colonne d'icônes, et dans l'onglet du navigateur (favicon). CARRÉE, sans texte — c'est la marque seule. Un logo large mis ici serait illisible.",
       },
     },
   ],

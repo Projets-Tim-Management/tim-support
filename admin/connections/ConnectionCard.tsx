@@ -89,7 +89,10 @@ export function ConnectionCard({ def, env, configured, initial }: { def: Support
         </span>
         <span className="sc-card__title">
           <span className="sc-card__name">{def.name}</span>
-          <span className={`sc-card__state sc-card__state--${tone}`}>{etat}</span>
+          <span className={`sc-card__state sc-card__state--${tone}`}>
+            {etat}
+            {entry.lastTestMessage && <span className="sc-card__last">— {entry.lastTestMessage}</span>}
+          </span>
         </span>
         <span className="sc-card__actions">
           <button
@@ -150,9 +153,6 @@ export function ConnectionCard({ def, env, configured, initial }: { def: Support
               </a>
             )}
           </p>
-          {entry.lastTestMessage && (
-            <p className={`sc-card__result sc-card__result--${entry.lastTestOk ? "ok" : "ko"}`}>{entry.lastTestMessage}</p>
-          )}
         </section>
       </div>
 

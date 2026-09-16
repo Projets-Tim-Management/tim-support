@@ -3,8 +3,8 @@
 /* ─── Connexions du support (Système) ────────────────────────────────────────
    Une carte par API du back-office : à quoi elle sert, ses variables (posée /
    manquante, jamais la valeur), « Tester », le dernier résultat, des notes.
-   Le liseré gauche dit l'état : vert OK, rouge échec, ambre variables
-   manquantes, gris jamais testée. */
+   L'état se lit sur la barre : le texte (OK / échec / manquant) et, à côté,
+   le message du dernier test — « Réponse OK — des clients sont lisibles ». */
 .sc { display: flex; flex-direction: column; gap: 1.25rem; padding-bottom: 2rem; }
 .sc-head { display: flex; flex-direction: column; gap: 0.25rem; }
 .sc-title { margin: 0; font-size: 1.5rem; font-weight: 800; color: var(--tim-foreground); }
@@ -16,21 +16,17 @@
   display: block;
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
-  border-left: 4px solid var(--tim-elevation-200);
   border-radius: 0.75rem;
   background: var(--tim-white);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 4%, transparent);
 }
-.sc-card--ok { border-left-color: var(--tim-green); }
-.sc-card--ko { border-left-color: var(--tim-red); }
-.sc-card--missing { border-left-color: var(--tim-amber); }
 
 /* La barre : repliée par défaut, elle dit tout ce qu'il faut savoir sans ouvrir. */
 .sc-card__head {
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  padding: 0.85rem 1.2rem 0.85rem 1.35rem;
+  padding: 0.85rem 1.2rem;
   cursor: pointer;
   list-style: none;
   &::-webkit-details-marker { display: none; }
@@ -49,7 +45,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  padding: 0.25rem 1.2rem 1rem 1.35rem;
+  padding: 0.25rem 1.2rem 1rem;
   border-top: 1px solid color-mix(in srgb, var(--tim-border) 60%, transparent);
 }
 .sc-card__mark {
@@ -60,7 +56,9 @@
 }
 .sc-card__title { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
 .sc-card__name { font-size: 1.05rem; font-weight: 800; }
-.sc-card__state { font-size: 0.78rem; font-weight: 700; color: var(--tim-muted); }
+.sc-card__state { display: flex; flex-wrap: wrap; gap: 0.4rem; font-size: 0.78rem; font-weight: 700; color: var(--tim-muted); }
+/* Le message du dernier test, sur la barre : c'est lui qu'on est venu lire. */
+.sc-card__last { font-weight: 500; color: var(--tim-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40rem; }
 .sc-card__state--ok { color: var(--tim-green); }
 .sc-card__state--ko { color: var(--tim-red); }
 .sc-card__state--missing { color: var(--tim-amber); }
@@ -93,9 +91,6 @@
 .sc-card__links { display: flex; flex-wrap: wrap; gap: 0.9rem; margin: 0; font-size: 0.82rem; font-weight: 600;
   a { color: var(--tim-primary); text-decoration: none; &:hover { text-decoration: underline; } }
 }
-.sc-card__result { margin: 0.25rem 0 0; padding: 0.5rem 0.7rem; border-radius: var(--tim-radius-sm); font-size: 0.82rem; font-weight: 600; }
-.sc-card__result--ok { background: var(--tim-green-bg); color: var(--tim-green); }
-.sc-card__result--ko { background: var(--tim-red-bg); color: var(--tim-red); }
 
 .sc-card__notes { position: relative; }
 .sc-notes {

@@ -156,6 +156,9 @@ export default buildConfig({
     user: Users.slug,
     // Fond blanc systématique (aligné sur le front), pas de thème sombre.
     theme: "light",
+    // Onglet du navigateur : l'« icône seule » d'Apparence, servie par une
+    // route (les métadonnées de l'admin sont statiques — voir api/favicon).
+    meta: { icons: [{ rel: "icon", url: "/api/favicon" }] },
     // Avatar du compte = photo de profil (champ `avatar` de Users) si présente,
     // sinon initiale. Voir admin/graphics/Avatar.tsx.
     avatar: { Component: "/admin/graphics/Avatar#default" },
