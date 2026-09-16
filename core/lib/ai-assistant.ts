@@ -133,7 +133,7 @@ const clientSummary = (c: Doc) => ({
 const TOOLS: Anthropic.Tool[] = [
   {
     name: "rappels",
-    description: "Ce qui attend l'action de la personne connectée : la liste des rappels de l'assistant (tickets, relevés en retard, tâches, factures à valider…), et le nombre d'actions prévues aujourd'hui.",
+    description: "Ce qui attend l'action de la personne connectée : la liste des rappels de l'assistant (tickets, relevés en retard, tâches, factures à valider…), et le détail des actions de l'agenda — aujourd'hui et en retard (heure, nature, client, lien).",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
@@ -211,7 +211,10 @@ export async function runTool(payload: Payload, scope: Scope, name: string, inpu
   switch (name) {
     case "rappels": {
       const a = await buildAssistant(payload, user);
-      return { aujourdHui: a.today, rappels: a.items.map((i) => ({ urgence: i.tone, texte: i.text, precision: i.hint ?? null, lien: i.cta.href })) };
+      return {
+        actions: a.agenda.map((x) => ({ quand: x.at, heure: x.time, retardJours: x.lateDays, nature: x.label, titre: x.title, client: x.client, lien: x.href })),
+        rappels: a.items.map((i) => ({ urgence: i.tone, texte: i.text, precision: i.hint ?? null, lien: i.cta.href })),
+      };
     }
     case "rechercher_clients": {
       if (scope.support) return { erreur: "Hors périmètre." };

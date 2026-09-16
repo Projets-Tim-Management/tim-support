@@ -170,7 +170,40 @@
 }
 .ta-time { margin: 0.25rem 0 0; font-size: 0.78rem; color: var(--tim-muted-light); text-align: center; }
 
-/* ─── À faire : un rappel par carte, le liseré dit l'urgence, le « ? » interroge Claude ── */
+/* ─── À faire : les actions de l'agenda d'abord (l'heure, la chose, le client), puis les rappels ── */
+.ta-h { margin: 0.35rem 0 -0.1rem; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tim-muted); }
+.ta-h--late { color: var(--tim-red); }
+.ta-act {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem 0.6rem 0.8rem;
+  border-radius: 0.75rem;
+  background: var(--tim-white);
+  border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+  border-left-width: 3px;
+  border-left-color: var(--tim-blue);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+.ta-act--etape { border-left-color: var(--tim-chart-violet); }
+.ta-act--session { border-left-color: var(--tim-green); }
+.ta-act--late { border-left-color: var(--tim-red); }
+.ta-act__when {
+  flex: none;
+  min-width: 3.6rem;
+  padding-top: 0.1rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--tim-foreground);
+  .ta-act--late & { color: var(--tim-red); }
+}
+.ta-act__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.ta-act__title { font-weight: 700; color: var(--tim-foreground); text-decoration: none; &:hover { color: var(--tim-primary); text-decoration: underline; } }
+.ta-act__meta { font-size: 0.85rem; color: var(--tim-muted); }
+
+/* ─── Les rappels : un par carte, le liseré dit l'urgence, le « ? » interroge Claude ── */
 .ta-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
 .ta-msg {
   display: flex;

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
-import type { AssistantData, AssistantItem } from "./data-assistant";
+import type { AssistantAction, AssistantData, AssistantItem } from "./data-assistant";
 
 /**
  * L'assistant : une bulle fixée en bas à droite, un panneau à deux onglets.
@@ -164,6 +164,40 @@ function Reminder({ item, onAsk }: { item: AssistantItem; onAsk?: (q: string) =>
   );
 }
 
+/**
+ * Une action de l'agenda : l'heure (ou « dans la journée »), ce qu'il y a à
+ * faire, chez qui, et le lien. En retard, l'heure laisse place au retard —
+ * « depuis 3 j » — c'est l'information qui compte alors.
+ */
+function Action({ action, onAsk }: { action: AssistantAction; onAsk?: (q: string) => void }) {
+  const late = action.lateDays > 0;
+  const quand = late ? `depuis ${action.lateDays} j` : (action.time ?? "journée");
+  return (
+    <li className={`ta-act ta-act--${action.kind}${late ? " ta-act--late" : ""}`}>
+      <span className="ta-act__when">{quand}</span>
+      <div className="ta-act__body">
+        <Link className="ta-act__title" href={action.href} prefetch={false}>
+          {action.title}
+        </Link>
+        <span className="ta-act__meta">
+          {[action.label.trim().toLowerCase() !== action.title.trim().toLowerCase() ? action.label : null, action.client].filter(Boolean).join(" · ")}
+        </span>
+      </div>
+      {onAsk && (
+        <button
+          type="button"
+          className="ta-msg__ask"
+          title="Demander à l'assistant"
+          aria-label="Demander à l'assistant"
+          onClick={() => onAsk(`Que dois-je faire pour « ${action.title}${action.client ? ` » chez ${action.client}` : " »"} ? Donne-moi le contexte.`)}
+        >
+          ?
+        </button>
+      )}
+    </li>
+  );
+}
+
 export default function AssistantWidget() {
   const { user } = useAuth();
   const pathname = usePathname();
@@ -252,6 +286,9 @@ export default function AssistantWidget() {
 
   if (!user || !data) return null;
   const n = data.items.length;
+  const aujourdHui = data.agenda.filter((a) => a.lateDays === 0);
+  const enRetard = data.agenda.filter((a) => a.lateDays > 0);
+  const total = n + data.agenda.length;
   const ai = Boolean(data.ai);
   const showChat = ai && tab === "chat";
 
@@ -265,7 +302,7 @@ export default function AssistantWidget() {
             </span>
             <span className="ta-head__title">
               <span className="ta-head__name">Assistant TIM</span>
-              <span className="ta-head__sub">{n ? `${n} sujet${n > 1 ? "s" : ""} à traiter` : "Rien ne presse"}</span>
+              <span className="ta-head__sub">{total ? `${total} chose${total > 1 ? "s" : ""} à faire` : "Rien ne presse"}</span>
             </span>
             <button type="button" className="ta-head__close" aria-label="Réduire" onClick={toggle}>
               ×
@@ -276,7 +313,7 @@ export default function AssistantWidget() {
             <nav className="ta-tabs" aria-label="Sections de l'assistant">
               <button type="button" className={`ta-tab${!showChat ? " ta-tab--on" : ""}`} aria-pressed={!showChat} onClick={() => switchTab("todo")}>
                 À faire
-                {n > 0 && <span className="ta-tab__count">{n}</span>}
+                {total > 0 && <span className="ta-tab__count">{total}</span>}
               </button>
               <button type="button" className={`ta-tab${showChat ? " ta-tab--on" : ""}`} aria-pressed={showChat} onClick={() => switchTab("chat")}>
                 Discussion
@@ -289,20 +326,48 @@ export default function AssistantWidget() {
             <div className="ta-thread" key="todo">
               <div className="ta-bubble">
                 <p>{salutation(data.prenom)}</p>
-                {(n > 0 || data.today > 0) && (
+                {(n > 0 || aujourdHui.length > 0 || enRetard.length > 0) && (
                   <p>
-                    {n > 0
-                      ? `Voici ce qui vous attend${data.today ? `, et ${data.today} action${data.today > 1 ? "s" : ""} prévue${data.today > 1 ? "s" : ""} aujourd'hui` : ""}.`
-                      : `${data.today} action${data.today > 1 ? "s" : ""} prévue${data.today > 1 ? "s" : ""} aujourd'hui.`}
+                    {[
+                      aujourdHui.length > 0 && `${aujourdHui.length} action${aujourdHui.length > 1 ? "s" : ""} aujourd'hui`,
+                      enRetard.length > 0 && `${enRetard.length} en retard`,
+                      n > 0 && `${n} sujet${n > 1 ? "s" : ""} à suivre`,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                    .
                   </p>
                 )}
               </div>
+              {aujourdHui.length > 0 && (
+                <>
+                  <h3 className="ta-h">Aujourd&apos;hui</h3>
+                  <ul className="ta-list">
+                    {aujourdHui.map((a) => (
+                      <Action key={a.id} action={a} onAsk={ai ? askFromReminder : undefined} />
+                    ))}
+                  </ul>
+                </>
+              )}
+              {enRetard.length > 0 && (
+                <>
+                  <h3 className="ta-h ta-h--late">En retard</h3>
+                  <ul className="ta-list">
+                    {enRetard.map((a) => (
+                      <Action key={a.id} action={a} onAsk={ai ? askFromReminder : undefined} />
+                    ))}
+                  </ul>
+                </>
+              )}
               {n > 0 && (
-                <ul className="ta-list">
-                  {data.items.map((it) => (
-                    <Reminder key={it.key} item={it} onAsk={ai ? askFromReminder : undefined} />
-                  ))}
-                </ul>
+                <>
+                  {(aujourdHui.length > 0 || enRetard.length > 0) && <h3 className="ta-h">À suivre</h3>}
+                  <ul className="ta-list">
+                    {data.items.map((it) => (
+                      <Reminder key={it.key} item={it} onAsk={ai ? askFromReminder : undefined} />
+                    ))}
+                  </ul>
+                </>
               )}
               <p className="ta-time">Mis à jour à {heure(data.generatedAt)}</p>
             </div>
