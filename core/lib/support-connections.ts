@@ -115,6 +115,7 @@ export const SUPPORT_CONNECTIONS: SupportConnection[] = [
     env: [
       { name: "ANTHROPIC_API_KEY", required: true, hint: "Clé API du compte Anthropic (plafond de dépense à régler sur la console)." },
       { name: "ASSISTANT_AI_DAILY_LIMIT", required: false, hint: "Questions par jour et par compte — défaut 100." },
+      { name: "ASSISTANT_AI_DAILY_BUDGET_EUR", required: false, hint: "Plafond de dépense par jour, tous comptes — défaut 10 €." },
     ],
     testLabel: "Poser une question minimale à Claude",
   },

@@ -23,6 +23,10 @@ export const SupportConnectionsGlobal: GlobalConfig = {
         { name: "lastTestAt", type: "date" },
         { name: "lastTestOk", type: "checkbox" },
         { name: "lastTestMessage", type: "text" },
+        /** Dépense de l'assistant (entrée « anthropic ») : le jour, les euros, les questions — voir core/lib/ai-budget.ts. */
+        { name: "spendDay", type: "text" },
+        { name: "spendEur", type: "number" },
+        { name: "spendQuestions", type: "number" },
       ],
     },
   ],

@@ -3771,6 +3771,9 @@ export interface SupportConnection {
         lastTestAt?: string | null;
         lastTestOk?: boolean | null;
         lastTestMessage?: string | null;
+        spendDay?: string | null;
+        spendEur?: number | null;
+        spendQuestions?: number | null;
         id?: string | null;
       }[]
     | null;
@@ -3801,6 +3804,9 @@ export interface SupportConnectionsSelect<T extends boolean = true> {
         lastTestAt?: T;
         lastTestOk?: T;
         lastTestMessage?: T;
+        spendDay?: T;
+        spendEur?: T;
+        spendQuestions?: T;
         id?: T;
       };
   updatedAt?: T;

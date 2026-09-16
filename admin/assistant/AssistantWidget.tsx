@@ -3,7 +3,7 @@
 import { useAuth } from "@payloadcms/ui";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import type { AssistantData, AssistantItem } from "./data-assistant";
 
@@ -59,16 +59,18 @@ const recall = (key: string): string | null => {
 };
 
 /**
- * Le texte de Claude, rendu SANS HTML : on ne fait que reconnaître les liens
- * du support (/admin/…), les URL et le gras `**…**`. Tout le reste est du
- * texte — une réponse de modèle n'est jamais injectée telle quelle.
+ * Le texte de Claude, rendu SANS HTML : on ne reconnaît que le markdown
+ * simple qu'on lui demande — titres, listes, gras, italique, liens du support
+ * (/admin/…) et URL. Tout le reste est du texte : une réponse de modèle n'est
+ * jamais injectée telle quelle.
  */
-function Rich({ text }: { text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*|https?:\/\/\S+|\/admin\/[\w\-/?=&[\].%,]+)/g);
+function Inline({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*\n]+\*|https?:\/\/\S+|\/admin\/[\w\-/?=&[\].%,]+)/g);
   return (
-    <p className="ta-turn__text">
+    <>
       {parts.map((p, i) => {
         if (/^\*\*[^*]+\*\*$/.test(p)) return <strong key={i}>{p.slice(2, -2)}</strong>;
+        if (/^\*[^*\n]+\*$/.test(p)) return <em key={i}>{p.slice(1, -1)}</em>;
         if (/^\/admin\//.test(p)) {
           const clean = p.replace(/[).,;]+$/, "");
           return (
@@ -87,8 +89,54 @@ function Rich({ text }: { text: string }) {
         }
         return <span key={i}>{p}</span>;
       })}
-    </p>
+    </>
   );
+}
+
+function Rich({ text }: { text: string }) {
+  const lines = text.replace(/\r/g, "").split("\n");
+  const blocks: React.ReactNode[] = [];
+  let list: string[] = [];
+  const flush = () => {
+    if (list.length) {
+      blocks.push(
+        <ul key={`l${blocks.length}`} className="ta-md__list">
+          {list.map((li, i) => (
+            <li key={i}>
+              <Inline text={li} />
+            </li>
+          ))}
+        </ul>,
+      );
+      list = [];
+    }
+  };
+  lines.forEach((raw, i) => {
+    const line = raw.trimEnd();
+    const item = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/.exec(line);
+    if (item) {
+      list.push(item[1]);
+      return;
+    }
+    flush();
+    if (line.trim() === "") return;
+    const head = /^#{1,3}\s+(.*)$/.exec(line);
+    if (head) {
+      blocks.push(
+        <p key={i} className="ta-md__head">
+          <Inline text={head[1]} />
+        </p>,
+      );
+      return;
+    }
+    blocks.push(
+      <p key={i} className="ta-md__p">
+        <Inline text={line} />
+      </p>,
+    );
+  });
+  flush();
+  return <div className="ta-turn__text">{blocks}</div>;
 }
 
 function Reminder({ item, onAsk }: { item: AssistantItem; onAsk?: (q: string) => void }) {
@@ -241,11 +289,13 @@ export default function AssistantWidget() {
             <div className="ta-thread" key="todo">
               <div className="ta-bubble">
                 <p>{salutation(data.prenom)}</p>
-                <p>
-                  {n === 0
-                    ? "Rien n'attend votre action. Tout est à jour."
-                    : `Voici ce qui vous attend${data.today ? `, et ${data.today} action${data.today > 1 ? "s" : ""} prévue${data.today > 1 ? "s" : ""} aujourd'hui` : ""}.`}
-                </p>
+                {(n > 0 || data.today > 0) && (
+                  <p>
+                    {n > 0
+                      ? `Voici ce qui vous attend${data.today ? `, et ${data.today} action${data.today > 1 ? "s" : ""} prévue${data.today > 1 ? "s" : ""} aujourd'hui` : ""}.`
+                      : `${data.today} action${data.today > 1 ? "s" : ""} prévue${data.today > 1 ? "s" : ""} aujourd'hui.`}
+                  </p>
+                )}
               </div>
               {n > 0 && (
                 <ul className="ta-list">

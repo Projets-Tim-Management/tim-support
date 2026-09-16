@@ -85,7 +85,8 @@ const rules = (): string => {
 
 const systemPrompt = (scope: Scope): string =>
   [
-    "Tu es l'assistant du back-office « TIM support ». Tu réponds en français, brièvement (trois à six phrases, ou une courte liste), à des questions sur les données et les règles du support.",
+    "Tu es l'assistant du back-office « TIM support ». Tu réponds en français à des questions sur les données et les règles du support.",
+    "FORME. Synthétise : l'essentiel d'abord, jamais de remplissage. Mets en **gras** les noms, les montants et les dates qui comptent, en *italique* les nuances. Dès qu'il y a plusieurs éléments, fais une liste (« - »). Pour un emploi du temps ou un planning, un titre par jour (« ### Lundi 21 septembre ») puis une ligne par action avec l'heure en gras. Pas de tableau, pas de code. Trois à huit lignes suffisent le plus souvent.",
     "Tu disposes du référentiel des règles ci-dessous et d'outils de lecture. Pour toute question sur une donnée précise (un client, un chiffre, un état), appelle l'outil qui la lit avant de répondre : ne devine jamais une donnée.",
     "Si une règle n'est pas dans le référentiel, dis que tu ne sais pas et renvoie vers l'équipe. Tu ne modifies rien : quand une action est nécessaire, dis laquelle et où (quel écran), sans prétendre l'avoir faite.",
     "Quand tu cites une fiche, donne son lien : /admin/collections/partner-clients/<id> ; un parcours : /admin/collections/journey-runs/<id> ; un ticket : /admin/collections/tickets/<id>.",
@@ -158,6 +159,18 @@ const TOOLS: Anthropic.Tool[] = [
     input_schema: { type: "object", properties: { clientId: { type: "number", description: "Limiter à ce client (optionnel)." } }, additionalProperties: false },
   },
   {
+    name: "agenda",
+    description: "L'agenda de la personne : sessions de prise en main, tâches datées et étapes de parcours, jour par jour, sur les 7 prochains jours (ou une plage donnée). C'est l'outil pour « mon emploi du temps », « qu'ai-je demain ».",
+    input_schema: {
+      type: "object",
+      properties: {
+        du: { type: "string", description: "Premier jour, AAAA-MM-JJ (défaut : aujourd'hui)." },
+        jours: { type: "number", description: "Nombre de jours (défaut 7, 31 au plus)." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "taches",
     description: "Les tâches (rappels datés) : en retard, aujourd'hui, à venir sur 7 jours — ou celles d'un client.",
     input_schema: { type: "object", properties: { clientId: { type: "number", description: "Limiter à ce client (optionnel)." } }, additionalProperties: false },
@@ -189,7 +202,7 @@ const toolsFor = (scope: Scope): Anthropic.Tool[] =>
   TOOLS.filter((t) => {
     if (scope.admin) return true;
     if (scope.support) return t.name === "rappels" || t.name === "tickets";
-    return ["rappels", "rechercher_clients", "fiche_client", "parcours", "taches"].includes(t.name);
+    return ["rappels", "rechercher_clients", "fiche_client", "parcours", "agenda", "taches"].includes(t.name);
   });
 
 /** Exécute un outil de lecture — exporté pour pouvoir vérifier chaque outil sans passer par Claude. */
@@ -230,6 +243,29 @@ export async function runTool(payload: Payload, scope: Scope, name: string, inpu
       const clauses: Where[] = input.clientId ? [{ client: { equals: Number(input.clientId) } }] : [{ status: { not_in: CLOSED_STATUSES } }];
       const r = await payload.find({ ...base, collection: "journey-runs", where: scoped(scope, clauses), limit: 30, sort: "endDate" });
       return { parcours: (r.docs as Doc[]).map(runSummary) };
+    }
+    case "agenda": {
+      if (scope.support) return { erreur: "Hors périmètre." };
+      const { getTodayAgenda } = await import("@/admin/dashboard/data-agenda");
+      const jours = Math.min(31, Math.max(1, Number(input.jours) || 7));
+      const du = typeof input.du === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.du) ? input.du : new Date().toISOString().slice(0, 10);
+      const debut = Date.parse(`${du}T00:00:00.000Z`);
+      const fin = debut + jours * 86_400_000;
+      // L'agenda lit le mois autour de « maintenant » : on le lit autour du jour demandé.
+      const a = await getTodayAgenda({ payload } as never, "/admin", debut + 12 * 3_600_000, { partnerId: scope.partnerId });
+      const dans = a.items.filter((i) => Date.parse(i.at) >= debut && Date.parse(i.at) < fin);
+      const parJour = new Map<string, unknown[]>();
+      for (const i of dans) {
+        const j = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", dateStyle: "short" }).format(new Date(i.at));
+        const heure = i.allDay ? null : new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" }).format(new Date(i.at));
+        parJour.set(j, [...(parJour.get(j) ?? []), { heure, nature: i.label, quoi: i.title, client: i.client, fait: Boolean(i.done), visio: i.link ?? null, lien: i.href }]);
+      }
+      return {
+        du,
+        jours,
+        enRetard: a.retard.map((i) => ({ prevuLe: i.at.slice(0, 10), nature: i.label, quoi: i.title, client: i.client, lien: i.href })),
+        parJour: [...parJour.entries()].sort(([x], [y]) => x.localeCompare(y)).map(([jour, actions]) => ({ jour, actions })),
+      };
     }
     case "taches": {
       if (scope.support) return { erreur: "Hors périmètre." };

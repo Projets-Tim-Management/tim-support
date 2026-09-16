@@ -2,14 +2,17 @@ import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
 import { answer, isAiConfigured, scopeOf, type ChatTurn } from "@/core/lib/ai-assistant";
+import { dailyBudgetEur, recordSpend, spentToday } from "@/core/lib/ai-budget";
 
 /**
  * POST /api/admin/assistant/ask  { messages: [{ role, content }] } → { text, usage }
  *
  * La conversation vit dans le navigateur (les derniers tours sont renvoyés à
  * chaque question) ; ici on vérifie la personne, on borne, on répond, on
- * journalise ce que ça a coûté. Un plafond de questions par jour et par
- * compte, pour qu'une boucle ou une distraction ne fasse pas une facture.
+ * journalise ce que ça a coûté. Deux plafonds : des questions par jour et
+ * par compte (en mémoire), et des EUROS par jour tous comptes confondus
+ * (persisté, core/lib/ai-budget.ts) — une boucle ou une distraction ne
+ * doivent pas faire une facture.
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -42,14 +45,23 @@ export async function POST(req: Request) {
   if (n >= DAILY_LIMIT) {
     return NextResponse.json({ error: `Plafond atteint : ${DAILY_LIMIT} questions par jour.` }, { status: 429 });
   }
+  const budget = dailyBudgetEur();
+  const spent = await spentToday(payload);
+  if (spent.eur >= budget) {
+    return NextResponse.json(
+      { error: `Plafond de dépense atteint pour aujourd'hui (${budget} €). L'assistant reprend demain.` },
+      { status: 429 },
+    );
+  }
   counters.set(key, { day: today, n: n + 1 });
 
   try {
     const r = await answer(payload, user as never, messages);
+    const total = await recordSpend(payload, r.usage).catch(() => spent);
     payload.logger.info(
-      `[assistant] ${user.email} · ${r.usage.calls} appel(s) · entrée ${r.usage.input} (cache lu ${r.usage.cacheRead}, écrit ${r.usage.cacheWrite}) · sortie ${r.usage.output}`,
+      `[assistant] ${user.email} · ${r.usage.calls} appel(s) · entrée ${r.usage.input} (cache lu ${r.usage.cacheRead}, écrit ${r.usage.cacheWrite}) · sortie ${r.usage.output} · jour ${total.eur.toFixed(3)} € / ${budget} €`,
     );
-    return NextResponse.json(r, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ ...r, spentToday: total }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     payload.logger.error(`[assistant] réponse impossible pour ${user.email} : ${e}`);
     return NextResponse.json({ error: "Claude n'a pas répondu. Réessayez dans un instant." }, { status: 502 });
