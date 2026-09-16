@@ -118,6 +118,7 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
    */
   Développements: [
     "developments",
+    "integrations",
     { label: "Paramètres", slugs: ["dev-statuses"] },
   ],
   /** Les réglages : comptes, apparence, boîtes connectées. */

@@ -1803,3 +1803,30 @@ body.tim-dev-kanban .collection-list__list-selection {
 }
 .dev-announce__send:hover { background: var(--tim-primary-dark); }
 .dev-announce__send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ─── Mot de passe du compte démo d'une connexion API ───────────────────────
+   Masqué au repos, révélé d'un clic, copié d'un autre. Les boutons sont ceux
+   de TIM (.tim-btn), en taille de champ. */
+.dev-secret__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.dev-secret__value {
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  user-select: all;
+}
+.dev-secret__input {
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font: inherit;
+}

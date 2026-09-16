@@ -407,6 +407,18 @@ export const Developments: CollectionConfig = {
         className: "feature-platforms",
       },
     },
+    /**
+     * Les connexions API que ce développement met en jeu : c'est par là qu'on
+     * retrouve, depuis la fiche du logiciel, tout ce qui se développe autour.
+     */
+    {
+      name: "integrations",
+      type: "relationship",
+      relationTo: "integrations",
+      hasMany: true,
+      label: "Connexions API",
+      admin: { position: "sidebar" },
+    },
     assigneeField({
       label: "Assigné à",
       hasMany: true,
