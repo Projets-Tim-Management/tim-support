@@ -393,7 +393,7 @@ export function FunnelChart({ steps }: { steps: FunnelStep[] }) {
  * Sous le dessin, la même information en liste : les passages les plus
  * fréquents, lisibles sans survol.
  */
-export function FlowChart({ nodes, links }: { nodes: FlowNode[]; links: FlowLink[] }) {
+export function FlowChart({ nodes, links, backward = 0 }: { nodes: FlowNode[]; links: FlowLink[]; backward?: number }) {
   const c = useChartColors();
   if (!links.length) return <p className="an-empty">Aucun passage d'étape enregistré sur cette période.</p>;
   const index = new Map(nodes.map((n, i) => [n.key, i]));
@@ -431,6 +431,12 @@ export function FlowChart({ nodes, links }: { nodes: FlowNode[]; links: FlowLink
           </li>
         ))}
       </ol>
+      {backward > 0 && (
+        <p className="an-flow__note an-muted">
+          {backward} retour{backward > 1 ? "s" : ""} en arrière (une fiche redescendue d&apos;une étape) non tracé{backward > 1 ? "s" : ""} : le
+          diagramme ne montre que les passages vers l&apos;avant.
+        </p>
+      )}
     </div>
   );
 }

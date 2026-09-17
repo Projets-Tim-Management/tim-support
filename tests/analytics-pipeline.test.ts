@@ -147,3 +147,24 @@ describe("entonnoir : tout le monde entre", () => {
     expect(a.funnel[1].reached).toBe(0);
   });
 });
+
+describe("le flux ne boucle pas", () => {
+  it("un retour en arrière est compté, pas tracé — un Sankey n'a pas de cycle", () => {
+    // Démo → Attente, puis Attente → Démo : deux liens en sens inverse
+    // faisaient boucler le calcul de profondeur de Recharts (page plantée).
+    const a = buildPipelineAnalytics(
+      [client({ id: 1, clientStatus: "demo-programmee" })],
+      [
+        step(1, "2026-08-02T00:00:00.000Z", "Nouvelle", "Démo programmée"),
+        step(1, "2026-08-10T00:00:00.000Z", "Démo programmée", "En attente d'engagement"),
+        step(1, "2026-08-20T00:00:00.000Z", "En attente d'engagement", "Démo programmée"),
+      ],
+      PARTNERS,
+      6,
+      NOW,
+    );
+    expect(a.flow.links.some((l) => l.from === "attente-engagement" && l.to === "demo-programmee")).toBe(false);
+    expect(a.flow.links).toContainEqual({ from: "demo-programmee", to: "attente-engagement", count: 1 });
+    expect(a.flow.backward).toBe(1);
+  });
+});

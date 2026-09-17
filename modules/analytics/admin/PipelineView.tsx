@@ -64,7 +64,7 @@ function Report({ a, months }: { a: PipelineAnalytics; months: number }) {
         </Card>
 
         <Card title="Parcours réels entre étapes" sub="Chaque passage d'étape enregistré dans le journal des fiches, d'où il part et où il va. L'épaisseur, c'est le nombre de fiches.">
-          <FlowChart nodes={a.flow.nodes} links={a.flow.links} />
+          <FlowChart nodes={a.flow.nodes} links={a.flow.links} backward={a.flow.backward} />
         </Card>
 
         <Card wide title="Créées, gagnées, perdues par mois" sub="Une affaire est « gagnée » au mois de son passage à ce statut ; « perdue », au mois de la clôture.">
