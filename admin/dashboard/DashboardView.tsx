@@ -6,6 +6,7 @@ import { hasAdminRole, isPartner, isPartnerMetier, isSupport, partnerIdOf } from
 import { TicketNotifications } from "@/modules/support/admin/TicketNotifications";
 
 import AgendaBoard from "./AgendaBoard";
+import ClientMap from "./ClientMap";
 import { getSupportMetrics } from "./data";
 import { getHomeData } from "./data-home";
 import { getPartnerMetrics } from "./data-partner";
@@ -117,6 +118,9 @@ export default async function DashboardView({ initPageResult }: AdminViewServerP
 
         {/* Les derniers mois croisés : le CA en bâtons, les entrées en lignes. */}
         <MonthlyOverview months={d.months} />
+
+        {/* Où sont les clients signés — un point par fiche, taille selon le CA. */}
+        <ClientMap places={d.places} unplaced={d.unplaced} />
       </div>
     </Gutter>
   );

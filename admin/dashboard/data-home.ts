@@ -85,12 +85,29 @@ export type MonthRow = {
   validated: number;
 };
 
+/** Un client signé sur la carte : son point, et de quoi lire l'infobulle. */
+export type Place = {
+  id: number | string;
+  name: string;
+  lat: number;
+  lng: number;
+  city: string | null;
+  /** CA HT mensuel de la fiche. */
+  ca: number;
+  /** Date de signature (ISO jour), quand on la connaît. */
+  since: string | null;
+  href: string;
+};
+
 export type HomeData = {
   now: number;
   agenda: AgendaData;
   tests: TestCard[];
   figures: KeyFigure[];
   months: MonthRow[];
+  /** Les clients signés géolocalisés — et combien ne le sont pas (sans adresse ou adresse inconnue). */
+  places: Place[];
+  unplaced: number;
 };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -249,6 +266,7 @@ export async function getHomeData(
           signatureDate: true,
           resiliationDate: true,
           history: true,
+          geo: true,
         },
       })
       .then((r) => r.docs as Doc[])
@@ -379,5 +397,20 @@ export async function getHomeData(
         },
       ];
 
-  return { now, agenda, tests, figures, months: monthlyRows(fiches, now) };
+  // ── La carte : les clients signés (Gagnée) qui ont un point.
+  const signes = fiches.filter((c) => c.clientStatus === "actif");
+  const places: Place[] = signes
+    .filter((c) => typeof c.geo?.lat === "number" && typeof c.geo?.lng === "number")
+    .map((c) => ({
+      id: c.id,
+      name: c.companyName ?? "Client",
+      lat: c.geo.lat,
+      lng: c.geo.lng,
+      city: c.geo.city ?? null,
+      ca: Number(c.caPaye) || 0,
+      since: c.signatureDate ? String(c.signatureDate).slice(0, 10) : null,
+      href: `${adminRoute}/collections/partner-clients/${c.id}`,
+    }));
+
+  return { now, agenda, tests, figures, months: monthlyRows(fiches, now), places, unplaced: signes.length - places.length };
 }

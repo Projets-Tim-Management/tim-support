@@ -1414,3 +1414,41 @@
   background: var(--tim-white);
   box-shadow: var(--home-shadow);
 }
+
+/* ─── La carte des clients signés ────────────────────────────────────────── */
+.home-map {
+  overflow: hidden;
+  border: 1px solid var(--home-border);
+  border-radius: var(--home-radius);
+  background: var(--tim-white);
+  box-shadow: var(--home-shadow);
+}
+.home-map__canvas {
+  height: 440px;
+  /* Leaflet pose ses tuiles en absolu : le conteneur doit être positionné, et isolé du z-index du menu. */
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
+  background: var(--tim-surface);
+  font-family: inherit;
+}
+.home-map__note {
+  margin: 0;
+  padding: 0.55rem 0.9rem;
+  border-top: 1px solid var(--home-border);
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+}
+/* Le contenu de l'infobulle Leaflet, au style des cartes de l'accueil. */
+.home-map .leaflet-popup-content-wrapper { border-radius: 10px; box-shadow: var(--home-shadow); font-family: inherit; }
+.home-map .leaflet-popup-content { margin: 0.7rem 0.9rem; font-size: 0.85rem; line-height: 1.4; }
+.home-map .leaflet-popup-tip { box-shadow: none; }
+.home-map__pop { display: flex; flex-direction: column; gap: 0.1rem; color: var(--tim-foreground); }
+.home-map__pop strong { font-size: 0.95rem; font-weight: 800; }
+.home-map__pop span { color: var(--tim-muted); }
+.home-map__pop a { margin-top: 0.3rem; font-weight: 700; color: var(--tim-primary); text-decoration: none; &:hover { text-decoration: underline; } }
+.home-map .leaflet-tooltip { border-radius: 6px; font-weight: 700; font-family: inherit; }
+.home-map .leaflet-control-attribution { font-size: 0.6rem; }
+/* Le fond en retrait : les tuiles OSM sont bariolées, les points doivent rester ce qu'on voit d'abord. */
+.home-map .leaflet-tile-pane { filter: saturate(0.35) contrast(0.92) brightness(1.04); }
+.home-map .leaflet-bar a { color: var(--tim-foreground); }

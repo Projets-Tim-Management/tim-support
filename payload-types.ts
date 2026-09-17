@@ -501,6 +501,14 @@ export interface Partner {
  */
 export interface PartnerClient {
   id: number;
+  geo?: {
+    lat?: number | null;
+    lng?: number | null;
+    city?: string | null;
+    postcode?: string | null;
+    label?: string | null;
+    source?: string | null;
+  };
   intakeIssues?:
     | {
         field?: string | null;
@@ -2966,6 +2974,16 @@ export interface PartnersSelect<T extends boolean = true> {
  * via the `definition` "partner-clients_select".
  */
 export interface PartnerClientsSelect<T extends boolean = true> {
+  geo?:
+    | T
+    | {
+        lat?: T;
+        lng?: T;
+        city?: T;
+        postcode?: T;
+        label?: T;
+        source?: T;
+      };
   intakeIssues?:
     | T
     | {

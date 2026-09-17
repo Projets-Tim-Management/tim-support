@@ -42,6 +42,7 @@ import { BILLING_PERIOD_OPTIONS } from "@/modules/partner/lib/billing-period";
 import { buildHistoryEntry, nextHistory, type HistoryEntry } from "@/modules/partner/lib/history";
 import { peekPennylane } from "@/modules/partner/lib/pennylane";
 import { isBillableClient, LICENCE_BASE_PRICES, PROFILS } from "@/modules/partner/lib/pricing";
+import { geocodeClient } from "@/core/hooks/geocodeClient";
 import { setPhoneDigits } from "@/core/hooks/phoneDigits";
 
 /**
@@ -443,6 +444,7 @@ export const PartnerClients: CollectionConfig = {
     // calcul, plutôt que d'échouer à mi-chemin sur une fiche déjà recalculée.
     beforeChange: [
       setPhoneDigits,
+      geocodeClient,
       requireTestSchedule,
       requireEmailFromTest,
       requireContractStart,
@@ -495,6 +497,23 @@ export const PartnerClients: CollectionConfig = {
      * pas un lead pour un accent — et l'alerte reste en tête jusqu'à ce que le
      * champ soit corrigé (voir clearIntakeIssues).
      */
+    /**
+     * Le point sur la carte de l'accueil : posé par geocodeClient (Base
+     * Adresse Nationale) quand l'adresse de facturation change. Jamais saisi.
+     */
+    {
+      name: "geo",
+      type: "group",
+      admin: { hidden: true },
+      fields: [
+        { name: "lat", type: "number" },
+        { name: "lng", type: "number" },
+        { name: "city", type: "text" },
+        { name: "postcode", type: "text" },
+        { name: "label", type: "text" },
+        { name: "source", type: "text" },
+      ],
+    },
     {
       name: "intakeAlert",
       type: "ui",
