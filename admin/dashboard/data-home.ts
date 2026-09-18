@@ -92,6 +92,7 @@ export type Place = {
   lat: number;
   lng: number;
   city: string | null;
+  postcode: string | null;
   /** CA HT mensuel de la fiche, et ses licences. */
   ca: number;
   licences: number;
@@ -427,6 +428,7 @@ export async function getHomeData(
         lat: c.geo.lat,
         lng: c.geo.lng,
         city: c.geo.city ?? null,
+        postcode: c.geo.postcode ?? null,
         ca: Number(c.caPaye) || 0,
         licences: Number(c.totalLicences) || 0,
         since: c.signatureDate ? String(c.signatureDate).slice(0, 10) : null,

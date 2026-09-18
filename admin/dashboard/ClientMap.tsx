@@ -5,15 +5,18 @@ import "leaflet/dist/leaflet.css";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { regionOf } from "@/core/lib/regions";
+
 import { euros } from "./format";
 import type { Place } from "./data-home";
 
 /**
  * Où sont les clients signés — une carte, un point par fiche, et de quoi
- * jouer avec : filtrer par apporteur ou par taille, cliquer un client dans la
- * liste pour voler jusqu'à lui, zoomer à la molette une fois la carte
- * « prise en main » (un clic dessus — sinon elle avalerait le défilement de
- * la page).
+ * jouer avec : chercher un nom ou une commune, filtrer par apporteur, par
+ * taille, par région (déduite du code postal) ou par année de signature, ne
+ * garder que le top 5, cliquer un client dans la liste pour voler jusqu'à
+ * lui, zoomer à la molette une fois la carte « prise en main » (un clic
+ * dessus — sinon elle avalerait le défilement de la page).
  *
  * Leaflet, chargé dans le navigateur seulement (il a besoin de `window`), sur
  * le fond OpenStreetMap passé en gris pour que les points rouges ressortent.
@@ -43,6 +46,9 @@ const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<":
 
 const radiusFor = (ca: number) => Math.max(7, Math.min(18, 5 + Math.sqrt(Math.max(ca, 0)) * 0.6));
 
+const fold = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const yearOf = (iso: string | null) => (iso ? iso.slice(0, 4) : null);
+
 const sinceLabel = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("fr-FR", { month: "short", year: "numeric" }) : null);
 
 const popupHtml = (p: Place) =>
@@ -63,6 +69,10 @@ export default function ClientMap({ places, unplaced }: { places: Place[]; unpla
 
   const [partners, setPartners] = useState<Set<string>>(new Set());
   const [band, setBand] = useState<string | null>(null);
+  const [region, setRegion] = useState<string>("");
+  const [year, setYear] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [top, setTop] = useState(false);
   const [hover, setHover] = useState<string | null>(null);
 
   /** Les apporteurs présents, avec leur nombre de clients — pour les puces. */
@@ -77,14 +87,35 @@ export default function ClientMap({ places, unplaced }: { places: Place[]; unpla
     return [...m.entries()].sort((a, b) => b[1].n - a[1].n);
   }, [places]);
 
-  const visible = useMemo(
-    () =>
-      places
-        .filter((p) => partners.size === 0 || partners.has(p.partnerId != null ? String(p.partnerId) : "—"))
-        .filter((p) => !band || BANDS.find((b) => b.key === band)?.test(p.ca))
-        .sort((a, b) => b.ca - a.ca),
-    [places, partners, band],
-  );
+  /** Les régions présentes (déduites du code postal) et les années de signature, avec leurs comptes. */
+  const regions = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of places) {
+      const r = regionOf(p.postcode);
+      if (r) m.set(r, (m.get(r) ?? 0) + 1);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], "fr"));
+  }, [places]);
+  const years = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of places) {
+      const y = yearOf(p.since);
+      if (y) m.set(y, (m.get(y) ?? 0) + 1);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [places]);
+
+  const visible = useMemo(() => {
+    const q = fold(query.trim());
+    const list = places
+      .filter((p) => partners.size === 0 || partners.has(p.partnerId != null ? String(p.partnerId) : "—"))
+      .filter((p) => !band || BANDS.find((b) => b.key === band)?.test(p.ca))
+      .filter((p) => !region || regionOf(p.postcode) === region)
+      .filter((p) => !year || yearOf(p.since) === year)
+      .filter((p) => !q || fold(`${p.name} ${p.city ?? ""} ${p.postcode ?? ""}`).includes(q))
+      .sort((a, b) => b.ca - a.ca);
+    return top ? list.slice(0, 5) : list;
+  }, [places, partners, band, region, year, query, top]);
   const total = visible.reduce((a, p) => a + p.ca, 0);
 
   // ── La carte et ses points, une fois.
@@ -175,7 +206,15 @@ export default function ClientMap({ places, unplaced }: { places: Place[]; unpla
       return next;
     });
 
-  const filtered = partners.size > 0 || band != null;
+  const filtered = partners.size > 0 || band != null || region !== "" || year != null || query.trim() !== "" || top;
+  const reset = () => {
+    setPartners(new Set());
+    setBand(null);
+    setRegion("");
+    setYear(null);
+    setQuery("");
+    setTop(false);
+  };
 
   return (
     <section className="home-section" aria-label="Carte des clients signés">
@@ -193,6 +232,16 @@ export default function ClientMap({ places, unplaced }: { places: Place[]; unpla
         </div>
 
         <aside className="home-map__side" aria-label="Filtres de la carte">
+          <div className="home-map__group home-map__group--search">
+            <input
+              type="search"
+              className="home-map__search"
+              placeholder="Un nom, une commune…"
+              aria-label="Chercher un client sur la carte"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
           {partnerChips.length > 1 && (
             <div className="home-map__group">
               <h3 className="home-map__h">Apporteur</h3>
@@ -232,6 +281,49 @@ export default function ClientMap({ places, unplaced }: { places: Place[]; unpla
             </div>
           </div>
 
+          {(regions.length > 1 || years.length > 1) && (
+            <div className="home-map__group home-map__group--row">
+              {regions.length > 1 && (
+                <label className="home-map__field">
+                  <span className="home-map__h">Région</span>
+                  <select className="home-map__select" value={region} onChange={(e) => setRegion(e.target.value)}>
+                    <option value="">Toutes ({places.length})</option>
+                    {regions.map(([r, n]) => (
+                      <option key={r} value={r}>
+                        {r} ({n})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {years.length > 1 && (
+                <div className="home-map__field">
+                  <span className="home-map__h">Client depuis</span>
+                  <div className="home-map__chips">
+                    {years.map(([y, n]) => (
+                      <button
+                        key={y}
+                        type="button"
+                        className={`home-map__chip${year === y ? " home-map__chip--on" : ""}`}
+                        aria-pressed={year === y}
+                        onClick={() => setYear((cur) => (cur === y ? null : y))}
+                      >
+                        {y} <span className="home-map__chip-n">{n}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="home-map__group">
+            <div className="home-map__chips">
+              <button type="button" className={`home-map__chip home-map__chip--gold${top ? " home-map__chip--on" : ""}`} aria-pressed={top} onClick={() => setTop((t) => !t)}>
+                ★ Top 5
+              </button>
+            </div>
+          </div>
+
           <ol className="home-map__list">
             {visible.map((p) => (
               <li key={p.id}>
@@ -259,14 +351,7 @@ export default function ClientMap({ places, unplaced }: { places: Place[]; unpla
               <strong>{visible.length}</strong> client{visible.length > 1 ? "s" : ""} · <strong>{euros(total)}</strong> HT / mois
             </span>
             {filtered && (
-              <button
-                type="button"
-                className="home-map__reset"
-                onClick={() => {
-                  setPartners(new Set());
-                  setBand(null);
-                }}
-              >
+              <button type="button" className="home-map__reset" onClick={reset}>
                 Tout afficher
               </button>
             )}

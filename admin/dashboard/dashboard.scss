@@ -1433,7 +1433,7 @@
 }
 .home-map__stage { grid-area: stage; position: relative; min-width: 0; }
 .home-map__canvas {
-  height: 460px;
+  height: 540px;
   /* Leaflet pose ses tuiles en absolu : le conteneur doit être positionné, et isolé du z-index du menu. */
   position: relative;
   isolation: isolate;
@@ -1472,12 +1472,32 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 460px;
+  max-height: 540px;
+  overflow-y: auto;
   border-left: 1px solid var(--home-border);
   background: var(--tim-white);
   @media (max-width: 900px) { max-height: none; border-left: 0; border-top: 1px solid var(--home-border); }
 }
-.home-map__group { padding: 0.75rem 0.85rem 0.25rem; }
+.home-map__group { padding: 0.65rem 0.85rem 0.2rem; }
+.home-map__group--search { padding-top: 0.75rem; }
+.home-map__group--row { display: flex; flex-direction: column; gap: 0.5rem; }
+.home-map__field { display: flex; flex-direction: column; }
+.home-map__search,
+.home-map__select {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 8px;
+  background: var(--tim-white);
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--tim-foreground);
+  &:focus { outline: none; border-color: var(--tim-primary); box-shadow: 0 0 0 3px var(--tim-primary-light); }
+}
+.home-map__select { cursor: pointer; }
+/* Le top 5 : une puce dorée — c'est un jeu, pas une catégorie. */
+.home-map__chip--gold { border-color: var(--tim-amber); color: var(--tim-amber); &:hover { border-color: var(--tim-amber); color: var(--tim-amber); } }
+.home-map__chip--gold.home-map__chip--on { background: var(--tim-amber); border-color: var(--tim-amber); color: var(--tim-white); }
 .home-map__h { margin: 0 0 0.4rem; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tim-muted); }
 .home-map__chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .home-map__chip {
@@ -1502,11 +1522,9 @@
 
 .home-map__list {
   flex: 1;
-  min-height: 0;
   margin: 0.4rem 0 0;
-  padding: 0 0.4rem;
+  padding: 0 0.4rem 0.3rem;
   list-style: none;
-  overflow-y: auto;
   border-top: 1px solid var(--home-border);
 }
 .home-map__row {
@@ -1531,6 +1549,9 @@
 .home-map__row-sub { font-size: 0.74rem; color: var(--tim-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-map__none { padding: 0.8rem 0.5rem; font-size: 0.82rem; color: var(--tim-muted); }
 .home-map__foot {
+  position: sticky;
+  bottom: 0;
+  background: var(--tim-white);
   display: flex;
   align-items: center;
   justify-content: space-between;
