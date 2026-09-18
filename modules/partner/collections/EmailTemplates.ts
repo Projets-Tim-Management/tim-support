@@ -61,10 +61,9 @@ export const EmailTemplates: CollectionConfig = {
     useAsTitle: "name",
     defaultColumns: ["name", "subject", "scope", "partner", "updatedAt"],
     group: "Partenaires",
-    // Gérés depuis le drawer « Envoyer un e-mail » (créer, modifier, supprimer),
-    // là où on s'en sert. Une page de plus dans le menu pour la même chose
-    // n'apporterait qu'un deuxième endroit à tenir à jour.
-    hidden: true,
+    // Insérés et créés depuis le tiroir « Envoyer un e-mail » — mais c'est ICI
+    // qu'on relit et corrige un modèle existant (le tiroir ne modifie pas). Un
+    // partenaire y voit les siens et ceux de TIM ; il ne modifie que les siens.
     description:
       "Messages types réutilisables lors d'un envoi depuis une opportunité. Variables disponibles : " +
       TEMPLATE_VARIABLES.map((v) => v.token).join(", ") +

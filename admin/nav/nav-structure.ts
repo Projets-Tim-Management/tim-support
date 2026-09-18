@@ -89,7 +89,7 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
    * « Partenaires », ce qu'on ouvre pour travailler sur un dossier ;
    * « Utilisateur », le programme de points vu du partenaire.
    */
-  Partenaires: ["partners", "partner-clients"],
+  Partenaires: ["partners", "partner-clients", "email-templates"],
   /**
    * Ce que TIM facture. Aucune collection : l'écran lit Pennylane à la demande.
    * Réservé aux admins, les partenaires n'en voient rien.

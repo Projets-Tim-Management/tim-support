@@ -390,6 +390,11 @@ $nav-icons: (
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='4.5' height='16' rx='1'/%3E%3Crect x='9.75' y='4' width='4.5' height='11' rx='1'/%3E%3Crect x='16.5' y='4' width='4.5' height='16' rx='1'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='4.5' height='16' rx='1'/%3E%3Crect x='9.75' y='4' width='4.5' height='11' rx='1'/%3E%3Crect x='16.5' y='4' width='4.5' height='16' rx='1'/%3E%3C/svg%3E");
 }
+/* Modèles d'e-mail : l'enveloppe, aussi sur la page courante (rendue en <div>). */
+#nav-email-templates::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='M2 7l10 6 10-6'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='M2 7l10 6 10-6'/%3E%3C/svg%3E");
+}
 /* Connexions API : la prise, aussi sur la page courante (rendue en <div>). */
 #nav-integrations::before {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 22v-5'/%3E%3Cpath d='M9 8V2M15 8V2'/%3E%3Cpath d='M18 8v5a6 6 0 01-12 0V8z'/%3E%3C/svg%3E");
