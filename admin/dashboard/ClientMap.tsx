@@ -23,10 +23,11 @@ import type { Place } from "./data-home";
  * mensuel (racine carrée : un client à 400 € n'écrase pas un client à 100 €) ;
  * l'infobulle dit le nom, la commune, le CA, et mène à la fiche.
  *
- * Les points viennent de la Base Adresse Nationale (voir core/lib/geocode.ts),
- * posés quand l'adresse de facturation d'une fiche change. Une fiche sans
- * adresse — ou dont l'adresse est inconnue de la BAN — n'a pas de point ; on
- * le dit sous la carte plutôt que de la laisser disparaître en silence.
+ * Les points viennent de la Base Adresse Nationale, ou de Nominatim hors de
+ * France (voir core/lib/geocode.ts), posés quand l'adresse de facturation
+ * d'une fiche change. Une fiche sans adresse — ou dont l'adresse est
+ * introuvable — n'a pas de point ; on le dit sous la carte plutôt que de la
+ * laisser disparaître en silence.
  */
 const FRANCE: [number, number] = [46.6, 2.4];
 /** Les tuiles OpenStreetMap : libres avec attribution, sans clé — pour un back-office à quelques comptes, c'est dans leur politique d'usage. */
@@ -325,8 +326,7 @@ export default function ClientMap({ places, unplaced }: { places: Place[]; unpla
 
         {unplaced > 0 && (
           <p className="home-map__note">
-            {unplaced} client{unplaced > 1 ? "s" : ""} signé{unplaced > 1 ? "s" : ""} sans point : adresse de facturation absente ou inconnue de la Base Adresse
-            Nationale.
+            {unplaced} client{unplaced > 1 ? "s" : ""} signé{unplaced > 1 ? "s" : ""} sans point : adresse de facturation absente, ou introuvable.
           </p>
         )}
       </div>
