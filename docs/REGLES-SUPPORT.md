@@ -7,7 +7,7 @@ quand on lui pose une question : ce qui n'est pas ici, il ne le sait pas.
 ## Les objets
 
 - **Opportunité** (`partner-clients`) : une entreprise amenée par un partenaire, du prospect au client. Statuts, dans l'ordre du pipeline : Nouvelle → En qualification → Démo programmée → En attente d'engagement → En attente longue → **En phase de test** → **Gagnée** (client actif, facturé) ; fins : Perdue, Résilié, Archivé. « Gagnée » est la seule qui entre dans le CA.
-- **Partenaire** (`partners`) : apporteur d'affaires. Deux genres : *métier* (amène des clients, touche une commission = CA HT × son taux) et *utilisateur* (programme de points). Le « partenaire du site vitrine » porte les leads venus des formulaires.
+- **Partenaire** (`partners`) : apporteur d'affaires. Deux genres : *métier* (amène des clients, touche une commission = CA HT × son taux) et *utilisateur* (programme de points). Le « partenaire du site vitrine » porte les leads venus des formulaires : la fiche liée au compte `cpiancatelli@tim-management.co` (variable `VITRINE_PARTNER_EMAIL` pour changer).
 - **Parcours** (`journey-runs`) : la phase de test d'un client, 4 semaines par défaut, démarrée un lundi, avec ses étapes et ses e-mails programmés.
 - **Tâche** (`client-activities` de type « tache ») : un rappel daté sur une opportunité (appel, relance…), coché quand c'est fait. Sur un **appel**, « Pas de réponse » (fiche ou accueil) note l'essai (heure, auteur) sur la tâche, écrit une ligne de journal sur la fiche, et **reporte la tâche au prochain jour ouvré à la même heure** (une tâche prévue plus tard garde sa date). La tâche affiche « n essais sans réponse · dernier le… ».
 - **Ticket** (`tickets`) : demande d'un client au support ; états nouveau, pris en compte, en cours, en attente, résolu ; priorité dont « urgent ».
@@ -56,5 +56,5 @@ quand on lui pose une question : ce qui n'est pas ici, il ne le sait pas.
 
 ## Rôles
 
-- **Admin** : tout. **Support** : les tickets. **Partenaire-métier** : ses opportunités, ses parcours, ses tâches, ses commissions ; il valide ses étapes de parcours. **Partenaire-utilisateur** : ses missions, points et récompenses.
+- **Super-admin** (direction@) : tout, et seul à gérer les **comptes** (créer, supprimer, poser les rôles et la fiche partenaire liée) ; l'entrée « Utilisateurs » n'est visible que de lui. **Admin** : tout le reste ; il lit les comptes (noms des collègues) et ne modifie que le sien. Un admin peut **aussi** être apporteur (fiche partenaire liée) : ses opportunités lui sont proposées par défaut, il voit tout comme un admin. **Support** : les tickets. **Partenaire-métier** : ses opportunités, ses parcours, ses tâches, ses commissions ; il valide ses étapes de parcours. **Partenaire-utilisateur** : ses missions, points et récompenses.
 - L'assistant répond avec les données du rôle de la personne connectée, en lecture seule ; il ne modifie rien et ne voit ni clés ni mots de passe.

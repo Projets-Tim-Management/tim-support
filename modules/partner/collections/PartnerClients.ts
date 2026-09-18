@@ -615,14 +615,15 @@ export const PartnerClients: CollectionConfig = {
         allowEdit: false,
         allowCreate: false,
       },
-      // Pré-rempli : rôle partenaire → SA propre fiche (verrouillée, satisfait
-      // `required`) ; sinon valeur passée en query (?partner=<id>) lors d'un
-      // « + Ajouter un client » depuis une fiche partenaire (admin).
+      // Pré-rempli : la valeur passée en query (?partner=<id>) lors d'un
+      // « + Ajouter un client » depuis une fiche partenaire ; sinon la fiche
+      // liée au compte — verrouillée pour un rôle partenaire, simple défaut
+      // pour un admin qui est AUSSI apporteur (il peut la changer).
       defaultValue: ({ req }) => {
-        const own = partnerIdOf(req?.user);
-        if (own != null && !hasAdminRole(req?.user)) return own;
         const p = req?.searchParams?.get?.("partner");
-        return p ? p : undefined;
+        if (p && hasAdminRole(req?.user)) return p;
+        const own = partnerIdOf(req?.user);
+        return own != null ? own : undefined;
       },
     },
     {

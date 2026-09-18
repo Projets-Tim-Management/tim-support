@@ -1,6 +1,15 @@
 import type { CollectionConfig, PayloadRequest } from "payload";
 
-import { ALL_ROLES, ROLES, adminOnlyField, hasBackofficeRole, isAdmin, isAdminOrSelf } from "@/core/access";
+import {
+  ALL_ROLES,
+  ROLES,
+  hasBackofficeRole,
+  hideUnlessSuperAdmin,
+  isAdminOrSelf,
+  isSuperAdminAccess,
+  isSuperAdminOrSelf,
+  superAdminOnlyField,
+} from "@/core/access";
 import { guardSuperAdminOnChange, guardSuperAdminOnDelete } from "@/core/hooks/superAdmin";
 
 /** Libellés FR des rôles pour le champ select. */
@@ -34,6 +43,8 @@ export const Users: CollectionConfig = {
     useAsTitle: "email",
     defaultColumns: ["lastName", "firstName", "email", "roles"],
     group: "Système",
+    // Dans le menu du super-admin seulement : un admin n'a rien à y faire.
+    hidden: hideUnlessSuperAdmin,
   },
   auth: {
     /**
@@ -56,10 +67,13 @@ export const Users: CollectionConfig = {
     // au même /admin mais voient une interface restreinte (nav filtrée par
     // admin.hidden, dashboard gardé, access control row-level Phase 3).
     admin: ({ req: { user } }) => hasBackofficeRole(user),
-    create: isAdmin,
+    // Les comptes se gèrent au super-admin seul (direction@) : un admin lit
+    // les comptes (les noms des collègues s'affichent partout), modifie le
+    // sien, mais n'en crée, n'en supprime ni n'en re-rôle aucun autre.
+    create: isSuperAdminAccess,
     read: isAdminOrSelf,
-    update: isAdminOrSelf,
-    delete: isAdmin,
+    update: isSuperAdminOrSelf,
+    delete: isSuperAdminAccess,
   },
   hooks: {
     // Protection du rôle super-admin (attribution, dernier super-admin, suppression).
@@ -110,11 +124,12 @@ export const Users: CollectionConfig = {
       hasMany: true,
       defaultValue: [ROLES.admin],
       options: ALL_ROLES.map((value) => ({ label: ROLE_LABELS[value], value })),
-      // Champ modifiable par un admin uniquement (anti-escalade). L'attribution
-      // du rôle super-admin est en plus gardée par guardSuperAdminOnChange.
+      // Posé par le super-admin seul (anti-escalade : un admin ne se donne pas
+      // de rôle, ni à personne). L'attribution du rôle super-admin est en plus
+      // gardée par guardSuperAdminOnChange.
       access: {
-        create: adminOnlyField,
-        update: adminOnlyField,
+        create: superAdminOnlyField,
+        update: superAdminOnlyField,
       },
     },
     {
@@ -137,8 +152,8 @@ export const Users: CollectionConfig = {
       // Seul un admin peut définir/modifier le rattachement (anti-usurpation :
       // un partenaire ne doit jamais pouvoir se relier à une autre fiche).
       access: {
-        create: adminOnlyField,
-        update: adminOnlyField,
+        create: superAdminOnlyField,
+        update: superAdminOnlyField,
       },
       // Cohérence : requis pour un rôle partenaire, et le type de la fiche
       // (partnerKind) doit correspondre au rôle (métier ↔ utilisateur).

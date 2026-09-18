@@ -87,6 +87,19 @@ export const isAdminOrSelf: Access = ({ req: { user } }) => {
   return false;
 };
 
+/**
+ * Les COMPTES : réservés au super-admin (direction@). Un admin fait tout le
+ * reste, mais ne crée, ne supprime ni ne re-rôle personne — c'est le seul
+ * garde-fou contre une escalade de droits par un compte compromis. Chacun
+ * peut toujours lire et modifier sa propre fiche (mot de passe, avatar).
+ */
+export const isSuperAdminAccess: Access = ({ req: { user } }) => isSuperAdmin(user);
+export const isSuperAdminOrSelf: Access = ({ req: { user } }) => {
+  if (isSuperAdmin(user)) return true;
+  if (user) return { id: { equals: (user as { id: string | number }).id } };
+  return false;
+};
+
 /** Admin ou partenaire-métier (ex. création de ses clients). */
 export const isAdminOrMetier: Access = ({ req: { user } }) =>
   hasAdminRole(user) || isPartnerMetier(user);
@@ -107,6 +120,7 @@ export const canSupport: Access = ({ req: { user } }) => hasAdminRole(user) || i
 // rôle. La vraie sécurité reste l'access control (Phase 3) ; ceci soigne l'UX.
 type HiddenArg = { user?: unknown };
 export const hideUnlessAdmin = ({ user }: HiddenArg): boolean => !hasAdminRole(user);
+export const hideUnlessSuperAdmin = ({ user }: HiddenArg): boolean => !isSuperAdmin(user);
 export const hideUnlessAdminOrPartner = ({ user }: HiddenArg): boolean =>
   !(hasAdminRole(user) || isPartner(user));
 export const hideUnlessMetier = ({ user }: HiddenArg): boolean =>
@@ -151,6 +165,8 @@ export const utilisateurScoped = (fieldName = "partner"): Access =>
 // ─── Field-level (axe B fin) ─────────────────────────────────────────────────
 /** Le champ n'est modifiable que par un admin (ex. `roles`). */
 export const adminOnlyField: FieldAccess = ({ req: { user } }) => hasAdminRole(user);
+/** Rôles et fiche partenaire d'un compte : le super-admin seul les pose. */
+export const superAdminOnlyField: FieldAccess = ({ req: { user } }) => isSuperAdmin(user);
 
 /** Le champ n'est lisible que par un admin (ex. champs internes TIM d'une fiche partenaire). */
 export const adminOnlyFieldRead: FieldAccess = ({ req: { user } }) => hasAdminRole(user);
