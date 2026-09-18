@@ -128,7 +128,8 @@ export default function AgendaBoard({
       const poser = (liste: AgendaItem[]) =>
         liste.map((i) => (i.id === item.id ? { ...i, at: data.task!.dueDate!, attempts: data.task!.attempts?.length ?? (i.attempts ?? 0) + 1 } : i));
       setItems(poser);
-      setRetard(poser);
+      // Reportée à une date à venir, elle n'est plus en retard : elle sort du bloc.
+      setRetard((liste) => liste.filter((i) => i.id !== item.id));
     } catch (e) {
       setErreur((e as Error).message || "L'essai n'a pas pu être noté.");
     }

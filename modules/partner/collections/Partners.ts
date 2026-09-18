@@ -578,8 +578,9 @@ export const Partners: CollectionConfig = {
                   type: "text",
                   label: "Lien de réservation",
                   validate: (value: unknown, { siblingData }: { siblingData?: { mode?: string } }) => {
-                    if (siblingData?.mode !== "lien") return true;
-                    if (!value) return "Indiquez le lien vers votre outil de réservation.";
+                    // Obligatoire en mode « lien » ; et, dès qu'il est renseigné, une
+                    // vraie URL — il part tel quel dans les e-mails ({{lien_rdv}}).
+                    if (!value) return siblingData?.mode === "lien" ? "Indiquez le lien vers votre outil de réservation." : true;
                     return /^https?:\/\/\S+$/i.test(String(value))
                       ? true
                       : "Lien invalide (attendu : https://…).";

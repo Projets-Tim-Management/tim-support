@@ -40,10 +40,16 @@ import { TEMPLATE_VARIABLES } from "@/modules/partner/lib/email-template";
  * Contrôlé ici et non par `required` : l'obligation dépend de la portée, ce que
  * la déclaration d'un champ ne sait pas exprimer.
  */
-const requirePartnerScope: CollectionBeforeChangeHook = ({ data, originalDoc, req }) => {
+const requirePartnerScope: CollectionBeforeChangeHook = ({ data, originalDoc, operation, req }) => {
   const scope = data?.scope ?? originalDoc?.scope ?? "partenaire";
   if (scope === "tim") {
     if (!hasAdminRole(req.user)) {
+      // Un partenaire qui DUPLIQUE un modèle TIM obtient sa propre version :
+      // la copie devient la sienne (enforcePartnerField la rattache à sa
+      // fiche) plutôt que d'échouer sur un « réservé à l'administrateur ».
+      if (operation === "create" && partnerIdOf(req.user) != null) {
+        return { ...data, scope: "partenaire", partner: partnerIdOf(req.user) };
+      }
       throw new Error("Seul un administrateur peut créer ou modifier un modèle TIM.");
     }
     return { ...data, partner: null };
