@@ -1473,7 +1473,6 @@
   flex-direction: column;
   min-height: 0;
   max-height: 540px;
-  overflow-y: auto;
   border-left: 1px solid var(--home-border);
   background: var(--tim-white);
   @media (max-width: 900px) { max-height: none; border-left: 0; border-top: 1px solid var(--home-border); }
@@ -1520,11 +1519,14 @@
 .home-map__chip--on { background: var(--tim-primary); border-color: var(--tim-primary); color: var(--tim-white); &:hover { color: var(--tim-white); } }
 .home-map__chip-n { font-size: 0.7rem; font-weight: 800; opacity: 0.75; font-variant-numeric: tabular-nums; }
 
+/* La liste des entreprises défile seule ; les filtres restent en place au-dessus. */
 .home-map__list {
   flex: 1;
+  min-height: 7rem;
   margin: 0.4rem 0 0;
   padding: 0 0.4rem 0.3rem;
   list-style: none;
+  overflow-y: auto;
   border-top: 1px solid var(--home-border);
 }
 .home-map__row {
@@ -1549,8 +1551,7 @@
 .home-map__row-sub { font-size: 0.74rem; color: var(--tim-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-map__none { padding: 0.8rem 0.5rem; font-size: 0.82rem; color: var(--tim-muted); }
 .home-map__foot {
-  position: sticky;
-  bottom: 0;
+  flex: none;
   background: var(--tim-white);
   display: flex;
   align-items: center;
