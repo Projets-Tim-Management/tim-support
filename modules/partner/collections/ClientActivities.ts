@@ -257,6 +257,21 @@ export const ClientActivities: CollectionConfig = {
       admin: { readOnly: true, condition: (data) => Boolean(data?.doneAt) },
     },
     /**
+     * Les essais sans réponse d'une tâche d'appel (« Pas de réponse » sur la
+     * fiche ou l'accueil) : quand, par qui. La tâche est reportée à chaque
+     * essai — voir lib/task-attempts.ts et l'API admin/task-attempt.
+     */
+    {
+      name: "attempts",
+      type: "array",
+      label: "Essais sans réponse",
+      admin: { readOnly: true, condition: (data) => Array.isArray(data?.attempts) && data.attempts.length > 0 },
+      fields: [
+        { name: "at", type: "date", label: "Le", admin: { date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" } } },
+        { name: "by", type: "relationship", relationTo: "users", label: "Par" },
+      ],
+    },
+    /**
      * Rappel déjà parti : sans cette trace, le cron renverrait le même e-mail à
      * chaque passage. Posée par le cron, jamais à la main.
      */

@@ -45,6 +45,7 @@ const sessionFaite = (r: RunRow, nowMs: number): boolean => {
 
 type TaskRow = {
   id: number | string;
+  attempts?: unknown[] | null;
   title?: string | null;
   taskKind?: string | null;
   dueDate?: string | null;
@@ -211,6 +212,8 @@ export async function getTodayAgenda(
     // le téléphone, le contexte et de quoi noter l'échange.
     href: `${adminRoute}/collections/partner-clients/${idClient(t.client) ?? ""}`,
     done: Boolean(t.done),
+    taskId: t.id,
+    attempts: Array.isArray(t.attempts) ? t.attempts.length : 0,
   });
 
   const dansLaFenetre = (iso: string): boolean => iso >= debut && iso <= fin;
