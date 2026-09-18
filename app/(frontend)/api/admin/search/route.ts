@@ -5,6 +5,7 @@ import { hasAdminRole, isSupport } from "@/core/access";
 import {
   MIN_QUERY,
   SEARCHABLE,
+  contactsWhere,
   filterPages,
   hiddenFor,
   labelOf,
@@ -115,6 +116,43 @@ export async function GET(req: Request) {
       }
     })
   ).flat();
+
+  // ── Contacts → leur fiche cliente ────────────────────────────────────────
+  // Une personne (nom, e-mail, téléphone) mène à l'opportunité qui la porte.
+  // Même règle d'accès que les fiches : `overrideAccess: false`, le partenaire
+  // ne trouve que les contacts de ses clients.
+  if (visible.has(`${admin}/collections/partner-clients`)) {
+    try {
+      const res = await payload.find({
+        collection: "client-contacts",
+        where: contactsWhere(q),
+        select: { client: true, firstName: true, lastName: true, email: true, phone: true } as never,
+        user,
+        overrideAccess: false,
+        depth: 1,
+        limit: 5,
+        pagination: false,
+      });
+      const seen = new Set(records.filter((r) => r.collection === "partner-clients").map((r) => String(r.id)));
+      for (const c of res.docs as { client?: { id?: number | string; companyName?: string } | number | string | null; firstName?: string; lastName?: string; email?: string; phone?: string }[]) {
+        const client = c.client && typeof c.client === "object" ? c.client : null;
+        const clientId = client?.id ?? (typeof c.client === "object" ? null : c.client);
+        if (clientId == null || seen.has(String(clientId))) continue;
+        seen.add(String(clientId));
+        const person = [c.firstName, c.lastName].filter(Boolean).join(" ").trim();
+        records.push({
+          collection: "partner-clients",
+          collectionLabel: "Contact",
+          id: clientId,
+          label: client?.companyName || person || "Opportunité",
+          sub: [person, c.phone || c.email].filter(Boolean).join(" · ") || undefined,
+          href: `${admin}/collections/partner-clients/${clientId}`,
+        });
+      }
+    } catch (err) {
+      console.warn("[search] client-contacts :", err instanceof Error ? err.message : err);
+    }
+  }
 
   return NextResponse.json({ pages: matchedPages, records });
 }

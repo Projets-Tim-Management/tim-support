@@ -106,6 +106,8 @@ import * as migration_20260916_140335_connexions_support_global from './20260916
 import * as migration_20260916_151848_reserves_entree_lead from './20260916_151848_reserves_entree_lead';
 import * as migration_20260916_160333_depense_assistant from './20260916_160333_depense_assistant';
 import * as migration_20260916_161320_depense_assistant_mois from './20260916_161320_depense_assistant_mois';
+import * as migration_20260916_165418_recherche_par_telephone from './20260916_165418_recherche_par_telephone';
+import * as migration_20260917_165244_point_geographique_fiche from './20260917_165244_point_geographique_fiche';
 
 export const migrations = [
   {
@@ -646,6 +648,16 @@ export const migrations = [
   {
     up: migration_20260916_161320_depense_assistant_mois.up,
     down: migration_20260916_161320_depense_assistant_mois.down,
-    name: '20260916_161320_depense_assistant_mois'
+    name: '20260916_161320_depense_assistant_mois',
+  },
+  {
+    up: migration_20260916_165418_recherche_par_telephone.up,
+    down: migration_20260916_165418_recherche_par_telephone.down,
+    name: '20260916_165418_recherche_par_telephone',
+  },
+  {
+    up: migration_20260917_165244_point_geographique_fiche.up,
+    down: migration_20260917_165244_point_geographique_fiche.down,
+    name: '20260917_165244_point_geographique_fiche'
   },
 ];

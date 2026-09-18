@@ -1414,3 +1414,168 @@
   background: var(--tim-white);
   box-shadow: var(--home-shadow);
 }
+
+/* ─── La carte des clients signés : la carte à gauche, les filtres à droite ── */
+.home-map {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 17rem;
+  grid-template-areas: "stage side" "note note";
+  overflow: hidden;
+  border: 1px solid var(--home-border);
+  border-radius: var(--home-radius);
+  background: var(--tim-white);
+  box-shadow: var(--home-shadow);
+
+  @media (max-width: 900px) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "stage" "side" "note";
+  }
+}
+.home-map__stage { grid-area: stage; position: relative; min-width: 0; }
+.home-map__canvas {
+  height: 540px;
+  /* Leaflet pose ses tuiles en absolu : le conteneur doit être positionné, et isolé du z-index du menu. */
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
+  background: var(--tim-surface);
+  font-family: inherit;
+  cursor: grab;
+  &:active { cursor: grabbing; }
+}
+.home-map__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 0.6rem;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tim-white) 88%, transparent);
+  font-size: 0.72rem;
+  color: var(--tim-muted);
+  pointer-events: none;
+  z-index: 1;
+}
+.home-map__note {
+  grid-area: note;
+  margin: 0;
+  padding: 0.55rem 0.9rem;
+  border-top: 1px solid var(--home-border);
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+}
+
+/* Le panneau : puces de filtre, liste des clients visibles, total. */
+.home-map__side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 540px;
+  border-left: 1px solid var(--home-border);
+  background: var(--tim-white);
+  @media (max-width: 900px) { max-height: none; border-left: 0; border-top: 1px solid var(--home-border); }
+}
+.home-map__group { padding: 0.65rem 0.85rem 0.2rem; }
+.home-map__group--search { padding-top: 0.75rem; }
+.home-map__group--row { display: flex; flex-direction: column; gap: 0.5rem; }
+.home-map__field { display: flex; flex-direction: column; }
+.home-map__search,
+.home-map__select {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 8px;
+  background: var(--tim-white);
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--tim-foreground);
+  &:focus { outline: none; border-color: var(--tim-primary); box-shadow: 0 0 0 3px var(--tim-primary-light); }
+}
+.home-map__select { cursor: pointer; }
+/* Le top 5 : une puce dorée — c'est un jeu, pas une catégorie. */
+.home-map__chip--gold { border-color: var(--tim-amber); color: var(--tim-amber); &:hover { border-color: var(--tim-amber); color: var(--tim-amber); } }
+.home-map__chip--gold.home-map__chip--on { background: var(--tim-amber); border-color: var(--tim-amber); color: var(--tim-white); }
+.home-map__h { margin: 0 0 0.4rem; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tim-muted); }
+.home-map__chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.home-map__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 999px;
+  background: var(--tim-white);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  &:hover { border-color: var(--tim-primary); color: var(--tim-primary); }
+  &:disabled { opacity: 0.45; cursor: default; &:hover { border-color: var(--tim-border); color: var(--tim-foreground); } }
+}
+.home-map__chip--on { background: var(--tim-primary); border-color: var(--tim-primary); color: var(--tim-white); &:hover { color: var(--tim-white); } }
+.home-map__chip-n { font-size: 0.7rem; font-weight: 800; opacity: 0.75; font-variant-numeric: tabular-nums; }
+
+/* La liste des entreprises défile seule ; les filtres restent en place au-dessus. */
+.home-map__list {
+  flex: 1;
+  min-height: 7rem;
+  margin: 0.4rem 0 0;
+  padding: 0 0.4rem 0.3rem;
+  list-style: none;
+  overflow-y: auto;
+  border-top: 1px solid var(--home-border);
+}
+.home-map__row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.45rem 0.45rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--tim-foreground);
+  cursor: pointer;
+  &:hover { background: var(--tim-surface); }
+}
+.home-map__row--hot { background: var(--tim-primary-light); }
+.home-map__dot { flex: none; border-radius: 999px; background: var(--tim-primary); box-shadow: 0 0 0 2px var(--tim-white); }
+.home-map__row-body { display: flex; flex-direction: column; min-width: 0; }
+.home-map__row-name { font-size: 0.85rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-map__row-sub { font-size: 0.74rem; color: var(--tim-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-map__none { padding: 0.8rem 0.5rem; font-size: 0.82rem; color: var(--tim-muted); }
+.home-map__foot {
+  flex: none;
+  background: var(--tim-white);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  border-top: 1px solid var(--home-border);
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+  strong { color: var(--tim-foreground); font-variant-numeric: tabular-nums; }
+}
+.home-map__reset { flex: none; white-space: nowrap; padding: 0; border: 0; background: none; font: inherit; font-size: 0.76rem; font-weight: 700; color: var(--tim-primary); cursor: pointer; &:hover { text-decoration: underline; } }
+
+/* Le contenu de l'infobulle Leaflet, au style des cartes de l'accueil. */
+.home-map .leaflet-popup-content-wrapper { border-radius: 10px; box-shadow: var(--home-shadow); font-family: inherit; }
+.home-map .leaflet-popup-content { margin: 0.7rem 0.9rem; font-size: 0.85rem; line-height: 1.4; }
+.home-map .leaflet-popup-tip { box-shadow: none; }
+.home-map__pop { display: flex; flex-direction: column; gap: 0.1rem; color: var(--tim-foreground); }
+.home-map__pop strong { font-size: 0.95rem; font-weight: 800; }
+.home-map__pop span { color: var(--tim-muted); }
+.home-map__pop a { margin-top: 0.3rem; font-weight: 700; color: var(--tim-primary); text-decoration: none; &:hover { text-decoration: underline; } }
+.home-map .leaflet-tooltip { border-radius: 6px; font-weight: 700; font-family: inherit; }
+.home-map .leaflet-control-attribution { font-size: 0.6rem; }
+.home-map .leaflet-bar a { color: var(--tim-foreground); }
+/* Fond en GRIS : les tuiles OSM sont bariolées, et sur un fond sans couleur
+   les points rouges sont la seule chose qu'on voit — c'est le but. */
+.home-map .leaflet-tile-pane { filter: grayscale(1) contrast(0.85) brightness(1.08); }

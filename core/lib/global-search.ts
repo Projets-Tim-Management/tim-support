@@ -1,5 +1,7 @@
 import type { CollectionSlug, Where } from "payload";
 
+import { phoneQuery } from "./phone";
+
 /**
  * Cœur de la recherche globale (barre du haut) — la partie sans I/O, pour
  * être testée : quelles collections on cherche, sur quels champs, comment on
@@ -29,6 +31,8 @@ export interface Searchable {
   fields: string[];
   /** Le champ numérique « N° » quand la collection en a un (#123). */
   numberField?: string;
+  /** Le téléphone en chiffres nationaux, quand la collection en tient un (voir core/lib/phone.ts). */
+  phoneField?: string;
   label: (doc: Record<string, unknown>) => string;
   sub?: (doc: Record<string, unknown>) => string | undefined;
 }
@@ -37,9 +41,10 @@ export interface Searchable {
 export const SEARCHABLE: Searchable[] = [
   {
     slug: "partner-clients",
-    fields: ["companyName", "raisonSociale", "email", "siren"],
+    fields: ["companyName", "raisonSociale", "email", "siren", "phone"],
+    phoneField: "phoneDigits",
     label: (d) => str(d.companyName) || str(d.raisonSociale) || str(d.email) || "Opportunité",
-    sub: (d) => str(d.email),
+    sub: (d) => str(d.email) || str(d.phone),
   },
   {
     slug: "partners",
@@ -113,7 +118,7 @@ export const normalizeQuery = (raw: string | null | undefined): string =>
  * réveillerait des hooks de lecture qui n'ont rien à faire ici.
  */
 export const selectFor = (s: Searchable): Record<string, true> =>
-  Object.fromEntries([...s.fields, ...(s.numberField ? [s.numberField] : [])].map((f) => [f, true]));
+  Object.fromEntries([...s.fields, ...(s.numberField ? [s.numberField] : []), ...(s.phoneField ? [s.phoneField] : [])].map((f) => [f, true]));
 
 /**
  * `Promise.all` avec un plafond : la base partagée n'a que quinze connexions,
@@ -142,12 +147,27 @@ export const asNumber = (q: string): number | null =>
 
 /**
  * Clause `where` d'une collection : chaque champ texte en `like`, plus le
- * numéro en égalité stricte quand le terme en est un.
+ * numéro en égalité stricte quand le terme en est un, plus le téléphone en
+ * chiffres quand le terme ressemble à un numéro (« 06 50 46 » → « 065046 »).
  */
 export const whereFor = (s: Searchable, q: string): Where => {
   const or: Where[] = s.fields.map((f) => ({ [f]: { like: q } }));
   const n = asNumber(q);
   if (s.numberField && n !== null) or.push({ [s.numberField]: { equals: n } });
+  const digits = phoneQuery(q);
+  if (s.phoneField && digits) or.push({ [s.phoneField]: { like: digits } });
+  return { or };
+};
+
+/**
+ * Les CONTACTS d'une opportunité ne sont pas une page du menu, mais on cherche
+ * souvent une fiche par la personne — son nom, ou son numéro. Cette clause les
+ * trouve ; la route les rend comme des accès à la fiche cliente.
+ */
+export const contactsWhere = (q: string): Where => {
+  const or: Where[] = [{ firstName: { like: q } }, { lastName: { like: q } }, { email: { like: q } }];
+  const digits = phoneQuery(q);
+  if (digits) or.push({ phoneDigits: { like: digits } });
   return { or };
 };
 

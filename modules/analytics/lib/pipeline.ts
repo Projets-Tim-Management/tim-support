@@ -109,7 +109,8 @@ export type PipelineAnalytics = {
   };
   funnel: FunnelStep[];
   stages: StageStat[];
-  flow: { nodes: FlowNode[]; links: FlowLink[] };
+  /** Le Sankey : les passages vers l'AVANT ; `backward` = les retours en arrière, comptés mais non tracés. */
+  flow: { nodes: FlowNode[]; links: FlowLink[]; backward: number };
   monthly: { month: string; created: number; won: number; lost: number }[];
   bySource: SegmentStat[];
   byPartner: SegmentStat[];
@@ -271,10 +272,22 @@ export function buildPipelineAnalytics(
     };
   });
 
-  /* ── Flux (Sankey) : chaque passage d'étape compté ── */
+  /* ── Flux (Sankey) : chaque passage d'étape compté ──
+   *
+   * Vers l'AVANT seulement. Un Sankey est un graphe sans cycle : une fiche
+   * revenue en arrière (Démo → Attente, puis Attente → Démo) ferait un lien
+   * dans chaque sens, et le calcul de profondeur des nœuds boucle sans fin —
+   * c'est ce qui plantait la page (updateDepthOfTargets, pile dépassée). Les
+   * retours sont comptés à part et dits sous le diagramme. */
+  const order = new Map<string, number>(CLIENT_STATUSES.map((st, i) => [st.value, i]));
   const linkCounts = new Map<string, number>();
+  let backward = 0;
   for (const list of transitionsByClient.values()) {
     for (const t of list) {
+      if ((order.get(t.to) ?? -1) <= (order.get(t.from) ?? -1)) {
+        backward += 1;
+        continue;
+      }
       const k = `${t.from}|${t.to}`;
       linkCounts.set(k, (linkCounts.get(k) ?? 0) + 1);
     }
@@ -383,7 +396,7 @@ export function buildPipelineAnalytics(
     },
     funnel,
     stages,
-    flow: { nodes, links },
+    flow: { nodes, links, backward },
     monthly,
     bySource,
     byPartner,

@@ -4,6 +4,7 @@ import {
   MAX_QUERY,
   SEARCHABLE,
   asNumber,
+  contactsWhere,
   filterPages,
   fold,
   hiddenFor,
@@ -53,6 +54,7 @@ describe("clause where", () => {
         { raisonSociale: { like: "dupont" } },
         { email: { like: "dupont" } },
         { siren: { like: "dupont" } },
+        { phone: { like: "dupont" } },
       ],
     });
   });
@@ -133,5 +135,22 @@ describe("bornes et colonnes", () => {
     });
     expect(out).toEqual([10, 20, 30, 40, 50, 60]);
     expect(peak).toBe(2);
+  });
+});
+
+describe("la recherche par téléphone", () => {
+  it("ajoute la clause sur les chiffres quand le terme ressemble à un numéro", () => {
+    const w = whereFor(bySlug("partner-clients"), "06 50 46") as { or: Record<string, unknown>[] };
+    expect(w.or).toContainEqual({ phoneDigits: { like: "065046" } });
+    expect(selectFor(bySlug("partner-clients")).phoneDigits).toBe(true);
+  });
+  it("ne cherche pas de téléphone pour un mot", () => {
+    const w = whereFor(bySlug("partner-clients"), "dupont") as { or: Record<string, unknown>[] };
+    expect(w.or.some((c) => "phoneDigits" in c)).toBe(false);
+  });
+  it("les contacts se cherchent par nom, e-mail et numéro", () => {
+    const w = contactsWhere("+33 6 29 47") as { or: Record<string, unknown>[] };
+    expect(w.or).toContainEqual({ phoneDigits: { like: "062947" } });
+    expect(w.or).toContainEqual({ lastName: { like: "+33 6 29 47" } });
   });
 });

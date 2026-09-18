@@ -85,12 +85,34 @@ export type MonthRow = {
   validated: number;
 };
 
+/** Un client signé sur la carte : son point, et de quoi lire l'infobulle. */
+export type Place = {
+  id: number | string;
+  name: string;
+  lat: number;
+  lng: number;
+  city: string | null;
+  postcode: string | null;
+  /** CA HT mensuel de la fiche, et ses licences. */
+  ca: number;
+  licences: number;
+  /** Date de signature (ISO jour), quand on la connaît. */
+  since: string | null;
+  /** L'apporteur — pour filtrer la carte par partenaire. */
+  partnerId: number | string | null;
+  partner: string | null;
+  href: string;
+};
+
 export type HomeData = {
   now: number;
   agenda: AgendaData;
   tests: TestCard[];
   figures: KeyFigure[];
   months: MonthRow[];
+  /** Les clients signés géolocalisés — et combien ne le sont pas (sans adresse ou adresse inconnue). */
+  places: Place[];
+  unplaced: number;
 };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -249,6 +271,8 @@ export async function getHomeData(
           signatureDate: true,
           resiliationDate: true,
           history: true,
+          geo: true,
+          totalLicences: true,
         },
       })
       .then((r) => r.docs as Doc[])
@@ -379,5 +403,40 @@ export async function getHomeData(
         },
       ];
 
-  return { now, agenda, tests, figures, months: monthlyRows(fiches, now) };
+  // ── La carte : les clients signés (Gagnée) qui ont un point — et le nom de
+  // leur apporteur, pour le filtre (une lecture des seuls partenaires concernés).
+  const signes = fiches.filter((c) => c.clientStatus === "actif");
+  const partnerIds = [...new Set(signes.map((c) => idOf(c.partner)).filter((v): v is number | string => v != null))];
+  const partnerNames = new Map<string, string>(
+    partnerIds.length
+      ? (
+          (
+            await payload
+              .find({ ...base, collection: "partners", where: { id: { in: partnerIds } }, limit: 200, select: { displayName: true } })
+              .catch(() => ({ docs: [] as Doc[] }))
+          ).docs as Doc[]
+        ).map((p) => [String(p.id), String(p.displayName ?? "Partenaire")])
+      : [],
+  );
+  const places: Place[] = signes
+    .filter((c) => typeof c.geo?.lat === "number" && typeof c.geo?.lng === "number")
+    .map((c) => {
+      const pid = idOf(c.partner);
+      return {
+        id: c.id,
+        name: c.companyName ?? "Client",
+        lat: c.geo.lat,
+        lng: c.geo.lng,
+        city: c.geo.city ?? null,
+        postcode: c.geo.postcode ?? null,
+        ca: Number(c.caPaye) || 0,
+        licences: Number(c.totalLicences) || 0,
+        since: c.signatureDate ? String(c.signatureDate).slice(0, 10) : null,
+        partnerId: pid,
+        partner: pid != null ? (partnerNames.get(String(pid)) ?? null) : null,
+        href: `${adminRoute}/collections/partner-clients/${c.id}`,
+      };
+    });
+
+  return { now, agenda, tests, figures, months: monthlyRows(fiches, now), places, unplaced: signes.length - places.length };
 }

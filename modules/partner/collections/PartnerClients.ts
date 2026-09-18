@@ -42,6 +42,8 @@ import { BILLING_PERIOD_OPTIONS } from "@/modules/partner/lib/billing-period";
 import { buildHistoryEntry, nextHistory, type HistoryEntry } from "@/modules/partner/lib/history";
 import { peekPennylane } from "@/modules/partner/lib/pennylane";
 import { isBillableClient, LICENCE_BASE_PRICES, PROFILS } from "@/modules/partner/lib/pricing";
+import { geocodeClient } from "@/core/hooks/geocodeClient";
+import { setPhoneDigits } from "@/core/hooks/phoneDigits";
 
 /**
  * Opportunités — les entreprises BTP qu'un partenaire a amenées à Tim, du
@@ -441,6 +443,8 @@ export const PartnerClients: CollectionConfig = {
     // requireTestSchedule en TÊTE : le passage « En test » est refusé avant tout
     // calcul, plutôt que d'échouer à mi-chemin sur une fiche déjà recalculée.
     beforeChange: [
+      setPhoneDigits,
+      geocodeClient,
       requireTestSchedule,
       requireEmailFromTest,
       requireContractStart,
@@ -493,6 +497,23 @@ export const PartnerClients: CollectionConfig = {
      * pas un lead pour un accent — et l'alerte reste en tête jusqu'à ce que le
      * champ soit corrigé (voir clearIntakeIssues).
      */
+    /**
+     * Le point sur la carte de l'accueil : posé par geocodeClient (Base
+     * Adresse Nationale) quand l'adresse de facturation change. Jamais saisi.
+     */
+    {
+      name: "geo",
+      type: "group",
+      admin: { hidden: true },
+      fields: [
+        { name: "lat", type: "number" },
+        { name: "lng", type: "number" },
+        { name: "city", type: "text" },
+        { name: "postcode", type: "text" },
+        { name: "label", type: "text" },
+        { name: "source", type: "text" },
+      ],
+    },
     {
       name: "intakeAlert",
       type: "ui",
@@ -1154,6 +1175,10 @@ export const PartnerClients: CollectionConfig = {
                   validate: validatePhone,
                   admin: { width: "50%", placeholder: "+33 6 12 34 56 78" },
                 },
+                // Le même numéro en chiffres nationaux (« 0650461234 »), pour
+                // le retrouver en tapant « 065046 » ou « 06 50 46 » — tenu par
+                // setPhoneDigits, jamais saisi.
+                { name: "phoneDigits", type: "text", index: true, admin: { hidden: true } },
                 {
                   name: "recipient",
                   type: "text",
