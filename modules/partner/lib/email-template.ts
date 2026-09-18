@@ -25,6 +25,11 @@ export const TEMPLATE_VARIABLES: { token: string; label: string; hint: string }[
     label: "1er lundi",
     hint: "Premier lundi démarrable pour la phase de test",
   },
+  {
+    token: "{{lien_rdv}}",
+    label: "Lien de RDV",
+    hint: "Lien de réservation du partenaire (Calendly…), réglé dans sa fiche → Agenda ; vide s'il n'en a pas",
+  },
 ];
 
 export type TemplateContext = {
@@ -32,6 +37,8 @@ export type TemplateContext = {
   tarifs?: string | null;
   /** Premier lundi démarrable, en toutes lettres. */
   premier_lundi?: string | null;
+  /** Lien de réservation du partenaire (Calendly…), s'il a choisi ce mode. */
+  lien_rdv?: string | null;
   /**
    * Partenaire de l'opportunité — pas une variable de texte, mais la fiche à
    * laquelle rattacher un modèle enregistré depuis ce composeur.

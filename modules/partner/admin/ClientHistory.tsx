@@ -167,16 +167,19 @@ export function ClientHistory() {
    * reste alors utilisable, le serveur tranchera.
    */
   const [calendarReady, setCalendarReady] = useState<boolean | null>(null);
+  /** Le lien de réservation du partenaire (Calendly…) — la variable {{lien_rdv}} des modèles. */
+  const [bookingUrl, setBookingUrl] = useState<string | null>(null);
   useEffect(() => {
     if (partnerId == null) return;
     let cancelled = false;
     fetch(`/api/calendar/connections?partnerId=${partnerId}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { connections?: { calendars?: { target?: boolean }[] }[] } | null) => {
+      .then((j: { connections?: { calendars?: { target?: boolean }[] }[]; booking?: { bookingUrl?: string | null } } | null) => {
         if (cancelled || !j) return;
         setCalendarReady(
           Boolean(j.connections?.some((c) => (c.calendars ?? []).some((cal) => cal.target))),
         );
+        setBookingUrl(j.booking?.bookingUrl ?? null);
       })
       .catch(() => undefined);
     return () => {
@@ -536,6 +539,7 @@ export function ClientHistory() {
             contact: contact?.full ?? null,
             prenom: contact?.first ?? null,
             tarifs: tarifsMarkdown(licences),
+            lien_rdv: bookingUrl,
             premier_lundi: firstMonday
               ? new Date(`${firstMonday}T00:00:00Z`).toLocaleDateString("fr-FR", {
                   timeZone: "UTC",

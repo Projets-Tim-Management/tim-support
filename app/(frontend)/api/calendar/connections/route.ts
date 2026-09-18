@@ -3,11 +3,12 @@ import { NextResponse } from "next/server";
 import { hasAdminRole, isPartnerMetier, partnerIdOf } from "@/core/access";
 import { payloadClient } from "@/core/payload-client";
 import { accessTokenFor, getProvider, mergeCalendars, providerConfigured, type Connection } from "@/modules/marketing/lib/calendar";
+import { bookingModeOf } from "@/modules/marketing/lib/scheduling";
 
 /**
  * Agendas connectés d'un partenaire, pour l'écran de réglage.
  *
- * GET    ?partnerId=…            → connexions + fournisseurs configurés
+ * GET    ?partnerId=…            → connexions + fournisseurs configurés + mode de réservation (lien Calendly…)
  * PATCH  { id, calendars }       → quels agendas comptent / lequel reçoit
  * PUT    { id }                  → relit la liste des agendas chez le fournisseur
  *                                  (un agenda partagé depuis apparaît), réglages conservés
@@ -32,15 +33,23 @@ export async function GET(req: Request) {
   if (!ok) return NextResponse.json({ error: "forbidden" }, { status: status ?? 403 });
   if (!partnerId) return NextResponse.json({ error: "bad_request" }, { status: 400 });
 
-  const res = await payload.find({
-    collection: "calendar-connections",
-    where: { partner: { equals: Number(partnerId) } },
-    limit: 10,
-    depth: 0,
-    overrideAccess: true,
-  });
+  const [res, partner] = await Promise.all([
+    payload.find({
+      collection: "calendar-connections",
+      where: { partner: { equals: Number(partnerId) } },
+      limit: 10,
+      depth: 0,
+      overrideAccess: true,
+    }),
+    payload
+      .findByID({ collection: "partners", id: partnerId, depth: 0, overrideAccess: true, select: { scheduling: true } as never })
+      .catch(() => null),
+  ]);
 
   return NextResponse.json({
+    // Comment ce partenaire fait réserver — le composeur d'e-mail s'en sert
+    // pour la variable {{lien_rdv}}.
+    booking: bookingModeOf((partner as { scheduling?: Record<string, unknown> } | null)?.scheduling as never),
     providers: {
       google: providerConfigured("google"),
       microsoft: providerConfigured("microsoft"),
