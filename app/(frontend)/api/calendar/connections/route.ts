@@ -47,9 +47,11 @@ export async function GET(req: Request) {
   ]);
 
   return NextResponse.json({
-    // Comment ce partenaire fait réserver — le composeur d'e-mail s'en sert
+    // Comment ce partenaire fait réserver ses sessions, et son lien de
+    // réservation quel que soit le mode — le composeur d'e-mail s'en sert
     // pour la variable {{lien_rdv}}.
     booking: bookingModeOf((partner as { scheduling?: Record<string, unknown> } | null)?.scheduling as never),
+    bookingUrl: String((partner as { scheduling?: { bookingUrl?: string | null } } | null)?.scheduling?.bookingUrl ?? "").trim() || null,
     providers: {
       google: providerConfigured("google"),
       microsoft: providerConfigured("microsoft"),

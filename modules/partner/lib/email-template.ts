@@ -28,7 +28,7 @@ export const TEMPLATE_VARIABLES: { token: string; label: string; hint: string }[
   {
     token: "{{lien_rdv}}",
     label: "Lien de RDV",
-    hint: "Lien de réservation du partenaire (Calendly…), réglé dans sa fiche → Agenda ; vide s'il n'en a pas",
+    hint: "Lien de réservation du partenaire (Calendly…), réglé dans sa fiche partenaire → Agenda → « Lien de réservation » ; vide s'il n'en a pas",
   },
 ];
 

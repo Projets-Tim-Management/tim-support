@@ -174,12 +174,12 @@ export function ClientHistory() {
     let cancelled = false;
     fetch(`/api/calendar/connections?partnerId=${partnerId}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { connections?: { calendars?: { target?: boolean }[] }[]; booking?: { bookingUrl?: string | null } } | null) => {
+      .then((j: { connections?: { calendars?: { target?: boolean }[] }[]; bookingUrl?: string | null } | null) => {
         if (cancelled || !j) return;
         setCalendarReady(
           Boolean(j.connections?.some((c) => (c.calendars ?? []).some((cal) => cal.target))),
         );
-        setBookingUrl(j.booking?.bookingUrl ?? null);
+        setBookingUrl(j.bookingUrl ?? null);
       })
       .catch(() => undefined);
     return () => {

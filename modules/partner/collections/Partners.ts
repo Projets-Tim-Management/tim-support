@@ -585,10 +585,15 @@ export const Partners: CollectionConfig = {
                       : "Lien invalide (attendu : https://…).";
                   },
                   admin: {
-                    condition: (_, s) => s?.enabled !== false && s?.mode === "lien",
+                    // Visible quel que soit le mode : en mode « lien » c'est là
+                    // que le client réserve ; dans tous les cas, c'est la
+                    // variable {{lien_rdv}} des modèles d'e-mail (« reprenons
+                    // rendez-vous »). Choisir les créneaux TIM pour les sessions
+                    // n'empêche pas d'avoir un Calendly pour les démos.
+                    condition: (_, s) => s?.enabled !== false,
                     placeholder: "https://calendly.com/…",
                     description:
-                      "Le client sera renvoyé vers ce lien. La date retenue ne remonte pas automatiquement dans TIM : renseignez-la sur la phase de test si vous voulez la suivre.",
+                      "Sert à la variable {{lien_rdv}} des modèles d'e-mail. En mode « lien », le client y est aussi renvoyé pour réserver — la date retenue ne remonte pas automatiquement dans TIM : renseignez-la sur la phase de test si vous voulez la suivre.",
                   },
                 },
                 {
