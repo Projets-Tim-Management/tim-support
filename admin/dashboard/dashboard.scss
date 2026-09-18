@@ -1449,6 +1449,7 @@
 .home-map__pop a { margin-top: 0.3rem; font-weight: 700; color: var(--tim-primary); text-decoration: none; &:hover { text-decoration: underline; } }
 .home-map .leaflet-tooltip { border-radius: 6px; font-weight: 700; font-family: inherit; }
 .home-map .leaflet-control-attribution { font-size: 0.6rem; }
-/* Le fond en retrait : les tuiles OSM sont bariolées, les points doivent rester ce qu'on voit d'abord. */
-.home-map .leaflet-tile-pane { filter: saturate(0.35) contrast(0.92) brightness(1.04); }
+/* Fond en GRIS : les tuiles OSM sont bariolées, et sur un fond sans couleur
+   les points rouges sont la seule chose qu'on voit — c'est le but. */
+.home-map .leaflet-tile-pane { filter: grayscale(1) contrast(0.85) brightness(1.08); }
 .home-map .leaflet-bar a { color: var(--tim-foreground); }

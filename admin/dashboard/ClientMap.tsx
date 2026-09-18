@@ -12,7 +12,7 @@ import type { Place } from "./data-home";
  * Où sont les clients signés — une carte, un point par fiche.
  *
  * Leaflet, chargé dans le navigateur seulement (il a besoin de `window`), sur
- * le fond OpenStreetMap, désaturé pour que les points ressortent. Chaque point
+ * le fond OpenStreetMap passé en gris pour que les points rouges ressortent. Chaque point
  * est un cercle à la couleur TIM, dont la taille suit le CA mensuel (racine
  * carrée : un client à 400 € n'écrase pas un client à 100 €) ; l'infobulle
  * dit le nom, la commune, le CA, et mène à la fiche.
