@@ -107,6 +107,34 @@ export default function AgendaBoard({
     }
   }, []);
 
+  /**
+   * « Pas de réponse » sur un appel : la tentative se note, la tâche se
+   * reporte au prochain jour ouvré (voir la route). Ici on pose la nouvelle
+   * date sur la ligne : le filtre du jour la fait sortir d'elle-même, et elle
+   * réapparaît à sa date sur le calendrier.
+   */
+  const pasDeReponse = useCallback(async (item: AgendaItem) => {
+    if (item.taskId == null) return;
+    setErreur(null);
+    try {
+      const res = await fetch("/api/admin/task-attempt", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId: item.taskId }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { task?: { dueDate?: string; attempts?: unknown[] }; error?: string };
+      if (!res.ok || !data.task?.dueDate) throw new Error(data.error || String(res.status));
+      const poser = (liste: AgendaItem[]) =>
+        liste.map((i) => (i.id === item.id ? { ...i, at: data.task!.dueDate!, attempts: data.task!.attempts?.length ?? (i.attempts ?? 0) + 1 } : i));
+      setItems(poser);
+      // Reportée à une date à venir, elle n'est plus en retard : elle sort du bloc.
+      setRetard((liste) => liste.filter((i) => i.id !== item.id));
+    } catch (e) {
+      setErreur((e as Error).message || "L'essai n'a pas pu être noté.");
+    }
+  }, []);
+
   return (
     <div className="dash-today">
       <MonthCalendar compteurs={compteurs} now={now} selected={jour} onSelect={setJour} />
@@ -119,6 +147,7 @@ export default function AgendaBoard({
         jour={jour}
         aujourdHui={aujourdHui}
         onToggle={basculer}
+        onNoAnswer={pasDeReponse}
         erreur={erreur}
       />
     </div>

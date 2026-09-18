@@ -102,12 +102,14 @@ function Carte({
   quand,
   etat,
   onToggle,
+  onNoAnswer,
   now,
 }: {
   item: AgendaItem;
   quand: string;
   etat: { texte: string; ton: "late" | "today" | "done" } | null;
   onToggle?: (item: AgendaItem) => void;
+  onNoAnswer?: (item: AgendaItem) => void;
   now: number;
 }) {
   const lignes = lignesAgenda(item);
@@ -138,6 +140,23 @@ function Carte({
             Rejoindre
           </a>
         )}
+        {/* Un appel sans réponse : un geste, la trace et le report — plutôt que
+            cocher et recréer la même tâche. Les essais déjà faits se lisent. */}
+        {(item.attempts ?? 0) > 0 && (
+          <span className="dash-chip dash-chip--soft" title="Essais sans réponse déjà notés">
+            {item.attempts} essai{(item.attempts ?? 0) > 1 ? "s" : ""} sans réponse
+          </span>
+        )}
+        {item.kind === "appel" && !item.done && onNoAnswer && item.taskId != null && (
+          <button
+            type="button"
+            className="dash-chip dash-chip--noanswer"
+            title="Noter l'essai à cette heure et reporter l'appel au prochain jour ouvré"
+            onClick={() => onNoAnswer(item)}
+          >
+            Pas de réponse
+          </button>
+        )}
       </div>
     </li>
   );
@@ -150,6 +169,7 @@ export default function TodayAgenda({
   jour,
   aujourdHui,
   onToggle,
+  onNoAnswer,
   erreur,
 }: {
   items: AgendaItem[];
@@ -160,6 +180,8 @@ export default function TodayAgenda({
   aujourdHui: string;
   /** Cocher une tâche d'ici. Absent → l'état reste un simple indicateur. */
   onToggle?: (item: AgendaItem) => void;
+  /** « Pas de réponse » sur un appel : noter l'essai et reporter. */
+  onNoAnswer?: (item: AgendaItem) => void;
   /** Échec de la dernière écriture, en toutes lettres. */
   erreur?: string | null;
 }) {
@@ -194,6 +216,7 @@ export default function TodayAgenda({
                 quand={`Était prévu ${depuisQuand(item, jourCourant)}`}
                 etat={{ texte: "En retard", ton: "late" }}
                 onToggle={onToggle}
+                onNoAnswer={onNoAnswer}
                 now={now}
               />
             ))}
@@ -220,6 +243,7 @@ export default function TodayAgenda({
                         : null
                 }
                 onToggle={onToggle}
+                onNoAnswer={onNoAnswer}
                 now={now}
               />
             ))}

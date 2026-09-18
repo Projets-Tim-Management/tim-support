@@ -578,17 +578,23 @@ export const Partners: CollectionConfig = {
                   type: "text",
                   label: "Lien de réservation",
                   validate: (value: unknown, { siblingData }: { siblingData?: { mode?: string } }) => {
-                    if (siblingData?.mode !== "lien") return true;
-                    if (!value) return "Indiquez le lien vers votre outil de réservation.";
+                    // Obligatoire en mode « lien » ; et, dès qu'il est renseigné, une
+                    // vraie URL — il part tel quel dans les e-mails ({{lien_rdv}}).
+                    if (!value) return siblingData?.mode === "lien" ? "Indiquez le lien vers votre outil de réservation." : true;
                     return /^https?:\/\/\S+$/i.test(String(value))
                       ? true
                       : "Lien invalide (attendu : https://…).";
                   },
                   admin: {
-                    condition: (_, s) => s?.enabled !== false && s?.mode === "lien",
+                    // Visible quel que soit le mode : en mode « lien » c'est là
+                    // que le client réserve ; dans tous les cas, c'est la
+                    // variable {{lien_rdv}} des modèles d'e-mail (« reprenons
+                    // rendez-vous »). Choisir les créneaux TIM pour les sessions
+                    // n'empêche pas d'avoir un Calendly pour les démos.
+                    condition: (_, s) => s?.enabled !== false,
                     placeholder: "https://calendly.com/…",
                     description:
-                      "Le client sera renvoyé vers ce lien. La date retenue ne remonte pas automatiquement dans TIM : renseignez-la sur la phase de test si vous voulez la suivre.",
+                      "Sert à la variable {{lien_rdv}} des modèles d'e-mail. En mode « lien », le client y est aussi renvoyé pour réserver — la date retenue ne remonte pas automatiquement dans TIM : renseignez-la sur la phase de test si vous voulez la suivre.",
                   },
                 },
                 {

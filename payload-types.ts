@@ -418,7 +418,7 @@ export interface Partner {
      */
     mode?: ('creneaux' | 'lien') | null;
     /**
-     * Le client sera renvoyé vers ce lien. La date retenue ne remonte pas automatiquement dans TIM : renseignez-la sur la phase de test si vous voulez la suivre.
+     * Sert à la variable {{lien_rdv}} des modèles d'e-mail. En mode « lien », le client y est aussi renvoyé pour réserver — la date retenue ne remonte pas automatiquement dans TIM : renseignez-la sur la phase de test si vous voulez la suivre.
      */
     bookingUrl?: string | null;
     hours?:
@@ -1656,6 +1656,13 @@ export interface ClientActivity {
   highPriority?: boolean | null;
   done?: boolean | null;
   doneAt?: string | null;
+  attempts?:
+    | {
+        at?: string | null;
+        by?: (number | null) | User;
+        id?: string | null;
+      }[]
+    | null;
   reminderSentAt?: string | null;
   /**
    * Un événement à l'échéance, dans l'agenda connecté du partenaire. Rien ne se passe s'il n'en a pas connecté.
@@ -1683,7 +1690,7 @@ export interface ClientActivity {
   createdAt: string;
 }
 /**
- * Messages types réutilisables lors d'un envoi depuis une opportunité. Variables disponibles : {{entreprise}}, {{contact}}, {{prenom}}, {{email}}, {{partenaire}}, {{tarifs}}, {{premier_lundi}}.
+ * Messages types réutilisables lors d'un envoi depuis une opportunité. Variables disponibles : {{entreprise}}, {{contact}}, {{prenom}}, {{email}}, {{partenaire}}, {{tarifs}}, {{premier_lundi}}, {{lien_rdv}}.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "email-templates".
@@ -3120,6 +3127,13 @@ export interface ClientActivitiesSelect<T extends boolean = true> {
   highPriority?: T;
   done?: T;
   doneAt?: T;
+  attempts?:
+    | T
+    | {
+        at?: T;
+        by?: T;
+        id?: T;
+      };
   reminderSentAt?: T;
   calendarSync?: T;
   calendarMinutes?: T;

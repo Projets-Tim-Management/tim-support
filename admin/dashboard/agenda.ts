@@ -36,6 +36,10 @@ export type AgendaItem = {
    * Cocher ici ÉCRIT sur le parcours — c'est la même case, vue d'un autre écran.
    */
   etape?: { runId: number | string; key: string };
+  /** Tâche : son identifiant, pour « Pas de réponse » (voir /api/admin/task-attempt). */
+  taskId?: number | string;
+  /** Tâche d'appel : nombre d'essais sans réponse déjà notés. */
+  attempts?: number;
 };
 
 /** Jour civil à Paris, pour comparer des instants stockés en UTC. */

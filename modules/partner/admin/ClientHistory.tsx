@@ -16,6 +16,7 @@ import {
   taskKindLabel,
   taskKindMeta,
 } from "@/modules/partner/lib/activity";
+import { attemptsSummary } from "@/modules/partner/lib/task-attempts";
 import { PARIS_TZ, dayKey } from "@/core/lib/dates";
 import { relativeDue } from "@/modules/partner/lib/relative-due";
 import { firstStartableMonday, leadDaysOf } from "@/modules/marketing/lib/journey";
@@ -54,6 +55,8 @@ type Activity = {
   done?: boolean;
   /** Tâche : quand elle a été cochée. C'est CE moment qui la place dans la chronologie. */
   doneAt?: string | null;
+  /** Tâche d'appel : les essais sans réponse déjà notés. */
+  attempts?: { at: string }[] | null;
   calendarSync?: boolean;
   calendarMinutes?: number | null;
   /** Lien vers l'événement d'agenda, quand il a été créé. */
@@ -167,16 +170,19 @@ export function ClientHistory() {
    * reste alors utilisable, le serveur tranchera.
    */
   const [calendarReady, setCalendarReady] = useState<boolean | null>(null);
+  /** Le lien de réservation du partenaire (Calendly…) — la variable {{lien_rdv}} des modèles. */
+  const [bookingUrl, setBookingUrl] = useState<string | null>(null);
   useEffect(() => {
     if (partnerId == null) return;
     let cancelled = false;
     fetch(`/api/calendar/connections?partnerId=${partnerId}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { connections?: { calendars?: { target?: boolean }[] }[] } | null) => {
+      .then((j: { connections?: { calendars?: { target?: boolean }[] }[]; bookingUrl?: string | null } | null) => {
         if (cancelled || !j) return;
         setCalendarReady(
           Boolean(j.connections?.some((c) => (c.calendars ?? []).some((cal) => cal.target))),
         );
+        setBookingUrl(j.bookingUrl ?? null);
       })
       .catch(() => undefined);
     return () => {
@@ -437,6 +443,31 @@ export function ClientHistory() {
     [editing, id, load],
   );
 
+  /**
+   * « Pas de réponse » : l'essai est horodaté sur la tâche, la fiche garde une
+   * ligne de journal, et la tâche est reportée au prochain jour ouvré — un
+   * geste, une trace, rien à recréer (voir /api/admin/task-attempt).
+   */
+  const noAnswer = useCallback(
+    async (a: Activity) => {
+      setError(null);
+      try {
+        const res = await fetch("/api/admin/task-attempt", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ taskId: a.id }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (!res.ok) throw new Error(data.error || "L'essai n'a pas pu être noté.");
+        await load();
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    },
+    [load],
+  );
+
   const toggleDone = useCallback(
     async (a: Activity) => {
       // Optimiste : cocher une tâche doit répondre tout de suite.
@@ -536,6 +567,7 @@ export function ClientHistory() {
             contact: contact?.full ?? null,
             prenom: contact?.first ?? null,
             tarifs: tarifsMarkdown(licences),
+            lien_rdv: bookingUrl,
             premier_lundi: firstMonday
               ? new Date(`${firstMonday}T00:00:00Z`).toLocaleDateString("fr-FR", {
                   timeZone: "UTC",
@@ -587,6 +619,7 @@ export function ClientHistory() {
                       {t.title && t.title !== taskKindLabel(t.taskKind) ? t.title : null}
                     </span>
                     {t.content && <span className="tim-history__task-note">{t.content}</span>}
+                    {attemptsSummary(t.attempts) && <span className="tim-history__task-attempts">{attemptsSummary(t.attempts)}</span>}
                   </span>
                   {rel && (
                     <span
@@ -629,6 +662,17 @@ export function ClientHistory() {
                       </>
                     ) : (
                       <>
+                        {t.taskKind === "appel" && (
+                          <button
+                            type="button"
+                            className="tim-history__mini tim-history__mini--noanswer"
+                            disabled={busy}
+                            title="Noter l'essai à cette heure et reporter l'appel au prochain jour ouvré"
+                            onClick={() => void noAnswer(t)}
+                          >
+                            Pas de réponse
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="tim-history__mini"

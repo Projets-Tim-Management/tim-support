@@ -40,10 +40,16 @@ import { TEMPLATE_VARIABLES } from "@/modules/partner/lib/email-template";
  * Contrôlé ici et non par `required` : l'obligation dépend de la portée, ce que
  * la déclaration d'un champ ne sait pas exprimer.
  */
-const requirePartnerScope: CollectionBeforeChangeHook = ({ data, originalDoc, req }) => {
+const requirePartnerScope: CollectionBeforeChangeHook = ({ data, originalDoc, operation, req }) => {
   const scope = data?.scope ?? originalDoc?.scope ?? "partenaire";
   if (scope === "tim") {
     if (!hasAdminRole(req.user)) {
+      // Un partenaire qui DUPLIQUE un modèle TIM obtient sa propre version :
+      // la copie devient la sienne (enforcePartnerField la rattache à sa
+      // fiche) plutôt que d'échouer sur un « réservé à l'administrateur ».
+      if (operation === "create" && partnerIdOf(req.user) != null) {
+        return { ...data, scope: "partenaire", partner: partnerIdOf(req.user) };
+      }
       throw new Error("Seul un administrateur peut créer ou modifier un modèle TIM.");
     }
     return { ...data, partner: null };
@@ -61,10 +67,9 @@ export const EmailTemplates: CollectionConfig = {
     useAsTitle: "name",
     defaultColumns: ["name", "subject", "scope", "partner", "updatedAt"],
     group: "Partenaires",
-    // Gérés depuis le drawer « Envoyer un e-mail » (créer, modifier, supprimer),
-    // là où on s'en sert. Une page de plus dans le menu pour la même chose
-    // n'apporterait qu'un deuxième endroit à tenir à jour.
-    hidden: true,
+    // Insérés et créés depuis le tiroir « Envoyer un e-mail » — mais c'est ICI
+    // qu'on relit et corrige un modèle existant (le tiroir ne modifie pas). Un
+    // partenaire y voit les siens et ceux de TIM ; il ne modifie que les siens.
     description:
       "Messages types réutilisables lors d'un envoi depuis une opportunité. Variables disponibles : " +
       TEMPLATE_VARIABLES.map((v) => v.token).join(", ") +

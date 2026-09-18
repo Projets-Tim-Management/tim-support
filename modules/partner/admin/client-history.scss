@@ -192,6 +192,12 @@
   color: var(--tim-muted);
   white-space: pre-wrap;
 }
+/* Les essais sans réponse d'un appel : « 2 essais · dernier 17 sept. 14:32 ». */
+.tim-history__task-attempts {
+  font-size: 0.76rem;
+  color: var(--tim-teal);
+  font-weight: 600;
+}
 .tim-history__due {
   flex: 0 0 auto;
   padding: 0.15rem 0.5rem;
@@ -1767,6 +1773,15 @@
 .tim-history__mini:hover {
   background: var(--tim-surface);
   color: var(--tim-foreground);
+}
+/* « Pas de réponse » : à la teinte de l'appel, toujours visible (pas seulement au survol de la ligne). */
+.tim-history__mini--noanswer {
+  border-color: var(--tim-teal);
+  color: var(--tim-teal);
+}
+.tim-history__mini--noanswer:hover {
+  background: var(--tim-teal-bg);
+  color: var(--tim-teal);
 }
 .tim-history__mini--danger {
   border-color: var(--tim-red);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fillTemplate, templatePreview } from "@/modules/partner/lib/email-template";
+import { TEMPLATE_VARIABLES, fillTemplate, templatePreview } from "@/modules/partner/lib/email-template";
 
 /**
  * Modèles d'e-mail : remplacement des variables.
@@ -78,5 +78,14 @@ describe("aperçu d'un modèle", () => {
     const out = templatePreview(long, 50);
     expect(out).toHaveLength(50);
     expect(out.endsWith("…")).toBe(true);
+  });
+});
+
+describe("le lien de rendez-vous du partenaire", () => {
+  it("s'insère tel quel, et disparaît proprement quand le partenaire n'en a pas", () => {
+    const body = "**Reprendre rendez-vous :** {{lien_rdv}}";
+    expect(fillTemplate(body, { lien_rdv: "https://calendly.com/tim/demo" })).toBe("**Reprendre rendez-vous :** https://calendly.com/tim/demo");
+    expect(fillTemplate(body, { lien_rdv: null })).toBe("**Reprendre rendez-vous :**");
+    expect(TEMPLATE_VARIABLES.map((v) => v.token)).toContain("{{lien_rdv}}");
   });
 });

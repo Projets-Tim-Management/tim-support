@@ -1015,6 +1015,16 @@
   &:hover { background: var(--tim-primary-dark); color: var(--tim-white); }
 
 }
+/* « Pas de réponse » : un bouton discret, à la teinte de l'appel — il note et reporte, il ne coche pas. */
+.dash-chip--noanswer {
+  border: 1px solid var(--tim-teal);
+  background: var(--tim-white);
+  color: var(--tim-teal);
+  font: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  &:hover { background: var(--tim-teal-bg); }
+}
 
 /* Échec d'une écriture depuis le tableau de bord. Une ligne qui revient toute
    seule à son état passe pour un clic raté : on dit ce qui s'est passé. */
