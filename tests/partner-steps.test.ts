@@ -6,6 +6,7 @@ import {
   isPartnerStepHour,
   partnerStepsDue,
   partnerStepsOnAgenda,
+  partnerStepsOnCard,
   type PartnerStep,
 } from "@/modules/marketing/lib/partner-steps";
 
@@ -262,5 +263,41 @@ describe("le message envoyé au partenaire", () => {
     const brut = buildPartnerStepEmail({ runId: 1, steps: due, nowMs: LE_9 });
     expect(brut.text).not.toMatch(/undefined|\bnull\b/);
     expect(brut.html).not.toMatch(/undefined|\bnull\b/);
+  });
+});
+
+/**
+ * La carte du Kanban : le même trou que l'agenda, un écran plus loin. Une
+ * carte « En phase de test » disait « Partenaire à venir » le jour même où
+ * l'appel J+2 était dû, parce que seules les tâches saisies à la main y
+ * portaient une échéance.
+ */
+describe("les étapes du partenaire sur une carte du Kanban", () => {
+  it("retient la plus proche non faite — une seule, le parcours est une séquence", () => {
+    const run = {
+      ...RUN,
+      steps: [
+        RUN.steps[3],
+        { ...RUN.steps[0], state: "fait" },
+        { key: "releve-j0", label: "Relevé J0", actor: "partenaire", state: "a-faire", anchor: "debut", offsetDays: 0 },
+      ] as PartnerStep[],
+    };
+    expect(partnerStepsOnCard(run, LE_9).map((s) => s.step.key)).toEqual(["releve-j0"]);
+  });
+
+  it("borne l'horizon : une étape dans trois semaines n'encombre pas la carte", () => {
+    const run = {
+      ...RUN,
+      steps: [
+        { key: "bilan", label: "Bilan", actor: "partenaire", state: "a-faire", anchor: "debut", offsetDays: 21 },
+        RUN.steps[3],
+      ] as PartnerStep[],
+    };
+    expect(partnerStepsOnCard(run, LE_9).map((s) => s.step.key)).toEqual(["releve-j7"]);
+  });
+
+  it("garde un retard sans plancher : une étape non faite reste due", () => {
+    const tard = Date.parse("2026-10-20T06:00:00.000Z");
+    expect(partnerStepsOnCard(RUN, tard).map((s) => s.step.key)).toEqual(["releve-j2"]);
   });
 });

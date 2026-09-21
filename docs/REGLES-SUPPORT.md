@@ -25,7 +25,7 @@ quand on lui pose une question : ce qui n'est pas ici, il ne le sait pas.
 - Étapes **datées** — session, relevés d'usage J+2, J+7, mi-parcours, avant bilan, bilan : ne se cochent **pas avant leur jour** (jour civil de Paris). Un relevé est un constat du jour dit.
 - Le bouton « valider » se pose sur la **première étape non acquise qui attend une main** (ni système, ni armée) ; les étapes suivantes attendent.
 - Le statut du parcours est **dérivé** des étapes : en préparation, test en cours, gagné (mise en production cochée) ; perdu et annulé se posent à la main.
-- **Rappels au partenaire** : le jour d'une étape partenaire échue, un e-mail « Une action vous attend » (une fois). Les étapes partenaire datées figurent aussi sur l'agenda de l'accueil (aujourd'hui / en retard) et dans le récapitulatif du matin, et se cochent des deux côtés (accueil et fiche) — même règle.
+- **Rappels au partenaire** : le jour d'une étape partenaire échue, un e-mail « Une action vous attend » (une fois). Les étapes partenaire datées figurent aussi sur l'agenda de l'accueil (aujourd'hui / en retard) et dans le récapitulatif du matin, et se cochent des deux côtés (accueil et fiche) — même règle. Sur le Kanban des opportunités, la prochaine étape partenaire non faite (échue ou due sous 7 jours) s'affiche sur la carte — une seule par parcours — dans la liste des échéances, avec les mêmes mots que les tâches (« aujourd'hui », « en retard », « dans 3 j »), pastille « Phase de test ».
 
 ## L'accueil et l'assistant
 

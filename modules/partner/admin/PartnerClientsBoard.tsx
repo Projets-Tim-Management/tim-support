@@ -18,6 +18,7 @@ import {
 import { needsLossReason } from "@/modules/partner/lib/lossReason";
 import { isStepDone } from "@/modules/marketing/lib/journey";
 import { isInviteMissing, readPortalLogins } from "@/modules/marketing/lib/invite-status";
+import { partnerStepsOnCard } from "@/modules/marketing/lib/partner-steps";
 import { eur } from "@/modules/partner/lib/format";
 
 /**
@@ -134,6 +135,15 @@ type RunProgress = {
    * était jusqu'ici visible dans un seul onglet d'une seule fiche.
    */
   inviteMissing: boolean;
+  /**
+   * La prochaine étape du partenaire, échue ou proche (voir partnerStepsOnCard)
+   * — une au plus, d'où la liste vide ou d'un élément.
+   *
+   * Elle rejoint les tâches dans la liste des échéances de la carte : un
+   * appel J+2 dû aujourd'hui s'y lit « aujourd'hui », comme une tâche posée à
+   * la main. Sans elle, la carte disait « Partenaire à venir » le jour même.
+   */
+  dueSteps: { key: string; label: string; due: string }[];
 };
 
 /** Tâche ouverte d'un client, telle qu'elle s'affiche sur sa carte. */
@@ -145,6 +155,23 @@ type OpenTask = {
   highPriority?: boolean;
   client?: number | string | { id?: number | string } | null;
 };
+
+/**
+ * Une ligne d'échéance sur la carte : tâche saisie à la main OU étape du
+ * parcours. Même liste, même tri, même mot (« aujourd'hui », « en retard ») —
+ * ce qui décide de la journée ne dépend pas de qui a posé la date.
+ */
+type DueItem = {
+  id: string;
+  kind: "tache" | "etape";
+  title: string | null;
+  taskKind?: string | null;
+  dueDate: string;
+  highPriority?: boolean;
+};
+
+/** Teinte d'une étape de parcours — la même que sur le tableau de bord. */
+const STEP_TINT = { color: "var(--tim-purple)", bg: "var(--tim-purple-bg)" };
 
 /**
  * Échéance en clair : « en retard », « aujourd'hui », « demain », « dans 5 j ».
@@ -346,6 +373,8 @@ export function PartnerClientsBoard() {
           "&select[client]=true&select[currentStepKey]=true&select[currentStepLabel]=true" +
           "&select[stepsDone]=true&select[stepsTotal]=true&select[steps]=true" +
           "&select[sessionAt]=true&select[sessionMode]=true&select[sessionLink]=true" +
+          // Les ancrages des étapes : sans eux, pas d'échéance calculable.
+          "&select[startDate]=true&select[endDate]=true&select[reviewAt]=true" +
           "&select[status]=true&select[emails]=true";
         /**
          * Les accès sont lus EN MÊME TEMPS que les parcours.
@@ -381,10 +410,21 @@ export function PartnerClientsBoard() {
           currentStepLabel?: string | null;
           stepsDone?: number;
           stepsTotal?: number;
-          steps?: { key?: string; actor?: string; state?: string }[];
+          steps?: {
+            key?: string;
+            label?: string;
+            actor?: string;
+            state?: string;
+            anchor?: string | null;
+            offsetDays?: number | null;
+            autoValidate?: boolean | null;
+          }[];
           sessionAt?: string | null;
           sessionMode?: string | null;
           sessionLink?: string | null;
+          startDate?: string | null;
+          endDate?: string | null;
+          reviewAt?: string | null;
           status?: string | null;
           emails?: { key?: string; sentAt?: string | null }[];
         }[]) {
@@ -436,6 +476,11 @@ export function PartnerClientsBoard() {
               clientId: cid,
               logins,
             }),
+            dueSteps: partnerStepsOnCard(run).map(({ step, due }) => ({
+              key: step.key ?? "",
+              label: step.label ?? "Étape du parcours",
+              due,
+            })),
           };
         }
         setRunByClient(map);
@@ -543,19 +588,57 @@ export function PartnerClientsBoard() {
   }, [clients, contactsByClient, search]);
 
   /**
+   * Ce qui est à faire sur chaque client, tâches ET étapes de parcours
+   * confondues, trié par échéance.
+   *
+   * Construit une fois pour tout le tableau : le tri des colonnes et le rendu
+   * des cartes lisent la même liste, donc la carte qu'on voit en tête est
+   * bien celle dont l'échéance est la plus proche.
+   */
+  const dueByClient = useMemo(() => {
+    const map: Record<string, DueItem[]> = {};
+    for (const [cid, tasks] of Object.entries(tasksByClient)) {
+      for (const t of tasks) {
+        if (!t.dueDate) continue;
+        (map[cid] ??= []).push({
+          id: `tache-${t.id}`,
+          kind: "tache",
+          title: t.title ?? null,
+          taskKind: t.taskKind,
+          dueDate: t.dueDate,
+          highPriority: t.highPriority,
+        });
+      }
+    }
+    for (const [cid, run] of Object.entries(runByClient)) {
+      for (const st of run.dueSteps) {
+        (map[cid] ??= []).push({
+          id: `etape-${st.key}`,
+          kind: "etape",
+          title: st.label,
+          dueDate: st.due,
+        });
+      }
+    }
+    for (const items of Object.values(map)) {
+      items.sort((a, b) => Date.parse(a.dueDate) - Date.parse(b.dueDate));
+    }
+    return map;
+  }, [tasksByClient, runByClient]);
+
+  /**
    * Échéance la plus proche d'un client, en millisecondes.
    *
-   * `Infinity` quand il n'a aucune tâche datée : ces fiches passent en fin de
-   * colonne. Les tâches arrivent déjà triées par échéance (tri de la requête),
-   * la première est donc la plus proche.
+   * `Infinity` quand il n'a rien de daté : ces fiches passent en fin de
+   * colonne. La liste est déjà triée, la première est donc la plus proche.
    */
   const nextDueOf = useCallback(
     (id: number | string): number => {
-      const due = tasksByClient[String(id)]?.[0]?.dueDate;
+      const due = dueByClient[String(id)]?.[0]?.dueDate;
       const t = due ? Date.parse(due) : NaN;
       return Number.isNaN(t) ? Number.POSITIVE_INFINITY : t;
     },
-    [tasksByClient],
+    [dueByClient],
   );
 
   const byStatus = useMemo(() => {
@@ -928,13 +1011,16 @@ export function PartnerClientsBoard() {
                           la seule information qui décide de la journée. Deux
                           échéances au plus : au-delà, la carte devient une liste
                           et la colonne n'est plus lisible. */}
-                      {(tasksByClient[String(c.id)]?.length ?? 0) > 0 && (
+                      {(dueByClient[String(c.id)]?.length ?? 0) > 0 && (
                         <ul className="tim-kanban__tasks">
-                          {tasksByClient[String(c.id)].slice(0, 2).map((t) => {
+                          {dueByClient[String(c.id)].slice(0, 2).map((t) => {
                             const due = dueLabel(t.dueDate);
                             // Couleur de la NATURE de la tâche : on reconnaît un
-                            // appel d'un envoi d'e-mail sans lire la ligne.
-                            const tint = taskKindMeta(t.taskKind);
+                            // appel d'un envoi d'e-mail sans lire la ligne. Une
+                            // étape de parcours a sa teinte à elle : elle vient
+                            // du déroulé de la phase de test, pas d'un rappel posé.
+                            const etape = t.kind === "etape";
+                            const tint = etape ? STEP_TINT : taskKindMeta(t.taskKind);
                             return (
                               <li key={t.id} className="tim-kanban__task">
                                 {/* Pastille de NATURE : icône + mot, sur fond
@@ -944,8 +1030,8 @@ export function PartnerClientsBoard() {
                                   className="tim-kanban__task-kind"
                                   style={{ background: tint.bg, color: tint.color }}
                                 >
-                                  <ActivityIcon kind={t.taskKind ?? "tache"} />
-                                  {taskKindLabel(t.taskKind) ?? "Tâche"}
+                                  <ActivityIcon kind={etape ? "tache" : (t.taskKind ?? "tache")} />
+                                  {etape ? "Phase de test" : (taskKindLabel(t.taskKind) ?? "Tâche")}
                                 </span>
                                 {/* Nom omis s'il ne fait que répéter la nature
                                     (une tâche créée sans le renommer). */}
@@ -967,10 +1053,10 @@ export function PartnerClientsBoard() {
                               </li>
                             );
                           })}
-                          {tasksByClient[String(c.id)].length > 2 && (
+                          {dueByClient[String(c.id)].length > 2 && (
                             <li className="tim-kanban__task tim-kanban__task--more">
-                              +{tasksByClient[String(c.id)].length - 2} autre
-                              {tasksByClient[String(c.id)].length - 2 > 1 ? "s" : ""}
+                              +{dueByClient[String(c.id)].length - 2} autre
+                              {dueByClient[String(c.id)].length - 2 > 1 ? "s" : ""}
                             </li>
                           )}
                         </ul>
