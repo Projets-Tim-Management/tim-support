@@ -174,6 +174,41 @@ export const partnerStepsOnAgenda = (run: {
   return out;
 };
 
+/**
+ * Les étapes du partenaire qui ont leur place sur une CARTE du Kanban.
+ *
+ * Le Kanban affichait « aujourd'hui » et « en retard » sur les tâches saisies
+ * à la main, jamais sur les étapes du parcours : une carte « En phase de test »
+ * disait « Partenaire à venir » le jour même où l'appel J+2 était dû — le
+ * même trou que sur le tableau de bord, corrigé là-bas le 16/09/2026 et
+ * oublié ici.
+ *
+ * Même admission que l'agenda, à trois différences près, qui sont celles d'une
+ * carte qu'on balaie :
+ *   - les étapes FAITES sortent — une carte dit ce qu'il reste à faire ;
+ *   - UNE étape par parcours, la plus proche : un parcours est une séquence,
+ *     la suivante n'a d'intérêt qu'une fois celle-ci faite. Deux lignes
+ *     « Phase de test » sur la même carte se lisaient comme un doublon
+ *     (constaté le 21/09/2026 : « J+7 aujourd'hui » et « mi-parcours dans
+ *     1 sem. » sur SOCOM) ;
+ *   - l'horizon est borné à `horizonDays` — une étape dans trois semaines
+ *     n'est pas une information, c'est de l'encombrement.
+ * Le retard, lui, n'a pas de plancher : une étape non faite reste due.
+ *
+ * Renvoie une liste (vide ou d'un élément) pour se fondre dans celle des tâches.
+ */
+export const partnerStepsOnCard = (
+  run: Parameters<typeof partnerStepsOnAgenda>[0],
+  nowMs: number = Date.now(),
+  horizonDays = 7,
+): AgendaStep[] => {
+  const horizon = nowMs + horizonDays * 86_400_000;
+  const next = partnerStepsOnAgenda(run)
+    .filter((s) => !s.done && Date.parse(s.due) <= horizon)
+    .sort((a, b) => Date.parse(a.due) - Date.parse(b.due))[0];
+  return next ? [next] : [];
+};
+
 /** « aujourd'hui », « en retard de 3 jours » — le délai avant l'intitulé. */
 const delay = (lateDays: number): string =>
   lateDays <= 0
