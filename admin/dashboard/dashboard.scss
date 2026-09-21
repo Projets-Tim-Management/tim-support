@@ -1020,8 +1020,11 @@
   border: 1px solid var(--tim-teal);
   background: var(--tim-white);
   color: var(--tim-teal);
-  font: inherit;
-  font-size: inherit;
+  /* Seule la FAMILLE s'hérite : `font: inherit` reprenait aussi la taille et
+     la graisse du texte de la carte, et le bouton sortait deux fois plus gros
+     que les étiquettes voisines. */
+  font-family: inherit;
+  line-height: inherit;
   cursor: pointer;
   &:hover { background: var(--tim-teal-bg); }
 }
