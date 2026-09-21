@@ -81,7 +81,10 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     "form-submissions",
     {
       label: "Paramètres",
-      slugs: ["marketing-journeys", "sequences", "forms", "email-suppressions"],
+      // Les modèles d'e-mail sont ici et non sous « Partenaires » : choisir les
+      // mots d'un message, c'est du marketing, même quand l'envoi part d'une
+      // opportunité (décision du 21/09/2026).
+      slugs: ["marketing-journeys", "sequences", "forms", "email-templates", "email-suppressions"],
     },
   ],
   /**
@@ -89,7 +92,7 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
    * « Partenaires », ce qu'on ouvre pour travailler sur un dossier ;
    * « Utilisateur », le programme de points vu du partenaire.
    */
-  Partenaires: ["partners", "partner-clients", "email-templates"],
+  Partenaires: ["partners", "partner-clients"],
   /**
    * Ce que TIM facture. Aucune collection : l'écran lit Pennylane à la demande.
    * Réservé aux admins, les partenaires n'en voient rien.

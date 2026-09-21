@@ -66,7 +66,7 @@ export const EmailTemplates: CollectionConfig = {
   admin: {
     useAsTitle: "name",
     defaultColumns: ["name", "subject", "scope", "partner", "updatedAt"],
-    group: "Partenaires",
+    group: "Marketing",
     // Insérés et créés depuis le tiroir « Envoyer un e-mail » — mais c'est ICI
     // qu'on relit et corrige un modèle existant (le tiroir ne modifie pas). Un
     // partenaire y voit les siens et ceux de TIM ; il ne modifie que les siens.
