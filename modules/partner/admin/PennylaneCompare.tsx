@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { BillingCheckDetail, VerdictBadge } from "@/modules/partner/admin/BillingCheckTable";
 import type { ClientCheck } from "@/modules/partner/lib/billing-check";
+import { hasContractPhase } from "@/modules/partner/lib/clientStatus";
 import { PROFILS } from "@/modules/partner/lib/pricing";
 
 /**
@@ -18,6 +19,12 @@ import { PROFILS } from "@/modules/partner/lib/pricing";
  *
  * Aucune action ici : l'abonnement se modifie dans Pennylane, la fiche juste
  * au-dessus.
+ *
+ * Pas de comparaison AVANT la signature (pipeline, test, perdue) : les
+ * licences n'y sont qu'un devis, et le rapprochement par nom pouvait coller
+ * une fiche de test sur l'abonnement d'un vrai client homonyme — avec des
+ * alertes « facturé » pour un contrat qui n'a pas démarré. Le statut est lu
+ * dans le formulaire : passer la fiche « Gagnée » lance le contrôle aussitôt.
  */
 
 type Result = { fetchedAt: string; check: ClientCheck | null };
@@ -53,6 +60,9 @@ export function PennylaneCompare() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contracted = hasContractPhase(
+    (JSON.parse(facts) as { clientStatus?: string }).clientStatus,
+  );
 
   const run = (refresh = false) => {
     setLoading(true);
@@ -73,16 +83,30 @@ export function PennylaneCompare() {
   };
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !contracted) return;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => run(false), result ? DEBOUNCE_MS : 0);
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, facts]);
+  }, [id, facts, contracted]);
 
   if (!id) return null;
+
+  if (!contracted) {
+    return (
+      <div className="bil-box bil-box--none">
+        <div className="bil-box__head">
+          <span>Facturation Pennylane</span>
+        </div>
+        <p className="bil-box__body">
+          Pas encore de contrat : le contrôle avec Pennylane démarre quand la fiche passe
+          «&nbsp;Gagnée&nbsp;».
+        </p>
+      </div>
+    );
+  }
 
   const check = result?.check ?? null;
   const tone = error ? "none" : check ? check.verdict : "none";
@@ -108,7 +132,8 @@ export function PennylaneCompare() {
         <p className="bil-box__body">Lecture de l&apos;abonnement Pennylane…</p>
       ) : !check ? (
         <p className="bil-box__body">
-          Aucun abonnement Pennylane pour cette fiche — normal tant que l&apos;affaire n&apos;est pas gagnée.
+          Aucun abonnement Pennylane trouvé pour cette fiche. Vérifiez le SIREN, ou créez
+          l&apos;abonnement dans Pennylane.
         </p>
       ) : (
         <BillingCheckDetail check={check} />
