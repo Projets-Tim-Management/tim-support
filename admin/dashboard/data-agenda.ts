@@ -229,18 +229,28 @@ export async function getTodayAgenda(
   const etapes: AgendaItem[] = parcours
     .filter((r) => !CLOSED_STATUSES.includes(r.status ?? ""))
     .flatMap((r) =>
-      partnerStepsOnAgenda(r).map(({ step, due, done }) => ({
-        id: `etape-${r.id}-${step.key ?? ""}`,
-        at: due,
-        kind: "etape",
-        label: "Phase de test",
-        title: step.label ?? "Étape du parcours",
-        client: nomClient(r.client),
-        href: `${adminRoute}/collections/journey-runs/${r.id}`,
-        done,
-        allDay: true,
-        etape: { runId: r.id, key: step.key ?? "" },
-      })),
+      partnerStepsOnAgenda(r).map(({ step, due, done, production }) => {
+        const clientId =
+          r.client && typeof r.client === "object" ? (r.client as { id?: number | string }).id : r.client;
+        return {
+          id: `etape-${r.id}-${step.key ?? ""}`,
+          at: due,
+          kind: "etape" as const,
+          label: production ? "Mise en production" : "Phase de test",
+          title: step.label ?? "Étape du parcours",
+          client: nomClient(r.client),
+          // Mise en production : le geste (déposer le devis, le contrat) se fait
+          // sur la fiche, onglet « Signature » — pas de case à cocher ici,
+          // l'étape se coche d'elle-même au dépôt.
+          href:
+            production && clientId != null
+              ? `${adminRoute}/collections/partner-clients/${clientId}`
+              : `${adminRoute}/collections/journey-runs/${r.id}`,
+          done,
+          allDay: true,
+          ...(production ? {} : { etape: { runId: r.id, key: step.key ?? "" } }),
+        };
+      }),
     );
 
   const items: AgendaItem[] = [

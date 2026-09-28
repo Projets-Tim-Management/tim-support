@@ -1,13 +1,15 @@
 "use client";
 
+import { dayKey } from "@/core/lib/dates";
 import { useConfig } from "@payloadcms/ui";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { collapsePhoneGroups } from "@/core/lib/phone";
 import { StartTestModal } from "@/modules/marketing/admin/StartTestModal";
 import { ActivityIcon } from "@/modules/partner/admin/ActivityIcons";
+import { fetchContractStart } from "@/modules/partner/admin/contract-api";
 import { StartSigningModal } from "@/modules/partner/admin/StartSigningModal";
 import { LossReasonModal, type LossOutcome } from "@/modules/partner/admin/LossReasonModal";
 import { taskKindLabel, taskKindMeta } from "@/modules/partner/lib/activity";
@@ -72,7 +74,8 @@ const COLUMNS = CLIENT_STATUSES;
  */
 type AskKind = "cloture" | "contrat";
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+// Le jour à Paris : en UTC, avant 2 h du matin, on proposait la veille.
+const todayISO = () => dayKey(new Date());
 
 /**
  * Le rendez-vous est passé : une session dure autour de 45 minutes, on la
@@ -144,7 +147,7 @@ type RunProgress = {
    * appel J+2 dû aujourd'hui s'y lit « aujourd'hui », comme une tâche posée à
    * la main. Sans elle, la carte disait « Partenaire à venir » le jour même.
    */
-  dueSteps: { key: string; label: string; due: string }[];
+  dueSteps: { key: string; label: string; due: string; production?: boolean }[];
 };
 
 /** Tâche ouverte d'un client, telle qu'elle s'affiche sur sa carte. */
@@ -163,6 +166,8 @@ type OpenTask = {
  * ce qui décide de la journée ne dépend pas de qui a posé la date.
  */
 type DueItem = {
+  /** Étape de la mise en production (sinon : de la phase de test). */
+  production?: boolean;
   id: string;
   kind: "tache" | "etape";
   title: string | null;
@@ -276,6 +281,15 @@ export function PartnerClientsBoard() {
     null,
   );
   const [pendingDate, setPendingDate] = useState<string>(todayISO());
+  /** Référence du contrat d'où vient la date proposée (mention sous le champ). */
+  const [pendingSource, setPendingSource] = useState<string | null>(null);
+  /**
+   * La proposition de date du contrat arrive après l'ouverture du modal : elle
+   * est annulée si un autre dépôt la remplace, et ignorée si la date a déjà
+   * été saisie à la main.
+   */
+  const contractStartAbort = useRef<AbortController | null>(null);
+  const pendingDateEdited = useRef(false);
   /** « En signature » en attente de confirmation (modal de mise en production). */
   const [startingSigning, setStartingSigning] = useState<ClientDoc | null>(null);
   // Passage en « En test » : le modal de démarrage (date, contact, étapes).
@@ -479,10 +493,11 @@ export function PartnerClientsBoard() {
               clientId: cid,
               logins,
             }),
-            dueSteps: partnerStepsOnCard(run).map(({ step, due }) => ({
+            dueSteps: partnerStepsOnCard(run).map(({ step, due, production }) => ({
               key: step.key ?? "",
               label: step.label ?? "Étape du parcours",
               due,
+              production,
             })),
           };
         }
@@ -620,6 +635,7 @@ export function PartnerClientsBoard() {
           kind: "etape",
           title: st.label,
           dueDate: st.due,
+          production: st.production,
         });
       }
     }
@@ -701,13 +717,14 @@ export function PartnerClientsBoard() {
   const dropTo = useCallback(
     (status: string, id: string) => {
       setOverCol(null);
+      contractStartAbort.current?.abort();
       const client = clients.find((c) => String(c.id) === id);
       if (!client || (client.clientStatus ?? DEFAULT_CLIENT_STATUS) === status) return;
 
       if (needsLossReason(status)) {
         // Perdue, résilié, archivé : on demande POURQUOI — et la date de fin
         // quand le contrat s'arrête. Un seul écran pour un seul geste.
-        setPendingDate(client.resiliationDate?.slice(0, 10) || todayISO());
+        setPendingDate(client.resiliationDate ? dayKey(client.resiliationDate) : todayISO());
         setPending({ client, status, kind: "cloture" });
       } else if (status === "en-test") {
         // Passer « En test » n'est pas un simple changement de statut : c'est le
@@ -718,8 +735,19 @@ export function PartnerClientsBoard() {
         // « Gagnée » déclenche l'abonnement mensuel : on demande la date de
         // début de contrat AU MOMENT du geste. Sans elle, le serveur refuse la
         // bascule (requireContractStart) — autant la collecter ici.
-        setPendingDate(client.contractStartDate?.slice(0, 10) || todayISO());
+        setPendingDate(client.contractStartDate ? dayKey(client.contractStartDate) : todayISO());
+        setPendingSource(null);
         setPending({ client, status, kind: "contrat" });
+        // La date prévue AU CONTRAT prime : on la propose dès qu'on la connaît
+        // (modifiable). Sans contrat généré, la fiche ou aujourd'hui.
+        const ctrl = new AbortController();
+        contractStartAbort.current = ctrl;
+        pendingDateEdited.current = false;
+        void fetchContractStart(client.id, ctrl.signal).then((start) => {
+          if (!start || ctrl.signal.aborted || pendingDateEdited.current) return;
+          setPendingDate(start.date);
+          setPendingSource(start.reference);
+        });
       } else if (status === "en-signature") {
         // Ouvre la mise en production (et clôt la phase de test en cours) :
         // le modal le dit, et demande s'il faut inviter le client.
@@ -1038,7 +1066,11 @@ export function PartnerClientsBoard() {
                                   style={{ background: tint.bg, color: tint.color }}
                                 >
                                   <ActivityIcon kind={etape ? "tache" : (t.taskKind ?? "tache")} />
-                                  {etape ? "Phase de test" : (taskKindLabel(t.taskKind) ?? "Tâche")}
+                                  {etape
+                                    ? t.production
+                                      ? "Mise en production"
+                                      : "Phase de test"
+                                    : (taskKindLabel(t.taskKind) ?? "Tâche")}
                                 </span>
                                 {/* Nom omis s'il ne fait que répéter la nature
                                     (une tâche créée sans le renommer). */}
@@ -1132,10 +1164,16 @@ export function PartnerClientsBoard() {
                 <input
                   type="date"
                   value={pendingDate}
-                  onChange={(e) => setPendingDate(e.target.value)}
+                  onChange={(e) => {
+                    pendingDateEdited.current = true;
+                    setPendingDate(e.target.value);
+                  }}
                   className="tim-kanban__modal-input"
                 />
               </label>
+              {pendingSource ? (
+                <p className="tim-kanban__modal-source">Date prévue au contrat {pendingSource} — modifiable.</p>
+              ) : null}
 
               <div className="tim-kanban__modal-actions">
                 <button type="button" className="tim-kanban__btn" onClick={() => setPending(null)}>

@@ -16,6 +16,7 @@ type InseeResult = {
   siret: string | null;
   siren: string | null;
   denomination: string;
+  formeJuridique?: string | null;
   adresse: string;
   codePostal: string | null;
   ville: string | null;
@@ -34,6 +35,7 @@ export function InseeLookup() {
   const siren = useField<string>({ path: "siren" });
   const vatNumber = useField<string>({ path: "vatNumber" });
   const billingAddress = useField<string>({ path: "billingAddress" });
+  const legalForm = useField<string>({ path: "legalForm" });
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<InseeResult[]>([]);
@@ -41,13 +43,22 @@ export function InseeLookup() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
+  // Un choix dans la liste écrit la raison sociale dans le champ : ce n'est pas
+  // une nouvelle recherche (sinon la liste se rouvrait aussitôt).
+  const justSelected = useRef(false);
 
   // Recherche débouncée dès 3 caractères.
   useEffect(() => {
     const q = query.trim();
+    if (justSelected.current) {
+      justSelected.current = false;
+      setLoading(false);
+      return;
+    }
     if (q.length < 3) {
       setResults([]);
       setError(null);
+      setLoading(false);
       return;
     }
     let cancelled = false;
@@ -102,7 +113,13 @@ export function InseeLookup() {
       vatNumber.setValue(frVat(r.siren));
     }
     if (r.adresse) billingAddress.setValue(r.adresse);
+    // Forme juridique déduite de la catégorie INSEE : elle fait l'en-tête du contrat.
+    // « Autre » (catégorie inconnue) n'écrase pas une forme déjà précisée.
+    if (r.formeJuridique && !(r.formeJuridique === "autre" && legalForm.value)) legalForm.setValue(r.formeJuridique);
     if (!companyName.value) companyName.setValue(r.denomination);
+    // Le texte change → la recherche relancée par ce changement est ignorée ;
+    // inchangé, aucune recherche ne part et le drapeau ne doit pas rester levé.
+    justSelected.current = r.denomination !== query;
     setQuery(r.denomination);
     setOpen(false);
   };

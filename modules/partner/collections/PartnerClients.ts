@@ -32,14 +32,19 @@ import {
   isPipelineStatus,
   needsEndDate,
 } from "@/modules/partner/lib/clientStatus";
+import { linkSignedContract, publishedBefore, rememberPublishedDocs } from "@/modules/partner/lib/contract-lifecycle";
 import { round2 } from "@/modules/partner/lib/format";
 import { requireContractStart } from "@/modules/partner/hooks/requireContractStart";
 import { requireLossReason } from "@/modules/partner/hooks/requireLossReason";
 import { LOSS_REASON_OPTIONS, needsLossReason } from "@/modules/partner/lib/lossReason";
 import { journalEntries, logActivity } from "@/modules/partner/lib/journal";
-import { ensureSigningAccess } from "@/modules/partner/lib/signing-access";
+import { ensureSigningAccess, templateTexts } from "@/modules/partner/lib/signing-access";
+import { afterResponse } from "@/core/lib/after-response";
+import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
 import { startProductionJourney } from "@/modules/marketing/lib/production";
 import { signingStarted, signingSteps, stampDocumentDates } from "@/modules/partner/lib/signing";
+import { LEGAL_FORMS } from "@/modules/partner/lib/legal-forms";
+import { ENGAGEMENT_OPTIONS } from "@/modules/partner/lib/contract-vars";
 import { pennylaneStampFor } from "@/modules/partner/lib/billing-check";
 import { BILLING_PERIOD_OPTIONS } from "@/modules/partner/lib/billing-period";
 import { buildHistoryEntry, nextHistory, type HistoryEntry } from "@/modules/partner/lib/history";
@@ -228,12 +233,15 @@ const computeCommissionMonthly: FieldHook = async ({ data, req, siblingData }) =
 /**
  * Un client se supprime AVEC tout ce qui n'existe que par lui.
  *
- * Ces neuf collections portent un champ `client` REQUIS (colonne `client_id`
+ * Ces collections portent un champ `client` REQUIS (colonne `client_id`
  * NOT NULL) dont la clé étrangère est `ON DELETE SET NULL` : supprimer le
  * client sans les avoir vidées fait échouer Postgres (SET NULL sur une colonne
  * NOT NULL → 500). Seuls les contacts étaient nettoyés, parce qu'ils étaient
  * seuls à exister quand la règle a été écrite ; les huit autres sont arrivées
  * depuis, et chacune rendait la suppression impossible sans dire pourquoi.
+ *
+ * Les contrats et les preuves de signature partent aussi : ils n'ont pas de
+ * sens sans leur client. Les PDF signés, eux, restent dans la médiathèque.
  *
  * L'ORDRE compte : un accès de test référence un salarié du dossier, on vide
  * donc les accès avant les salariés. Le reste est indépendant.
@@ -254,6 +262,8 @@ const CLIENT_CHILDREN = [
   "client-portal-accounts",
   "journey-runs",
   "client-contacts",
+  "client-contracts",
+  "electronic-signatures",
 ] as const;
 
 const deleteClientChildren: CollectionBeforeDeleteHook = async ({ req, id }) => {
@@ -372,6 +382,65 @@ const stampSigning: CollectionBeforeChangeHook = ({ data, originalDoc, req }) =>
 };
 
 /**
+ * Un devis ou un contrat à signer vient d'être déposé sur la fiche : le client
+ * est prévenu, avec un lien direct vers sa page « Signature ».
+ *
+ * Déposé ou REMPLACÉ (nouvelle version) : dans les deux cas, il y a quelque
+ * chose de nouveau à relire. Coché « Fait par e-mail » sans fichier : rien —
+ * le document est déjà parti par e-mail.
+ *
+ * Seulement si l'accès à l'espace est OUVERT : inviter à signer dans un espace
+ * où l'on ne peut pas entrer serait une impasse. L'accès fermé se voit sur
+ * l'onglet « Signature », avec son bouton d'envoi.
+ */
+const SIGN_DOCS: { field: string; noun: string }[] = [
+  { field: "quoteDocument", noun: "devis" },
+  { field: "contractToSignDocument", noun: "contrat" },
+];
+
+const mediaId = (v: unknown) => (v && typeof v === "object" ? (v as { id?: unknown }).id : v) ?? null;
+
+const notifyDocumentAvailable: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
+  const arrived = SIGN_DOCS.filter(({ field }) => {
+    const now = mediaId(doc?.[field]);
+    return now != null && String(now) !== String(mediaId(publishedBefore(req, doc, previousDoc, field)) ?? "");
+  });
+  if (!arrived.length || doc?._status === "draft" || req.context?.skipDocumentNotice) return doc;
+
+  const account = (
+    await req.payload.find({
+      collection: "client-portal-accounts",
+      where: { client: { equals: doc.id } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    })
+  ).docs[0] as { email?: string; firstName?: string | null; active?: boolean } | undefined;
+  if (!account?.email || account.active === false) {
+    req.payload.logger.info(
+      `[signature] ${arrived.map((a) => a.noun).join(", ")} déposé pour ${doc.id} : espace client fermé, client non prévenu.`,
+    );
+    return doc;
+  }
+
+  const texts = await templateTexts(req.payload, "document-disponible", req);
+  const payload = req.payload;
+  // Le contrat seul si les deux arrivent ensemble : c'est la dernière étape.
+  const noun = arrived[arrived.length - 1].noun;
+  afterResponse(async () => {
+    const built = JOURNEY_EMAILS["document-disponible"]({
+      clientName: doc.companyName ?? null,
+      contactFirstName: account.firstName ?? null,
+      documentNoun: noun,
+      texts,
+    });
+    await payload.sendEmail({ to: account.email, subject: built.subject, html: built.html, text: built.text });
+  }, (e) => payload.logger.error(`[signature] avis « ${noun} disponible » non envoyé : ${e}`));
+  return doc;
+};
+
+/**
  * Au passage « En signature » : le parcours « Mise en production », et
  * l'espace client qui servira à signer.
  *
@@ -451,11 +520,18 @@ const showSigning = (data?: Record<string, unknown>): boolean =>
   signingStarted(data ?? {}) || hasContract(data as { clientStatus?: string });
 
 /** Une étape documentaire : le fichier à gauche, sa date à droite. */
+/**
+ * Une ligne de document du process de signature : le fichier à gauche (pleine
+ * largeur, zone de dépôt compacte), sa date à droite (largeur fixe). Les
+ * lignes sont regroupées par document (« Devis », « Contrat ») : les libellés
+ * restent courts, le bloc dit de quoi il s'agit.
+ */
 const signingDocRow = (
-  doc: { name: string; label: string; description: string },
+  doc: { name: string; label: string },
   date: { name: string; label: string },
 ): Field => ({
   type: "row",
+  admin: { className: "sig-doc-row" },
   fields: [
     {
       name: doc.name,
@@ -463,8 +539,7 @@ const signingDocRow = (
       relationTo: "media",
       label: doc.label,
       admin: {
-        width: "60%",
-        description: doc.description,
+        className: "direct-upload--compact",
         custom: { accept: "application/pdf,image/*", noun: "un PDF" },
         components: { Field: "/admin/fields/DirectUpload#default" },
       },
@@ -473,13 +548,21 @@ const signingDocRow = (
       name: date.name,
       type: "date",
       label: date.label,
-      admin: {
-        width: "40%",
-        description: "Posée au dépôt du document, ou par « Fait par e-mail ».",
-        date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
-      },
+      admin: { date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" } },
     },
   ],
+});
+
+/** Un bloc « Devis » ou « Contrat » : l'original à signer, puis la version signée. */
+const signingDocGroup = (label: string, rows: Field[]): Field => ({
+  type: "collapsible",
+  label,
+  admin: {
+    initCollapsed: false,
+    className: "sig-docs",
+    description: "Chaque date se pose au dépôt du document — ici, par le client dans son espace, ou par « Fait par e-mail ».",
+  },
+  fields: rows,
 });
 
 const hiddenNum = (name: string, def: number): Field => ({
@@ -570,13 +653,15 @@ export const PartnerClients: CollectionConfig = {
       computeCA,
       stampDocuments,
       stampSigning,
+      // En dernier : relit la version publiée, pour les hooks « pièce arrivée ».
+      rememberPublishedDocs,
     ],
     // Les faits saisis ici cochent les étapes du parcours correspondantes.
     // `enrollSequence` en dernier : il ouvre ou ferme une séquence de relance
     // sur les transitions de « Perdue », et ne doit jamais faire échouer un
     // enregistrement — on ne refuse pas de clore une affaire parce qu'un envoi
     // futur n'a pas pu être planifié.
-    afterChange: [armJourneySteps, writeJournal, openProduction, enrollSequence],
+    afterChange: [armJourneySteps, writeJournal, openProduction, notifyDocumentAvailable, linkSignedContract, enrollSequence],
     // Vide ce qui n'existe que par ce client avant de le supprimer, sans quoi
     // Postgres refuse la suppression (cf. deleteClientChildren).
     beforeDelete: [deleteClientChildren],
@@ -1023,22 +1108,46 @@ export const PartnerClients: CollectionConfig = {
                 components: { Field: "/modules/partner/admin/SigningChecklist#SigningChecklist" },
               },
             },
-            signingDocRow(
-              { name: "quoteDocument", label: "Devis à signer", description: "Le client le télécharge depuis son espace." },
-              { name: "quoteSentAt", label: "Devis envoyé le" },
-            ),
-            signingDocRow(
-              { name: "quoteSignedDocument", label: "Devis signé", description: "Déposé par le client, ou par vous s'il l'a renvoyé par e-mail." },
-              { name: "quoteSignedAt", label: "Devis signé le" },
-            ),
-            signingDocRow(
-              { name: "contractToSignDocument", label: "Contrat à signer", description: "Le client le télécharge depuis son espace." },
-              { name: "contractSentAt", label: "Contrat envoyé le" },
-            ),
-            signingDocRow(
-              { name: "contractDocument", label: "Contrat signé", description: "PDF du contrat signé avec le client." },
-              { name: "signatureDate", label: "Date de signature" },
-            ),
+            {
+              // Le contrat généré depuis le modèle : aperçu, personnalisation,
+              // envoi au client, historique des versions.
+              name: "contractBox",
+              type: "ui",
+              admin: { components: { Field: "/modules/partner/admin/ContractBox#ContractBox" } },
+            },
+            /**
+             * Anciens « Paramètres du contrat » : les conditions commerciales se
+             * saisissent désormais dans la préparation du contrat (étape
+             * « Informations »), sur le contrat lui-même. Ces colonnes restent
+             * en base, masquées : elles préremplissent le premier contrat des
+             * fiches déjà renseignées.
+             */
+            { name: "engagementMonths", type: "select", options: ENGAGEMENT_OPTIONS, admin: { hidden: true } },
+            { name: "preferentialYears", type: "number", admin: { hidden: true } },
+            { name: "contractTerritory", type: "text", admin: { hidden: true } },
+            { name: "integrationFee", type: "number", admin: { hidden: true } },
+            { name: "integrationOffered", type: "checkbox", admin: { hidden: true } },
+            signingDocGroup("Devis", [
+              signingDocRow({ name: "quoteDocument", label: "À signer" }, { name: "quoteSentAt", label: "Envoyé le" }),
+              signingDocRow({ name: "quoteSignedDocument", label: "Signé" }, { name: "quoteSignedAt", label: "Signé le" }),
+            ]),
+            signingDocGroup("Contrat", [
+              signingDocRow({ name: "contractToSignDocument", label: "À signer" }, { name: "contractSentAt", label: "Envoyé le" }),
+              signingDocRow({ name: "contractDocument", label: "Signé" }, { name: "signatureDate", label: "Signé le" }),
+            ]),
+            {
+              // Le dossier de preuve des signatures faites en ligne (code par
+              // e-mail) : qui, quand, d'où, empreinte du document. En lecture.
+              name: "electronicSignatures",
+              type: "join",
+              collection: "electronic-signatures",
+              on: "client",
+              label: "Signatures en ligne",
+              admin: {
+                allowCreate: false,
+                defaultColumns: ["kind", "status", "signerLastName", "signedAt", "signedDocument"],
+              },
+            },
           ],
         },
         // ── Contrat client (métier + admin) — en dernier ────────────────────
@@ -1296,6 +1405,48 @@ export const PartnerClients: CollectionConfig = {
                   type: "text",
                   label: "Numéro de TVA",
                   admin: { width: "50%", placeholder: "FR + 11 chiffres" },
+                },
+              ],
+            },
+            // Identité juridique : ce qu'écrit l'en-tête du contrat (« LA SOCIÉTÉ
+            // X, SAS au capital de …, représentée par … »). Préremplie par
+            // l'INSEE quand c'est possible, complétée par le client dans son
+            // espace (étape « Votre entreprise ») ou par TIM ici.
+            {
+              type: "row",
+              fields: [
+                {
+                  name: "legalForm",
+                  type: "select",
+                  label: "Forme sociale",
+                  options: LEGAL_FORMS.map((f) => ({ label: `${f.short} — ${f.label}`, value: f.value })),
+                  admin: { width: "34%" },
+                },
+                {
+                  name: "shareCapital",
+                  type: "number",
+                  label: "Capital social (€)",
+                  min: 0,
+                  admin: { width: "33%" },
+                },
+                {
+                  name: "rcsCity",
+                  type: "text",
+                  label: "Ville du RCS",
+                  admin: { width: "33%", placeholder: "Lyon", description: "Greffe d'immatriculation." },
+                },
+              ],
+            },
+            {
+              type: "row",
+              fields: [
+                { name: "representativeFirstName", type: "text", label: "Représentant — prénom", admin: { width: "33%" } },
+                { name: "representativeLastName", type: "text", label: "Représentant — nom", admin: { width: "33%" } },
+                {
+                  name: "representativeRole",
+                  type: "text",
+                  label: "Qualité du représentant",
+                  admin: { width: "34%", placeholder: "Gérant, Président…" },
                 },
               ],
             },

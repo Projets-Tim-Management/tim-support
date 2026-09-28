@@ -16,7 +16,9 @@ import Link from "next/link";
 export default function EspaceClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <div className="px-6 pt-8 sm:px-8">
+      {/* Au-dessus du contenu : une page peut peindre un fondu jusque derrière
+          le logo (voir la page « Signature ») sans le recouvrir. */}
+      <div className="relative z-10 px-6 pt-8 sm:px-8">
         <Link href="/" className="inline-flex" aria-label="Centre d'aide TIM Management">
           <Image
             src="/logo-support.webp"
@@ -24,6 +26,9 @@ export default function EspaceClientLayout({ children }: { children: React.React
             width={160}
             height={32}
             className="h-8 w-auto"
+            // Hauteur fixée par la classe : la largeur doit suivre, sinon Next
+            // signale une image déformée.
+            style={{ width: "auto" }}
             priority
           />
         </Link>

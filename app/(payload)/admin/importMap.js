@@ -79,6 +79,7 @@ import { LicencesTable as LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338 } from 
 import { PennylaneCompare as PennylaneCompare_15129f9dfdba74a12c4653c08d159168 } from '../../../modules/partner/admin/PennylaneCompare'
 import { PartnerClientHistory as PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2 } from '../../../modules/partner/admin/PartnerClientHistory'
 import { SigningChecklist as SigningChecklist_400eec951102b3f782c7a6407a3dac35 } from '../../../modules/partner/admin/SigningChecklist'
+import { ContractBox as ContractBox_bb71f8890865c8a70d69e400c7499081 } from '../../../modules/partner/admin/ContractBox'
 import { OnboardingRecap as OnboardingRecap_d713ec8857fdf2ef0b320360e45593af } from '../../../modules/marketing/admin/OnboardingRecap'
 import { PreparationConsole as PreparationConsole_9e99600200a0e8a19593b41642fef9dc } from '../../../modules/marketing/admin/PreparationConsole'
 import { PortalAccessBox as PortalAccessBox_fc683d39455978ed93c806cafc5e09d9 } from '../../../modules/marketing/admin/PortalAccessBox'
@@ -107,6 +108,7 @@ import { AdminOnlyTabs as AdminOnlyTabs_7f44b13f20fa34f65e1be48236cbac4a } from 
 import { RunStatusCell as RunStatusCell_bca3b66a118f960c09383a20d2f2a00d } from '../../../modules/marketing/admin/RunStatusCell'
 import { SatisfactionBox as SatisfactionBox_eee4d8fe12891673593cce002ef3e281 } from '../../../modules/marketing/admin/SatisfactionBox'
 import { OpenClientLink as OpenClientLink_d4b8d6d6e20c151b58184f76753e2fca } from '../../../modules/marketing/admin/OpenClientLink'
+import { JourneyRunsTabs as JourneyRunsTabs_b4a0e728274bd0d948852c8fd5ef2d45 } from '../../../modules/marketing/admin/JourneyRunsTabs'
 import { EmailTextsEditor as EmailTextsEditor_07d676442ac8a9e9108733789787e041 } from '../../../modules/marketing/admin/EmailTextsEditor'
 import { SequenceMessageRowLabel as SequenceMessageRowLabel_e7e48e4e23bef92699ec37deb7eff91a } from '../../../modules/marketing/admin/SequenceMessageRowLabel'
 import { ConnectMailbox as ConnectMailbox_1d8ffe1ffcea50c41520fe4ff870ae27 } from '../../../modules/partner/admin/ConnectMailbox'
@@ -116,6 +118,7 @@ import { FormOptionRowLabel as FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f
 import { FormFieldRowLabel as FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3 } from '../../../modules/forms/admin/FormFieldRowLabel'
 import { InsuranceCell as InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4 } from '../../../modules/marketing/admin/InsuranceCell'
 import { default as default_c08243cbb0e32dd70b45a5afb5f6cbd4 } from '../../../admin/components/SaveButton'
+import { default as default_72ee9fe55f81abe2c8ae550d52d0ab85 } from '../../../admin/fields/ColorField'
 import { default as default_5599fe28f2b3157f52fea861e6ba12e6 } from '../../../admin/graphics/Avatar'
 import { default as default_8224f9d0d872abe7f15fe4a0b0d49bd9 } from '../../../admin/nav/CustomNav'
 import { default as default_bd65fe58e0079c6c4581354ef4ec3555 } from '../../../admin/header/PartnerSwitcher'
@@ -222,6 +225,7 @@ export const importMap = {
   "/modules/partner/admin/PennylaneCompare#PennylaneCompare": PennylaneCompare_15129f9dfdba74a12c4653c08d159168,
   "/modules/partner/admin/PartnerClientHistory#PartnerClientHistory": PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2,
   "/modules/partner/admin/SigningChecklist#SigningChecklist": SigningChecklist_400eec951102b3f782c7a6407a3dac35,
+  "/modules/partner/admin/ContractBox#ContractBox": ContractBox_bb71f8890865c8a70d69e400c7499081,
   "/modules/marketing/admin/OnboardingRecap#OnboardingRecap": OnboardingRecap_d713ec8857fdf2ef0b320360e45593af,
   "/modules/marketing/admin/PreparationConsole#PreparationConsole": PreparationConsole_9e99600200a0e8a19593b41642fef9dc,
   "/modules/marketing/admin/PortalAccessBox#PortalAccessBox": PortalAccessBox_fc683d39455978ed93c806cafc5e09d9,
@@ -250,6 +254,7 @@ export const importMap = {
   "/modules/marketing/admin/RunStatusCell#RunStatusCell": RunStatusCell_bca3b66a118f960c09383a20d2f2a00d,
   "/modules/marketing/admin/SatisfactionBox#SatisfactionBox": SatisfactionBox_eee4d8fe12891673593cce002ef3e281,
   "/modules/marketing/admin/OpenClientLink#OpenClientLink": OpenClientLink_d4b8d6d6e20c151b58184f76753e2fca,
+  "/modules/marketing/admin/JourneyRunsTabs#JourneyRunsTabs": JourneyRunsTabs_b4a0e728274bd0d948852c8fd5ef2d45,
   "/modules/marketing/admin/EmailTextsEditor#EmailTextsEditor": EmailTextsEditor_07d676442ac8a9e9108733789787e041,
   "/modules/marketing/admin/SequenceMessageRowLabel#SequenceMessageRowLabel": SequenceMessageRowLabel_e7e48e4e23bef92699ec37deb7eff91a,
   "/modules/partner/admin/ConnectMailbox#ConnectMailbox": ConnectMailbox_1d8ffe1ffcea50c41520fe4ff870ae27,
@@ -259,6 +264,7 @@ export const importMap = {
   "/modules/forms/admin/FormFieldRowLabel#FormFieldRowLabel": FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3,
   "/modules/marketing/admin/InsuranceCell#InsuranceCell": InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4,
   "/admin/components/SaveButton#default": default_c08243cbb0e32dd70b45a5afb5f6cbd4,
+  "/admin/fields/ColorField#default": default_72ee9fe55f81abe2c8ae550d52d0ab85,
   "/admin/graphics/Avatar#default": default_5599fe28f2b3157f52fea861e6ba12e6,
   "/admin/nav/CustomNav#default": default_8224f9d0d872abe7f15fe4a0b0d49bd9,
   "/admin/header/PartnerSwitcher#default": default_bd65fe58e0079c6c4581354ef4ec3555,

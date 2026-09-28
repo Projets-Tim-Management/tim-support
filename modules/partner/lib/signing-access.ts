@@ -51,8 +51,11 @@ async function accountOf(payload: Payload, clientId: number | string, req?: Payl
   return (res.docs[0] as Account | undefined) ?? null;
 }
 
-/** Les textes retouchés dans l'écran des modèles d'e-mail, s'il y en a. */
-async function signingTexts(payload: Payload, req?: PayloadRequest) {
+/**
+ * Les textes retouchés dans l'écran des modèles d'e-mail, s'il y en a. Ils
+ * sont rangés sur le modèle « Phase de test », qui porte l'éditeur.
+ */
+export async function templateTexts(payload: Payload, key: string, req?: PayloadRequest) {
   const journey = (
     await payload
       .find({
@@ -65,7 +68,7 @@ async function signingTexts(payload: Payload, req?: PayloadRequest) {
       })
       .catch(() => ({ docs: [] }))
   ).docs[0] as { id?: number | string } | undefined;
-  return journey?.id != null ? readEmailTexts(payload, journey.id, "invitation-signature", req) : {};
+  return journey?.id != null ? readEmailTexts(payload, journey.id, key, req) : {};
 }
 
 /**
@@ -126,7 +129,7 @@ export async function ensureSigningAccess(
   const built = template({
     clientName: client.companyName ?? null,
     contactFirstName: account.firstName ?? null,
-    texts: await signingTexts(payload, req),
+    texts: await templateTexts(payload, "invitation-signature", req),
   });
 
   try {

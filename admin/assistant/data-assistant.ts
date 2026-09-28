@@ -183,10 +183,14 @@ export async function buildAssistant(payload: Payload, user: Doc | null): Promis
         at: s.due,
         time: null,
         kind: "etape" as const,
-        label: "Phase de test",
+        label: s.production ? "Mise en production" : "Phase de test",
         title: s.step.label ?? "Étape du parcours",
         client: nameOf(r.client),
-        href: `/admin/collections/journey-runs/${r.id}`,
+        // Mise en production : le geste se fait sur la fiche (onglet « Signature »).
+        href:
+          s.production && r.client != null
+            ? `/admin/collections/partner-clients/${typeof r.client === "object" ? (r.client as { id?: unknown }).id : r.client}`
+            : `/admin/collections/journey-runs/${r.id}`,
         lateDays: joursDeRetard(Date.parse(s.due), today),
       })),
   );

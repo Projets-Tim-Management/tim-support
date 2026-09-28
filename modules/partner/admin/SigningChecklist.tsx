@@ -3,8 +3,10 @@
 import { toast, useDocumentInfo, useForm, useFormFields } from "@payloadcms/ui";
 import { useCallback, useEffect, useState } from "react";
 
+import { frDate } from "@/core/lib/dates";
 import { useSaveAfterDispatch } from "@/modules/marketing/admin/useSaveAfterDispatch";
 import {
+  COMPANY_FIELDS,
   SIGNING_DOC_FIELDS,
   signingSteps,
   type SigningDocKey,
@@ -32,17 +34,18 @@ type Access = {
   invitationSentAt: string | null;
 };
 
+// Dérivé de COMPANY_FIELDS : un champ obligatoire ajouté là est lu ici aussi
+// (la forme sociale et le représentant ne l'étaient pas, et l'étape restait
+// « à compléter » sur une fiche pourtant complète).
 const WATCHED = [
-  "raisonSociale",
-  "siren",
-  "siret",
-  "billingAddress",
-  "email",
-  ...Object.values(SIGNING_DOC_FIELDS).flatMap((f) => [f.doc, f.date]),
+  ...new Set([
+    ...COMPANY_FIELDS.map((f) => f.field),
+    "siret",
+    "email",
+    ...Object.values(SIGNING_DOC_FIELDS).flatMap((f) => [f.doc, f.date]),
+  ]),
 ];
 
-const frDate = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
 
 function stateLine(step: SigningStepState): string {
   if (step.key === "entreprise") {

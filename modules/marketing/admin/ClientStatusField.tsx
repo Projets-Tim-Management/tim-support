@@ -92,7 +92,9 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
         setAskingSigning(true);
         return;
       }
-      if (next === "actif" && value !== "actif" && !contractStart) {
+      // Toujours demandée au passage « Gagnée » : la date prévue au contrat y
+      // est proposée (elle peut différer de celle de la fiche), modifiable.
+      if (next === "actif" && value !== "actif") {
         setAskingContract(true);
         return;
       }
@@ -103,7 +105,7 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
       }
       setValue(next);
     },
-    [contractStart, setValue, value, id],
+    [setValue, value, id],
   );
 
   return (
@@ -153,6 +155,8 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
       {askingContract && (
         <ContractStartModal
           companyName={companyName}
+          clientId={id ?? null}
+          initialDate={typeof contractStart === "string" ? contractStart.slice(0, 10) : null}
           onCancel={() => setAskingContract(false)}
           onConfirm={(iso) => {
             setAskingContract(false);

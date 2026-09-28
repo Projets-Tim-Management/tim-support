@@ -137,6 +137,67 @@ export const EMAIL_SLOTS: Record<string, EmailSlot[]> = {
     ),
   ],
 
+  // Signature en ligne (devis, contrat) : le code, puis la copie signée.
+  "code-signature": [
+    objet("{{code}} — votre code de signature TIM"),
+    titre("Votre code de signature"),
+    apercu("Saisissez ce code pour signer électroniquement."),
+    s(
+      "intro",
+      "Introduction",
+      "La phrase avant le code.",
+      "Voici votre code pour signer électroniquement au nom de **{{entreprise}}**.",
+    ),
+    s(
+      "validite",
+      "Validité",
+      "Durée de validité et usage unique.",
+      "Il est valable **10 minutes** et ne fonctionne qu'une seule fois. Le saisir vaut signature.",
+    ),
+    s(
+      "securite",
+      "Note de sécurité",
+      "Que faire si on n'a rien demandé.",
+      "Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail : rien n'a été signé.",
+    ),
+  ],
+
+  "document-disponible": [
+    objet("Un document vous attend dans votre espace TIM"),
+    titre("Un document à signer"),
+    apercu("Relisez-le et signez-le en ligne, en une minute."),
+    s(
+      "intro",
+      "Introduction",
+      "Ce qui vient d'être déposé.",
+      "Il a été préparé pour **{{entreprise}}**.",
+    ),
+    s(
+      "suite",
+      "Comment signer",
+      "Le geste attendu, en une phrase.",
+      "Relisez-le, puis signez-le en ligne : un code vous est envoyé par e-mail, sa saisie vaut signature. Rien à imprimer.",
+    ),
+  ],
+
+  "document-signe": [
+    objet("C'est signé — votre copie signée"),
+    titre("Merci, c'est signé"),
+    apercu("Votre copie signée, avec son certificat de signature."),
+    s(
+      "intro",
+      "Introduction",
+      "Ce qui vient d'être signé.",
+      "Votre signature électronique a bien été enregistrée pour **{{entreprise}}**.",
+    ),
+    s(
+      "suite",
+      "La suite",
+      "Ce que contient la copie, et ce qui se passe ensuite.",
+      "Votre copie signée contient un certificat de signature (horodatage, empreinte du document). Conservez-la : elle fait foi. Nous revenons vers vous pour la suite.",
+    ),
+  ],
+
   "dossier-recu": [
     objet("Nous avons bien reçu votre dossier"),
     titre("Dossier bien reçu"),

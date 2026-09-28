@@ -31,6 +31,12 @@ export type PortalClient = {
   vatNumber?: string | null;
   billingAddress?: string | null;
   billingAddressComplement?: string | null;
+  legalForm?: string | null;
+  shareCapital?: number | null;
+  rcsCity?: string | null;
+  representativeFirstName?: string | null;
+  representativeLastName?: string | null;
+  representativeRole?: string | null;
   quoteSentAt?: string | null;
   quoteSignedAt?: string | null;
   contractSentAt?: string | null;

@@ -111,6 +111,15 @@ import * as migration_20260917_165244_point_geographique_fiche from './20260917_
 import * as migration_20260918_132910_essais_sans_reponse from './20260918_132910_essais_sans_reponse';
 import * as migration_20260928_072057_process_signature from './20260928_072057_process_signature';
 import * as migration_20260928_075237_mise_en_production from './20260928_075237_mise_en_production';
+import * as migration_20260928_084934_signatures_electroniques from './20260928_084934_signatures_electroniques';
+import * as migration_20260928_102222_contrat_modele_et_identite from './20260928_102222_contrat_modele_et_identite';
+import * as migration_20260928_103058_page_entreprise from './20260928_103058_page_entreprise';
+import * as migration_20260928_110459_contrats_clients from './20260928_110459_contrats_clients';
+import * as migration_20260928_112259_contrat_informations from './20260928_112259_contrat_informations';
+import * as migration_20260928_115044_apparence_marque from './20260928_115044_apparence_marque';
+import * as migration_20260928_121707_signature_pages_paraphees from './20260928_121707_signature_pages_paraphees';
+import * as migration_20260928_122759_contresignature_tim from './20260928_122759_contresignature_tim';
+import * as migration_20260928_142655_media_depose_par from './20260928_142655_media_depose_par';
 
 export const migrations = [
   {
@@ -676,6 +685,51 @@ export const migrations = [
   {
     up: migration_20260928_075237_mise_en_production.up,
     down: migration_20260928_075237_mise_en_production.down,
-    name: '20260928_075237_mise_en_production'
+    name: '20260928_075237_mise_en_production',
+  },
+  {
+    up: migration_20260928_084934_signatures_electroniques.up,
+    down: migration_20260928_084934_signatures_electroniques.down,
+    name: '20260928_084934_signatures_electroniques',
+  },
+  {
+    up: migration_20260928_102222_contrat_modele_et_identite.up,
+    down: migration_20260928_102222_contrat_modele_et_identite.down,
+    name: '20260928_102222_contrat_modele_et_identite',
+  },
+  {
+    up: migration_20260928_103058_page_entreprise.up,
+    down: migration_20260928_103058_page_entreprise.down,
+    name: '20260928_103058_page_entreprise',
+  },
+  {
+    up: migration_20260928_110459_contrats_clients.up,
+    down: migration_20260928_110459_contrats_clients.down,
+    name: '20260928_110459_contrats_clients',
+  },
+  {
+    up: migration_20260928_112259_contrat_informations.up,
+    down: migration_20260928_112259_contrat_informations.down,
+    name: '20260928_112259_contrat_informations',
+  },
+  {
+    up: migration_20260928_115044_apparence_marque.up,
+    down: migration_20260928_115044_apparence_marque.down,
+    name: '20260928_115044_apparence_marque',
+  },
+  {
+    up: migration_20260928_121707_signature_pages_paraphees.up,
+    down: migration_20260928_121707_signature_pages_paraphees.down,
+    name: '20260928_121707_signature_pages_paraphees',
+  },
+  {
+    up: migration_20260928_122759_contresignature_tim.up,
+    down: migration_20260928_122759_contresignature_tim.down,
+    name: '20260928_122759_contresignature_tim',
+  },
+  {
+    up: migration_20260928_142655_media_depose_par.up,
+    down: migration_20260928_142655_media_depose_par.down,
+    name: '20260928_142655_media_depose_par'
   },
 ];

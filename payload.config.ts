@@ -43,8 +43,12 @@ import { ClientSites } from "./modules/marketing/collections/ClientSites";
 import { ClientVehicles } from "./modules/marketing/collections/ClientVehicles";
 import { ClientMachines } from "./modules/marketing/collections/ClientMachines";
 import { ClientPortalAccounts } from "./modules/marketing/collections/ClientPortalAccounts";
+import { ElectronicSignatures } from "./modules/partner/collections/ElectronicSignatures";
+import { ClientContracts } from "./modules/partner/collections/ClientContracts";
 import { CalendarConnections } from "./modules/marketing/collections/CalendarConnections";
 import { seedJourneys } from "./modules/marketing/lib/seed";
+import { ContractSettings, seedContractSettings } from "./modules/partner/globals/ContractSettings";
+import { CompanySettings, seedCompanySettings } from "./core/globals/CompanySettings";
 import { seedForms } from "./modules/forms/lib/seed";
 import { seedSequences } from "./modules/marketing/lib/sequence-seed";
 import { seedDevStatuses } from "./modules/dev/lib/seed";
@@ -316,6 +320,8 @@ export default buildConfig({
       ClientMachines,
       // Espace client : le compte de connexion + les accès applicatifs de test.
       ClientPortalAccounts,
+      ElectronicSignatures,
+      ClientContracts, // caché : géré depuis l'onglet « Signature » de la fiche
       // Agendas connectés des partenaires (jetons OAuth chiffrés).
       CalendarConnections,
       // Système
@@ -460,6 +466,10 @@ export default buildConfig({
     // Crée le modèle de parcours « Phase de test » s'il n'existe pas encore.
     // Idempotent : ne réécrit jamais un parcours existant (cf. seedJourneys).
     await seedJourneys(payload);
+    // Le modèle du contrat SaaS, s'il n'est pas encore en base.
+    await seedContractSettings(payload);
+    // L'identité de la société (page Système → Entreprise), si elle est vide.
+    await seedCompanySettings(payload);
 
     // Idem pour les formulaires du site vitrine (cf. seedForms).
     await seedForms(payload);
@@ -500,7 +510,7 @@ export default buildConfig({
        */
     }),
   ],
-  globals: [Appearance, SupportConnectionsGlobal],
+  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings],
 
   db: postgresAdapter({
     // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :

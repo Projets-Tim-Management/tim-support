@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
-import { buildSigningDepositEmail } from "@/modules/marketing/lib/notify";
+import { buildProductionStepEmail } from "@/modules/marketing/lib/notify";
 import {
   missingCompanyInfo,
   normalizeCompanyId,
+  portalProgress,
   signingStarted,
   signingSteps,
   stampDocumentDates,
@@ -17,13 +18,29 @@ import {
  * par e-mail, la date posée à la main suffit.
  */
 
-const COMPANY = { raisonSociale: "SOUVET VMB", siren: "811756721", billingAddress: "1 rue X, 69000 Lyon" };
+const COMPANY = {
+  raisonSociale: "SOUVET VMB",
+  siren: "811756721",
+  billingAddress: "1 rue X, 69000 Lyon",
+  legalForm: "sas",
+  representativeFirstName: "Marie",
+  representativeLastName: "Durand",
+  representativeRole: "Président",
+};
 const byKey = (facts: Record<string, unknown>) =>
   Object.fromEntries(signingSteps(facts).map((s) => [s.key, s]));
 
 describe("informations de l'entreprise", () => {
-  it("demande raison sociale, SIREN ou SIRET, et adresse", () => {
-    expect(missingCompanyInfo({})).toEqual(["Raison sociale", "SIREN ou SIRET", "Adresse de facturation"]);
+  it("demande raison sociale, SIREN ou SIRET, adresse, forme et représentant", () => {
+    expect(missingCompanyInfo({})).toEqual([
+      "Raison sociale",
+      "SIREN ou SIRET",
+      "Adresse de facturation",
+      "Forme sociale",
+      "Prénom du représentant",
+      "Nom du représentant",
+      "Qualité du représentant",
+    ]);
     expect(missingCompanyInfo(COMPANY)).toEqual([]);
   });
 
@@ -110,9 +127,49 @@ describe("messages", () => {
     expect(mail.html).toContain("SOUVET VMB");
   });
 
-  it("l'alerte de dépôt dit quoi, et mène à la fiche", () => {
-    const mail = buildSigningDepositEmail({ clientId: 20, clientName: "SOUVET VMB", what: "devis-signe" });
-    expect(mail.subject).toBe("SOUVET VMB a déposé son devis signé");
+  it("l'étape franchie dit au partenaire ce qu'il doit faire ensuite", () => {
+    const mail = buildProductionStepEmail({ clientId: 20, clientName: "SOUVET VMB", milestone: "entreprise" }, "partenaire");
+    expect(mail.subject).toBe("SOUVET VMB a complété les informations de son entreprise — créer et déposer le devis");
+    expect(mail.text).toContain("déposez-le sur la fiche, onglet « Signature »");
     expect(mail.html).toContain("/collections/partner-clients/20");
+  });
+
+  it("le devis signé appelle le contrat ; le contrat signé, l'activation par TIM", () => {
+    expect(buildProductionStepEmail({ clientId: 1, milestone: "devis-signe" }, "partenaire").subject).toMatch(
+      /déposer le contrat à signer$/,
+    );
+    const tim = buildProductionStepEmail({ clientId: 1, milestone: "contrat-signe" }, "tim");
+    expect(tim.text).toContain("Compte de production activé");
+  });
+});
+
+describe("espace client : une étape à la fois", () => {
+  it("commence par l'entreprise, et n'ouvre rien d'autre", () => {
+    const p = portalProgress({});
+    expect(p.current).toBe("entreprise");
+    expect(p.reached).toEqual(["entreprise"]);
+  });
+
+  it("ouvre le devis une fois l'entreprise complète", () => {
+    const p = portalProgress(COMPANY);
+    expect(p.current).toBe("devis");
+    expect(p.reached).toEqual(["entreprise", "devis"]);
+  });
+
+  it("le devis envoyé ne suffit pas : il faut le devis signé pour passer au contrat", () => {
+    expect(portalProgress({ ...COMPANY, quoteDocument: 1, quoteSentAt: "2026-10-01" }).current).toBe("devis");
+    expect(portalProgress({ ...COMPANY, quoteSignedDocument: 2 }).current).toBe("contrat");
+  });
+
+  it("ne saute pas une étape manquante, même si la suivante est faite", () => {
+    const p = portalProgress({ quoteSignedDocument: 2 });
+    expect(p.current).toBe("entreprise");
+    expect(p.reached).toEqual(["entreprise"]);
+  });
+
+  it("termine au contrat signé", () => {
+    const p = portalProgress({ ...COMPANY, quoteSignedDocument: 2, contractDocument: 3 });
+    expect(p.current).toBe("termine");
+    expect(p.reached).toEqual(["entreprise", "devis", "contrat"]);
   });
 });

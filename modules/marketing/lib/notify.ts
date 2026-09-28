@@ -622,70 +622,108 @@ export async function notifyAdminsAccessMissing(
   }
 }
 
-// ─── Process de signature ────────────────────────────────────────────────────
+// ─── Mise en production : une étape du client vient d'être franchie ──────────
 
-export type SigningDepositContext = {
-  clientName?: string | null;
+/** Les étapes du CLIENT qui, franchies, passent la main à quelqu'un. */
+export type ProductionMilestone = "entreprise" | "devis-signe" | "contrat-signe";
+
+export type ProductionStepContext = {
   clientId: number | string;
+  clientName?: string | null;
   partnerName?: string | null;
-  /** Ce que le client vient de déposer dans son espace. */
-  what: "devis-signe" | "contrat-signe";
+  milestone: ProductionMilestone;
+  /** Contrat généré signé par le client, pas encore par TIM : ce n'est pas encore « tout est signé ». */
+  awaitingCountersign?: boolean;
 };
 
-const DEPOSIT_LABEL: Record<SigningDepositContext["what"], string> = {
-  "devis-signe": "son devis signé",
-  "contrat-signe": "son contrat signé",
-};
-
-const DEPOSIT_NEXT: Record<SigningDepositContext["what"], string> = {
-  "devis-signe": "Prochaine étape : le contrat. Déposez-le sur la fiche (onglet « Signature ») pour qu'il le retrouve dans son espace.",
-  "contrat-signe": "Le contrat est signé. Vérifiez la date de signature et la date de début de contrat sur la fiche.",
+const MILESTONE_DONE: Record<ProductionMilestone, string> = {
+  entreprise: "a complété les informations de son entreprise",
+  "devis-signe": "a retourné son devis signé",
+  "contrat-signe": "a retourné son contrat signé",
 };
 
 /**
- * Le client vient de déposer un document signé dans son espace.
- *
- * Adressé au partenaire qui suit l'affaire ET à TIM : c'est le partenaire qui
- * enchaîne (il transmet le contrat), mais c'est TIM qui rédige — les deux ont
- * besoin de savoir que la balle a changé de camp.
+ * La suite, pour chaque destinataire. Le partenaire lit SON geste — c'est tout
+ * l'objet du message ; TIM n'est écrit qu'au contrat signé, pour l'activation
+ * (le devis et le contrat à rédiger ont déjà leurs alertes).
  */
-export function buildSigningDepositEmail(ctx: SigningDepositContext): BuiltEmail {
-  const client = ctx.clientName ?? "Un client";
+const MILESTONE_NEXT: Record<ProductionMilestone, { title: string; partner: string; tim?: string }> = {
+  entreprise: {
+    title: "Créer et déposer le devis",
+    partner:
+      "À vous : créez le devis et déposez-le sur la fiche, onglet « Signature ». Le client le retrouvera dans son espace pour le signer.",
+  },
+  "devis-signe": {
+    title: "Déposer le contrat à signer",
+    partner:
+      "À vous : déposez le contrat à signer sur la fiche, onglet « Signature ». Le client le retrouvera dans son espace.",
+  },
+  "contrat-signe": {
+    title: "Activation du compte de production",
+    partner:
+      "Tout est signé. TIM active maintenant le compte de production ; la fiche passera « Gagnée » à l'activation.",
+    tim: "Tout est signé. Activez le compte de production, puis validez l'étape « Compte de production activé » : la fiche passera « Gagnée » et la facturation démarrera.",
+  },
+};
+
+/**
+ * Le client a signé un contrat GÉNÉRÉ : TIM doit d'abord le contresigner (TIM
+ * a reçu l'alerte « À contresigner » au même moment) — l'activation suit.
+ */
+const AWAITING_COUNTERSIGN: { title: string; partner: string } = {
+  title: "Contresignature par TIM",
+  partner:
+    "Le client a signé. TIM contresigne maintenant le contrat, puis active le compte de production ; la fiche passera « Gagnée » à l'activation.",
+};
+
+export function buildProductionStepEmail(
+  ctx: ProductionStepContext,
+  audience: "partenaire" | "tim",
+): BuiltEmail {
+  const client = ctx.clientName ?? "Votre client";
+  const next = ctx.milestone === "contrat-signe" && ctx.awaitingCountersign ? AWAITING_COUNTERSIGN : MILESTONE_NEXT[ctx.milestone];
+  const tim: string | undefined = "tim" in next ? (next as { tim?: string }).tim : undefined;
+  const message = audience === "tim" ? (tim ?? next.partner) : next.partner;
   const url = adminUrl(`/collections/partner-clients/${ctx.clientId}`);
   const rows: [string, string][] = [
     ["Client", client],
     ...(ctx.partnerName ? ([["Partenaire", ctx.partnerName]] as [string, string][]) : []),
+    ["Prochaine étape", next.title],
   ];
   return {
-    subject: `${client} a déposé ${DEPOSIT_LABEL[ctx.what]}`,
-    text: [
-      `${client} vient de déposer ${DEPOSIT_LABEL[ctx.what]} dans son espace client.`,
-      "",
-      DEPOSIT_NEXT[ctx.what],
-      "",
-      url,
-    ].join("\n"),
+    subject: `${client} ${MILESTONE_DONE[ctx.milestone]} — ${next.title.toLowerCase()}`,
+    text: [`${client} ${MILESTONE_DONE[ctx.milestone]}.`, "", message, "", url].join("\n"),
     html: internalNotice({
-      kicker: "Signature",
-      audience: "partenaire",
-      heading: `${client} a déposé ${DEPOSIT_LABEL[ctx.what]}`,
+      kicker: "Mise en production",
+      audience,
+      heading: `${client} ${MILESTONE_DONE[ctx.milestone]}`,
       rows,
-      message: DEPOSIT_NEXT[ctx.what],
+      message,
       cta: { label: "Ouvrir la fiche", url },
     }),
   };
 }
 
-export async function notifySigningDeposit(
+/**
+ * Envoie la notification d'étape : au partenaire (sauf s'il est l'auteur du
+ * geste — il sait ce qu'il vient de faire), et à TIM quand c'est à TIM d'agir.
+ */
+export async function notifyProductionStep(
   payload: Payload,
-  ctx: SigningDepositContext,
-  partnerEmail?: string | null,
+  ctx: ProductionStepContext,
+  partnerEmail: string | null | undefined,
+  opts: { skipPartner?: boolean } = {},
 ): Promise<void> {
   try {
-    const to = [...new Set([...(partnerEmail ? [partnerEmail] : []), ...(await adminEmails(payload))])];
-    if (to.length === 0) return;
-    await payload.sendEmail({ to: to.join(","), ...buildSigningDepositEmail(ctx) });
+    if (partnerEmail && !opts.skipPartner) {
+      await payload.sendEmail({ to: partnerEmail, ...buildProductionStepEmail(ctx, "partenaire") });
+    }
+    // Contrat à contresigner : TIM a déjà son alerte, pas de « Activez le compte ».
+    if (MILESTONE_NEXT[ctx.milestone].tim && !ctx.awaitingCountersign) {
+      const to = await adminEmails(payload);
+      if (to.length) await payload.sendEmail({ to: to.join(","), ...buildProductionStepEmail(ctx, "tim") });
+    }
   } catch (err) {
-    payload.logger.error(`[signature] notification du dépôt (${ctx.what}) échouée : ${err}`);
+    payload.logger.error(`[mise en production] notification « ${ctx.milestone} » échouée : ${err}`);
   }
 }

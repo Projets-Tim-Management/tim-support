@@ -13,6 +13,7 @@ import {
   deriveRunStatus,
   isProductionRun,
 } from "@/modules/marketing/lib/journey";
+import { decidePartnerStep, partnerStepsOnAgenda, partnerStepsOnCard } from "@/modules/marketing/lib/partner-steps";
 import { SIGNING_STEPS } from "@/modules/partner/lib/signing";
 
 /**
@@ -105,5 +106,46 @@ describe("statut de la fiche porté par chaque parcours", () => {
   it("une mise en production perdue ou annulée ne touche pas la fiche", () => {
     expect(clientStatusForRun(PRODUCTION_KEY, "perdu")).toBeNull();
     expect(clientStatusForRun(PRODUCTION_KEY, "annule")).toBeNull();
+  });
+});
+
+describe("actions du partenaire dans la mise en production", () => {
+  const NOW = Date.parse("2026-10-05T10:00:00Z");
+  const run = (steps: Record<string, unknown>[]) => ({
+    journeyKey: PRODUCTION_KEY,
+    steps: PRODUCTION_STEPS.map((s) => ({ ...s, state: "a-faire", ...steps.find((x) => x.key === s.key) })),
+  });
+
+  it("rien pour le partenaire tant que le client n'a pas complété son entreprise", () => {
+    expect(partnerStepsOnAgenda(run([]))).toEqual([]);
+  });
+
+  it("« Créer et déposer le devis » s'ouvre à l'entreprise complétée, datée de ce moment", () => {
+    const [a] = partnerStepsOnAgenda(
+      run([{ key: "entreprise", state: "auto", autoAt: "2026-10-05T12:00:00.000Z" }]),
+    );
+    expect(a.step.label).toBe("Créer et déposer le devis");
+    expect(a.due).toBe("2026-10-05T10:00:00.000Z");
+    expect(a).toMatchObject({ done: false, production: true });
+    expect(partnerStepsOnCard(run([{ key: "entreprise", state: "fait", doneAt: "2026-10-04T09:00:00.000Z" }]), NOW)).toHaveLength(1);
+  });
+
+  it("le devis déposé la marque faite ; le devis signé ouvre le contrat", () => {
+    const items = partnerStepsOnAgenda(
+      run([
+        { key: "entreprise", state: "fait", doneAt: "2026-10-01T09:00:00.000Z" },
+        { key: "devis-envoye", state: "fait", doneAt: "2026-10-02T09:00:00.000Z" },
+        { key: "devis-signe", state: "fait", doneAt: "2026-10-03T09:00:00.000Z" },
+      ]),
+    );
+    expect(items.map((i) => [i.step.label, i.done])).toEqual([
+      ["Créer et déposer le devis", true],
+      ["Déposer le contrat à signer", false],
+    ]);
+  });
+
+  it("le rappel du matin ne double pas l'e-mail envoyé sur le moment", () => {
+    const step = { key: "devis-envoye", actor: "partenaire", state: "a-faire" };
+    expect(decidePartnerStep(step, { nowMs: NOW })).toEqual({ notify: false, reason: "event" });
   });
 });

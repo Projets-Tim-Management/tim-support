@@ -115,6 +115,18 @@ export const RUN_STATUS_OPTIONS = RUN_STATUSES.map(({ label, value }) => ({
 export const runStatusMeta = (value?: string | null): RunStatus | undefined =>
   RUN_STATUSES.find((s) => s.value === value);
 
+/**
+ * Les libellés d'une MISE EN PRODUCTION : ce n'est pas un test, « Test en
+ * cours » y serait faux. Mêmes valeurs, mêmes couleurs, autres mots.
+ */
+const PRODUCTION_LABELS: Record<string, string> = {
+  preparation: "En préparation",
+  "en-cours": "En cours",
+  gagne: "Terminé",
+};
+export const runStatusLabel = (value: string | null | undefined, production: boolean): string | undefined =>
+  (production && value ? PRODUCTION_LABELS[value] : undefined) ?? runStatusMeta(value)?.label;
+
 /** Un parcours clos ne réclame plus rien (pas d'alerte, pas d'e-mail). */
 export const isRunClosed = (status?: string | null): boolean =>
   status === "gagne" || status === "perdu" || status === "annule";
@@ -1543,6 +1555,43 @@ export const PRODUCTION_STEPS: JourneyStepDef[] = [
 
 /** Aucun envoi programmé : les alertes à TIM partent sur évènement (voir JourneyRuns). */
 export const PRODUCTION_EMAILS: JourneyEmailDef[] = [];
+
+/**
+ * Les actions du PARTENAIRE dans la mise en production, et ce qui les ouvre.
+ *
+ * Le parcours n'a pas de calendrier : une action du partenaire devient due au
+ * moment où le client franchit l'étape qui la précède — le devis dès que
+ * l'entreprise est renseignée, le contrat dès que le devis signé est revenu.
+ * C'est cette date qui la fait apparaître sur l'agenda, l'assistant, le
+ * récapitulatif du matin et la carte du Kanban (voir partner-steps).
+ *
+ * `label` dit le GESTE (« Créer et déposer le devis ») : l'intitulé de l'étape
+ * (« Devis envoyé ») dit le fait, et se lit mal dans une liste de choses à faire.
+ */
+export const PRODUCTION_PARTNER_ACTIONS: Record<string, { after: string; label: string }> = {
+  "devis-envoye": { after: "entreprise", label: "Créer et déposer le devis" },
+  "contrat-envoye": { after: "devis-signe", label: "Déposer le contrat à signer" },
+};
+
+/**
+ * Date à laquelle l'action du partenaire s'est ouverte : celle où l'étape qui
+ * la précède a été acquise. Une étape en validation automatique porte l'heure
+ * d'acquisition + le délai d'annulation ; on retire ce délai pour dater le fait.
+ */
+export const productionActionOpenedAt = (
+  steps: { key?: string | null; state?: string | null; doneAt?: string | null; autoAt?: string | null }[],
+  key: string,
+): string | null => {
+  const after = PRODUCTION_PARTNER_ACTIONS[key]?.after;
+  const prev = after ? steps.find((s) => s.key === after) : undefined;
+  if (!prev || (prev.state ?? "a-faire") === "a-faire" || prev.state === "bloque") return null;
+  if (prev.doneAt) return prev.doneAt;
+  if (prev.autoAt) {
+    const t = Date.parse(prev.autoAt) - AUTO_VALIDATE_DELAY_HOURS * 3_600_000;
+    return Number.isNaN(t) ? null : new Date(t).toISOString();
+  }
+  return null;
+};
 
 /** Étape qui clôt le parcours de mise en production (la fiche passe « Gagnée »). */
 export const STEP_PRODUCTION_WON = "activation";

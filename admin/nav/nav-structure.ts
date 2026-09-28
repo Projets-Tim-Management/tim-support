@@ -134,6 +134,10 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
   Système: [
     "users",
     "appearance",
+    // L'identité de la société, puis le modèle du contrat qui la cite.
+    // Réservés à TIM (invisibles aux autres rôles).
+    "company-settings",
+    "contract-settings",
     "mailbox-connections",
     "media",
     { label: "Connexions du support", href: "/admin/connexions-support", adminOnly: true },
