@@ -160,3 +160,19 @@ export const IconChat = ({ className }: IconProps) => (
     <path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-6.5A8 8 0 0 1 11 4h2a8 8 0 0 1 8 8Z" />
   </Svg>
 );
+
+/** Stylo — la signature : devis et contrat à retourner signés. */
+export const IconPen = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z" />
+    <path d="M14 6l3 3M4 21h16" />
+  </Svg>
+);
+
+/** Document — un fichier à télécharger. */
+export const IconFile = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5M9 13h6M9 17h4" />
+  </Svg>
+);

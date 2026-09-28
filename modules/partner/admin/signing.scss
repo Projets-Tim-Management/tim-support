@@ -1,0 +1,226 @@
+/* ─── Onglet « Signature » de la fiche client (SigningChecklist) ──────────────
+   Couleurs : tokens uniquement (styles/_tokens.scss). */
+
+.sig-box {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  padding: 1rem 1.125rem;
+  margin-bottom: 1.5rem;
+}
+
+.sig-box__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.sig-box__title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+
+.sig-box__count {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+
+.sig-box__bar {
+  display: flex;
+  gap: 0.375rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.sig-box__seg {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--tim-elevation-200);
+}
+
+.sig-box__seg--done {
+  background: var(--tim-success);
+}
+
+/* Accès espace client */
+.sig-access {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  margin-bottom: 1rem;
+}
+
+.sig-access__label {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+
+.sig-access__state {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--tim-muted);
+}
+
+/* Étapes */
+.sig-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sig-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.625rem 0;
+  border-top: 1px solid var(--tim-elevation-150);
+}
+
+.sig-step:first-child {
+  border-top: 0;
+}
+
+.sig-step__dot {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--tim-elevation-100);
+  color: var(--tim-muted);
+}
+
+.sig-step--done .sig-step__dot {
+  background: var(--tim-green-bg);
+  color: var(--tim-green);
+}
+
+.sig-step__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.sig-step__label {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+
+.sig-step__who {
+  margin-left: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--tim-muted-light);
+}
+
+.sig-step__state {
+  margin: 0.125rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--tim-muted);
+}
+
+.sig-step--done .sig-step__state {
+  color: var(--tim-green);
+}
+
+.sig-step__hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+
+/* Boutons */
+.sig-btn {
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.4375rem 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: var(--tim-primary-dark);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+.sig-btn--ghost {
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  border: 1px solid var(--tim-border);
+
+  &:hover:not(:disabled) {
+    background: var(--tim-surface);
+  }
+}
+
+.sig-btn--link {
+  background: none;
+  color: var(--tim-muted);
+  padding: 0.4375rem 0.25rem;
+
+  &:hover:not(:disabled) {
+    background: none;
+    color: var(--tim-foreground);
+    text-decoration: underline;
+  }
+}
+
+/* Case « Envoyer l'accès » du modal « Affaire gagnée » */
+.sig-invite {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  color: var(--tim-foreground);
+  cursor: pointer;
+
+  input {
+    margin-top: 0.1875rem;
+  }
+}
+
+.sig-invite__hint {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--tim-muted);
+}
+
+/* Étapes annoncées par le modal « Mise en production » */
+.sig-modal-steps {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+
+  li {
+    margin: 0.125rem 0;
+  }
+}

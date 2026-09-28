@@ -501,6 +501,8 @@ export interface Partner {
  */
 export interface PartnerClient {
   id: number;
+  signingStartedAt?: string | null;
+  sendPortalInvite?: boolean | null;
   geo?: {
     lat?: number | null;
     lng?: number | null;
@@ -531,6 +533,7 @@ export interface PartnerClient {
         | 'attente-engagement'
         | 'attente-longue'
         | 'en-test'
+        | 'en-signature'
         | 'actif'
         | 'perdue'
         | 'resilie'
@@ -609,6 +612,38 @@ export interface PartnerClient {
     compagnonDiscountPct?: number | null;
     compagnonDiscountAmount?: number | null;
   };
+  /**
+   * Le client le télécharge depuis son espace.
+   */
+  quoteDocument?: (number | null) | Media;
+  /**
+   * Posée au dépôt du document, ou par « Fait par e-mail ».
+   */
+  quoteSentAt?: string | null;
+  /**
+   * Déposé par le client, ou par vous s'il l'a renvoyé par e-mail.
+   */
+  quoteSignedDocument?: (number | null) | Media;
+  /**
+   * Posée au dépôt du document, ou par « Fait par e-mail ».
+   */
+  quoteSignedAt?: string | null;
+  /**
+   * Le client le télécharge depuis son espace.
+   */
+  contractToSignDocument?: (number | null) | Media;
+  /**
+   * Posée au dépôt du document, ou par « Fait par e-mail ».
+   */
+  contractSentAt?: string | null;
+  /**
+   * PDF du contrat signé avec le client.
+   */
+  contractDocument?: (number | null) | Media;
+  /**
+   * Posée au dépôt du document, ou par « Fait par e-mail ».
+   */
+  signatureDate?: string | null;
   paymentMethod?: ('prelevement-gocardless' | 'virement') | null;
   /**
    * Délai de règlement du virement.
@@ -618,15 +653,10 @@ export interface PartnerClient {
    * Les licences de la fiche sont toujours PAR MOIS ; une facture trimestrielle en couvre trois. Doit correspondre à la fréquence de l'abonnement Pennylane.
    */
   billingPeriod?: ('mensuelle' | 'trimestrielle' | 'semestrielle' | 'annuelle') | null;
-  signatureDate?: string | null;
   /**
    * Début de l'abonnement mensuel : le CA et la commission ne comptent qu'à partir de cette date.
    */
   contractStartDate?: string | null;
-  /**
-   * PDF du contrat signé avec le client.
-   */
-  contractDocument?: (number | null) | Media;
   /**
    * Déposé par le client depuis son espace. Téléchargez-le pour l'ajouter à son compte de test.
    */
@@ -654,6 +684,10 @@ export interface PartnerClient {
    */
   raisonSociale?: string | null;
   siren?: string | null;
+  /**
+   * Établissement facturé, si différent du siège.
+   */
+  siret?: string | null;
   vatNumber?: string | null;
   billingAddress?: string | null;
   billingAddressComplement?: string | null;
@@ -1418,7 +1452,7 @@ export interface JourneyRun {
         autoAt?: string | null;
         autoValidate?: boolean | null;
         actor?: ('partenaire' | 'admin' | 'client') | null;
-        phase?: ('avant-test' | 'pendant-test' | 'sortie-test') | null;
+        phase?: ('avant-test' | 'pendant-test' | 'sortie-test' | 'production') | null;
         detail?: string | null;
         anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session' | 'bilan') | null;
         offsetDays?: number | null;
@@ -1488,7 +1522,17 @@ export interface JourneyRun {
    */
   endDate?: string | null;
   displayName?: string | null;
+  journeyKey?: string | null;
   autoSteps?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  resetSteps?:
     | {
         [k: string]: unknown;
       }
@@ -1541,7 +1585,7 @@ export interface MarketingJourney {
         key: string;
         label: string;
         actor: 'partenaire' | 'admin' | 'client';
-        phase: 'avant-test' | 'pendant-test' | 'sortie-test';
+        phase: 'avant-test' | 'pendant-test' | 'sortie-test' | 'production';
         detail?: string | null;
         /**
          * Sans effet si aucun fait observable n'est associé à cette étape. Les étapes que le logiciel sait constater (voir SYSTEM_STEPS) se valident seules de toute façon : cette règle vit dans le code, pas dans cette case.
@@ -2981,6 +3025,8 @@ export interface PartnersSelect<T extends boolean = true> {
  * via the `definition` "partner-clients_select".
  */
 export interface PartnerClientsSelect<T extends boolean = true> {
+  signingStartedAt?: T;
+  sendPortalInvite?: T;
   geo?:
     | T
     | {
@@ -3037,12 +3083,18 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         compagnonDiscountPct?: T;
         compagnonDiscountAmount?: T;
       };
+  quoteDocument?: T;
+  quoteSentAt?: T;
+  quoteSignedDocument?: T;
+  quoteSignedAt?: T;
+  contractToSignDocument?: T;
+  contractSentAt?: T;
+  contractDocument?: T;
+  signatureDate?: T;
   paymentMethod?: T;
   paymentTerms?: T;
   billingPeriod?: T;
-  signatureDate?: T;
   contractStartDate?: T;
-  contractDocument?: T;
   logo?: T;
   onboardingStatus?: T;
   onboardingSubmittedAt?: T;
@@ -3050,6 +3102,7 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   contacts?: T;
   raisonSociale?: T;
   siren?: T;
+  siret?: T;
   vatNumber?: T;
   billingAddress?: T;
   billingAddressComplement?: T;
@@ -3335,7 +3388,9 @@ export interface JourneyRunsSelect<T extends boolean = true> {
   durationWeeks?: T;
   endDate?: T;
   displayName?: T;
+  journeyKey?: T;
   autoSteps?: T;
+  resetSteps?: T;
   stepsTotal?: T;
   stepsDone?: T;
   progressPct?: T;

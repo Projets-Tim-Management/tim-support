@@ -23,7 +23,26 @@ export type PortalClient = {
   onboardingStatus?: string;
   /** Logo déposé par le client — peuplé (depth 1) pour disposer de son `url`. */
   logo?: { url?: string | null } | number | string | null;
+  /** Process de signature (voir modules/partner/lib/signing). */
+  signingStartedAt?: string | null;
+  raisonSociale?: string | null;
+  siren?: string | null;
+  siret?: string | null;
+  vatNumber?: string | null;
+  billingAddress?: string | null;
+  billingAddressComplement?: string | null;
+  quoteSentAt?: string | null;
+  quoteSignedAt?: string | null;
+  contractSentAt?: string | null;
+  signatureDate?: string | null;
+  /** Documents peuplés (depth 1) : `url` et `filename` pour le téléchargement. */
+  quoteDocument?: PortalMedia;
+  quoteSignedDocument?: PortalMedia;
+  contractToSignDocument?: PortalMedia;
+  contractDocument?: PortalMedia;
 };
+
+export type PortalMedia = { url?: string | null; filename?: string | null } | number | string | null;
 
 /** Session + entreprise rattachée. Null si non connecté ou client introuvable. */
 export const getPortalClient = async (): Promise<{

@@ -18,6 +18,7 @@ import {
 } from "@/modules/marketing/lib/notify";
 import { sessionSyncPatch, syncSessionEvent } from "@/modules/marketing/lib/session-calendar";
 import { JOURNEY_SYSTEM_WRITE, withSystemWrite } from "@/modules/marketing/lib/system-write";
+import { signingSteps } from "@/modules/partner/lib/signing";
 import {
   DEFAULT_DURATION_WEEKS,
   compressLeadOffsets,
@@ -30,12 +31,14 @@ import {
   RUN_STATUS_OPTIONS,
   SESSION_MODES,
   STEP_STATES,
-  STEP_TEST_STARTS,
-  STEP_TEST_WON,
   SYSTEM_STEPS,
   AUTO_VALIDATE_DELAY_HOURS,
   NEVER_AUTO_VALIDATE,
   canAutoValidate,
+  clientStatusForRun,
+  deriveRunStatus,
+  PRODUCTION_KEY,
+  RETIRED_EMAIL_KEYS,
   isDeadlineArming,
   selfValidationAllowed,
   selfValidationDate,
@@ -88,6 +91,7 @@ type RunEmail = {
 
 type JourneyDoc = {
   id?: number | string;
+  key?: string;
   title?: string;
   defaultDurationWeeks?: number;
   mondayOnly?: boolean;
@@ -141,7 +145,7 @@ const oneOpenRunPerClient: CollectionBeforeValidateHook = async ({ data, req, op
   const other = existing.docs.find((d) => String(d.id) !== String(originalDoc?.id ?? ""));
   if (other) {
     throw new Error(
-      "Ce client a déjà une phase de test en cours. Clôturez-la (gagnée, perdue ou annulée) avant d'en lancer une nouvelle.",
+      "Ce client a déjà un parcours en cours (phase de test ou mise en production). Clôturez-le (gagné, perdu ou annulé) avant d'en lancer un nouveau.",
     );
   }
   return data;
@@ -214,6 +218,10 @@ const snapshotSteps: CollectionBeforeChangeHook = async ({ data, originalDoc, re
   // reprise à la main, et leur `sentAt` est la mémoire de ce qui est parti.
   const known = new Set(currentEmails.map((e) => e.key));
   const missing = emails.filter((e) => !known.has(e.key as string));
+  // Envois retirés du modèle (sortie de test passée en mise en production) :
+  // ôtés du parcours s'ils ne sont pas partis. Partis, ils restent la mémoire
+  // de ce qui a été envoyé.
+  const retired = currentEmails.some((e) => e.key && RETIRED_EMAIL_KEYS.has(e.key) && !e.sentAt);
 
   /**
    * Rattachement d'un envoi à son étape, complété s'il MANQUE.
@@ -299,17 +307,20 @@ const snapshotSteps: CollectionBeforeChangeHook = async ({ data, originalDoc, re
 
   // Réécriture nécessaire ? Modèle enrichi, ou date de démarrage déplacée.
   const stepsChanged = !hasSteps || Boolean(mergedSteps) || startChanged;
-  const emailsChanged = !hasEmails || missing.length > 0 || startChanged || attachedChanged;
+  const emailsChanged = !hasEmails || missing.length > 0 || startChanged || attachedChanged || retired;
   // Cast : les trois sources décrivent la même forme, elles ne diffèrent que
   // sur la nullabilité de `key` (`string | null` côté fusion, `string` côté
   // modèle). Les unir sans cela ferait échouer l'inférence sur le premier membre.
   const outSteps = (hasSteps ? (mergedSteps ?? currentSteps) : steps) as RunStep[];
   const outEmails = (
     hasEmails ? (missing.length ? [...attached, ...missing] : attached) : emails
-  ) as RunEmail[];
+  ).filter((e) => !(e.key && RETIRED_EMAIL_KEYS.has(e.key as string) && !(e as RunEmail).sentAt)) as RunEmail[];
 
   return {
     ...data,
+    // Le modèle du parcours, recopié : c'est lui qui dit quelle règle de statut
+    // s'applique, et quels onglets ont un sens (voir isTestRun).
+    ...(journey.key && journey.key !== originalDoc?.journeyKey ? { journeyKey: journey.key } : {}),
     ...(stepsChanged ? { steps: fit(outSteps, stepOffsets) } : {}),
     ...(emailsChanged ? { emails: fit(outEmails, mailOffsets) } : {}),
     durationWeeks: data?.durationWeeks ?? originalDoc?.durationWeeks ?? journey.defaultDurationWeeks ?? DEFAULT_DURATION_WEEKS,
@@ -347,7 +358,11 @@ const reconcileFacts: CollectionBeforeChangeHook = async ({ data, originalDoc, r
   if (clientId == null) return data;
 
   const [client, account, accesses] = await Promise.all([
-    findOne<{ onboardingStatus?: string; signatureDate?: string }>(req, "partner-clients", clientId),
+    findOne<Record<string, unknown> & { onboardingStatus?: string; signatureDate?: string }>(
+      req,
+      "partner-clients",
+      clientId,
+    ),
     req.payload
       .find({
         collection: "client-portal-accounts",
@@ -374,7 +389,10 @@ const reconcileFacts: CollectionBeforeChangeHook = async ({ data, originalDoc, r
     "rdv-prise-en-main": Boolean(sessionAt),
     "dossier-demarrage": ["transmis", "valide"].includes(client?.onboardingStatus ?? ""),
     provisionnement: accesses > 0,
-    signature: Boolean(client?.signatureDate),
+    // Mise en production : chaque étape suit la fiche (voir lib/signing). Un
+    // parcours ouvert sur une fiche où le devis est déjà déposé démarre donc
+    // avec son étape acquise.
+    ...Object.fromEntries(signingSteps(client ?? {}).map((st) => [st.key, st.done])),
   };
 
   const rattrape = pending.map((s) => s.key!).filter((key) => acquis[key]);
@@ -432,15 +450,22 @@ const armAutoSteps: CollectionBeforeChangeHook = ({ data, originalDoc, operation
     if (stepKey && typeof e.sentAt === "string" && e.sentAt) sentBy.set(stepKey, e.sentAt);
   }
 
-  // `autoSteps` est un canal de passage, pas une donnée : il ne doit pas être stocké.
-  const { autoSteps: _drop, ...rest } = data ?? {};
+  // `autoSteps` et `resetSteps` sont des canaux de passage, pas des données :
+  // ils ne doivent pas être stockés.
+  const { autoSteps: _drop, resetSteps: _reset, ...rest } = data ?? {};
   void _drop;
+  const reset = new Set(((_reset ?? []) as string[]) ?? []);
 
   const at = new Date(Date.now() + AUTO_VALIDATE_DELAY_HOURS * 3_600_000).toISOString();
   const startDate = (data?.startDate ?? originalDoc?.startDate) as string | null | undefined;
   const endDate = (data?.endDate ?? originalDoc?.endDate) as string | null | undefined;
   let changed = false;
   const next = steps.map((s) => {
+    // Le fait a disparu (voir disarmStep) : retour à « à faire ».
+    if (s.key && reset.has(s.key) && (s.state ?? "a-faire") !== "a-faire") {
+      changed = true;
+      return { ...s, state: "a-faire", autoAt: null, doneAt: null, doneBy: null };
+    }
     // Désarmement rétroactif : un parcours lancé avant cette règle a pu armer le
     // Go/No-Go. `isStepDone` l'empêche déjà de s'acquérir, mais tant que l'état
     // reste « auto » l'écran affiche un compte à rebours qui n'aboutira jamais —
@@ -582,6 +607,8 @@ const guardSystemSteps: CollectionBeforeChangeHook = ({ data, originalDoc, req }
   const next = (data?.steps ?? []) as RunStep[];
   const previous = (originalDoc?.steps ?? []) as RunStep[];
   if (!next.length || !previous.length || !req.user) return data;
+  // Le logiciel qui constate un fait (voir withSystemWrite), pas un humain qui coche.
+  if ((req.context as Record<string, unknown> | undefined)?.[JOURNEY_SYSTEM_WRITE]) return data;
 
   const before = new Map(previous.map((s) => [s.key, s]));
   for (const step of next) {
@@ -617,6 +644,8 @@ const guardDatedSteps: CollectionBeforeChangeHook = ({ data, originalDoc, req })
   const next = (data?.steps ?? []) as RunStep[];
   const previous = (originalDoc?.steps ?? []) as RunStep[];
   if (!next.length || !previous.length || !req.user) return data;
+  // Le logiciel qui constate un fait (voir withSystemWrite), pas un humain qui coche.
+  if ((req.context as Record<string, unknown> | undefined)?.[JOURNEY_SYSTEM_WRITE]) return data;
 
   const ctx = {
     startDate: (data?.startDate ?? originalDoc?.startDate) as string | null,
@@ -760,14 +789,12 @@ const computeState: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
   // Statut dérivé, SAUF si le parcours a été clos à la main (perdu / annulé) :
   // une décision humaine ne doit pas être écrasée par le calcul.
   const previous = (data?.status ?? originalDoc?.status ?? "preparation") as string;
-  const status =
-    previous === "perdu" || previous === "annule"
-      ? previous
-      : done.has(STEP_TEST_WON)
-        ? "gagne"
-        : done.has(STEP_TEST_STARTS)
-          ? "en-cours"
-          : "preparation";
+  const status = deriveRunStatus({
+    journeyKey: (data?.journeyKey ?? originalDoc?.journeyKey) as string | null | undefined,
+    steps,
+    decision: (data?.decision ?? originalDoc?.decision) as string | null | undefined,
+    previous,
+  });
 
   // Les dates d'envoi suivent le calendrier, sauf celles reprises à la main.
   const emails = computeEmailSchedule(
@@ -958,19 +985,12 @@ const syncReviewCalendar: CollectionAfterChangeHook = async ({ doc, previousDoc,
  * N'écrit QUE si le statut change réellement, pour ne pas réenregistrer la fiche
  * client (et son historique de CA) à chaque sauvegarde du parcours.
  */
-const CLIENT_STATUS_BY_RUN = {
-  preparation: "en-test",
-  "en-cours": "en-test",
-  gagne: "actif",
-  perdu: "archive",
-  annule: "attente-engagement",
-} as const;
-
 const syncClientStatus: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
   const status = doc?.status as string | undefined;
   if (!status || status === previousDoc?.status) return doc;
 
-  const target = CLIENT_STATUS_BY_RUN[status as keyof typeof CLIENT_STATUS_BY_RUN];
+  const production = doc?.journeyKey === PRODUCTION_KEY;
+  const target = clientStatusForRun(doc?.journeyKey, status);
   const clientId = idOf(doc?.client);
   if (!target || clientId == null) return doc;
 
@@ -980,6 +1000,10 @@ const syncClientStatus: CollectionAfterChangeHook = async ({ doc, previousDoc, r
     clientId,
   );
   if (client?.clientStatus === target) return doc;
+  // Jamais de retour en arrière depuis un contrat : une fiche déjà Gagnée
+  // (ou résiliée, archivée) ne redevient pas « En signature » parce qu'un
+  // ancien parcours de test se réenregistre.
+  if (["actif", "resilie", "archive"].includes(client?.clientStatus ?? "") && target !== "archive") return doc;
   // Un No-Go ne ramène en arrière QUE ce que le parcours avait avancé : une
   // fiche restée au pipeline pour une autre raison n'a pas à bouger.
   if (status === "annule" && client?.clientStatus !== "en-test") return doc;
@@ -994,9 +1018,11 @@ const syncClientStatus: CollectionAfterChangeHook = async ({ doc, previousDoc, r
    * (parcours sans calendrier), aujourd'hui. Une date déjà posée à la main n'est
    * jamais écrasée.
    */
+  // En mise en production, pas de fin de test : le contrat démarre à
+  // l'activation, jour où les licences payantes s'ouvrent.
   const contractStart =
     target === "actif" && !client?.contractStartDate
-      ? ((doc?.endDate as string | undefined) ?? new Date().toISOString())
+      ? ((!production && (doc?.endDate as string | undefined)) || new Date().toISOString())
       : null;
 
   // C'est le parcours qui pilote le statut : il ne doit pas se heurter au
@@ -1013,7 +1039,7 @@ const syncClientStatus: CollectionAfterChangeHook = async ({ doc, previousDoc, r
       data: {
         clientStatus: target,
         ...(contractStart ? { contractStartDate: contractStart } : {}),
-      },
+      } as never,
       overrideAccess: true,
       req,
     });
@@ -1081,11 +1107,10 @@ async function markEmailSent(
  * Déclenché par la validation de l'étape « Décision du client », et jamais en
  * cas d'abandon — inutile de chiffrer une offre qu'on ne fera pas.
  */
-const notifyQuoteNeeded: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
-  const wasDone = ((previousDoc?.steps ?? []) as RunStep[]).find((s) => s.key === "decision");
-  const isDone = ((doc?.steps ?? []) as RunStep[]).find((s) => s.key === "decision");
-  if (!isDone || isStepDone(wasDone ?? {}) || !isStepDone(isDone)) return doc;
-  if (doc?.decision === "abandon") return doc;
+const notifyQuoteNeeded: CollectionAfterChangeHook = async ({ doc, operation, req }) => {
+  // À l'OUVERTURE de la mise en production : c'est elle qui dit que le client
+  // continue — après un test (« Je continue ») comme sans test (« En signature »).
+  if (operation !== "create" || doc?.journeyKey !== PRODUCTION_KEY) return doc;
 
   const clientId = idOf(doc?.client);
   const partnerId = idOf(doc?.partner);
@@ -1119,7 +1144,6 @@ const notifyQuoteNeeded: CollectionAfterChangeHook = async ({ doc, previousDoc, 
     (e) => req.payload.logger.error(`[parcours] alerte « devis à rédiger » échouée : ${e}`),
   );
 
-  await markEmailSent(req, doc.id, (doc?.emails ?? []) as RunEmail[], "devis-a-rediger");
   return doc;
 };
 
@@ -1262,9 +1286,11 @@ const openPortalOnGo: CollectionAfterChangeHook = async ({ doc, previousDoc, req
  * la validation ne faisait donc rien d'autre que cocher une case.
  */
 const notifyContractNeeded: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
-  const wasDone = ((previousDoc?.steps ?? []) as RunStep[]).find((s) => s.key === "demande-contrat");
-  const isDone = ((doc?.steps ?? []) as RunStep[]).find((s) => s.key === "demande-contrat");
-  if (!isDone || isStepDone(wasDone ?? {}) || !isStepDone(isDone)) return doc;
+  // Le devis signé vient d'être constaté (étape armée, sans attendre la fin du
+  // délai d'annulation) : le contrat est la suite, TIM le rédige.
+  const was = ((previousDoc?.steps ?? []) as RunStep[]).find((s) => s.key === "devis-signe");
+  const now = ((doc?.steps ?? []) as RunStep[]).find((s) => s.key === "devis-signe");
+  if (!now || (now.state ?? "a-faire") === "a-faire" || (was && (was.state ?? "a-faire") !== "a-faire")) return doc;
 
   const clientId = idOf(doc?.client);
   const partnerId = idOf(doc?.partner);
@@ -1289,7 +1315,6 @@ const notifyContractNeeded: CollectionAfterChangeHook = async ({ doc, previousDo
     (e) => req.payload.logger.error(`[parcours] alerte « contrat à établir » échouée : ${e}`),
   );
 
-  await markEmailSent(req, doc.id, (doc?.emails ?? []) as RunEmail[], "demande-contrat-tim");
   return doc;
 };
 
@@ -1301,7 +1326,9 @@ const notifyContractNeeded: CollectionAfterChangeHook = async ({ doc, previousDo
  * notification immédiate.
  */
 const notifyNewRequest: CollectionAfterChangeHook = async ({ doc, operation, req }) => {
-  if (operation !== "create") return doc;
+  // Une mise en production n'attend pas de Go/No-Go : elle a son alerte à elle
+  // (« devis à rédiger », voir notifyQuoteNeeded).
+  if (operation !== "create" || doc?.journeyKey === PRODUCTION_KEY) return doc;
 
   const clientId = idOf(doc?.client);
   const partnerId = idOf(doc?.partner);
@@ -1340,6 +1367,14 @@ const notifyNewRequest: CollectionAfterChangeHook = async ({ doc, operation, req
   await markEmailSent(req, doc.id, (doc?.emails ?? []) as RunEmail[], "demande-recue");
   return doc;
 };
+
+/**
+ * Onglets et champs propres à la PHASE DE TEST (session, bilan, prolongations,
+ * décision, calendrier) : sans objet sur un parcours de mise en production,
+ * qui n'a ni date ni séquence d'e-mails. Un parcours sans clé est un test
+ * (tous ceux d'avant l'arrivée du second modèle).
+ */
+const isTestRun = (data?: { journeyKey?: string | null }): boolean => data?.journeyKey !== PRODUCTION_KEY;
 
 export const JourneyRuns: CollectionConfig = {
   slug: "journey-runs",
@@ -1419,6 +1454,7 @@ export const JourneyRuns: CollectionConfig = {
         },
         {
           label: "E-mails",
+          admin: { condition: isTestRun },
           fields: [
             {
               name: "emailActivity",
@@ -1433,6 +1469,7 @@ export const JourneyRuns: CollectionConfig = {
         },
         {
           label: "Session de prise en main",
+          admin: { condition: isTestRun },
           description:
             "45 minutes avec le partenaire, OBLIGATOIREMENT avant le lundi de démarrage : c'est une pré-formation, pour que les équipes soient opérationnelles dès le premier jour. Ce réglage alimente l'invitation envoyée au client (début −7 jours) : un lien s'il s'agit d'une visio, une adresse si la session se tient sur site.",
           fields: [
@@ -1596,6 +1633,7 @@ export const JourneyRuns: CollectionConfig = {
            * question finiraient par se contredire.
            */
           label: "Bilan de fin de test",
+          admin: { condition: isTestRun },
           description:
             "Réservé par le client depuis son espace, dans les derniers jours du test. Se tient comme la prise en main (visio ou sur place).",
           fields: [
@@ -1622,6 +1660,7 @@ export const JourneyRuns: CollectionConfig = {
         },
         {
           label: "Prolongations",
+          admin: { condition: isTestRun },
           description:
             "Durée libre. Chaque prolongation décale la date de fin et reste tracée (qui, quand, pourquoi).",
           fields: [
@@ -1660,6 +1699,7 @@ export const JourneyRuns: CollectionConfig = {
         },
         {
           label: "Décision",
+          admin: { condition: isTestRun },
           fields: [
             {
               type: "row",
@@ -2079,6 +2119,7 @@ export const JourneyRuns: CollectionConfig = {
         !value || isMonday(value as string) ? true : "Le démarrage doit être un lundi.",
       admin: {
         position: "sidebar",
+        condition: isTestRun,
         date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
         description: "Un lundi uniquement.",
       },
@@ -2089,7 +2130,7 @@ export const JourneyRuns: CollectionConfig = {
       label: "Durée (semaines)",
       defaultValue: DEFAULT_DURATION_WEEKS,
       min: 1,
-      admin: { position: "sidebar", description: "4 = lundi → lundi." },
+      admin: { position: "sidebar", condition: isTestRun, description: "4 = lundi → lundi." },
     },
     {
       name: "endDate",
@@ -2097,6 +2138,7 @@ export const JourneyRuns: CollectionConfig = {
       label: "Fin du test",
       admin: {
         position: "sidebar",
+        condition: isTestRun,
         readOnly: true,
         date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
         description: "Calculée.",
@@ -2105,6 +2147,13 @@ export const JourneyRuns: CollectionConfig = {
 
     // ─── Champs dérivés (stockés pour les colonnes, le tri et les alertes) ────
     { name: "displayName", type: "text", admin: { hidden: true } },
+    /**
+     * Clé du modèle (« phase-de-test », « mise-en-production »), recopiée du
+     * parcours lié par snapshotSteps. Stockée pour filtrer sans jointure : la
+     * frise de l'espace client, les cartes de l'accueil et les envois du test
+     * ne regardent que les phases de test.
+     */
+    { name: "journeyKey", type: "text", index: true, admin: { hidden: true } },
     {
       // Canal de passage : les autres modules y déposent les clés d'étapes à
       // armer (« compte-espace-client », « dossier-demarrage »…). Vidé par
@@ -2114,6 +2163,8 @@ export const JourneyRuns: CollectionConfig = {
       virtual: true,
       admin: { hidden: true },
     },
+    // Canal inverse : les étapes à remettre « à faire » (voir disarmStep).
+    { name: "resetSteps", type: "json", virtual: true, admin: { hidden: true } },
     { name: "stepsTotal", type: "number", admin: { hidden: true } },
     { name: "stepsDone", type: "number", admin: { hidden: true } },
     { name: "progressPct", type: "number", admin: { hidden: true } },

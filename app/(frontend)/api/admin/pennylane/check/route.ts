@@ -4,6 +4,7 @@ import { hasAdminRole } from "@/core/access";
 import { payloadClient } from "@/core/payload-client";
 import type { SupportClientFacts } from "@/modules/partner/lib/billing-check";
 import { checkOneClient } from "@/modules/partner/lib/billing-report";
+import { hasContractPhase } from "@/modules/partner/lib/clientStatus";
 import { isPennylaneConfigured, pennylaneErrorMessage } from "@/modules/partner/lib/pennylane";
 
 /**
@@ -60,6 +61,12 @@ export async function POST(req: Request) {
     billingPeriod: str(body.billingPeriod),
     licences,
   };
+
+  // Avant la signature, rien à contrôler (voir PennylaneCompare) : on ne lit
+  // même pas Pennylane.
+  if (!hasContractPhase(facts.clientStatus)) {
+    return NextResponse.json({ fetchedAt: new Date().toISOString(), check: null });
+  }
 
   const refresh = new URL(req.url).searchParams.get("refresh") === "1";
   try {

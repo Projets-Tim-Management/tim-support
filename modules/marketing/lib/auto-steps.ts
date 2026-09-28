@@ -36,6 +36,66 @@ const idOf = (ref: unknown): number | string | null => {
   return typeof ref === "number" || typeof ref === "string" ? ref : null;
 };
 
+/**
+ * Le parcours ouvert qui PORTE cette étape.
+ *
+ * Deux modèles coexistent (phase de test, mise en production) : un fait de la
+ * fiche — le devis déposé, le dossier transmis — n'appartient qu'à l'un des
+ * deux. Prendre « le parcours ouvert le plus récent » armerait l'étape sur un
+ * parcours qui ne la connaît pas.
+ */
+async function openRunWithStep(
+  payload: Payload,
+  clientId: number | string,
+  stepKey: string,
+  req?: PayloadRequest,
+) {
+  const runs = (
+    await payload.find({
+      collection: "journey-runs",
+      where: { client: { equals: clientId }, status: { in: OPEN } },
+      sort: "-createdAt",
+      limit: 5,
+      depth: 0,
+      overrideAccess: true,
+      req,
+    })
+  ).docs as { id: number | string; steps?: { key?: string; state?: string }[] }[];
+  return runs.find((r) => (r.steps ?? []).some((s) => s.key === stepKey)) ?? null;
+}
+
+/**
+ * Remet une étape constatée à « à faire » : le fait a disparu (une date
+ * « Fait par e-mail » retirée, sans document). Sans ce retour, l'étape
+ * resterait acquise sur la foi d'un fait qui n'existe plus.
+ *
+ * Même canal que l'armement (champ virtuel `resetSteps`), même discrétion : un
+ * échec ne fait jamais échouer le geste qui l'a provoqué.
+ */
+export async function disarmStep(
+  payload: Payload,
+  client: unknown,
+  stepKey: string,
+  req?: PayloadRequest,
+): Promise<void> {
+  const clientId = idOf(client);
+  if (clientId == null) return;
+  try {
+    const run = await openRunWithStep(payload, clientId, stepKey, req);
+    const step = run?.steps?.find((s) => s.key === stepKey);
+    if (!run || !step || (step.state ?? "a-faire") === "a-faire") return;
+    await payload.update({
+      collection: "journey-runs",
+      id: run.id,
+      data: { resetSteps: [stepKey] } as never,
+      overrideAccess: true,
+      req,
+    });
+  } catch (err) {
+    payload.logger.error(`[parcours] désarmement de « ${stepKey} » échoué : ${err}`);
+  }
+}
+
 export async function armAutoStep(
   payload: Payload,
   client: unknown,
@@ -60,17 +120,7 @@ export async function armAutoStep(
         ? await payload
             .findByID({ collection: "journey-runs", id: runId, depth: 0, overrideAccess: true, req })
             .catch(() => null)
-        : (
-            await payload.find({
-              collection: "journey-runs",
-              where: { client: { equals: clientId }, status: { in: OPEN } },
-              sort: "-createdAt",
-              limit: 1,
-              depth: 0,
-              overrideAccess: true,
-              req,
-            })
-          ).docs[0];
+        : await openRunWithStep(payload, clientId!, stepKey, req);
     if (!run) return;
 
     // Déjà armée (ou déjà faite) : on ne réécrit pas le parcours pour rien.

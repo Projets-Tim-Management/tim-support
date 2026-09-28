@@ -334,6 +334,56 @@ const invitationEspaceClient = (ctx: JourneyEmailContext): BuiltEmail => {
   };
 };
 
+/**
+ * L'invitation d'un client qui vient SIGNER, hors phase de test.
+ *
+ * Le bouton mène droit à la page « Signature » : après le code de connexion,
+ * le client arrive là où sont son devis et son contrat, pas sur un accueil qui
+ * lui parlerait d'un test.
+ */
+const PORTAL_SIGNATURE = `${PORTAL}?next=${encodeURIComponent("/espace-client/signature")}`;
+
+const invitationSignature = (ctx: JourneyEmailContext): BuiltEmail => {
+  const key = "invitation-signature";
+  const intro = bloc(ctx, key, "intro");
+  const listeIntro = bloc(ctx, key, "liste_intro");
+  const encadre = bloc(ctx, key, "encadre");
+  return {
+    subject: sujet(ctx, key),
+    text: [
+      hello(ctx),
+      "",
+      intro.text,
+      "",
+      listeIntro.text,
+      "  • les informations de votre entreprise pour la facturation (SIREN, adresse)",
+      "  • votre devis, à télécharger et à nous retourner signé",
+      "  • votre contrat, à télécharger et à nous retourner signé",
+      "",
+      encadre.text,
+      "",
+      PORTAL_SIGNATURE,
+      textSignature(),
+    ].join("\n"),
+    html: shell({
+      heading: texte(ctx, key, "titre"),
+      preheader: texte(ctx, key, "apercu"),
+      bodyHtml:
+        paragraph(hello(ctx)) +
+        paragraph(intro.html) +
+        paragraph(listeIntro.html) +
+        bullets([
+          "les <strong>informations de votre entreprise</strong> pour la facturation (SIREN, adresse)",
+          "votre <strong>devis</strong>, à télécharger et à nous retourner signé",
+          "votre <strong>contrat</strong>, à télécharger et à nous retourner signé",
+        ]) +
+        callout(encadre.html) +
+        button(texte(ctx, key, "bouton"), PORTAL_SIGNATURE) +
+        signature(),
+    }),
+  };
+};
+
 const codeConnexion = (ctx: JourneyEmailContext): BuiltEmail => {
   const code = ctx.code ?? "000000";
   const intro = bloc(ctx, "code-connexion", "intro");
@@ -1420,6 +1470,7 @@ export const JOURNEY_EMAILS: Record<
   (ctx: JourneyEmailContext) => BuiltEmail
 > = {
   "invitation-espace-client": invitationEspaceClient,
+  "invitation-signature": invitationSignature,
   "code-connexion": codeConnexion,
   "dossier-recu": dossierRecu,
   "relance-creneau": relanceCreneau,

@@ -22,7 +22,7 @@ import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { validatePhone } from "@/core/lib/validators";
 import { enrollSequence } from "@/modules/marketing/hooks/enrollSequence";
 import { requireTestSchedule } from "@/modules/marketing/hooks/requireTestSchedule";
-import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
+import { armAutoStep, disarmStep } from "@/modules/marketing/lib/auto-steps";
 import { ONBOARDING_STATUS_OPTIONS } from "@/modules/marketing/lib/onboarding";
 import {
   CLIENT_STATUS_OPTIONS,
@@ -37,6 +37,9 @@ import { requireContractStart } from "@/modules/partner/hooks/requireContractSta
 import { requireLossReason } from "@/modules/partner/hooks/requireLossReason";
 import { LOSS_REASON_OPTIONS, needsLossReason } from "@/modules/partner/lib/lossReason";
 import { journalEntries, logActivity } from "@/modules/partner/lib/journal";
+import { ensureSigningAccess } from "@/modules/partner/lib/signing-access";
+import { startProductionJourney } from "@/modules/marketing/lib/production";
+import { signingStarted, signingSteps, stampDocumentDates } from "@/modules/partner/lib/signing";
 import { pennylaneStampFor } from "@/modules/partner/lib/billing-check";
 import { BILLING_PERIOD_OPTIONS } from "@/modules/partner/lib/billing-period";
 import { buildHistoryEntry, nextHistory, type HistoryEntry } from "@/modules/partner/lib/history";
@@ -72,7 +75,7 @@ const requireEmailFromTest: CollectionBeforeChangeHook = ({ data, originalDoc })
   const status = (data?.clientStatus ?? originalDoc?.clientStatus) as string | undefined;
   const email = String(data?.email ?? originalDoc?.email ?? "").trim();
   const draft = data?._status === "draft";
-  if (!draft && email === "" && (status === "en-test" || hasContractPhase(status))) {
+  if (!draft && email === "" && (status === "en-test" || status === "en-signature" || hasContractPhase(status))) {
     throw new Error("L'adresse e-mail est obligatoire à partir de la phase de test (espace client, accès, factures).");
   }
   return data;
@@ -321,8 +324,81 @@ const armJourneySteps: CollectionAfterChangeHook = async ({ doc, previousDoc, re
   if (doc?.onboardingStatus === "valide" && previousDoc?.onboardingStatus !== "valide") {
     await armAutoStep(req.payload, doc.id, "validation-dossier", req);
   }
-  if (doc?.signatureDate && !previousDoc?.signatureDate) {
-    await armAutoStep(req.payload, doc.id, "signature", req);
+  // Signature (onglet « Signature ») → étapes du parcours « Mise en
+  // production ». Chaque étape qui DEVIENT acquise sur la fiche est armée ; une
+  // étape redevenue « à faire » (« Fait par e-mail » annulé) est désarmée.
+  const before = new Map(signingSteps(previousDoc ?? {}).map((s) => [s.key, s.done]));
+  for (const step of signingSteps(doc ?? {})) {
+    if (step.done && !before.get(step.key)) await armAutoStep(req.payload, doc.id, step.key, req);
+    if (!step.done && before.get(step.key)) await disarmStep(req.payload, doc.id, step.key, req);
+  }
+  return doc;
+};
+
+/**
+ * Canal « envoyer l'accès maintenant ? », posé par le modal « Affaire gagnée ».
+ *
+ * Champ virtuel : il n'est jamais stocké. Lu ici, avant l'écriture, puis
+ * transmis par le contexte de la requête à `openSigningAccess`, qui agit une
+ * fois la fiche enregistrée.
+ */
+const SEND_INVITE = "sendPortalInvite";
+
+/**
+ * Process de signature : pose les dates des documents qui arrivent, et la date
+ * de démarrage au passage en « Gagnée » (voir lib/signing).
+ */
+const stampSigning: CollectionBeforeChangeHook = ({ data, originalDoc, req }) => {
+  if (!data) return data;
+  const ctx = req.context as Record<string, unknown>;
+  const next: Record<string, unknown> = { ...data };
+  if (SEND_INVITE in next) {
+    ctx[SEND_INVITE] = next[SEND_INVITE] === true;
+    delete next[SEND_INVITE];
+  }
+
+  const now = new Date().toISOString();
+  Object.assign(next, stampDocumentDates(next, originalDoc, now));
+
+  // Le process démarre au passage « En signature » (ou, pour une affaire
+  // passée directement « Gagnée », à ce moment-là) ; jamais réécrit ensuite.
+  const status = next.clientStatus ?? originalDoc?.clientStatus;
+  const entered =
+    (status === "en-signature" || status === "actif") && originalDoc?.clientStatus !== status;
+  if (entered && !(next.signingStartedAt ?? originalDoc?.signingStartedAt)) {
+    next.signingStartedAt = now;
+  }
+  return next;
+};
+
+/**
+ * Au passage « En signature » : le parcours « Mise en production », et
+ * l'espace client qui servira à signer.
+ *
+ * Quel que soit le chemin — « Je continue » en fin de test (synchro du
+ * parcours), ou la fiche passée « En signature » à la main (Kanban, fiche) —
+ * voir startProductionJourney, qui clôt au besoin la phase de test encore
+ * ouverte.
+ *
+ * L'accès est créé fermé, ou ouvert avec l'invitation si le modal l'a demandé.
+ * Une affaire issue d'un test a déjà le sien : rien n'est touché sans demande.
+ *
+ * Un échec ne bloque jamais la bascule : le parcours et l'accès se rattrapent
+ * (repasser la fiche « En signature », bouton de l'onglet « Signature »).
+ */
+const openProduction: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
+  const ctx = req.context as Record<string, unknown>;
+  const invite = ctx[SEND_INVITE] === true;
+  delete ctx[SEND_INVITE];
+
+  const entered = doc?.clientStatus === "en-signature" && previousDoc?.clientStatus !== "en-signature";
+  if (!entered || doc?._status === "draft") return doc;
+
+  await startProductionJourney(req.payload, doc.id, req);
+
+  const result = await ensureSigningAccess(req.payload, doc.id, { invite }, req);
+  if (!result.ok) {
+    req.payload.logger.warn(`[signature] accès espace client de ${doc.id} : ${result.reason}.`);
   }
   return doc;
 };
@@ -366,6 +442,45 @@ const canOpenPortal = (data?: { clientStatus?: string; portalOpened?: boolean })
  */
 const hasContract = (data?: { clientStatus?: string }): boolean =>
   hasContractPhase(data?.clientStatus ?? DEFAULT_CLIENT_STATUS);
+
+/**
+ * Onglet « Signature » : dès que le process est lancé (« Je continue » en fin
+ * de test, ou passage en « Gagnée »), et pour toute affaire déjà signée.
+ */
+const showSigning = (data?: Record<string, unknown>): boolean =>
+  signingStarted(data ?? {}) || hasContract(data as { clientStatus?: string });
+
+/** Une étape documentaire : le fichier à gauche, sa date à droite. */
+const signingDocRow = (
+  doc: { name: string; label: string; description: string },
+  date: { name: string; label: string },
+): Field => ({
+  type: "row",
+  fields: [
+    {
+      name: doc.name,
+      type: "upload",
+      relationTo: "media",
+      label: doc.label,
+      admin: {
+        width: "60%",
+        description: doc.description,
+        custom: { accept: "application/pdf,image/*", noun: "un PDF" },
+        components: { Field: "/admin/fields/DirectUpload#default" },
+      },
+    },
+    {
+      name: date.name,
+      type: "date",
+      label: date.label,
+      admin: {
+        width: "40%",
+        description: "Posée au dépôt du document, ou par « Fait par e-mail ».",
+        date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
+      },
+    },
+  ],
+});
 
 const hiddenNum = (name: string, def: number): Field => ({
   name,
@@ -454,13 +569,14 @@ export const PartnerClients: CollectionConfig = {
       setStatusRank,
       computeCA,
       stampDocuments,
+      stampSigning,
     ],
     // Les faits saisis ici cochent les étapes du parcours correspondantes.
     // `enrollSequence` en dernier : il ouvre ou ferme une séquence de relance
     // sur les transitions de « Perdue », et ne doit jamais faire échouer un
     // enregistrement — on ne refuse pas de clore une affaire parce qu'un envoi
     // futur n'a pas pu être planifié.
-    afterChange: [armJourneySteps, writeJournal, enrollSequence],
+    afterChange: [armJourneySteps, writeJournal, openProduction, enrollSequence],
     // Vide ce qui n'existe que par ce client avant de le supprimer, sans quoi
     // Postgres refuse la suppression (cf. deleteClientChildren).
     beforeDelete: [deleteClientChildren],
@@ -501,6 +617,13 @@ export const PartnerClients: CollectionConfig = {
      * Le point sur la carte de l'accueil : posé par geocodeClient (Base
      * Adresse Nationale) quand l'adresse de facturation change. Jamais saisi.
      */
+    /**
+     * Process de signature — hors onglets : un champ dans un onglet masqué par
+     * sa condition n'est pas toujours transmis, et ces deux-là doivent l'être
+     * au moment exact où la fiche passe « Gagnée ».
+     */
+    { name: "signingStartedAt", type: "date", admin: { hidden: true } },
+    { name: "sendPortalInvite", type: "checkbox", virtual: true, admin: { hidden: true } },
     {
       name: "geo",
       type: "group",
@@ -886,6 +1009,38 @@ export const PartnerClients: CollectionConfig = {
             },
           ],
         },
+        // ── Signature : du « oui » au contrat signé (voir lib/signing) ──────
+        {
+          label: "Signature",
+          admin: { condition: showSigning },
+          description:
+            "Du « oui » au contrat signé. Chaque étape se coche quand son document est déposé — ici, ou par le client dans son espace. Passé par e-mail ? Cochez « Fait par e-mail ».",
+          fields: [
+            {
+              name: "signingChecklist",
+              type: "ui",
+              admin: {
+                components: { Field: "/modules/partner/admin/SigningChecklist#SigningChecklist" },
+              },
+            },
+            signingDocRow(
+              { name: "quoteDocument", label: "Devis à signer", description: "Le client le télécharge depuis son espace." },
+              { name: "quoteSentAt", label: "Devis envoyé le" },
+            ),
+            signingDocRow(
+              { name: "quoteSignedDocument", label: "Devis signé", description: "Déposé par le client, ou par vous s'il l'a renvoyé par e-mail." },
+              { name: "quoteSignedAt", label: "Devis signé le" },
+            ),
+            signingDocRow(
+              { name: "contractToSignDocument", label: "Contrat à signer", description: "Le client le télécharge depuis son espace." },
+              { name: "contractSentAt", label: "Contrat envoyé le" },
+            ),
+            signingDocRow(
+              { name: "contractDocument", label: "Contrat signé", description: "PDF du contrat signé avec le client." },
+              { name: "signatureDate", label: "Date de signature" },
+            ),
+          ],
+        },
         // ── Contrat client (métier + admin) — en dernier ────────────────────
         {
           label: "Contrat client",
@@ -948,14 +1103,9 @@ export const PartnerClients: CollectionConfig = {
             {
               // Dans un `row` : sinon `admin.width` est ignoré, le champ prend
               // toute la largeur et l'icône du calendrier file tout à droite.
+              // (Date de signature et contrat signé : onglet « Signature ».)
               type: "row",
               fields: [
-                {
-                  name: "signatureDate",
-                  type: "date",
-                  label: "Date de signature",
-                  admin: { width: "50%", date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" } },
-                },
                 {
                   // Signature et début de contrat sont deux dates différentes :
                   // on signe en mars pour un abonnement qui court au 1er avril.
@@ -974,17 +1124,6 @@ export const PartnerClients: CollectionConfig = {
                   },
                 },
               ],
-            },
-            {
-              name: "contractDocument",
-              type: "upload",
-              relationTo: "media",
-              label: "Contrat signé (document)",
-              admin: {
-                description: "PDF du contrat signé avec le client.",
-                custom: { accept: "*", noun: "un fichier" },
-                components: { Field: "/admin/fields/DirectUpload#default" },
-              },
             },
           ],
         },
@@ -1146,6 +1285,12 @@ export const PartnerClients: CollectionConfig = {
             {
               type: "row",
               fields: [
+                {
+                  name: "siret",
+                  type: "text",
+                  label: "SIRET",
+                  admin: { width: "50%", placeholder: "14 chiffres", description: "Établissement facturé, si différent du siège." },
+                },
                 {
                   name: "vatNumber",
                   type: "text",

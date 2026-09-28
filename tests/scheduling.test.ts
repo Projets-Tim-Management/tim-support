@@ -15,6 +15,7 @@ import {
   NEVER_AUTO_VALIDATE,
   PHASE_DE_TEST_EMAILS,
   PHASE_DE_TEST_STEPS,
+  PRODUCTION_STEPS,
   SYSTEM_STEPS,
   canAutoValidate,
   isDeadlineArming,
@@ -380,7 +381,7 @@ describe("étapes réservées à TIM", () => {
 
 describe("qui coche quoi : constat système contre déclaration humaine", () => {
   it("une étape constatée par le système ne se coche pas à la main", () => {
-    for (const key of ["compte-espace-client", "provisionnement", "signature", "dossier-demarrage"]) {
+    for (const key of ["compte-espace-client", "provisionnement", "contrat-signe", "dossier-demarrage"]) {
       expect(isSystemStep(key)).toBe(true);
       expect(isManualStep({ key })).toBe(false);
     }
@@ -408,10 +409,12 @@ describe("qui coche quoi : constat système contre déclaration humaine", () => 
     }
   });
 
-  it("toute étape constatée l'est par un fait que le modèle déclare auto", () => {
+  it("toute étape constatée appartient à un modèle, et le test la déclare auto", () => {
     for (const key of Object.keys(SYSTEM_STEPS)) {
-      const step = PHASE_DE_TEST_STEPS.find((s) => s.key === key);
-      expect(step?.autoValidate, key).toBe(true);
+      const test = PHASE_DE_TEST_STEPS.find((s) => s.key === key);
+      const production = PRODUCTION_STEPS.find((s) => s.key === key);
+      expect(Boolean(test || production), key).toBe(true);
+      if (test) expect(test.autoValidate, key).toBe(true);
     }
   });
 });

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
 import { busyForPartner } from "@/modules/marketing/lib/calendar";
-import { sessionSummary } from "@/modules/marketing/lib/journey";
+import {
+  TEST_RUN_WHERE, sessionSummary } from "@/modules/marketing/lib/journey";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
 import { notifyAdminsSessionBooked } from "@/modules/marketing/lib/notify";
 import { markJourneyEmailSent, sendJourneyEmail } from "@/modules/marketing/lib/send";
@@ -72,7 +73,8 @@ async function context(clientId: number | string) {
 
   const runs = await payload.find({
     collection: "journey-runs",
-    where: { client: { equals: clientId }, status: { not_in: CLOSED } },
+    // Phase de test seulement : la mise en production n'a ni session ni bilan.
+    where: { and: [{ client: { equals: clientId } }, { status: { not_in: CLOSED } }, TEST_RUN_WHERE] },
     sort: "-createdAt",
     limit: 1,
     depth: 0,

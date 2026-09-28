@@ -621,3 +621,71 @@ export async function notifyAdminsAccessMissing(
     payload.logger.error(`[parcours] alerte « accès manquants » échouée : ${err}`);
   }
 }
+
+// ─── Process de signature ────────────────────────────────────────────────────
+
+export type SigningDepositContext = {
+  clientName?: string | null;
+  clientId: number | string;
+  partnerName?: string | null;
+  /** Ce que le client vient de déposer dans son espace. */
+  what: "devis-signe" | "contrat-signe";
+};
+
+const DEPOSIT_LABEL: Record<SigningDepositContext["what"], string> = {
+  "devis-signe": "son devis signé",
+  "contrat-signe": "son contrat signé",
+};
+
+const DEPOSIT_NEXT: Record<SigningDepositContext["what"], string> = {
+  "devis-signe": "Prochaine étape : le contrat. Déposez-le sur la fiche (onglet « Signature ») pour qu'il le retrouve dans son espace.",
+  "contrat-signe": "Le contrat est signé. Vérifiez la date de signature et la date de début de contrat sur la fiche.",
+};
+
+/**
+ * Le client vient de déposer un document signé dans son espace.
+ *
+ * Adressé au partenaire qui suit l'affaire ET à TIM : c'est le partenaire qui
+ * enchaîne (il transmet le contrat), mais c'est TIM qui rédige — les deux ont
+ * besoin de savoir que la balle a changé de camp.
+ */
+export function buildSigningDepositEmail(ctx: SigningDepositContext): BuiltEmail {
+  const client = ctx.clientName ?? "Un client";
+  const url = adminUrl(`/collections/partner-clients/${ctx.clientId}`);
+  const rows: [string, string][] = [
+    ["Client", client],
+    ...(ctx.partnerName ? ([["Partenaire", ctx.partnerName]] as [string, string][]) : []),
+  ];
+  return {
+    subject: `${client} a déposé ${DEPOSIT_LABEL[ctx.what]}`,
+    text: [
+      `${client} vient de déposer ${DEPOSIT_LABEL[ctx.what]} dans son espace client.`,
+      "",
+      DEPOSIT_NEXT[ctx.what],
+      "",
+      url,
+    ].join("\n"),
+    html: internalNotice({
+      kicker: "Signature",
+      audience: "partenaire",
+      heading: `${client} a déposé ${DEPOSIT_LABEL[ctx.what]}`,
+      rows,
+      message: DEPOSIT_NEXT[ctx.what],
+      cta: { label: "Ouvrir la fiche", url },
+    }),
+  };
+}
+
+export async function notifySigningDeposit(
+  payload: Payload,
+  ctx: SigningDepositContext,
+  partnerEmail?: string | null,
+): Promise<void> {
+  try {
+    const to = [...new Set([...(partnerEmail ? [partnerEmail] : []), ...(await adminEmails(payload))])];
+    if (to.length === 0) return;
+    await payload.sendEmail({ to: to.join(","), ...buildSigningDepositEmail(ctx) });
+  } catch (err) {
+    payload.logger.error(`[signature] notification du dépôt (${ctx.what}) échouée : ${err}`);
+  }
+}

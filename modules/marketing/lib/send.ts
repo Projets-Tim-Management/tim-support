@@ -4,7 +4,8 @@ import { JOURNEY_EMAILS, type JourneyEmailContext } from "@/modules/marketing/li
 import { buildJourneyContext, type JourneyRunLike } from "@/modules/marketing/lib/journey-context";
 import { readEmailTexts } from "@/modules/marketing/lib/email-overrides";
 import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
-import { declaredAudience, stepDoneBySending } from "@/modules/marketing/lib/journey";
+import {
+  TEST_RUN_WHERE, declaredAudience, stepDoneBySending } from "@/modules/marketing/lib/journey";
 import {
   buildPartnerStepEmail,
   type DueStep,
@@ -56,7 +57,9 @@ export async function findOpenRun(
   const res = await payload
     .find({
       collection: "journey-runs",
-      where: { client: { equals: clientId }, status: { in: OPEN } },
+      // Phase de test seulement : les envois du parcours sont ceux du test ; la
+      // mise en production n'a pas de séquence.
+      where: { and: [{ client: { equals: clientId } }, { status: { in: OPEN } }, TEST_RUN_WHERE] },
       sort: "-createdAt",
       limit: 1,
       depth: 0,

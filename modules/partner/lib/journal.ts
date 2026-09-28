@@ -89,6 +89,15 @@ export function journalEntries(
   if (doc.contractStartDate && !previous?.contractStartDate) {
     out.push({ title: `Contrat démarré le ${frDate(doc.contractStartDate as string)}` });
   }
+  // Process de signature : chaque document qui part ou revient est un fait.
+  const SIGNING: [string, string][] = [
+    ["quoteSentAt", "Devis envoyé le"],
+    ["quoteSignedAt", "Devis retourné signé le"],
+    ["contractSentAt", "Contrat envoyé le"],
+  ];
+  for (const [field, label] of SIGNING) {
+    if (doc[field] && !previous?.[field]) out.push({ title: `${label} ${frDate(doc[field] as string)}` });
+  }
   if (doc.signatureDate && !previous?.signatureDate) {
     out.push({ title: `Contrat signé le ${frDate(doc.signatureDate as string)}` });
   }

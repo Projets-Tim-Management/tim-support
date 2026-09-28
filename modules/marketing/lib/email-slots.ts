@@ -85,6 +85,34 @@ export const EMAIL_SLOTS: Record<string, EmailSlot[]> = {
     bouton("Ouvrir mon espace client"),
   ],
 
+  // Hors phase de test : l'affaire est conclue (« Gagnée »), le client vient
+  // signer. Il n'a pas de test à préparer — l'invitation habituelle lui
+  // parlerait d'un démarrage qui n'aura pas lieu.
+  "invitation-signature": [
+    objet("Bienvenue chez TIM — votre espace client est ouvert"),
+    titre("Bienvenue chez TIM"),
+    apercu("Retrouvez votre devis et votre contrat, et complétez vos informations."),
+    s(
+      "intro",
+      "Introduction",
+      "Ce que le client vient de recevoir, et pourquoi.",
+      "Merci de votre confiance. Votre espace client est ouvert : c'est là que nous finalisons ensemble l'arrivée de **{{entreprise}}** chez TIM.",
+    ),
+    s(
+      "liste_intro",
+      "Avant la liste",
+      "La phrase qui annonce ce qu'il y trouve.",
+      "Vous y retrouvez, au même endroit :",
+    ),
+    s(
+      "encadre",
+      "Encadré",
+      "Le rappel mis en valeur : la connexion par code.",
+      "Pas de mot de passe à retenir : vous saisissez votre adresse e-mail, un code à 6 chiffres vous est envoyé.",
+    ),
+    bouton("Ouvrir mon espace client"),
+  ],
+
   "code-connexion": [
     objet("{{code}} — votre code de connexion TIM"),
     titre("Votre code de connexion"),
