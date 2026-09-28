@@ -27,6 +27,15 @@ quand on lui pose une question : ce qui n'est pas ici, il ne le sait pas.
 - Le statut du parcours est **dérivé** des étapes : en préparation, test en cours, gagné (mise en production cochée) ; perdu et annulé se posent à la main.
 - **Rappels au partenaire** : le jour d'une étape partenaire échue, un e-mail « Une action vous attend » (une fois). Les étapes partenaire datées figurent aussi sur l'agenda de l'accueil (aujourd'hui / en retard) et dans le récapitulatif du matin, et se cochent des deux côtés (accueil et fiche) — même règle. Sur le Kanban des opportunités, la prochaine étape partenaire non faite (échue ou due sous 7 jours) s'affiche sur la carte — une seule par parcours — dans la liste des échéances, avec les mêmes mots que les tâches (« aujourd'hui », « en retard », « dans 3 j »), pastille « Phase de test ».
 
+## La signature (du « oui » au contrat signé)
+
+- **Démarrage** : au premier de deux faits — la réponse « Je continue » en fin de phase de test (étape « Décision du client » validée avec la décision « contrat »), ou le passage de la fiche en **Gagnée** (affaire conclue sans test). Onglet « Signature » sur la fiche, page « Signature » dans l'espace client.
+- **Cinq étapes** : informations de l'entreprise (raison sociale, SIREN **ou** SIRET, adresse de facturation) → devis envoyé → devis retourné signé → contrat envoyé → contrat retourné signé.
+- **Une étape = un fait** : déposer le document coche l'étape et pose sa date, qu'il soit déposé sur la fiche (partenaire, TIM) ou dans l'espace client (le client dépose les versions **signées**). Document passé par e-mail : « Fait par e-mail » pose la date sans pièce. Une date posée n'est jamais réécrite par un dépôt plus tardif. La version signée revenue vaut envoi de l'original. Les informations d'entreprise se complètent sur la fiche (Facturation client) ou par le client ; elles se ferment côté client une fois le contrat signé.
+- **Parcours de test** : le devis déposé arme « Devis transmis », le contrat à signer déposé arme « Contrat rédigé », la date de signature arme « Contrat signé » (validation automatique à 2 h, boutons conservés).
+- **Espace client à la bascule Gagnée** : le modal demande s'il faut envoyer l'accès maintenant. Oui → accès créé et invitation « Bienvenue chez TIM » envoyée ; non → accès créé fermé, à envoyer plus tard par « Envoyer l'accès au client » dans l'onglet Signature (partenaire de la fiche ou admin). Une affaire issue d'un test garde l'espace de son test.
+- **Alertes** : un dépôt signé par le client prévient le partenaire de la fiche et les admins. Fichiers côté client : PDF, JPEG ou PNG, 4 Mo maximum.
+
 ## L'accueil et l'assistant
 
 - **Agenda** : les tâches datées et les étapes de parcours partenaire datées ; « en retard » = date passée et pas fait (30 jours au plus).

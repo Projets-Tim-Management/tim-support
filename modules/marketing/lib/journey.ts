@@ -686,6 +686,21 @@ export const isSystemStep = (key?: string | null): boolean =>
  * ce qui fait qu'un parcours lancé il y a trois semaines suit la même règle
  * qu'un parcours lancé aujourd'hui, sans reprise de données.
  */
+/**
+ * Étapes qui GARDENT leur bouton, mais se cochent aussi quand le process de
+ * signature constate le fait sur la fiche (voir modules/partner/lib/signing) :
+ * le devis déposé coche « Devis transmis », le contrat déposé « Contrat
+ * rédigé ». Même principe que « Dossier vérifié par TIM » : deux chemins, un
+ * seul état.
+ *
+ * En code et non dans le modèle, comme NEVER_AUTO_VALIDATE : c'est ce qui fait
+ * valoir la règle pour les parcours déjà lancés, sans reprise de données.
+ *
+ * Elles restent des étapes MANUELLES (`isManualStep`) : seul l'armement par un
+ * fait les concerne, voir `armAutoSteps` dans JourneyRuns.
+ */
+export const FACT_ARMED_STEPS = new Set(["devis", "contrat"]);
+
 export const canAutoValidate = (step: {
   key?: string | null;
   autoValidate?: boolean | null;

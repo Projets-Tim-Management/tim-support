@@ -13,6 +13,7 @@ import {
   IconCheck,
   IconClipboard,
   IconKey,
+  IconPen,
   IconRoute,
 } from "@/components/ui/icons";
 import { getFeatures } from "@/modules/editorial/lib/content";
@@ -20,6 +21,7 @@ import { isStepDone } from "@/modules/marketing/lib/journey";
 import { PORTAL_SECTIONS } from "@/modules/marketing/lib/portal-sections";
 import { portalTimeline } from "@/modules/marketing/lib/portal-timeline";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
+import { signingStarted, signingSteps } from "@/modules/partner/lib/signing";
 
 export const metadata: Metadata = {
   title: "Mon espace",
@@ -128,8 +130,26 @@ export default async function AccueilPage() {
     credentialsReady: credentialCount > 0,
   });
 
-  // ── Les trois jalons du client ────────────────────────────────────────────
-  const jalons = [
+  // ── Signature : l'affaire est conclue, ou le client a dit « Je continue » ──
+  const signing = signingStarted(client as Record<string, unknown>);
+  const signingDone = signing
+    ? signingSteps(client as Record<string, unknown>).filter((s) => s.done).length
+    : 0;
+  const signingJalon = {
+    key: "signature",
+    Icon: IconPen,
+    title: "Signature",
+    desc: "Vos informations de facturation, votre devis et votre contrat — à retrouver ici et à nous retourner signés.",
+    done: Boolean(client.signatureDate),
+    doneLabel: client.signatureDate ? `Contrat signé le ${fmt(client.signatureDate)}` : null,
+    pending: null as string | null,
+    href: "/espace-client/signature",
+    cta: client.signatureDate ? "Voir mes documents" : "Finaliser la signature",
+    progress: { done: signingDone, total: 5, unit: "étape" } as { done: number; total: number; unit?: string } | null,
+  };
+
+  // ── Les jalons du client ──────────────────────────────────────────────────
+  const testJalons = [
     {
       key: "creneau",
       Icon: IconCalendar,
@@ -146,7 +166,7 @@ export default async function AccueilPage() {
       pending: time.sessionPast && !sessionValidee ? "En attente de validation par le formateur" : null,
       href: "/espace-client/prise-en-main",
       cta: run?.sessionAt ? "Voir mon créneau" : "Choisir mon créneau",
-      progress: null as { done: number; total: number } | null,
+      progress: null as { done: number; total: number; unit?: string } | null,
     },
     {
       key: "dossier",
@@ -161,7 +181,11 @@ export default async function AccueilPage() {
           : null,
       href: "/espace-client/dossier",
       cta: dossierDone ? "Consulter mon dossier" : "Compléter mon dossier",
-      progress: { done: sectionsDone, total: PORTAL_SECTIONS.length },
+      progress: { done: sectionsDone, total: PORTAL_SECTIONS.length, unit: "section" } as {
+        done: number;
+        total: number;
+        unit?: string;
+      } | null,
     },
     {
       key: "acces",
@@ -174,16 +198,33 @@ export default async function AccueilPage() {
       href: credentialCount > 0 ? "/espace-client/acces" : null,
       cta: credentialCount > 0 ? `Voir et imprimer mes ${credentialCount} accès` : null,
       waiting: "Nous les préparons — vous serez prévenu dès qu'ils sont prêts.",
-      progress: null as { done: number; total: number } | null,
+      progress: null as { done: number; total: number; unit?: string } | null,
     },
   ];
+
+  /**
+   * Sans phase de test (affaire conclue directement), pas de session de prise
+   * en main à réserver : la signature passe en tête. Avec un test, elle arrive
+   * après les trois jalons, dans l'ordre où le client la vit.
+   */
+  const jalons: (typeof testJalons)[number][] = run
+    ? [...testJalons, ...(signing ? [signingJalon] : [])]
+    : [...(signing ? [signingJalon] : []), ...testJalons.filter((j) => j.key !== "creneau")];
 
   const jalonsDone = jalons.filter((j) => j.done).length;
   // L'étape courante est la première non faite qui dépend du CLIENT : les accès
   // ne sont pas de son ressort, les mettre en avant lui demanderait d'attendre.
   const currentKey = jalons.find((j) => !j.done && j.href)?.key;
 
-  const welcome = !run?.startDate
+  const welcome = !run
+    ? signing
+      ? client.signatureDate
+        ? "Votre contrat est signé. Bienvenue chez TIM !"
+        : "Votre espace est ouvert : vous y finalisez la signature de votre contrat."
+      : "Votre espace est ouvert."
+    : currentKey === "signature"
+      ? "Il vous reste à finaliser la signature : votre devis et votre contrat vous attendent."
+      : !run.startDate
     ? "Votre espace est ouvert. Vous y préparez votre phase de test à votre rythme."
     : jalonsDone === jalons.length
       ? "Tout est prêt de votre côté."
@@ -219,7 +260,7 @@ export default async function AccueilPage() {
 
       {/* ── Où en est le test, dans le temps et dans les étapes ────────────── */}
       <section className="mb-8 rounded-lg border border-border bg-surface p-5 sm:p-6">
-        {time.hasDates ? (
+        {!run ? null : time.hasDates ? (
           <>
             <div className="flex items-baseline justify-between gap-4 text-sm">
               <span className="font-semibold text-foreground">
@@ -246,7 +287,7 @@ export default async function AccueilPage() {
           </p>
         )}
 
-        <div className="mt-5 border-t border-border pt-4">
+        <div className={run ? "mt-5 border-t border-border pt-4" : ""}>
           <div className="flex items-baseline justify-between gap-4 text-sm">
             <span className="font-semibold text-foreground">Votre préparation</span>
             <span className="text-muted">
@@ -311,7 +352,8 @@ export default async function AccueilPage() {
                     />
                   </div>
                   <p className="mt-1.5 text-xs text-muted">
-                    {j.progress.done} section{j.progress.done > 1 ? "s" : ""} sur {j.progress.total}
+                    {j.progress.done} {j.progress.unit ?? "section"}
+                    {j.progress.done > 1 ? "s" : ""} sur {j.progress.total}
                   </p>
                 </div>
               )}

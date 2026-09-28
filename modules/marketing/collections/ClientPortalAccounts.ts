@@ -4,6 +4,7 @@ import { isAdmin, metierScoped } from "@/core/access";
 import { clientField, partnerField, setPartnerFromClient } from "@/modules/marketing/collections/clientOwned";
 import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
 import { sendJourneyEmailForClient } from "@/modules/marketing/lib/send";
+import { SIGNING_INVITE_CONTEXT } from "@/modules/partner/lib/signing-access";
 
 /**
  * Comptes de l'espace client — un par entreprise cliente en phase de test.
@@ -81,6 +82,10 @@ export const ClientPortalAccounts: CollectionConfig = {
         if (!opened) return doc;
 
         await armAutoStep(req.payload, clientId, "compte-espace-client", req);
+        // Ouvert par le process de signature, qui envoie SA propre invitation
+        // (voir modules/partner/lib/signing-access) : celle du test ferait
+        // doublon, et parlerait d'un démarrage qui n'aura pas lieu.
+        if ((req.context as Record<string, unknown> | undefined)?.[SIGNING_INVITE_CONTEXT]) return doc;
 
         // PREMIER message du parcours : sans lui, le client dispose d'un espace
         // dont il ignore l'existence. L'échec est silencieux côté métier — un

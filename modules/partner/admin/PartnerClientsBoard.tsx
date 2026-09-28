@@ -8,6 +8,7 @@ import { createPortal } from "react-dom";
 import { collapsePhoneGroups } from "@/core/lib/phone";
 import { StartTestModal } from "@/modules/marketing/admin/StartTestModal";
 import { ActivityIcon } from "@/modules/partner/admin/ActivityIcons";
+import { SigningInviteChoice } from "@/modules/partner/admin/ContractStartModal";
 import { LossReasonModal, type LossOutcome } from "@/modules/partner/admin/LossReasonModal";
 import { taskKindLabel, taskKindMeta } from "@/modules/partner/lib/activity";
 import {
@@ -275,6 +276,8 @@ export function PartnerClientsBoard() {
     null,
   );
   const [pendingDate, setPendingDate] = useState<string>(todayISO());
+  /** « Gagnée » : envoyer l'accès à l'espace client dans la foulée ? */
+  const [pendingInvite, setPendingInvite] = useState(false);
   // Passage en « En test » : le modal de démarrage (date, contact, étapes).
   const [startingTest, setStartingTest] = useState<ClientDoc | null>(null);
   /**
@@ -716,6 +719,7 @@ export function PartnerClientsBoard() {
         // début de contrat AU MOMENT du geste. Sans elle, le serveur refuse la
         // bascule (requireContractStart) — autant la collecter ici.
         setPendingDate(client.contractStartDate?.slice(0, 10) || todayISO());
+        setPendingInvite(false);
         setPending({ client, status, kind: "contrat" });
       } else {
         // Retour à un statut vivant → la date de fin n'a plus lieu d'être.
@@ -734,9 +738,11 @@ export function PartnerClientsBoard() {
     void applyMove(pending.client, pending.status, {
       contractStartDate: iso,
       resiliationDate: null,
-    });
+      // Champ virtuel, lu par le serveur (voir openSigningAccess).
+      sendPortalInvite: pendingInvite,
+    } as Partial<ClientDoc>);
     setPending(null);
-  }, [pending, pendingDate, applyMove]);
+  }, [pending, pendingDate, pendingInvite, applyMove]);
 
   /** Clôture : motif obligatoire, date de fin quand le contrat s'arrête. */
   const confirmClosure = useCallback(
@@ -1129,6 +1135,11 @@ export function PartnerClientsBoard() {
                   className="tim-kanban__modal-input"
                 />
               </label>
+              <SigningInviteChoice
+                email={pending.client.email}
+                checked={pendingInvite}
+                onChange={setPendingInvite}
+              />
               <div className="tim-kanban__modal-actions">
                 <button type="button" className="tim-kanban__btn" onClick={() => setPending(null)}>
                   Annuler

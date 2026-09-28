@@ -41,6 +41,10 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
   const { value: contractStart, setValue: setContractStart } = useField<string>({
     path: "contractStartDate",
   });
+  // Champ virtuel : « envoyer l'accès maintenant ? », lu par le serveur à
+  // l'enregistrement (voir openSigningAccess dans PartnerClients).
+  const { setValue: setSendInvite } = useField<boolean>({ path: "sendPortalInvite" });
+  const { value: formEmail } = useField<string>({ path: "email" });
   const { id, savedDocumentData } = useDocumentInfo();
   const [asking, setAsking] = useState(false);
   const [askingContract, setAskingContract] = useState(false);
@@ -80,7 +84,9 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
       }
       // Contrairement à la phase de test, ça marche aussi sur une fiche jamais
       // enregistrée : le modal ne fait que remplir deux champs du formulaire.
-      if (next === "actif" && value !== "actif" && !contractStart) {
+      // Toujours, même si la date de contrat est connue : le modal pose aussi
+      // la question de l'espace client, qui ne se pose qu'à ce moment-là.
+      if (next === "actif" && value !== "actif") {
         setAskingContract(true);
         return;
       }
@@ -91,7 +97,7 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
       }
       setValue(next);
     },
-    [contractStart, setValue, value, id],
+    [setValue, value, id],
   );
 
   return (
@@ -141,10 +147,13 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
       {askingContract && (
         <ContractStartModal
           companyName={companyName}
+          email={formEmail || saved?.email}
+          defaultDate={contractStart}
           onCancel={() => setAskingContract(false)}
-          onConfirm={(iso) => {
+          onConfirm={(iso, sendInvite) => {
             setAskingContract(false);
             setContractStart(iso);
+            setSendInvite(sendInvite);
             setValue("actif");
           }}
         />

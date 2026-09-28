@@ -36,6 +36,7 @@ import {
   AUTO_VALIDATE_DELAY_HOURS,
   NEVER_AUTO_VALIDATE,
   canAutoValidate,
+  FACT_ARMED_STEPS,
   isDeadlineArming,
   selfValidationAllowed,
   selfValidationDate,
@@ -457,7 +458,7 @@ const armAutoSteps: CollectionBeforeChangeHook = ({ data, originalDoc, operation
       return { ...s, state: "auto", autoAt: new Date(Date.parse(sentAt) + AUTO_VALIDATE_DELAY_HOURS * 3_600_000).toISOString() };
     }
 
-    if (s.key && armed.has(s.key) && canAutoValidate(s)) {
+    if (s.key && armed.has(s.key) && (canAutoValidate(s) || FACT_ARMED_STEPS.has(s.key))) {
       if (state === "a-faire") {
         changed = true;
         return { ...s, state: "auto", autoAt: at };
@@ -1124,6 +1125,44 @@ const notifyQuoteNeeded: CollectionAfterChangeHook = async ({ doc, previousDoc, 
 };
 
 /**
+ * « Je continue » lance le process de SIGNATURE sur la fiche du client.
+ *
+ * Le client a dit oui : le devis, puis le contrat, vont circuler. L'onglet
+ * « Signature » de la fiche et la page du même nom dans son espace
+ * apparaissent dès maintenant — pas à la bascule en « Gagnée », qui n'arrive
+ * qu'une fois le contrat signé et la production lancée.
+ *
+ * Déclenché comme l'alerte « devis à rédiger » : par la validation de l'étape
+ * « Décision du client », que ce soit le client (page de décision) ou le
+ * partenaire (fiche) qui l'ait cochée. Jamais en cas d'abandon ni de
+ * prolongation.
+ */
+const startSigningOnGo: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
+  const wasDone = ((previousDoc?.steps ?? []) as RunStep[]).find((s) => s.key === "decision");
+  const isDone = ((doc?.steps ?? []) as RunStep[]).find((s) => s.key === "decision");
+  if (!isDone || isStepDone(wasDone ?? {}) || !isStepDone(isDone)) return doc;
+  if (doc?.decision !== "contrat") return doc;
+
+  const clientId = idOf(doc?.client);
+  if (clientId == null) return doc;
+  const client = await findOne<{ signingStartedAt?: string | null }>(req, "partner-clients", clientId);
+  if (!client || client.signingStartedAt) return doc;
+
+  try {
+    await req.payload.update({
+      collection: "partner-clients",
+      id: clientId,
+      data: { signingStartedAt: new Date().toISOString() } as never,
+      overrideAccess: true,
+      req,
+    });
+  } catch (err) {
+    req.payload.logger.error(`[signature] démarrage du process pour ${clientId} échoué : ${err}`);
+  }
+  return doc;
+};
+
+/**
  * Valider « Dossier vérifié par TIM » VERROUILLE le dossier du client.
  *
  * Le geste et son effet au même endroit : cocher l'étape passe l'état du dossier
@@ -1392,6 +1431,7 @@ export const JourneyRuns: CollectionConfig = {
       syncClientStatus,
       notifyNewRequest,
       notifyQuoteNeeded,
+      startSigningOnGo,
       notifyContractNeeded,
       openPortalOnGo,
       lockDossierOnValidation,

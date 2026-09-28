@@ -160,7 +160,7 @@ const NEXT_STEPS = [
   },
   {
     title: "La signature",
-    text: "Vous signez le contrat ; il est enregistré sur votre dossier.",
+    text: "Vous le signez et nous le retournez depuis votre espace client.",
   },
   {
     title: "Le passage en production",
@@ -216,9 +216,16 @@ function NextSteps({ celebrate }: { celebrate: boolean }) {
       </ol>
 
       <p className="mt-8 rounded-xl bg-surface px-4 py-3 text-sm text-foreground">
-        Chaque document vous arrive par e-mail. Une question d&apos;ici là&nbsp;? Répondez
-        simplement à notre message.
+        Votre devis et votre contrat vous attendront dans votre espace client, page
+        «&nbsp;Signature&nbsp;» : vous les y téléchargez, et vous nous les y retournez signés.
+        Vous pourrez aussi y compléter les informations de votre entreprise.
       </p>
+      <a
+        href="/espace-client?next=%2Fespace-client%2Fsignature"
+        className="mt-4 inline-block font-semibold text-primary hover:underline"
+      >
+        Ouvrir mon espace client →
+      </a>
     </>
   );
 }

@@ -78,6 +78,7 @@ import { NeedFromOpportunity as NeedFromOpportunity_706b11bee372d49b265857d9536d
 import { LicencesTable as LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338 } from '../../../modules/partner/admin/LicencesTable'
 import { PennylaneCompare as PennylaneCompare_15129f9dfdba74a12c4653c08d159168 } from '../../../modules/partner/admin/PennylaneCompare'
 import { PartnerClientHistory as PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2 } from '../../../modules/partner/admin/PartnerClientHistory'
+import { SigningChecklist as SigningChecklist_400eec951102b3f782c7a6407a3dac35 } from '../../../modules/partner/admin/SigningChecklist'
 import { OnboardingRecap as OnboardingRecap_d713ec8857fdf2ef0b320360e45593af } from '../../../modules/marketing/admin/OnboardingRecap'
 import { PreparationConsole as PreparationConsole_9e99600200a0e8a19593b41642fef9dc } from '../../../modules/marketing/admin/PreparationConsole'
 import { PortalAccessBox as PortalAccessBox_fc683d39455978ed93c806cafc5e09d9 } from '../../../modules/marketing/admin/PortalAccessBox'
@@ -220,6 +221,7 @@ export const importMap = {
   "/modules/partner/admin/LicencesTable#LicencesTable": LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338,
   "/modules/partner/admin/PennylaneCompare#PennylaneCompare": PennylaneCompare_15129f9dfdba74a12c4653c08d159168,
   "/modules/partner/admin/PartnerClientHistory#PartnerClientHistory": PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2,
+  "/modules/partner/admin/SigningChecklist#SigningChecklist": SigningChecklist_400eec951102b3f782c7a6407a3dac35,
   "/modules/marketing/admin/OnboardingRecap#OnboardingRecap": OnboardingRecap_d713ec8857fdf2ef0b320360e45593af,
   "/modules/marketing/admin/PreparationConsole#PreparationConsole": PreparationConsole_9e99600200a0e8a19593b41642fef9dc,
   "/modules/marketing/admin/PortalAccessBox#PortalAccessBox": PortalAccessBox_fc683d39455978ed93c806cafc5e09d9,
