@@ -1862,3 +1862,36 @@ export const isClientDecision = (value: unknown): value is ClientDecision =>
 
 export const clientDecisionLabel = (value?: string | null): string | null =>
   CLIENT_DECISIONS.find((d) => d.value === value)?.label ?? null;
+
+/**
+ * La seconde étape de « Votre décision », propre à chaque réponse.
+ *
+ * « J'ai besoin de plus de temps » demande COMBIEN : sans durée, le partenaire
+ * doit rappeler pour la connaître. C'est une DEMANDE, pas une prolongation
+ * posée d'office — la date de fin reste un lundi et c'est le partenaire qui
+ * l'inscrit dans l'onglet « Prolongations ».
+ *
+ * « Je m'arrête » demande POURQUOI, en motifs à cocher d'abord : une case se
+ * coche en une seconde, une page blanche se laisse. Le champ libre vient après.
+ */
+export const EXTENSION_REQUESTS = [
+  { value: 7, label: "1 semaine" },
+  { value: 14, label: "2 semaines" },
+  { value: 30, label: "1 mois" },
+] as const;
+
+export const extensionRequestLabel = (days: number): string =>
+  EXTENSION_REQUESTS.find((e) => e.value === days)?.label ?? `${days} jours`;
+
+export const LOST_REASONS = [
+  { value: "prix", label: "C'est trop cher pour nous" },
+  { value: "temps", label: "Pas eu le temps de vraiment tester" },
+  { value: "fonction", label: "Il manque une fonctionnalité" },
+  { value: "prise-en-main", label: "Trop compliqué à prendre en main" },
+  { value: "equipe", label: "L'équipe ne l'a pas adopté" },
+  { value: "autre-outil", label: "On garde notre outil actuel / on en choisit un autre" },
+  { value: "report", label: "Le projet est reporté" },
+] as const;
+
+export const lostReasonLabel = (value: string): string | null =>
+  LOST_REASONS.find((r) => r.value === value)?.label ?? null;

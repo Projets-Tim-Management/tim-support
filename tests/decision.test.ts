@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 
 process.env.PAYLOAD_SECRET ??= "secret-de-test";
 
-import { CLIENT_DECISIONS, RUN_DECISIONS, isClientDecision } from "@/modules/marketing/lib/journey";
+import {
+  CLIENT_DECISIONS,
+  EXTENSION_REQUESTS,
+  LOST_REASONS,
+  RUN_DECISIONS,
+  extensionRequestLabel,
+  isClientDecision,
+  lostReasonLabel,
+} from "@/modules/marketing/lib/journey";
 import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
 import { readRunToken, runToken } from "@/modules/marketing/lib/run-token";
 import { satisfactionToken } from "@/modules/marketing/lib/satisfaction";
@@ -34,6 +42,22 @@ describe("les trois réponses", () => {
     expect(isClientDecision("go")).toBe(false);
     expect(isClientDecision(null)).toBe(false);
     expect(isClientDecision(1)).toBe(false);
+  });
+});
+
+describe("la seconde étape", () => {
+  it("propose des durées distinctes et lisibles", () => {
+    const days = EXTENSION_REQUESTS.map((e) => e.value);
+    expect(new Set(days).size).toBe(days.length);
+    expect(extensionRequestLabel(14)).toBe("2 semaines");
+    expect(extensionRequestLabel(10)).toBe("10 jours");
+  });
+
+  it("n'accepte que les motifs connus", () => {
+    const values = LOST_REASONS.map((r) => r.value);
+    expect(new Set(values).size).toBe(values.length);
+    expect(lostReasonLabel("prix")).not.toBeNull();
+    expect(lostReasonLabel("<script>")).toBeNull();
   });
 });
 
