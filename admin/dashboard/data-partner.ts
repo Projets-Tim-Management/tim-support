@@ -100,6 +100,7 @@ const DONUT_ORDER = [
   "attente-engagement",
   "attente-longue",
   "en-test",
+  "en-signature",
   "actif",
   "archive",
   "resilie",

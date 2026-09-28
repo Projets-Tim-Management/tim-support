@@ -86,13 +86,22 @@ export default function DecisionForm({
         {saved === "contrat" && <NextSteps celebrate={justSaved} />}
         {saved === "prolongation" && <MoreTime token={token} />}
         {saved === "abandon" && <WhatWasMissing token={token} />}
-        <button
-          type="button"
-          onClick={back}
-          className="mt-10 text-sm text-muted underline-offset-2 transition hover:text-foreground hover:underline"
-        >
-          Changer ma réponse
-        </button>
+        {/* « Je continue » clôt la phase de test et ouvre la mise en production :
+            il n'y a plus de réponse à changer ici. Le changement d'avis reste
+            possible — il passe par une personne, pas par un bouton. */}
+        {saved === "contrat" ? (
+          <p className="mt-10 text-sm text-muted">
+            Vous avez changé d&apos;avis&nbsp;? Répondez simplement à notre e-mail.
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={back}
+            className="mt-10 text-sm text-muted underline-offset-2 transition hover:text-foreground hover:underline"
+          >
+            Changer ma réponse
+          </button>
+        )}
       </main>
     );
   }

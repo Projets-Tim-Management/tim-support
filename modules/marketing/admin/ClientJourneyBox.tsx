@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { StartTestModal } from "@/modules/marketing/admin/StartTestModal";
-import { runStatusMeta } from "@/modules/marketing/lib/journey";
+import { isProductionRun, runStatusMeta } from "@/modules/marketing/lib/journey";
 
 /**
  * Encart « Phase de test » de la fiche client (barre latérale).
@@ -26,6 +26,7 @@ type Run = {
   stepsDone?: number;
   stepsTotal?: number;
   currentStepLabel?: string;
+  journeyKey?: string | null;
 };
 
 const fmt = (iso?: string) =>
@@ -194,13 +195,17 @@ export function ClientJourneyBox() {
   }
 
   const meta = runStatusMeta(run.status);
+  // Le DERNIER parcours : la mise en production quand le client a dit oui —
+  // c'est elle qui dit où il en est. Le test reste accessible depuis sa fiche.
+  const production = isProductionRun(run);
+  const title = production ? "Mise en production" : "Phase de test";
   const total = run.stepsTotal ?? 0;
   const done = run.stepsDone ?? 0;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
   return (
     <div className="jr-box">
-      <h4 className="jr-box__title">Phase de test</h4>
+      <h4 className="jr-box__title">{title}</h4>
 
       {justStarted && (
         <p className="jr-box__notice">
@@ -215,9 +220,11 @@ export function ClientJourneyBox() {
         </span>
       )}
 
-      <p className="jr-box__dates">
-        {fmt(run.startDate)} → {fmt(run.endDate)}
-      </p>
+      {!production && (
+        <p className="jr-box__dates">
+          {fmt(run.startDate)} → {fmt(run.endDate)}
+        </p>
+      )}
 
       <div className="jr-box__bar">
         <span style={{ width: `${pct}%` }} />
@@ -234,7 +241,7 @@ export function ClientJourneyBox() {
       )}
 
       <Link className="jr-box__cta" href={`/admin/collections/journey-runs/${run.id}`}>
-        Ouvrir la phase de test
+        {production ? "Ouvrir la mise en production" : "Ouvrir la phase de test"}
       </Link>
     </div>
   );

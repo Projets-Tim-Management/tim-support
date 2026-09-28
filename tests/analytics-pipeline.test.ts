@@ -76,7 +76,10 @@ describe("entonnoir et conversion", () => {
       ["demo-programmee", 2, 66.67, 50], // la fiche 2 a sauté la démo : elle est comptée comme passée (elle est allée plus loin)
       ["attente-engagement", 2, 100, 50],
       ["en-test", 2, 100, 50],
-      ["actif", 1, 50, 25],
+      // Passée d'« En test » à « Gagnée » avant l'arrivée du statut : comptée
+      // comme passée par « En signature » (elle est allée plus loin).
+      ["en-signature", 1, 50, 25],
+      ["actif", 1, 100, 25],
     ]);
     expect(a.kpis.conversion).toBe(25);
     expect(a.kpis.avgDaysToWin).toBe(31);

@@ -1,7 +1,7 @@
 import type { PayloadRequest, Where } from "payload";
 
 import { CLOSED_STATUSES } from "@/modules/marketing/lib/due-emails";
-import { STEPS_DONE_ON_SEND, isStepDone } from "@/modules/marketing/lib/journey";
+import { STEPS_DONE_ON_SEND, isProductionRun, isStepDone } from "@/modules/marketing/lib/journey";
 import { countByMonth, lastMonths } from "@/modules/analytics/lib/growth";
 import { pendingValidations } from "@/modules/partner/lib/billing-validation";
 import { isPipelineStatus } from "@/modules/partner/lib/clientStatus";
@@ -294,7 +294,10 @@ export async function getHomeData(
   ]);
 
   // ── Phases de test : une carte par parcours ouvert, la plus pressée d'abord
-  const ouverts = parcours.filter((r) => !CLOSED_STATUSES.includes(r.status ?? ""));
+  // Phases de test seulement : une mise en production n'a ni J+x ni fin de test.
+  const ouverts = parcours.filter(
+    (r) => !CLOSED_STATUSES.includes(r.status ?? "") && !isProductionRun(r as { journeyKey?: string | null }),
+  );
   const tests = ouverts
     .map((r) => versCarte(r, now, adminRoute))
     .sort((a, b) => (a.daysLeft ?? 9999) - (b.daysLeft ?? 9999));

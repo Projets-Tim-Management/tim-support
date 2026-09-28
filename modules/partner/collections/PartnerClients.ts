@@ -22,7 +22,7 @@ import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { validatePhone } from "@/core/lib/validators";
 import { enrollSequence } from "@/modules/marketing/hooks/enrollSequence";
 import { requireTestSchedule } from "@/modules/marketing/hooks/requireTestSchedule";
-import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
+import { armAutoStep, disarmStep } from "@/modules/marketing/lib/auto-steps";
 import { ONBOARDING_STATUS_OPTIONS } from "@/modules/marketing/lib/onboarding";
 import {
   CLIENT_STATUS_OPTIONS,
@@ -38,7 +38,8 @@ import { requireLossReason } from "@/modules/partner/hooks/requireLossReason";
 import { LOSS_REASON_OPTIONS, needsLossReason } from "@/modules/partner/lib/lossReason";
 import { journalEntries, logActivity } from "@/modules/partner/lib/journal";
 import { ensureSigningAccess } from "@/modules/partner/lib/signing-access";
-import { signingStarted, stampDocumentDates } from "@/modules/partner/lib/signing";
+import { startProductionJourney } from "@/modules/marketing/lib/production";
+import { signingStarted, signingSteps, stampDocumentDates } from "@/modules/partner/lib/signing";
 import { pennylaneStampFor } from "@/modules/partner/lib/billing-check";
 import { BILLING_PERIOD_OPTIONS } from "@/modules/partner/lib/billing-period";
 import { buildHistoryEntry, nextHistory, type HistoryEntry } from "@/modules/partner/lib/history";
@@ -74,7 +75,7 @@ const requireEmailFromTest: CollectionBeforeChangeHook = ({ data, originalDoc })
   const status = (data?.clientStatus ?? originalDoc?.clientStatus) as string | undefined;
   const email = String(data?.email ?? originalDoc?.email ?? "").trim();
   const draft = data?._status === "draft";
-  if (!draft && email === "" && (status === "en-test" || hasContractPhase(status))) {
+  if (!draft && email === "" && (status === "en-test" || status === "en-signature" || hasContractPhase(status))) {
     throw new Error("L'adresse e-mail est obligatoire à partir de la phase de test (espace client, accès, factures).");
   }
   return data;
@@ -323,17 +324,13 @@ const armJourneySteps: CollectionAfterChangeHook = async ({ doc, previousDoc, re
   if (doc?.onboardingStatus === "valide" && previousDoc?.onboardingStatus !== "valide") {
     await armAutoStep(req.payload, doc.id, "validation-dossier", req);
   }
-  if (doc?.signatureDate && !previousDoc?.signatureDate) {
-    await armAutoStep(req.payload, doc.id, "signature", req);
-  }
-  // Process de signature → étapes de sortie du parcours de test : le devis
-  // parti coche « Devis transmis », le contrat parti coche « Contrat rédigé »
-  // (on n'envoie pas un contrat qui n'est pas écrit).
-  if (doc?.quoteSentAt && !previousDoc?.quoteSentAt) {
-    await armAutoStep(req.payload, doc.id, "devis", req);
-  }
-  if (doc?.contractSentAt && !previousDoc?.contractSentAt) {
-    await armAutoStep(req.payload, doc.id, "contrat", req);
+  // Signature (onglet « Signature ») → étapes du parcours « Mise en
+  // production ». Chaque étape qui DEVIENT acquise sur la fiche est armée ; une
+  // étape redevenue « à faire » (« Fait par e-mail » annulé) est désarmée.
+  const before = new Map(signingSteps(previousDoc ?? {}).map((s) => [s.key, s.done]));
+  for (const step of signingSteps(doc ?? {})) {
+    if (step.done && !before.get(step.key)) await armAutoStep(req.payload, doc.id, step.key, req);
+    if (!step.done && before.get(step.key)) await disarmStep(req.payload, doc.id, step.key, req);
   }
   return doc;
 };
@@ -363,33 +360,41 @@ const stampSigning: CollectionBeforeChangeHook = ({ data, originalDoc, req }) =>
   const now = new Date().toISOString();
   Object.assign(next, stampDocumentDates(next, originalDoc, now));
 
-  // Le « Je continue » d'une phase de test a déjà lancé le process : la date
-  // de démarrage n'est posée ici que si elle manque encore.
+  // Le process démarre au passage « En signature » (ou, pour une affaire
+  // passée directement « Gagnée », à ce moment-là) ; jamais réécrit ensuite.
   const status = next.clientStatus ?? originalDoc?.clientStatus;
-  const becameWon = status === "actif" && originalDoc?.clientStatus !== "actif";
-  if (becameWon && !(next.signingStartedAt ?? originalDoc?.signingStartedAt)) {
+  const entered =
+    (status === "en-signature" || status === "actif") && originalDoc?.clientStatus !== status;
+  if (entered && !(next.signingStartedAt ?? originalDoc?.signingStartedAt)) {
     next.signingStartedAt = now;
   }
   return next;
 };
 
 /**
- * Au passage en « Gagnée », l'espace client qui servira à signer.
+ * Au passage « En signature » : le parcours « Mise en production », et
+ * l'espace client qui servira à signer.
  *
- * Créé fermé, ou ouvert avec l'invitation si le modal l'a demandé. Pas pour
- * une affaire qui arrive au bout de sa phase de test (`fromJourneySync`) : son
- * espace existe depuis le début du test, et le client le connaît.
+ * Quel que soit le chemin — « Je continue » en fin de test (synchro du
+ * parcours), ou la fiche passée « En signature » à la main (Kanban, fiche) —
+ * voir startProductionJourney, qui clôt au besoin la phase de test encore
+ * ouverte.
  *
- * Un échec ne bloque jamais la bascule : l'affaire est gagnée, l'accès se
- * rattrape d'un clic dans l'onglet « Signature ».
+ * L'accès est créé fermé, ou ouvert avec l'invitation si le modal l'a demandé.
+ * Une affaire issue d'un test a déjà le sien : rien n'est touché sans demande.
+ *
+ * Un échec ne bloque jamais la bascule : le parcours et l'accès se rattrapent
+ * (repasser la fiche « En signature », bouton de l'onglet « Signature »).
  */
-const openSigningAccess: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
+const openProduction: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
   const ctx = req.context as Record<string, unknown>;
   const invite = ctx[SEND_INVITE] === true;
   delete ctx[SEND_INVITE];
 
-  const becameWon = doc?.clientStatus === "actif" && previousDoc?.clientStatus !== "actif";
-  if (!becameWon || ctx.fromJourneySync || doc?._status === "draft") return doc;
+  const entered = doc?.clientStatus === "en-signature" && previousDoc?.clientStatus !== "en-signature";
+  if (!entered || doc?._status === "draft") return doc;
+
+  await startProductionJourney(req.payload, doc.id, req);
 
   const result = await ensureSigningAccess(req.payload, doc.id, { invite }, req);
   if (!result.ok) {
@@ -571,7 +576,7 @@ export const PartnerClients: CollectionConfig = {
     // sur les transitions de « Perdue », et ne doit jamais faire échouer un
     // enregistrement — on ne refuse pas de clore une affaire parce qu'un envoi
     // futur n'a pas pu être planifié.
-    afterChange: [armJourneySteps, writeJournal, openSigningAccess, enrollSequence],
+    afterChange: [armJourneySteps, writeJournal, openProduction, enrollSequence],
     // Vide ce qui n'existe que par ce client avant de le supprimer, sans quoi
     // Postgres refuse la suppression (cf. deleteClientChildren).
     beforeDelete: [deleteClientChildren],

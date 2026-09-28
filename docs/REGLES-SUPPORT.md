@@ -6,9 +6,9 @@ quand on lui pose une question : ce qui n'est pas ici, il ne le sait pas.
 
 ## Les objets
 
-- **Opportunité** (`partner-clients`) : une entreprise amenée par un partenaire, du prospect au client. Statuts, dans l'ordre du pipeline : Nouvelle → En qualification → Démo programmée → En attente d'engagement → En attente longue → **En phase de test** → **Gagnée** (client actif, facturé) ; fins : Perdue, Résilié, Archivé. « Gagnée » est la seule qui entre dans le CA.
+- **Opportunité** (`partner-clients`) : une entreprise amenée par un partenaire, du prospect au client. Statuts, dans l'ordre du pipeline : Nouvelle → En qualification → Démo programmée → En attente d'engagement → En attente longue → **En phase de test** → **En signature** (le client a dit oui : devis, contrat, activation) → **Gagnée** (client actif, facturé) ; fins : Perdue, Résilié, Archivé. « Gagnée » est la seule qui entre dans le CA.
 - **Partenaire** (`partners`) : apporteur d'affaires. Deux genres : *métier* (amène des clients, touche une commission = CA HT × son taux) et *utilisateur* (programme de points). Le « partenaire du site vitrine » porte les leads venus des formulaires : la fiche liée au compte `cpiancatelli@tim-management.co` (variable `VITRINE_PARTNER_EMAIL` pour changer).
-- **Parcours** (`journey-runs`) : la phase de test d'un client, 4 semaines par défaut, démarrée un lundi, avec ses étapes et ses e-mails programmés.
+- **Parcours** (`journey-runs`) : deux modèles. La **phase de test** d'un client, 4 semaines par défaut, démarrée un lundi, avec ses étapes et ses e-mails programmés ; puis la **mise en production** (sans calendrier), du « Je continue » au compte de production activé. Un seul parcours ouvert à la fois par client.
 - **Tâche** (`client-activities` de type « tache ») : un rappel daté sur une opportunité (appel, relance…), coché quand c'est fait. Sur un **appel**, « Pas de réponse » (fiche ou accueil) note l'essai (heure, auteur) sur la tâche, écrit une ligne de journal sur la fiche, et **reporte la tâche au prochain jour ouvré à la même heure** (une tâche prévue plus tard garde sa date). La tâche affiche « n essais sans réponse · dernier le… ».
 - **Ticket** (`tickets`) : demande d'un client au support ; états nouveau, pris en compte, en cours, en attente, résolu ; priorité dont « urgent ».
 - **Développement** (`developments`) : ce qui se développe (feature, évolution, bug), avec une checklist et des discussions.
@@ -16,7 +16,7 @@ quand on lui pose une question : ce qui n'est pas ici, il ne le sait pas.
 
 ## Le parcours (phase de test)
 
-23 étapes, chacune avec un acteur : **TIM** (admin), **Partenaire**, **Client**. Une étape est *faite*, *à faire*, *bloquée*, ou *en validation automatique* (un compte à rebours de 2 h après un fait constaté, annulable).
+Elle s'arrête à **« Décision du client »**. Chaque étape a un acteur : **TIM** (admin), **Partenaire**, **Client**. Une étape est *faite*, *à faire*, *bloquée*, ou *en validation automatique* (un compte à rebours de 2 h après un fait constaté, annulable).
 
 - Étapes **système** : cochées par le geste lui-même (créer le compte espace client, réserver un créneau, transmettre le dossier, générer les accès, signer). Pas de bouton.
 - Étapes **cochées à l'envoi** : les deux conseils d'usage (J+1, J+7) se cochent quand l'e-mail part. Jamais « en retard », jamais rappelées.
@@ -24,16 +24,18 @@ quand on lui pose une question : ce qui n'est pas ici, il ne le sait pas.
 - **Go/No-Go** (validation admin) : jamais automatique, décision de TIM.
 - Étapes **datées** — session, relevés d'usage J+2, J+7, mi-parcours, avant bilan, bilan : ne se cochent **pas avant leur jour** (jour civil de Paris). Un relevé est un constat du jour dit.
 - Le bouton « valider » se pose sur la **première étape non acquise qui attend une main** (ni système, ni armée) ; les étapes suivantes attendent.
-- Le statut du parcours est **dérivé** des étapes : en préparation, test en cours, gagné (mise en production cochée) ; perdu et annulé se posent à la main.
+- Le statut du parcours est **dérivé** des étapes : en préparation, test en cours, **gagné = « Décision du client » validée avec la décision « contrat »** (par le client depuis l'e-mail, ou à la main) ; perdu et annulé se posent à la main. Un parcours clos ne se rouvre pas. Test gagné → la fiche passe **En signature** et la mise en production s'ouvre. Prolongation ou abandon laissent le test ouvert.
 - **Rappels au partenaire** : le jour d'une étape partenaire échue, un e-mail « Une action vous attend » (une fois). Les étapes partenaire datées figurent aussi sur l'agenda de l'accueil (aujourd'hui / en retard) et dans le récapitulatif du matin, et se cochent des deux côtés (accueil et fiche) — même règle. Sur le Kanban des opportunités, la prochaine étape partenaire non faite (échue ou due sous 7 jours) s'affiche sur la carte — une seule par parcours — dans la liste des échéances, avec les mêmes mots que les tâches (« aujourd'hui », « en retard », « dans 3 j »), pastille « Phase de test ».
 
-## La signature (du « oui » au contrat signé)
+## La mise en production (du « oui » au compte activé)
 
-- **Démarrage** : au premier de deux faits — la réponse « Je continue » en fin de phase de test (étape « Décision du client » validée avec la décision « contrat »), ou le passage de la fiche en **Gagnée** (affaire conclue sans test). Onglet « Signature » sur la fiche, page « Signature » dans l'espace client.
-- **Cinq étapes** : informations de l'entreprise (raison sociale, SIREN **ou** SIRET, adresse de facturation) → devis envoyé → devis retourné signé → contrat envoyé → contrat retourné signé.
+- **Ouverture** : quand la fiche passe **En signature** — soit la phase de test vient d'être gagnée (« Je continue »), soit quelqu'un a passé la fiche « En signature » à la main (Kanban, fiche). Dans ce second cas, une phase de test encore ouverte est **close** avec la décision « contrat ». Affaire conclue sans test : on la passe directement « En signature ». TIM reçoit l'alerte « devis à rédiger » à l'ouverture.
+- **Six étapes**, sans échéance : informations de l'entreprise (raison sociale, SIREN **ou** SIRET, adresse de facturation) → devis envoyé → devis retourné signé → contrat envoyé → contrat retourné signé → **compte de production activé** (TIM). Les cinq premières sont des **constats** de la fiche (onglet « Signature ») ; seule l'activation se valide à la main.
+- **Fin** : l'activation clôt le parcours, la fiche passe **Gagnée** (date de début de contrat = jour de l'activation si elle manque) et la facturation démarre. Le devis signé déclenche l'alerte « contrat à rédiger » à TIM.
+- Onglet « Signature » sur la fiche, page « Signature » dans l'espace client ; encart de la colonne de droite = le dernier parcours (mise en production quand elle existe).
 - **Une étape = un fait** : déposer le document coche l'étape et pose sa date, qu'il soit déposé sur la fiche (partenaire, TIM) ou dans l'espace client (le client dépose les versions **signées**). Document passé par e-mail : « Fait par e-mail » pose la date sans pièce. Une date posée n'est jamais réécrite par un dépôt plus tardif. La version signée revenue vaut envoi de l'original. Les informations d'entreprise se complètent sur la fiche (Facturation client) ou par le client ; elles se ferment côté client une fois le contrat signé.
-- **Parcours de test** : le devis déposé arme « Devis transmis », le contrat à signer déposé arme « Contrat rédigé », la date de signature arme « Contrat signé » (validation automatique à 2 h, boutons conservés).
-- **Espace client à la bascule Gagnée** : le modal demande s'il faut envoyer l'accès maintenant. Oui → accès créé et invitation « Bienvenue chez TIM » envoyée ; non → accès créé fermé, à envoyer plus tard par « Envoyer l'accès au client » dans l'onglet Signature (partenaire de la fiche ou admin). Une affaire issue d'un test garde l'espace de son test.
+- **Parcours** : chaque étape qui devient acquise sur la fiche arme l'étape correspondante de la mise en production (validation automatique à 2 h) ; une étape redevenue « à faire » (« Fait par e-mail » annulé) est désarmée.
+- **Espace client au passage En signature** : le modal demande s'il faut envoyer l'accès maintenant. Oui → accès créé et invitation « Bienvenue chez TIM » envoyée ; non → accès créé fermé, à envoyer plus tard par « Envoyer l'accès au client » dans l'onglet Signature (partenaire de la fiche ou admin). Une affaire issue d'un test garde l'espace de son test.
 - **Alertes** : un dépôt signé par le client prévient le partenaire de la fiche et les admins. Fichiers côté client : PDF, JPEG ou PNG, 4 Mo maximum.
 
 ## L'accueil et l'assistant

@@ -533,6 +533,7 @@ export interface PartnerClient {
         | 'attente-engagement'
         | 'attente-longue'
         | 'en-test'
+        | 'en-signature'
         | 'actif'
         | 'perdue'
         | 'resilie'
@@ -1451,7 +1452,7 @@ export interface JourneyRun {
         autoAt?: string | null;
         autoValidate?: boolean | null;
         actor?: ('partenaire' | 'admin' | 'client') | null;
-        phase?: ('avant-test' | 'pendant-test' | 'sortie-test') | null;
+        phase?: ('avant-test' | 'pendant-test' | 'sortie-test' | 'production') | null;
         detail?: string | null;
         anchor?: ('aucun' | 'debut' | 'milieu' | 'fin' | 'session' | 'bilan') | null;
         offsetDays?: number | null;
@@ -1521,7 +1522,17 @@ export interface JourneyRun {
    */
   endDate?: string | null;
   displayName?: string | null;
+  journeyKey?: string | null;
   autoSteps?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  resetSteps?:
     | {
         [k: string]: unknown;
       }
@@ -1574,7 +1585,7 @@ export interface MarketingJourney {
         key: string;
         label: string;
         actor: 'partenaire' | 'admin' | 'client';
-        phase: 'avant-test' | 'pendant-test' | 'sortie-test';
+        phase: 'avant-test' | 'pendant-test' | 'sortie-test' | 'production';
         detail?: string | null;
         /**
          * Sans effet si aucun fait observable n'est associé à cette étape. Les étapes que le logiciel sait constater (voir SYSTEM_STEPS) se valident seules de toute façon : cette règle vit dans le code, pas dans cette case.
@@ -3377,7 +3388,9 @@ export interface JourneyRunsSelect<T extends boolean = true> {
   durationWeeks?: T;
   endDate?: T;
   displayName?: T;
+  journeyKey?: T;
   autoSteps?: T;
+  resetSteps?: T;
   stepsTotal?: T;
   stepsDone?: T;
   progressPct?: T;

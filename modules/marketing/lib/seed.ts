@@ -7,6 +7,9 @@ import {
   PHASE_DE_TEST_EMAILS,
   PHASE_DE_TEST_KEY,
   PHASE_DE_TEST_STEPS,
+  PRODUCTION_KEY,
+  PRODUCTION_STEPS,
+  RETIRED_EMAIL_KEYS,
 } from "@/modules/marketing/lib/journey";
 
 /**
@@ -45,7 +48,10 @@ import {
 // demandait au client de confirmer ce qu'il venait de déclarer lui-même dans son
 // espace, et ne déclenchait rien. Une case qui bloque sans rien produire finit
 // cochée machinalement — et dévalue les validations qui, elles, comptent.
-const SEED_VERSION = 28;
+// v29 : la phase de test s'arrête à « Décision du client ». Devis, contrat et
+// activation passent au modèle « Mise en production » ; leurs deux alertes
+// (« devis à rédiger », « demande de contrat ») quittent le modèle de test.
+const SEED_VERSION = 29;
 
 const stepSeed = () =>
   PHASE_DE_TEST_STEPS.map((s) => ({
@@ -106,10 +112,86 @@ const mergeEmails = (stored: StoredEmail[]): unknown[] => {
       : e;
   });
   const known = new Set(stored.map((e) => e.key).filter(Boolean));
-  return [...patched, ...emailSeed().filter((e) => !known.has(e.key))];
+  // Seule exception au « rien n'est supprimé » : les envois RETIRÉS du code,
+  // dont l'étape n'existe plus dans ce modèle.
+  const kept = patched.filter((e) => !(e.key && RETIRED_EMAIL_KEYS.has(e.key as string)));
+  return [...kept, ...emailSeed().filter((e) => !known.has(e.key))];
 };
 
 export async function seedJourneys(payload: Payload): Promise<void> {
+  await seedTestJourney(payload);
+  await seedProductionJourney(payload);
+}
+
+/**
+ * Le modèle « Mise en production » : créé s'il manque, ses étapes réconciliées
+ * avec le code à chaque version (même règle que la phase de test).
+ */
+async function seedProductionJourney(payload: Payload): Promise<void> {
+  const steps = () =>
+    PRODUCTION_STEPS.map((s) => ({
+      key: s.key,
+      label: s.label,
+      actor: s.actor,
+      phase: s.phase,
+      detail: s.detail,
+      anchor: s.anchor ?? "aucun",
+      offsetDays: s.offsetDays ?? 0,
+      autoValidate: Boolean(s.autoValidate),
+    }));
+  try {
+    const existing = (
+      await payload.find({
+        collection: "marketing-journeys",
+        where: { key: { equals: PRODUCTION_KEY } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      })
+    ).docs[0] as { id: number | string; seedVersion?: number; steps?: StoredStep[] } | undefined;
+
+    if (!existing) {
+      await payload.create({
+        collection: "marketing-journeys",
+        overrideAccess: true,
+        data: {
+          title: "Mise en production",
+          key: PRODUCTION_KEY,
+          description:
+            "Du « Je continue » au compte de production activé : informations de l'entreprise, devis, contrat, activation des licences. Sans calendrier.",
+          defaultDurationWeeks: DEFAULT_DURATION_WEEKS,
+          mondayOnly: false,
+          active: true,
+          seedVersion: SEED_VERSION,
+          steps: steps(),
+          emails: [],
+        } as never,
+      });
+      payload.logger.info(`[parcours] modèle « Mise en production » créé (${PRODUCTION_STEPS.length} étapes).`);
+      return;
+    }
+    if ((existing.seedVersion ?? 0) >= SEED_VERSION) return;
+
+    const merged = mergeRunSteps(PRODUCTION_STEPS, existing.steps ?? []) ?? existing.steps ?? [];
+    const defaults = new Map(PRODUCTION_STEPS.map((s) => [s.key, s]));
+    const next = merged.map((s) => {
+      const rest = { ...(s as Record<string, unknown>) };
+      delete rest.state;
+      const def = s.key ? defaults.get(s.key) : undefined;
+      return def ? { ...rest, detail: def.detail, phase: def.phase } : rest;
+    });
+    await payload.update({
+      collection: "marketing-journeys",
+      id: existing.id,
+      overrideAccess: true,
+      data: { seedVersion: SEED_VERSION, steps: next } as never,
+    });
+  } catch (err) {
+    payload.logger.error(`[parcours] seed du modèle « Mise en production » échoué : ${err}`);
+  }
+}
+
+async function seedTestJourney(payload: Payload): Promise<void> {
   try {
     const existing = await payload.find({
       collection: "marketing-journeys",

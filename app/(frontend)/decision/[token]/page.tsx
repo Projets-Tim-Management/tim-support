@@ -53,6 +53,12 @@ export default async function Page({
     .findByID({ collection: "journey-runs", id: runId, depth: 0, overrideAccess: true })
     .catch(() => null)) as { status?: string; decision?: string | null } | null;
 
+  // « Je continue » CLÔT la phase de test (la mise en production prend le
+  // relais) : rouvrir le lien montre alors la suite, pas « test clôturé ».
+  if (run?.status === "gagne" && run.decision === "contrat") {
+    return <DecisionForm token={token} suggested={null} current="contrat" />;
+  }
+
   if (!run || (run.status && CLOSED_STATUSES.includes(run.status))) {
     return (
       <main className="mx-auto max-w-lg px-6 py-20 text-center">

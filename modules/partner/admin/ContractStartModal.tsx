@@ -15,33 +15,18 @@ import { createPortal } from "react-dom";
  * parfois lui-même dans un drawer — à l'intérieur, l'overlay resterait prisonnier
  * du contexte d'empilement. Réutilise l'habillage `tim-archive` (même famille de
  * modal de confirmation).
- *
- * Il pose aussi la question de l'ESPACE CLIENT : le client en a besoin pour
- * signer (devis, contrat, informations de facturation). On ne l'invite pas
- * d'office — on gagne parfois une affaire avant d'être prêt à lui écrire. Case
- * décochée : l'accès est créé fermé, et s'envoie plus tard depuis l'onglet
- * « Signature ».
  */
 export function ContractStartModal({
   companyName,
-  email,
-  defaultDate,
   onCancel,
   onConfirm,
 }: {
   companyName?: string;
-  /** Adresse du client : c'est là que partirait l'invitation. */
-  email?: string | null;
-  /** Date déjà connue (ISO), proposée plutôt qu'aujourd'hui. */
-  defaultDate?: string | null;
   onCancel: () => void;
-  /** Reçoit la date au format ISO (début de journée locale) et le choix d'inviter. */
-  onConfirm: (iso: string, sendInvite: boolean) => void;
+  /** Reçoit la date au format ISO (début de journée locale). */
+  onConfirm: (iso: string) => void;
 }) {
-  const [date, setDate] = useState(
-    () => defaultDate?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-  );
-  const [invite, setInvite] = useState(false);
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   if (typeof document === "undefined") return null;
 
@@ -67,7 +52,6 @@ export function ContractStartModal({
           autoFocus
           onChange={(e) => setDate(e.target.value)}
         />
-        <SigningInviteChoice email={email} checked={invite} onChange={setInvite} />
         <div className="tim-archive__actions">
           <button
             type="button"
@@ -80,7 +64,7 @@ export function ContractStartModal({
             type="button"
             className="tim-archive__btn tim-archive__btn--primary"
             disabled={!date}
-            onClick={() => onConfirm(new Date(`${date}T00:00:00`).toISOString(), invite)}
+            onClick={() => onConfirm(new Date(`${date}T00:00:00`).toISOString())}
           >
             Confirmer
           </button>
@@ -91,41 +75,3 @@ export function ContractStartModal({
   );
 }
 
-/**
- * « Envoyer l'accès à l'espace client maintenant ? » — partagé avec le Kanban.
- *
- * Sans adresse e-mail, pas de case : on dirait « envoyer » sans destinataire.
- */
-export function SigningInviteChoice({
-  email,
-  checked,
-  onChange,
-}: {
-  email?: string | null;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  if (!email) {
-    return (
-      <p className="sig-invite">
-        <span className="sig-invite__hint">
-          Ajoutez l&apos;adresse e-mail du client pour lui ouvrir son espace : il y signera son devis et
-          son contrat.
-        </span>
-      </p>
-    );
-  }
-  return (
-    <label className="sig-invite">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      <span>
-        Envoyer l&apos;accès à l&apos;espace client maintenant
-        <span className="sig-invite__hint">
-          {checked
-            ? `Un e-mail part à ${email} : il y retrouvera son devis, son contrat et ses informations de facturation.`
-            : "Sinon, vous l'enverrez plus tard depuis l'onglet « Signature »."}
-        </span>
-      </span>
-    </label>
-  );
-}

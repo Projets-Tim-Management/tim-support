@@ -38,10 +38,12 @@ export type ClientStatus = {
    * de valeurs en dur (qu'il fallait sinon compléter à chaque nouveau statut) :
    *  - `pipeline` : avant la phase de test — un lead, rien à démarrer ;
    *  - `test`     : phase de test en cours ;
+   *  - `signature`: le client a dit oui, devis et contrat circulent (parcours
+   *                 « Mise en production ») — pas encore facturable ;
    *  - `client`   : affaire gagnée, contrat en cours (seule phase facturable) ;
    *  - `fin`      : plus rien à attendre (perdue, résilié, archivé).
    */
-  phase: "pipeline" | "test" | "client" | "fin";
+  phase: "pipeline" | "test" | "signature" | "client" | "fin";
 };
 
 export const CLIENT_STATUSES: ClientStatus[] = [
@@ -53,6 +55,7 @@ export const CLIENT_STATUSES: ClientStatus[] = [
   { value: "attente-longue", label: "En attente longue", color: "var(--tim-slate)", bg: "var(--tim-slate-bg)", rank: 2.5, phase: "pipeline" },
   // ── Phase de test, puis client ───────────────────────────────────────────
   { value: "en-test", label: "En phase de test", color: "var(--tim-purple)", bg: "var(--tim-purple-bg)", rank: 0.5, phase: "test" },
+  { value: "en-signature", label: "En signature", color: "var(--tim-sky)", bg: "var(--tim-sky-bg)", rank: 0.25, phase: "signature" },
   { value: "actif", label: "Gagnée", color: "var(--tim-green)", bg: "var(--tim-green-bg)", rank: 0, phase: "client" },
   // ── Fins ─────────────────────────────────────────────────────────────────
   { value: "perdue", label: "Perdue", color: "var(--tim-rose)", bg: "var(--tim-rose-bg)", rank: 5, phase: "fin" },

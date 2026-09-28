@@ -110,6 +110,7 @@ import * as migration_20260916_165418_recherche_par_telephone from './20260916_1
 import * as migration_20260917_165244_point_geographique_fiche from './20260917_165244_point_geographique_fiche';
 import * as migration_20260918_132910_essais_sans_reponse from './20260918_132910_essais_sans_reponse';
 import * as migration_20260928_072057_process_signature from './20260928_072057_process_signature';
+import * as migration_20260928_075237_mise_en_production from './20260928_075237_mise_en_production';
 
 export const migrations = [
   {
@@ -670,6 +671,11 @@ export const migrations = [
   {
     up: migration_20260928_072057_process_signature.up,
     down: migration_20260928_072057_process_signature.down,
-    name: '20260928_072057_process_signature'
+    name: '20260928_072057_process_signature',
+  },
+  {
+    up: migration_20260928_075237_mise_en_production.up,
+    down: migration_20260928_075237_mise_en_production.down,
+    name: '20260928_075237_mise_en_production'
   },
 ];

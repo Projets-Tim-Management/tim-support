@@ -122,7 +122,7 @@ export type PipelineAnalytics = {
 /* ─── Étapes ──────────────────────────────────────────────────────────────── */
 
 /** L'entonnoir, dans l'ordre du parcours. « En attente longue » est un parking, pas une étape. */
-export const FUNNEL = ["nouvelle", "en-qualification", "demo-programmee", "attente-engagement", "en-test", "actif"] as const;
+export const FUNNEL = ["nouvelle", "en-qualification", "demo-programmee", "attente-engagement", "en-test", "en-signature", "actif"] as const;
 const FUNNEL_INDEX = new Map<string, number>(FUNNEL.map((k, i) => [k, i]));
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -352,7 +352,7 @@ export function buildPipelineAnalytics(
   /* ── En cours ── */
   const isOpen = (r: Enriched) => {
     const phase = clientStatusMeta(r.c.clientStatus)?.phase;
-    return phase === "pipeline" || phase === "test";
+    return phase === "pipeline" || phase === "test" || phase === "signature";
   };
   const open: OpenRow[] = rows
     .filter(isOpen)

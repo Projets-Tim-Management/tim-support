@@ -17,7 +17,7 @@ import {
   IconRoute,
 } from "@/components/ui/icons";
 import { getFeatures } from "@/modules/editorial/lib/content";
-import { isStepDone } from "@/modules/marketing/lib/journey";
+import { isStepDone, TEST_RUN_WHERE } from "@/modules/marketing/lib/journey";
 import { PORTAL_SECTIONS } from "@/modules/marketing/lib/portal-sections";
 import { portalTimeline } from "@/modules/marketing/lib/portal-timeline";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
@@ -56,9 +56,11 @@ export default async function AccueilPage() {
   const payload = await payloadClient();
 
   const [runs, credentials, account, ...sectionCounts] = await Promise.all([
+    // La phase de test seulement : c'est elle que racontent la frise et les
+    // jalons. La mise en production a sa carte, « Signature ».
     payload.find({
       collection: "journey-runs",
-      where: { client: { equals: client.id } },
+      where: { and: [{ client: { equals: client.id } }, TEST_RUN_WHERE] },
       sort: "-createdAt",
       limit: 1,
       depth: 0,

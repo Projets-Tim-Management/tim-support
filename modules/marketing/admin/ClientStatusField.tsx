@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 import { StartTestModal } from "@/modules/marketing/admin/StartTestModal";
 import { useSaveAfterDispatch } from "@/modules/marketing/admin/useSaveAfterDispatch";
 import { ContractStartModal } from "@/modules/partner/admin/ContractStartModal";
+import { StartSigningModal } from "@/modules/partner/admin/StartSigningModal";
 import { LossReasonModal } from "@/modules/partner/admin/LossReasonModal";
 import {
   CLIENT_STATUSES,
@@ -48,6 +49,7 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
   const { id, savedDocumentData } = useDocumentInfo();
   const [asking, setAsking] = useState(false);
   const [askingContract, setAskingContract] = useState(false);
+  const [askingSigning, setAskingSigning] = useState(false);
   /** Statut de clôture en attente de motif (`perdue`, `resilie`, `archive`). */
   const [askingLoss, setAskingLoss] = useState<string | null>(null);
   const { setValue: setLossReason } = useField<string>({ path: "lossReason" });
@@ -84,9 +86,13 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
       }
       // Contrairement à la phase de test, ça marche aussi sur une fiche jamais
       // enregistrée : le modal ne fait que remplir deux champs du formulaire.
-      // Toujours, même si la date de contrat est connue : le modal pose aussi
-      // la question de l'espace client, qui ne se pose qu'à ce moment-là.
-      if (next === "actif" && value !== "actif") {
+      // « En signature » ouvre la mise en production : le modal le dit, et
+      // demande s'il faut envoyer l'accès à l'espace client.
+      if (next === "en-signature" && value !== "en-signature") {
+        setAskingSigning(true);
+        return;
+      }
+      if (next === "actif" && value !== "actif" && !contractStart) {
         setAskingContract(true);
         return;
       }
@@ -97,7 +103,7 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
       }
       setValue(next);
     },
-    [setValue, value, id],
+    [contractStart, setValue, value, id],
   );
 
   return (
@@ -147,14 +153,27 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
       {askingContract && (
         <ContractStartModal
           companyName={companyName}
-          email={formEmail || saved?.email}
-          defaultDate={contractStart}
           onCancel={() => setAskingContract(false)}
-          onConfirm={(iso, sendInvite) => {
+          onConfirm={(iso) => {
             setAskingContract(false);
             setContractStart(iso);
-            setSendInvite(sendInvite);
             setValue("actif");
+          }}
+        />
+      )}
+
+      {askingSigning && (
+        <StartSigningModal
+          companyName={companyName}
+          email={formEmail || saved?.email}
+          onCancel={() => setAskingSigning(false)}
+          onConfirm={(sendInvite) => {
+            setAskingSigning(false);
+            setSendInvite(sendInvite);
+            setValue("en-signature");
+            // Enregistré dans le geste : c'est l'enregistrement qui ouvre le
+            // parcours et, si demandé, envoie l'invitation.
+            saveNow();
           }}
         />
       )}

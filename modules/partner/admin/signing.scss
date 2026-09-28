@@ -212,3 +212,15 @@
   font-size: 0.8125rem;
   color: var(--tim-muted);
 }
+
+/* Étapes annoncées par le modal « Mise en production » */
+.sig-modal-steps {
+  margin: 0.75rem 0 0;
+  padding-left: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+
+  li {
+    margin: 0.125rem 0;
+  }
+}

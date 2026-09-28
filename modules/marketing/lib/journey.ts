@@ -26,6 +26,8 @@ export const JOURNEY_PHASES = [
   { value: "avant-test", label: "Avant le test" },
   { value: "pendant-test", label: "Pendant le test" },
   { value: "sortie-test", label: "Sortie de test" },
+  // Le parcours « Mise en production », qui suit un « Je continue ».
+  { value: "production", label: "Mise en production" },
 ] as const;
 
 export type JourneyPhase = (typeof JOURNEY_PHASES)[number]["value"];
@@ -458,14 +460,51 @@ export const SYSTEM_STEPS: Record<string, SystemStepDef> = {
     },
     wait: "Le client distribue les identifiants à ses équipes",
   },
-  signature: {
-    trigger: "quand la date de signature est enregistrée",
+  // ── Mise en production : chaque étape suit un FAIT de la fiche client (voir
+  // modules/partner/lib/signing). Le geste se fait sur la fiche, onglet
+  // « Signature » : déposer le document, ou « Fait par e-mail ».
+  entreprise: {
+    trigger: "quand raison sociale, SIREN ou SIRET et adresse de facturation sont renseignés",
     action: {
-      label: "Enregistrer la signature",
+      label: "Compléter",
       on: "client",
-      hint: "Fiche client, onglet « Contrat client » : date de signature et PDF signé.",
+      hint: "Fiche client, onglet « Facturation client » — ou le client, depuis la page « Signature » de son espace.",
     },
-    wait: "Le client signe le contrat",
+    wait: "Le client complète ses informations depuis son espace",
+  },
+  "devis-envoye": {
+    trigger: "quand le devis est déposé, ou marqué « Fait par e-mail »",
+    action: {
+      label: "Déposer le devis",
+      on: "client",
+      hint: "Fiche client, onglet « Signature » : déposez le devis (le client le retrouve dans son espace), ou cochez « Fait par e-mail ».",
+    },
+  },
+  "devis-signe": {
+    trigger: "quand le devis signé est déposé, ou marqué « Fait par e-mail »",
+    action: {
+      label: "Enregistrer le devis signé",
+      on: "client",
+      hint: "Fiche client, onglet « Signature », s'il vous l'a renvoyé par e-mail.",
+    },
+    wait: "Le client dépose son devis signé depuis son espace",
+  },
+  "contrat-envoye": {
+    trigger: "quand le contrat est déposé, ou marqué « Fait par e-mail »",
+    action: {
+      label: "Déposer le contrat",
+      on: "client",
+      hint: "Fiche client, onglet « Signature » : déposez le contrat à signer, ou cochez « Fait par e-mail ».",
+    },
+  },
+  "contrat-signe": {
+    trigger: "quand le contrat signé est déposé, ou sa date de signature enregistrée",
+    action: {
+      label: "Enregistrer le contrat signé",
+      on: "client",
+      hint: "Fiche client, onglet « Signature », s'il vous l'a renvoyé par e-mail.",
+    },
+    wait: "Le client dépose son contrat signé depuis son espace",
   },
 };
 
@@ -686,21 +725,6 @@ export const isSystemStep = (key?: string | null): boolean =>
  * ce qui fait qu'un parcours lancé il y a trois semaines suit la même règle
  * qu'un parcours lancé aujourd'hui, sans reprise de données.
  */
-/**
- * Étapes qui GARDENT leur bouton, mais se cochent aussi quand le process de
- * signature constate le fait sur la fiche (voir modules/partner/lib/signing) :
- * le devis déposé coche « Devis transmis », le contrat déposé « Contrat
- * rédigé ». Même principe que « Dossier vérifié par TIM » : deux chemins, un
- * seul état.
- *
- * En code et non dans le modèle, comme NEVER_AUTO_VALIDATE : c'est ce qui fait
- * valoir la règle pour les parcours déjà lancés, sans reprise de données.
- *
- * Elles restent des étapes MANUELLES (`isManualStep`) : seul l'armement par un
- * fait les concerne, voir `armAutoSteps` dans JourneyRuns.
- */
-export const FACT_ARMED_STEPS = new Set(["devis", "contrat"]);
-
 export const canAutoValidate = (step: {
   key?: string | null;
   autoValidate?: boolean | null;
@@ -733,9 +757,9 @@ export const STEP_VALIDATION_EFFECT: Record<string, string> = {
     "Ouvre l'espace client et lui envoie son invitation. Rien n'est parti au client avant ce Go.",
   "validation-dossier":
     "Verrouille le dossier : le client ne pourra plus le modifier depuis son espace.",
-  decision: "Déclenche l'alerte « devis à rédiger » aux admins TIM — sauf en cas d'abandon.",
-  "demande-contrat": "Déclenche l'alerte « contrat à établir » aux admins TIM.",
-  "mise-en-production": "Clôt le parcours : le client passe « Actif » et la facturation démarre.",
+  decision:
+    "Avec la décision « contrat » : clôt la phase de test, passe la fiche « En signature » et ouvre le parcours « Mise en production » (alerte « devis à rédiger » aux admins TIM).",
+  activation: "Clôt le parcours : la fiche passe « Gagnée » et la facturation démarre.",
 };
 
 /**
@@ -981,60 +1005,10 @@ export const PHASE_DE_TEST_STEPS: JourneyStepDef[] = [
     label: "Décision du client",
     actor: "client",
     phase: "sortie-test",
-    detail: "Go contrat, prolongation ou abandon.",
+    detail:
+      "Dernière étape du test. « Je continue » (le client, depuis l'e-mail, ou vous, ici avec la décision « contrat ») clôt la phase de test et ouvre le parcours « Mise en production » : devis, contrat, activation. Prolongation ou abandon laissent le test ouvert.",
     anchor: "fin",
     offsetDays: 0,
-  },
-  {
-    key: "devis",
-    label: "Devis transmis",
-    actor: "partenaire",
-    phase: "sortie-test",
-    detail:
-      "C'est TIM qui RÉDIGE le devis (licences par profil × prix négocié, repris du dossier de démarrage) ; le partenaire le TRANSMET à son client et valide cette étape. La demande part automatiquement à TIM dès que le client a dit oui.",
-    anchor: "fin",
-    offsetDays: 2,
-  },
-  {
-    key: "demande-contrat",
-    label: "Demande de contrat à TIM",
-    actor: "partenaire",
-    phase: "sortie-test",
-    detail:
-      "Le partenaire ne rédige pas le contrat : il le demande à l'admin. Valider cette étape EST la demande — l'alerte part aux admins à ce moment-là.",
-    anchor: "fin",
-    offsetDays: 3,
-  },
-  {
-    key: "contrat",
-    label: "Contrat rédigé",
-    actor: "admin",
-    phase: "sortie-test",
-    detail:
-      "Mode de paiement, conditions, TVA — onglet « Contrat client » de la fiche.",
-    anchor: "fin",
-    offsetDays: 7,
-  },
-  {
-    key: "signature",
-    autoValidate: true,
-    label: "Contrat signé",
-    actor: "client",
-    phase: "sortie-test",
-    detail:
-      "L'étape se coche quand la date de signature est enregistrée sur la fiche client (onglet « Contrat client »), avec le PDF signé.",
-    anchor: "fin",
-    offsetDays: 10,
-  },
-  {
-    key: "mise-en-production",
-    label: "Bascule en production",
-    actor: "admin",
-    phase: "sortie-test",
-    detail:
-      "Licences payantes activées — le client passe « Actif », la facturation démarre.",
-    anchor: "fin",
-    offsetDays: 12,
   },
 ];
 
@@ -1205,26 +1179,6 @@ export const PHASE_DE_TEST_EMAILS: JourneyEmailDef[] = [
     trigger: "À la transmission du dossier de démarrage",
     detail:
       "Prévient TIM que le dossier est complet et attend son contrôle avant provisionnement.",
-  },
-  {
-    key: "devis-a-rediger",
-    subject: "Devis à rédiger",
-    audience: "tim",
-    anchor: "aucun",
-    stepKey: "devis",
-    trigger: "Dès que le client a décidé de continuer",
-    detail:
-      "Le partenaire transmet le devis, mais c'est TIM qui le rédige : cet envoi porte le périmètre de licences constaté pendant le test et les coordonnées de facturation.",
-  },
-  {
-    key: "demande-contrat-tim",
-    subject: "Demande de contrat à établir",
-    audience: "tim",
-    anchor: "aucun",
-    stepKey: "demande-contrat",
-    trigger: "Quand le partenaire demande le contrat",
-    detail:
-      "Le partenaire fait le devis, TIM rédige le contrat : cet envoi est le passage de relais, avec le devis joint.",
   },
 
   // ── Relances (client) ─────────────────────────────────────────────────────
@@ -1513,8 +1467,157 @@ export const declaredAudience = (key: string): JourneyAudience | undefined =>
 
 /** Étape à partir de laquelle le test tourne (le client passe « En test »). */
 export const STEP_TEST_STARTS = "provisionnement";
-/** Étape qui clôt le parcours en succès (le client passe « Actif »). */
-export const STEP_TEST_WON = "mise-en-production";
+/**
+ * Étape qui clôt la phase de test en succès : la décision du client, quand elle
+ * vaut « contrat ». La suite (devis, contrat, activation) vit dans le parcours
+ * « Mise en production ».
+ */
+export const STEP_TEST_WON = "decision";
+
+// ─── Le parcours « Mise en production » ──────────────────────────────────────
+/**
+ * Du « Je continue » au compte de production activé.
+ *
+ * Ouvert par la fin d'une phase de test gagnée, ou par le passage d'une fiche
+ * « En signature » (affaire conclue sans test). La fiche reste « En signature »
+ * pendant tout le parcours ; « Gagnée » vient avec l'activation, qui démarre la
+ * facturation.
+ *
+ * Les cinq premières étapes sont des CONSTATS : elles suivent la fiche client
+ * (onglet « Signature », voir modules/partner/lib/signing), où se font les
+ * gestes. Seule l'activation se valide ici — c'est TIM qui ouvre les licences.
+ *
+ * Sans calendrier : pas de date de démarrage ni d'échéance. Une signature
+ * prend le temps qu'elle prend ; des échéances inventées ne feraient que
+ * produire des retards fictifs.
+ */
+export const PRODUCTION_KEY = "mise-en-production";
+
+export const PRODUCTION_STEPS: JourneyStepDef[] = [
+  {
+    key: "entreprise",
+    label: "Informations de l'entreprise",
+    actor: "client",
+    phase: "production",
+    detail:
+      "Raison sociale, SIREN ou SIRET, adresse de facturation. Saisies par le partenaire (onglet « Facturation client ») ou par le client depuis son espace.",
+  },
+  {
+    key: "devis-envoye",
+    label: "Devis envoyé",
+    actor: "partenaire",
+    phase: "production",
+    detail:
+      "TIM rédige le devis (l'alerte part à l'ouverture du parcours), le partenaire le transmet : déposé sur la fiche, le client le retrouve dans son espace.",
+  },
+  {
+    key: "devis-signe",
+    label: "Devis retourné signé",
+    actor: "client",
+    phase: "production",
+    detail: "Déposé par le client dans son espace, ou par le partenaire s'il l'a reçu par e-mail. Déclenche l'alerte « contrat à rédiger » aux admins TIM.",
+  },
+  {
+    key: "contrat-envoye",
+    label: "Contrat envoyé",
+    actor: "partenaire",
+    phase: "production",
+    detail: "Le contrat rédigé par TIM, déposé sur la fiche : le client le retrouve dans son espace.",
+  },
+  {
+    key: "contrat-signe",
+    label: "Contrat retourné signé",
+    actor: "client",
+    phase: "production",
+    detail: "Déposé par le client dans son espace, ou par le partenaire s'il l'a reçu par e-mail.",
+  },
+  {
+    key: "activation",
+    label: "Compte de production activé",
+    actor: "admin",
+    phase: "production",
+    detail:
+      "Licences payantes activées dans TIM. Clôt le parcours : la fiche passe « Gagnée » et la facturation démarre à la date de début de contrat.",
+  },
+];
+
+/** Aucun envoi programmé : les alertes à TIM partent sur évènement (voir JourneyRuns). */
+export const PRODUCTION_EMAILS: JourneyEmailDef[] = [];
+
+/** Étape qui clôt le parcours de mise en production (la fiche passe « Gagnée »). */
+export const STEP_PRODUCTION_WON = "activation";
+
+/**
+ * Envois retirés du modèle « Phase de test » : ils appartenaient aux étapes de
+ * sortie (devis, demande de contrat) passées dans « Mise en production ».
+ * Retirés du modèle, et des parcours où ils ne sont pas partis.
+ */
+export const RETIRED_EMAIL_KEYS = new Set(["devis-a-rediger", "demande-contrat-tim"]);
+
+/**
+ * Filtre « phases de test seulement », pour les requêtes qui ne doivent pas
+ * voir la mise en production (envois du test, frise et réservations de
+ * l'espace client). Un parcours sans clé est un test : ceux d'avant le second
+ * modèle.
+ */
+export const TEST_RUN_WHERE = {
+  or: [{ journeyKey: { equals: PHASE_DE_TEST_KEY } }, { journeyKey: { exists: false } }],
+};
+
+/** Le parcours est-il une mise en production ? (sinon : une phase de test) */
+export const isProductionRun = (run: { journeyKey?: string | null } | null | undefined): boolean =>
+  run?.journeyKey === PRODUCTION_KEY;
+
+/**
+ * Statut dérivé des étapes, selon le modèle.
+ *
+ * Un parcours clos le reste : perdu et annulé sont des décisions humaines, et
+ * « gagné » ne se perd pas — une phase de test gagnée a ouvert la mise en
+ * production, la rouvrir donnerait deux parcours vivants.
+ */
+export function deriveRunStatus(args: {
+  journeyKey?: string | null;
+  steps: { key?: string | null; state?: string | null; autoAt?: string | null }[];
+  decision?: string | null;
+  previous?: string | null;
+  nowMs?: number;
+}): string {
+  const previous = args.previous ?? "preparation";
+  if (previous === "perdu" || previous === "annule" || previous === "gagne") return previous;
+  const done = new Set(args.steps.filter((s) => isStepDone(s, args.nowMs)).map((s) => s.key));
+
+  if (args.journeyKey === PRODUCTION_KEY) {
+    if (done.has(STEP_PRODUCTION_WON)) return "gagne";
+    return done.size > 0 ? "en-cours" : "preparation";
+  }
+  if (done.has(STEP_TEST_WON) && args.decision === "contrat") return "gagne";
+  return done.has(STEP_TEST_STARTS) ? "en-cours" : "preparation";
+}
+
+/**
+ * Statut de la fiche client que porte chaque statut de parcours.
+ *
+ * Phase de test gagnée → « En signature » (et non plus « Gagnée ») : le
+ * contrat n'est pas signé. Mise en production gagnée → « Gagnée ». Une mise en
+ * production perdue ou annulée ne touche pas la fiche : on clôt une affaire à
+ * la main, avec son motif.
+ */
+export const clientStatusForRun = (
+  journeyKey: string | null | undefined,
+  status: string,
+): string | null => {
+  const map: Record<string, string> =
+    journeyKey === PRODUCTION_KEY
+      ? { preparation: "en-signature", "en-cours": "en-signature", gagne: "actif" }
+      : {
+          preparation: "en-test",
+          "en-cours": "en-test",
+          gagne: "en-signature",
+          perdu: "archive",
+          annule: "attente-engagement",
+        };
+  return map[status] ?? null;
+};
 
 // ─── Calendrier : lundi → lundi ──────────────────────────────────────────────
 /** Les phases de test démarrent UNIQUEMENT un lundi. */
