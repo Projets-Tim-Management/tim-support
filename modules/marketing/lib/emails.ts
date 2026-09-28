@@ -93,8 +93,12 @@ export type JourneyEmailContext = {
    * de l'étape correspondante — pas d'un délai réinventé dans le texte.
    */
   dossierDeadline?: string | null;
-  /** Code à usage unique — uniquement pour l'e-mail de connexion. */
+  /** Code à usage unique — e-mail de connexion, et code de signature. */
   code?: string | null;
+  /** Signature en ligne : le document concerné (« devis », « contrat »). */
+  documentNoun?: string | null;
+  /** Lien vers le document signé, pour la copie envoyée au signataire. */
+  documentUrl?: string | null;
   /**
    * Phases de test du partenaire, pour le récapitulatif hebdomadaire. Un digest
    * qui se contente d'un lien ne se lit pas : ce qu'on veut savoir, c'est quel
@@ -400,6 +404,85 @@ const codeConnexion = (ctx: JourneyEmailContext): BuiltEmail => {
         refBox("Code de connexion", code) +
         paragraph(validite.html) +
         paragraph(`<span style="color:${MUTED};font-size:14px;">${securite.html}</span>`),
+    }),
+  };
+};
+
+/**
+ * Le code de SIGNATURE : distinct du code de connexion — signer est un acte à
+ * part, qui demande son propre geste. Le document est nommé dans l'objet et
+ * dans l'encadré : on sait ce qu'on signe avant d'avoir ouvert l'espace.
+ */
+const codeSignature = (ctx: JourneyEmailContext): BuiltEmail => {
+  const key = "code-signature";
+  const code = ctx.code ?? "000000";
+  const noun = ctx.documentNoun ?? "document";
+  const intro = bloc(ctx, key, "intro");
+  const validite = bloc(ctx, key, "validite");
+  const securite = bloc(ctx, key, "securite");
+  return {
+    // L'objet est le texte modifiable, sans ajout : le document est nommé dans
+    // l'encadré du code.
+    subject: sujet(ctx, key),
+    text: [intro.text, "", `Signature de votre ${noun}`, code, "", validite.text, "", securite.text].join("\n"),
+    html: shell({
+      heading: texte(ctx, key, "titre"),
+      preheader: texte(ctx, key, "apercu"),
+      bodyHtml:
+        paragraph(intro.html) +
+        refBox(`Signature de votre ${escape(noun)}`, code) +
+        paragraph(validite.html) +
+        paragraph(`<span style="color:${MUTED};font-size:14px;">${securite.html}</span>`),
+    }),
+  };
+};
+
+/**
+ * Un document à signer vient d'être déposé dans l'espace du client (devis,
+ * contrat). Sans ce message, le client ne savait pas qu'il l'attendait là : il
+ * fallait que le partenaire le prévienne à la main.
+ */
+const documentDisponible = (ctx: JourneyEmailContext): BuiltEmail => {
+  const key = "document-disponible";
+  const noun = ctx.documentNoun ?? "document";
+  const intro = bloc(ctx, key, "intro");
+  const suite = bloc(ctx, key, "suite");
+  const url = `${PORTAL}?next=${encodeURIComponent("/espace-client/signature")}`;
+  return {
+    subject: sujet(ctx, key),
+    text: [hello(ctx), "", `Votre ${noun} est disponible dans votre espace client.`, intro.text, "", suite.text, "", url, textSignature()].join("\n"),
+    html: shell({
+      heading: texte(ctx, key, "titre"),
+      preheader: texte(ctx, key, "apercu"),
+      bodyHtml:
+        paragraph(hello(ctx)) +
+        paragraph(`Votre <strong>${escape(noun)}</strong> est disponible dans votre espace client. ${intro.html}`) +
+        paragraph(suite.html) +
+        button(`Signer mon ${escape(noun)}`, url) +
+        signature(),
+    }),
+  };
+};
+
+/** La copie du document signé, remise au signataire — c'est aussi sa preuve. */
+const documentSigne = (ctx: JourneyEmailContext): BuiltEmail => {
+  const key = "document-signe";
+  const noun = ctx.documentNoun ?? "document";
+  const intro = bloc(ctx, key, "intro");
+  const suite = bloc(ctx, key, "suite");
+  const url = ctx.documentUrl ?? `${PORTAL}?next=${encodeURIComponent("/espace-client/signature")}`;
+  return {
+    subject: sujet(ctx, key),
+    text: [hello(ctx), "", intro.text, "", suite.text, "", url, textSignature()].join("\n"),
+    html: shell({
+      heading: texte(ctx, key, "titre"),
+      preheader: texte(ctx, key, "apercu"),
+      bodyHtml:
+        paragraph(hello(ctx)) +
+        paragraph(intro.html) +
+        paragraph(suite.html) +
+        button(`Télécharger votre ${escape(noun)} signé`, url) +
+        signature(),
     }),
   };
 };
@@ -1472,6 +1555,9 @@ export const JOURNEY_EMAILS: Record<
   "invitation-espace-client": invitationEspaceClient,
   "invitation-signature": invitationSignature,
   "code-connexion": codeConnexion,
+  "code-signature": codeSignature,
+  "document-signe": documentSigne,
+  "document-disponible": documentDisponible,
   "dossier-recu": dossierRecu,
   "relance-creneau": relanceCreneau,
   "relance-dossier": relanceDossier,

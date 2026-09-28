@@ -6,13 +6,15 @@ import type {
   PayloadRequest,
 } from "payload";
 
-import { adminOnlyField, hasAdminRole, isAdmin, metierOwnedAccess } from "@/core/access";
+import { adminOnlyField, hasAdminRole, isAdmin, isPartnerMetier, metierOwnedAccess, partnerIdOf } from "@/core/access";
 import { afterResponse } from "@/core/lib/after-response";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
 import { sendJourneyEmailForClient } from "@/modules/marketing/lib/send";
 import {
   notifyAdminsContractNeeded,
+  notifyProductionStep,
+  type ProductionMilestone,
   notifyAdminsQuoteNeeded,
   notifyAdminsTestRequested,
 } from "@/modules/marketing/lib/notify";
@@ -53,6 +55,7 @@ import {
   isStepDone,
   totalExtensionDays,
 } from "@/modules/marketing/lib/journey";
+import { awaitingCountersign, contractStartOf } from "@/modules/partner/lib/contract-lifecycle";
 
 /**
  * Phase de test — l'INSTANCE d'un parcours marketing pour UN client.
@@ -1018,11 +1021,18 @@ const syncClientStatus: CollectionAfterChangeHook = async ({ doc, previousDoc, r
    * (parcours sans calendrier), aujourd'hui. Une date déjà posée à la main n'est
    * jamais écrasée.
    */
-  // En mise en production, pas de fin de test : le contrat démarre à
-  // l'activation, jour où les licences payantes s'ouvrent.
+  // En mise en production, pas de fin de test : le contrat démarre à la date
+  // prévue AU CONTRAT signé, à défaut à l'activation (jour où les licences
+  // payantes s'ouvrent).
+  const fromContract =
+    target === "actif" && !client?.contractStartDate && production
+      ? await contractStartOf(req.payload, clientId, req).catch(() => null)
+      : null;
   const contractStart =
     target === "actif" && !client?.contractStartDate
-      ? ((!production && (doc?.endDate as string | undefined)) || new Date().toISOString())
+      ? (fromContract ? `${fromContract.date}T10:00:00.000Z` : null) ||
+        (!production && (doc?.endDate as string | undefined)) ||
+        new Date().toISOString()
       : null;
 
   // C'est le parcours qui pilote le statut : il ne doit pas se heurter au
@@ -1319,6 +1329,64 @@ const notifyContractNeeded: CollectionAfterChangeHook = async ({ doc, previousDo
 };
 
 /**
+ * Mise en production : une étape du CLIENT vient d'être franchie — on dit au
+ * partenaire ce qu'il doit faire ensuite (« créer le devis », « déposer le
+ * contrat »), et à TIM quand c'est à lui d'agir (activation).
+ *
+ * Au moment où l'étape s'ARME (constat sur la fiche), sans attendre la fin du
+ * délai d'annulation : la suite n'a pas à patienter deux heures.
+ *
+ * Plusieurs étapes franchies d'un coup (ouverture du parcours sur une fiche
+ * déjà remplie) : seule la plus avancée est annoncée — c'est elle qui dit quoi
+ * faire maintenant ; trois e-mails d'affilée noieraient le seul qui compte.
+ *
+ * Le partenaire qui a fait le geste lui-même (il a complété la fiche, déposé le
+ * devis signé reçu par e-mail) n'est pas prévenu de ce qu'il vient de faire.
+ */
+const PRODUCTION_MILESTONES: ProductionMilestone[] = ["entreprise", "devis-signe", "contrat-signe"];
+
+const notifyProductionStepHook: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
+  if (doc?.journeyKey !== PRODUCTION_KEY) return doc;
+  const stateOf = (steps: unknown, key: string) =>
+    (((steps ?? []) as RunStep[]).find((s) => s.key === key)?.state ?? "a-faire") as string;
+  const crossed = PRODUCTION_MILESTONES.filter(
+    (key) => stateOf(doc?.steps, key) !== "a-faire" && stateOf(previousDoc?.steps, key) === "a-faire",
+  );
+  const milestone = crossed.at(-1);
+  if (!milestone) return doc;
+
+  const clientId = idOf(doc?.client);
+  const partnerId = idOf(doc?.partner);
+  if (clientId == null) return doc;
+  const [client, partner] = await Promise.all([
+    findOne<{ companyName?: string }>(req, "partner-clients", clientId),
+    partnerId != null ? findOne<{ displayName?: string; email?: string }>(req, "partners", partnerId) : null,
+  ]);
+  const byThisPartner =
+    isPartnerMetier(req.user) && partnerId != null && String(partnerIdOf(req.user)) === String(partnerId);
+
+  afterResponse(
+    // Après la réponse : le contrat généré est alors passé « signé par le
+    // client » (linkSignedContract s'exécute après ce constat).
+    async () =>
+      notifyProductionStep(
+        req.payload,
+        {
+          clientId,
+          clientName: client?.companyName ?? null,
+          partnerName: partner?.displayName ?? null,
+          milestone,
+          awaitingCountersign: milestone === "contrat-signe" && (await awaitingCountersign(req.payload, clientId)),
+        },
+        partner?.email ?? null,
+        { skipPartner: byThisPartner },
+      ),
+    (e) => req.payload.logger.error(`[mise en production] notification d'étape échouée : ${e}`),
+  );
+  return doc;
+};
+
+/**
  * Prévient TIM qu'une phase de test attend son Go / No-Go.
  *
  * À la création uniquement : c'est le moment où la décision est demandée. Le
@@ -1388,13 +1456,18 @@ export const JourneyRuns: CollectionConfig = {
    * contredire : l'étape décrit où en est le client, le parcours décrit ce
    * qu'on lui envoie pendant ce temps.
    */
-  labels: { singular: "Parcours de test", plural: "Parcours de test" },
+  // « Parcours clients » : la liste couvre la phase de test ET la mise en
+  // production (un onglet chacune, voir JourneyRunsTabs). Pas « Parcours » seul :
+  // c'est le nom des parcours d'apprentissage (Éditorial).
+  labels: { singular: "Parcours client", plural: "Parcours clients" },
   admin: {
     useAsTitle: "displayName",
     defaultColumns: ["displayName", "partner", "status", "startDate", "endDate", "currentStepLabel"],
     group: "Marketing",
-    description: "Une ligne par client engagé dans un parcours. La barre d'étapes se pilote depuis la fiche.",
+    description:
+      "Une ligne par client et par parcours : la phase de test, puis la mise en production (devis, contrat, activation). La barre d'étapes se pilote depuis la fiche.",
     components: {
+      beforeListTable: ["/modules/marketing/admin/JourneyRunsTabs#JourneyRunsTabs"],
       edit: {
         // Modal d'ajout de prolongation (montée en permanence, ouverte depuis la barre d'étapes).
         beforeDocumentControls: [],
@@ -1428,6 +1501,7 @@ export const JourneyRuns: CollectionConfig = {
       notifyNewRequest,
       notifyQuoteNeeded,
       notifyContractNeeded,
+      notifyProductionStepHook,
       openPortalOnGo,
       lockDossierOnValidation,
     ],

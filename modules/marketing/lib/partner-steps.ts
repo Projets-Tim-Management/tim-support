@@ -1,6 +1,11 @@
 import { adminUrl, internalNotice } from "@/core/lib/email-template";
 import { aParis } from "@/modules/marketing/lib/due-emails";
-import { SELF_VALIDATING_STEPS, stepDueDate } from "@/modules/marketing/lib/journey";
+import {
+  PRODUCTION_PARTNER_ACTIONS,
+  SELF_VALIDATING_STEPS,
+  productionActionOpenedAt,
+  stepDueDate,
+} from "@/modules/marketing/lib/journey";
 import { TIMEZONE as PARIS } from "@/modules/marketing/lib/scheduling";
 
 /**
@@ -38,6 +43,8 @@ export type PartnerStep = {
   offsetDays?: number | null;
   autoValidate?: boolean | null;
   notifiedAt?: string | null;
+  doneAt?: string | null;
+  autoAt?: string | null;
 };
 
 export type StepSkipReason =
@@ -47,7 +54,8 @@ export type StepSkipReason =
   | "auto"
   | "already_notified"
   | "no_date"
-  | "not_due";
+  | "not_due"
+  | "event";
 
 export type DueStep = { step: PartnerStep; due: string; lateDays: number };
 
@@ -93,6 +101,10 @@ export const decidePartnerStep = (
   },
 ): StepDecision => {
   if (step.actor !== "partenaire") return { notify: false, reason: "not_partner" };
+  // Mise en production : le partenaire est prévenu À L'INSTANT où le client
+  // franchit l'étape (voir notifyProductionStep, JourneyRuns). Le rappel du
+  // matin ferait doublon.
+  if (step.key && step.key in PRODUCTION_PARTNER_ACTIONS) return { notify: false, reason: "event" };
   if (step.state === "fait") return { notify: false, reason: "already_done" };
   if (step.state === "bloque") return { notify: false, reason: "blocked" };
   if (step.autoValidate === true || step.state === "auto") return { notify: false, reason: "auto" };
@@ -132,7 +144,16 @@ export const partnerStepsDue = (
   return out;
 };
 
-export type AgendaStep = { step: PartnerStep; due: string; done: boolean };
+export type AgendaStep = {
+  step: PartnerStep;
+  due: string;
+  done: boolean;
+  /**
+   * Action de la mise en production : elle se fait sur la FICHE client
+   * (onglet « Signature »), pas en cochant l'étape — qui est un constat.
+   */
+  production?: boolean;
+};
 
 /**
  * Les étapes du partenaire qui ont leur place sur un AGENDA.
@@ -165,6 +186,23 @@ export const partnerStepsOnAgenda = (run: {
   for (const step of run.steps ?? []) {
     if (step.actor !== "partenaire") continue;
     if (step.state === "bloque") continue;
+
+    // Mise en production : due dès que le client a franchi l'étape d'avant.
+    // Constatée sur la fiche, elle passe « auto » puis « fait » : faite, elle
+    // reste sur l'agenda, barrée, comme les autres.
+    const action = step.key ? PRODUCTION_PARTNER_ACTIONS[step.key] : undefined;
+    if (action) {
+      const opened = productionActionOpenedAt(run.steps ?? [], step.key!);
+      if (!opened) continue;
+      out.push({
+        step: { ...step, label: action.label },
+        due: opened,
+        done: step.state === "fait" || step.state === "auto",
+        production: true,
+      });
+      continue;
+    }
+
     if (step.autoValidate === true || step.state === "auto") continue;
     if (step.key && step.key in SELF_VALIDATING_STEPS) continue;
     const due = stepDueDate(step, run.startDate, run.endDate, run.sessionAt, run.reviewAt);

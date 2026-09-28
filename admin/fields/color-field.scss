@@ -1,0 +1,44 @@
+/* Champ couleur (ColorField) — pastille ronde + code. Tokens uniquement ; la
+   pastille prend la couleur saisie en style en ligne. */
+.color-field__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.color-field__swatch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1px solid var(--tim-border);
+  box-shadow: inset 0 0 0 2px var(--tim-white);
+  cursor: pointer;
+  overflow: hidden;
+  input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+}
+.color-field__swatch--empty {
+  background: repeating-linear-gradient(45deg, var(--tim-elevation-100) 0 4px, var(--tim-white) 4px 8px);
+}
+.color-field__input {
+  flex: 1;
+  min-width: 0;
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  &:focus { outline: 2px solid var(--tim-primary-light); border-color: var(--tim-primary); }
+}
+.color-field.error .color-field__input { border-color: var(--tim-danger); }

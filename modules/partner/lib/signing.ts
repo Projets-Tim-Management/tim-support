@@ -56,11 +56,20 @@ export const SIGNING_STEPS: { key: SigningStepKey; label: string; who: string }[
   { key: "contrat-signe", label: "Contrat retourné signé", who: "Client" },
 ];
 
-/** Ce qu'il faut pour facturer : sans l'un de ces trois, pas de facture. */
+/**
+ * Ce qu'il faut pour facturer ET pour établir le contrat : sans l'un de ces
+ * champs, l'en-tête du contrat (« LA SOCIÉTÉ X, SAS, représentée par… »)
+ * resterait à trous. Capital et ville du RCS sont facultatifs : une entreprise
+ * individuelle n'en a pas.
+ */
 export const COMPANY_FIELDS: { field: string; label: string }[] = [
   { field: "raisonSociale", label: "Raison sociale" },
   { field: "siren", label: "SIREN ou SIRET" },
   { field: "billingAddress", label: "Adresse de facturation" },
+  { field: "legalForm", label: "Forme sociale" },
+  { field: "representativeFirstName", label: "Prénom du représentant" },
+  { field: "representativeLastName", label: "Nom du représentant" },
+  { field: "representativeRole", label: "Qualité du représentant" },
 ];
 
 export type SigningFacts = Record<string, unknown>;
@@ -154,3 +163,52 @@ export const normalizeCompanyId = (v: unknown, digits: 9 | 14): string | null =>
   const d = v.replace(/\s+/g, "");
   return new RegExp(`^\\d{${digits}}$`).test(d) ? d : null;
 };
+
+// ─── L'espace client : une étape à la fois ───────────────────────────────────
+
+/**
+ * Les trois étapes que le CLIENT franchit, dans l'ordre. Chacune ne s'ouvre
+ * qu'une fois la précédente acquise : on ne signe pas un devis établi pour une
+ * entreprise dont on ne connaît pas encore le SIREN, ni un contrat avant le
+ * devis.
+ *
+ * « Envoyé » n'est pas une étape du client — c'est le partenaire qui agit.
+ * L'étape « devis » couvre donc l'attente du document (« en préparation ») ET
+ * son retour signé ; elle n'est franchie qu'au devis signé.
+ */
+export type PortalStage = "entreprise" | "devis" | "contrat";
+
+export const PORTAL_STAGES: { key: PortalStage; label: string }[] = [
+  { key: "entreprise", label: "Votre entreprise" },
+  { key: "devis", label: "Votre devis" },
+  { key: "contrat", label: "Votre contrat" },
+];
+
+/** Étape de chaque stage qui, acquise, le franchit. */
+const STAGE_DONE_BY: Record<PortalStage, SigningStepKey> = {
+  entreprise: "entreprise",
+  devis: "devis-signe",
+  contrat: "contrat-signe",
+};
+
+/**
+ * Où en est le client : la première étape non franchie, ou `termine`.
+ * `reached` = les étapes qu'il peut ouvrir (franchies + la courante) ; les
+ * suivantes restent fermées.
+ */
+export function portalProgress(facts: SigningFacts): {
+  current: PortalStage | "termine";
+  done: Record<PortalStage, boolean>;
+  reached: PortalStage[];
+} {
+  const steps = new Map(signingSteps(facts).map((s) => [s.key, s.done]));
+  const done = Object.fromEntries(
+    PORTAL_STAGES.map(({ key }) => [key, Boolean(steps.get(STAGE_DONE_BY[key]))]),
+  ) as Record<PortalStage, boolean>;
+  const firstOpen = PORTAL_STAGES.findIndex(({ key }) => !done[key]);
+  const current = firstOpen === -1 ? "termine" : PORTAL_STAGES[firstOpen].key;
+  const reached = PORTAL_STAGES.slice(0, firstOpen === -1 ? PORTAL_STAGES.length : firstOpen + 1).map(
+    (s) => s.key,
+  );
+  return { current, done, reached };
+}

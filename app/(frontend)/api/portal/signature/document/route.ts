@@ -2,10 +2,10 @@ import { randomBytes } from "crypto";
 
 import { NextResponse } from "next/server";
 
-import { afterResponse } from "@/core/lib/after-response";
 import { payloadClient } from "@/core/payload-client";
-import { notifySigningDeposit } from "@/modules/marketing/lib/notify";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
+import { SIGNED_CONTRACT_STATUSES } from "@/modules/partner/lib/contract-status";
+import { canSignNow } from "@/modules/partner/lib/e-signature-server";
 import { SIGNING_DOC_FIELDS, signingStarted } from "@/modules/partner/lib/signing";
 
 /**
@@ -18,7 +18,8 @@ import { SIGNING_DOC_FIELDS, signingStarted } from "@/modules/partner/lib/signin
  * entreprise, celle du cookie signé.
  *
  * Déposer le fichier coche l'étape : le hook `stampSigning` de la fiche pose
- * la date. Le partenaire et TIM sont prévenus — la suite est de leur côté.
+ * la date, et l'étape de la mise en production s'arme — c'est elle qui prévient
+ * le partenaire de la suite (voir notifyProductionStep, JourneyRuns).
  *
  * Le nom du fichier est préfixé d'un jeton aléatoire : les fichiers du CDN
  * sont accessibles par leur adresse, un nom prévisible (« contrat-signe.pdf »)
@@ -64,9 +65,30 @@ export async function POST(req: Request) {
     );
   }
 
+  // On dépose à SON étape, et une seule fois : un document déjà signé ne se
+  // remplace pas d'ici (même règle que la signature en ligne).
+  if (!canSignNow(client, kind)) {
+    return NextResponse.json({ error: "not_now", message: "Ce document n'est pas à déposer maintenant." }, { status: 409 });
+  }
+  const payload = await payloadClient();
+  // Un contrat GÉNÉRÉ se signe en ligne : sa preuve (code, empreinte) et la
+  // contresignature de TIM en dépendent. Un fichier déposé n'en tiendrait pas lieu.
+  if (kind === "contrat") {
+    const generated = await payload.count({
+      collection: "client-contracts",
+      where: { and: [{ client: { equals: client.id } }, { status: { in: ["envoye", ...SIGNED_CONTRACT_STATUSES] } }] },
+      overrideAccess: true,
+    });
+    if (generated.totalDocs > 0) {
+      return NextResponse.json(
+        { error: "sign_online", message: "Ce contrat se signe en ligne, depuis le bouton « Signer »." },
+        { status: 409 },
+      );
+    }
+  }
+
   const { step, label } = KINDS[kind];
   const field = SIGNING_DOC_FIELDS[step].doc;
-  const payload = await payloadClient();
 
   try {
     const safeName = file.name.replace(/[^\w.-]+/g, "-").slice(-80) || "document";
@@ -88,25 +110,6 @@ export async function POST(req: Request) {
       data: { [field]: media.id } as never,
       overrideAccess: true,
     });
-
-    // Le partenaire de la fiche, pour lui adresser l'alerte.
-    const fresh = (await payload
-      .findByID({ collection: "partner-clients", id: client.id, depth: 1, overrideAccess: true })
-      .catch(() => null)) as { partner?: { displayName?: string; email?: string } | null } | null;
-    const partner = fresh?.partner && typeof fresh.partner === "object" ? fresh.partner : null;
-
-    afterResponse(() =>
-      notifySigningDeposit(
-        payload,
-        {
-          clientId: client.id,
-          clientName: client.companyName ?? null,
-          partnerName: partner?.displayName ?? null,
-          what: step,
-        },
-        partner?.email ?? null,
-      ),
-    );
 
     return NextResponse.json({ ok: true, url: media.url ?? null, filename: media.filename ?? null });
   } catch (err) {

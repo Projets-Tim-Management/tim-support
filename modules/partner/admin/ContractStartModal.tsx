@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { dayKey } from "@/core/lib/dates";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+
+import { fetchContractStart } from "@/modules/partner/admin/contract-api";
 
 /**
  * Demande la DATE DE DÉBUT DE CONTRAT au moment où une affaire passe « Gagnée ».
@@ -18,15 +21,35 @@ import { createPortal } from "react-dom";
  */
 export function ContractStartModal({
   companyName,
+  clientId,
+  initialDate,
   onCancel,
   onConfirm,
 }: {
   companyName?: string;
+  /** Pour proposer la date prévue AU CONTRAT (elle prime, reste modifiable). */
+  clientId?: number | string | null;
+  /** Date déjà connue (fiche), « AAAA-MM-JJ ». */
+  initialDate?: string | null;
   onCancel: () => void;
   /** Reçoit la date au format ISO (début de journée locale). */
   onConfirm: (iso: string) => void;
 }) {
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => initialDate || dayKey(new Date()));
+  const [source, setSource] = useState<string | null>(null);
+  /** Date saisie à la main : la proposition du contrat, arrivée après, ne l'écrase pas. */
+  const edited = useRef(false);
+
+  useEffect(() => {
+    if (clientId == null) return;
+    const ctrl = new AbortController();
+    void fetchContractStart(clientId, ctrl.signal).then((start) => {
+      if (!start || ctrl.signal.aborted || edited.current) return;
+      setDate(start.date);
+      setSource(start.reference);
+    });
+    return () => ctrl.abort();
+  }, [clientId]);
 
   if (typeof document === "undefined") return null;
 
@@ -50,8 +73,12 @@ export function ContractStartModal({
           className="tim-archive__input"
           value={date}
           autoFocus
-          onChange={(e) => setDate(e.target.value)}
+          onChange={(e) => {
+            edited.current = true;
+            setDate(e.target.value);
+          }}
         />
+        {source ? <p className="tim-archive__hint">Date prévue au contrat {source} — modifiable.</p> : null}
         <div className="tim-archive__actions">
           <button
             type="button"

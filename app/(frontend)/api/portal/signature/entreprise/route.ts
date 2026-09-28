@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
+import { isLegalForm } from "@/modules/partner/lib/legal-forms";
 import { normalizeCompanyId, signingStarted } from "@/modules/partner/lib/signing";
 
 /**
@@ -12,7 +13,9 @@ import { normalizeCompanyId, signingStarted } from "@/modules/partner/lib/signin
  * connaît mieux que personne. Les deux écrivent les MÊMES champs (onglet
  * « Facturation client ») : il n'y a qu'une vérité.
  *
- * Liste blanche stricte : rien d'autre que ces six champs ne s'écrit d'ici.
+ * Liste blanche stricte : rien d'autre que ces champs ne s'écrit d'ici — dont
+ * l'identité juridique (forme, capital, RCS, représentant), qui fait l'en-tête
+ * du contrat.
  * Fermé une fois le contrat signé — la facturation repose dessus, un
  * changement passe alors par l'équipe.
  */
@@ -25,6 +28,10 @@ const FIELDS = [
   "vatNumber",
   "billingAddress",
   "billingAddressComplement",
+  "rcsCity",
+  "representativeFirstName",
+  "representativeLastName",
+  "representativeRole",
 ] as const;
 
 const MAX = 300;
@@ -64,12 +71,29 @@ export async function POST(req: Request) {
   if (data.siren) data.siren = normalizeCompanyId(data.siren, 9);
   if (data.siret) data.siret = normalizeCompanyId(data.siret, 14);
 
+  // Forme sociale : une valeur de la liste, rien d'autre.
+  const extra: Record<string, unknown> = {};
+  if ("legalForm" in body) {
+    if (body.legalForm && !isLegalForm(body.legalForm)) {
+      return NextResponse.json({ error: "invalid", field: "legalForm", message: "Choisissez une forme sociale." }, { status: 422 });
+    }
+    extra.legalForm = body.legalForm || null;
+  }
+  if ("shareCapital" in body) {
+    const raw = typeof body.shareCapital === "string" ? body.shareCapital.replace(/\s+/g, "").replace(",", ".") : body.shareCapital;
+    const n = raw === "" || raw == null ? null : Number(raw);
+    if (n != null && (!Number.isFinite(n) || n < 0)) {
+      return NextResponse.json({ error: "invalid", field: "shareCapital", message: "Le capital doit être un montant." }, { status: 422 });
+    }
+    extra.shareCapital = n;
+  }
+
   const payload = await payloadClient();
   try {
     await payload.update({
       collection: "partner-clients",
       id: client.id,
-      data: data as never,
+      data: { ...data, ...extra } as never,
       overrideAccess: true,
     });
   } catch (err) {

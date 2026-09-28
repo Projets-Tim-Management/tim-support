@@ -98,6 +98,8 @@ export interface Config {
     'client-vehicles': ClientVehicle;
     'client-machines': ClientMachine;
     'client-portal-accounts': ClientPortalAccount;
+    'electronic-signatures': ElectronicSignature;
+    'client-contracts': ClientContract;
     'calendar-connections': CalendarConnection;
     media: Media;
     users: User;
@@ -119,6 +121,7 @@ export interface Config {
     };
     'partner-clients': {
       developments: 'developments';
+      electronicSignatures: 'electronic-signatures';
       portalAccounts: 'client-portal-accounts';
       contacts: 'client-contacts';
     };
@@ -158,6 +161,8 @@ export interface Config {
     'client-vehicles': ClientVehiclesSelect<false> | ClientVehiclesSelect<true>;
     'client-machines': ClientMachinesSelect<false> | ClientMachinesSelect<true>;
     'client-portal-accounts': ClientPortalAccountsSelect<false> | ClientPortalAccountsSelect<true>;
+    'electronic-signatures': ElectronicSignaturesSelect<false> | ElectronicSignaturesSelect<true>;
+    'client-contracts': ClientContractsSelect<false> | ClientContractsSelect<true>;
     'calendar-connections': CalendarConnectionsSelect<false> | CalendarConnectionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
@@ -173,10 +178,14 @@ export interface Config {
   globals: {
     appearance: Appearance;
     'support-connections': SupportConnection;
+    'company-settings': CompanySetting;
+    'contract-settings': ContractSetting;
   };
   globalsSelect: {
     appearance: AppearanceSelect<false> | AppearanceSelect<true>;
     'support-connections': SupportConnectionsSelect<false> | SupportConnectionsSelect<true>;
+    'company-settings': CompanySettingsSelect<false> | CompanySettingsSelect<true>;
+    'contract-settings': ContractSettingsSelect<false> | ContractSettingsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -292,6 +301,7 @@ export interface Ticket {
 export interface Media {
   id: number;
   alt?: string | null;
+  createdBy?: (number | null) | User;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -612,38 +622,24 @@ export interface PartnerClient {
     compagnonDiscountPct?: number | null;
     compagnonDiscountAmount?: number | null;
   };
-  /**
-   * Le client le télécharge depuis son espace.
-   */
+  engagementMonths?: ('1' | '3' | '6' | '12' | '24' | '36') | null;
+  preferentialYears?: number | null;
+  contractTerritory?: string | null;
+  integrationFee?: number | null;
+  integrationOffered?: boolean | null;
   quoteDocument?: (number | null) | Media;
-  /**
-   * Posée au dépôt du document, ou par « Fait par e-mail ».
-   */
   quoteSentAt?: string | null;
-  /**
-   * Déposé par le client, ou par vous s'il l'a renvoyé par e-mail.
-   */
   quoteSignedDocument?: (number | null) | Media;
-  /**
-   * Posée au dépôt du document, ou par « Fait par e-mail ».
-   */
   quoteSignedAt?: string | null;
-  /**
-   * Le client le télécharge depuis son espace.
-   */
   contractToSignDocument?: (number | null) | Media;
-  /**
-   * Posée au dépôt du document, ou par « Fait par e-mail ».
-   */
   contractSentAt?: string | null;
-  /**
-   * PDF du contrat signé avec le client.
-   */
   contractDocument?: (number | null) | Media;
-  /**
-   * Posée au dépôt du document, ou par « Fait par e-mail ».
-   */
   signatureDate?: string | null;
+  electronicSignatures?: {
+    docs?: (number | ElectronicSignature)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
   paymentMethod?: ('prelevement-gocardless' | 'virement') | null;
   /**
    * Délai de règlement du virement.
@@ -689,6 +685,15 @@ export interface PartnerClient {
    */
   siret?: string | null;
   vatNumber?: string | null;
+  legalForm?: ('sas' | 'sasu' | 'sarl' | 'eurl' | 'sa' | 'snc' | 'ei' | 'autre') | null;
+  shareCapital?: number | null;
+  /**
+   * Greffe d'immatriculation.
+   */
+  rcsCity?: string | null;
+  representativeFirstName?: string | null;
+  representativeLastName?: string | null;
+  representativeRole?: string | null;
   billingAddress?: string | null;
   billingAddressComplement?: string | null;
   phone?: string | null;
@@ -1288,6 +1293,45 @@ export interface FeatureCategory {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "electronic-signatures".
+ */
+export interface ElectronicSignature {
+  id: number;
+  client: number | PartnerClient;
+  partner?: (number | null) | Partner;
+  displayName?: string | null;
+  kind: 'devis' | 'contrat';
+  status?: ('en-attente' | 'signe' | 'expire') | null;
+  signerFirstName?: string | null;
+  signerLastName?: string | null;
+  signerRole?: string | null;
+  signerEmail?: string | null;
+  consentText?: string | null;
+  documentOriginal?: (number | null) | Media;
+  documentHash?: string | null;
+  pageConfirmations?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  codeSentAt?: string | null;
+  signedAt?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+  signedDocument?: (number | null) | Media;
+  signedHash?: string | null;
+  codeHash?: string | null;
+  codeExpiresAt?: string | null;
+  attempts?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "client-portal-accounts".
  */
 export interface ClientPortalAccount {
@@ -1369,7 +1413,7 @@ export interface PointTransaction {
   createdAt: string;
 }
 /**
- * Une ligne par client engagé dans un parcours. La barre d'étapes se pilote depuis la fiche.
+ * Une ligne par client et par parcours : la phase de test, puis la mise en production (devis, contrat, activation). La barre d'étapes se pilote depuis la fiche.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "journey-runs".
@@ -2439,6 +2483,71 @@ export interface ClientMachine {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-contracts".
+ */
+export interface ClientContract {
+  id: number;
+  client: number | PartnerClient;
+  partner?: (number | null) | Partner;
+  reference?: string | null;
+  version?: number | null;
+  status?: ('brouillon' | 'envoye' | 'signe-client' | 'signe' | 'remplace' | 'annule') | null;
+  /**
+   * Version du modèle (Système → Contrat) au moment de l'envoi.
+   */
+  templateVersion?: number | null;
+  params?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  variables?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  overrides?:
+    | {
+        key?: string | null;
+        body?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  pdf?: (number | null) | Media;
+  pdfHash?: string | null;
+  sentAt?: string | null;
+  sentBy?: (number | null) | User;
+  clientSignedAt?: string | null;
+  signedDocument?: (number | null) | Media;
+  clientSignedHash?: string | null;
+  countersignerFirstName?: string | null;
+  countersignerLastName?: string | null;
+  countersignerRole?: string | null;
+  countersignerEmail?: string | null;
+  countersignedBy?: (number | null) | User;
+  countersignConsent?: string | null;
+  countersignCodeSentAt?: string | null;
+  countersignedAt?: string | null;
+  countersignIp?: string | null;
+  countersignUserAgent?: string | null;
+  countersignedDocument?: (number | null) | Media;
+  countersignedHash?: string | null;
+  countersignCodeHash?: string | null;
+  countersignCodeExpiresAt?: string | null;
+  countersignAttempts?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "calendar-connections".
  */
 export interface CalendarConnection {
@@ -2609,6 +2718,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'client-portal-accounts';
         value: number | ClientPortalAccount;
+      } | null)
+    | ({
+        relationTo: 'electronic-signatures';
+        value: number | ElectronicSignature;
+      } | null)
+    | ({
+        relationTo: 'client-contracts';
+        value: number | ClientContract;
       } | null)
     | ({
         relationTo: 'calendar-connections';
@@ -3083,6 +3200,11 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         compagnonDiscountPct?: T;
         compagnonDiscountAmount?: T;
       };
+  engagementMonths?: T;
+  preferentialYears?: T;
+  contractTerritory?: T;
+  integrationFee?: T;
+  integrationOffered?: T;
   quoteDocument?: T;
   quoteSentAt?: T;
   quoteSignedDocument?: T;
@@ -3091,6 +3213,7 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   contractSentAt?: T;
   contractDocument?: T;
   signatureDate?: T;
+  electronicSignatures?: T;
   paymentMethod?: T;
   paymentTerms?: T;
   billingPeriod?: T;
@@ -3104,6 +3227,12 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   siren?: T;
   siret?: T;
   vatNumber?: T;
+  legalForm?: T;
+  shareCapital?: T;
+  rcsCity?: T;
+  representativeFirstName?: T;
+  representativeLastName?: T;
+  representativeRole?: T;
   billingAddress?: T;
   billingAddressComplement?: T;
   phone?: T;
@@ -3723,6 +3852,81 @@ export interface ClientPortalAccountsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "electronic-signatures_select".
+ */
+export interface ElectronicSignaturesSelect<T extends boolean = true> {
+  client?: T;
+  partner?: T;
+  displayName?: T;
+  kind?: T;
+  status?: T;
+  signerFirstName?: T;
+  signerLastName?: T;
+  signerRole?: T;
+  signerEmail?: T;
+  consentText?: T;
+  documentOriginal?: T;
+  documentHash?: T;
+  pageConfirmations?: T;
+  codeSentAt?: T;
+  signedAt?: T;
+  ip?: T;
+  userAgent?: T;
+  signedDocument?: T;
+  signedHash?: T;
+  codeHash?: T;
+  codeExpiresAt?: T;
+  attempts?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "client-contracts_select".
+ */
+export interface ClientContractsSelect<T extends boolean = true> {
+  client?: T;
+  partner?: T;
+  reference?: T;
+  version?: T;
+  status?: T;
+  templateVersion?: T;
+  params?: T;
+  variables?: T;
+  overrides?:
+    | T
+    | {
+        key?: T;
+        body?: T;
+        id?: T;
+      };
+  pdf?: T;
+  pdfHash?: T;
+  sentAt?: T;
+  sentBy?: T;
+  clientSignedAt?: T;
+  signedDocument?: T;
+  clientSignedHash?: T;
+  countersignerFirstName?: T;
+  countersignerLastName?: T;
+  countersignerRole?: T;
+  countersignerEmail?: T;
+  countersignedBy?: T;
+  countersignConsent?: T;
+  countersignCodeSentAt?: T;
+  countersignedAt?: T;
+  countersignIp?: T;
+  countersignUserAgent?: T;
+  countersignedDocument?: T;
+  countersignedHash?: T;
+  countersignCodeHash?: T;
+  countersignCodeExpiresAt?: T;
+  countersignAttempts?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "calendar-connections_select".
  */
 export interface CalendarConnectionsSelect<T extends boolean = true> {
@@ -3752,6 +3956,7 @@ export interface CalendarConnectionsSelect<T extends boolean = true> {
  */
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
+  createdBy?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -3831,7 +4036,7 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   createdAt?: T;
 }
 /**
- * Les logos affichés dans le menu de l'administration. Sans image ici, les logos livrés avec le code sont utilisés.
+ * Les logos du menu de l'administration, et l'identité de TIM Management pour les documents (contrat PDF).
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "appearance".
@@ -3846,6 +4051,26 @@ export interface Appearance {
    * Affichée quand le menu est réduit à sa colonne d'icônes, et dans l'onglet du navigateur (favicon). CARRÉE, sans texte — c'est la marque seule. Un logo large mis ici serait illisible.
    */
   icon?: (number | null) | Media;
+  /**
+   * En-tête du contrat PDF. PNG (fond transparent de préférence) ou JPEG — le PDF ne lit pas le SVG. Format large, 600 px de large environ.
+   */
+  companyLogo?: (number | null) | Media;
+  /**
+   * Titres des articles.
+   */
+  brandPrimary?: string | null;
+  /**
+   * Fonds d'en-têtes de tableaux.
+   */
+  brandSecondary?: string | null;
+  /**
+   * Filet d'accent.
+   */
+  brandRed?: string | null;
+  /**
+   * Fonds légers.
+   */
+  brandOther?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -3875,12 +4100,80 @@ export interface SupportConnection {
   createdAt?: string | null;
 }
 /**
+ * L'identité de la société qui édite TIM : elle figure en tête du contrat (le « Prestataire ») et dans ses conditions de paiement. Réservé à TIM.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "company-settings".
+ */
+export interface CompanySetting {
+  id: number;
+  denomination?: string | null;
+  formeSociale?: string | null;
+  adresse?: string | null;
+  siren?: string | null;
+  villeRcs?: string | null;
+  numeroRcs?: string | null;
+  vatNumber?: string | null;
+  /**
+   * Juridiction citée à l'article 14 du contrat.
+   */
+  tribunal?: string | null;
+  representant?: string | null;
+  qualite?: string | null;
+  iban?: string | null;
+  bic?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Le modèle du contrat SaaS : le texte, section par section, et ses valeurs par défaut. L'identité du prestataire et ses coordonnées bancaires se règlent sur la page « Entreprise ». Réservé à TIM.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "contract-settings".
+ */
+export interface ContractSetting {
+  id: number;
+  title: string;
+  /**
+   * Incrémentée à chaque modification du texte.
+   */
+  templateVersion?: number | null;
+  /**
+   * Paragraphes séparés par une ligne vide. « - » en début de ligne : liste. « ### » : sous-titre. **gras**. « Terme :: définition » : ligne du tableau de définitions. « > » en début de ligne : aligné à droite ; « ^ » : centré. Variables : {{client.denomination}}, {{client.formeSociale}}, {{client.capital}}, {{client.adresse}}, {{client.villeRcs}}, {{client.numeroRcs}}, {{representant.nom}}, {{representant.qualite}}, {{engagement.duree}}, {{denonciation.preavis}}, {{tarifs.delaiInformation}}, {{territoire}}, {{tarifPreferentiel.duree}}, {{prelevement.jour}}, {{integration.montant}}, {{banque.iban}}, {{banque.bic}}, {{prestataire.…}}. Blocs seuls sur leur ligne : {{licences.tableau}}, {{signatures}}. Passage conditionnel : [[si integration.offerte]] … [[sinon]] … [[/si]].
+   */
+  sections?:
+    | {
+        title?: string | null;
+        kind?: ('preambule' | 'article' | 'annexe') | null;
+        key?: string | null;
+        body?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  defaults?: {
+    noticePeriod?: string | null;
+    priceNoticeDelay?: string | null;
+    debitDay?: number | null;
+    territory?: string | null;
+  };
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "appearance_select".
  */
 export interface AppearanceSelect<T extends boolean = true> {
   logo?: T;
   icon?: T;
+  companyLogo?: T;
+  brandPrimary?: T;
+  brandSecondary?: T;
+  brandRed?: T;
+  brandOther?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
@@ -3905,6 +4198,58 @@ export interface SupportConnectionsSelect<T extends boolean = true> {
         spendMonthEur?: T;
         spendMonthQuestions?: T;
         id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "company-settings_select".
+ */
+export interface CompanySettingsSelect<T extends boolean = true> {
+  denomination?: T;
+  formeSociale?: T;
+  adresse?: T;
+  siren?: T;
+  villeRcs?: T;
+  numeroRcs?: T;
+  vatNumber?: T;
+  tribunal?: T;
+  representant?: T;
+  qualite?: T;
+  iban?: T;
+  bic?: T;
+  email?: T;
+  phone?: T;
+  website?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "contract-settings_select".
+ */
+export interface ContractSettingsSelect<T extends boolean = true> {
+  title?: T;
+  templateVersion?: T;
+  sections?:
+    | T
+    | {
+        title?: T;
+        kind?: T;
+        key?: T;
+        body?: T;
+        id?: T;
+      };
+  defaults?:
+    | T
+    | {
+        noticePeriod?: T;
+        priceNoticeDelay?: T;
+        debitDay?: T;
+        territory?: T;
       };
   updatedAt?: T;
   createdAt?: T;

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { frDate } from "@/core/lib/dates";
 import { payloadClient } from "@/core/payload-client";
 import LogoUpload from "@/components/portal/LogoUpload";
 import TestTimeline from "@/components/portal/TestTimeline";
@@ -13,7 +14,10 @@ import {
   IconCheck,
   IconClipboard,
   IconKey,
+  IconFile,
+  IconHourglass,
   IconPen,
+  IconReceipt,
   IconRoute,
 } from "@/components/ui/icons";
 import { getFeatures } from "@/modules/editorial/lib/content";
@@ -21,15 +25,13 @@ import { isStepDone, TEST_RUN_WHERE } from "@/modules/marketing/lib/journey";
 import { PORTAL_SECTIONS } from "@/modules/marketing/lib/portal-sections";
 import { portalTimeline } from "@/modules/marketing/lib/portal-timeline";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
-import { signingStarted, signingSteps } from "@/modules/partner/lib/signing";
+import { awaitingCountersign, pendingContractUpdate } from "@/modules/partner/lib/e-signature-server";
+import { PORTAL_STAGES, portalProgress, signingStarted } from "@/modules/partner/lib/signing";
 
 export const metadata: Metadata = {
   title: "Mon espace",
   robots: { index: false, follow: false },
 };
-
-const fmt = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : null;
 
 /** « 7 jours », « 1 jour », « aujourd'hui » — jamais « 0 jour ». */
 const plural = (n: number) => (n <= 0 ? "aujourd'hui" : n === 1 ? "1 jour" : `${n} jours`);
@@ -44,6 +46,12 @@ const plural = (n: number) => (n <= 0 ? "aujourd'hui" : n === 1 ? "1 jour" : `${
  * L'écran précédent n'en répondait aucune : trois cartes identiques, sans état
  * ni échéance, et rien qui distingue ce qui est fait de ce qui reste. Toutes les
  * données nécessaires étaient pourtant déjà chargées.
+ *
+ * Une fois la phase de SIGNATURE ouverte, l'accueil change de centre : le
+ * contrat d'abord (où en est-il, que faire), puis ce qui sert au quotidien
+ * (accès, documents, factures), et la phase de test, terminée, se replie sur
+ * une ligne — on peut la rouvrir, elle ne prend plus la page. Les factures
+ * échues de chaque mois viendront s'afficher dans la carte « Mes factures ».
  *
  * Toutes les lectures sont filtrées sur `session.cid` (l'entreprise du cookie
  * signé), jamais sur un identifiant venu de l'URL.
@@ -133,22 +141,9 @@ export default async function AccueilPage() {
   });
 
   // ── Signature : l'affaire est conclue, ou le client a dit « Je continue » ──
+  // L'accueil bascule alors sur le contrat (voir plus bas) ; les jalons ne
+  // racontent plus que la phase de test.
   const signing = signingStarted(client as Record<string, unknown>);
-  const signingDone = signing
-    ? signingSteps(client as Record<string, unknown>).filter((s) => s.done).length
-    : 0;
-  const signingJalon = {
-    key: "signature",
-    Icon: IconPen,
-    title: "Signature",
-    desc: "Vos informations de facturation, votre devis et votre contrat — à retrouver ici et à nous retourner signés.",
-    done: Boolean(client.signatureDate),
-    doneLabel: client.signatureDate ? `Contrat signé le ${fmt(client.signatureDate)}` : null,
-    pending: null as string | null,
-    href: "/espace-client/signature",
-    cta: client.signatureDate ? "Voir mes documents" : "Finaliser la signature",
-    progress: { done: signingDone, total: 5, unit: "étape" } as { done: number; total: number; unit?: string } | null,
-  };
 
   // ── Les jalons du client ──────────────────────────────────────────────────
   const testJalons = [
@@ -159,9 +154,9 @@ export default async function AccueilPage() {
       desc: "45 minutes avec votre interlocuteur, avant le démarrage. C'est ce qui fait la différence sur la première semaine.",
       done: Boolean(run?.sessionAt),
       doneLabel: sessionValidee
-        ? `Session réalisée le ${fmt(run?.sessionAt)}`
+        ? `Session réalisée le ${frDate(run?.sessionAt, "long")}`
         : run?.sessionAt
-          ? `Réservée le ${fmt(run.sessionAt)}`
+          ? `Réservée le ${frDate(run.sessionAt, "long")}`
           : null,
       // Séance passée mais pas encore validée : ce n'est pas un fait acquis,
       // c'est une attente — et elle n'est pas du ressort du client.
@@ -204,21 +199,19 @@ export default async function AccueilPage() {
     },
   ];
 
-  /**
-   * Sans phase de test (affaire conclue directement), pas de session de prise
-   * en main à réserver : la signature passe en tête. Avec un test, elle arrive
-   * après les trois jalons, dans l'ordre où le client la vit.
-   */
-  const jalons: (typeof testJalons)[number][] = run
-    ? [...testJalons, ...(signing ? [signingJalon] : [])]
-    : [...(signing ? [signingJalon] : []), ...testJalons.filter((j) => j.key !== "creneau")];
+  /** Sans phase de test (affaire conclue directement), pas de session à réserver. */
+  const jalons = run ? testJalons : testJalons.filter((j) => j.key !== "creneau");
 
   const jalonsDone = jalons.filter((j) => j.done).length;
   // L'étape courante est la première non faite qui dépend du CLIENT : les accès
   // ne sont pas de son ressort, les mettre en avant lui demanderait d'attendre.
   const currentKey = jalons.find((j) => !j.done && j.href)?.key;
 
-  const welcome = !run
+  const welcome = signing && run
+    ? client.signatureDate
+      ? "Votre phase de test est derrière vous. Voici l'essentiel pour la suite."
+      : "Votre phase de test est terminée : il reste à finaliser votre contrat."
+    : !run
     ? signing
       ? client.signatureDate
         ? "Votre contrat est signé. Bienvenue chez TIM !"
@@ -234,32 +227,63 @@ export default async function AccueilPage() {
         ? "Commencez par réserver votre session de prise en main : le reste suit."
         : "Il vous reste votre dossier de démarrage à compléter.";
 
-  // Le nombre de fonctionnalités documentées, comme sur la page d'accueil
-  // publique : annoncer un chiffre faux serait pire que ne pas en annoncer.
-  const featureCount = (await getFeatures()).length;
+  // ── Phase de signature : l'état du contrat, en une phrase et un geste ──────
+  const stages = portalProgress(client as Record<string, unknown>);
+  const [update, awaitingTim] = signing
+    ? await Promise.all([pendingContractUpdate(payload, client), awaitingCountersign(payload, client.id)])
+    : [null, false];
+  const isActive = (client as { clientStatus?: string }).clientStatus === "actif";
+  const contract: { tone: "todo" | "wait" | "done"; title: string; desc: string; cta: string } = update
+    ? {
+        tone: "todo",
+        title: "Une mise à jour de votre contrat vous attend",
+        desc: "Relisez et signez la nouvelle version. Votre contrat actuel reste en vigueur jusqu'à votre signature.",
+        cta: "Signer la mise à jour",
+      }
+    : stages.current !== "termine"
+      ? {
+          tone: "todo",
+          title:
+            stages.current === "entreprise"
+              ? "Commencez par les informations de votre entreprise"
+              : stages.current === "devis"
+                ? "Votre devis vous attend"
+                : "Votre contrat vous attend",
+          desc: "Trois étapes, l'une après l'autre : les informations de votre entreprise, votre devis, puis votre contrat — tout se signe en ligne.",
+          cta: "Finaliser la signature",
+        }
+      : awaitingTim
+        ? {
+            tone: "wait",
+            title: "Vous avez signé : TIM contresigne à son tour",
+            desc: "Vous recevrez votre exemplaire signé par les deux parties par e-mail, et il sera disponible ici.",
+            cta: "Voir mes documents",
+          }
+        : isActive
+          ? {
+              tone: "done",
+              title: "Votre contrat est signé, votre compte est actif",
+              desc: client.signatureDate ? `Contrat signé le ${frDate(client.signatureDate, "long")}. Bienvenue chez TIM !` : "Bienvenue chez TIM !",
+              cta: "Voir mes documents",
+            }
+          : {
+              tone: "done",
+              title: "Votre contrat est signé",
+              desc: "Nous activons votre compte de production ; vous serez prévenu dès qu'il est prêt.",
+              cta: "Voir mes documents",
+            };
 
-  return (
-    <div className="px-6 py-10 sm:px-8">
-      <header className="mb-8 flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          {/* Le logo tient la place de la marque, à gauche du nom : c'est là
-              qu'on le cherche, et là que son absence appelle le dépôt. */}
-          <LogoUpload url={logoUrl} companyName={client.companyName} />
-          <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-muted">
-            {client.companyName ?? "Mon espace"}
-          </p>
-          <h1 className="mt-1 text-3xl font-bold text-foreground">
-            {firstName ? `Bienvenue, ${firstName}` : "Bienvenue"}
-          </h1>
-          {/* La prose garde une largeur de lecture même si la page prend tout
-              l'écran : une phrase étirée sur 1900 px ne se lit pas. */}
-          <p className="mt-2 max-w-2xl text-muted">{welcome}</p>
-          </div>
-        </div>
-        <PortalLogout />
-      </header>
+  // La phase de test en une ligne, quand elle est repliée.
+  const testSummary = [
+    run?.sessionAt ? `session le ${frDate(run.sessionAt, "long")}` : null,
+    dossierDone ? (client.onboardingStatus === "valide" ? "dossier validé" : "dossier transmis") : null,
+    credentialCount > 0 ? `${credentialCount} accès` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
+  const testView = (
+    <>
       {/* ── Où en est le test, dans le temps et dans les étapes ────────────── */}
       <section className="mb-8 rounded-lg border border-border bg-surface p-5 sm:p-6">
         {!run ? null : time.hasDates ? (
@@ -398,6 +422,186 @@ export default async function AccueilPage() {
         })}
       </div>
 
+    </>
+  );
+
+  // Le nombre de fonctionnalités documentées, comme sur la page d'accueil
+  // publique : annoncer un chiffre faux serait pire que ne pas en annoncer.
+  const featureCount = (await getFeatures()).length;
+
+  return (
+    <div className="px-6 py-10 sm:px-8">
+      <header className="mb-8 flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          {/* Le logo tient la place de la marque, à gauche du nom : c'est là
+              qu'on le cherche, et là que son absence appelle le dépôt. */}
+          <LogoUpload url={logoUrl} companyName={client.companyName} />
+          <div>
+          <p className="text-sm font-semibold uppercase tracking-wide text-muted">
+            {client.companyName ?? "Mon espace"}
+          </p>
+          <h1 className="mt-1 text-3xl font-bold text-foreground">
+            {firstName ? `Bienvenue, ${firstName}` : "Bienvenue"}
+          </h1>
+          {/* La prose garde une largeur de lecture même si la page prend tout
+              l'écran : une phrase étirée sur 1900 px ne se lit pas. */}
+          <p className="mt-2 max-w-2xl text-muted">{welcome}</p>
+          </div>
+        </div>
+        <PortalLogout />
+      </header>
+
+      {signing ? (
+        <>
+          {/* ── Le contrat : où il en est, que faire ─────────────────────── */}
+          <section
+            className={`rounded-xl border p-6 sm:p-7 ${
+              contract.tone === "todo" ? "border-primary bg-white shadow-sm" : "border-border bg-white"
+            }`}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <span
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
+                    contract.tone === "done"
+                      ? "bg-success-bg text-success-text"
+                      : contract.tone === "wait"
+                        ? "bg-processing-bg text-processing-text"
+                        : "bg-primary-light text-primary"
+                  }`}
+                  aria-hidden
+                >
+                  {contract.tone === "done" ? (
+                    <IconCheck className="h-6 w-6" />
+                  ) : contract.tone === "wait" ? (
+                    <IconHourglass className="h-6 w-6" />
+                  ) : (
+                    <IconPen className="h-6 w-6" />
+                  )}
+                </span>
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide text-muted">Votre contrat</p>
+                  <h2 className="mt-0.5 text-xl font-bold text-foreground">{contract.title}</h2>
+                  <p className="mt-1 max-w-2xl text-sm text-muted">{contract.desc}</p>
+                </div>
+              </div>
+              <Link
+                href="/espace-client/signature"
+                className={`shrink-0 rounded-lg px-5 py-2.5 text-sm font-semibold transition ${
+                  contract.tone === "todo"
+                    ? "bg-primary text-white hover:bg-primary-dark"
+                    : "border border-border text-foreground hover:border-primary hover:text-primary"
+                }`}
+              >
+                {contract.cta} →
+              </Link>
+            </div>
+            {/* Les trois étapes de la signature, d'un coup d'œil. */}
+            <ol className="mt-6 flex items-center gap-2" aria-label="Étapes de la signature">
+              {PORTAL_STAGES.map((st, i) => (
+                <li key={st.key} className="flex flex-1 items-center gap-2">
+                  <span
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                      stages.done[st.key] ? "bg-success text-white" : "border-2 border-primary text-primary"
+                    }`}
+                    aria-hidden
+                  >
+                    {stages.done[st.key] ? <IconCheck className="h-3.5 w-3.5" /> : i + 1}
+                  </span>
+                  <span className={`text-sm ${stages.done[st.key] ? "text-success-text" : "font-semibold text-foreground"}`}>
+                    {st.label}
+                  </span>
+                  {i < PORTAL_STAGES.length - 1 && (
+                    <span className={`h-0.5 flex-1 rounded-full ${stages.done[st.key] ? "bg-success" : "bg-border"}`} aria-hidden />
+                  )}
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          {/* ── Au quotidien : accès, documents, factures ─────────────────── */}
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {[
+              {
+                key: "acces",
+                Icon: IconKey,
+                title: "Mes accès TIM",
+                text:
+                  credentialCount > 0
+                    ? `${credentialCount} accès prêts, à imprimer et à remettre à vos équipes.`
+                    : "Nous préparons les identifiants de vos utilisateurs.",
+                href: credentialCount > 0 ? "/espace-client/acces" : null,
+                cta: "Voir mes accès",
+              },
+              {
+                key: "documents",
+                Icon: IconFile,
+                title: "Mes documents",
+                text: client.signatureDate
+                  ? "Votre devis et votre contrat signés, à consulter et télécharger."
+                  : "Votre devis et votre contrat, à relire et signer en ligne.",
+                href: "/espace-client/signature",
+                cta: "Voir mes documents",
+              },
+              {
+                key: "factures",
+                Icon: IconReceipt,
+                title: "Mes factures",
+                text: "Vos factures échues apparaîtront ici chaque mois, dès le démarrage de votre abonnement.",
+                href: null,
+                cta: "",
+              },
+            ].map((c) => {
+              const body = (
+                <>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface text-muted" aria-hidden>
+                    <c.Icon className="h-5 w-5" />
+                  </span>
+                  <h3 className="mt-3 font-semibold text-foreground">{c.title}</h3>
+                  <p className="mt-1 text-sm text-muted">{c.text}</p>
+                  {c.href ? <span className="mt-auto pt-3 text-sm font-semibold text-primary">{c.cta} →</span> : null}
+                </>
+              );
+              return c.href ? (
+                <Link
+                  key={c.key}
+                  href={c.href}
+                  className="flex flex-col rounded-lg border border-border bg-white p-5 transition hover:border-primary hover:shadow-sm"
+                >
+                  {body}
+                </Link>
+              ) : (
+                <div key={c.key} className="flex flex-col rounded-lg border border-dashed border-border bg-white p-5">
+                  {body}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── La phase de test, terminée : repliée, à rouvrir au besoin ──── */}
+          {run && (
+            <details className="group mt-8 rounded-lg border border-border bg-white">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4">
+                <span className="flex items-center gap-3">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-success-bg text-success-text" aria-hidden>
+                    <IconCheck className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="font-semibold text-foreground">Votre phase de test</span>
+                  <span className="text-sm text-muted">
+                    {testSummary}
+                  </span>
+                </span>
+                <span className="text-sm font-semibold text-muted group-open:hidden">Afficher</span>
+                <span className="hidden text-sm font-semibold text-muted group-open:inline">Masquer</span>
+              </summary>
+              <div className="border-t border-border p-5">{testView}</div>
+            </details>
+          )}
+        </>
+      ) : (
+        testView
+      )}
+
       {/* ─── Pour aller plus loin ────────────────────────────────────────────
           Affichée SEULEMENT une fois les accès disponibles, et c'est tout le
           propos : ces trois liens parlent de se servir de TIM. Tant que le
@@ -414,7 +618,9 @@ export default async function AccueilPage() {
       <section className="mt-12 border-t border-border pt-8">
         <h2 className="text-lg font-semibold text-foreground">Pour aller plus loin</h2>
         <p className="mt-1 text-sm text-muted">
-          Le centre d&apos;aide reste ouvert pendant et après votre test.
+          {signing
+            ? "Le centre d'aide vous accompagne au quotidien : parcours, documentation et assistance."
+            : "Le centre d'aide reste ouvert pendant et après votre test."}
         </p>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

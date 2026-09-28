@@ -1,0 +1,74 @@
+/* Liste de suivi des champs (FieldChecklist) — jetons de l'espace client
+   (--color-*) ou de l'admin (--tim-*), jamais de code couleur en dur. */
+.list {
+  --fc-ink: var(--color-foreground, var(--tim-foreground));
+  --fc-muted: var(--color-muted, var(--tim-muted));
+  --fc-border: var(--color-border, var(--tim-border));
+  --fc-done: var(--color-success, var(--tim-success));
+  --fc-done-ink: var(--color-success-text, var(--tim-green));
+  --fc-todo: var(--color-processing, var(--tim-warning));
+  --fc-hover: var(--color-surface, var(--tim-surface));
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  position: relative;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--fc-border);
+  border-radius: 8px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--fc-border);
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--fc-ink);
+  text-align: left;
+  cursor: pointer;
+}
+.item:last-child .row {
+  border-bottom: 0;
+}
+.row:hover {
+  background: var(--fc-hover);
+}
+.page {
+  font-weight: 600;
+  color: var(--fc-muted);
+}
+.parts {
+  display: flex;
+  gap: 10px;
+}
+.part {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--fc-muted);
+}
+.dot {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--fc-todo);
+  font-size: 10px;
+  line-height: 1;
+}
+.partDone {
+  color: var(--fc-done-ink);
+}
+.partDone .dot {
+  border-color: var(--fc-done);
+  background: var(--fc-done);
+  color: var(--color-white, var(--tim-white));
+}

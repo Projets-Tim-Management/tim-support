@@ -18,3 +18,20 @@ export const PARIS_TZ = "Europe/Paris";
  */
 export const dayKey = (d: Date | string): string =>
   new Date(d).toLocaleDateString("fr-CA", { timeZone: PARIS_TZ });
+
+const FR_DATE = {
+  court: new Intl.DateTimeFormat("fr-FR", { timeZone: PARIS_TZ, day: "2-digit", month: "2-digit", year: "numeric" }),
+  long: new Intl.DateTimeFormat("fr-FR", { timeZone: PARIS_TZ, day: "numeric", month: "long", year: "numeric" }),
+};
+
+/**
+ * Date lisible en heure de Paris : « 28/09/2026 » (court) ou « 28 septembre
+ * 2026 » (long). Sans fuseau, le rendu serveur (UTC) et celui du navigateur
+ * divergeaient autour de minuit. Vide si pas de date — ou si elle est
+ * illisible (Intl lèverait une RangeError et ferait tomber l'écran).
+ */
+export const frDate = (d?: Date | string | null, style: keyof typeof FR_DATE = "court"): string => {
+  if (!d) return "";
+  const date = new Date(d);
+  return Number.isNaN(date.getTime()) ? "" : FR_DATE[style].format(date);
+};

@@ -224,3 +224,63 @@
     margin: 0.125rem 0;
   }
 }
+
+/* ─── Documents du process de signature : blocs « Devis » / « Contrat » ───────
+   Fichier à gauche en pleine largeur, date à droite en largeur fixe : les
+   quatre lignes s'alignent, et la zone de dépôt reste compacte. */
+.sig-docs.collapsible {
+  margin-bottom: 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.sig-docs .collapsible__content {
+  padding-top: 0.25rem;
+}
+.sig-doc-row .row__fields {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 13rem;
+  column-gap: 1rem;
+  align-items: start;
+  margin-inline: 0 !important;
+  > * {
+    margin-inline: 0 !important;
+    flex: none !important;
+    width: auto !important;
+  }
+}
+.sig-doc-row + .sig-doc-row {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--tim-elevation-150);
+}
+@media (max-width: 768px) {
+  .sig-doc-row .row__fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Zone de dépôt et fichier, en version compacte (une ligne). */
+.direct-upload--compact {
+  .direct-upload__zone {
+    min-height: 2.75rem;
+    padding: 0.5rem 1rem;
+    border-width: 1px;
+    font-size: 0.8125rem;
+  }
+  .direct-upload__grid--single {
+    margin-bottom: 0;
+  }
+  .direct-upload__thumb {
+    width: 100%;
+  }
+  .direct-upload__doc {
+    width: 100%;
+    max-width: none;
+    min-height: 2.75rem;
+    padding-right: 2.25rem; /* place du bouton « retirer » */
+  }
+  .direct-upload__remove {
+    top: 50%;
+    transform: translateY(-50%);
+  }
+}

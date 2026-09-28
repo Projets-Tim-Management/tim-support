@@ -176,3 +176,41 @@ export const IconFile = ({ className }: IconProps) => (
     <path d="M14 3v5h5M9 13h6M9 17h4" />
   </Svg>
 );
+
+/** Sablier — un document en préparation, de l'autre côté. */
+export const IconHourglass = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <path d="M7 3h10M7 21h10" />
+    <path d="M8 3v3a4 4 0 0 0 1.6 3.2L12 11l2.4-1.8A4 4 0 0 0 16 6V3" />
+    <path d="M8 21v-3a4 4 0 0 1 1.6-3.2L12 13l2.4 1.8A4 4 0 0 1 16 18v3" />
+  </Svg>
+);
+
+/** Flèche vers le bas — télécharger un document. */
+export const IconDownload = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+  </Svg>
+);
+
+/** Flèche vers le haut — déposer un document. */
+export const IconUpload = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <path d="M12 20V9M7 14l5-5 5 5M5 4h14" />
+  </Svg>
+);
+
+/** Chevron vers la droite — une tuile qui ouvre quelque chose. */
+export const IconChevronRight = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <path d="M9 6l6 6-6 6" />
+  </Svg>
+);
+
+/** Reçu — les factures du client. */
+export const IconReceipt = ({ className }: IconProps) => (
+  <Svg className={className}>
+    <path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" />
+    <path d="M9 8h6M9 12h6M9 16h3" />
+  </Svg>
+);

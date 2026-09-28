@@ -1127,6 +1127,12 @@
   font-weight: 700;
   color: var(--tim-foreground);
 }
+/* D'où vient la date proposée (le contrat), sous le champ. */
+.tim-archive__hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+}
 .tim-archive__input {
   width: 100%;
   padding: 0.5rem 0.6rem;
@@ -1551,6 +1557,12 @@
   background: var(--tim-white);
   border: 1px solid var(--tim-border);
   border-radius: var(--tim-radius-sm);
+}
+/* D'où vient la date proposée (le contrat), sous le champ. */
+.tim-kanban__modal-source {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  color: var(--tim-muted);
 }
 .tim-kanban__modal-actions {
   display: flex;

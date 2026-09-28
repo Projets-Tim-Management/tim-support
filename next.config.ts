@@ -52,6 +52,11 @@ const nextConfig: NextConfig = {
        * introuvable » — en prod seulement, jamais en local.
        */
       "./docs/REGLES-SUPPORT.md",
+      // Polices du rendu de signature, lues à l'exécution par la route de
+      // signature (lib/e-signature-server, loadSignatureFont).
+      "./assets/fonts/signature/**",
+      // Polices du contrat PDF (lib/contract-pdf), lues à l'exécution.
+      "./assets/fonts/contract/**",
     ],
   },
   images: {

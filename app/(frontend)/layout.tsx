@@ -26,8 +26,10 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // `data-scroll-behavior` : le défilement doux (globals.css) ne doit pas
+  // s'appliquer aux changements de page — Next le coupe alors lui-même.
   return (
-    <html lang="fr">
+    <html lang="fr" data-scroll-behavior="smooth">
       <body className="flex flex-col min-h-screen bg-white">
         <ConditionalHeader />
         <main className="flex-1">{children}</main>
