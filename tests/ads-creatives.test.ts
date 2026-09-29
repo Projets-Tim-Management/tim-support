@@ -18,14 +18,14 @@ const admin = { req: { user: { roles: ["admin"] } } } as never;
 describe("créas", () => {
   it("vouvoient par défaut, et déclarent ce qu'elles testent", () => {
     expect(find(AdCreatives.fields as AnyField[], "tone")!.defaultValue).toBe("vous");
-    const out = derive({ data: { tests: [{ dimension: "ton", value: "tu" }], texts: [] } });
+    const out = derive({ data: { tests: [{ dimension: "ton", value: "tu" }], copy: [] } });
     expect(out.isTest).toBe(true);
-    expect(derive({ data: { tests: [], texts: [] } }).isTest).toBe(false);
+    expect(derive({ data: { tests: [], copy: [] } }).isTest).toBe(false);
   });
 
   it("compte les caractères comme Meta (accents et emojis comptent pour un)", () => {
-    const out = derive({ data: { texts: [{ text: "Évitez le pointage papier ✅" }] } });
-    expect((out.texts as { chars: number }[])[0].chars).toBe(27);
+    const out = derive({ data: { copy: [{ text: "Évitez le pointage papier ✅" }] } });
+    expect((out.copy as { chars: number }[])[0].chars).toBe(27);
   });
 
   it("le statut et la décision ne s'écrivent pas par l'API : ce sont les gestes de validation", () => {

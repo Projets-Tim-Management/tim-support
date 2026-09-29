@@ -26,7 +26,7 @@ export type DownloadCreative = {
   tone: string;
   cta?: string | null;
   tests?: { dimension: TestDimension; value: string }[] | null;
-  texts?: { kind: string; text: string; status: string; chars?: number | null }[] | null;
+  copy?: { kind: string; text: string; status: string; chars?: number | null }[] | null;
   assets?: { format: string; type: string; template?: string | null; media: Media }[] | null;
 };
 export type DownloadCampaign = { id: number | string; name: string; brief?: { landingUrl?: string | null; cta?: string | null } | null };
@@ -45,7 +45,7 @@ export const folderOf = (c: DownloadCreative, i: number) => {
 
 export const assetName = (campaign: DownloadCampaign, c: DownloadCreative, format: string) => `tim_${slug(campaign.name)}_${slug(c.angle)}_${format}.jpg`;
 
-const okTexts = (c: DownloadCreative) => (c.texts ?? []).filter((t) => t.status === "ok");
+const okTexts = (c: DownloadCreative) => (c.copy ?? []).filter((t) => t.status === "ok");
 
 const csvCell = (v: string | number) => {
   const s = String(v);

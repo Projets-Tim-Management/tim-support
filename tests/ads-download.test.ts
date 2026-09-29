@@ -9,7 +9,7 @@ const crea = (over: Partial<DownloadCreative> = {}): DownloadCreative => ({
   angle: "Le pointage papier coûte cher",
   tone: "vous",
   tests: [],
-  texts: [
+  copy: [
     { kind: "principal", text: "Gagnez 2 h; chaque semaine", status: "ok", chars: 26 },
     { kind: "principal", text: "Un outil révolutionnaire", status: "rejete" },
     { kind: "titre", text: "Le pointage sans papier", status: "ok" },

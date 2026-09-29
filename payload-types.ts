@@ -2335,7 +2335,7 @@ export interface AdCreative {
   /**
    * Générés et contrôlés par les garde-fous. Un texte rejeté reste visible, avec sa raison.
    */
-  texts?:
+  copy?:
     | {
         kind: 'principal' | 'titre' | 'description';
         tone: 'vous' | 'tu';
@@ -4166,7 +4166,7 @@ export interface AdCreativesSelect<T extends boolean = true> {
         id?: T;
       };
   isTest?: T;
-  texts?:
+  copy?:
     | T
     | {
         kind?: T;

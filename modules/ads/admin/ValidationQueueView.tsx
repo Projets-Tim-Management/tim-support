@@ -30,7 +30,7 @@ type Raw = {
   status?: string | null;
   tests?: { dimension: TestDimension; value: string }[] | null;
   campaign?: { id: number | string; name: string } | number | null;
-  texts?: { kind: string; text: string; status: string; reason?: string | null; chars?: number | null }[] | null;
+  copy?: { kind: string; text: string; status: string; reason?: string | null; chars?: number | null }[] | null;
   assets?: { format: string; template?: string | null; media?: { url?: string | null } | number | null }[] | null;
   facts?: ({ statement: string; source: string } | number)[] | null;
   generation?: { costEur?: number | null } | null;
@@ -48,7 +48,7 @@ const toCard = (r: Raw): CardCreative => ({
   cta: ctaLabel(r.cta) ?? "En savoir plus",
   status: r.status ?? "brouillon",
   campaign: typeof r.campaign === "object" && r.campaign ? { id: r.campaign.id, name: r.campaign.name } : null,
-  texts: (r.texts ?? []).map((t) => ({ kind: t.kind, text: t.text, status: t.status, reason: t.reason ?? null, chars: t.chars ?? [...t.text].length })),
+  texts: (r.copy ?? []).map((t) => ({ kind: t.kind, text: t.text, status: t.status, reason: t.reason ?? null, chars: t.chars ?? [...t.text].length })),
   assets: (r.assets ?? []).map((a) => ({ format: a.format, template: a.template ?? null, url: typeof a.media === "object" && a.media ? (a.media.url ?? null) : null })),
   facts: (r.facts ?? []).filter((f): f is { statement: string; source: string } => typeof f === "object" && f !== null),
   costEur: r.generation?.costEur ?? null,
