@@ -845,6 +845,8 @@ $nav-icons: (
     "Analyses":     "<path d='M3 17l6-6 4 4 8-8'/><path d='M14 7h7v7'/>",
     /* Facturation : une facture (feuille à coin plié, lignes de montants). */
     "Facturation":  "<path d='M6 2h9l5 5v15H6z'/><path d='M15 2v5h5'/><path d='M9 12h7M9 16h7M9 8h2'/>",
+    /* Publicité : une cible — on vise quelqu'un, on mesure si on l'atteint. */
+    "Publicité":    "<circle cx='12' cy='12' r='9'/><circle cx='12' cy='12' r='5'/><circle cx='12' cy='12' r='1'/>",
     "Système":      "<circle cx='12' cy='12' r='3'/><path d='M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.6 1.6 0 008 19.4a1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H2a2 2 0 110-4h.1A1.6 1.6 0 003.6 8a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H8a1.6 1.6 0 001-1.5V2a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V8a1.6 1.6 0 001.5 1H22a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z'/>",
   );
   @each $label, $paths in $group-icons {

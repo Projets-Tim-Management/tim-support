@@ -30,6 +30,10 @@ import { Tickets } from "./modules/support/collections/Tickets";
 import { Developments } from "./modules/dev/collections/Developments";
 import { DevStatuses } from "./modules/dev/collections/DevStatuses";
 import { Integrations } from "./modules/dev/collections/Integrations";
+import { AdAccounts } from "./modules/ads/collections/AdAccounts";
+import { AdCampaigns } from "./modules/ads/collections/AdCampaigns";
+import { AdMetricsDaily } from "./modules/ads/collections/AdMetricsDaily";
+import { AdsSettings } from "./modules/ads/globals/AdsSettings";
 import { SupportConnectionsGlobal } from "./core/globals/SupportConnections";
 import { Forms } from "./modules/forms/collections/Forms";
 import { FormSubmissions } from "./modules/forms/collections/FormSubmissions";
@@ -109,6 +113,10 @@ const ROLE_NAV_HIDDEN: Record<string, (args: { user?: unknown }) => boolean> = {
   forms: hideUnlessAdmin,
   "form-submissions": hideUnlessAdmin,
   "email-suppressions": hideUnlessAdmin,
+  // Publicité : pilotage interne des campagnes payantes, admin seul (D1).
+  "ad-accounts": hideUnlessAdmin,
+  "ad-campaigns": hideUnlessAdmin,
+  "ad-metrics-daily": hideUnlessAdmin,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -309,6 +317,10 @@ export default buildConfig({
       // Formulaires du site vitrine : la définition servie au site, et ce qu'il renvoie
       Forms,
       FormSubmissions,
+      // Publicité : comptes connectés, campagnes lues chez les régies, chiffres du jour
+      AdCampaigns,
+      AdAccounts,
+      AdMetricsDaily,
       // Adresses qui ne reçoivent plus d'envoi commercial — transverse à tous
       // les modules, d'où sa place à côté des collections système.
       EmailSuppressions,
@@ -510,7 +522,7 @@ export default buildConfig({
        */
     }),
   ],
-  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings],
+  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, AdsSettings],
 
   db: postgresAdapter({
     // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :
