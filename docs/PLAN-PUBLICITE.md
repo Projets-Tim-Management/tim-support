@@ -854,6 +854,41 @@ Sources des tarifs (relevés le 29/09/2026, à revérifier à la souscription) :
 > (commits 1 à 7, en production) : l'agent se sert de ses outils, il n'en recopie
 > aucun.
 
+### Décisions du 29/09/2026 (plan validé)
+
+Elles priment sur le texte qui suit quand il y a un écart.
+
+| # | Sujet | Décision |
+|---|---|---|
+| 1 | Bibliothèque publicitaire Meta | Vérification d'identité : Charlie. Jeton de 60 jours : **rappel à J-7 et renouvellement à la main**, pas de rafraîchissement automatique. Date d'expiration saisie dans `ads-settings` |
+| 2 | Concurrents | Une **liste de départ** fournie par Charlie. L'agent peut en **proposer** d'autres par mots-clés : ils n'entrent dans la liste qu'**après validation** par Charlie. Collection `ad-competitors` (§6) |
+| 3 | Budget de préparation | **Séparé** : **5 € maximum par passage** de préparation (`agentPrepMaxEur`). La part IA quotidienne (total × part IA max) sert à l'**optimisation une fois la campagne publiée**, pas à la préparation |
+| 4 | Valeurs par défaut | Part IA 15 %, plancher Meta 5 €/jour, plafond global des agents **15 €/jour** et **150 €/mois**, 2 niveaux, 3 agents simultanés, 12 par passage, 2 rejets par créa |
+| 5 | Clients signés | **Chiffres anonymes uniquement**, région comprise. **Jamais** de nom d'entreprise ni de personne |
+| 6 | Textes | Écrits par Opus via l'outil de l'atelier ; le rédacteur ne fait que cadrer |
+| 7 | Audiences | Ciblage détaillé **et** Advantage+ comparés en test **seulement si le budget Meta suffit à alimenter les deux**. L'agent justifie le seuil dans le journal (chiffres à l'appui). Sinon, **Advantage+ seul** |
+| 8 | Relance | L'agent **ajoute** des créas, il ne remplace **jamais**. Les créas non validées restent jusqu'au refus de Charlie |
+| 9 | Modèles | Identifiants vérifiés sur l'API Anthropic le 29/09/2026 : `claude-opus-5-5`, `claude-sonnet-5-5` (sorti le 28/09), `claude-haiku-4-5`. **Sonnet 5.5 remplace Sonnet 5** partout dans ce plan. Un seul endroit : `modules/ads/lib/models.ts` |
+| 10 | Budget Meta | Relire la page Meta sur les budgets quotidiens **dans un navigateur** avant de coder le moteur de budget (commit 2) |
+| 11 | Ordre | L'atelier 3a (commits 1 à 7) est terminé et en production ; la 3c enchaîne. Rien n'est poussé sans feu vert |
+
+**Ce que ces décisions changent dans la suite :**
+
+- **Budget d'un passage de préparation** = `min(agentPrepMaxEur, ce qui reste du jour
+  et du mois au plafond global)`. Il est réservé à l'orchestrateur au lancement. La
+  pause « budget du jour épuisé » ne sert plus qu'au plafond **global** (15 €/jour,
+  150 €/mois), quand plusieurs campagnes tournent.
+- **Audiences** : la décision `audience` porte obligatoirement, **en champs
+  structurés**, le budget Meta quotidien, le nombre d'ensembles de publicités, le CPL
+  cible et les conversions attendues par semaine et par ensemble. Le code refuse un
+  test à deux audiences si ces champs manquent. Le **seuil** reste le jugement de
+  l'agent, écrit dans la justification.
+- **Concurrents proposés** : ils arrivent dans « À valider ». Le bouton « Ajouter à
+  la liste » **est** l'action (pas de validation intermédiaire), comme « Refuser ».
+- **Relance** : le lancement vérifie le plafond hebdomadaire de créas par campagne
+  (`creativesPerCampaignPerWeek`). S'il est atteint, le bouton l'annonce et dit
+  quand il se libère.
+
 ### 1. Principe
 
 Sur une campagne `brouillon`, on saisit **un objectif en une phrase** et **un budget
@@ -899,10 +934,10 @@ justification donnée par l'orchestrateur.
 | Rôle | Mission type | Outils autorisés | Modèle proposé |
 |---|---|---|---|
 | Stratège | Positionnement, audiences, angles | `lire_kit_marque`, `lire_site`, `lire_leads_par_canal`, `lire_clients_signes`, `lire_pubs_concurrents`, `proposer_positionnement`, `proposer_audiences`, `proposer_angles` | Opus (le raisonnement qui décide tout le reste) |
-| Rédacteur | Textes d'un ou plusieurs angles | `generer_textes` (= la génération 3a) | Sonnet 5 pour cadrer ; les textes restent écrits par l'outil 3a, donc par Opus (`ADS_TEXT_MODEL`) |
-| Directeur artistique | Choix des gabarits, des captures, des chiffres affichés, du motion | `lister_gabarits`, `lister_medias`, `rendre_visuels` (= rendu 3a), `rendre_motion` (après le commit 3a n° 9) | Sonnet 5 |
-| Contrôleur | Accepte ou rejette une créa, avec motif | `verifier_crea` : d'abord les garde-fous en code de 3a (limites Meta, chiffre sans source, faux témoignage, attribut personnel, ton), puis un jugement sur la charte ; `rejeter` / `accepter` | Sonnet 5 |
-| Analyste (phase 2) | Lire les résultats une fois publiée | `lire_perfs`, `lire_decisions_passees` | Sonnet 5 — **pas en 3c** |
+| Rédacteur | Textes d'un ou plusieurs angles | `generer_textes` (= la génération 3a) | Sonnet 5.5 pour cadrer ; les textes restent écrits par l'outil 3a, donc par Opus (`ADS_TEXT_MODEL`) |
+| Directeur artistique | Choix des gabarits, des captures, des chiffres affichés, du motion | `lister_gabarits`, `lister_medias`, `rendre_visuels` (= rendu 3a), `rendre_motion` (après le commit 3a n° 9) | Sonnet 5.5 |
+| Contrôleur | Accepte ou rejette une créa, avec motif | `verifier_crea` : d'abord les garde-fous en code de 3a (limites Meta, chiffre sans source, faux témoignage, attribut personnel, ton), puis un jugement sur la charte ; `rejeter` / `accepter` | Sonnet 5.5 |
+| Analyste (phase 2) | Lire les résultats une fois publiée | `lire_perfs`, `lire_decisions_passees` | Sonnet 5.5 — **pas en 3c** |
 
 **Extraction** (lecture et résumé des pages du site, des pubs concurrentes) : Haiku
 4.5. C'est une fonction appelée **par** un outil du stratège, pas un agent. Elle
@@ -991,14 +1026,19 @@ que rien n'est publié »).
 2. `Meta décidée + IA décidée ≤ total`, et `Meta décidée ≥ plancher`.
 3. **Tant que la campagne n'est pas publiée, seule la part IA est consommée.** Le
    budget Meta décidé reste une proposition.
-4. Le plafond global d'`ads-settings` reste au-dessus de tout (nouveau champ
-   `agentDailyEur`, toutes campagnes confondues, 15 € proposés). L'interrupteur
-   général coupe aussi les agents.
+4. Le plafond global d'`ads-settings` reste au-dessus de tout (`agentDailyEur`
+   15 €/jour et `agentMonthlyEur` 150 €/mois, toutes campagnes confondues).
+   L'interrupteur général coupe aussi les agents.
 
-**Quand le budget IA du jour est épuisé**, le passage se met en pause
-(`en-pause-budget`) et reprend le lendemain, là où il s'était arrêté (§5). Exemple :
-avec 10 €/jour et 15 % de part IA, on a 1,50 € d'IA par jour. Une préparation à
-environ 2 € se fait donc en deux jours, sans rien dépasser.
+> **Décision du 29/09/2026** : la préparation a son **propre budget**, 5 € maximum
+> par passage (`agentPrepMaxEur`). Les invariants 1 et 2 (part IA quotidienne)
+> s'appliquent à l'**optimisation une fois la campagne publiée**, pas à la
+> préparation.
+
+**Quand le plafond global du jour est épuisé** (plusieurs campagnes le même jour),
+le passage se met en pause (`en-pause-budget`) et reprend le lendemain, là où il
+s'était arrêté (§5). Le budget de 5 € du passage, lui, ne se renouvelle pas : une
+fois dépensé, le passage dépose ce qu'il a.
 
 **Meta raisonne à la semaine — vérifié le 29/09/2026.** Selon l'aide Meta Business
 (« À propos des budgets quotidiens »), Meta peut dépenser **jusqu'à 75 % de plus que
@@ -1082,16 +1122,17 @@ contient déjà `ADS_TEXT_MODEL`) :
 export const ADS_AGENT_MODELS = {
   orchestrateur: "claude-opus-5-5",
   stratege: "claude-opus-5-5",
-  redacteur: "claude-sonnet-5",
-  "directeur-artistique": "claude-sonnet-5",
-  controleur: "claude-sonnet-5",
+  redacteur: "claude-sonnet-5-5",
+  "directeur-artistique": "claude-sonnet-5-5",
+  controleur: "claude-sonnet-5-5",
   extraction: "claude-haiku-4-5",
 } as const satisfies Record<AgentRole | "extraction", ClaudeModel>;
 ```
 
-`claude-sonnet-5` s'ajoute à `CLAUDE_PRICES` : 2 $ / 10 $ par million de tokens en
-entrée / sortie. Les tarifs de cache sont à relever sur la grille d'Anthropic le
-jour du commit.
+`claude-sonnet-5-5` s'ajoute à `CLAUDE_PRICES` : 2 $ / 10 $ par million de tokens en
+entrée / sortie, 2,50 $ en écriture de cache et 0,20 $ en lecture (grille
+d'Anthropic du 29/09/2026). Comme Opus 5.5, il n'accepte pas de `tool_choice`
+forcé.
 
 **Les outils de l'agent sont ceux de l'atelier.** Chaque outil est une entrée du
 registre (`modules/ads/agent/tools/`) : nom, description, schéma d'entrée, rôles
@@ -1231,8 +1272,27 @@ le type de dépense `agent`. Les jauges se **calculent** :
 
 Rien n'est stocké en double.
 
-**`ads-settings`** reçoit `agentDailyEur` : le plafond IA global des agents, toutes
-campagnes confondues.
+**`ads-settings`** reçoit :
+
+- `agentDailyEur` (15 €) et `agentMonthlyEur` (150 €) : le plafond IA global des
+  agents, toutes campagnes confondues ;
+- `agentPrepMaxEur` (5 €) : le budget maximal d'un passage de préparation ;
+- `adLibraryTokenExpiresAt` : la date d'expiration du jeton de la bibliothèque
+  publicitaire, pour le rappel à J-7.
+
+**`ad-competitors` — les concurrents suivis (nouvelle collection)**
+
+| Champ | Type | Rôle |
+|---|---|---|
+| `name` | text | Nom affiché |
+| `pageId`, `pageUrl` | text | La page Facebook, pour `search_page_ids` |
+| `status` | select | `suivi` · `propose` · `refuse` |
+| `proposedBy` | relation → `ad-agent-runs` | Vide pour la liste de départ |
+| `keywords`, `rationale` | text / textarea | Les mots-clés qui l'ont fait trouver, et pourquoi l'agent le propose |
+| `decidedAt` | date | Ajout ou refus par Charlie |
+
+Seuls les concurrents `suivi` sont lus par l'outil `lire_pubs_concurrents`.
+L'outil `proposer_concurrent` crée une ligne `propose`, jamais `suivi`.
 
 ### 7. Coût IA estimé pour préparer une campagne
 
@@ -1240,7 +1300,7 @@ Hypothèse : une campagne de 6 créas, un rejet du contrôleur sur deux créas. 
 du 29/09/2026 :
 
 - Opus 5.5 : 4 $ / 20 $ par million de tokens en entrée / sortie ;
-- Sonnet 5 : 2 $ / 10 $ ;
+- Sonnet 5.5 : 2 $ / 10 $ ;
 - Haiku 4.5 : 1 $ / 5 $.
 
 Le cache est actif sur les instructions système et le contexte de marque.
@@ -1267,8 +1327,8 @@ Les quatre portes avant chaque commit. **Une seule migration**, au commit 1.
 
 | # | Commit | Schéma |
 |---|---|---|
-| 1 | Collections `ad-agent-runs`, `ad-agents`, `ad-agent-steps`, `ad-decisions` ; groupe `agentBudget` sur les campagnes ; `run`, `agent` et le type `agent` sur `ad-ai-usage` ; `agentDailyEur` dans `ads-settings`. Accès : rôles admin, écriture par le serveur seul | migration |
-| 2 | Moteur de budget, **pur et testé** : bornes, invariants, part IA du jour, semaine Meta (dimanche → samedi, fuseau du compte), réservation parent → enfants ; Sonnet 5 dans `CLAUDE_PRICES` ; `ADS_AGENT_MODELS` | — |
+| 1 | Collections `ad-agent-runs`, `ad-agents`, `ad-agent-steps`, `ad-decisions` ; groupe `agentBudget` sur les campagnes ; `run`, `agent` et le type `agent` sur `ad-ai-usage` ; `ad-competitors` ; `agentDailyEur`, `agentMonthlyEur`, `agentPrepMaxEur`, `adLibraryTokenExpiresAt` dans `ads-settings`. Accès : rôles admin, écriture par le serveur seul | migration |
+| 2 | Moteur de budget, **pur et testé** : bornes, invariants, part IA du jour, semaine Meta (dimanche → samedi, fuseau du compte), réservation parent → enfants ; Sonnet 5.5 dans `CLAUDE_PRICES` ; `ADS_AGENT_MODELS` | — |
 | 3 | Moteur d'agents : registre des rôles et des outils, boucle de tool use avec chaque tour écrit en base, reconstruction de la conversation, bail et idempotence, limites de l'arbre. Tests avec un **faux modèle** (pas de réseau, cf. `setup-isolation`) | — |
 | 4 | Outils branchés sur l'atelier 3a (textes, garde-fous, rendu, kit, dépôt « À valider ») et outils d'orchestration (`creer_sous_agent`, `repartir_budget`, `terminer`) ; phrases du fil | — |
 | 5 | Sources du stratège : pages du site (liste blanche, extraction Haiku), agrégats anonymes leads / signés, bibliothèque publicitaire Meta (mode simulé par variable d'environnement tant que l'accès n'est pas ouvert) | — |
@@ -1278,10 +1338,11 @@ Les quatre portes avant chaque commit. **Une seule migration**, au commit 1.
 | 9 | Outil `rendre_motion`, **après** le commit 3a n° 9 (Remotion) | — |
 
 Les commits 1 à 8 donnent un agent complet sur les gabarits statiques. Le premier
-vrai passage se fera sur une campagne de test, avec une part IA volontairement basse
-(1 €), pour vérifier la pause et la reprise en conditions réelles.
+vrai passage se fera sur une campagne de test, avec un budget de préparation
+volontairement bas (1 €), pour vérifier l'arrêt sur budget et la reprise en
+conditions réelles.
 
-### 9. Questions
+### 9. Questions (réponses : voir « Décisions du 29/09/2026 » en tête de section)
 
 1. **La bibliothèque publicitaire Meta demande la vérification d'identité d'une
    personne.** La tienne ? Le jeton expire au bout de 60 jours : on le renouvelle à
