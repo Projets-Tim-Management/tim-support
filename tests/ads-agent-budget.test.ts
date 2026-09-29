@@ -11,7 +11,7 @@ import {
   prepBudget,
   splitViolations,
 } from "@/modules/ads/agent/budget";
-import { zonedStart } from "@/modules/ads/lib/zoned";
+import { localMidnight, zonedStart } from "@/modules/ads/lib/zoned";
 
 const TZ = "Europe/Paris";
 // Semaine de Meta du dimanche 4 au samedi 10 octobre 2026 (heure d'été, sans changement d'heure).
@@ -145,5 +145,20 @@ describe("minuits locaux (commun aux plafonds de Paris et à la semaine de Meta)
   it("le 1er du mois et le jour, à Paris, été comme hiver", () => {
     expect(zonedStart(new Date("2026-09-15T10:00:00Z"), "month", TZ).toISOString()).toBe("2026-08-31T22:00:00.000Z");
     expect(zonedStart(new Date("2026-12-10T10:00:00Z"), "day", TZ).toISOString()).toBe("2026-12-09T23:00:00.000Z");
+  });
+});
+
+describe("relecture — G. minuit local juste les dimanches de changement d'heure, partout", () => {
+  it("Sydney, fin de l'heure d'été le dimanche 5/04/2026 : minuit est encore à UTC+11", () => {
+    expect(localMidnight(2026, 4, 5, "Australia/Sydney").toISOString()).toBe("2026-04-04T13:00:00.000Z");
+  });
+
+  it("Sydney, début de l'heure d'été le dimanche 4/10/2026 : minuit est encore à UTC+10", () => {
+    expect(localMidnight(2026, 10, 4, "Australia/Sydney").toISOString()).toBe("2026-10-03T14:00:00.000Z");
+  });
+
+  it("Paris et New York, inchangés", () => {
+    expect(localMidnight(2026, 10, 25, "Europe/Paris").toISOString()).toBe("2026-10-24T22:00:00.000Z");
+    expect(localMidnight(2026, 11, 1, "America/New_York").toISOString()).toBe("2026-11-01T04:00:00.000Z");
   });
 });

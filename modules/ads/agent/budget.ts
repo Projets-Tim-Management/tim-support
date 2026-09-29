@@ -18,11 +18,11 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 // ─── 1. La règle de Meta ────────────────────────────────────────────────────
 
 /** Un jour peut monter à 175 % du budget quotidien. */
-export const META_DAY_FACTOR = 1.75;
+const META_DAY_FACTOR = 1.75;
 /** Une semaine complète : 7 fois le budget quotidien. */
-export const META_WEEK_DAYS = 7;
+const META_WEEK_DAYS = 7;
 /** Démarrage ou changement en cours de semaine : marge de 25 % du budget quotidien. */
-export const META_WEEK_MARGIN = 0.25;
+const META_WEEK_MARGIN = 0.25;
 /**
  * Partage du budget entre ensembles de publicités : Meta donne 210 € par jour
  * et 840 € par semaine pour 100 € — soit ×1,2 sur les deux plafonds. Pour un
@@ -30,7 +30,7 @@ export const META_WEEK_MARGIN = 0.25;
  * applique le même ×1,2, ce qui ne peut que relever le plafond (une alerte en
  * moins, jamais une fausse alerte).
  */
-export const META_SHARING_FACTOR = 1.2;
+const META_SHARING_FACTOR = 1.2;
 
 /** Début et fin (exclue) de la semaine de Meta — dimanche 0 h → dimanche suivant 0 h, fuseau du compte. */
 export function metaWeek(now: Date, timeZone: string): { start: Date; end: Date } {
@@ -126,7 +126,7 @@ export type AgentCaps = { prepMaxEur: number; dailyEur: number; monthlyEur: numb
 export type AgentSpent = { day: number; month: number };
 
 /** En dessous, un passage ne se lance pas : il s'arrêterait avant d'avoir produit quoi que ce soit. */
-export const MIN_RUN_BUDGET_EUR = 0.5;
+const MIN_RUN_BUDGET_EUR = 0.5;
 
 /**
  * Le budget d'un passage : 5 € au plus (décision du 29/09/2026), et jamais plus

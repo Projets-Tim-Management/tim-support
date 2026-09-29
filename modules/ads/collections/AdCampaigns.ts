@@ -1,7 +1,8 @@
-import type { Access, CollectionBeforeChangeHook, CollectionConfig, FieldAccess } from "payload";
+import type { Access, CollectionBeforeChangeHook, CollectionBeforeDeleteHook, CollectionConfig, FieldAccess, Where } from "payload";
 
 import { isAdmin } from "@/core/access";
 import { AI_SHARE_MAX_PCT, DEFAULT_AI_SHARE_PCT, DEFAULT_META_FLOOR_EUR, validateAgentBudget } from "@/modules/ads/agent/limits";
+import { PURGE_CONTEXT } from "@/modules/ads/lib/accounts";
 import { CTA_OPTIONS } from "@/modules/ads/lib/cta";
 import { DEFAULT_TONE, TONES } from "@/modules/ads/lib/dimensions";
 import { validatePlatform } from "@/modules/ads/lib/platforms";
@@ -53,6 +54,47 @@ const deleteDraftsOnly: Access = ({ req: { user } }) =>
 const draftOnCreate: CollectionBeforeChangeHook = ({ data, operation }) =>
   operation === "create" && !data?.externalId ? { ...data, status: "brouillon", platform: data?.platform || "meta" } : data;
 
+/**
+ * Supprimer une campagne — un brouillon à la main, ou toutes celles d'un compte
+ * qu'on purge. Les relations requises vers une campagne sont « NOT NULL + ON
+ * DELETE SET NULL » (le modèle de Payload) : sans ce ménage, Postgres refuse la
+ * suppression (relecture du 29/09/2026, point E ; même piège que les comptes et
+ * les fiches client). Une cascade écrite en SQL serait défaite par la prochaine
+ * migration générée : c'est donc ici, dans la même transaction (`req`).
+ *
+ *  - l'historique de l'agent (décisions, étapes, agents, passages) part avec la
+ *    campagne, enfants avant parents ; le registre des dépenses IA reste ;
+ *  - les créas, NON : elles restent jusqu'à un refus explicite (décision du
+ *    29/09/2026). Tant qu'il y en a, la suppression est refusée et dit pourquoi
+ *    — sauf dans la purge d'un compte, qui emporte tout sciemment.
+ */
+const cleanUpBeforeDelete: CollectionBeforeDeleteHook = async ({ req, id }) => {
+  const { payload } = req;
+  const purge = Boolean(req.context?.[PURGE_CONTEXT]);
+  if (!purge) {
+    const { totalDocs } = await payload.count({ collection: "ad-creatives", where: { campaign: { equals: id } }, overrideAccess: true, req });
+    if (totalDocs) {
+      throw new Error(`Ce brouillon a ${totalDocs} créa${totalDocs > 1 ? "s" : ""} : refusez-les ou supprimez-les d'abord (onglet Créations). Elles ne partent pas sans décision de votre part.`);
+    }
+  }
+  const runs = (await payload.find({ collection: "ad-agent-runs", where: { campaign: { equals: id } }, depth: 0, pagination: false, overrideAccess: true, req })).docs.map((r) => r.id);
+  const steps: { collection: "ad-decisions" | "ad-agent-steps" | "ad-agents" | "ad-agent-runs" | "ad-creatives"; where: Where }[] = [
+    { collection: "ad-decisions", where: { campaign: { equals: id } } },
+    ...(runs.length
+      ? ([
+          { collection: "ad-agent-steps", where: { run: { in: runs } } },
+          { collection: "ad-agents", where: { run: { in: runs } } },
+          { collection: "ad-agent-runs", where: { id: { in: runs } } },
+        ] as const)
+      : []),
+    ...(purge ? ([{ collection: "ad-creatives", where: { campaign: { equals: id } } }] as const) : []),
+  ];
+  for (const { collection, where } of steps) {
+    const { errors } = await payload.delete({ collection, where, overrideAccess: true, req });
+    if (errors?.length) throw new Error(`Suppression impossible : ${errors.length} ${collection} n'ont pas pu être supprimés (${errors[0]?.message ?? "raison inconnue"}).`);
+  }
+};
+
 const LANDING = /^https:\/\/[^\s/]+\.[^\s]+$/i;
 
 export const AdCampaigns: CollectionConfig = {
@@ -68,7 +110,7 @@ export const AdCampaigns: CollectionConfig = {
   access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: deleteDraftsOnly },
   disableDuplicate: true,
   defaultSort: "-updatedAt",
-  hooks: { beforeChange: [draftOnCreate] },
+  hooks: { beforeChange: [draftOnCreate], beforeDelete: [cleanUpBeforeDelete] },
   indexes: [{ fields: ["platform", "externalId"], unique: true }],
   fields: [
     { name: "name", type: "text", label: "Nom", required: true, access: { update: whileDraft } },
