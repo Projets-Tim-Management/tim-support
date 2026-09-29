@@ -11,6 +11,20 @@
 
 ---
 
+## 0. Identifiants Meta de TIM (29/09/2026)
+
+Ce ne sont pas des secrets : ils désignent les objets, ils n'y donnent pas accès.
+
+| Objet | Identifiant | À savoir |
+|---|---|---|
+| Portefeuille business Tim Management | `3355241681427676` | Là où se crée l'utilisateur système (D11) |
+| **Compte publicitaire** | **`act_211325410243618`** | **Le seul à connecter pour TIM.** Vérifié (annonceur / payeur : LC DEV). Deux autres comptes publicitaires au nom de Charlie sont visibles depuis son profil : à **ignorer** au moment du choix |
+| Jeu de données / pixel (Conversions API, phase 1) | `695680415425351` | Le seul relié au compte publicitaire. Deux autres pixels existent dans le portefeuille : **ne pas les utiliser** |
+| Page Facebook | `113709758267544` | |
+| Instagram @tim.management.co | `17841457267166708` | |
+
+---
+
 ## 1. Ce qui existe déjà et qu'on réutilise
 
 | Besoin | Déjà dans le projet | Ce qu'on en fait |
@@ -418,6 +432,49 @@ après sauvegarde et feu vert explicite.
 `~/tim-backups/` (dossier 700, fichier 600, hors iCloud), vérifié par relecture de
 l'archive et comparaison du nombre de lignes table par table. ⚠️ Il contient des
 données de prospects : **le supprimer une fois la phase 0 en production et stable.**
+
+---
+
+## 9 bis. Mise en production de la phase 0
+
+### Variables Vercel (production) — noms seulement
+
+| Variable | Statut | Rôle |
+|---|---|---|
+| `META_APP_ID` | **à poser** | Identifiant de l'app Meta |
+| `META_APP_SECRET` | **à poser** (sensible) | Clé secrète de l'app |
+| `META_GRAPH_VERSION` | facultative | Défaut `v26.0` ; à poser seulement pour changer de version |
+| `ADS_META_MOCK` | **ne jamais poser en production** | Données simulées ; absente = vraie API |
+| `NEXT_PUBLIC_SITE_URL` | à vérifier | Doit valoir `https://support.tim-management.co` : l'adresse de retour OAuth en dérive (sinon repli sur localhost, et la connexion échoue) |
+| `CRON_SECRET` | à vérifier (déjà utilisée) | Authentifie le cron `ads-sync` |
+| `PAYLOAD_SECRET` | déjà posée — **ne pas la changer** | Chiffre les jetons des comptes : la changer oblige à les reconnecter |
+
+Une variable posée sur Vercel n'est prise en compte qu'au **déploiement suivant**.
+
+### App Meta
+
+- **Adresse de retour OAuth à déclarer** (« URI de redirection OAuth valides ») :
+  `https://support.tim-management.co/api/admin/ads/meta/callback`
+- Domaine de l'app : `support.tim-management.co`.
+- Droit demandé : `ads_read` seul en phase 0.
+- Pour connecter depuis un poste de dev, déclarer aussi
+  `http://localhost:3001/api/admin/ads/meta/callback`. La base est partagée : un
+  compte connecté en local l'est aussi en production.
+
+### Après le déploiement, dans l'ordre
+
+1. *Système › Connexions du support* › Meta Ads › **Tester** : « L'app Meta est reconnue ».
+2. *Publicité › Paramètres › Comptes publicitaires* › **Connecter un compte Meta** ›
+   choisir **`act_211325410243618`**, et lui seul.
+3. Sur sa fiche, menu ⋯ › **Synchroniser maintenant** ; vérifier campagnes et chiffres.
+4. **Archiver le compte « [SIMULÉ] TIM — compte simulé »** (`act_000000000000`, créé
+   le 29/09/2026 pour tester l'écran, il vit dans la base de production) : menu ⋯ ›
+   *Archiver le compte*. Ses campagnes et chiffres simulés sortent alors du tableau
+   de bord, et le bandeau « Données simulées » disparaît. Le cron de production ne
+   l'a jamais lu (compte simulé hors mode simulé), il ne le lira pas.
+5. Dès que le portefeuille business le permet : créer l'utilisateur système, lui
+   attribuer le compte publicitaire, et coller son jeton sur la fiche (D11).
+6. Supprimer les sauvegardes `~/tim-backups/*.dump` une fois la phase 0 stable.
 
 ---
 
