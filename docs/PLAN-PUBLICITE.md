@@ -421,7 +421,7 @@ qu'on ouvre tous les matins. Les chiffres viennent après.
 | 0 | Registre des canaux (+ Meta Ads — Facebook, Meta Ads — Instagram) et détection Meta (§4.8), module, collections, connexion d'un compte Meta (OAuth + jeton système, D11), synchro quotidienne des métriques, tableau de bord **en lecture**. Adaptateur sur données simulées tant que l'app Meta n'existe pas | On voit ses campagnes Meta dans le back-office |
 | 1 | Boucle de leads : formulaires instantanés Meta (webhook) → `form-submissions` → fiche, attribution, envoi des événements qualifié / test / signé via Conversions API | Une fiche signée remonte chez Meta |
 | 2 | Agent de campagne en mode `observer` puis `proposer` : budget et pauses, écran « À valider ». **Prérequis** : jeton d'utilisateur système posé sur le compte (D11) — aucune écriture sur un jeton OAuth qui expire | Première décision validée et exécutée |
-| 3 | Agent créatif : textes, images, vidéo, motion, upload vers Meta | Une créa générée passe en ligne après validation |
+| 3 | **3a** (§9 ter) : atelier de créas — textes, gabarits, motion, validation, téléchargement, sans Meta. **3b** : upload vers Meta et création d'annonce | 3a : une créa validée se télécharge aux formats Meta. 3b : elle passe en ligne après validation |
 | 4 | Mode `autonome` sous garde-fous, mesure des `outcome` | Une semaine sans intervention sans dépassement |
 | 5 | Adaptateur Google Ads (lecture → conversions → écriture) | Google Ads dans le même tableau de bord |
 | 6 | Adaptateur ChatGPT Ads (lecture + conversions, écriture dès que possible) | Trois régies côte à côte |
@@ -509,6 +509,290 @@ Sur feu vert explicite, **après** avoir posé les variables Vercel. Motif étab
 `refonte-support` est amenée au niveau de `publicite` (avance rapide), puis fusionnée
 dans `main` en `--no-ff`, dans un worktree — le serveur de dev reste intact. Les
 **quatre portes** sont rejouées sur le résultat de la fusion avant de pousser `main`.
+
+---
+
+## 9 ter. Phase 3a — Atelier de créas
+
+> Statut : **proposition du 29/09/2026, à valider** — rien n'est codé.
+> Objectif : produire dans le back-office des créas **prêtes à publier** — textes,
+> visuels statiques, motion, et en option vidéo générée — les faire valider, et les
+> **télécharger** aux formats Meta. L'envoi à Meta (upload, création d'annonce) est la
+> phase 3b : il attend le jeton d'utilisateur système et le droit `ads_management`.
+> Rien de ce qui suit n'écrit chez Meta.
+
+### Ce que la phase 3a ne fait PAS
+
+- Aucun envoi à Meta, aucune annonce créée (phase 3b).
+- Aucun agent qui décide seul : la génération se lance par un bouton, sur une
+  campagne, et tout passe par « À valider ». L'agent créatif autonome (§7) viendra
+  quand la boucle manuelle aura fait ses preuves.
+- Aucune personne réaliste générée par IA présentée comme un client ou un salarié,
+  aucun témoignage inventé (voir « Garde-fous », en code).
+
+### Décision préalable à valider — le brief vit sur une campagne qui n'existe pas encore chez Meta
+
+`ad-campaigns` est aujourd'hui un **miroir en lecture seule** de la régie (phase 0) :
+ni création ni modification depuis le back-office. Or le brief se rédige **avant**
+que la campagne existe chez Meta. Proposition :
+
+- une campagne peut être **créée dans le support** à l'état `brouillon`, sans
+  `externalId` ; c'est elle qui porte le brief et ses créas ;
+- les champs miroir (état chez la régie, budget, objectif, chiffres) restent
+  **verrouillés champ par champ** : les modifier ici ferait croire à une action chez
+  Meta, le principe de la phase 0 tient ;
+- au passage en 3b, la publication chez Meta pose l'`externalId` sur ce même
+  enregistrement ; la synchro le retrouve par sa clé — pas de doublon.
+
+Alternative écartée : une collection `ad-briefs` à part. Elle obligerait à relier
+brief, créas et campagne Meta après coup — trois objets pour une seule chose.
+
+### 1. Le kit de marque — global `ads-brand-kit`
+
+Saisi une fois, lu par chaque génération. Réservé à l'admin.
+
+| Champ | Contenu | Pourquoi |
+|---|---|---|
+| `logos` | SVG + PNG, variantes couleur / blanc / monochrome | Le gabarit choisit la variante selon le fond |
+| `colors` | Couleurs de charte en hex : primaire, secondaire, fond clair, fond sombre, texte | Ce sont des **données de marque**, pas du style de l'interface : la règle « couleurs en tokens » (styles/_tokens.scss) concerne le CSS du back-office, pas le contenu d'une publicité |
+| `fonts` | Fichiers **TTF ou OTF** (le moteur de rendu ne lit pas le WOFF2), graisses utilisées, **licence** | Une police sans licence d'usage publicitaire ne s'embarque pas dans une créa |
+| `screenshots` | Captures de l'app, chacune étiquetée : plateforme (web / mobile), fonctionnalité (planning, pointage, véhicules…), sans données client réelles | La génération choisit la capture qui correspond à l'angle |
+| `photos` | Photos de chantier / d'équipe, avec **droits** (origine, date, consentement des personnes visibles) | Une photo sans droits ne sort pas du back-office |
+| `facts` | **Faits sourcés** : un chiffre, sa formulation, sa source (URL, étude, donnée interne datée) | Seuls ces chiffres peuvent apparaître dans une créa (garde-fou 3) |
+| `forbidden` | Mentions interdites : mots, promesses, concurrents nommés, superlatifs (« n°1 », « le meilleur »…) | Refusés en code, pas seulement demandés au modèle |
+| `voice` | Ton : tutoiement / vouvoiement, registre, exemples de phrases justes et fausses | Donné à Claude, relu par l'humain |
+| `legal` | Mentions obligatoires éventuelles, raison sociale de l'annonceur | Ajoutées au fichier de textes téléchargé |
+
+Stockage des fichiers : une collection dédiée **`ad-media`** (Vercel Blob, préfixe
+`ads/`, admin seul), et non la médiathèque : celle-ci est lisible par les partenaires
+selon des règles de propriété (RBAC), et les créas n'ont rien à y faire.
+
+### 2. Le brief par campagne — groupe `brief` sur `ad-campaigns`
+
+| Champ | Contenu |
+|---|---|
+| `audience` | La cible : métier (conducteur de travaux, gérant, RH…), taille d'entreprise (tranches du formulaire), zone |
+| `pain` | La douleur, dans les mots du client : « le pointage papier me coûte 2 h par semaine » |
+| `offer` | L'offre : démo, essai, tarif, période |
+| `promise` | La promesse : ce qui change après — vérifiable |
+| `proofs` | Les faits du kit de marque autorisés pour cette campagne (relation vers `facts`) |
+| `forbidden` | Interdits propres à la campagne, en plus de ceux du kit |
+| `landingUrl` | La page d'arrivée. Les **paramètres d'URL obligatoires** (§4.8) sont ajoutés automatiquement au téléchargement : `utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign={{campaign.id}}&utm_content={{ad.id}}` |
+| `cta` | Le bouton Meta : « En savoir plus », « S'inscrire », « Demander un devis »… (liste fermée des CTA Meta) |
+| `angles` | Facultatif : les angles souhaités. Vide, Claude en propose trois |
+
+### 3. La génération de textes — Claude
+
+- **Modèle** : Claude Opus 5 (`claude-opus-5`) par défaut. Le volume est faible et la
+  qualité du français publicitaire se voit ; à confirmer (voir « Choix »).
+- **Sortie structurée** (`output_config.format`, schéma JSON) : pas d'analyse de texte
+  libre, chaque champ arrive à sa place.
+- **Par génération : 3 angles × (5 textes principaux, 5 titres, 3 descriptions)**.
+  5, c'est le maximum de variantes de texte qu'une annonce Meta accepte par champ :
+  on ne produit rien qui ne pourra pas servir.
+- **Limites Meta, vérifiées en code** (un texte hors limite est rejeté et régénéré,
+  pas tronqué) :
+
+  | Champ | Limite dure (en code) | Cible (visible sans « Voir plus ») |
+  |---|---|---|
+  | Texte principal | 500 caractères | 125 |
+  | Titre | 40 | 27 |
+  | Description | 30 | 30 |
+
+- **Garde-fous en code (D9), après la réponse du modèle — le prompt les demande
+  aussi, mais c'est le code qui décide :**
+  1. longueur (tableau ci-dessus) ;
+  2. mentions interdites (kit + brief), insensibles à la casse et aux accents ;
+  3. **aucun chiffre non sourcé** : tout nombre, pourcentage ou durée présent dans
+     un texte doit figurer dans les faits autorisés du brief — sinon rejet ;
+  4. **aucun témoignage inventé** : pas de citation attribuée (« — Marc, conducteur
+     de travaux »), pas de « nos clients disent », pas de note ou d'avis ;
+  5. pas d'attribut personnel supposé du lecteur (« Vous êtes débordé ? ») — interdit
+     par la politique publicitaire de Meta, et motif de refus d'annonce.
+
+  Un texte rejeté est marqué avec la raison, visible dans l'atelier : on voit ce que
+  le modèle a tenté, pas seulement ce qui est passé.
+- **Coût** : environ 0,10 $ par génération complète sur Opus 5 (≈ 5 000 tokens
+  d'entrée dont le kit de marque en cache, ≈ 3 000 de sortie ; 5 $ / 25 $ par
+  million). Sonnet 5 : ≈ 0,04 $.
+- **Plafond** : `core/lib/ai-budget.ts` connaît aujourd'hui un seul modèle (Haiku) et
+  une seule dépense (l'assistant). Il devient **générique** : un tarif par modèle et
+  par fournisseur (Claude, images, vidéo), et un compteur par usage. La publicité a
+  son propre plafond jour et mois dans `ads-settings` (défaut proposé : 15 €/jour,
+  §6). **Avant chaque appel**, le coût maximal possible (`max_tokens` × tarif de
+  sortie, ou prix unitaire de l'image ou de la seconde de vidéo) doit tenir dans le
+  reste du budget, sinon l'appel n'est pas lancé et l'écran dit pourquoi.
+
+### 4. Les visuels statiques — gabarits
+
+**Recommandation : Satori + sharp, dans une fonction Vercel.**
+Un gabarit est un composant React (JSX + un sous-ensemble de CSS en flexbox) ;
+[Satori](https://github.com/vercel/satori) le convertit en SVG, `sharp` — déjà dans le
+projet, épinglé — le rastérise en PNG puis en JPEG sRGB. Rendu en une seconde environ,
+sans navigateur, sans service externe, sans coût à l'unité.
+
+| Format | Taille | Usage |
+|---|---|---|
+| 1:1 | 1080 × 1080 | Fil d'actualité |
+| 4:5 | 1080 × 1350 | Fil d'actualité mobile — recommandé |
+| 9:16 | 1080 × 1920 | Stories, Reels. **Zone sûre Meta unifiée (mars 2026)** : 14 % en haut, 35 % en bas, 6 % sur les côtés ; titre, logo et bouton restent dans la zone centrale |
+
+- **3 gabarits au départ** : « capture » (capture de l'app sur fond de marque + accroche),
+  « chiffre » (un fait sourcé en grand), « photo » (photo chantier + bandeau). Chacun
+  en trois formats, par composition et non par recadrage.
+- Chaque rendu est **vérifié en code** : dimensions exactes, poids sous 30 Mo, texte
+  dans la zone sûre (les boîtes de texte sont calculées, pas estimées).
+- Les gabarits sont écrits dans le sous-ensemble CSS de Satori : ils se réutilisent
+  **tels quels comme images dans le motion** (Remotion rend le CSS complet dans
+  Chromium). Une seule source par gabarit.
+- Écartés : Remotion `renderStill` pour les statiques (licence et Chromium pour un
+  rendu qu'une fonction fait en une seconde) ; un navigateur headless (Puppeteer) en
+  fonction Vercel (lourd, lent au démarrage).
+
+**Fonds générés par IA (facultatif, par gabarit).** Recommandation : **Google Imagen 4
+via l'API Gemini** — ~0,04 $ l'image en Standard (0,02 $ en Fast, 0,06 $ en Ultra).
+Pourquoi lui :
+1. une seule clé (`GEMINI_API_KEY`) servira aussi à la vidéo générée (Veo, §6) —
+   un seul fournisseur, une seule facture, un seul plafond ;
+2. les fonds sont des textures, des chantiers flous, des ambiances — pas du texte
+   dans l'image, ce que le gabarit fait bien mieux ;
+3. l'API Batch de Google divise le prix par deux si on génère en lot.
+
+Alternatives écartées : FLUX via fal.ai (moins cher, ~0,003 à 0,055 $, mais un
+fournisseur de plus) ; OpenAI GPT Image (prix comparable, un fournisseur de plus).
+Règle : aucun visage réaliste généré présenté comme un vrai client ou salarié.
+
+### 5. Le motion — Remotion
+
+**Recommandation : Remotion, rendu sur Vercel Sandbox** (`@remotion/vercel`,
+`renderMediaOnVercel`), plutôt que Remotion Lambda. Pourquoi : pas de compte AWS à
+ouvrir ni à surveiller, les fichiers vont directement dans Vercel Blob, déjà utilisé.
+Le rendu est lancé depuis une route, et la vidéo récupérée au passage suivant — le
+rendu est asynchrone (D10).
+
+- **Compositions** : 6 à 15 secondes, 30 i/s, H.264 + AAC, en 9:16 (Reels, Stories),
+  4:5 et 1:1. Elles reprennent les gabarits statiques animés : entrée de la capture,
+  accroche, fait sourcé, logo, appel à l'action. Musique : piste libre de droits
+  fournie par TIM, ou sans son (sous-titres intégrés — la plupart des vidéos sont
+  vues sans le son).
+- **Coût du calcul** : de l'ordre de **0,02 $ par vidéo de 15 s** (Sandbox Pro :
+  0,128 $/h de CPU actif, 0,0212 $/Go-h de mémoire ; estimation pour 4 vCPU pendant
+  environ 1 min 30, à mesurer au premier rendu).
+- **Licence Remotion — le vrai coût** : gratuite jusqu'à 3 personnes dans
+  l'entreprise ; au-delà, licence entreprise obligatoire. Pour un usage automatisé,
+  « Remotion for Automators » : 0,01 $ par rendu, **minimum 100 $/mois**. C'est ce
+  minimum qui fait le prix du motion, pas le calcul. **À décider (voir « Choix »).**
+- Alternative sans licence : une suite d'images fixes (les gabarits statiques) montée
+  par ffmpeg dans un Sandbox — transitions et textes simples, rien de plus. Moins
+  riche, gratuit ; proposée si la licence ne se justifie pas encore.
+- Prérequis : Vercel **Pro** (Sandbox sur Hobby : 5 h de CPU par mois, sessions de
+  45 min).
+
+### 6. La vidéo générative — en option, plafonnée, en dernier
+
+- **Recommandation : Veo 3.1 Fast via l'API Gemini** (même clé que les images) :
+  0,12 $ par seconde en 1080p avec son → **environ 1 $ le plan de 8 s**. Veo 3.1 Lite :
+  0,08 $/s en 1080p. Veo 3.1 Standard : 0,40 $/s — réservé si Fast ne suffit pas.
+- Alternative : Runway Gen-4 Turbo, ~0,05 $/s (0,50 $ les 10 s), de l'image vers la
+  vidéo — moins cher, mais un fournisseur et une clé de plus.
+- Usage : des **plans d'ambiance** (chantier, engins, lever de jour) intégrés dans une
+  composition Remotion, jamais une vidéo publicitaire entière, jamais une personne
+  qui parle.
+- **Plafonds en code** : budget vidéo mensuel séparé dans `ads-settings` (défaut
+  proposé : 20 €), et le plafond de créas par campagne et par semaine (6, §6).
+  Génération asynchrone : lancée à un passage, récupérée au suivant (D10).
+
+### 7. La file de validation et le téléchargement
+
+- **« À valider »** — la case réservée en tête du tableau de bord (phase 0) se remplit :
+  nombre de créas `a-valider`, puis la file elle-même.
+- **Une carte par créa** : aperçu dans ses trois formats côte à côte (9:16 avec la zone
+  sûre en surimpression, désactivable), les textes avec leur compte de caractères
+  (vert sous la cible, ambre entre la cible et la limite), les garde-fous passés, le
+  coût de génération, l'angle et le fait utilisé.
+- **Gestes** : « Valider » (le clic EST l'action : la créa passe `validee`),
+  « Refuser » avec un motif (liste fermée + précision — il nourrira la génération
+  suivante), « Régénérer les textes » / « Changer de fond ». Pas de case à cocher
+  puis enregistrer.
+- **Téléchargement** d'une créa validée, ou de toutes celles d'une campagne : un ZIP
+  qui contient
+  - les images en JPEG sRGB : `tim_<campagne>_<angle>_<format>_v<n>.jpg` (1080 × 1080,
+    1080 × 1350, 1080 × 1920) ;
+  - les vidéos en MP4 H.264 / AAC, 30 i/s, mêmes noms ;
+  - un fichier `textes.csv` (et sa version `.txt` lisible) : textes principaux, titres,
+    descriptions, CTA, **URL de destination et paramètres d'URL** prêts à coller dans
+    le Gestionnaire de publicités.
+
+  Le ZIP se construit en flux côté serveur (une petite dépendance, `fflate`). Les
+  fichiers restent dans `ad-media` : le téléchargement ne déplace rien.
+- Une créa téléchargée reste `validee` ; `en-ligne` n'existera qu'en 3b, quand c'est
+  le support qui la publie — on ne marque pas en ligne ce qu'on ne voit pas en ligne.
+
+### 8. Découpage en commits
+
+Le schéma change aux commits 1, 2 et 4 : **une seule migration** pour les trois,
+appliquée une fois sur la base partagée, après dump vérifié et feu vert (comme en
+phase 0).
+
+| # | Commit | Schéma |
+|---|---|---|
+| 1 | Kit de marque : global `ads-brand-kit`, collection `ad-media` (Blob `ads/`, admin seul) | migration commune |
+| 2 | Brief : campagnes `brouillon` créables dans le support, groupe `brief`, champs miroir verrouillés champ par champ ; budgets IA et vidéo dans `ads-settings` | migration commune |
+| 3 | `ai-budget` générique : tarifs par modèle et par fournisseur, compteur par usage, contrôle **avant** l'appel ; l'assistant existant passe dessus sans changer de comportement | — |
+| 4 | Collection `ad-creatives` (§4.3) : textes, variantes, statut, origine, coût, garde-fous déclenchés | migration commune |
+| 5 | Génération de textes : Claude en sortie structurée, les cinq garde-fous en code, bouton « Générer » sur la campagne | — |
+| 6 | Gabarits statiques : Satori + sharp, 3 gabarits × 3 formats, contrôle des dimensions et de la zone sûre | — |
+| 7 | File « À valider », tableau de bord, téléchargement ZIP | — |
+| 8 | Fonds par Imagen 4 (facultatif par gabarit), sous plafond | — |
+| 9 | Motion : Remotion sur Vercel Sandbox, rendu asynchrone — **après la décision de licence** | — |
+| 10 | Vidéo générative : Veo, plafonnée — **en dernier, en option** | — |
+
+Les commits 1 à 7 font un atelier utilisable (textes + visuels + validation +
+téléchargement) sans aucune clé nouvelle hors Anthropic.
+
+### 9. Ce que j'attends de toi
+
+**Fichiers (pour le kit de marque)**
+- Logo en **SVG** et PNG, variantes couleur / blanc.
+- Couleurs de charte en hex.
+- Polices en **TTF ou OTF**, avec leur licence (usage publicitaire).
+- 10 à 20 **captures de l'app** en haute définition (web et mobile), sans données de
+  vrais clients, chacune avec la fonctionnalité qu'elle montre.
+- Photos de chantier / d'équipe **dont TIM a les droits**, avec l'accord des personnes
+  visibles.
+- La liste des **faits chiffrés avec leur source**, et celle des **mentions
+  interdites**.
+- Si motion avec musique : une piste libre de droits.
+
+**Clés et comptes**
+- `ANTHROPIC_API_KEY` : déjà posée (assistant). Vérifier le plafond mensuel sur la
+  console Anthropic.
+- `GEMINI_API_KEY` : Google AI Studio, facturation activée — seulement au commit 8
+  (images) et 10 (vidéo).
+- Vercel **Pro** et le bon projet lié en local (`vercel link` sur le projet de
+  production) : le Sandbox s'authentifie par le jeton OIDC du projet (commit 9).
+- Licence Remotion si elle est nécessaire (commit 9).
+
+**Choix**
+1. Le brief sur une campagne `brouillon` créée dans le support (recommandé) — ou une
+   collection de briefs à part.
+2. Le modèle des textes : Opus 5 (recommandé, ~0,10 $ la génération) ou Sonnet 5
+   (~0,04 $).
+3. Le motion : **combien de personnes chez TIM / LC DEV** utiliseront l'outil ? Jusqu'à
+   3 : Remotion gratuit. Au-delà : Remotion à 100 $/mois minimum, ou le montage
+   simple par ffmpeg, gratuit.
+4. Les budgets : IA (texte + images) par jour et par mois ; vidéo générée par mois.
+5. Les CTA Meta autorisés pour TIM, et le tutoiement ou le vouvoiement.
+
+Sources des tarifs (relevés le 29/09/2026, à revérifier à la souscription) :
+[Meta — limites de texte](https://adsuploader.com/blog/meta-ad-copy-specs),
+[Meta — zones sûres 2026](https://adsuploader.com/blog/meta-ads-safe-zones),
+[Remotion — licences](https://www.remotion.dev/docs/license/pricing),
+[Remotion sur Vercel Sandbox](https://www.remotion.dev/docs/vercel-sandbox),
+[Vercel Sandbox — tarifs](https://vercel.com/docs/sandbox/pricing),
+[Gemini API — tarifs Veo et images](https://ai.google.dev/gemini-api/docs/pricing),
+[Comparatif des API d'images 2026](https://www.buildmvpfast.com/api-costs/ai-image),
+[Runway — tarifs API](https://fairstack.ai/blog/runway-pricing).
 
 ---
 
