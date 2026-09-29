@@ -58,5 +58,30 @@ export const AdsSettings: GlobalConfig = {
         },
       ],
     },
+    {
+      type: "collapsible",
+      label: "Agents de campagne",
+      admin: { initCollapsed: false, description: "Plan, §9 quater. Ces plafonds s'ajoutent à ceux de l'atelier : l'agent ne dépasse aucun des deux." },
+      fields: [
+        {
+          type: "row",
+          fields: [
+            eur("agentPrepMaxEur", "Préparation — par passage (€)", 5, "Le budget maximal d'un clic sur « Lancer l'agent »."),
+            eur("agentDailyEur", "Tous agents — par jour (€)", 15, "Toutes campagnes confondues."),
+            eur("agentMonthlyEur", "Tous agents — par mois (€)", 150, "Toutes campagnes confondues."),
+          ],
+        },
+        {
+          name: "adLibraryTokenExpiresAt",
+          type: "date",
+          label: "Expiration du jeton de la bibliothèque publicitaire",
+          admin: {
+            width: "50%",
+            date: { pickerAppearance: "dayOnly", displayFormat: "dd/MM/yyyy" },
+            description: "60 jours après sa création. Rappel à J-7 ; le renouvellement se fait à la main.",
+          },
+        },
+      ],
+    },
   ],
 };

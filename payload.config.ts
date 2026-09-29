@@ -38,6 +38,11 @@ import { AdsBrandKit } from "./modules/ads/globals/AdsBrandKit";
 import { AdMedia } from "./modules/ads/collections/AdMedia";
 import { AdFacts } from "./modules/ads/collections/AdFacts";
 import { AdAiUsage } from "./modules/ads/collections/AdAiUsage";
+import { AdAgentRuns } from "./modules/ads/collections/AdAgentRuns";
+import { AdAgents } from "./modules/ads/collections/AdAgents";
+import { AdAgentSteps } from "./modules/ads/collections/AdAgentSteps";
+import { AdDecisions } from "./modules/ads/collections/AdDecisions";
+import { AdCompetitors } from "./modules/ads/collections/AdCompetitors";
 import { AdCreatives } from "./modules/ads/collections/AdCreatives";
 import { SupportConnectionsGlobal } from "./core/globals/SupportConnections";
 import { Forms } from "./modules/forms/collections/Forms";
@@ -348,6 +353,12 @@ export default buildConfig({
       AdMedia,
       AdFacts,
       AdAiUsage,
+      // Agent de campagne : passages, arbre d'agents, étapes, journal, concurrents suivis
+      AdAgentRuns,
+      AdAgents,
+      AdAgentSteps,
+      AdDecisions,
+      AdCompetitors,
       // Adresses qui ne reçoivent plus d'envoi commercial — transverse à tous
       // les modules, d'où sa place à côté des collections système.
       EmailSuppressions,

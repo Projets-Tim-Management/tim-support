@@ -24,12 +24,15 @@ type Settings = {
   textMonthlyEur?: number | null;
   imagesMonthlyEur?: number | null;
   videoMonthlyEur?: number | null;
+  agentDailyEur?: number | null;
+  agentMonthlyEur?: number | null;
 };
 
-/** Les plafonds d'une nature de dépense, lus dans les garde-fous (défauts du 29/09/2026). */
+/** Les plafonds d'une nature de dépense, lus dans les garde-fous (défauts du 29/09/2026, agents : §9 quater). */
 export function limitsFor(kind: AdSpendKind, s: Settings | null | undefined): Limits {
   if (kind === "texte") return { day: s?.textDailyEur ?? 5, month: s?.textMonthlyEur ?? 50 };
   if (kind === "image") return { month: s?.imagesMonthlyEur ?? 20 };
+  if (kind === "agent") return { day: s?.agentDailyEur ?? 15, month: s?.agentMonthlyEur ?? 150 };
   return { month: s?.videoMonthlyEur ?? 30 };
 }
 

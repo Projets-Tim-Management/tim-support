@@ -32,6 +32,11 @@ describe("plafonds de l'atelier", () => {
     expect(limitsFor("video", { videoMonthlyEur: 12 })).toEqual({ month: 12 });
   });
 
+  it("donne aux agents leurs propres plafonds globaux (15 €/jour, 150 €/mois), pas ceux de la vidéo", () => {
+    expect(limitsFor("agent", null)).toEqual({ day: 15, month: 150 });
+    expect(limitsFor("agent", { agentDailyEur: 8, agentMonthlyEur: 90, videoMonthlyEur: 12 })).toEqual({ day: 8, month: 90 });
+  });
+
   it("refuse un appel dont le coût MAXIMAL dépasse le reste du jour", () => {
     const r = checkBudget({ day: 5, month: 50 }, { day: 4.8, month: 10 }, 0.3);
     expect(r.ok).toBe(false);

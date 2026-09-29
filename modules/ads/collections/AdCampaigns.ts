@@ -1,6 +1,7 @@
 import type { Access, CollectionBeforeChangeHook, CollectionConfig, FieldAccess } from "payload";
 
 import { isAdmin } from "@/core/access";
+import { AI_SHARE_MAX_PCT, DEFAULT_AI_SHARE_PCT, DEFAULT_META_FLOOR_EUR, validateAgentBudget } from "@/modules/ads/agent/limits";
 import { CTA_OPTIONS } from "@/modules/ads/lib/cta";
 import { DEFAULT_TONE, TONES } from "@/modules/ads/lib/dimensions";
 import { validatePlatform } from "@/modules/ads/lib/platforms";
@@ -134,6 +135,65 @@ export const AdCampaigns: CollectionConfig = {
                   labels: { singular: "Angle", plural: "Angles" },
                   admin: { description: "Facultatif. Vide, trois angles sont proposés." },
                   fields: [{ name: "angle", type: "text", required: true }],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          label: "Agent",
+          description:
+            "Le budget quotidien total, que l'agent partage entre l'IA et Meta (plan, §9 quater). Tant que la campagne n'est pas publiée, rien n'est dépensé chez Meta.",
+          fields: [
+            {
+              name: "agentBudget",
+              type: "group",
+              label: false,
+              validate: (value: unknown) => validateAgentBudget((value ?? {}) as Parameters<typeof validateAgentBudget>[0]),
+              fields: [
+                {
+                  type: "row",
+                  fields: [
+                    { name: "totalDailyEur", type: "number", label: "Budget quotidien total (€)", min: 0, admin: { width: "34%", description: "IA et Meta ensemble." } },
+                    {
+                      name: "maxAiSharePct",
+                      type: "number",
+                      label: "Part IA maximale (%)",
+                      min: 0,
+                      max: AI_SHARE_MAX_PCT,
+                      defaultValue: DEFAULT_AI_SHARE_PCT,
+                      admin: { width: "33%", description: `De 0 à ${AI_SHARE_MAX_PCT} %. Sert une fois la campagne publiée.` },
+                    },
+                    {
+                      name: "metaFloorEur",
+                      type: "number",
+                      label: "Plancher Meta (€/jour)",
+                      min: 0,
+                      defaultValue: DEFAULT_META_FLOOR_EUR,
+                      admin: { width: "33%", description: "L'agent ne descend jamais la dépense Meta en dessous." },
+                    },
+                  ],
+                },
+                {
+                  // La répartition en vigueur : copie de la dernière décision
+                  // « répartition du budget », pour que les jauges ne relisent
+                  // pas tout le journal. Écrite par l'agent seul.
+                  name: "split",
+                  type: "group",
+                  label: "Répartition décidée par l'agent",
+                  access: mirror,
+                  admin: { readOnly: true },
+                  fields: [
+                    {
+                      type: "row",
+                      fields: [
+                        { name: "aiDailyEur", type: "number", label: "IA (€/jour)", admin: { width: "25%" } },
+                        { name: "metaDailyEur", type: "number", label: "Meta (€/jour)", admin: { width: "25%" } },
+                        { name: "decidedAt", type: "date", label: "Décidée le", admin: { width: "25%", date: { pickerAppearance: "dayAndTime" } } },
+                        { name: "decision", type: "relationship", relationTo: "ad-decisions", label: "Décision", admin: { width: "25%" } },
+                      ],
+                    },
+                  ],
                 },
               ],
             },
