@@ -38,31 +38,13 @@ export const PLACEMENTS = [
 export type Placement = (typeof PLACEMENTS)[number]["value"];
 
 /**
- * Canal d'acquisition — ce que porte le champ `source` d'une opportunité.
- * Liste fermée (décision du 04/09/2026) ; chaque valeur coûte une migration.
+ * Canal d'acquisition d'une soumission. Liste fermée (décision du 04/09/2026),
+ * tenue dans le registre unique des canaux — réexportée ici pour les appelants
+ * du module formulaires.
  */
-/**
- * Les canaux d'acquisition.
- *
- * `paid` n'est pas décoratif : c'est lui qui décide ce qu'on mesure comme
- * « clic payant identifié ». Sans ce drapeau, chaque nouvelle régie devait être
- * ajoutée à la main dans les statistiques — et un oubli n'y ferait pas d'erreur
- * visible, juste un chiffre trop bas que personne ne saurait interpréter.
- */
-export const CHANNELS = [
-  { label: "Site vitrine — SEO", value: "seo", paid: false },
-  { label: "Google Ads — SEA", value: "sea", paid: true },
-  { label: "ChatGPT Ads — SEA", value: "chatgpt", paid: true },
-] as const;
+import type { Channel } from "@/core/lib/channels";
 
-export type Channel = (typeof CHANNELS)[number]["value"];
-
-/** Le canal désigne-t-il un clic acheté ? */
-export const isPaidChannel = (value?: string | null): boolean =>
-  CHANNELS.some((c) => c.value === value && c.paid);
-
-export const channelLabel = (value?: string | null): string | undefined =>
-  CHANNELS.find((c) => c.value === value)?.label;
+export { CHANNELS, channelLabel, isPaidChannel, type Channel } from "@/core/lib/channels";
 
 export interface FormFieldOption {
   value: string;

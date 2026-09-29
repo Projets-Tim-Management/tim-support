@@ -1,5 +1,5 @@
 import { countByMonth, delta, periodBounds, type Delta } from "@/modules/analytics/lib/growth";
-import { CHANNELS } from "@/modules/forms/lib/form-schema";
+import { CHANNELS, channelLabel as registryLabel } from "@/core/lib/channels";
 import { round2 } from "@/modules/partner/lib/format";
 
 /**
@@ -33,7 +33,7 @@ export type AcquisitionAnalytics = {
   channelKeys: { key: string; label: string }[];
 };
 
-const channelLabel = (k: string) => CHANNELS.find((c) => c.value === k)?.label ?? (k ? k : "Canal inconnu");
+const channelLabel = (k: string) => registryLabel(k) ?? (k ? k : "Canal inconnu");
 const relId = (v: LeadClientRow["formSubmission"]): string | null =>
   v == null ? null : typeof v === "object" ? String(v.id) : String(v);
 

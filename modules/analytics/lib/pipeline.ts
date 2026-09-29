@@ -1,3 +1,4 @@
+import { provenanceLabel } from "@/core/lib/channels";
 import { average, countByMonth, daysBetween, delta, median, periodBounds, tally, type Delta } from "@/modules/analytics/lib/growth";
 import { CLIENT_STATUSES, clientStatusMeta } from "@/modules/partner/lib/clientStatus";
 import { round2 } from "@/modules/partner/lib/format";
@@ -125,16 +126,7 @@ export type PipelineAnalytics = {
 export const FUNNEL = ["nouvelle", "en-qualification", "demo-programmee", "attente-engagement", "en-test", "en-signature", "actif"] as const;
 const FUNNEL_INDEX = new Map<string, number>(FUNNEL.map((k, i) => [k, i]));
 
-const SOURCE_LABELS: Record<string, string> = {
-  manuelle: "Saisie manuelle",
-  "site-vitrine-seo": "Site vitrine — SEO",
-  "google-ads-sea": "Google Ads — SEA",
-  "chatgpt-ads-sea": "ChatGPT Ads — SEA",
-  "site-vitrine": "Site vitrine (import Brevo)",
-  brevo: "Import Brevo",
-  partenaire: "Partenaire",
-};
-const sourceLabel = (k: string) => SOURCE_LABELS[k] ?? (k ? k : "Non renseignée");
+const sourceLabel = (k: string) => provenanceLabel(k) ?? (k ? k : "Non renseignée");
 const lossLabel = (k: string) => LOSS_REASONS.find((r) => r.value === k)?.label ?? (k ? k : "Sans motif");
 const labelToStatus = new Map(CLIENT_STATUSES.map((s) => [s.label, s.value]));
 
