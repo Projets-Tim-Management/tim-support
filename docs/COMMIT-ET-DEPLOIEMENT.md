@@ -88,7 +88,8 @@ automatique au push). `refonte-support` est la branche de travail.
 > pas pour le suivant.
 
 Le motif établi (23 commits identiques) est un merge de `refonte-support` dans
-`main`, jamais l'inverse :
+`main`, jamais l'inverse. Une branche de chantier (ex. `publicite`) passe par
+`refonte-support` en avance rapide (`git fetch . publicite:refonte-support`) :
 
 ```bash
 # 1. Pousser la branche de travail
@@ -102,16 +103,26 @@ git worktree add "$WT" main
 git -C "$WT" merge --no-ff refonte-support \
   -m "Merge branch 'refonte-support' into main — <ce que ça apporte>"
 
-# 3. Rejouer les tests SUR LE MERGE (un merge propre peut casser)
-ln -s "$PWD/node_modules" "$WT/node_modules"
-cd "$WT" && npx vitest run
+# 3. Les QUATRE PORTES SUR LE MERGE (un merge propre peut casser),
+#    serveur de dev COUPÉ (le build se connecte à la base, pooler plafonné à 15)
+cp -Rc node_modules "$WT/node_modules"      # clone APFS : instantané, sans place
+ln -s "$PWD/.env.local" "$WT/.env.local"
+(cd "$WT" && npx vitest run && npx tsc --noEmit && npx eslint . && npm run build)
+# Une porte échoue → on s'arrête ici : main n'a pas bougé sur GitHub.
 
 # 4. Déployer
 git -C "$WT" push origin main
 
 # 5. Nettoyer
-rm -f "$WT/node_modules" && git worktree remove "$WT" --force && git worktree prune
+rm -f "$WT/.env.local"; rm -rf "$WT/node_modules"
+git worktree remove "$WT" --force && git worktree prune
 ```
+
+`node_modules` est **cloné**, pas lié : Turbopack refuse un `node_modules` en lien
+symbolique qui sort du projet (« Symlink [project]/node_modules is invalid, it
+points out of the filesystem root » — constaté le 29/09/2026). Le lien suffisait à
+vitest, pas au build. Le clone n'est fidèle que si la branche ne touche pas
+`package-lock.json` ; sinon, `npm ci` dans le worktree.
 
 Vérifier au passage qu'aucun worktree fantôme ne traîne (`git worktree list` :
 un dossier supprimé reste enregistré et bloque `git checkout main`).
