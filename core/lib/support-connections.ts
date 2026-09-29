@@ -135,13 +135,15 @@ export const SUPPORT_CONNECTIONS: SupportConnection[] = [
     scope: [
       "Marketing API, lecture seule (ads_read) : comptes, campagnes, métriques quotidiennes",
       "Aucune écriture en phase 0 : ni budget, ni statut, ni annonce",
-      "Jetons des comptes : OAuth longue durée (~60 jours) ou utilisateur système, chiffrés en base",
+      "Jetons des comptes : utilisateur système (sans échéance, voie principale) ou OAuth (~60 jours, secours), chiffrés en base",
+      "Seuls les comptes de META_ALLOWED_AD_ACCOUNTS peuvent entrer",
     ],
     docUrl: "https://developers.facebook.com/docs/marketing-api/",
     consoleUrl: "https://developers.facebook.com/apps/",
     env: [
       { name: "META_APP_ID", required: true, hint: "Identifiant de l'app Meta (developers.facebook.com)." },
       { name: "META_APP_SECRET", required: true, hint: "Clé secrète de l'app." },
+      { name: "META_ALLOWED_AD_ACCOUNTS", required: true, hint: "Comptes connectables, séparés par des virgules (act_211325410243618). Absente : aucun compte réel n'entre." },
       { name: "META_GRAPH_VERSION", required: false, hint: "Version de l'API Graph — défaut v26.0." },
       { name: "ADS_META_MOCK", required: false, hint: "« 1 » = données simulées, aucun appel à Meta. À retirer dès que l'app existe." },
     ],

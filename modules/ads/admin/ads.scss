@@ -116,3 +116,44 @@
 .ads-dash__alert--bad { background: var(--tim-red-bg); color: var(--tim-red); }
 .ads-dash__alert--warn { background: var(--tim-amber-bg); color: var(--tim-amber); }
 .ads-dash__note { margin: 0; font-size: 0.8rem; color: var(--tim-muted); }
+
+/* Connexion par jeton système : le formulaire tient sur une ligne, le jeton a la place. */
+.ads-connect__row--form { flex-wrap: wrap; }
+.ads-connect__fields { display: flex; gap: 0.5rem; align-items: center; flex: 1 1 520px; justify-content: flex-end; }
+.ads-connect__input {
+  min-width: 0;
+  width: 13rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 0.5rem;
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.85rem;
+}
+.ads-connect__input--token { flex: 1 1 14rem; width: auto; }
+.ads-connect__fallback { margin: 0.5rem 0 0; font-size: 0.8rem; color: var(--tim-muted); }
+.ads-connect__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--tim-muted);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  &:hover { color: var(--tim-foreground); }
+}
+/* Secours : discret. La voie principale est le formulaire au-dessus. */
+.ads-connect__blocked {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+  font-size: 0.8rem;
+}
+@media (max-width: 720px) {
+  .ads-connect__fields { flex-direction: column; align-items: stretch; }
+  .ads-connect__input { width: 100%; }
+}

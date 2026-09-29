@@ -2195,7 +2195,7 @@ export interface AdAccount {
   id: number;
   name: string;
   /**
-   * « act_… » chez Meta.
+   * « act_… » chez Meta. Posé à la connexion.
    */
   externalId: string;
   platform: string;

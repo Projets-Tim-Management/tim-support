@@ -74,6 +74,7 @@ export const CONNECTION_NOTICES = {
   aucun: "Meta n'a renvoyé aucun compte publicitaire pour cet utilisateur : vérifiez ses droits dans le Business Manager.",
   annulee: "Connexion annulée chez Meta — rien n'a changé.",
   expiree: "La demande de connexion a expiré ou ne vous appartient pas : relancez « Connecter un compte Meta ».",
+  refuse: "Aucun des comptes publicitaires de ce profil n'est autorisé.",
   erreur: "La connexion a échoué.",
 } as const;
 

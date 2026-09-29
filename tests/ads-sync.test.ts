@@ -86,8 +86,13 @@ describe("qui est synchronisé (base partagée dev / production)", () => {
     expect(syncDecision({ externalId: MOCK_ACCOUNT_ID }, false)).toBe("simule-hors-mode-simule");
   });
   it("un compte réel jamais en mode simulé — aucun chiffre inventé sur un vrai compte", () => {
-    expect(syncDecision({ externalId: "act_42" }, false)).toBe("ok");
-    expect(syncDecision({ externalId: "act_42" }, true)).toBe("reel-en-mode-simule");
+    const env = { META_ALLOWED_AD_ACCOUNTS: "act_42" };
+    expect(syncDecision({ externalId: "act_42" }, false, env)).toBe("ok");
+    expect(syncDecision({ externalId: "act_42" }, true, env)).toBe("reel-en-mode-simule");
+  });
+  it("un compte réel hors de la liste autorisée n'est plus lu — liste absente comprise", () => {
+    expect(syncDecision({ externalId: "act_99" }, false, { META_ALLOWED_AD_ACCOUNTS: "act_42" })).toBe("hors-liste");
+    expect(syncDecision({ externalId: "act_42" }, false, {})).toBe("hors-liste");
   });
 });
 
@@ -194,7 +199,7 @@ describe("un passage complet", () => {
     const ok = createMockMetaPlatform();
     let n = 0;
     const flaky = (): AdPlatform => (++n === 1 ? { ...ok, listCampaigns: async () => { throw new Error("panne"); } } : ok);
-    const { results } = await runAdsSync(payload, { now: NOW, env: {}, platformFor: flaky });
+    const { results } = await runAdsSync(payload, { now: NOW, env: { META_ALLOWED_AD_ACCOUNTS: "act_1,act_2" }, platformFor: flaky });
     expect(results.map((r) => r.status)).toEqual(["erreur", "connecte"]);
   });
 

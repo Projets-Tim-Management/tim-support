@@ -20,6 +20,7 @@ const REASONS: Record<string, string> = {
   archive: "Compte archivé : réactivez-le d'abord.",
   "simule-hors-mode-simule": "Compte simulé : il ne se synchronise qu'en données simulées (ADS_META_MOCK=1).",
   "reel-en-mode-simule": "Compte réel : jamais synchronisé en données simulées, pour ne pas y écrire de chiffres inventés.",
+  "hors-liste": "Compte hors de META_ALLOWED_AD_ACCOUNTS : il n'est plus lu.",
 };
 
 export async function POST(req: Request, { params }: Params) {

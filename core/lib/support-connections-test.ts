@@ -146,7 +146,8 @@ async function testMeta(payload: Payload): Promise<Omit<TestResult, "at">> {
     const res = await fetch(url, { signal: t.signal });
     const data = (await res.json().catch(() => ({}))) as { access_token?: string; error?: { message?: string } };
     if (!res.ok || !data.access_token) return { ok: false, message: data.error?.message ? `Meta refuse : ${data.error.message}` : explain(res) };
-    return { ok: true, message: `L'app Meta est reconnue (API Graph ${version}).${suffix}` };
+    const { allowedAccounts } = await import("@/modules/ads/lib/allowlist");
+    return { ok: true, message: `L'app Meta est reconnue (API Graph ${version}). Comptes autorisés : ${[...allowedAccounts()].join(", ")}.${suffix}` };
   } catch (e) {
     return { ok: false, message: failure(e) };
   } finally {

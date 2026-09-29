@@ -4,6 +4,7 @@ import { hasAdminRole } from "@/core/access";
 import { payloadClient } from "@/core/payload-client";
 import { readState } from "@/core/lib/secrets";
 import { upsertConnectedAccount } from "@/modules/ads/lib/accounts";
+import { ALLOWLIST_VAR, isAllowedAccount } from "@/modules/ads/lib/allowlist";
 import {
   ACCOUNTS_LIST,
   PENDING_COOKIE,
@@ -50,9 +51,14 @@ export async function GET(req: Request) {
   try {
     const platform = getPlatform("meta");
     const { token, expiresAt } = await platform.connect(code, metaRedirectUri());
-    const outcome = outcomeOf(await platform.listAccounts(token));
+    // Seuls les comptes autorisés existent pour la suite : les autres ne
+    // s'affichent même pas dans le choix (lib/allowlist).
+    const all = await platform.listAccounts(token);
+    const outcome = outcomeOf(all.filter((a) => isAllowedAccount(a.externalId)));
 
-    if (outcome.kind === "none") return back(req, "aucun");
+    if (outcome.kind === "none") {
+      return all.length ? back(req, "refuse", { detail: `${all.length} compte(s) ouvert(s) par ce profil, aucun dans ${ALLOWLIST_VAR}.` }) : back(req, "aucun");
+    }
     if (outcome.kind === "single") {
       await upsertConnectedAccount(payload, { platform: "meta", account: outcome.account, token, expiresAt });
       payload.logger.info(`[publicité] compte Meta ${outcome.account.externalId} connecté par ${user.email}.`);

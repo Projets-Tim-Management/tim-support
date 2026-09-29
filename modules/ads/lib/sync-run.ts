@@ -33,7 +33,7 @@ export async function runAdsSync(payload: Payload, opts: Options = {}): Promise<
 
   const results: SyncResult[] = [];
   for (const acc of res.docs) {
-    const decision = syncDecision(acc, mock);
+    const decision = syncDecision(acc, mock, env);
     const name = acc.name ?? String(acc.id);
     if (decision !== "ok") {
       results.push({ id: acc.id, name, decision });
@@ -59,7 +59,7 @@ export async function runAdsSync(payload: Payload, opts: Options = {}): Promise<
   }
 
   // Alerte J-7 : un jeton OAuth qui arrive à échéance, une fois par échéance.
-  const due = res.docs.filter((a) => syncDecision(a, mock) === "ok" && tokenAlertDue(a, now));
+  const due = res.docs.filter((a) => syncDecision(a, mock, env) === "ok" && tokenAlertDue(a, now));
   const alerted: string[] = [];
   if (due.length && !opts.dry) {
     const to = await adminEmails(payload);

@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import {
   AdTokenError,
   type AccountContext,
@@ -101,9 +103,17 @@ const TOKEN_CODES = new Set([190, 102]);
 export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
   const base = `https://graph.facebook.com/${cfg.version}`;
 
+  /**
+   * `appsecret_proof` accompagne chaque appel fait avec un jeton : c'est ce que
+   * Meta exige quand l'app active « Exiger la clé secrète », et ce qui rend un
+   * jeton volé inutilisable sans le secret de l'app.
+   */
   const url = (path: string, params: Record<string, string>) => {
     const u = new URL(`${base}/${path.replace(/^\//, "")}`);
     for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
+    if (params.access_token && cfg.appSecret) {
+      u.searchParams.set("appsecret_proof", createHmac("sha256", cfg.appSecret).update(params.access_token).digest("hex"));
+    }
     return u.toString();
   };
 

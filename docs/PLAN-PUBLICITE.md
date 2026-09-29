@@ -56,7 +56,7 @@ Ce ne sont pas des secrets : ils désignent les objets, ils n'y donnent pas acc�
 | D8 | **Une créa est indépendante de la régie** : un message + des assets ; les formats par régie sont des **déclinaisons** | La même accroche sert Meta (carré, 9:16) et plus tard Google (RSA, Performance Max) sans être réécrite |
 | D9 | **Garde-fous en code, jamais dans le prompt** | Un prompt se contourne, un `if` non. Les plafonds vivent dans le global `ads-settings` (§6) |
 | D10 | **Un passage d'agent = une campagne = une fonction** | Durée limitée des fonctions Vercel : le cron distribue, chaque campagne tourne seule. La génération vidéo est asynchrone : lancée à un passage, récupérée au suivant. Même esprit pour la synchro : un compte en erreur n'arrête pas les autres |
-| D11 | **Deux jetons Meta possibles par compte** : le jeton OAuth longue durée, et un **jeton d'utilisateur système** collé à la main | L'OAuth de Meta ne donne pas de jeton de rafraîchissement : le jeton longue durée vit ~60 jours. Il est daté (`tokenExpiresAt`), une alerte part à **J-7**, et le compte passe `expire` à l'échéance. Le jeton d'utilisateur système (Business Manager) n'expire pas : c'est **la cible** dès que le portefeuille business de TIM est en place, il prime sur l'OAuth quand il est posé, et il est **obligatoire avant que les agents puissent écrire (phase 2)** |
+| D11 | **Deux jetons Meta possibles par compte** : le **jeton d'utilisateur système** (voie principale dès la mise en production, décision du 29/09/2026), et le jeton OAuth longue durée en secours | L'OAuth de Meta ne donne pas de jeton de rafraîchissement : le jeton longue durée vit ~60 jours. Il est daté (`tokenExpiresAt`), une alerte part à **J-7**, et le compte passe `expire` à l'échéance. Le jeton d'utilisateur système (Business Manager) n'expire pas : c'est **la cible** dès que le portefeuille business de TIM est en place, il prime sur l'OAuth quand il est posé, et il est **obligatoire avant que les agents puissent écrire (phase 2)** |
 
 ---
 
@@ -114,8 +114,15 @@ recalcule l'état d'après les jetons.
 et l'alerte J-7 à zéro et sort le compte de l'archive ; coller un jeton
 d'utilisateur système fait de même. Jamais un second compte pour le même `act_…`.
 
-**Brancher un compte** (en tête de « Comptes publicitaires ») : « Connecter un compte
-Meta » ouvre l'écran de consentement (droit `ads_read` seul en phase 0 ;
+**Brancher un compte** (en tête de « Comptes publicitaires ») : voie principale,
+l'identifiant du compte (pré-rempli s'il n'y en a qu'un d'autorisé) et le **jeton
+d'utilisateur système** › « Vérifier et connecter » : Meta confirme que ce jeton ouvre
+ce compte, et donne son nom, sa devise et son fuseau, avant tout enregistrement. Le
+formulaire natif de création est fermé : il enregistrerait un compte sans rien
+vérifier. **Seuls les comptes de `META_ALLOWED_AD_ACCOUNTS` entrent** (fermée par
+défaut), quel que soit le chemin — OAuth, jeton système, API, synchro.
+
+En secours, « Connexion par OAuth » ouvre l'écran de consentement (droit `ads_read` seul en phase 0 ;
 `ads_management` viendra avec les écritures). Au retour, le jeton longue durée ouvre
 un ou plusieurs comptes : un seul est connecté d'office ; plusieurs, on choisit dans
 la liste — le jeton attend dans un cookie HttpOnly chiffré de 10 minutes, lié à
@@ -437,44 +444,62 @@ données de prospects : **le supprimer une fois la phase 0 en production et stab
 
 ## 9 bis. Mise en production de la phase 0
 
+**Décision du 29/09/2026 : le jeton d'utilisateur système est la voie principale dès
+la mise en production.** Utilisateur système créé dans le portefeuille Tim Management,
+app « TIM Support – Publicité », droit `ads_read` seul, jeton sans expiration. L'OAuth
+reste dans le code en **secours** : pas d'adresse de retour déclarée chez Meta, pas de
+produit « Facebook Login » ajouté à l'app pour l'instant.
+
 ### Variables Vercel (production) — noms seulement
 
 | Variable | Statut | Rôle |
 |---|---|---|
-| `META_APP_ID` | **à poser** | Identifiant de l'app Meta |
-| `META_APP_SECRET` | **à poser** (sensible) | Clé secrète de l'app |
+| `META_APP_ID` | **à poser** | Identifiant de l'app « TIM Support – Publicité » |
+| `META_APP_SECRET` | **à poser** (sensible) | Clé secrète de l'app : signe chaque appel (`appsecret_proof`) et sert au bouton « Tester » |
+| `META_ALLOWED_AD_ACCOUNTS` | **à poser** : `act_211325410243618` | Comptes connectables. **Fermée par défaut** : absente, aucun compte réel n'entre ni n'est synchronisé |
 | `META_GRAPH_VERSION` | facultative | Défaut `v26.0` ; à poser seulement pour changer de version |
 | `ADS_META_MOCK` | **ne jamais poser en production** | Données simulées ; absente = vraie API |
-| `NEXT_PUBLIC_SITE_URL` | à vérifier | Doit valoir `https://support.tim-management.co` : l'adresse de retour OAuth en dérive (sinon repli sur localhost, et la connexion échoue) |
+| `NEXT_PUBLIC_SITE_URL` | à vérifier | `https://support.tim-management.co` — ne sert qu'à l'OAuth de secours |
 | `CRON_SECRET` | à vérifier (déjà utilisée) | Authentifie le cron `ads-sync` |
 | `PAYLOAD_SECRET` | déjà posée — **ne pas la changer** | Chiffre les jetons des comptes : la changer oblige à les reconnecter |
 
-Une variable posée sur Vercel n'est prise en compte qu'au **déploiement suivant**.
+Le **jeton d'utilisateur système n'est PAS une variable** : il se colle dans le
+back-office (il est propre au compte, chiffré en base). Une variable posée sur Vercel
+n'est prise en compte qu'au **déploiement suivant**.
 
 ### App Meta
 
-- **Adresse de retour OAuth à déclarer** (« URI de redirection OAuth valides ») :
+- Rien à déclarer pour la voie principale : ni adresse de retour, ni Facebook Login.
+- Dans le portefeuille : le compte publicitaire `act_211325410243618` doit être
+  **attribué à l'utilisateur système** (droit de consultation des performances), sinon
+  Meta répond que le jeton n'ouvre pas ce compte — et le back-office le dit.
+- OAuth de secours, le jour où il servirait : ajouter Facebook Login et déclarer
   `https://support.tim-management.co/api/admin/ads/meta/callback`
-- Domaine de l'app : `support.tim-management.co`.
-- Droit demandé : `ads_read` seul en phase 0.
-- Pour connecter depuis un poste de dev, déclarer aussi
-  `http://localhost:3001/api/admin/ads/meta/callback`. La base est partagée : un
-  compte connecté en local l'est aussi en production.
+  (et `http://localhost:3001/api/admin/ads/meta/callback` pour un poste de dev).
 
 ### Après le déploiement, dans l'ordre
 
-1. *Système › Connexions du support* › Meta Ads › **Tester** : « L'app Meta est reconnue ».
-2. *Publicité › Paramètres › Comptes publicitaires* › **Connecter un compte Meta** ›
-   choisir **`act_211325410243618`**, et lui seul.
+1. *Système › Connexions du support* › Meta Ads › **Tester** : « L'app Meta est
+   reconnue… Comptes autorisés : act_211325410243618 ».
+2. *Publicité › Paramètres › Comptes publicitaires* › **Connecter un compte Meta** :
+   l'identifiant est pré-rempli (seul compte autorisé), coller le jeton d'utilisateur
+   système › **Vérifier et connecter**. Meta confirme que le jeton ouvre le compte et
+   donne son nom, sa devise et son fuseau ; rien n'est enregistré avant.
 3. Sur sa fiche, menu ⋯ › **Synchroniser maintenant** ; vérifier campagnes et chiffres.
 4. **Archiver le compte « [SIMULÉ] TIM — compte simulé »** (`act_000000000000`, créé
    le 29/09/2026 pour tester l'écran, il vit dans la base de production) : menu ⋯ ›
-   *Archiver le compte*. Ses campagnes et chiffres simulés sortent alors du tableau
-   de bord, et le bandeau « Données simulées » disparaît. Le cron de production ne
-   l'a jamais lu (compte simulé hors mode simulé), il ne le lira pas.
-5. Dès que le portefeuille business le permet : créer l'utilisateur système, lui
-   attribuer le compte publicitaire, et coller son jeton sur la fiche (D11).
-6. Supprimer les sauvegardes `~/tim-backups/*.dump` une fois la phase 0 stable.
+   *Archiver le compte*. Ses campagnes et chiffres simulés sortent du tableau de bord,
+   et le bandeau « Données simulées » disparaît. Le cron de production ne l'a jamais
+   lu (compte simulé hors mode simulé, et hors liste autorisée) ; l'archivage reste
+   possible bien qu'il soit hors liste.
+5. Supprimer les sauvegardes `~/tim-backups/*.dump` une fois la phase 0 stable.
+
+### Fusion et déploiement (COMMIT-ET-DEPLOIEMENT.md)
+
+Sur feu vert explicite, **après** avoir posé les variables Vercel. Motif établi :
+`refonte-support` est amenée au niveau de `publicite` (avance rapide), puis fusionnée
+dans `main` en `--no-ff`, dans un worktree — le serveur de dev reste intact. Les
+**quatre portes** sont rejouées sur le résultat de la fusion avant de pousser `main`.
 
 ---
 

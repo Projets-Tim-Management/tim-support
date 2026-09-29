@@ -1,7 +1,8 @@
-import type { CollectionBeforeChangeHook, CollectionBeforeDeleteHook, CollectionConfig, Field } from "payload";
+import type { CollectionBeforeChangeHook, CollectionBeforeDeleteHook, CollectionBeforeValidateHook, CollectionConfig, Field } from "payload";
 
 import { isAdmin } from "@/core/access";
 import { PURGE_CONTEXT, statusFromTokens } from "@/modules/ads/lib/accounts";
+import { isAllowedAccount, refusal } from "@/modules/ads/lib/allowlist";
 import { validatePlatform } from "@/modules/ads/lib/platforms";
 import { PASSWORD_MASK, encryptPasswordValue } from "@/modules/marketing/lib/credential-secrets";
 
@@ -70,6 +71,20 @@ const guardAndCascadeDelete: CollectionBeforeDeleteHook = async ({ req, id }) =>
 };
 
 /**
+ * Un compte hors de META_ALLOWED_AD_ACCOUNTS n'entre pas — quel que soit le
+ * chemin (OAuth, jeton système, API, script en overrideAccess).
+ *
+ * Seulement quand l'identifiant est POSÉ ou CHANGÉ : archiver un compte déjà
+ * présent (le simulé, en production) doit rester possible, même hors liste.
+ */
+const enforceAllowlist: CollectionBeforeValidateHook = ({ data, originalDoc, operation }) => {
+  const next = data?.externalId as string | undefined;
+  const changes = operation === "create" || (next !== undefined && next !== originalDoc?.externalId);
+  if (changes && !isAllowedAccount(next ?? originalDoc?.externalId)) throw new Error(refusal(next ?? originalDoc?.externalId));
+  return data;
+};
+
+/**
  * Coller un jeton d'utilisateur système, c'est RECONNECTER le compte : il sort
  * de l'archive et l'état se recalcule d'après ses jetons (la synchro suivante
  * confirme). Le masque renvoyé tel quel n'est pas un nouveau jeton.
@@ -114,9 +129,13 @@ export const AdAccounts: CollectionConfig = {
     },
   },
   // Suppression fermée à tous : elle passe par la route de purge (super-admin).
-  access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: () => false },
+  // Création : jamais par le formulaire natif, qui enregistrerait un compte sans
+  // rien vérifier. Elle passe par « Connecter avec un jeton d'utilisateur
+  // système » (Meta confirme que le jeton ouvre le compte) ou par l'OAuth.
+  // Suppression : route de purge, super-admin.
+  access: { read: isAdmin, create: () => false, update: isAdmin, delete: () => false },
   disableDuplicate: true,
-  hooks: { beforeChange: [reconnectOnSystemToken], beforeDelete: [guardAndCascadeDelete] },
+  hooks: { beforeValidate: [enforceAllowlist], beforeChange: [reconnectOnSystemToken], beforeDelete: [guardAndCascadeDelete] },
   // Un compte d'une régie ne se connecte qu'une fois.
   indexes: [{ fields: ["platform", "externalId"], unique: true }],
   fields: [
@@ -130,7 +149,8 @@ export const AdAccounts: CollectionConfig = {
           label: "Identifiant chez la régie",
           required: true,
           index: true,
-          admin: { width: "50%", placeholder: "act_1234567890", description: "« act_… » chez Meta." },
+          // L'identité du compte : posée à la connexion, jamais modifiée ensuite.
+          admin: { width: "50%", readOnly: true, description: "« act_… » chez Meta. Posé à la connexion." },
         },
       ],
     },

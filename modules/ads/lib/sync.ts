@@ -2,6 +2,7 @@ import type { Payload } from "payload";
 
 import { decryptSecret } from "@/core/lib/secrets";
 import { isSyncable, statusFromTokens, type AccountStatus } from "@/modules/ads/lib/accounts";
+import { isAllowedAccount } from "@/modules/ads/lib/allowlist";
 import { MOCK_ACCOUNT_ID } from "@/modules/ads/platforms/meta-mock";
 import { AdTokenError, type AdPlatform, type Level, type MetricRow } from "@/modules/ads/platforms/types";
 
@@ -47,13 +48,19 @@ export function syncWindow(now: Date, timeZone: string, days = SYNC_DAYS): { sin
  * un vrai compte, et le cron de production enverrait à Meta le jeton factice du
  * compte simulé.
  */
-export type SyncDecision = "ok" | "archive" | "simule-hors-mode-simule" | "reel-en-mode-simule";
+export type SyncDecision = "ok" | "archive" | "simule-hors-mode-simule" | "reel-en-mode-simule" | "hors-liste";
 
-export function syncDecision(acc: { status?: string | null; externalId?: string | null }, mockMode: boolean): SyncDecision {
+export function syncDecision(
+  acc: { status?: string | null; externalId?: string | null },
+  mockMode: boolean,
+  env: Record<string, string | undefined> = process.env,
+): SyncDecision {
   if (!isSyncable(acc)) return "archive";
   const simulated = acc.externalId === MOCK_ACCOUNT_ID;
   if (simulated && !mockMode) return "simule-hors-mode-simule";
   if (!simulated && mockMode) return "reel-en-mode-simule";
+  // Un compte entré avant la liste, ou retiré depuis, n'est plus lu.
+  if (!simulated && !isAllowedAccount(acc.externalId, env)) return "hors-liste";
   return "ok";
 }
 

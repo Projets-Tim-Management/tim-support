@@ -56,9 +56,10 @@ describe("retour de Meta", () => {
 describe("connexion du support « meta »", () => {
   const meta = SUPPORT_CONNECTIONS.find((c) => c.key === "meta")!;
 
-  it("exige l'identifiant et le secret de l'app", () => {
+  it("exige l'identifiant et le secret de l'app, et la liste des comptes autorisés", () => {
     expect(isConfigured(meta, {})).toBe(false);
-    expect(isConfigured(meta, { META_APP_ID: "1", META_APP_SECRET: "s" })).toBe(true);
+    expect(isConfigured(meta, { META_APP_ID: "1", META_APP_SECRET: "s" })).toBe(false);
+    expect(isConfigured(meta, { META_APP_ID: "1", META_APP_SECRET: "s", META_ALLOWED_AD_ACCOUNTS: "act_211325410243618" })).toBe(true);
   });
 
   it("compte comme configurée en données simulées — et le dit", () => {

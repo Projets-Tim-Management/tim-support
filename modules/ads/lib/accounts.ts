@@ -48,10 +48,16 @@ type ConnectInput = {
   account: AccountSnapshot;
   token: string;
   expiresAt: Date | null;
+  /**
+   * `oauth` (défaut) : jeton longue durée, daté, alerte J-7.
+   * `system` : jeton d'utilisateur système, sans échéance — la cible (D11).
+   * Il est passé EN CLAIR : le champ le chiffre à l'enregistrement.
+   */
+  kind?: "oauth" | "system";
 };
 
 /**
- * Connexion OAuth d'un compte : crée l'enregistrement la première fois, le
+ * Connexion d'un compte — OAuth ou jeton d'utilisateur système : crée l'enregistrement la première fois, le
  * RETROUVE ensuite — archivé ou non. Le jeton est remplacé, l'échéance et
  * l'alerte J-7 repartent de zéro, et le compte sort de l'archive : se
  * reconnecter est le geste qui dit qu'on veut à nouveau le suivre.
@@ -61,16 +67,12 @@ type ConnectInput = {
  */
 export async function upsertConnectedAccount(payload: Payload, input: ConnectInput): Promise<{ id: number | string; created: boolean }> {
   const { platform, account, token, expiresAt } = input;
-  const data = {
-    name: account.name,
-    currency: account.currency,
-    timezone: account.timezone,
-    token: encryptSecret(token),
-    tokenExpiresAt: expiresAt ? expiresAt.toISOString() : null,
-    tokenAlertSentAt: null,
-    status: "connecte" as const,
-    lastError: null,
-  };
+  const common = { name: account.name, currency: account.currency, timezone: account.timezone, status: "connecte" as const, lastError: null };
+  // Un jeton système ne touche pas au jeton OAuth éventuel : il prime, sans l'effacer.
+  const data =
+    input.kind === "system"
+      ? { ...common, systemUserToken: token }
+      : { ...common, token: encryptSecret(token), tokenExpiresAt: expiresAt ? expiresAt.toISOString() : null, tokenAlertSentAt: null };
 
   const existing = (
     await payload.find({
