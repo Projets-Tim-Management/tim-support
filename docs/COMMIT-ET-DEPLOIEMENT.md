@@ -18,6 +18,13 @@ npx eslint .                    # 3. 0 erreur ET 0 avertissement
 npm run build                   # 4. compilation Next + Payload
 ```
 
+> **Serveur de dev coupé, vérifié à chaque fois (règle du 29/09/2026).** Avant
+> chaque `npm run build` et chaque migration, vérifier qu'aucun serveur de dev
+> ne tourne (`pgrep -fl "next dev"`). S'il tourne, **demander à l'utilisateur
+> de le couper** — ne pas le couper soi-même, ne pas lancer quand même. Il a
+> pu être relancé depuis la dernière vérification : un build en parallèle
+> partage le pooler Supabase (15 connexions) et peut échouer sans raison de code.
+
 `npm run build` n'est pas facultatif avant un push : Vercel le rejouera, et une
 erreur de build découverte là-bas laisse la production sur la version
 précédente sans que personne ne le remarque tout de suite.
@@ -141,6 +148,17 @@ npm run db:migrate:status
 Ne jamais utiliser `payload migrate` directement : il gèle sur une invite
 « data loss » en mode non interactif. Le helper `scripts/db-migrate.mjs` la
 traite.
+
+Avant d'appliquer : serveur de dev coupé (voir « Les quatre portes »), dump de
+la base vérifié dans `~/tim-backups` (droits 600), et feu vert de
+l'utilisateur.
+
+> **Migration bloquée comme destructive : on s'arrête (règle du 29/09/2026).**
+> Si `db:migrate:apply` refuse une migration parce qu'elle contient un
+> statement destructif, **ne pas relancer avec `--allow-destructive`** de sa
+> propre initiative, même avec un feu vert donné avant. Montrer d'abord à
+> l'utilisateur les statements en cause et pourquoi ils sont sans perte (ou
+> non), puis attendre son accord explicite pour forcer.
 
 Un `npm run build` local ne touche pas au schéma (le push est désactivé), il est
 donc sans danger pour la production.
