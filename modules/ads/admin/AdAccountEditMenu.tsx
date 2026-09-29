@@ -14,6 +14,9 @@ import { PURGE_MODAL_SLUG } from "./purge-slug";
  * la régie, son historique reste. « Réactiver » recalcule l'état d'après les
  * jetons. Le clic EST l'action — pas de case à cocher puis enregistrer.
  *
+ * « Synchroniser maintenant » : la synchro de la nuit, tout de suite — utile
+ * juste après une connexion.
+ *
  * « Supprimer définitivement… » n'apparaît qu'au super-admin, et ouvre une
  * confirmation qui dit combien de lignes partiront.
  */
@@ -26,6 +29,20 @@ export function AdAccountEditMenu() {
 
   if (!id) return null;
   const archived = status === "archive";
+
+  const syncNow = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/ads/accounts/${encodeURIComponent(String(id))}/sync`, { method: "POST", credentials: "include" });
+      const data = (await res.json().catch(() => ({}))) as { error?: string; campaigns?: number; written?: number; unchanged?: number };
+      if (!res.ok) throw new Error(data.error || String(res.status));
+      toast.success(`Synchronisé : ${data.campaigns ?? 0} campagne(s), ${data.written ?? 0} ligne(s) de chiffres écrites, ${data.unchanged ?? 0} inchangée(s).`);
+      window.location.reload();
+    } catch (e) {
+      toast.error((e as Error).message || "Synchro impossible.");
+      setBusy(false);
+    }
+  };
 
   const toggleArchive = async () => {
     setBusy(true);
@@ -48,6 +65,11 @@ export function AdAccountEditMenu() {
 
   return (
     <>
+      {!archived && (
+        <PopupList.Button disabled={busy} onClick={syncNow}>
+          Synchroniser maintenant
+        </PopupList.Button>
+      )}
       <PopupList.Button disabled={busy} onClick={toggleArchive}>
         {archived ? "Réactiver le compte" : "Archiver le compte"}
       </PopupList.Button>

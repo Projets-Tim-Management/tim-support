@@ -184,6 +184,24 @@ table, jamais la régie en direct : un seul chiffre, le même pour tout le monde
 Les montants sont dans la devise du compte ; le tableau de bord additionne des
 euros et signale à part un compte dans une autre devise.
 
+**Synchro** (`/api/cron/ads-sync`, chaque jour à 04:30 UTC, et « Synchroniser
+maintenant » dans le menu ⋯ d'un compte) : les campagnes, puis les chiffres des 7
+derniers jours — aujourd'hui compris, partiel — aux trois niveaux. Une ligne
+inchangée n'est pas réécrite. Un compte à la fois ; une erreur s'écrit sur sa fiche
+(`expire` si la régie refuse le jeton, `erreur` sinon) et n'arrête pas les suivants.
+L'interrupteur des garde-fous ne l'arrête pas : elle ne fait que lire. Ensuite,
+l'alerte J-7 part aux admins pour chaque jeton OAuth proche de l'échéance, une fois.
+
+⚠️ **Base partagée** : un compte simulé (`act_000000000000`) n'est synchronisé qu'en
+données simulées, et un compte réel **jamais** en données simulées — sinon un poste
+de dev écrirait des chiffres inventés sur un vrai compte, et le cron de production
+enverrait à Meta le jeton factice.
+
+À surveiller : la première écriture d'une ligne coûte ~120 ms à travers le pooler
+(147 lignes simulées : 18 s ; le passage suivant, sans changement : 0,7 s). Un
+compte réel à plusieurs centaines d'annonces demandera des écritures par lots
+avant de toucher la limite de 300 s de la fonction.
+
 ### 4.7 Sur les fiches existantes
 
 `form-submissions` et `partner-clients` reçoivent un groupe `adAttribution` :
