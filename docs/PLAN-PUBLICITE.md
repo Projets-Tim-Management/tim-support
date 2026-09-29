@@ -274,6 +274,11 @@ l'adaptateur Meta tourne sur des données simulées déterministes derrière
 de bord et dans « Connexions du support » : un chiffre inventé ne doit jamais passer
 pour un vrai.
 
+**Variables** : `META_APP_ID`, `META_APP_SECRET` (app Meta), `META_GRAPH_VERSION`
+(défaut `v24.0` — Meta retire une version tous les ~2 ans, elle se change sans
+déploiement de code), `ADS_META_MOCK=1` (données simulées). Sans les deux premières
+et sans le drapeau, l'adaptateur refuse de démarrer en disant ce qui manque.
+
 | Régie | Accès | Ce qui est possible aujourd'hui |
 |---|---|---|
 | Meta | Marketing API (app Meta + Business Manager), jeton OAuth | Tout : lecture, budget, statut, création, upload, Conversions API, formulaires instantanés |
