@@ -1040,31 +1040,42 @@ le passage se met en pause (`en-pause-budget`) et reprend le lendemain, là où 
 s'était arrêté (§5). Le budget de 5 € du passage, lui, ne se renouvelle pas : une
 fois dépensé, le passage dépose ce qu'il a.
 
-**Meta raisonne à la semaine — vérifié le 29/09/2026.** Selon l'aide Meta Business
-(« À propos des budgets quotidiens »), Meta peut dépenser **jusqu'à 75 % de plus que
-le budget quotidien** certains jours, quand les occasions sont meilleures. Sur une
-**semaine calendaire, du dimanche au samedi**, la dépense ne dépasse pas **7 fois le
-budget quotidien**. Source :
-[Meta — À propos des budgets quotidiens](https://www.facebook.com/business/help/190490051321426).
-La page ne s'affiche qu'avec JavaScript : le texte a été relevé par l'index de
-recherche, et il faut le relire dans un navigateur avant le commit 2.
+**Meta raisonne à la semaine — page relue dans un navigateur le 29/09/2026**
+(Chrome, version française de
+[Meta — À propos des budgets quotidiens](https://www.facebook.com/business/help/190490051321426)).
+Ce qu'elle dit, citations à l'appui :
+
+| Règle | Texte de Meta |
+|---|---|
+| Plafond du jour | « Pour chaque jour se terminant à minuit, les dépenses ne seront pas supérieures à **175 %** de votre budget quotidien. » |
+| Plafond de la semaine | « Pour chaque semaine se terminant **le samedi à minuit**, les dépenses ne seront pas plus de **sept fois** supérieures à votre budget quotidien. » — semaine civile, **du dimanche au samedi**, pas 7 jours glissants |
+| Partage du budget entre ensembles de publicités | S'il est activé, les plafonds montent : pour 100 €/jour, **210 €** un jour et **840 €** la semaine (soit 2,1 × et 8,4 ×) |
+| Démarrage ou changement de budget en milieu de semaine | Meta repart de zéro pour le reste de la semaine : **nouveau budget × jours restants + jusqu'à 25 % du budget quotidien**. Exemple de Meta : passage de 100 € à 50 € le mercredi à midi → au plus 212,50 € du mercredi au samedi, **plus** ce qui a été dépensé du dimanche au mardi |
+| Changement en cours de journée | Le plafond du jour devient 175 % du **budget le plus élevé** défini ce jour-là |
+| Date de fin en cours de semaine | Budget × jours de diffusion de la semaine + jusqu'à 25 % |
 
 Ce que ça impose au suivi :
 
-- **La jauge Meta est hebdomadaire.** Une journée à 1,75 × le budget Meta est
-  normale : elle est affichée comme « dans la tolérance Meta », pas en alerte.
-- **L'alerte** se déclenche sur la semaine : si la dépense Meta de la semaine en
-  cours dépasse 7 × le budget Meta décidé, Meta n'a pas respecté sa règle, et c'est
-  signalé.
-- **Le total se garantit donc à la semaine :** `IA semaine + Meta semaine ≤ 7 ×
-  total`. C'est vrai tant que l'IA est plafonnée chaque jour et Meta chaque semaine.
-  Un jour donné, le total peut **paraître** dépassé à cause de Meta. C'est prévu et
-  expliqué sous la jauge.
+- **La jauge Meta est hebdomadaire**, semaine du dimanche au samedi. Une journée
+  jusqu'à 1,75 × le budget Meta est normale : elle s'affiche « dans la tolérance
+  Meta », pas en alerte.
+- **Le plafond de la semaine se calcule par segments**, pas en « 7 × le budget
+  actuel ». À chaque changement de budget (ou au démarrage), un nouveau segment
+  commence : `budget × jours restants + 25 % du budget`. Le plafond de la semaine
+  est la dépense des segments passés plus celui du segment en cours. Le moteur de
+  budget (commit 2) reproduit ce calcul, exemples de Meta en tests.
+- **Le partage du budget entre ensembles de publicités** porte les plafonds à 2,1 ×
+  et 8,4 ×. En 3b, l'agent ne l'active pas sans le dire : le moteur prend le
+  multiplicateur en paramètre, et la jauge affiche lequel s'applique.
+- **L'alerte** se déclenche quand la dépense réelle dépasse le plafond calculé :
+  Meta n'a alors pas respecté sa règle.
+- **Le total se garantit à la semaine**, pas au jour : un jour donné, le total peut
+  **paraître** dépassé à cause de Meta. C'est prévu et expliqué sous la jauge.
 - **La semaine suit le fuseau du compte publicitaire**, pas Paris. Il est lu sur
   `ad-accounts`.
-- **À vérifier dans la documentation Meta avant la phase 2** : comment le plafond de
-  la semaine se recalcule quand on change le budget en cours de semaine. En 3c,
-  Meta ne dépense rien, donc la question n'est pas bloquante.
+- **Conséquence pour la phase 2** : un changement de budget en milieu de semaine
+  rouvre une marge de 25 %. Des changements fréquents font donc dépenser un peu
+  plus. Le délai minimal de 72 h entre deux modifications (§6) le limite déjà.
 
 ### 4. La salle de contrôle, par campagne
 
