@@ -515,12 +515,44 @@ dans `main` en `--no-ff`, dans un worktree — le serveur de dev reste intact. L
 
 ## 9 ter. Phase 3a — Atelier de créas
 
-> Statut : **proposition du 29/09/2026, à valider** — rien n'est codé.
+> Statut : **validé le 29/09/2026** — commits 1 à 7 en cours sur la branche
+> `publicite`. Décisions ci-dessous (« Décisions du 29/09/2026 »).
 > Objectif : produire dans le back-office des créas **prêtes à publier** — textes,
 > visuels statiques, motion, et en option vidéo générée — les faire valider, et les
 > **télécharger** aux formats Meta. L'envoi à Meta (upload, création d'annonce) est la
 > phase 3b : il attend le jeton d'utilisateur système et le droit `ads_management`.
 > Rien de ce qui suit n'écrit chez Meta.
+
+### Décisions du 29/09/2026
+
+| Sujet | Décision |
+|---|---|
+| Brief | Sur une campagne `brouillon` créée dans le support — pas de collection à part |
+| Modèle des textes | **L'Opus le plus récent** : `claude-opus-5-5` (vérifié le 29/09/2026 auprès de l'API Models : « Claude Opus 5.5 », publié le 21/09/2026). Déclaré à **un seul endroit** du code |
+| Ton | **Vouvoiement par défaut.** Le tutoiement est une dimension testable : l'agent peut proposer des variantes en tutoiement, étiquetées « test de ton », comptées à part, soumises à validation comme toute créa. Champ `tone` (vous / tu) sur chaque texte et chaque créa |
+| Dimensions testables | Même logique pour tout ce qu'on voudra tester (angle, accroche, format, visuel, bouton) : **une variante = une dimension étiquetée et mesurable** (`modules/ads/lib/dimensions.ts`) |
+| Boutons d'action | **« En savoir plus », « S'inscrire », « Réserver »** (démo). Rien d'autre sans accord |
+| Budgets | IA textes **5 €/jour et 50 €/mois** ; images **20 €/mois** ; vidéo générée **30 €/mois** |
+| Images et vidéo | Imagen 4 et Veo, clé `GEMINI_API_KEY` (créée au commit 8) |
+| Motion | Remotion sur Vercel Sandbox, si la licence gratuite s'applique (ci-dessous) |
+
+**Licence Remotion — vérifiée le 29/09/2026.** La licence gratuite couvre « an
+organization or team of individuals with up to 3 people », incorporée ou non, et elle
+permet l'automatisation : « Free License Users may build automations without
+purchasing Renders » ([conditions](https://www.remotion.dev/docs/terms),
+[FAQ](https://www.remotion.dev/docs/license/faq)). LC DEV compte **1 salarié**.
+⚠️ Réserve : le seuil compte « the total number of personnel across all involved parties
+that operate the Remotion Software », et les effectifs de plusieurs entités qui
+collaborent **s'additionnent**. Le back-office a aujourd'hui 4 comptes admin
+(direction@, lafonso@, cpiancatelli@, mpetrini@) : si ces personnes ne relèvent pas
+toutes de LC DEV, le total peut atteindre 4 et la licence entreprise devient
+obligatoire. **À trancher avant le commit 9.**
+
+**Le kit de marque réutilise la charte existante.** Les couleurs de TIM et son logo
+principal existent déjà dans *Système › Apparence* (ceux du contrat PDF) : le kit les
+lit au lieu de les redemander. Il n'ajoute que ce qui est propre à la publicité — logo
+pour fond sombre, polices, ton, mentions interdites, mentions légales. Les chiffres
+autorisés sont une collection à part, `ad-facts`, à laquelle le brief se relie.
 
 ### Ce que la phase 3a ne fait PAS
 

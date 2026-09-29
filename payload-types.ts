@@ -95,6 +95,8 @@ export interface Config {
     'ad-campaigns': AdCampaign;
     'ad-accounts': AdAccount;
     'ad-metrics-daily': AdMetricsDaily;
+    'ad-media': AdMedia;
+    'ad-facts': AdFact;
     'email-suppressions': EmailSuppression;
     'client-employees': ClientEmployee;
     'client-sites': ClientSite;
@@ -161,6 +163,8 @@ export interface Config {
     'ad-campaigns': AdCampaignsSelect<false> | AdCampaignsSelect<true>;
     'ad-accounts': AdAccountsSelect<false> | AdAccountsSelect<true>;
     'ad-metrics-daily': AdMetricsDailySelect<false> | AdMetricsDailySelect<true>;
+    'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
+    'ad-facts': AdFactsSelect<false> | AdFactsSelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
     'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
     'client-sites': ClientSitesSelect<false> | ClientSitesSelect<true>;
@@ -187,6 +191,7 @@ export interface Config {
     'company-settings': CompanySetting;
     'contract-settings': ContractSetting;
     'ads-settings': AdsSetting;
+    'ads-brand-kit': AdsBrandKit;
   };
   globalsSelect: {
     appearance: AppearanceSelect<false> | AppearanceSelect<true>;
@@ -194,6 +199,7 @@ export interface Config {
     'company-settings': CompanySettingsSelect<false> | CompanySettingsSelect<true>;
     'contract-settings': ContractSettingsSelect<false> | ContractSettingsSelect<true>;
     'ads-settings': AdsSettingsSelect<false> | AdsSettingsSelect<true>;
+    'ads-brand-kit': AdsBrandKitSelect<false> | AdsBrandKitSelect<true>;
   };
   locale: null;
   widgets: {
@@ -2254,6 +2260,61 @@ export interface AdMetricsDaily {
   createdAt: string;
 }
 /**
+ * Logos, polices, captures de l'app, photos : la matière des créas. Et les créas rendues. Réservé à TIM.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-media".
+ */
+export interface AdMedia {
+  id: number;
+  kind: 'logo' | 'police' | 'capture' | 'photo' | 'musique' | 'fond' | 'crea';
+  /**
+   * Ce que montre le fichier, en une phrase.
+   */
+  alt?: string | null;
+  platform?: ('web' | 'mobile') | null;
+  feature?: string | null;
+  noClientData?: boolean | null;
+  /**
+   * Origine, auteur, date, licence ; pour une photo, l'accord des personnes visibles.
+   */
+  rights?: string | null;
+  license?: string | null;
+  prefix?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+}
+/**
+ * Les chiffres qu'une publicité peut citer, chacun avec sa source. Aucun autre chiffre ne sort.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-facts".
+ */
+export interface AdFact {
+  id: number;
+  /**
+   * Tel qu'il pourra être écrit dans une publicité.
+   */
+  statement: string;
+  source: string;
+  date: string;
+  sourceUrl?: string | null;
+  /**
+   * Décoché : le fait n'est plus proposé (périmé, contesté).
+   */
+  active?: boolean | null;
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Adresses qui ne reçoivent plus d'envoi commercial. Les e-mails de service (tickets, accusés de réception, codes de connexion) continuent de partir.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2831,6 +2892,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-metrics-daily';
         value: number | AdMetricsDaily;
+      } | null)
+    | ({
+        relationTo: 'ad-media';
+        value: number | AdMedia;
+      } | null)
+    | ({
+        relationTo: 'ad-facts';
+        value: number | AdFact;
       } | null)
     | ({
         relationTo: 'email-suppressions';
@@ -3940,6 +4009,43 @@ export interface AdMetricsDailySelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-media_select".
+ */
+export interface AdMediaSelect<T extends boolean = true> {
+  kind?: T;
+  alt?: T;
+  platform?: T;
+  feature?: T;
+  noClientData?: T;
+  rights?: T;
+  license?: T;
+  prefix?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-facts_select".
+ */
+export interface AdFactsSelect<T extends boolean = true> {
+  statement?: T;
+  source?: T;
+  date?: T;
+  sourceUrl?: T;
+  active?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "email-suppressions_select".
  */
 export interface EmailSuppressionsSelect<T extends boolean = true> {
@@ -4377,6 +4483,54 @@ export interface AdsSetting {
   createdAt?: string | null;
 }
 /**
+ * Le ton, les interdits et les polices des publicités. Couleurs et logo principal : Système › Apparence. Captures, photos et polices : Médias publicitaires. Chiffres : Faits sourcés.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ads-brand-kit".
+ */
+export interface AdsBrandKit {
+  id: number;
+  /**
+   * Vouvoiement par défaut. Le tutoiement ne sort qu'en variante étiquetée « test de ton », validée comme toute créa.
+   */
+  defaultTone: 'vous' | 'tu';
+  voice?: string | null;
+  goodExamples?: string | null;
+  badExamples?: string | null;
+  /**
+   * Refusées en code dans tout texte généré, sans tenir compte des majuscules ni des accents.
+   */
+  forbidden?:
+    | {
+        term: string;
+        reason?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Blanc ou monochrome. Le logo couleur est celui de Système › Apparence.
+   */
+  logoOnDark?: (number | null) | AdMedia;
+  /**
+   * Sans police déposée, les gabarits utilisent Lato (celle du contrat).
+   */
+  fonts?:
+    | {
+        role: 'titre' | 'texte';
+        weight?: number | null;
+        file: number | AdMedia;
+        id?: string | null;
+      }[]
+    | null;
+  advertiser?: string | null;
+  /**
+   * Ajoutées au fichier de textes téléchargé avec chaque créa.
+   */
+  legalNotice?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "appearance_select".
  */
@@ -4475,6 +4629,37 @@ export interface ContractSettingsSelect<T extends boolean = true> {
  */
 export interface AdsSettingsSelect<T extends boolean = true> {
   enabled?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ads-brand-kit_select".
+ */
+export interface AdsBrandKitSelect<T extends boolean = true> {
+  defaultTone?: T;
+  voice?: T;
+  goodExamples?: T;
+  badExamples?: T;
+  forbidden?:
+    | T
+    | {
+        term?: T;
+        reason?: T;
+        id?: T;
+      };
+  logoOnDark?: T;
+  fonts?:
+    | T
+    | {
+        role?: T;
+        weight?: T;
+        file?: T;
+        id?: T;
+      };
+  advertiser?: T;
+  legalNotice?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

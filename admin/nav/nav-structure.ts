@@ -102,7 +102,8 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
   Publicité: [
     { label: "Tableau de bord", href: "/admin/publicite", adminOnly: true },
     "ad-campaigns",
-    { label: "Paramètres", slugs: ["ad-accounts", "ads-settings"] },
+    // La matière des créas d'abord (kit, faits, médias), puis les réglages.
+    { label: "Paramètres", slugs: ["ads-brand-kit", "ad-facts", "ad-media", "ad-accounts", "ads-settings"] },
   ],
   /**
    * Ce que TIM facture. Aucune collection : l'écran lit Pennylane à la demande.
