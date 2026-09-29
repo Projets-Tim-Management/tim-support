@@ -550,6 +550,14 @@ collaborent **s'additionnent**. Le back-office a aujourd'hui 4 comptes admin
 toutes de LC DEV, le total peut atteindre 4 et la licence entreprise devient
 obligatoire. **À trancher avant le commit 9.**
 
+Précision du 29/09/2026 : les comptes admin et super-admin sont **une seule équipe,
+TIM**. Le seuil de Remotion compte les **personnes**, pas les comptes ni les licences :
+`direction@` et `cpiancatelli@` sont la même personne (Charlie), ce qui ferait
+**3 personnes** (Charlie, lafonso@, mpetrini@) → licence gratuite, si personne d'autre
+n'utilise l'outil. À 4 personnes ou plus : « Remotion for Automators », 100 $/mois
+minimum (0,01 $ par rendu) — pas un prix par siège. **Nombre de personnes à confirmer
+avant le commit 9.**
+
 **Le kit de marque réutilise la charte existante.** Les couleurs de TIM et son logo
 principal existent déjà dans *Système › Apparence* (ceux du contrat PDF) : le kit les
 lit au lieu de les redemander. Il n'ajoute que ce qui est propre à la publicité — logo
