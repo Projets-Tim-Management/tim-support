@@ -53,6 +53,66 @@ describe("ChatGPT Ads", () => {
   });
 });
 
+describe("Meta Ads", () => {
+  /**
+   * Nos annonces Meta portent toutes
+   * `utm_source={{site_source_name}}&utm_medium=paid_social` : la paire source
+   * Meta + medium payant est le SEUL signal. `fbclid` n'en est pas un — Meta le
+   * pose aussi sur les clics organiques.
+   */
+  it("fbclid seul n'est pas une annonce : le lead garde son canal", () => {
+    expect(channelOf(a({ fbclid: "IwAR0x" }))).toBe("seo");
+    expect(resolveChannel(a({ fbclid: "IwAR0x" })).source).toBe("defaut");
+  });
+
+  it("fbclid + utm_source=ig SANS medium payant n'est pas une annonce", () => {
+    // Un lien en bio Instagram : Meta ajoute fbclid, la source peut être posée
+    // à la main. Rien n'a été acheté.
+    expect(channelOf(a({ fbclid: "IwAR0x", utm_source: "ig" }))).toBe("seo");
+  });
+
+  it("ig + paid_social → Meta Ads — Instagram", () => {
+    expect(channelOf(a({ utm_source: "ig", utm_medium: "paid_social" }))).toBe("meta-instagram");
+    expect(resolveChannel(a({ utm_source: "ig", utm_medium: "paid_social" })).source).toBe("clic-payant");
+  });
+
+  it("an + paid_social → Meta Ads — Facebook (Audience Network, rangé avec Facebook)", () => {
+    expect(channelOf(a({ utm_source: "an", utm_medium: "paid_social" }))).toBe("meta-facebook");
+  });
+
+  it("reconnaît fb, facebook, msg et instagram, quelle que soit la casse", () => {
+    expect(channelOf(a({ utm_source: "fb", utm_medium: "paid_social" }))).toBe("meta-facebook");
+    expect(channelOf(a({ utm_source: "Facebook", utm_medium: "cpc" }))).toBe("meta-facebook");
+    expect(channelOf(a({ utm_source: "msg", utm_medium: "paid" }))).toBe("meta-facebook");
+    expect(channelOf(a({ utm_source: "Instagram", utm_medium: "paid_social" }))).toBe("meta-instagram");
+  });
+
+  it("l'emporte sur la règle générale : paid_social n'est pas Google Ads", () => {
+    const meta = a({ utm_source: "fb", utm_medium: "paid_social" });
+    expect(hasPaidClick(meta), "la règle générale répond bien oui").toBe(true);
+    expect(channelOf(meta)).toBe("meta-facebook");
+  });
+
+  it("fbclid ne change jamais la décision, landing page comprise", () => {
+    for (const raw of [
+      { placement: "lp-hero" },
+      { utm_source: "ig" },
+      { utm_source: "google", utm_medium: "cpc", gclid: "Cj0" },
+      { utm_source: "ig", utm_medium: "paid_social" },
+    ]) {
+      expect(resolveChannel(a({ ...raw, fbclid: "IwAR0x" }))).toEqual(resolveChannel(a(raw)));
+    }
+  });
+
+  it("conserve fbclid dans l'attribution, pour la Conversions API", () => {
+    expect(a({ fbclid: "IwAR0x" }).fbclid).toBe("IwAR0x");
+  });
+
+  it("ne détourne pas un lead Google", () => {
+    expect(channelOf(a({ utm_source: "google", utm_medium: "cpc", gclid: "Cj0" }))).toBe("sea");
+  });
+});
+
 describe("trace d'un clic payant", () => {
   it("reconnaît les identifiants de clic des deux régies", () => {
     expect(hasPaidClick(a({ gclid: "Cj0KCQ" }))).toBe(true);

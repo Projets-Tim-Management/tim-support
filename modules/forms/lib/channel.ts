@@ -8,7 +8,8 @@ import type { Channel } from "@/modules/forms/lib/form-schema";
  * Trois signaux, du plus sûr au plus faible :
  *
  *  1. une TRACE DE CLIC PAYANT (`gclid`, `msclkid`, `utm_medium` payant). C'est
- *     un fait : la personne arrive d'une annonce, quelle que soit la page ;
+ *     un fait : la personne arrive d'une annonce, quelle que soit la page. La
+ *     régie se lit d'abord (ChatGPT, Meta), Google Ads est le cas général ;
  *  2. l'EMPLACEMENT sur une landing page. Les deux LP ne sont pas indexées et ne
  *     sont atteignables que par les campagnes Ads — mais un visiteur peut y
  *     revenir en direct, sans paramètre, et le clic payant est alors invisible ;
@@ -61,6 +62,39 @@ export const isChatGpt = (a: Attribution): boolean =>
   Boolean(a.oaiclid) ||
   (a.utmSource?.trim().toLowerCase() === "chatgpt" && isPaidMedium(a.utmMedium));
 
+/**
+ * `utm_source` écrit par Meta à la diffusion (`{{site_source_name}}`) → canal.
+ * Messenger (`msg`) et Audience Network (`an`) tombent dans Facebook tant que
+ * leur volume ne justifie pas un canal à part ; le code brut reste dans
+ * `utm_source`.
+ */
+const META_SOURCES: Record<string, Channel> = {
+  fb: "meta-facebook",
+  facebook: "meta-facebook",
+  msg: "meta-facebook",
+  an: "meta-facebook",
+  ig: "meta-instagram",
+  instagram: "meta-instagram",
+};
+
+/**
+ * La visite vient-elle d'une ANNONCE Meta, et sur quel support ?
+ *
+ * Un seul signal : un medium payant ACCOMPAGNÉ d'une source Meta. Toutes nos
+ * annonces Meta portent `utm_source={{site_source_name}}&utm_medium=paid_social`
+ * (plan Publicité, §4.8) — c'est ce qui rend la règle fiable.
+ *
+ * ⚠️ `fbclid` n'est délibérément PAS un signal. Meta l'ajoute aussi aux clics
+ * ORGANIQUES (publications, liens en bio, liens partagés), et il ne distingue pas
+ * Facebook d'Instagram : le compter ferait passer pour acheté un trafic gratuit,
+ * et gonflerait le coût d'acquisition d'un canal sans que rien ne le signale. Un
+ * lead porteur de `fbclid` seul garde le canal qu'il aurait eu sans lui.
+ */
+export const metaChannel = (a: Attribution): Channel | null => {
+  if (!isPaidMedium(a.utmMedium)) return null;
+  return META_SOURCES[a.utmSource?.trim().toLowerCase() ?? ""] ?? null;
+};
+
 /** La visite porte-t-elle la trace d'un clic acheté ? */
 export const hasPaidClick = (a: Attribution): boolean =>
   Boolean(a.gclid || a.msclkid) || isPaidMedium(a.utmMedium);
@@ -102,6 +136,11 @@ export function resolveChannel(a: Attribution, defaultChannel: Channel = "seo"):
    * dans les tableaux de bord, mentirait.
    */
   if (isChatGpt(a)) return { channel: "chatgpt", source: "clic-payant" };
+
+  // Meta aussi AVANT la règle générale, pour la même raison : `paid_social` est
+  // un medium payant, et ces leads s'afficheraient sinon « Google Ads ».
+  const meta = metaChannel(a);
+  if (meta) return { channel: meta, source: "clic-payant" };
 
   // Un gclid est un fait ; l'emplacement n'est qu'une présomption. L'ordre compte.
   if (hasPaidClick(a)) return { channel: "sea", source: "clic-payant" };

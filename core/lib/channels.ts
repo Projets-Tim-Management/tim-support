@@ -39,6 +39,11 @@ export const CHANNEL_REGISTRY = [
   { channel: "seo", source: "site-vitrine-seo", label: "Site vitrine — SEO", paid: false },
   { channel: "sea", source: "google-ads-sea", label: "Google Ads — SEA", paid: true },
   { channel: "chatgpt", source: "chatgpt-ads-sea", label: "ChatGPT Ads — SEA", paid: true },
+  // Publicité sur réseau social, pas sur moteur de recherche : payante, mais pas
+  // « SEA ». Le support (Facebook ou Instagram) est dit par Meta à chaque clic
+  // (`utm_source={{site_source_name}}`, voir forms/lib/channel.ts).
+  { channel: "meta-facebook", source: "meta-facebook", label: "Meta Ads — Facebook", paid: true },
+  { channel: "meta-instagram", source: "meta-instagram", label: "Meta Ads — Instagram", paid: true },
   // Fiches importées de Brevo, qui ne distinguait pas SEO et SEA.
   { channel: null, source: "site-vitrine", label: "Site vitrine (import Brevo)", paid: false },
 ] as const satisfies readonly ChannelEntry[];

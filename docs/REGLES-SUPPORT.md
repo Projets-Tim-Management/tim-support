@@ -69,7 +69,8 @@ Elle s'arrête à **« Décision du client »**. Chaque étape a un acteur : **T
 
 ## Leads du site vitrine
 
-- Un formulaire soumis crée **immédiatement** une opportunité « Nouvelle » chez le partenaire du site vitrine, avec le téléphone, les besoins et l'origine (SEO, Google Ads, ChatGPT Ads). Si le prospect est déjà connu (même e-mail, sinon même téléphone), la demande est journalisée sur sa fiche.
+- Un formulaire soumis crée **immédiatement** une opportunité « Nouvelle » chez le partenaire du site vitrine, avec le téléphone, les besoins et l'origine (SEO, Google Ads, ChatGPT Ads, Meta Ads — Facebook, Meta Ads — Instagram). Si le prospect est déjà connu (même e-mail, sinon même téléphone), la demande est journalisée sur sa fiche.
+- **Origine d'un lead**, dans l'ordre : ChatGPT Ads (référence de clic `oaiclid`, ou source `chatgpt` + medium payant) ; Meta Ads (source Meta + medium payant : `fb`, `facebook`, `msg`, `an` → Facebook ; `ig`, `instagram` → Instagram) ; Google Ads (`gclid`, `msclkid` ou tout autre medium payant, puis arrivée sur une landing page de campagne) ; sinon le canal par défaut du formulaire (SEO). Une source seule, sans medium payant, ne fait jamais un lead payant. `fbclid` n'est **pas** un signal publicitaire (Meta le pose aussi sur les clics gratuits) : il est conservé sur la soumission, sans changer l'origine.
 - E-mail mal formé ou téléphone illisible : la fiche est créée **quand même**, avec une **réserve** (alerte « non conforme » en tête de fiche et badge sur la carte) qui disparaît quand le champ est corrigé. L'e-mail devient obligatoire à la phase de test.
 - « À reprendre » = soumissions en échec (rien créé) ou en brouillon (ancien comportement).
 

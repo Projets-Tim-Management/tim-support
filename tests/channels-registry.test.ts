@@ -31,15 +31,22 @@ const HISTORIC_PROVENANCE = [
   { label: "Site vitrine (import Brevo)", value: "site-vitrine" },
 ];
 
+/** Ajoutés depuis (29/09/2026) : même valeur des deux côtés. */
+const META = [
+  { label: "Meta Ads — Facebook", value: "meta-facebook" },
+  { label: "Meta Ads — Instagram", value: "meta-instagram" },
+];
+
 describe("registre des canaux", () => {
-  it("reproduit les canaux de soumission historiques", () => {
-    expect(CHANNELS).toEqual(HISTORIC_CHANNELS);
+  it("garde les canaux de soumission historiques, et ajoute Meta EN FIN (ordre de l'enum)", () => {
+    expect(CHANNELS).toEqual([...HISTORIC_CHANNELS, ...META.map((m) => ({ ...m, paid: true }))]);
   });
 
-  it("reproduit la Provenance historique, et c'est bien elle que l'opportunité déclare", () => {
-    expect(PROVENANCE_OPTIONS).toEqual(HISTORIC_PROVENANCE);
+  it("garde la Provenance historique, Meta avant l'import Brevo — et c'est bien elle que l'opportunité déclare", () => {
+    const expected = [...HISTORIC_PROVENANCE.slice(0, 4), ...META, HISTORIC_PROVENANCE[4]];
+    expect(PROVENANCE_OPTIONS).toEqual(expected);
     const field = PartnerClients.fields.find((f) => "name" in f && f.name === "source");
-    expect(field && "options" in field ? field.options : null).toEqual(HISTORIC_PROVENANCE);
+    expect(field && "options" in field ? field.options : null).toEqual(expected);
   });
 
   it("garde la correspondance canal → provenance sans rien renommer", () => {
@@ -47,7 +54,15 @@ describe("registre des canaux", () => {
       seo: "site-vitrine-seo",
       sea: "google-ads-sea",
       chatgpt: "chatgpt-ads-sea",
+      "meta-facebook": "meta-facebook",
+      "meta-instagram": "meta-instagram",
     });
+  });
+
+  it("compte Meta comme payant, sans l'étiqueter SEA", () => {
+    expect(isPaidChannel("meta-facebook")).toBe(true);
+    expect(isPaidChannel("meta-instagram")).toBe(true);
+    expect(channelLabel("meta-facebook")).not.toMatch(/SEA/);
   });
 
   it("donne le même libellé à un canal et à sa provenance", () => {

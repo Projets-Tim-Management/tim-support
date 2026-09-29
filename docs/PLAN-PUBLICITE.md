@@ -38,7 +38,7 @@
 | D5 | **Trois niveaux d'autonomie par campagne** : `observer` · `proposer` (défaut) · `autonome` | `observer` = rapport seul. `proposer` = tout passe par « À valider ». `autonome` = exécute seul **sous** les garde-fous, et ce qui les dépasse repasse en validation |
 | D6 | **On optimise sur la fiche, pas sur le formulaire** | Un lead qualifié, un test démarré, un contrat signé sont renvoyés à la régie (Meta Conversions API, conversions hors ligne Google, Conversions API OpenAI). Sinon l'algorithme apprend à trouver des leads bon marché qui ne signent pas |
 | D7 | **Un registre unique des canaux** (`core/lib/channels.ts`) | La liste existait en quatre exemplaires (`CHANNELS` dans forms, options « Provenance » dans `partner-clients`, correspondance `SOURCE_BY_CHANNEL`, libellés de l'analyse du pipeline), avec des valeurs différentes : `sea` / `google-ads-sea`. Chaque entrée du registre porte les deux valeurs historiques — on ne renomme rien, l'historique reste vrai. Les canaux ajoutés depuis prennent **la même valeur des deux côtés**. L'ordre du registre est l'ordre des enums |
-| D7 bis | **Meta se déclare en deux canaux** : « Meta Ads — Facebook » (`meta-facebook`) et « Meta Ads — Instagram » (`meta-instagram`), mêmes valeurs sur la soumission et sur l'opportunité, marqués `paid: true` | Ils sont comptés comme canaux payants, au même titre que Google Ads et ChatGPT Ads. Mais on ne les étiquette pas « SEA » : ce n'est pas de la publicité sur moteur de recherche, c'est de la publicité sur réseau social. Le support (Facebook ou Instagram) est lu sur chaque lead (§4.7). **Détection dès la phase 0** (§4.8) : sans elle, `resolveChannel` range tout clic payant — `utm_medium=paid_social` compris — dans Google Ads, et la première campagne Meta fausserait les chiffres Google Ads sans que rien ne le signale |
+| D7 bis | **Meta se déclare en deux canaux** : « Meta Ads — Facebook » (`meta-facebook`) et « Meta Ads — Instagram » (`meta-instagram`), mêmes valeurs sur la soumission et sur l'opportunité, marqués `paid: true` | Ils sont comptés comme canaux payants, au même titre que Google Ads et ChatGPT Ads. Mais on ne les étiquette pas « SEA » : ce n'est pas de la publicité sur moteur de recherche, c'est de la publicité sur réseau social. Le support (Facebook ou Instagram) est lu sur chaque lead (§4.7). **Détection dès la phase 0** (§4.8) : sans elle, `resolveChannel` range tout clic payant — `utm_medium=paid_social` compris — dans Google Ads, et la première campagne Meta fausserait les chiffres Google Ads sans que rien ne le signale. Seul signal : source Meta + medium payant ; `fbclid` n'en est pas un |
 | D8 | **Une créa est indépendante de la régie** : un message + des assets ; les formats par régie sont des **déclinaisons** | La même accroche sert Meta (carré, 9:16) et plus tard Google (RSA, Performance Max) sans être réécrite |
 | D9 | **Garde-fous en code, jamais dans le prompt** | Un prompt se contourne, un `if` non. Les plafonds vivent dans le global `ads-settings` (§6) |
 | D10 | **Un passage d'agent = une campagne = une fonction** | Durée limitée des fonctions Vercel : le cron distribue, chaque campagne tourne seule. La génération vidéo est asynchrone : lancée à un passage, récupérée au suivant. Même esprit pour la synchro : un compte en erreur n'arrête pas les autres |
@@ -185,21 +185,38 @@ réponse — pour ne jamais l'envoyer deux fois.
 générale, comme il le fait déjà pour ChatGPT — placée après, la règle ne serait jamais
 atteinte, puisque tout medium payant répond déjà « Google Ads ».
 
-| Signal | Canal |
-|---|---|
-| `utm_source` = `fb`, `facebook`, `msg` ou `an`, avec `fbclid` **ou** un medium payant | Meta Ads — Facebook |
-| `utm_source` = `ig` ou `instagram`, avec `fbclid` **ou** un medium payant | Meta Ads — Instagram |
-| `fbclid` seul, sans `utm_source` reconnu | Meta Ads — Facebook (le support n'est pas connu, Facebook par défaut comme `msg` / `an`) |
+**Le seul signal payant est un medium payant** (`paid_social`, `cpc`, `paid`…)
+**accompagné d'une source Meta** :
 
-Les annonces portent `utm_source={{site_source_name}}` : Meta y écrit `fb`, `ig`,
-`msg` ou `an` à la diffusion. `utm_source=facebook` **seul** ne suffit pas, pour la
-même raison que `chatgpt` seul : un lien partagé à la main sur une page Facebook
-n'est pas un clic acheté.
+| `utm_source` (avec un medium payant) | Canal |
+|---|---|
+| `fb`, `facebook`, `msg`, `an` | Meta Ads — Facebook |
+| `ig`, `instagram` | Meta Ads — Instagram |
+
+**`fbclid` n'est pas un signal de clic payant.** Meta l'ajoute aussi aux clics
+organiques (publications, liens en bio, liens partagés), et il ne distingue pas
+Facebook d'Instagram. `fbclid` seul, ou `fbclid` avec une source Meta mais sans medium
+payant : ce n'est **pas** Meta Ads — le lead garde le canal qu'il aurait eu sans
+`fbclid`. `fbclid` est tout de même **conservé** dans l'attribution de la soumission :
+il sert au paramètre `fbc` de la Conversions API en phase 1.
+
+**Paramètres d'URL obligatoires sur toutes nos annonces Meta :**
+
+```
+utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign={{campaign.id}}&utm_content={{ad.id}}
+```
+
+C'est ce qui rend la règle fiable (Meta écrit `fb`, `ig`, `msg` ou `an` à la
+diffusion, et le medium est fixé par nous), et ce qui relie chaque lead à **sa
+campagne** et à **son annonce** (`utm_campaign` = `externalId` de `ad-campaigns`,
+`utm_content` = identifiant de l'annonce). Une annonce publiée sans ces paramètres
+produit des leads comptés dans le mauvais canal.
 
 ⚠️ **Prérequis côté vitrine, avant la première campagne Meta qui renvoie vers le
 site** : capter `fbclid` (comme `gclid` et `oaiclid`) et le transmettre avec la
-soumission. Sans lui, seule la paire `utm_source` + medium payant reconnaît un lead
-Meta — suffisant si les UTM sont posées, aveugle sinon.
+soumission. Il ne sert **pas** à détecter le canal, mais à la Conversions API
+(phase 1) : sans lui, le renvoi des conversions à Meta perd sa meilleure clé de
+rapprochement.
 
 ---
 
@@ -330,7 +347,7 @@ qu'on ouvre tous les matins. Les chiffres viennent après.
 | # | Commit | Schéma |
 |---|---|---|
 | 1 | Registre des canaux `core/lib/channels.ts` : remplace les quatre copies, valeurs et ordre inchangés ; ce plan mis à jour | aucun (migration générée vide) |
-| 2 | Canaux `meta-facebook` / `meta-instagram` + détection §4.8 | migration commune 2 + 3 |
+| 2 | Canaux `meta-facebook` / `meta-instagram`, détection §4.8, `fbclid` conservé sur la soumission | migration commune 2 + 3 |
 | 3 | Socle `modules/ads` : registre des régies, types, `ad-accounts`, `ad-campaigns`, `ad-metrics-daily`, `ads-settings`, nav « Publicité », admin seul | migration commune 2 + 3 |
 | 4 | Adaptateur Meta en lecture + données simulées `ADS_META_MOCK`, testé (vitest) | — |
 | 5 | Connexion : OAuth (state signé, jeton longue durée chiffré), jeton système, entrée « meta » des connexions du support + Tester | — |

@@ -581,7 +581,17 @@ export interface PartnerClient {
    * La commission du partenaire s'arrête à cette date.
    */
   resiliationDate?: string | null;
-  source?: ('manuelle' | 'site-vitrine-seo' | 'google-ads-sea' | 'chatgpt-ads-sea' | 'site-vitrine') | null;
+  source?:
+    | (
+        | 'manuelle'
+        | 'site-vitrine-seo'
+        | 'google-ads-sea'
+        | 'chatgpt-ads-sea'
+        | 'meta-facebook'
+        | 'meta-instagram'
+        | 'site-vitrine'
+      )
+    | null;
   /**
    * Déclaré au formulaire du site vitrine.
    */
@@ -782,7 +792,7 @@ export interface FormSubmission {
     | number
     | boolean
     | null;
-  channel?: ('seo' | 'sea' | 'chatgpt') | null;
+  channel?: ('seo' | 'sea' | 'chatgpt' | 'meta-facebook' | 'meta-instagram') | null;
   placement?: ('drawer' | 'page-contact' | 'lp-hero' | 'lp-section') | null;
   /**
    * « Clic payant » est un fait ; « landing page » est une présomption. Beaucoup de présomptions = le taggage automatique de Google Ads ne remonte plus, ou le cookie d'attribution ne tient pas.
@@ -811,6 +821,10 @@ export interface FormSubmission {
    * Référence de clic ChatGPT Ads, posée par la vitrine.
    */
   oaiclid?: string | null;
+  /**
+   * Identifiant de clic Meta. Présent aussi sur les clics organiques : il ne dit pas qu'un lead vient d'une annonce.
+   */
+  fbclid?: string | null;
   client?: (number | null) | PartnerClient;
   /**
    * « Brouillon » signale une soumission sans e-mail exploitable : la fiche existe mais n'est pas publiée.
@@ -839,7 +853,7 @@ export interface Form {
   /**
    * Canal retenu quand la visite ne porte aucune trace de campagne. Un gclid ou un utm_medium=cpc réellement présent prime toujours sur cette valeur.
    */
-  defaultChannel: 'seo' | 'sea' | 'chatgpt';
+  defaultChannel: 'seo' | 'sea' | 'chatgpt' | 'meta-facebook' | 'meta-instagram';
   /**
    * L'ordre de cette liste est l'ordre d'affichage sur le site.
    */
@@ -3730,6 +3744,7 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
   gclid?: T;
   msclkid?: T;
   oaiclid?: T;
+  fbclid?: T;
   client?: T;
   processingStatus?: T;
   processingError?: T;
