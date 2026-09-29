@@ -670,9 +670,15 @@ sans navigateur, sans service externe, sans coût à l'unité.
 | 4:5 | 1080 × 1350 | Fil d'actualité mobile — recommandé |
 | 9:16 | 1080 × 1920 | Stories, Reels. **Zone sûre Meta unifiée (mars 2026)** : 14 % en haut, 35 % en bas, 6 % sur les côtés ; titre, logo et bouton restent dans la zone centrale |
 
-- **3 gabarits au départ** : « capture » (capture de l'app sur fond de marque + accroche),
-  « chiffre » (un fait sourcé en grand), « photo » (photo chantier + bandeau). Chacun
-  en trois formats, par composition et non par recadrage.
+- **4 gabarits** : « capture » (capture de l'app sur fond de marque + accroche),
+  « chiffre » (un fait sourcé en grand, **avec sa source**), « photo » (photo chantier +
+  dégradé), et « texte » (l'accroche seule, pour qu'une créa ait toujours un visuel tant
+  que le kit n'a ni capture ni photo). Chacun en trois formats, par composition et non
+  par recadrage. Le **même gabarit** pour toutes les créas d'une génération : deux
+  angles avec deux visuels différents ne diraient plus lequel des deux a compté —
+  changer de visuel est un test à part (dimension « visuel »).
+- `satori` est déclaré externe (`serverExternalPackages`) et ses moteurs WebAssembly
+  sont embarqués explicitement : empaqueté, il cherchait `hb.wasm` au mauvais endroit.
 - Chaque rendu est **vérifié en code** : dimensions exactes, poids sous 30 Mo, texte
   dans la zone sûre (les boîtes de texte sont calculées, pas estimées).
 - Les gabarits sont écrits dans le sous-ensemble CSS de Satori : ils se réutilisent

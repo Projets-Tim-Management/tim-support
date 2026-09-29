@@ -5,6 +5,7 @@ import { payloadClient } from "@/core/payload-client";
 import { callClaude, CopyModelError } from "@/modules/ads/lib/copy/claude";
 import { AdsBudgetError, GenerateError, generateCreatives, loadGenerationContext, maxCostEur, missingBrief, weeklyUsed, type GenerateOptions } from "@/modules/ads/lib/copy/generate";
 import { userPrompt } from "@/modules/ads/lib/copy/prompt";
+import { renderCreativeVisuals } from "@/modules/ads/lib/render/visuals";
 import { assertAdsBudget } from "@/modules/ads/lib/spend";
 
 /**
@@ -12,7 +13,9 @@ import { assertAdsBudget } from "@/modules/ads/lib/spend";
  *
  * GET  ?angles=3&toneTest=1 → ce que coûterait la génération AVANT de cliquer :
  *      brief incomplet, coût maximal, budget restant, quota de la semaine.
- * POST { angles, toneTest } → génère (voir lib/copy/generate) et renvoie le lot.
+ * POST { angles, toneTest } → génère les textes (lib/copy/generate), puis les
+ *      visuels de chaque créa (lib/render/visuals), et renvoie le lot. Un visuel
+ *      qui échoue laisse sa créa en brouillon, sans bloquer les autres.
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -65,8 +68,19 @@ export async function POST(req: Request, { params }: Params) {
   const body = (await req.json().catch(() => ({}))) as { angles?: unknown; toneTest?: unknown };
   try {
     const r = await generateCreatives(payload, id, options(body.angles, body.toneTest), { call: callClaude });
-    payload.logger.info(`[publicité] génération ${r.batch} : ${r.created.length} créa(s), ${r.texts.rejected} texte(s) rejeté(s), ${r.costEur.toFixed(3)} €.`);
-    return NextResponse.json(r);
+    let toValidate = 0;
+    const visualErrors: string[] = [];
+    for (const creativeId of r.created) {
+      try {
+        const v = await renderCreativeVisuals(payload, creativeId);
+        if (v.status === "a-valider") toValidate++;
+      } catch (e) {
+        visualErrors.push((e as Error).message);
+        payload.logger.warn(`[publicité] visuels de la créa ${creativeId} : ${(e as Error).message}`);
+      }
+    }
+    payload.logger.info(`[publicité] génération ${r.batch} : ${r.created.length} créa(s), ${toValidate} à valider, ${r.texts.rejected} texte(s) rejeté(s), ${r.costEur.toFixed(3)} €.`);
+    return NextResponse.json({ ...r, toValidate, visualErrors });
   } catch (e) {
     const known = e instanceof GenerateError || e instanceof AdsBudgetError || e instanceof CopyModelError;
     if (!known) payload.logger.error(`[publicité] génération échouée pour la campagne ${id} : ${(e as Error).message}`);
