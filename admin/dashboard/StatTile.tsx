@@ -32,6 +32,10 @@ interface Props {
   /** Accent visuel : neutre, primary, attention (ambre), danger (rouge). */
   tone?: "default" | "accent" | "warn" | "danger";
   delta?: number;
+  /** Écart déjà mis en forme (« +12,5 % ») à la place du nombre brut. */
+  deltaLabel?: string;
+  /** Ce à quoi l'écart se compare — défaut : les 30 jours précédents. */
+  deltaTitle?: string;
   /** true : hausse = bien (vert) ; false : hausse = mauvais (rouge). */
   goodWhenUp?: boolean;
   sparkline?: number[];
@@ -49,6 +53,8 @@ export default function StatTile({
   href,
   tone = "default",
   delta,
+  deltaLabel,
+  deltaTitle = "Évolution vs 30 jours précédents",
   goodWhenUp = true,
   sparkline,
 }: Props) {
@@ -70,8 +76,8 @@ export default function StatTile({
       <div className="dash-tile__value-row">
         <span className="dash-tile__value">{value}</span>
         {delta != null && (
-          <span className={`dash-tile__delta ${deltaClass}`} title="Évolution vs 30 jours précédents">
-            {signed(delta)}
+          <span className={`dash-tile__delta ${deltaClass}`} title={deltaTitle}>
+            {deltaLabel ?? signed(delta)}
           </span>
         )}
       </div>

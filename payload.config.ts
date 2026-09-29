@@ -246,6 +246,13 @@ export default buildConfig({
           exact: true,
           meta: { title: "Analyses · Clients & pipeline" },
         },
+        // Publicité › Tableau de bord — voir modules/ads/admin/AdsDashboardView.
+        publicite: {
+          Component: "/modules/ads/admin/AdsDashboardView#default",
+          path: "/publicite",
+          exact: true,
+          meta: { title: "Publicité" },
+        },
         analysesAcquisition: {
           Component: "/modules/analytics/admin/AcquisitionView#default",
           path: "/analyses/acquisition",

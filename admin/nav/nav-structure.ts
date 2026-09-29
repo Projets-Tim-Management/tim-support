@@ -99,7 +99,11 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
    * regarde ; les comptes et les garde-fous se règlent une fois, ils vont dans
    * « Paramètres ». Admin seul (plan Publicité, D1).
    */
-  Publicité: ["ad-campaigns", { label: "Paramètres", slugs: ["ad-accounts", "ads-settings"] }],
+  Publicité: [
+    { label: "Tableau de bord", href: "/admin/publicite", adminOnly: true },
+    "ad-campaigns",
+    { label: "Paramètres", slugs: ["ad-accounts", "ads-settings"] },
+  ],
   /**
    * Ce que TIM facture. Aucune collection : l'écran lit Pennylane à la demande.
    * Réservé aux admins, les partenaires n'en voient rien.

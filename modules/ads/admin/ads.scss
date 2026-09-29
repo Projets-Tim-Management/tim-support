@@ -67,3 +67,52 @@
   color: var(--tim-muted);
   font-size: 0.75rem;
 }
+
+/* ─── Tableau de bord (/admin/publicite) ─────────────────────────────────── */
+.ads-dash { display: flex; flex-direction: column; gap: 1rem; }
+.ads-dash__sub { margin: 0.2rem 0 0; color: var(--tim-muted); font-size: 0.9rem; }
+.ads-dash__filters { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: space-between; }
+
+/* « À valider » : en tête, même vide — c'est la place qu'il occupera chaque matin. */
+.ads-dash__todo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1.2rem;
+  border: 1px dashed color-mix(in srgb, var(--tim-border) 90%, transparent);
+  border-radius: 0.75rem;
+  background: var(--tim-white);
+}
+.ads-dash__todo-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  color: var(--tim-muted);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+.ads-dash__todo-text { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.875rem; color: var(--tim-muted); }
+.ads-dash__todo-text strong { color: var(--tim-foreground); font-size: 0.95rem; }
+
+.ads-dash__accounts { margin: 0; font-size: 0.875rem; color: var(--tim-muted); }
+.ads-dash__accounts a { color: var(--tim-primary-dark); font-weight: 600; }
+.ads-dash__accounts--empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.2rem;
+  border-radius: 0.75rem;
+  background: var(--tim-white);
+  border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+}
+.ads-dash__alerts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.ads-dash__alert { padding: 0.55rem 0.85rem; border-radius: 0.5rem; font-size: 0.875rem; }
+.ads-dash__alert a { color: inherit; }
+.ads-dash__alert--bad { background: var(--tim-red-bg); color: var(--tim-red); }
+.ads-dash__alert--warn { background: var(--tim-amber-bg); color: var(--tim-amber); }
+.ads-dash__note { margin: 0; font-size: 0.8rem; color: var(--tim-muted); }
