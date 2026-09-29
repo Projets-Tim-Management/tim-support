@@ -2699,11 +2699,14 @@ export interface AdAiUsage {
 export interface AdCompetitor {
   id: number;
   name: string;
-  pageUrl?: string | null;
   /**
-   * Facultatif : retrouvé depuis la bibliothèque publicitaire s'il manque.
+   * Collez le lien de l'annonceur dans la bibliothèque publicitaire Meta (il contient view_all_page_id=…), ou l'identifiant seul. À l'enregistrement, seul l'identifiant reste ici ; le lien est gardé en dessous.
    */
-  pageId?: string | null;
+  pageId: string;
+  /**
+   * Le lien collé, tel quel.
+   */
+  sourceUrl?: string | null;
   status: 'suivi' | 'propose' | 'refuse';
   decidedAt?: string | null;
   proposedBy?: (number | null) | AdAgentRun;
@@ -4688,8 +4691,8 @@ export interface AdDecisionsSelect<T extends boolean = true> {
  */
 export interface AdCompetitorsSelect<T extends boolean = true> {
   name?: T;
-  pageUrl?: T;
   pageId?: T;
+  sourceUrl?: T;
   status?: T;
   decidedAt?: T;
   proposedBy?: T;

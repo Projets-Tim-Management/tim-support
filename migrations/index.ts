@@ -124,6 +124,7 @@ import * as migration_20260929_073451_publicite_socle_et_canaux_meta from './202
 import * as migration_20260929_095438_publicite_atelier_de_creas from './20260929_095438_publicite_atelier_de_creas';
 import * as migration_20260929_153500_creas_textes_en_copy from './20260929_153500_creas_textes_en_copy';
 import * as migration_20260929_161558_agent_de_campagne from './20260929_161558_agent_de_campagne';
+import * as migration_20260929_190000_concurrents_par_identifiant_de_page from './20260929_190000_concurrents_par_identifiant_de_page';
 
 export const migrations = [
   {
@@ -755,5 +756,10 @@ export const migrations = [
     up: migration_20260929_161558_agent_de_campagne.up,
     down: migration_20260929_161558_agent_de_campagne.down,
     name: '20260929_161558_agent_de_campagne'
+  },
+  {
+    up: migration_20260929_190000_concurrents_par_identifiant_de_page.up,
+    down: migration_20260929_190000_concurrents_par_identifiant_de_page.down,
+    name: '20260929_190000_concurrents_par_identifiant_de_page'
   },
 ];
