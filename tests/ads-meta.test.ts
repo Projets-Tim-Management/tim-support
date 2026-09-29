@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { PlatformNotConfigured, getPlatform, isMetaMock } from "@/modules/ads/platforms";
 import { createMetaPlatform, metaAmount, metaLeads, metaObjective, metaStatus } from "@/modules/ads/platforms/meta";
-import { MOCK_ACCOUNT_ID, createMockMetaPlatform, daysBetween } from "@/modules/ads/platforms/meta-mock";
+import { MOCK_ACCOUNT_ID, MOCK_PREFIX, createMockMetaPlatform, daysBetween } from "@/modules/ads/platforms/meta-mock";
 import { AdTokenError } from "@/modules/ads/platforms/types";
 
 const NOW = new Date("2026-09-29T08:00:00.000Z");
@@ -18,7 +18,7 @@ function graph(routes: [RegExp, unknown, number?][]) {
     if (!hit) return new Response(JSON.stringify({ error: { message: `route absente : ${url.pathname}`, code: 100 } }), { status: 400 });
     return new Response(JSON.stringify(hit[1]), { status: hit[2] ?? 200 });
   };
-  const platform = createMetaPlatform({ appId: "app", appSecret: "secret", version: "v24.0", fetch, now: () => NOW });
+  const platform = createMetaPlatform({ appId: "app", appSecret: "secret", version: "v26.0", fetch, now: () => NOW });
   return { platform, seen };
 }
 
@@ -72,7 +72,7 @@ describe("adaptateur Meta (API Graph simulée)", () => {
   it("liste les comptes en suivant la pagination", async () => {
     const { platform } = graph([
       [/after=p2/, { data: [{ id: "act_2", name: "Deux", currency: "EUR", timezone_name: "Europe/Paris" }] }],
-      [/me\/adaccounts/, { data: [{ id: "act_1", name: "Un", currency: "EUR", timezone_name: "Europe/Paris" }], paging: { next: "https://graph.facebook.com/v24.0/me/adaccounts?after=p2" } }],
+      [/me\/adaccounts/, { data: [{ id: "act_1", name: "Un", currency: "EUR", timezone_name: "Europe/Paris" }], paging: { next: "https://graph.facebook.com/v26.0/me/adaccounts?after=p2" } }],
     ]);
     expect((await platform.listAccounts("EAAB")).map((a) => a.externalId)).toEqual(["act_1", "act_2"]);
   });
@@ -163,6 +163,12 @@ describe("Meta simulé (ADS_META_MOCK=1)", () => {
       expect(total(byAdset, k), k).toBe(total(byCampaign, k));
       expect(total(byAd, k), k).toBe(total(byCampaign, k));
     }
+  });
+
+  it("préfixe le compte et chaque campagne : dev et prod partagent la base", async () => {
+    expect(MOCK_PREFIX).toBe("[SIMULÉ]");
+    for (const a of await mock.listAccounts("x")) expect(a.name.startsWith(`${MOCK_PREFIX} `)).toBe(true);
+    for (const c of await mock.listCampaigns(acc)) expect(c.name.startsWith(`${MOCK_PREFIX} `)).toBe(true);
   });
 
   it("compte les jours bornes incluses", () => {

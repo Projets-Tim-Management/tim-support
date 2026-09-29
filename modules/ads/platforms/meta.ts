@@ -34,7 +34,8 @@ export type MetaConfig = {
   now: () => Date;
 };
 
-export const META_DEFAULT_VERSION = "v24.0";
+/** v26.0, sortie le 29/07/2026 — à confirmer dans le changelog Meta à la création de l'app. */
+export const META_DEFAULT_VERSION = "v26.0";
 
 /**
  * Ce qui compte comme un lead chez Meta. `lead` est l'agrégat (formulaires

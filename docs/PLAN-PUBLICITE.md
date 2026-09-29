@@ -275,9 +275,18 @@ de bord et dans « Connexions du support » : un chiffre inventé ne doit jamais
 pour un vrai.
 
 **Variables** : `META_APP_ID`, `META_APP_SECRET` (app Meta), `META_GRAPH_VERSION`
-(défaut `v24.0` — Meta retire une version tous les ~2 ans, elle se change sans
+(défaut `v26.0`, sortie le 29/07/2026 — à confirmer dans le changelog Meta à la
+création de l'app ; Meta retire une version tous les ~2 ans, elle se change sans
 déploiement de code), `ADS_META_MOCK=1` (données simulées). Sans les deux premières
 et sans le drapeau, l'adaptateur refuse de démarrer en disant ce qui manque.
+
+⚠️ **Dev et prod partagent la base** : un compte simulé connecté en local existe aussi
+en production. Le compte et les campagnes simulés portent le préfixe **« [SIMULÉ] »**,
+pour être reconnus et archivés proprement une fois le vrai compte branché.
+
+⚠️ **Changements Meta annoncés pour le 27/10/2026** sur la création de campagnes et
+d'ensembles de publicités : sans effet sur la phase 0 (lecture seule), **à revoir
+avant la phase 2** (premières écritures).
 
 | Régie | Accès | Ce qui est possible aujourd'hui |
 |---|---|---|

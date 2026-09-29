@@ -19,15 +19,22 @@ import type {
  *
  * ⚠️ Ces chiffres sont inventés. Tant que ce mode est actif, le tableau de bord
  * et les connexions du support l'affichent en bandeau.
+ *
+ * ⚠️ Dev et prod partagent la même base : un compte simulé connecté en local
+ * existe AUSSI en production. D'où le préfixe « [SIMULÉ] » sur le compte et
+ * chaque campagne — pour les reconnaître dans les listes, et les archiver
+ * proprement une fois le vrai compte branché.
  */
+
+export const MOCK_PREFIX = "[SIMULÉ]";
 
 export const MOCK_ACCOUNT_ID = "act_000000000000";
 export const MOCK_TOKEN = "jeton-simule";
 
 const CAMPAIGNS = [
-  { id: "120000000000000001", name: "Pointage BTP — formulaire instantané", objective: "leads", status: "active", budget: 40 },
-  { id: "120000000000000002", name: "Planning chantiers — trafic LP", objective: "trafic", status: "active", budget: 25 },
-  { id: "120000000000000003", name: "Notoriété — vidéo conducteurs de travaux", objective: "notoriete", status: "en-pause", budget: 15 },
+  { id: "120000000000000001", name: `${MOCK_PREFIX} Pointage BTP — formulaire instantané`, objective: "leads", status: "active", budget: 40 },
+  { id: "120000000000000002", name: `${MOCK_PREFIX} Planning chantiers — trafic LP`, objective: "trafic", status: "active", budget: 25 },
+  { id: "120000000000000003", name: `${MOCK_PREFIX} Notoriété — vidéo conducteurs de travaux`, objective: "notoriete", status: "en-pause", budget: 15 },
 ] as const;
 
 const ADSETS_PER_CAMPAIGN = 2;
@@ -88,7 +95,7 @@ export function createMockMetaPlatform(): AdPlatform {
     },
 
     async listAccounts(): Promise<AccountSnapshot[]> {
-      return [{ externalId: MOCK_ACCOUNT_ID, name: "TIM — compte simulé", currency: "EUR", timezone: "Europe/Paris" }];
+      return [{ externalId: MOCK_ACCOUNT_ID, name: `${MOCK_PREFIX} TIM — compte simulé`, currency: "EUR", timezone: "Europe/Paris" }];
     },
 
     async listCampaigns(): Promise<CampaignSnapshot[]> {
