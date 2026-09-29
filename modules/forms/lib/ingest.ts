@@ -98,6 +98,13 @@ export interface Attribution {
   msclkid?: string;
   /** Référence de clic ChatGPT Ads, posée par la vitrine et non par la régie. */
   oaiclid?: string;
+  /**
+   * Identifiant de clic Meta. Ce n'est PAS un signal de publicité : Meta l'ajoute
+   * aussi aux clics organiques (publications, liens en bio, liens partagés), et il
+   * ne distingue pas Facebook d'Instagram. Conservé pour le paramètre `fbc` de la
+   * Conversions API (phase 1), jamais lu pour décider du canal.
+   */
+  fbclid?: string;
 }
 
 /**
@@ -129,5 +136,6 @@ export function parseAttribution(raw: unknown): Attribution {
     gclid: cap(a.gclid, 500),
     msclkid: cap(a.msclkid, 500),
     oaiclid: cap(a.oaiclid, 500),
+    fbclid: cap(a.fbclid, 500),
   };
 }

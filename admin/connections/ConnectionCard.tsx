@@ -43,12 +43,15 @@ export function ConnectionCard({
   def,
   env,
   configured,
+  simulated = false,
   initial,
   spend,
 }: {
   def: SupportConnection;
   env: EnvState[];
   configured: boolean;
+  /** Données simulées : dit en toutes lettres, sur la barre et dans la carte. */
+  simulated?: boolean;
   initial: Entry;
   /** Dépense de l'assistant — seulement pour Anthropic. */
   spend?: SpendSummary;
@@ -116,9 +119,13 @@ export function ConnectionCard({
         <span className="sc-card__title">
           <span className="sc-card__name">{def.name}</span>
           <span className={`sc-card__state sc-card__state--${tone}`}>
+            {simulated && <span className="sc-card__last sc-card__last--simulated">Données simulées</span>}
             {etat}
             {entry.lastTestMessage && (
-              <span className={`sc-card__last sc-card__last--${entry.lastTestOk ? "ok" : "ko"}`}>{entry.lastTestMessage}</span>
+              // Simulée, une réussite n'est pas un feu vert : rien n'a été vérifié chez le fournisseur.
+              <span className={`sc-card__last sc-card__last--${!entry.lastTestOk ? "ko" : simulated ? "simulated" : "ok"}`}>
+                {entry.lastTestMessage}
+              </span>
             )}
             {spend && (
               <span className="sc-card__last sc-card__last--spend" title={`${questions(spend.month.questions)} en ${moisCourant()}`}>
@@ -148,6 +155,12 @@ export function ConnectionCard({
       </summary>
 
       <div className="sc-card__body">
+        {simulated && (
+          <p className="sc-card__simulated">
+            Cette connexion tourne sur des <strong>données simulées</strong> : rien n&apos;est lu chez le fournisseur, les
+            chiffres affichés sont inventés. Retirez la variable qui l&apos;active dès que les vraies clés sont posées.
+          </p>
+        )}
       <p className="sc-card__purpose">{def.purpose}</p>
 
       <div className="sc-card__cols">

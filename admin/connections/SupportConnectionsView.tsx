@@ -6,7 +6,7 @@ import { Gutter } from "@payloadcms/ui";
 import { hasAdminRole } from "@/core/access";
 import { ConnectionCard, type Entry } from "@/admin/connections/ConnectionCard";
 import { summarizeSpend, type SpendEntry } from "@/core/lib/ai-budget";
-import { SUPPORT_CONNECTIONS, connectionEnv, isConfigured } from "@/core/lib/support-connections";
+import { SUPPORT_CONNECTIONS, connectionEnv, isConfigured, isSimulated } from "@/core/lib/support-connections";
 
 /**
  * Écran « Connexions du support » (/admin/connexions-support, menu Système).
@@ -66,6 +66,7 @@ export default async function SupportConnectionsView({ initPageResult, params, s
                     def={def}
                     env={connectionEnv(def)}
                     configured={isConfigured(def)}
+                    simulated={isSimulated(def)}
                     initial={{ notes: e?.notes ?? null, lastTestAt: e?.lastTestAt ?? null, lastTestOk: e?.lastTestOk ?? null, lastTestMessage: e?.lastTestMessage ?? null }}
                     spend={def.key === "anthropic" ? summarizeSpend(e) : undefined}
                   />

@@ -70,6 +70,16 @@
 }
 .sc-card__last--ok { background: var(--tim-green-bg); color: var(--tim-green); }
 .sc-card__last--ko { background: var(--tim-red-bg); color: var(--tim-red); }
+/* Données simulées : ambre, comme « Variables manquantes » — rien de faux, mais rien de réel. */
+.sc-card__last--simulated { margin: 0 0.5rem 0 0; background: var(--tim-amber-bg); color: var(--tim-amber); }
+.sc-card__simulated {
+  margin: 0 0 0.85rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.5rem;
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+  font-size: 0.85rem;
+}
 /* La dépense du mois, sur la barre d'Anthropic : neutre, c'est un montant, pas un verdict. */
 .sc-card__last--spend { background: var(--tim-surface); color: var(--tim-foreground); font-variant-numeric: tabular-nums; }
 /* « OK le… » et « Échec le… » restent gris : c'est l'étiquette qui porte la

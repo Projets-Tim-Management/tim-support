@@ -2,7 +2,7 @@ import type { Payload } from "payload";
 
 import { accessTokenFor } from "@/modules/marketing/lib/calendar";
 
-import { isConfigured, SUPPORT_CONNECTIONS, type SupportConnection } from "./support-connections";
+import { isConfigured, isSimulated, SUPPORT_CONNECTIONS, type SupportConnection } from "./support-connections";
 
 /**
  * « Tester » une connexion du support : un vrai appel, le plus léger possible,
@@ -124,6 +124,37 @@ async function testAnthropic(): Promise<Omit<TestResult, "at">> {
   }
 }
 
+/**
+ * Meta : un jeton d'APPLICATION (client_credentials) prouve que l'identifiant et
+ * le secret de l'app sont bons, sans dépendre d'aucun compte connecté. L'état des
+ * comptes eux-mêmes se lit sur leur fiche (synchro, échéance du jeton).
+ */
+async function testMeta(payload: Payload): Promise<Omit<TestResult, "at">> {
+  const accounts = await payload.count({ collection: "ad-accounts", where: { status: { equals: "connecte" } }, overrideAccess: true }).catch(() => null);
+  const suffix = accounts ? ` ${accounts.totalDocs} compte(s) publicitaire(s) connecté(s).` : "";
+  if (isSimulated(SUPPORT_CONNECTIONS.find((c) => c.key === "meta")!)) {
+    return { ok: true, message: `Données SIMULÉES (ADS_META_MOCK=1) : aucune requête envoyée à Meta.${suffix}` };
+  }
+  const { META_DEFAULT_VERSION } = await import("@/modules/ads/platforms/meta");
+  const version = process.env.META_GRAPH_VERSION?.trim() || META_DEFAULT_VERSION;
+  const url = new URL(`https://graph.facebook.com/${version}/oauth/access_token`);
+  url.searchParams.set("client_id", process.env.META_APP_ID ?? "");
+  url.searchParams.set("client_secret", process.env.META_APP_SECRET ?? "");
+  url.searchParams.set("grant_type", "client_credentials");
+  const t = withTimeout(TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: t.signal });
+    const data = (await res.json().catch(() => ({}))) as { access_token?: string; error?: { message?: string } };
+    if (!res.ok || !data.access_token) return { ok: false, message: data.error?.message ? `Meta refuse : ${data.error.message}` : explain(res) };
+    const { allowedAccounts } = await import("@/modules/ads/lib/allowlist");
+    return { ok: true, message: `L'app Meta est reconnue (API Graph ${version}). Comptes autorisés : ${[...allowedAccounts()].join(", ")}.${suffix}` };
+  } catch (e) {
+    return { ok: false, message: failure(e) };
+  } finally {
+    t.done();
+  }
+}
+
 export async function testConnection(key: SupportConnection["key"], payload: Payload): Promise<TestResult> {
   const def = SUPPORT_CONNECTIONS.find((c) => c.key === key);
   const at = new Date().toISOString();
@@ -141,6 +172,8 @@ export async function testConnection(key: SupportConnection["key"], payload: Pay
           ? await testInsee()
           : key === "google"
             ? await testGoogle(payload)
-            : await testAnthropic();
+            : key === "meta"
+              ? await testMeta(payload)
+              : await testAnthropic();
   return { ...r, at };
 }

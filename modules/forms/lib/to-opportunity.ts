@@ -4,6 +4,7 @@ import type { Channel } from "@/modules/forms/lib/form-schema";
 import type { PublicForm } from "@/modules/forms/lib/public-schema";
 import type { AnswerValue } from "@/modules/forms/lib/validate";
 import { channelLabel } from "@/modules/forms/lib/form-schema";
+import { SOURCE_BY_CHANNEL } from "@/core/lib/channels";
 
 /**
  * Traduction d'une soumission en opportunité — partie PURE, donc testable sans
@@ -17,12 +18,8 @@ import { channelLabel } from "@/modules/forms/lib/form-schema";
  * et non « pointage », « 11 - 25 » et non « 11-25 ».
  */
 
-/** Canal d'acquisition → valeur du champ « Provenance » d'une opportunité. */
-export const SOURCE_BY_CHANNEL: Record<Channel, string> = {
-  seo: "site-vitrine-seo",
-  sea: "google-ads-sea",
-  chatgpt: "chatgpt-ads-sea",
-};
+/** Canal d'acquisition → valeur du champ « Provenance » (registre des canaux). */
+export { SOURCE_BY_CHANNEL };
 
 /** Un champ du formulaire qu'on n'a pas pu reprendre tel quel : la fiche le signale. */
 export type IntakeIssue = { field: "email" | "phone"; raw: string; message: string };

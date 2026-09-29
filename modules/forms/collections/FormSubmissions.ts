@@ -213,6 +213,17 @@ export const FormSubmissions: CollectionConfig = {
                         description: "Référence de clic ChatGPT Ads, posée par la vitrine.",
                       },
                     },
+                    {
+                      name: "fbclid",
+                      type: "text",
+                      label: "fbclid",
+                      admin: {
+                        width: "50%",
+                        readOnly: true,
+                        description:
+                          "Identifiant de clic Meta. Présent aussi sur les clics organiques : il ne dit pas qu'un lead vient d'une annonce.",
+                      },
+                    },
                   ],
                 },
               ],

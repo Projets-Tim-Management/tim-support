@@ -116,6 +116,9 @@ import { SequenceMessagePreview as SequenceMessagePreview_1d83c136501c19d8287861
 import { SequenceThemeRowLabel as SequenceThemeRowLabel_f78827f64ca8974d62621135cef1d267 } from '../../../modules/marketing/admin/SequenceThemeRowLabel'
 import { FormOptionRowLabel as FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b } from '../../../modules/forms/admin/FormOptionRowLabel'
 import { FormFieldRowLabel as FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3 } from '../../../modules/forms/admin/FormFieldRowLabel'
+import { ConnectMetaPanel as ConnectMetaPanel_0443b5b41d00975585a76653d22b342f } from '../../../modules/ads/admin/ConnectMetaPanel'
+import { PurgeAccountModal as PurgeAccountModal_1a62dd382667ad7a0e23522c172e8254 } from '../../../modules/ads/admin/PurgeAccountModal'
+import { AdAccountEditMenu as AdAccountEditMenu_df26cb05b35d429e66cd830e778904ac } from '../../../modules/ads/admin/AdAccountEditMenu'
 import { InsuranceCell as InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4 } from '../../../modules/marketing/admin/InsuranceCell'
 import { default as default_c08243cbb0e32dd70b45a5afb5f6cbd4 } from '../../../admin/components/SaveButton'
 import { default as default_72ee9fe55f81abe2c8ae550d52d0ab85 } from '../../../admin/fields/ColorField'
@@ -136,6 +139,7 @@ import { default as default_31771f6a3fa0ba20a52c3d00b490cd26 } from '../../../ad
 import { default as default_d8e7bbf9f25486534fff2dfe79658e80 } from '../../../modules/partner/admin/BillingCheckView'
 import { default as default_3fac943f745ba0ff2dbf26360a2df675 } from '../../../modules/analytics/admin/BillingView'
 import { default as default_3125f72c9cf5e6cdd1ecf6cff4f3fd8c } from '../../../modules/analytics/admin/PipelineView'
+import { default as default_1c3d467279591bbf05bba5b4228f8e57 } from '../../../modules/ads/admin/AdsDashboardView'
 import { default as default_8052050c666bd08f67a59ad1c2e0cc41 } from '../../../modules/analytics/admin/AcquisitionView'
 import { default as default_c44913679fe220161a8e8e8eb237e954 } from '../../../modules/analytics/admin/SupportView'
 import { default as default_c9fb8c9feab8ca0ae0845a2ecdad7276 } from '../../../modules/analytics/admin/DevView'
@@ -262,6 +266,9 @@ export const importMap = {
   "/modules/marketing/admin/SequenceThemeRowLabel#SequenceThemeRowLabel": SequenceThemeRowLabel_f78827f64ca8974d62621135cef1d267,
   "/modules/forms/admin/FormOptionRowLabel#FormOptionRowLabel": FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b,
   "/modules/forms/admin/FormFieldRowLabel#FormFieldRowLabel": FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3,
+  "/modules/ads/admin/ConnectMetaPanel#ConnectMetaPanel": ConnectMetaPanel_0443b5b41d00975585a76653d22b342f,
+  "/modules/ads/admin/PurgeAccountModal#PurgeAccountModal": PurgeAccountModal_1a62dd382667ad7a0e23522c172e8254,
+  "/modules/ads/admin/AdAccountEditMenu#AdAccountEditMenu": AdAccountEditMenu_df26cb05b35d429e66cd830e778904ac,
   "/modules/marketing/admin/InsuranceCell#InsuranceCell": InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4,
   "/admin/components/SaveButton#default": default_c08243cbb0e32dd70b45a5afb5f6cbd4,
   "/admin/fields/ColorField#default": default_72ee9fe55f81abe2c8ae550d52d0ab85,
@@ -282,6 +289,7 @@ export const importMap = {
   "/modules/partner/admin/BillingCheckView#default": default_d8e7bbf9f25486534fff2dfe79658e80,
   "/modules/analytics/admin/BillingView#default": default_3fac943f745ba0ff2dbf26360a2df675,
   "/modules/analytics/admin/PipelineView#default": default_3125f72c9cf5e6cdd1ecf6cff4f3fd8c,
+  "/modules/ads/admin/AdsDashboardView#default": default_1c3d467279591bbf05bba5b4228f8e57,
   "/modules/analytics/admin/AcquisitionView#default": default_8052050c666bd08f67a59ad1c2e0cc41,
   "/modules/analytics/admin/SupportView#default": default_c44913679fe220161a8e8e8eb237e954,
   "/modules/analytics/admin/DevView#default": default_c9fb8c9feab8ca0ae0845a2ecdad7276,

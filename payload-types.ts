@@ -92,6 +92,9 @@ export interface Config {
     sequences: Sequence;
     forms: Form;
     'form-submissions': FormSubmission;
+    'ad-campaigns': AdCampaign;
+    'ad-accounts': AdAccount;
+    'ad-metrics-daily': AdMetricsDaily;
     'email-suppressions': EmailSuppression;
     'client-employees': ClientEmployee;
     'client-sites': ClientSite;
@@ -155,6 +158,9 @@ export interface Config {
     sequences: SequencesSelect<false> | SequencesSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
+    'ad-campaigns': AdCampaignsSelect<false> | AdCampaignsSelect<true>;
+    'ad-accounts': AdAccountsSelect<false> | AdAccountsSelect<true>;
+    'ad-metrics-daily': AdMetricsDailySelect<false> | AdMetricsDailySelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
     'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
     'client-sites': ClientSitesSelect<false> | ClientSitesSelect<true>;
@@ -180,12 +186,14 @@ export interface Config {
     'support-connections': SupportConnection;
     'company-settings': CompanySetting;
     'contract-settings': ContractSetting;
+    'ads-settings': AdsSetting;
   };
   globalsSelect: {
     appearance: AppearanceSelect<false> | AppearanceSelect<true>;
     'support-connections': SupportConnectionsSelect<false> | SupportConnectionsSelect<true>;
     'company-settings': CompanySettingsSelect<false> | CompanySettingsSelect<true>;
     'contract-settings': ContractSettingsSelect<false> | ContractSettingsSelect<true>;
+    'ads-settings': AdsSettingsSelect<false> | AdsSettingsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -581,7 +589,17 @@ export interface PartnerClient {
    * La commission du partenaire s'arrête à cette date.
    */
   resiliationDate?: string | null;
-  source?: ('manuelle' | 'site-vitrine-seo' | 'google-ads-sea' | 'chatgpt-ads-sea' | 'site-vitrine') | null;
+  source?:
+    | (
+        | 'manuelle'
+        | 'site-vitrine-seo'
+        | 'google-ads-sea'
+        | 'chatgpt-ads-sea'
+        | 'meta-facebook'
+        | 'meta-instagram'
+        | 'site-vitrine'
+      )
+    | null;
   /**
    * Déclaré au formulaire du site vitrine.
    */
@@ -782,7 +800,7 @@ export interface FormSubmission {
     | number
     | boolean
     | null;
-  channel?: ('seo' | 'sea' | 'chatgpt') | null;
+  channel?: ('seo' | 'sea' | 'chatgpt' | 'meta-facebook' | 'meta-instagram') | null;
   placement?: ('drawer' | 'page-contact' | 'lp-hero' | 'lp-section') | null;
   /**
    * « Clic payant » est un fait ; « landing page » est une présomption. Beaucoup de présomptions = le taggage automatique de Google Ads ne remonte plus, ou le cookie d'attribution ne tient pas.
@@ -811,6 +829,10 @@ export interface FormSubmission {
    * Référence de clic ChatGPT Ads, posée par la vitrine.
    */
   oaiclid?: string | null;
+  /**
+   * Identifiant de clic Meta. Présent aussi sur les clics organiques : il ne dit pas qu'un lead vient d'une annonce.
+   */
+  fbclid?: string | null;
   client?: (number | null) | PartnerClient;
   /**
    * « Brouillon » signale une soumission sans e-mail exploitable : la fiche existe mais n'est pas publiée.
@@ -839,7 +861,7 @@ export interface Form {
   /**
    * Canal retenu quand la visite ne porte aucune trace de campagne. Un gclid ou un utm_medium=cpc réellement présent prime toujours sur cette valeur.
    */
-  defaultChannel: 'seo' | 'sea' | 'chatgpt';
+  defaultChannel: 'seo' | 'sea' | 'chatgpt' | 'meta-facebook' | 'meta-instagram';
   /**
    * L'ordre de cette liste est l'ordre d'affichage sur le site.
    */
@@ -2129,6 +2151,109 @@ export interface Sequence {
   createdAt: string;
 }
 /**
+ * Les campagnes lues chez les régies, mises à jour chaque nuit. Lecture seule : elles se modifient chez la régie.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-campaigns".
+ */
+export interface AdCampaign {
+  id: number;
+  name: string;
+  account: number | AdAccount;
+  externalId?: string | null;
+  status?: ('brouillon' | 'active' | 'en-pause' | 'terminee') | null;
+  objective?: ('leads' | 'trafic' | 'notoriete' | 'autre') | null;
+  /**
+   * En devise du compte. Vide : le budget vit au niveau des ensembles de publicités.
+   */
+  dailyBudget?: number | null;
+  platform: string;
+  /**
+   * Valeur brute, pour comprendre un écart avec l'état normalisé.
+   */
+  externalStatus?: string | null;
+  lastSyncAt?: string | null;
+  kpis?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Les comptes publicitaires dont le support lit les campagnes et les chiffres. Connexion par OAuth, ou par un jeton d'utilisateur système collé ici.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-accounts".
+ */
+export interface AdAccount {
+  id: number;
+  name: string;
+  /**
+   * « act_… » chez Meta. Posé à la connexion.
+   */
+  externalId: string;
+  platform: string;
+  /**
+   * Constaté par la synchro et par la connexion, jamais saisi. « Archivé » se pose et se retire par le menu ⋯.
+   */
+  status?: ('sans-jeton' | 'connecte' | 'expire' | 'erreur' | 'archive') | null;
+  lastError?: string | null;
+  lastSyncAt?: string | null;
+  /**
+   * Lue à la connexion.
+   */
+  currency?: string | null;
+  /**
+   * Lu à la connexion : les jours de la régie sont ceux de ce fuseau.
+   */
+  timezone?: string | null;
+  /**
+   * Dépense publicitaire maximale du mois pour ce compte. Aucun agent ne le fait encore respecter (phase 2).
+   */
+  monthlyCapEur?: number | null;
+  /**
+   * Posé à la connexion. Alerte à J-7 ; à l'échéance, il faut reconnecter le compte — ou poser un jeton d'utilisateur système.
+   */
+  tokenExpiresAt?: string | null;
+  /**
+   * Business Manager › Utilisateurs système › Générer un jeton (droit ads_read). Il n'expire pas et prime sur l'OAuth. Collez-le puis enregistrez : il est chiffré et ne sera plus jamais affiché. Obligatoire avant que les agents puissent écrire.
+   */
+  systemUserToken?: string | null;
+  token?: string | null;
+  tokenAlertSentAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-metrics-daily".
+ */
+export interface AdMetricsDaily {
+  id: number;
+  day: string;
+  account: number | AdAccount;
+  platform: string;
+  level: 'campaign' | 'adset' | 'ad';
+  externalId: string;
+  name?: string | null;
+  campaignExternalId?: string | null;
+  currency?: string | null;
+  spend?: number | null;
+  impressions?: number | null;
+  clicks?: number | null;
+  leads?: number | null;
+  qualifiedLeads?: number | null;
+  won?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Adresses qui ne reçoivent plus d'envoi commercial. Les e-mails de service (tickets, accusés de réception, codes de connexion) continuent de partir.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2694,6 +2819,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'form-submissions';
         value: number | FormSubmission;
+      } | null)
+    | ({
+        relationTo: 'ad-campaigns';
+        value: number | AdCampaign;
+      } | null)
+    | ({
+        relationTo: 'ad-accounts';
+        value: number | AdAccount;
+      } | null)
+    | ({
+        relationTo: 'ad-metrics-daily';
+        value: number | AdMetricsDaily;
       } | null)
     | ({
         relationTo: 'email-suppressions';
@@ -3730,12 +3867,74 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
   gclid?: T;
   msclkid?: T;
   oaiclid?: T;
+  fbclid?: T;
   client?: T;
   processingStatus?: T;
   processingError?: T;
   ip?: T;
   sessionId?: T;
   userAgent?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-campaigns_select".
+ */
+export interface AdCampaignsSelect<T extends boolean = true> {
+  name?: T;
+  account?: T;
+  externalId?: T;
+  status?: T;
+  objective?: T;
+  dailyBudget?: T;
+  platform?: T;
+  externalStatus?: T;
+  lastSyncAt?: T;
+  kpis?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-accounts_select".
+ */
+export interface AdAccountsSelect<T extends boolean = true> {
+  name?: T;
+  externalId?: T;
+  platform?: T;
+  status?: T;
+  lastError?: T;
+  lastSyncAt?: T;
+  currency?: T;
+  timezone?: T;
+  monthlyCapEur?: T;
+  tokenExpiresAt?: T;
+  systemUserToken?: T;
+  token?: T;
+  tokenAlertSentAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-metrics-daily_select".
+ */
+export interface AdMetricsDailySelect<T extends boolean = true> {
+  day?: T;
+  account?: T;
+  platform?: T;
+  level?: T;
+  externalId?: T;
+  name?: T;
+  campaignExternalId?: T;
+  currency?: T;
+  spend?: T;
+  impressions?: T;
+  clicks?: T;
+  leads?: T;
+  qualifiedLeads?: T;
+  won?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4163,6 +4362,21 @@ export interface ContractSetting {
   createdAt?: string | null;
 }
 /**
+ * Ce que les agents publicitaires n'ont pas le droit de faire. Réservé à TIM.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ads-settings".
+ */
+export interface AdsSetting {
+  id: number;
+  /**
+   * Décoché : aucun agent ne tourne, aucune décision ne s'exécute. La synchro des chiffres, elle, continue — elle ne fait que lire.
+   */
+  enabled?: boolean | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "appearance_select".
  */
@@ -4251,6 +4465,16 @@ export interface ContractSettingsSelect<T extends boolean = true> {
         debitDay?: T;
         territory?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ads-settings_select".
+ */
+export interface AdsSettingsSelect<T extends boolean = true> {
+  enabled?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

@@ -17,6 +17,7 @@ import {
   partnerIdOf,
 } from "@/core/access";
 import { documentsField } from "@/core/fields/documents";
+import { PROVENANCE_OPTIONS } from "@/core/lib/channels";
 import { stampDocuments } from "@/core/hooks/documents";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { validatePhone } from "@/core/lib/validators";
@@ -901,15 +902,11 @@ export const PartnerClients: CollectionConfig = {
        *
        * `site-vitrine` est conservée pour les fiches importées de Brevo — les
        * renommer ferait mentir l'historique, qui ne savait pas distinguer SEO
-       * et SEA. Les nouveaux leads prennent l'une des deux valeurs précises.
+       * et SEA. Les nouveaux leads prennent une valeur précise.
+       *
+       * Liste tenue dans le registre unique des canaux (core/lib/channels.ts).
        */
-      options: [
-        { label: "Saisie manuelle", value: "manuelle" },
-        { label: "Site vitrine — SEO", value: "site-vitrine-seo" },
-        { label: "Google Ads — SEA", value: "google-ads-sea" },
-        { label: "ChatGPT Ads — SEA", value: "chatgpt-ads-sea" },
-        { label: "Site vitrine (import Brevo)", value: "site-vitrine" },
-      ],
+      options: PROVENANCE_OPTIONS,
       admin: { position: "sidebar", readOnly: true },
     },
     {

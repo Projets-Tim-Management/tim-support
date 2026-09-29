@@ -53,6 +53,7 @@ export const NAV_ORDER = [
   "Utilisateurs",
   "Éditorial",
   "Marketing",
+  "Publicité",
   "Système",
 ];
 
@@ -93,6 +94,16 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
    * « Utilisateur », le programme de points vu du partenaire.
    */
   Partenaires: ["partners", "partner-clients"],
+  /**
+   * Les campagnes payantes, toutes régies. Les campagnes d'abord — c'est ce qu'on
+   * regarde ; les comptes et les garde-fous se règlent une fois, ils vont dans
+   * « Paramètres ». Admin seul (plan Publicité, D1).
+   */
+  Publicité: [
+    { label: "Tableau de bord", href: "/admin/publicite", adminOnly: true },
+    "ad-campaigns",
+    { label: "Paramètres", slugs: ["ad-accounts", "ads-settings"] },
+  ],
   /**
    * Ce que TIM facture. Aucune collection : l'écran lit Pennylane à la demande.
    * Réservé aux admins, les partenaires n'en voient rien.

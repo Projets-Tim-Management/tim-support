@@ -1,0 +1,159 @@
+/* Module Publicité (modules/ads/admin/) — couleurs en tokens uniquement. */
+
+/* Données simulées : ambre, comme partout ailleurs — rien de faux, mais rien de réel. */
+.ads-simulated {
+  margin: 0 0 0.75rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.5rem;
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+  font-size: 0.85rem;
+}
+
+.ads-connect { margin: 0 0 1.25rem; }
+.ads-connect__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+  border-radius: 0.75rem;
+  background: var(--tim-white);
+  @media (max-width: 720px) { flex-direction: column; align-items: stretch; }
+}
+.ads-connect__text { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.875rem; color: var(--tim-muted); }
+.ads-connect__text strong { color: var(--tim-foreground); font-size: 0.95rem; }
+
+.ads-connect__notice {
+  position: relative;
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 2.2rem 0.6rem 0.85rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+.ads-connect__notice--ok { background: var(--tim-green-bg); color: var(--tim-green); }
+.ads-connect__notice--info { background: var(--tim-surface); color: var(--tim-foreground); }
+.ads-connect__notice--ko { background: var(--tim-red-bg); color: var(--tim-red); }
+.ads-connect__close {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.5rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.ads-connect__choices { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.ads-connect__choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+  border-radius: 0.6rem;
+  background: var(--tim-white);
+}
+.ads-connect__choice--cancel { justify-content: flex-end; border: 0; background: none; padding: 0; }
+.ads-connect__id { color: var(--tim-muted); font-size: 0.8rem; }
+.ads-connect__known {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  color: var(--tim-muted);
+  font-size: 0.75rem;
+}
+
+/* ─── Tableau de bord (/admin/publicite) ─────────────────────────────────── */
+.ads-dash { display: flex; flex-direction: column; gap: 1rem; }
+.ads-dash__sub { margin: 0.2rem 0 0; color: var(--tim-muted); font-size: 0.9rem; }
+.ads-dash__filters { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: space-between; }
+
+/* « À valider » : en tête, même vide — c'est la place qu'il occupera chaque matin. */
+.ads-dash__todo {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1.2rem;
+  border: 1px dashed color-mix(in srgb, var(--tim-border) 90%, transparent);
+  border-radius: 0.75rem;
+  background: var(--tim-white);
+}
+.ads-dash__todo-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  color: var(--tim-muted);
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+.ads-dash__todo-text { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.875rem; color: var(--tim-muted); }
+.ads-dash__todo-text strong { color: var(--tim-foreground); font-size: 0.95rem; }
+
+.ads-dash__accounts { margin: 0; font-size: 0.875rem; color: var(--tim-muted); }
+.ads-dash__accounts a { color: var(--tim-primary-dark); font-weight: 600; }
+.ads-dash__accounts--empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.2rem;
+  border-radius: 0.75rem;
+  background: var(--tim-white);
+  border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+}
+.ads-dash__alerts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.ads-dash__alert { padding: 0.55rem 0.85rem; border-radius: 0.5rem; font-size: 0.875rem; }
+.ads-dash__alert a { color: inherit; }
+.ads-dash__alert--bad { background: var(--tim-red-bg); color: var(--tim-red); }
+.ads-dash__alert--warn { background: var(--tim-amber-bg); color: var(--tim-amber); }
+.ads-dash__note { margin: 0; font-size: 0.8rem; color: var(--tim-muted); }
+
+/* Connexion par jeton système : le formulaire tient sur une ligne, le jeton a la place. */
+.ads-connect__row--form { flex-wrap: wrap; }
+.ads-connect__fields { display: flex; gap: 0.5rem; align-items: center; flex: 1 1 520px; justify-content: flex-end; }
+.ads-connect__input {
+  min-width: 0;
+  width: 13rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 0.5rem;
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.85rem;
+}
+.ads-connect__input--token { flex: 1 1 14rem; width: auto; }
+.ads-connect__fallback { margin: 0.5rem 0 0; font-size: 0.8rem; color: var(--tim-muted); }
+.ads-connect__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--tim-muted);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  &:hover { color: var(--tim-foreground); }
+}
+/* Secours : discret. La voie principale est le formulaire au-dessus. */
+.ads-connect__blocked {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+  font-size: 0.8rem;
+}
+@media (max-width: 720px) {
+  .ads-connect__fields { flex-direction: column; align-items: stretch; }
+  .ads-connect__input { width: 100%; }
+}
