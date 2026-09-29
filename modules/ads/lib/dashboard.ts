@@ -170,8 +170,9 @@ export function buildAdsDashboard(input: {
     daily.push({ day: d, spend: round2(t.spend), leads: t.leads, clicks: t.clicks });
   }
 
+  // Un brouillon n'a rien dépensé : il se prépare dans l'atelier, pas ici.
   const campaigns: CampaignRow[] = input.campaigns
-    .filter((c) => counted.has(idOf(c.account) ?? ""))
+    .filter((c) => c.status !== "brouillon" && counted.has(idOf(c.account) ?? ""))
     .map((c) => {
       const t = byCampaign.get(`${idOf(c.account)}|${c.externalId}`) ?? zero();
       return {

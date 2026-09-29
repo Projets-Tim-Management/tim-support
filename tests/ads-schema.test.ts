@@ -36,9 +36,9 @@ describe("registre des régies", () => {
   });
 });
 
-describe("campagnes et métriques : un miroir, écrit par la synchro seule", () => {
+describe("métriques : un miroir, écrit par la synchro seule", () => {
   it("refuse création et modification depuis le back-office, même à un admin", () => {
-    for (const col of [AdCampaigns, AdMetricsDaily]) {
+    for (const col of [AdMetricsDaily]) {
       expect((col.access!.create as (a: unknown) => boolean)(admin), col.slug).toBe(false);
       expect((col.access!.update as (a: unknown) => boolean)(admin), col.slug).toBe(false);
       expect((col.access!.read as (a: unknown) => boolean)(admin), col.slug).toBe(true);

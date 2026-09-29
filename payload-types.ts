@@ -2157,7 +2157,7 @@ export interface Sequence {
   createdAt: string;
 }
 /**
- * Les campagnes lues chez les régies, mises à jour chaque nuit. Lecture seule : elles se modifient chez la régie.
+ * Les campagnes : celles lues chez les régies (mises à jour chaque nuit, chiffres en lecture seule) et les brouillons préparés ici, avec leur brief.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ad-campaigns".
@@ -2165,20 +2165,55 @@ export interface Sequence {
 export interface AdCampaign {
   id: number;
   name: string;
-  account: number | AdAccount;
+  brief?: {
+    audience?: string | null;
+    pain?: string | null;
+    /**
+     * Les chiffres écrits ici (durées, prix) sont autorisés dans les textes.
+     */
+    offer?: string | null;
+    /**
+     * Ce qui change après — vérifiable.
+     */
+    promise?: string | null;
+    /**
+     * Les seuls chiffres que les textes pourront citer, avec l'offre.
+     */
+    proofs?: (number | AdFact)[] | null;
+    /**
+     * Un par ligne. S'ajoutent à ceux du kit de marque.
+     */
+    forbidden?: string | null;
+    /**
+     * Les paramètres d'URL obligatoires sont ajoutés au téléchargement (plan, §4.8).
+     */
+    landingUrl?: string | null;
+    cta?: ('en-savoir-plus' | 's-inscrire' | 'reserver') | null;
+    /**
+     * Le tutoiement : en test étiqueté seulement.
+     */
+    tone?: ('vous' | 'tu') | null;
+    /**
+     * Facultatif. Vide, trois angles sont proposés.
+     */
+    angles?:
+      | {
+          angle: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  account?: (number | null) | AdAccount;
   externalId?: string | null;
   status?: ('brouillon' | 'active' | 'en-pause' | 'terminee') | null;
   objective?: ('leads' | 'trafic' | 'notoriete' | 'autre') | null;
   /**
-   * En devise du compte. Vide : le budget vit au niveau des ensembles de publicités.
+   * En devise du compte, lu chez la régie.
    */
   dailyBudget?: number | null;
-  platform: string;
-  /**
-   * Valeur brute, pour comprendre un écart avec l'état normalisé.
-   */
   externalStatus?: string | null;
   lastSyncAt?: string | null;
+  platform: string;
   kpis?:
     | {
         [k: string]: unknown;
@@ -2188,6 +2223,29 @@ export interface AdCampaign {
     | number
     | boolean
     | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Les chiffres qu'une publicité peut citer, chacun avec sa source. Aucun autre chiffre ne sort.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-facts".
+ */
+export interface AdFact {
+  id: number;
+  /**
+   * Tel qu'il pourra être écrit dans une publicité.
+   */
+  statement: string;
+  source: string;
+  date: string;
+  sourceUrl?: string | null;
+  /**
+   * Décoché : le fait n'est plus proposé (périmé, contesté).
+   */
+  active?: boolean | null;
+  notes?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2290,29 +2348,6 @@ export interface AdMedia {
   filesize?: number | null;
   width?: number | null;
   height?: number | null;
-}
-/**
- * Les chiffres qu'une publicité peut citer, chacun avec sa source. Aucun autre chiffre ne sort.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-facts".
- */
-export interface AdFact {
-  id: number;
-  /**
-   * Tel qu'il pourra être écrit dans une publicité.
-   */
-  statement: string;
-  source: string;
-  date: string;
-  sourceUrl?: string | null;
-  /**
-   * Décoché : le fait n'est plus proposé (périmé, contesté).
-   */
-  active?: boolean | null;
-  notes?: string | null;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * Adresses qui ne reçoivent plus d'envoi commercial. Les e-mails de service (tickets, accusés de réception, codes de connexion) continuent de partir.
@@ -3952,14 +3987,33 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
  */
 export interface AdCampaignsSelect<T extends boolean = true> {
   name?: T;
+  brief?:
+    | T
+    | {
+        audience?: T;
+        pain?: T;
+        offer?: T;
+        promise?: T;
+        proofs?: T;
+        forbidden?: T;
+        landingUrl?: T;
+        cta?: T;
+        tone?: T;
+        angles?:
+          | T
+          | {
+              angle?: T;
+              id?: T;
+            };
+      };
   account?: T;
   externalId?: T;
   status?: T;
   objective?: T;
   dailyBudget?: T;
-  platform?: T;
   externalStatus?: T;
   lastSyncAt?: T;
+  platform?: T;
   kpis?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -4468,7 +4522,7 @@ export interface ContractSetting {
   createdAt?: string | null;
 }
 /**
- * Ce que les agents publicitaires n'ont pas le droit de faire. Réservé à TIM.
+ * Ce que les agents et l'atelier de créas n'ont pas le droit de faire, ni de dépenser. Réservé à TIM.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ads-settings".
@@ -4476,9 +4530,29 @@ export interface ContractSetting {
 export interface AdsSetting {
   id: number;
   /**
-   * Décoché : aucun agent ne tourne, aucune décision ne s'exécute. La synchro des chiffres, elle, continue — elle ne fait que lire.
+   * Décoché : aucun agent ne tourne, aucune génération ne part, aucune décision ne s'exécute. La synchro des chiffres, elle, continue — elle ne fait que lire.
    */
   enabled?: boolean | null;
+  /**
+   * Claude, génération des textes.
+   */
+  textDailyEur: number;
+  /**
+   * Claude, génération des textes.
+   */
+  textMonthlyEur: number;
+  /**
+   * Fonds générés (Imagen).
+   */
+  imagesMonthlyEur: number;
+  /**
+   * Plans générés (Veo).
+   */
+  videoMonthlyEur: number;
+  /**
+   * Au-delà, la génération attend la semaine suivante (plan, §6).
+   */
+  creativesPerCampaignPerWeek: number;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -4629,6 +4703,11 @@ export interface ContractSettingsSelect<T extends boolean = true> {
  */
 export interface AdsSettingsSelect<T extends boolean = true> {
   enabled?: T;
+  textDailyEur?: T;
+  textMonthlyEur?: T;
+  imagesMonthlyEur?: T;
+  videoMonthlyEur?: T;
+  creativesPerCampaignPerWeek?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;
