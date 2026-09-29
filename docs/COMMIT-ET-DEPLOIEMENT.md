@@ -22,6 +22,12 @@ npm run build                   # 4. compilation Next + Payload
 erreur de build découverte là-bas laisse la production sur la version
 précédente sans que personne ne le remarque tout de suite.
 
+Le banc de test ne voit **jamais** la configuration du poste
+(`tests/setup-isolation.ts`) : toute variable déclarée dans `.env.local` est
+retirée, d'où qu'elle vienne, et `fetch` lève — un test simule ses réponses.
+Charger `.env.local` dans le shell pour une commande Payload ne peut donc plus
+exposer la base partagée ni les clés aux tests.
+
 Le banc de test tourne en **UTC** (`tests/setup-tz.ts`), comme les fonctions
 Vercel. C'est délibéré : un poste réglé sur Paris rendait invisibles les
 erreurs de fuseau qui, elles, partaient bien chez les clients.

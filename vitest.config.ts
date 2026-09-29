@@ -12,8 +12,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    // Voir tests/setup-tz.ts : le banc tourne en UTC, comme Vercel.
-    setupFiles: ["./tests/setup-tz.ts"],
+    // setup-isolation EN PREMIER : aucune variable du poste, aucun réseau réel
+    // (voir le fichier). setup-tz : le banc tourne en UTC, comme Vercel.
+    setupFiles: ["./tests/setup-isolation.ts", "./tests/setup-tz.ts"],
     include: ["tests/**/*.test.ts"],
   },
 });
