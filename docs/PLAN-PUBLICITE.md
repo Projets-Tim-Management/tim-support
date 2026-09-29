@@ -422,7 +422,7 @@ qu'on ouvre tous les matins. Les chiffres viennent après.
 | 0 | Registre des canaux (+ Meta Ads — Facebook, Meta Ads — Instagram) et détection Meta (§4.8), module, collections, connexion d'un compte Meta (OAuth + jeton système, D11), synchro quotidienne des métriques, tableau de bord **en lecture**. Adaptateur sur données simulées tant que l'app Meta n'existe pas | On voit ses campagnes Meta dans le back-office |
 | 1 | Boucle de leads : formulaires instantanés Meta (webhook) → `form-submissions` → fiche, attribution, envoi des événements qualifié / test / signé via Conversions API | Une fiche signée remonte chez Meta |
 | 2 | Agent de campagne en mode `observer` puis `proposer` : budget et pauses, écran « À valider ». **Prérequis** : jeton d'utilisateur système posé sur le compte (D11) — aucune écriture sur un jeton OAuth qui expire | Première décision validée et exécutée |
-| 3 | **3a** (§9 ter) : atelier de créas — textes, gabarits, motion, validation, téléchargement, sans Meta. **3b** : upload vers Meta et création d'annonce | 3a : une créa validée se télécharge aux formats Meta. 3b : elle passe en ligne après validation |
+| 3 | **3a** (§9 ter) : atelier de créas — textes, gabarits, motion, validation, téléchargement, sans Meta. **3b** : upload vers Meta et création d'annonce. **3c** (§9 quater) : agent de campagne qui prépare toute la campagne sous budget, sans rien publier | 3a : une créa validée se télécharge aux formats Meta. 3b : elle passe en ligne après validation. 3c : un clic prépare une campagne complète dans « À valider » |
 | 4 | Mode `autonome` sous garde-fous, mesure des `outcome` | Une semaine sans intervention sans dépassement |
 | 5 | Adaptateur Google Ads (lecture → conversions → écriture) | Google Ads dans le même tableau de bord |
 | 6 | Adaptateur ChatGPT Ads (lecture + conversions, écriture dès que possible) | Trois régies côte à côte |
@@ -845,6 +845,475 @@ Sources des tarifs (relevés le 29/09/2026, à revérifier à la souscription) :
 [Gemini API — tarifs Veo et images](https://ai.google.dev/gemini-api/docs/pricing),
 [Comparatif des API d'images 2026](https://www.buildmvpfast.com/api-costs/ai-image),
 [Runway — tarifs API](https://fairstack.ai/blog/runway-pricing).
+
+---
+
+## 9 quater. Phase 3c — Agent de campagne
+
+> Plan rédigé le 29/09/2026. **Rien n'est codé.** S'appuie sur l'atelier 3a
+> (commits 1 à 7, en production) : l'agent se sert de ses outils, il n'en recopie
+> aucun.
+
+### 1. Principe
+
+Sur une campagne `brouillon`, on saisit **un objectif en une phrase** et **un budget
+quotidien TOTAL** en euros, puis on clique sur **« Lancer l'agent »**. Un agent
+orchestrateur prépare toute la campagne : positionnement, audiences Meta, angles,
+textes, visuels, animations. Il dépose le tout dans **« À valider »**.
+
+**En 3c, rien n'est publié chez Meta.** Les audiences et la répartition du budget
+sont des **propositions** écrites dans le support. La publication viendra en 3b ;
+toute modification de budget chez Meta passera alors par les garde-fous de la
+phase 2 (§6) et par le niveau d'autonomie de la campagne (D5).
+
+Le clic sur « Lancer l'agent » **est** l'action : il démarre le passage. Il n'y a
+pas de bouton « valider » intermédiaire. Le bouton « Arrêter » **est** aussi
+l'action : il arrête tout de suite l'arbre d'agents, et ce qui a déjà été produit
+reste en place.
+
+### 2. Les sous-agents dynamiques
+
+**L'orchestrateur ne fait rien lui-même.** Il n'a accès qu'aux outils
+d'orchestration :
+
+- `creer_sous_agent(role, mission, outils, budgetEur)` ;
+- `attendre_sous_agents` et `lire_resultat` ;
+- `repartir_budget` ;
+- `deposer_a_valider`, qui termine le passage.
+
+Il crée autant de sous-agents qu'il le juge utile. Chaque création passe par le
+code, qui vérifie :
+
+- que le rôle existe dans le registre ;
+- que chaque outil demandé est **autorisé pour ce rôle** (la liste de chaque rôle est
+  écrite en code, pas choisie par le modèle) ;
+- que le budget demandé tient dans ce qui reste au parent. Il est alors **réservé** :
+  la somme des budgets des enfants ne dépasse jamais le budget du parent ;
+- les limites de profondeur et de nombre de sous-agents simultanés.
+
+Chaque création est une décision journalisée (`creation-sous-agent`), avec la
+justification donnée par l'orchestrateur.
+
+**Rôles au départ :**
+
+| Rôle | Mission type | Outils autorisés | Modèle proposé |
+|---|---|---|---|
+| Stratège | Positionnement, audiences, angles | `lire_kit_marque`, `lire_site`, `lire_leads_par_canal`, `lire_clients_signes`, `lire_pubs_concurrents`, `proposer_positionnement`, `proposer_audiences`, `proposer_angles` | Opus (le raisonnement qui décide tout le reste) |
+| Rédacteur | Textes d'un ou plusieurs angles | `generer_textes` (= la génération 3a) | Sonnet 5 pour cadrer ; les textes restent écrits par l'outil 3a, donc par Opus (`ADS_TEXT_MODEL`) |
+| Directeur artistique | Choix des gabarits, des captures, des chiffres affichés, du motion | `lister_gabarits`, `lister_medias`, `rendre_visuels` (= rendu 3a), `rendre_motion` (après le commit 3a n° 9) | Sonnet 5 |
+| Contrôleur | Accepte ou rejette une créa, avec motif | `verifier_crea` : d'abord les garde-fous en code de 3a (limites Meta, chiffre sans source, faux témoignage, attribut personnel, ton), puis un jugement sur la charte ; `rejeter` / `accepter` | Sonnet 5 |
+| Analyste (phase 2) | Lire les résultats une fois publiée | `lire_perfs`, `lire_decisions_passees` | Sonnet 5 — **pas en 3c** |
+
+**Extraction** (lecture et résumé des pages du site, des pubs concurrentes) : Haiku
+4.5. C'est une fonction appelée **par** un outil du stratège, pas un agent. Elle
+évite de payer du Opus pour lire du HTML.
+
+**Garde-fous de l'arbre, en code** (`modules/ads/agent/limits.ts`, constantes non
+réglables depuis l'admin) :
+
+| Garde-fou | Valeur proposée | Au-delà |
+|---|---|---|
+| Profondeur de création | 2 (orchestrateur → sous-agent → sous-sous-agent) | `creer_sous_agent` refusé, avec le motif renvoyé au modèle |
+| Sous-agents simultanés | 3 | La création attend qu'une place se libère (le pool Supabase fait 15 connexions) |
+| Sous-agents par passage | 12 | Refus |
+| Rejets du contrôleur par créa | 2 | La créa part « À valider » **marquée rejetée**, avec les motifs ; elle n'est pas réécrite une troisième fois |
+| Tours de modèle par agent | 25 | L'agent est arrêté, son parent reçoit l'échec |
+| **Budget** | voir §3 | **Aucun appel ne part s'il ne tient pas dans le budget restant** (coût maximal calculé *avant* l'appel, comme `claudeMaxCostUsd` en 3a) |
+
+**Les sources du stratège :**
+
+1. **Le kit de marque** (`ads-brand-kit`), les faits sourcés (`ad-facts`) et le brief
+   de la campagne.
+2. **Les pages de tim-management.co.** Elles sont lues par une récupération côté
+   serveur, limitée à ce domaine (liste blanche en code), avec un texte extrait et
+   résumé par Haiku. Ce n'est pas l'outil de navigation web de Claude : aucune autre
+   page n'est lisible.
+3. **Les leads passés par canal**, et surtout **ceux qui ont signé**. On réutilise la
+   chaîne de `modules/analytics/lib/acquisition.ts` (lead → fiche → gagnée) et
+   `partner-clients`. **Seuls des agrégats anonymes partent chez Claude** : métier,
+   effectif, région, canal, délai de signature. Aucun nom, e-mail ni SIREN.
+4. **Les pubs des concurrents**, via l'API de la bibliothèque publicitaire Meta (voir
+   ci-dessous). Même principe que l'adaptateur Meta : une variable d'environnement
+   bascule sur des données simulées tant que l'accès n'est pas ouvert.
+
+**L'API de la bibliothèque publicitaire Meta depuis la France — vérifié le
+29/09/2026 :**
+
+- **Les pubs commerciales sont accessibles pour la France.** La documentation de
+  l'endpoint `ads_archive` indique que les pubs qui n'ont atteint aucun pays de l'UE
+  ne sont renvoyées que si elles portent sur des sujets sociaux, électoraux ou
+  politiques. Une requête avec `ad_reached_countries=['FR']` et `ad_type=ALL` renvoie
+  donc les pubs commerciales diffusées en France. C'est l'effet du DSA, article 39.
+- **Ce qu'on obtient** (sources secondaires, à confirmer au commit 5 sur une vraie
+  requête) :
+  - les textes, titres et descriptions ;
+  - les dates de diffusion et les plateformes ;
+  - un lien vers l'aperçu de la pub ;
+  - des champs propres à l'UE : couverture totale dans l'UE, âges, sexes et lieux
+    ciblés, bénéficiaire et payeur.
+- **Ce qu'on n'obtient pas pour les pubs commerciales** : les dépenses et les
+  impressions (réservées aux pubs politiques). On voit ce que les concurrents disent,
+  pas ce qui marche chez eux. **La durée de diffusion sert d'indice** : une pub qui
+  tourne depuis des mois rapporte probablement.
+- **Pas d'image exploitable directement** : l'API donne un lien d'aperçu, pas le
+  fichier. Le stratège travaille donc sur les **textes** et sur les angles des
+  concurrents. Ces textes servent d'analyse, jamais de modèle à recopier : le
+  contrôleur rejette toute reprise.
+- **Accès** : une **vérification d'identité d'une personne** (pièce d'identité et pays)
+  sur Meta, puis une app avec le produit « Ad Library API ». Le jeton expire au bout
+  de 60 jours ; il faudra le renouveler ou le rafraîchir (question 1).
+
+### 3. Le budget par campagne
+
+**Un seul chiffre saisi : le budget quotidien TOTAL, en euros.** L'agent le partage
+entre :
+
+- **l'IA** : les tokens Claude, convertis en euros par `core/lib/ai-pricing.ts` et
+  comptés dans le registre `ad-ai-usage` ;
+- **la dépense Meta**.
+
+Chaque partage est une décision `repartition-budget` journalisée, avec sa
+justification (« phase de préparation : 100 % de la part IA utile, Meta à 0 tant
+que rien n'est publié »).
+
+**Bornes en code, réglables par campagne dans ces bornes :**
+
+| Borne | Défaut | Plage autorisée par le code |
+|---|---|---|
+| Total quotidien | saisi | > 0 ; plafonné par le plafond mensuel du compte (§6) |
+| Part IA maximale | 15 % du total | 0 à 50 % |
+| Dépense Meta plancher | 5 €/jour | ≥ 0 ; total − part IA max ≥ plancher, sinon la saisie est refusée |
+
+**Invariants, vérifiés en code avant chaque appel et à chaque décision :**
+
+1. `IA du jour ≤ part IA décidée ≤ total × part IA max`. C'est un plafond dur :
+   l'appel qui dépasserait ne part pas.
+2. `Meta décidée + IA décidée ≤ total`, et `Meta décidée ≥ plancher`.
+3. **Tant que la campagne n'est pas publiée, seule la part IA est consommée.** Le
+   budget Meta décidé reste une proposition.
+4. Le plafond global d'`ads-settings` reste au-dessus de tout (nouveau champ
+   `agentDailyEur`, toutes campagnes confondues, 15 € proposés). L'interrupteur
+   général coupe aussi les agents.
+
+**Quand le budget IA du jour est épuisé**, le passage se met en pause
+(`en-pause-budget`) et reprend le lendemain, là où il s'était arrêté (§5). Exemple :
+avec 10 €/jour et 15 % de part IA, on a 1,50 € d'IA par jour. Une préparation à
+environ 2 € se fait donc en deux jours, sans rien dépasser.
+
+**Meta raisonne à la semaine — vérifié le 29/09/2026.** Selon l'aide Meta Business
+(« À propos des budgets quotidiens »), Meta peut dépenser **jusqu'à 75 % de plus que
+le budget quotidien** certains jours, quand les occasions sont meilleures. Sur une
+**semaine calendaire, du dimanche au samedi**, la dépense ne dépasse pas **7 fois le
+budget quotidien**. Source :
+[Meta — À propos des budgets quotidiens](https://www.facebook.com/business/help/190490051321426).
+La page ne s'affiche qu'avec JavaScript : le texte a été relevé par l'index de
+recherche, et il faut le relire dans un navigateur avant le commit 2.
+
+Ce que ça impose au suivi :
+
+- **La jauge Meta est hebdomadaire.** Une journée à 1,75 × le budget Meta est
+  normale : elle est affichée comme « dans la tolérance Meta », pas en alerte.
+- **L'alerte** se déclenche sur la semaine : si la dépense Meta de la semaine en
+  cours dépasse 7 × le budget Meta décidé, Meta n'a pas respecté sa règle, et c'est
+  signalé.
+- **Le total se garantit donc à la semaine :** `IA semaine + Meta semaine ≤ 7 ×
+  total`. C'est vrai tant que l'IA est plafonnée chaque jour et Meta chaque semaine.
+  Un jour donné, le total peut **paraître** dépassé à cause de Meta. C'est prévu et
+  expliqué sous la jauge.
+- **La semaine suit le fuseau du compte publicitaire**, pas Paris. Il est lu sur
+  `ad-accounts`.
+- **À vérifier dans la documentation Meta avant la phase 2** : comment le plafond de
+  la semaine se recalcule quand on change le budget en cours de semaine. En 3c,
+  Meta ne dépense rien, donc la question n'est pas bloquante.
+
+### 4. La salle de contrôle, par campagne
+
+Un onglet « Agent » sur la campagne (`/admin/publicite/campagnes/[id]/agent`). Il
+est rafraîchi toutes les 5 s tant qu'un passage tourne, et arrêté sinon. C'est du
+polling : un flux temps réel serait plus complexe pour un gain nul à cette échelle.
+
+- **L'arbre des agents, en direct** : qui a créé qui, rôle, mission, état (pastille),
+  tokens et coût. Une ligne par agent, indentée sous son parent. Le coût s'affiche
+  en regard du budget réservé à cet agent.
+- **Le fil d'activité**, lisible par un humain :
+  - « Le stratège lit 4 pages du site » ;
+  - « Le contrôleur rejette la créa 3 : chiffre “40 %” sans source ».
+  
+  Chaque phrase est **écrite par le code** à partir du nom de l'outil et de ses
+  arguments : pas de JSON brut, et pas de modèle payé pour résumer.
+- **Les jauges** :
+  - IA : jour et semaine, dépensé et restant ;
+  - Meta : semaine et jour, dépensé et restant. Avant la publication, la jauge Meta
+    affiche « pas encore publiée ».
+- **Le journal des décisions** : répartitions du budget, choix d'angles et
+  d'audiences, rejets du contrôleur, créations de sous-agents. Chacune porte sa
+  justification. On filtre par type.
+- **Les boutons** : « Lancer l'agent » (si aucun passage ne tourne), « Arrêter »
+  (pendant un passage).
+
+**Vue globale**, dans le tableau de bord Publicité : une carte « Agents » avec
+toutes les campagnes, leur passage en cours ou le dernier, le nombre d'agents
+actifs, et le coût IA du jour (total et par campagne, face au plafond global).
+
+Dans **« À valider »**, les créas de l'agent arrivent comme celles de 3a. Elles
+sont précédées d'une carte **« Proposition de l'agent »** pour la campagne :
+positionnement, audiences, répartition du budget, et lien vers la salle de
+contrôle.
+
+### 5. Technique
+
+**Anthropic SDK et tool use, sans autre framework.** On utilise une boucle manuelle
+(`messages.create`, ou le stream avec `finalMessage` pour les appels longs), et pas
+le *tool runner*. Chaque tour doit être **écrit en base avant le suivant**, pour
+pouvoir reprendre.
+
+Deux contraintes d'Opus 5.5 :
+
+- La réflexion est toujours active. Les blocs de réflexion d'un tour sont donc
+  stockés avec la réponse et renvoyés tels quels.
+- Un `tool_choice` forcé renvoie une erreur 400. La fin d'un agent passe donc par son
+  outil `terminer`. Si le modèle s'arrête sans l'appeler, le code relance une fois,
+  puis déclare l'échec.
+
+**Identifiants de modèles à un seul endroit** (`modules/ads/lib/models.ts`, qui
+contient déjà `ADS_TEXT_MODEL`) :
+
+```ts
+export const ADS_AGENT_MODELS = {
+  orchestrateur: "claude-opus-5-5",
+  stratege: "claude-opus-5-5",
+  redacteur: "claude-sonnet-5",
+  "directeur-artistique": "claude-sonnet-5",
+  controleur: "claude-sonnet-5",
+  extraction: "claude-haiku-4-5",
+} as const satisfies Record<AgentRole | "extraction", ClaudeModel>;
+```
+
+`claude-sonnet-5` s'ajoute à `CLAUDE_PRICES` : 2 $ / 10 $ par million de tokens en
+entrée / sortie. Les tarifs de cache sont à relever sur la grille d'Anthropic le
+jour du commit.
+
+**Les outils de l'agent sont ceux de l'atelier.** Chaque outil est une entrée du
+registre (`modules/ads/agent/tools/`) : nom, description, schéma d'entrée, rôles
+autorisés, fonction, phrase du fil. La fonction **appelle** le code 3a existant :
+
+| Outil de l'agent | Code 3a appelé |
+|---|---|
+| `generer_textes` | `generateCreatives` (`copy/generate.ts`) — garde-fous et budget compris |
+| `verifier_crea` | `guard` (`copy/guardrails.ts`) |
+| `rendre_visuels` | `renderCreativeVisuals` (`render/visuals.ts`) |
+| `lister_gabarits` | `render/templates.tsx` |
+| `lire_kit_marque` | `loadGenerationContext` |
+| `deposer_a_valider` | le statut `a-valider` des créas, déjà lu par la file 3a |
+| comptage des coûts | `recordAdsUsage` / `assertAdsBudget` (`spend.ts`), avec le passage et l'agent en plus |
+
+**Vercel Workflows ou cron et étapes en base.**
+
+Vercel Workflows est disponible pour tous depuis avril 2026 (directives `"use
+workflow"` et `"use step"`). Il apporte des étapes durables, des reprises
+automatiques, des attentes, des sous-workflows et un tableau de suivi. Son coût
+serait négligeable ici : 0,02 $ les 1 000 événements, environ 3 événements par
+étape, soit quelques centimes par mois.
+
+**Je recommande quand même le cron avec les étapes en base**, pour quatre raisons :
+
+1. **La base est de toute façon la source de vérité.** La salle de contrôle, le
+   journal des décisions et l'audit lisent `ad-agent-steps`. Avec Workflows, l'état
+   vivrait **deux fois** : chez Vercel (conservé 7 jours sur Pro, puis effacé) et chez
+   nous. C'est exactement le doublon qu'on s'interdit.
+2. **Le modèle de rejeu de Workflows** exige un code d'orchestration déterministe.
+   Or un arbre créé dynamiquement par un modèle se prête mal à cette discipline, et
+   on ajouterait un plugin de compilation (`withWorkflow` dans `next.config`), une
+   dépendance et une façon de faire nouvelle dans un dépôt qui tourne déjà sur une
+   quinzaine de crons.
+3. **Une étape ici, c'est un appel de modèle ou un outil**, qui tient dans une
+   fonction de 300 s. On n'a besoin ni d'attentes de plusieurs jours, ni de milliers
+   d'étapes.
+4. **La reprise reste simple à écrire :**
+   - un verrou à bail sur le passage (`leaseUntil`) évite qu'il soit traité deux
+     fois ;
+   - chaque étape a une clé d'idempotence ;
+   - la conversation d'un agent se **reconstruit** à partir de ses étapes.
+
+**Comment ça avance :**
+
+- Le clic lance la première étape.
+- Chaque étape finie enchaîne la suivante avec `after()`, sans attendre le cron.
+- Un cron `ads-agent-tick`, **chaque minute**, reprend les passages dont le bail a
+  expiré (fonction tuée, déploiement, erreur). Il relance aussi ceux en pause de
+  budget quand le jour change.
+
+**À revoir** si on a besoin plus tard d'attentes humaines longues au milieu d'un
+passage, ou de dizaines de campagnes en parallèle. Workflows redeviendrait alors
+intéressant.
+
+### 6. Modèle de données
+
+Une **seule migration**, appliquée après un dump vérifié et ton feu vert. Les
+collections `ad-agent-runs` et `ad-decisions` sont prévues en §4.4 et §4.5 mais
+**n'existent pas encore dans le code** : 3c les crée, en y ajoutant ce qui lui
+manque. Aucun champ ne s'appelle `texts`, `numbers`, `rels` ou `locales` (tables
+réservées de Payload, test existant).
+
+**`ad-agent-runs` — un passage (un clic sur « Lancer l'agent »)**
+
+| Champ | Type | Rôle |
+|---|---|---|
+| `campaign` | relation | La campagne |
+| `objective` | textarea | La phrase saisie |
+| `status` | select | `en-cours` · `en-pause-budget` · `a-valider` · `termine` · `arrete` · `echoue` |
+| `startedBy`, `startedAt`, `finishedAt` | relation / dates | Qui, quand |
+| `limits` | json | Photo des bornes au lancement : part IA, plancher, profondeur, simultanés, rejets |
+| `leaseUntil` | date | Verrou de reprise |
+| `tokens`, `costEur` | group / number | Totaux, recalculés à partir des étapes |
+| `summary` | textarea | Ce que l'orchestrateur a déposé, en 5 lignes |
+| `error` | text | Motif d'échec ou d'arrêt |
+
+**`ad-agents` — un nœud de l'arbre (nouvelle collection)**
+
+| Champ | Type | Rôle |
+|---|---|---|
+| `run` | relation | Le passage |
+| `parent` | relation → `ad-agents` | Vide pour l'orchestrateur |
+| `depth` | number | 0 pour l'orchestrateur |
+| `role` | select | `orchestrateur` · `stratege` · `redacteur` · `directeur-artistique` · `controleur` · `analyste` |
+| `mission` | textarea | Écrite par le parent |
+| `tools` | select multiple | Sous-ensemble des outils autorisés pour ce rôle |
+| `model` | text | Lu dans `ADS_AGENT_MODELS` à la création |
+| `budgetEur`, `spentEur` | number | Réservé par le parent / consommé |
+| `tokens` | group | Entrée, sortie, cache lu, cache écrit |
+| `status` | select | `en-attente` · `en-cours` · `termine` · `echoue` · `arrete` |
+| `result` | json | Ce que l'agent renvoie à son parent (via `terminer`) |
+
+**`ad-agent-steps` — une étape (nouvelle collection)**
+
+| Champ | Type | Rôle |
+|---|---|---|
+| `run`, `agent` | relations | — |
+| `seq` | number | Ordre dans l'agent (unique par agent) |
+| `kind` | select | `modele` · `outil` |
+| `tool` | text | Nom de l'outil |
+| `input`, `output` | json | Pour `modele` : les blocs de la réponse (réflexion comprise), pour rejouer la conversation |
+| `line` | text | **La phrase du fil d'activité** |
+| `tokens`, `costEur` | group / number | Pour `modele` |
+| `status` | select | `en-cours` · `fait` · `echoue` |
+| `idempotencyKey` | text, unique | Une étape reprise ne s'exécute pas deux fois |
+| `startedAt`, `finishedAt` | dates | — |
+
+**`ad-decisions` — le journal (§4.4, créé ici)** : les champs de §4.4, plus `agent`
+et `step`, et plus ces types :
+
+- `repartition-budget` ;
+- `positionnement` ;
+- `angle` ;
+- `audience` ;
+- `rejet-controleur` ;
+- `creation-sous-agent`.
+
+Les décisions internes à la préparation naissent `executee` (le code les a
+appliquées dans le support). Toute décision qui toucherait Meta naît `proposee`,
+et 3c n'en exécute aucune.
+
+**Le budget, sur `ad-campaigns`** : un groupe `agentBudget` avec :
+
+- `totalDailyEur` ;
+- `maxAiSharePct` ;
+- `metaFloorEur` ;
+- `split` (part IA et part Meta en vigueur, avec la date et la décision
+  d'origine). C'est une copie de la dernière `repartition-budget`, pour que les
+  jauges ne relisent pas tout le journal.
+
+**Le registre de dépense `ad-ai-usage`** reçoit deux relations, `run` et `agent`, et
+le type de dépense `agent`. Les jauges se **calculent** :
+
+- l'IA à partir d'`ad-ai-usage` ;
+- Meta à partir d'`ad-metrics-daily`.
+
+Rien n'est stocké en double.
+
+**`ads-settings`** reçoit `agentDailyEur` : le plafond IA global des agents, toutes
+campagnes confondues.
+
+### 7. Coût IA estimé pour préparer une campagne
+
+Hypothèse : une campagne de 6 créas, un rejet du contrôleur sur deux créas. Tarifs
+du 29/09/2026 :
+
+- Opus 5.5 : 4 $ / 20 $ par million de tokens en entrée / sortie ;
+- Sonnet 5 : 2 $ / 10 $ ;
+- Haiku 4.5 : 1 $ / 5 $.
+
+Le cache est actif sur les instructions système et le contexte de marque.
+
+| Poste | Volume estimé | Coût |
+|---|---|---|
+| Orchestrateur (Opus), ~10 tours | 200 k lus en cache, 25 k entrée neuve, 15 k sortie avec réflexion | ~0,55 $ |
+| Stratège (Opus) | 40 k entrée, 10 k sortie | ~0,40 $ |
+| Extraction des sources (Haiku) | ~10 pages et 30 pubs : 60 k entrée, 10 k sortie | ~0,10 $ |
+| Rédacteur (Sonnet) + génération 3a (Opus), 2 lots + 2 réécritures | cadrage ~0,15 $ ; génération ~0,10 $ par lot | ~0,50 $ |
+| Directeur artistique (Sonnet) | 20 k entrée, 5 k sortie | ~0,10 $ |
+| Contrôleur (Sonnet), 8 vérifications | 60 k entrée, 8 k sortie | ~0,20 $ |
+| Rendu Satori | calcul serveur | 0 $ |
+| Motion (Remotion sur Sandbox), si activé | ~0,02 $ par vidéo de 15 s | ~0,10 $ |
+| **Total** | | **~1,95 $ ≈ 1,80 €** |
+
+**Fourchette réaliste : 1,50 à 3 € par préparation.** Le pire cas est plafonné par
+construction : ce que la part IA de la campagne autorise, soit `total × part IA max`
+par jour. Le chiffre réel sera mesuré au premier passage et noté ici.
+
+### 8. Découpage en commits
+
+Les quatre portes avant chaque commit. **Une seule migration**, au commit 1.
+
+| # | Commit | Schéma |
+|---|---|---|
+| 1 | Collections `ad-agent-runs`, `ad-agents`, `ad-agent-steps`, `ad-decisions` ; groupe `agentBudget` sur les campagnes ; `run`, `agent` et le type `agent` sur `ad-ai-usage` ; `agentDailyEur` dans `ads-settings`. Accès : rôles admin, écriture par le serveur seul | migration |
+| 2 | Moteur de budget, **pur et testé** : bornes, invariants, part IA du jour, semaine Meta (dimanche → samedi, fuseau du compte), réservation parent → enfants ; Sonnet 5 dans `CLAUDE_PRICES` ; `ADS_AGENT_MODELS` | — |
+| 3 | Moteur d'agents : registre des rôles et des outils, boucle de tool use avec chaque tour écrit en base, reconstruction de la conversation, bail et idempotence, limites de l'arbre. Tests avec un **faux modèle** (pas de réseau, cf. `setup-isolation`) | — |
+| 4 | Outils branchés sur l'atelier 3a (textes, garde-fous, rendu, kit, dépôt « À valider ») et outils d'orchestration (`creer_sous_agent`, `repartir_budget`, `terminer`) ; phrases du fil | — |
+| 5 | Sources du stratège : pages du site (liste blanche, extraction Haiku), agrégats anonymes leads / signés, bibliothèque publicitaire Meta (mode simulé par variable d'environnement tant que l'accès n'est pas ouvert) | — |
+| 6 | Pilotage : route « Lancer l'agent » / « Arrêter », enchaînement par `after()`, cron `ads-agent-tick` chaque minute (`vercel.json`) | — |
+| 7 | Salle de contrôle : arbre, fil, jauges, journal | — |
+| 8 | Vue globale au tableau de bord, carte « Proposition de l'agent » dans « À valider », icônes du menu ; mise à jour de `docs/REGLES-SUPPORT.md` | — |
+| 9 | Outil `rendre_motion`, **après** le commit 3a n° 9 (Remotion) | — |
+
+Les commits 1 à 8 donnent un agent complet sur les gabarits statiques. Le premier
+vrai passage se fera sur une campagne de test, avec une part IA volontairement basse
+(1 €), pour vérifier la pause et la reprise en conditions réelles.
+
+### 9. Questions
+
+1. **La bibliothèque publicitaire Meta demande la vérification d'identité d'une
+   personne.** La tienne ? Le jeton expire au bout de 60 jours : on le renouvelle à
+   la main (rappel dans le support) ou on code le rafraîchissement ?
+2. **Les concurrents** : tu fournis une liste de pages Facebook, ou l'agent cherche
+   par mots-clés (« logiciel BTP », « pointage chantier ») ?
+3. **La part IA avant la publication** : elle reste bornée par `total × part IA max`
+   (proposé), ou tu préfères un budget de préparation à part, en une fois ?
+4. **Les valeurs par défaut** : part IA 15 %, plancher Meta 5 €/jour, plafond global
+   des agents 15 €/jour, profondeur 2, 3 agents simultanés, 12 par passage, 2 rejets.
+5. **Les clients signés** : les agrégats anonymes (métier, effectif, région, canal,
+   délai) te conviennent, ou tu exclus aussi la région ?
+6. **Les textes** : ils restent écrits par Opus via l'outil 3a (décision 3a, un seul
+   endroit), le rédacteur en Sonnet ne faisant que cadrer. C'est d'accord ?
+7. **Les audiences proposées** : ciblage détaillé (métiers, âges, lieux), Advantage+
+   audience de Meta, ou les deux avec la comparaison comme dimension de test ?
+8. **Un nouveau lancement sur une campagne qui a déjà des créas** : il **ajoute** des
+   créas (proposé, dans la limite hebdomadaire `creativesPerCampaignPerWeek`) ou il
+   **remplace** celles qui ne sont pas encore validées ?
+
+Sources (relevées le 29/09/2026) :
+
+- [Meta — À propos des budgets quotidiens](https://www.facebook.com/business/help/190490051321426),
+  avec l'explication par un tiers : [Jon Loomer — Updates to Meta Ads Budgeting](https://www.jonloomer.com/updates-to-meta-ads-budgeting/) ;
+- [Meta — référence de `ads_archive`](https://developers.facebook.com/docs/graph-api/reference/ads_archive/) ;
+- [Meta — API de la bibliothèque publicitaire](https://www.facebook.com/ads/library/api/) ;
+- sources secondaires sur les champs UE et l'accès :
+  [AdLibrary — DSA et dépôts de publicités](https://adlibrary.com/posts/eu-dsa-ad-repositories-developers),
+  [AdLibrary — limites de l'API](https://adlibrary.com/posts/meta-ad-library-api-limitations),
+  [Swipekit — accès et limites](https://swipekit.app/articles/meta-ad-library-api) ;
+- [Vercel Workflows — tarifs et limites](https://vercel.com/docs/workflows/pricing),
+  [Vercel Workflows](https://vercel.com/docs/workflows).
 
 ---
 
