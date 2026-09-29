@@ -37,6 +37,7 @@ import { AdsSettings } from "./modules/ads/globals/AdsSettings";
 import { AdsBrandKit } from "./modules/ads/globals/AdsBrandKit";
 import { AdMedia } from "./modules/ads/collections/AdMedia";
 import { AdFacts } from "./modules/ads/collections/AdFacts";
+import { AdAiUsage } from "./modules/ads/collections/AdAiUsage";
 import { SupportConnectionsGlobal } from "./core/globals/SupportConnections";
 import { Forms } from "./modules/forms/collections/Forms";
 import { FormSubmissions } from "./modules/forms/collections/FormSubmissions";
@@ -122,6 +123,7 @@ const ROLE_NAV_HIDDEN: Record<string, (args: { user?: unknown }) => boolean> = {
   "ad-metrics-daily": hideUnlessAdmin,
   "ad-media": hideUnlessAdmin,
   "ad-facts": hideUnlessAdmin,
+  "ad-ai-usage": hideUnlessAdmin,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -335,6 +337,7 @@ export default buildConfig({
       AdMetricsDaily,
       AdMedia,
       AdFacts,
+      AdAiUsage,
       // Adresses qui ne reçoivent plus d'envoi commercial — transverse à tous
       // les modules, d'où sa place à côté des collections système.
       EmailSuppressions,

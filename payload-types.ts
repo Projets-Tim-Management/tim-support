@@ -97,6 +97,7 @@ export interface Config {
     'ad-metrics-daily': AdMetricsDaily;
     'ad-media': AdMedia;
     'ad-facts': AdFact;
+    'ad-ai-usage': AdAiUsage;
     'email-suppressions': EmailSuppression;
     'client-employees': ClientEmployee;
     'client-sites': ClientSite;
@@ -165,6 +166,7 @@ export interface Config {
     'ad-metrics-daily': AdMetricsDailySelect<false> | AdMetricsDailySelect<true>;
     'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
     'ad-facts': AdFactsSelect<false> | AdFactsSelect<true>;
+    'ad-ai-usage': AdAiUsageSelect<false> | AdAiUsageSelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
     'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
     'client-sites': ClientSitesSelect<false> | ClientSitesSelect<true>;
@@ -2350,6 +2352,36 @@ export interface AdMedia {
   height?: number | null;
 }
 /**
+ * Chaque appel payant de l'atelier de créas, avec son coût. Écrit par le serveur ; les plafonds le relisent avant chaque appel.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-ai-usage".
+ */
+export interface AdAiUsage {
+  id: number;
+  kind: 'texte' | 'image' | 'video';
+  provider?: string | null;
+  model?: string | null;
+  eur: number;
+  usd?: number | null;
+  campaign?: (number | null) | AdCampaign;
+  detail?: string | null;
+  /**
+   * Tokens, images ou secondes, tels que le fournisseur les a comptés.
+   */
+  usage?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Adresses qui ne reçoivent plus d'envoi commercial. Les e-mails de service (tickets, accusés de réception, codes de connexion) continuent de partir.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2935,6 +2967,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-facts';
         value: number | AdFact;
+      } | null)
+    | ({
+        relationTo: 'ad-ai-usage';
+        value: number | AdAiUsage;
       } | null)
     | ({
         relationTo: 'email-suppressions';
@@ -4095,6 +4131,22 @@ export interface AdFactsSelect<T extends boolean = true> {
   sourceUrl?: T;
   active?: T;
   notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-ai-usage_select".
+ */
+export interface AdAiUsageSelect<T extends boolean = true> {
+  kind?: T;
+  provider?: T;
+  model?: T;
+  eur?: T;
+  usd?: T;
+  campaign?: T;
+  detail?: T;
+  usage?: T;
   updatedAt?: T;
   createdAt?: T;
 }
