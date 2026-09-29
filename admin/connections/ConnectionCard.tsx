@@ -122,7 +122,10 @@ export function ConnectionCard({
             {simulated && <span className="sc-card__last sc-card__last--simulated">Données simulées</span>}
             {etat}
             {entry.lastTestMessage && (
-              <span className={`sc-card__last sc-card__last--${entry.lastTestOk ? "ok" : "ko"}`}>{entry.lastTestMessage}</span>
+              // Simulée, une réussite n'est pas un feu vert : rien n'a été vérifié chez le fournisseur.
+              <span className={`sc-card__last sc-card__last--${!entry.lastTestOk ? "ko" : simulated ? "simulated" : "ok"}`}>
+                {entry.lastTestMessage}
+              </span>
             )}
             {spend && (
               <span className="sc-card__last sc-card__last--spend" title={`${questions(spend.month.questions)} en ${moisCourant()}`}>
