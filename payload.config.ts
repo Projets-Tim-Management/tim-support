@@ -38,6 +38,7 @@ import { AdsBrandKit } from "./modules/ads/globals/AdsBrandKit";
 import { AdMedia } from "./modules/ads/collections/AdMedia";
 import { AdFacts } from "./modules/ads/collections/AdFacts";
 import { AdAiUsage } from "./modules/ads/collections/AdAiUsage";
+import { AdCreatives } from "./modules/ads/collections/AdCreatives";
 import { SupportConnectionsGlobal } from "./core/globals/SupportConnections";
 import { Forms } from "./modules/forms/collections/Forms";
 import { FormSubmissions } from "./modules/forms/collections/FormSubmissions";
@@ -124,6 +125,7 @@ const ROLE_NAV_HIDDEN: Record<string, (args: { user?: unknown }) => boolean> = {
   "ad-media": hideUnlessAdmin,
   "ad-facts": hideUnlessAdmin,
   "ad-ai-usage": hideUnlessAdmin,
+  "ad-creatives": hideUnlessAdmin,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -333,6 +335,7 @@ export default buildConfig({
       FormSubmissions,
       // Publicité : comptes connectés, campagnes lues chez les régies, chiffres du jour
       AdCampaigns,
+      AdCreatives,
       AdAccounts,
       AdMetricsDaily,
       AdMedia,

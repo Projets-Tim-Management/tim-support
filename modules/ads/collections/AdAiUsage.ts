@@ -42,6 +42,7 @@ export const AdAiUsage: CollectionConfig = {
     },
     { name: "usd", type: "number", label: "Coût facturé ($)" },
     { name: "campaign", type: "relationship", relationTo: "ad-campaigns", label: "Campagne", index: true },
+    { name: "batch", type: "text", label: "Lot", index: true, admin: { description: "Les créas nées de cet appel portent le même lot." } },
     { name: "detail", type: "text", label: "Détail" },
     { name: "usage", type: "json", label: "Consommation", admin: { description: "Tokens, images ou secondes, tels que le fournisseur les a comptés." } },
   ],

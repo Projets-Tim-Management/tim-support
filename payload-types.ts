@@ -93,6 +93,7 @@ export interface Config {
     forms: Form;
     'form-submissions': FormSubmission;
     'ad-campaigns': AdCampaign;
+    'ad-creatives': AdCreative;
     'ad-accounts': AdAccount;
     'ad-metrics-daily': AdMetricsDaily;
     'ad-media': AdMedia;
@@ -162,6 +163,7 @@ export interface Config {
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'ad-campaigns': AdCampaignsSelect<false> | AdCampaignsSelect<true>;
+    'ad-creatives': AdCreativesSelect<false> | AdCreativesSelect<true>;
     'ad-accounts': AdAccountsSelect<false> | AdAccountsSelect<true>;
     'ad-metrics-daily': AdMetricsDailySelect<false> | AdMetricsDailySelect<true>;
     'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
@@ -2297,25 +2299,85 @@ export interface AdAccount {
   createdAt: string;
 }
 /**
+ * Les créas de l'atelier : un angle, ses textes, ses visuels. Elles se valident dans la file « À valider ».
+ *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-metrics-daily".
+ * via the `definition` "ad-creatives".
  */
-export interface AdMetricsDaily {
+export interface AdCreative {
   id: number;
-  day: string;
-  account: number | AdAccount;
-  platform: string;
-  level: 'campaign' | 'adset' | 'ad';
-  externalId: string;
-  name?: string | null;
-  campaignExternalId?: string | null;
-  currency?: string | null;
-  spend?: number | null;
-  impressions?: number | null;
-  clicks?: number | null;
-  leads?: number | null;
-  qualifiedLeads?: number | null;
-  won?: number | null;
+  /**
+   * L'idée en une ligne.
+   */
+  angle: string;
+  /**
+   * Le texte posé sur l'image.
+   */
+  hook?: string | null;
+  campaign: number | AdCampaign;
+  tone: 'vous' | 'tu';
+  cta?: ('en-savoir-plus' | 's-inscrire' | 'reserver') | null;
+  status?: ('brouillon' | 'a-valider' | 'validee' | 'refusee' | 'en-ligne' | 'retiree') | null;
+  /**
+   * Une variante = une dimension étiquetée. Vide : la créa n'est pas un test.
+   */
+  tests?:
+    | {
+        dimension: 'ton' | 'angle' | 'accroche' | 'format' | 'visuel' | 'cta';
+        value: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Comptée à part dans les résultats.
+   */
+  isTest?: boolean | null;
+  /**
+   * Générés et contrôlés par les garde-fous. Un texte rejeté reste visible, avec sa raison.
+   */
+  texts?:
+    | {
+        kind: 'principal' | 'titre' | 'description';
+        tone: 'vous' | 'tu';
+        chars?: number | null;
+        status: 'ok' | 'rejete';
+        reason?: string | null;
+        text: string;
+        id?: string | null;
+      }[]
+    | null;
+  assets?:
+    | {
+        format: '1x1' | '4x5' | '9x16';
+        type: 'image' | 'video';
+        template?: string | null;
+        media: number | AdMedia;
+        id?: string | null;
+      }[]
+    | null;
+  facts?: (number | AdFact)[] | null;
+  refusalReason?: ('hors-marque' | 'faux' | 'mal-ecrit' | 'visuel' | 'doublon' | 'autre') | null;
+  refusalDetail?: string | null;
+  decidedBy?: (number | null) | User;
+  decidedAt?: string | null;
+  origin?: ('generee' | 'agent' | 'manuelle') | null;
+  generation?: {
+    model?: string | null;
+    costEur?: number | null;
+    /**
+     * Les créas nées de la même génération.
+     */
+    batch?: string | null;
+  };
+  performance?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2352,6 +2414,29 @@ export interface AdMedia {
   height?: number | null;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-metrics-daily".
+ */
+export interface AdMetricsDaily {
+  id: number;
+  day: string;
+  account: number | AdAccount;
+  platform: string;
+  level: 'campaign' | 'adset' | 'ad';
+  externalId: string;
+  name?: string | null;
+  campaignExternalId?: string | null;
+  currency?: string | null;
+  spend?: number | null;
+  impressions?: number | null;
+  clicks?: number | null;
+  leads?: number | null;
+  qualifiedLeads?: number | null;
+  won?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Chaque appel payant de l'atelier de créas, avec son coût. Écrit par le serveur ; les plafonds le relisent avant chaque appel.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2365,6 +2450,10 @@ export interface AdAiUsage {
   eur: number;
   usd?: number | null;
   campaign?: (number | null) | AdCampaign;
+  /**
+   * Les créas nées de cet appel portent le même lot.
+   */
+  batch?: string | null;
   detail?: string | null;
   /**
    * Tokens, images ou secondes, tels que le fournisseur les a comptés.
@@ -2951,6 +3040,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-campaigns';
         value: number | AdCampaign;
+      } | null)
+    | ({
+        relationTo: 'ad-creatives';
+        value: number | AdCreative;
       } | null)
     | ({
         relationTo: 'ad-accounts';
@@ -4056,6 +4149,62 @@ export interface AdCampaignsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-creatives_select".
+ */
+export interface AdCreativesSelect<T extends boolean = true> {
+  angle?: T;
+  hook?: T;
+  campaign?: T;
+  tone?: T;
+  cta?: T;
+  status?: T;
+  tests?:
+    | T
+    | {
+        dimension?: T;
+        value?: T;
+        id?: T;
+      };
+  isTest?: T;
+  texts?:
+    | T
+    | {
+        kind?: T;
+        tone?: T;
+        chars?: T;
+        status?: T;
+        reason?: T;
+        text?: T;
+        id?: T;
+      };
+  assets?:
+    | T
+    | {
+        format?: T;
+        type?: T;
+        template?: T;
+        media?: T;
+        id?: T;
+      };
+  facts?: T;
+  refusalReason?: T;
+  refusalDetail?: T;
+  decidedBy?: T;
+  decidedAt?: T;
+  origin?: T;
+  generation?:
+    | T
+    | {
+        model?: T;
+        costEur?: T;
+        batch?: T;
+      };
+  performance?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ad-accounts_select".
  */
 export interface AdAccountsSelect<T extends boolean = true> {
@@ -4145,6 +4294,7 @@ export interface AdAiUsageSelect<T extends boolean = true> {
   eur?: T;
   usd?: T;
   campaign?: T;
+  batch?: T;
   detail?: T;
   usage?: T;
   updatedAt?: T;

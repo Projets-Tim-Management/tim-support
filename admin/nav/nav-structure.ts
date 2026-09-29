@@ -102,6 +102,7 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
   Publicité: [
     { label: "Tableau de bord", href: "/admin/publicite", adminOnly: true },
     "ad-campaigns",
+    "ad-creatives",
     // La matière des créas d'abord (kit, faits, médias), puis les réglages.
     { label: "Paramètres", slugs: ["ads-brand-kit", "ad-facts", "ad-media", "ad-accounts", "ads-settings", "ad-ai-usage"] },
   ],

@@ -109,7 +109,7 @@ export async function assertAdsBudget(payload: Payload, kind: AdSpendKind, maxEu
 /** Inscrit un appel payant, au coût réellement facturé. */
 export async function recordAdsUsage(
   payload: Payload,
-  entry: { kind: AdSpendKind; provider: string; model: string; usd: number; campaign?: number | string | null; detail: string; usage?: unknown },
+  entry: { kind: AdSpendKind; provider: string; model: string; usd: number; campaign?: number | string | null; batch?: string; detail: string; usage?: unknown },
 ) {
   return payload.create({
     collection: "ad-ai-usage",
@@ -120,6 +120,7 @@ export async function recordAdsUsage(
       usd: Math.round(entry.usd * 10_000) / 10_000,
       eur: Math.round(usdToEur(entry.usd) * 10_000) / 10_000,
       campaign: (entry.campaign ?? null) as number | null,
+      batch: entry.batch ?? null,
       detail: entry.detail,
       usage: (entry.usage ?? null) as never,
     },
