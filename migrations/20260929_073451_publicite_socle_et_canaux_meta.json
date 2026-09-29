@@ -21695,7 +21695,8 @@
         "sans-jeton",
         "connecte",
         "expire",
-        "erreur"
+        "erreur",
+        "archive"
       ]
     },
     "public.enum_ad_metrics_daily_level": {
@@ -22029,6 +22030,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "ff9ad1fb-aeb6-456d-a233-d25f4c167b18",
+  "id": "f6e041ff-ef89-4788-9e7a-65472bd3d19d",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }

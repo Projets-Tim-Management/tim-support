@@ -4,7 +4,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
    CREATE TYPE "public"."enum_ad_campaigns_status" AS ENUM('brouillon', 'active', 'en-pause', 'terminee');
   CREATE TYPE "public"."enum_ad_campaigns_objective" AS ENUM('leads', 'trafic', 'notoriete', 'autre');
-  CREATE TYPE "public"."enum_ad_accounts_status" AS ENUM('sans-jeton', 'connecte', 'expire', 'erreur');
+  CREATE TYPE "public"."enum_ad_accounts_status" AS ENUM('sans-jeton', 'connecte', 'expire', 'erreur', 'archive');
   CREATE TYPE "public"."enum_ad_metrics_daily_level" AS ENUM('campaign', 'adset', 'ad');
   ALTER TYPE "public"."enum_partner_clients_source" ADD VALUE 'meta-facebook' BEFORE 'site-vitrine';
   ALTER TYPE "public"."enum_partner_clients_source" ADD VALUE 'meta-instagram' BEFORE 'site-vitrine';

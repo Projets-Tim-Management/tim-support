@@ -2200,9 +2200,9 @@ export interface AdAccount {
   externalId: string;
   platform: string;
   /**
-   * Constaté par la synchro et par la connexion, jamais saisi.
+   * Constaté par la synchro et par la connexion, jamais saisi. « Archivé » se pose et se retire par le menu ⋯.
    */
-  status?: ('sans-jeton' | 'connecte' | 'expire' | 'erreur') | null;
+  status?: ('sans-jeton' | 'connecte' | 'expire' | 'erreur' | 'archive') | null;
   lastError?: string | null;
   lastSyncAt?: string | null;
   /**

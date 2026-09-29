@@ -85,9 +85,25 @@ Nouveau module `modules/ads`, groupe de nav **« Publicité »**.
 | `token` | text chiffré (`secrets.ts`) | Jeton OAuth longue durée du compte. Jamais renvoyé à l'admin |
 | `tokenExpiresAt` | date | Échéance du jeton OAuth (D11) : alerte à J-7, statut `expire` à l'échéance |
 | `systemUserToken` | text chiffré (`secrets.ts`) | Jeton d'utilisateur système, collé à la main (D11). Prime sur `token` quand il est posé. Jamais renvoyé à l'admin : l'écran dit seulement s'il est posé |
-| `status` | select | `connecte` · `expire` · `erreur` |
+| `status` | select | `sans-jeton` · `connecte` · `expire` · `erreur` · `archive` — constaté par la synchro et la connexion, sauf `archive` qui est un geste humain |
 | `monthlyCapEur` | number | Plafond de dépense mensuel **pour ce compte**, contrôlé par nos garde-fous |
 | `lastSyncAt` | date auto | Dernière synchro réussie |
+
+**Un compte ne se supprime pas, il s'archive.** Archivé, il n'est plus synchronisé ;
+ses campagnes et ses chiffres restent en place — on le reconnectera (au passage au
+jeton d'utilisateur système, typiquement), et les agents auront besoin de son
+historique. Archiver et réactiver se font par le menu ⋯ de la fiche ; réactiver
+recalcule l'état d'après les jetons.
+
+**Une reconnexion retrouve toujours le même enregistrement**, par sa clé
+`platform + externalId` (index unique) : l'OAuth remplace le jeton, remet l'échéance
+et l'alerte J-7 à zéro et sort le compte de l'archive ; coller un jeton
+d'utilisateur système fait de même. Jamais un second compte pour le même `act_…`.
+
+**La suppression définitive est réservée au super-admin.** La suppression native est
+fermée à tous (API et liste) ; elle passe par « Supprimer définitivement… », qui
+annonce d'abord ce qui partira (le compte, N campagnes, M lignes de chiffres) et
+refuse si ces nombres ont changé entre la confirmation et le clic.
 
 ### 4.2 `ad-campaigns` — une campagne, miroir + pilotage
 
@@ -356,6 +372,11 @@ qu'on ouvre tous les matins. Les chiffres viennent après.
 
 La migration commune est appliquée **une seule fois** sur la base partagée dev/prod,
 après sauvegarde et feu vert explicite.
+
+**Sauvegarde avant migration** : `pg_dump` du schéma `public` (format custom), dans
+`~/tim-backups/` (dossier 700, fichier 600, hors iCloud), vérifié par relecture de
+l'archive et comparaison du nombre de lignes table par table. ⚠️ Il contient des
+données de prospects : **le supprimer une fois la phase 0 en production et stable.**
 
 ---
 

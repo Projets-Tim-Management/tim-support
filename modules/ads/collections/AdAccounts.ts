@@ -1,6 +1,7 @@
-import type { CollectionBeforeDeleteHook, CollectionConfig, Field } from "payload";
+import type { CollectionBeforeChangeHook, CollectionBeforeDeleteHook, CollectionConfig, Field } from "payload";
 
 import { isAdmin } from "@/core/access";
+import { PURGE_CONTEXT, statusFromTokens } from "@/modules/ads/lib/accounts";
 import { validatePlatform } from "@/modules/ads/lib/platforms";
 import { PASSWORD_MASK, encryptPasswordValue } from "@/modules/marketing/lib/credential-secrets";
 
@@ -19,6 +20,12 @@ import { PASSWORD_MASK, encryptPasswordValue } from "@/modules/marketing/lib/cre
  *    l'enregistrement, masqué à la lecture : on voit qu'il est posé, jamais sa
  *    valeur.
  *
+ * Un compte ne se supprime pas, il s'ARCHIVE (menu 3-points) : plus de synchro,
+ * campagnes et chiffres conservés — on le reconnectera, et les agents auront
+ * besoin de son historique. La suppression définitive est réservée au
+ * super-admin, par une route qui annonce d'abord le nombre de lignes effacées ;
+ * la suppression native est fermée à tous, liste comprise.
+ *
  * Accès : admin seul (D1).
  */
 
@@ -32,14 +39,23 @@ const serverSecret = (name: string): Field =>
   }) as Field;
 
 /**
- * Un compte se supprime AVEC ses campagnes et ses chiffres.
+ * Suppression : seulement par la route de purge (contexte PURGE_CONTEXT), et
+ * alors AVEC les campagnes et les chiffres du compte.
  *
- * Leur champ `account` est requis (colonne NOT NULL) et la clé étrangère est
- * `ON DELETE SET NULL` : sans ce nettoyage, Postgres refuse la suppression (même
- * piège que les fiches client, cf. PartnerClients). `req` transmis = même
- * transaction ; `overrideAccess` car ces collections sont en lecture seule.
+ * Le refus ici est une deuxième barrière, derrière `access.delete` fermé : un
+ * script ou un appel en `overrideAccess` qui supprimerait un compte effacerait
+ * son historique sans que personne n'ait vu ce qu'il emportait.
+ *
+ * La cascade est nécessaire : `account` est requis (colonne NOT NULL) et la clé
+ * étrangère est `ON DELETE SET NULL` — sans elle Postgres refuse (même piège que
+ * les fiches client, cf. PartnerClients). `req` transmis = même transaction.
  */
-const deleteAccountChildren: CollectionBeforeDeleteHook = async ({ req, id }) => {
+const guardAndCascadeDelete: CollectionBeforeDeleteHook = async ({ req, id }) => {
+  if (!req.context?.[PURGE_CONTEXT]) {
+    throw new Error(
+      "Un compte publicitaire s'archive, il ne se supprime pas : son historique sert à la reconnexion et aux agents. Suppression définitive : super-admin, menu « Supprimer définitivement ».",
+    );
+  }
   for (const collection of ["ad-metrics-daily", "ad-campaigns"] as const) {
     const { errors } = await req.payload.delete({
       collection,
@@ -53,11 +69,29 @@ const deleteAccountChildren: CollectionBeforeDeleteHook = async ({ req, id }) =>
   }
 };
 
+/**
+ * Coller un jeton d'utilisateur système, c'est RECONNECTER le compte : il sort
+ * de l'archive et l'état se recalcule d'après ses jetons (la synchro suivante
+ * confirme). Le masque renvoyé tel quel n'est pas un nouveau jeton.
+ */
+const reconnectOnSystemToken: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
+  const v = data?.systemUserToken;
+  const fresh = typeof v === "string" && v.trim() !== "" && v !== PASSWORD_MASK;
+  if (!fresh) return data;
+  return {
+    ...data,
+    status: statusFromTokens({ systemUserToken: v, token: originalDoc?.token }, new Date()),
+    lastError: null,
+  };
+};
+
 export const AD_ACCOUNT_STATUSES = [
   { label: "Sans jeton", value: "sans-jeton" },
   { label: "Connecté", value: "connecte" },
   { label: "Jeton expiré", value: "expire" },
   { label: "En erreur", value: "erreur" },
+  // Un geste humain, pas un constat : seul l'état que la synchro ne réécrit pas.
+  { label: "Archivé", value: "archive" },
 ] as const;
 
 export const AdAccounts: CollectionConfig = {
@@ -69,10 +103,18 @@ export const AdAccounts: CollectionConfig = {
     group: "Publicité",
     description:
       "Les comptes publicitaires dont le support lit les campagnes et les chiffres. Connexion par OAuth, ou par un jeton d'utilisateur système collé ici.",
+    components: {
+      edit: {
+        // Monté en permanence : un modal ouvert depuis le menu disparaîtrait avec lui.
+        beforeDocumentControls: ["/modules/ads/admin/PurgeAccountModal#PurgeAccountModal"],
+        editMenuItems: ["/modules/ads/admin/AdAccountEditMenu#AdAccountEditMenu"],
+      },
+    },
   },
-  access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
+  // Suppression fermée à tous : elle passe par la route de purge (super-admin).
+  access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: () => false },
   disableDuplicate: true,
-  hooks: { beforeDelete: [deleteAccountChildren] },
+  hooks: { beforeChange: [reconnectOnSystemToken], beforeDelete: [guardAndCascadeDelete] },
   // Un compte d'une régie ne se connecte qu'une fois.
   indexes: [{ fields: ["platform", "externalId"], unique: true }],
   fields: [
@@ -111,7 +153,7 @@ export const AdAccounts: CollectionConfig = {
       admin: {
         position: "sidebar",
         readOnly: true,
-        description: "Constaté par la synchro et par la connexion, jamais saisi.",
+        description: "Constaté par la synchro et par la connexion, jamais saisi. « Archivé » se pose et se retire par le menu ⋯.",
       },
     },
     {
