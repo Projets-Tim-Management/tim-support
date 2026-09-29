@@ -3,13 +3,13 @@
  * 29/09/2026). Rien d'autre sans accord : la liste est fermée, et c'est elle qui
  * alimente le brief, la génération et le fichier de textes téléchargé.
  *
- * `meta` est le type d'appel à l'action de la Marketing API, pour la phase 3b
- * (publication) — à confirmer à ce moment-là contre la documentation de Meta.
+ * La correspondance avec les types d'appel à l'action de la Marketing API
+ * viendra avec la publication (phase 3b), vérifiée contre la documentation.
  */
 export const CTAS = [
-  { value: "en-savoir-plus", label: "En savoir plus", meta: "LEARN_MORE" },
-  { value: "s-inscrire", label: "S'inscrire", meta: "SIGN_UP" },
-  { value: "reserver", label: "Réserver", meta: "BOOK_NOW" },
+  { value: "en-savoir-plus", label: "En savoir plus" },
+  { value: "s-inscrire", label: "S'inscrire" },
+  { value: "reserver", label: "Réserver" },
 ] as const;
 
 export type Cta = (typeof CTAS)[number]["value"];

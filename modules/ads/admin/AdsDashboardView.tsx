@@ -50,7 +50,7 @@ const when = (iso: string) =>
   new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
 const pctLabel = (d: number | null) => (d == null ? undefined : `${d > 0 ? "+" : d < 0 ? "−" : ""}${Math.abs(d).toLocaleString("fr-FR")} %`);
 
-export function Filters({ d, platform }: { d: AdsDashboard; platform: string | null }) {
+function Filters({ d, platform }: { d: AdsDashboard; platform: string | null }) {
   const href = (p: string | null, days: number) => {
     const q = new URLSearchParams();
     if (p) q.set("regie", p);

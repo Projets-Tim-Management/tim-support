@@ -555,8 +555,11 @@ TIM**. Le seuil de Remotion compte les **personnes**, pas les comptes ni les lic
 `direction@` et `cpiancatelli@` sont la même personne (Charlie), ce qui ferait
 **3 personnes** (Charlie, lafonso@, mpetrini@) → licence gratuite, si personne d'autre
 n'utilise l'outil. À 4 personnes ou plus : « Remotion for Automators », 100 $/mois
-minimum (0,01 $ par rendu) — pas un prix par siège. **Nombre de personnes à confirmer
-avant le commit 9.**
+minimum (0,01 $ par rendu) — pas un prix par siège.
+
+**Confirmé le 29/09/2026 : seuls `direction@` et `cpiancatelli@` utiliseront
+l'atelier — une seule personne, Charlie. Licence Remotion gratuite ; le commit 9
+part sur Vercel Sandbox sans surcoût de licence.**
 
 **Le kit de marque réutilise la charte existante.** Les couleurs de TIM et son logo
 principal existent déjà dans *Système › Apparence* (ceux du contrat PDF) : le kit les

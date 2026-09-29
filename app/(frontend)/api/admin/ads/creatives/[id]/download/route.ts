@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { hasAdminRole } from "@/core/access";
-import { payloadClient } from "@/core/payload-client";
+import { adminRequest } from "@/modules/ads/lib/route-auth";
 import type { DownloadCreative } from "@/modules/ads/lib/download";
 import { DOWNLOADABLE, zipResponse } from "@/modules/ads/lib/download-server";
 
@@ -13,10 +12,9 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function GET(req: Request, { params }: Params) {
   const { id } = await params;
-  const payload = await payloadClient();
-  const { user } = await payload.auth({ headers: req.headers });
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (!hasAdminRole(user)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const auth = await adminRequest(req);
+  if ("response" in auth) return auth.response;
+  const { payload } = auth;
 
   const c = (await payload.findByID({ collection: "ad-creatives", id, depth: 1, overrideAccess: true }).catch(() => null)) as
     | (DownloadCreative & { status?: string; campaign?: { id: number | string } | number | string })

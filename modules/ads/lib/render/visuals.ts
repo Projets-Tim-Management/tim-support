@@ -1,3 +1,4 @@
+import { slugify } from "@/core/lib/slug";
 import type { Payload, Where } from "payload";
 import sharp from "sharp";
 
@@ -58,14 +59,8 @@ export function templateAvailable(key: TemplateKey, have: { capture: boolean; fa
   return needs == null || have[needs];
 }
 
-const slug = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 40) || "x";
+/** Nom de fichier : l'angle en entier ferait une phrase. */
+const slug = (s: string) => slugify(s, { max: 40 });
 
 async function latest(payload: Payload, kind: "capture" | "photo"): Promise<Media | null> {
   const where: Where = kind === "capture" ? { and: [{ kind: { equals: "capture" } }, { noClientData: { equals: true } }] } : { kind: { equals: "photo" } };

@@ -270,3 +270,7 @@
 .ads-dash__todo--active { border-style: solid; border-color: var(--tim-primary); }
 .ads-dash__todo--active .ads-dash__todo-count { background: var(--tim-primary); color: var(--tim-white); }
 .ads-dash__todo a { color: var(--tim-primary-dark); font-weight: 600; }
+
+/* Colonne « 7 derniers jours » de la liste des campagnes. */
+.ads-kpis { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ads-kpis--empty { color: var(--tim-muted); }

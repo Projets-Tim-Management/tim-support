@@ -1,5 +1,3 @@
-import type { Channel } from "@/core/lib/channels";
-
 /**
  * Les régies publicitaires — registre (plan Publicité, D2 et D3).
  *
@@ -7,16 +5,12 @@ import type { Channel } from "@/core/lib/channels";
  * ajouter Google Ads ou ChatGPT Ads, c'est une entrée ici et un adaptateur,
  * sans migration. Le reste du module (écrans, synchro, plus tard les agents) ne
  * connaît aucune régie par son nom.
- *
- * `channels` relie une régie aux canaux d'acquisition qu'elle produit
- * (core/lib/channels.ts) : c'est ce qui permettra de rapprocher une dépense des
- * leads et des affaires gagnées qu'elle a amenés.
  */
 export const AD_PLATFORMS = [
-  { key: "meta", label: "Meta", channels: ["meta-facebook", "meta-instagram"] },
-  { key: "google", label: "Google Ads", channels: ["sea"] },
-  { key: "chatgpt", label: "ChatGPT Ads", channels: ["chatgpt"] },
-] as const satisfies readonly { key: string; label: string; channels: readonly Channel[] }[];
+  { key: "meta", label: "Meta" },
+  { key: "google", label: "Google Ads" },
+  { key: "chatgpt", label: "ChatGPT Ads" },
+] as const satisfies readonly { key: string; label: string }[];
 
 export type PlatformKey = (typeof AD_PLATFORMS)[number]["key"];
 

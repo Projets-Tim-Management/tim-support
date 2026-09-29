@@ -59,7 +59,7 @@ export const AdCampaigns: CollectionConfig = {
   labels: { singular: "Campagne", plural: "Campagnes" },
   admin: {
     useAsTitle: "name",
-    defaultColumns: ["name", "status", "account", "objective", "dailyBudget", "lastSyncAt"],
+    defaultColumns: ["name", "status", "account", "kpis", "dailyBudget", "lastSyncAt"],
     group: "Publicité",
     description:
       "Les campagnes : celles lues chez les régies (mises à jour chaque nuit, chiffres en lecture seule) et les brouillons préparés ici, avec leur brief.",
@@ -189,7 +189,14 @@ export const AdCampaigns: CollectionConfig = {
       access: { update: () => false },
       admin: { position: "sidebar", readOnly: true },
     },
-    // Derniers chiffres consolidés, pour la liste et les cartes du tableau de bord.
-    { name: "kpis", type: "json", access: mirror, admin: { hidden: true } },
+    // Derniers chiffres consolidés par la synchro : la colonne « 7 derniers jours »
+    // de la liste. Absent du formulaire (un bloc de JSON n'y apprendrait rien).
+    {
+      name: "kpis",
+      type: "json",
+      label: "7 derniers jours",
+      access: mirror,
+      admin: { condition: () => false, components: { Cell: "/modules/ads/admin/CampaignKpisCell#CampaignKpisCell" } },
+    },
   ],
 };

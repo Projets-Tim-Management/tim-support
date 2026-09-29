@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CLAUDE_PRICES, claudeCostUsd, claudeMaxCostUsd, unitCostUsd, usdToEur } from "@/core/lib/ai-pricing";
+import { CLAUDE_PRICES, claudeCostUsd, claudeMaxCostUsd, usdToEur } from "@/core/lib/ai-pricing";
 import { costUsd } from "@/core/lib/ai-budget";
 import { AdsBudgetError, assertAdsBudget, checkBudget, limitsFor, parisStart, recordAdsUsage } from "@/modules/ads/lib/spend";
 
@@ -20,9 +20,7 @@ describe("grille de tarifs commune", () => {
     expect(claudeMaxCostUsd("claude-opus-5-5", 5_000, 16_000)).toBeCloseTo((5_000 * 4 + 16_000 * 20) / 1e6, 10);
   });
 
-  it("images et vidéo à l'unité", () => {
-    expect(unitCostUsd("imagen-4", 10)).toBeCloseTo(0.4, 10);
-    expect(unitCostUsd("veo-3.1-fast-1080p", 8)).toBeCloseTo(0.96, 10);
+  it("convertit en euros", () => {
     expect(usdToEur(1.1)).toBeCloseTo(1, 10);
   });
 });

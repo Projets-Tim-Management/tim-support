@@ -8,7 +8,7 @@ import { PROMPT_VERSION, VARIANTS, systemPrompt, userPrompt, type BriefInput, ty
 import { ctaLabel } from "@/modules/ads/lib/cta";
 import { DEFAULT_TONE, type Tone } from "@/modules/ads/lib/dimensions";
 import { ADS_TEXT_MAX_TOKENS, ADS_TEXT_MODEL } from "@/modules/ads/lib/models";
-import { AdsBudgetError, assertAdsBudget, recordAdsUsage } from "@/modules/ads/lib/spend";
+import { assertAdsBudget, recordAdsUsage } from "@/modules/ads/lib/spend";
 import type { ModelCall } from "@/modules/ads/lib/copy/claude";
 
 /**
@@ -221,4 +221,3 @@ export async function generateCreatives(
   return { batch, created, costEur: usdToEur(usd), texts: { ok, rejected }, toneTests };
 }
 
-export { AdsBudgetError };

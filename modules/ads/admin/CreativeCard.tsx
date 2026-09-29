@@ -5,6 +5,8 @@ import { toast } from "@payloadcms/ui";
 import { useState } from "react";
 
 import { TEXT_LIMITS } from "@/modules/ads/lib/copy/guardrails";
+import { CREATIVE_FORMATS, REFUSAL_REASONS, labelOf } from "@/modules/ads/lib/creative-options";
+import { TEMPLATES } from "@/modules/ads/lib/render/templates";
 
 export type CardCreative = {
   id: number | string;
@@ -24,22 +26,7 @@ export type CardCreative = {
   refusal: string | null;
 };
 
-const REASONS = [
-  { value: "hors-marque", label: "Hors marque (ton, style)" },
-  { value: "faux", label: "Faux ou invérifiable" },
-  { value: "mal-ecrit", label: "Mal écrit" },
-  { value: "visuel", label: "Visuel à reprendre" },
-  { value: "doublon", label: "Doublon" },
-  { value: "autre", label: "Autre" },
-];
-const TEMPLATES = [
-  { value: "capture", label: "Capture de l'app" },
-  { value: "chiffre", label: "Un fait chiffré" },
-  { value: "photo", label: "Photo de chantier" },
-  { value: "texte", label: "Accroche seule" },
-];
 const KIND: Record<string, string> = { principal: "Textes principaux", titre: "Titres", description: "Descriptions" };
-const FORMAT_LABEL: Record<string, string> = { "1x1": "1:1", "4x5": "4:5", "9x16": "9:16" };
 
 /** Vert sous la cible (lu en entier), ambre entre la cible et la limite (tronqué par « Voir plus »). */
 const charTone = (kind: string, n: number) => {
@@ -107,9 +94,9 @@ export function CreativeCard({ c }: { c: CardCreative }) {
           {c.assets.length ? (
             c.assets.map((a) => (
               <figure key={a.format} className={`ads-shot ads-shot--${a.format}`}>
-                {a.url ? <img src={a.url} alt={`${c.angle} — ${FORMAT_LABEL[a.format]}`} /> : null}
+                {a.url ? <img src={a.url} alt={`${c.angle} — ${labelOf(CREATIVE_FORMATS, a.format)}`} /> : null}
                 {a.format === "9x16" && safe && <span className="ads-shot__safe" aria-hidden />}
-                <figcaption>{FORMAT_LABEL[a.format] ?? a.format}</figcaption>
+                <figcaption>{labelOf(CREATIVE_FORMATS, a.format)}</figcaption>
               </figure>
             ))
           ) : (
@@ -182,7 +169,7 @@ export function CreativeCard({ c }: { c: CardCreative }) {
           <div className="ads-card__refuse">
             <select value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Motif du refus">
               <option value="">Motif du refus…</option>
-              {REASONS.map((r) => (
+              {REFUSAL_REASONS.map((r) => (
                 <option key={r.value} value={r.value}>
                   {r.label}
                 </option>
@@ -207,7 +194,7 @@ export function CreativeCard({ c }: { c: CardCreative }) {
             <select value={template} onChange={(e) => setTemplate(e.target.value)} aria-label="Gabarit">
               <option value="">Changer de visuel…</option>
               {TEMPLATES.map((t) => (
-                <option key={t.value} value={t.value}>
+                <option key={t.key} value={t.key}>
                   {t.label}
                 </option>
               ))}

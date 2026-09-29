@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { AdCreatives, CREATIVE_FORMATS } from "@/modules/ads/collections/AdCreatives";
+import { AdCreatives } from "@/modules/ads/collections/AdCreatives";
+import { CREATIVE_FORMATS } from "@/modules/ads/lib/creative-options";
 
 type AnyField = { name?: string; fields?: AnyField[]; access?: Record<string, () => unknown>; defaultValue?: unknown };
 const find = (fields: AnyField[], name: string): AnyField | undefined => {

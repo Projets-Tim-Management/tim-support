@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { hasAdminRole } from "@/core/access";
-import { payloadClient } from "@/core/payload-client";
+import { adminRequest } from "@/modules/ads/lib/route-auth";
 import { decisionData, decisionError, type Decision } from "@/modules/ads/lib/decide";
 
 /**
@@ -16,10 +15,9 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function POST(req: Request, { params }: Params) {
   const { id } = await params;
-  const payload = await payloadClient();
-  const { user } = await payload.auth({ headers: req.headers });
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (!hasAdminRole(user)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const auth = await adminRequest(req);
+  if ("response" in auth) return auth.response;
+  const { payload, user } = auth;
 
   const body = (await req.json().catch(() => ({}))) as { decision?: string; reason?: string; detail?: string };
   const d: Decision | null =

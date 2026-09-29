@@ -5,9 +5,9 @@
  * En dollars, comme les factures. Les plafonds, eux, sont en euros : la
  * conversion est indicative et volontairement prudente.
  *
- * Tarifs relevés le 29/09/2026 (Anthropic : API Models et grille publique ;
- * Google : tarifs de l'API Gemini). À revoir quand un fournisseur change sa
- * grille — un tarif périmé fait un plafond qui ment.
+ * Tarifs relevés le 29/09/2026 (grille publique d'Anthropic). Les images et la
+ * vidéo (Imagen, Veo) s'ajouteront ici avec leur premier usage. À revoir quand
+ * un fournisseur change sa grille — un tarif périmé fait un plafond qui ment.
  */
 
 /** Conversion indicative : le plafond est en euros, la facture en dollars. */
@@ -38,19 +38,5 @@ export function claudeCostUsd(model: ClaudeModel, u: Usage): number {
  */
 export const claudeMaxCostUsd = (model: ClaudeModel, inputTokens: number, maxTokens: number): number =>
   claudeCostUsd(model, { input: inputTokens, output: maxTokens, cacheRead: 0, cacheWrite: 0 });
-
-/** Images et vidéo, en dollars par unité (image, ou seconde de vidéo). */
-export const UNIT_PRICES = {
-  "imagen-4-fast": 0.02,
-  "imagen-4": 0.04,
-  "imagen-4-ultra": 0.06,
-  "veo-3.1-lite-1080p": 0.08,
-  "veo-3.1-fast-1080p": 0.12,
-  "veo-3.1-1080p": 0.4,
-} as const;
-
-export type UnitModel = keyof typeof UNIT_PRICES;
-
-export const unitCostUsd = (model: UnitModel, units: number): number => UNIT_PRICES[model] * units;
 
 export const usdToEur = (usd: number): number => usd / USD_PER_EUR;

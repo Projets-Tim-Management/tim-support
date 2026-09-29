@@ -1,3 +1,4 @@
+import { slugify } from "@/core/lib/slug";
 import { createHash } from "node:crypto";
 
 import fontkit from "@pdf-lib/fontkit";
@@ -63,13 +64,7 @@ export const maskEmail = (email?: string | null): string => {
 };
 
 /** Un nom d'entreprise réduit à un morceau de nom de fichier : « Société Été » → « societe-ete ». */
-export const fileSlug = (name: string): string =>
-  name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\w]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase() || "client";
+export const fileSlug = (name: string): string => slugify(name, { fallback: "client" });
 
 // ─── La signature visible (voir signature-styles.ts) ─────────────────────────
 export { SIGNATURE_STYLES, initialsOf, isSignatureStyle, type SignatureStyle } from "@/modules/partner/lib/signature-styles";

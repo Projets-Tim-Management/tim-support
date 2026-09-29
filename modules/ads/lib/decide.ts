@@ -1,4 +1,4 @@
-import { REFUSAL_REASONS } from "@/modules/ads/collections/AdCreatives";
+import { REFUSAL_REASONS } from "@/modules/ads/lib/creative-options";
 import { publishable } from "@/modules/ads/lib/copy/generate";
 import { FORMAT_KEYS } from "@/modules/ads/lib/render/formats";
 

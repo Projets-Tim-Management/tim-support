@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { hasAdminRole } from "@/core/access";
-import { payloadClient } from "@/core/payload-client";
+import { adminRequest } from "@/modules/ads/lib/route-auth";
 import { readState } from "@/core/lib/secrets";
 import { upsertConnectedAccount } from "@/modules/ads/lib/accounts";
 import { ALLOWLIST_VAR, isAllowedAccount } from "@/modules/ads/lib/allowlist";
@@ -36,10 +35,9 @@ const back = (req: Request, notice: NoticeKey, extra: Record<string, string> = {
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const payload = await payloadClient();
-  const { user } = await payload.auth({ headers: req.headers });
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (!hasAdminRole(user)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const auth = await adminRequest(req);
+  if ("response" in auth) return auth.response;
+  const { payload, user } = auth;
 
   // Refus ou fermeture de l'écran Meta.
   if (url.searchParams.get("error")) return back(req, "annulee");

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { hasAdminRole } from "@/core/access";
-import { payloadClient } from "@/core/payload-client";
+import { adminRequest } from "@/modules/ads/lib/route-auth";
 import { upsertConnectedAccount } from "@/modules/ads/lib/accounts";
 import { isAllowedAccount, refusal } from "@/modules/ads/lib/allowlist";
 import { getPlatform } from "@/modules/ads/platforms";
@@ -25,10 +24,9 @@ import { AdTokenError } from "@/modules/ads/platforms/types";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  const payload = await payloadClient();
-  const { user } = await payload.auth({ headers: req.headers });
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (!hasAdminRole(user)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const auth = await adminRequest(req);
+  if ("response" in auth) return auth.response;
+  const { payload, user } = auth;
 
   const body = (await req.json().catch(() => ({}))) as { externalId?: unknown; token?: unknown };
   const raw = typeof body.externalId === "string" ? body.externalId.trim() : "";

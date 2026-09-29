@@ -1,3 +1,4 @@
+import { slugify } from "@/core/lib/slug";
 import { strToU8, zipSync, type Zippable } from "fflate";
 
 import { ctaLabel } from "@/modules/ads/lib/cta";
@@ -31,14 +32,8 @@ export type DownloadCreative = {
 export type DownloadCampaign = { id: number | string; name: string; brief?: { landingUrl?: string | null; cta?: string | null } | null };
 export type DownloadKit = { advertiser?: string | null; legalNotice?: string | null };
 
-const slug = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 40) || "x";
+/** Nom de fichier : l'angle en entier ferait une phrase. */
+const slug = (s: string) => slugify(s, { max: 40 });
 
 const KIND_LABEL: Record<string, string> = { principal: "Texte principal", titre: "Titre", description: "Description" };
 

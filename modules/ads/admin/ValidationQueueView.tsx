@@ -5,7 +5,7 @@ import { Gutter } from "@payloadcms/ui";
 import Link from "next/link";
 
 import { hasAdminRole } from "@/core/access";
-import { REFUSAL_REASONS } from "@/modules/ads/collections/AdCreatives";
+import { REFUSAL_REASONS } from "@/modules/ads/lib/creative-options";
 import { ctaLabel } from "@/modules/ads/lib/cta";
 import { testLabel, toneLabel, type TestDimension } from "@/modules/ads/lib/dimensions";
 

@@ -1,8 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { hasAdminRole } from "@/core/access";
-import { payloadClient } from "@/core/payload-client";
+import { adminRequest } from "@/modules/ads/lib/route-auth";
 import { upsertConnectedAccount } from "@/modules/ads/lib/accounts";
 import { allowedAccounts, isAllowedAccount, refusal } from "@/modules/ads/lib/allowlist";
 import { PENDING_COOKIE, PENDING_PATH, openPending } from "@/modules/ads/lib/meta-oauth";
@@ -21,12 +20,12 @@ import { getPlatform, isMetaMock } from "@/modules/ads/platforms";
  */
 export const dynamic = "force-dynamic";
 
+/** La barrière, puis le choix en attente de CE compte admin (cookie chiffré). */
 async function context(req: Request) {
-  const payload = await payloadClient();
-  const { user } = await payload.auth({ headers: req.headers });
-  if (!user || !hasAdminRole(user)) return { payload, user: null, pending: null };
-  const pending = openPending((await cookies()).get(PENDING_COOKIE)?.value, user.id, new Date());
-  return { payload, user, pending };
+  const auth = await adminRequest(req);
+  if ("response" in auth) return auth;
+  const pending = openPending((await cookies()).get(PENDING_COOKIE)?.value, auth.user.id, new Date());
+  return { ...auth, pending };
 }
 
 const cleared = (body: unknown, status = 200) => {
@@ -36,8 +35,9 @@ const cleared = (body: unknown, status = 200) => {
 };
 
 export async function GET(req: Request) {
-  const { payload, user, pending } = await context(req);
-  if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const ctx = await context(req);
+  if ("response" in ctx) return ctx.response;
+  const { payload, pending } = ctx;
   const allowed = [...allowedAccounts()];
   if (!pending) return NextResponse.json({ simulated: isMetaMock(), allowed, accounts: null });
 
@@ -58,8 +58,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { payload, user, pending } = await context(req);
-  if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const ctx = await context(req);
+  if ("response" in ctx) return ctx.response;
+  const { payload, user, pending } = ctx;
   if (!pending) return cleared({ error: "La demande de connexion a expiré : relancez « Connecter un compte Meta »." }, 410);
 
   const { externalId } = (await req.json().catch(() => ({}))) as { externalId?: string };
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const { user } = await context(req);
-  if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const ctx = await context(req);
+  if ("response" in ctx) return ctx.response;
   return cleared({ ok: true });
 }

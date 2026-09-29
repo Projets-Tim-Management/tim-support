@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { isSuperAdmin } from "@/core/access";
-import { payloadClient } from "@/core/payload-client";
+import { adminRequest } from "@/modules/ads/lib/route-auth";
 import { PURGE_CONTEXT, purgeImpact, sameImpact, type PurgeImpact } from "@/modules/ads/lib/accounts";
 
 /**
@@ -21,27 +21,20 @@ export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
 
-async function authorize(req: Request) {
-  const payload = await payloadClient();
-  const { user } = await payload.auth({ headers: req.headers });
-  if (!user) return { payload, user: null, error: NextResponse.json({ error: "unauthorized" }, { status: 401 }) };
-  if (!isSuperAdmin(user)) {
-    return { payload, user, error: NextResponse.json({ error: "Réservé au super-admin." }, { status: 403 }) };
-  }
-  return { payload, user, error: null };
-}
 
 export async function GET(req: Request, { params }: Params) {
   const { id } = await params;
-  const { payload, error } = await authorize(req);
-  if (error) return error;
+  const auth = await adminRequest(req, isSuperAdmin, "Réservé au super-admin.");
+  if ("response" in auth) return auth.response;
+  const { payload } = auth;
   return NextResponse.json(await purgeImpact(payload, id));
 }
 
 export async function POST(req: Request, { params }: Params) {
   const { id } = await params;
-  const { payload, user, error } = await authorize(req);
-  if (error) return error;
+  const auth = await adminRequest(req, isSuperAdmin, "Réservé au super-admin.");
+  if ("response" in auth) return auth.response;
+  const { payload, user } = auth;
 
   const confirmed = (await req.json().catch(() => null)) as Partial<PurgeImpact> | null;
   const impact = await purgeImpact(payload, id);
@@ -56,7 +49,7 @@ export async function POST(req: Request, { params }: Params) {
 
   await payload.delete({ collection: "ad-accounts", id, overrideAccess: true, context: { [PURGE_CONTEXT]: true } });
   payload.logger.warn(
-    `[publicité] compte « ${account.name} » SUPPRIMÉ par ${user?.email} : ${impact.campaigns} campagne(s), ${impact.metrics} ligne(s) de chiffres effacées.`,
+    `[publicité] compte « ${account.name} » SUPPRIMÉ par ${user.email} : ${impact.campaigns} campagne(s), ${impact.metrics} ligne(s) de chiffres effacées.`,
   );
   return NextResponse.json({ deleted: true, ...impact });
 }
