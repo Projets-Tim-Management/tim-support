@@ -20,7 +20,7 @@ export type EnvVar = {
 };
 
 export type SupportConnection = {
-  key: "pennylane" | "brevo" | "insee" | "google" | "anthropic";
+  key: "pennylane" | "brevo" | "insee" | "google" | "anthropic" | "meta";
   name: string;
   /** Pictogramme : une lettre, sans dépendre d'un logo externe. */
   mark: string;
@@ -34,6 +34,13 @@ export type SupportConnection = {
   env: EnvVar[];
   /** Ce que fait le bouton « Tester ». */
   testLabel: string;
+  /**
+   * Variable qui, posée à « 1 », remplace l'API par des données SIMULÉES. La
+   * connexion compte alors comme configurée — on peut la tester et s'en servir —
+   * mais l'écran le dit en toutes lettres : un chiffre inventé ne doit jamais
+   * passer pour un vrai.
+   */
+  simulatedBy?: string;
 };
 
 export const SUPPORT_CONNECTIONS: SupportConnection[] = [
@@ -119,6 +126,28 @@ export const SUPPORT_CONNECTIONS: SupportConnection[] = [
     ],
     testLabel: "Poser une question minimale à Claude",
   },
+  {
+    key: "meta",
+    name: "Meta Ads (Facebook / Instagram)",
+    mark: "M",
+    purpose:
+      "Le module Publicité : connecter les comptes publicitaires Meta, lire leurs campagnes et leurs chiffres chaque nuit. Sans elle, le tableau de bord Publicité ne reçoit plus rien — les chiffres déjà lus restent.",
+    scope: [
+      "Marketing API, lecture seule (ads_read) : comptes, campagnes, métriques quotidiennes",
+      "Aucune écriture en phase 0 : ni budget, ni statut, ni annonce",
+      "Jetons des comptes : OAuth longue durée (~60 jours) ou utilisateur système, chiffrés en base",
+    ],
+    docUrl: "https://developers.facebook.com/docs/marketing-api/",
+    consoleUrl: "https://developers.facebook.com/apps/",
+    env: [
+      { name: "META_APP_ID", required: true, hint: "Identifiant de l'app Meta (developers.facebook.com)." },
+      { name: "META_APP_SECRET", required: true, hint: "Clé secrète de l'app." },
+      { name: "META_GRAPH_VERSION", required: false, hint: "Version de l'API Graph — défaut v26.0." },
+      { name: "ADS_META_MOCK", required: false, hint: "« 1 » = données simulées, aucun appel à Meta. À retirer dès que l'app existe." },
+    ],
+    testLabel: "Obtenir un jeton d'application auprès de Meta",
+    simulatedBy: "ADS_META_MOCK",
+  },
 ];
 
 export type EnvState = { name: string; required: boolean; hint: string; set: boolean; tail: string | null };
@@ -141,6 +170,10 @@ export const envState = (v: EnvVar, env: Record<string, string | undefined> = pr
 export const connectionEnv = (c: SupportConnection, env?: Record<string, string | undefined>): EnvState[] =>
   c.env.map((v) => envState(v, env));
 
-/** Tout ce qui est obligatoire est posé. */
+/** La connexion tourne-t-elle sur des données simulées ? */
+export const isSimulated = (c: SupportConnection, env: Record<string, string | undefined> = process.env): boolean =>
+  Boolean(c.simulatedBy) && env[c.simulatedBy!]?.trim() === "1";
+
+/** Tout ce qui est obligatoire est posé — ou la connexion est simulée. */
 export const isConfigured = (c: SupportConnection, env?: Record<string, string | undefined>): boolean =>
-  connectionEnv(c, env).every((v) => v.set || !v.required);
+  isSimulated(c, env) || connectionEnv(c, env).every((v) => v.set || !v.required);

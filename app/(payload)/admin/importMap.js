@@ -116,6 +116,7 @@ import { SequenceMessagePreview as SequenceMessagePreview_1d83c136501c19d8287861
 import { SequenceThemeRowLabel as SequenceThemeRowLabel_f78827f64ca8974d62621135cef1d267 } from '../../../modules/marketing/admin/SequenceThemeRowLabel'
 import { FormOptionRowLabel as FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b } from '../../../modules/forms/admin/FormOptionRowLabel'
 import { FormFieldRowLabel as FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3 } from '../../../modules/forms/admin/FormFieldRowLabel'
+import { ConnectMetaPanel as ConnectMetaPanel_0443b5b41d00975585a76653d22b342f } from '../../../modules/ads/admin/ConnectMetaPanel'
 import { PurgeAccountModal as PurgeAccountModal_1a62dd382667ad7a0e23522c172e8254 } from '../../../modules/ads/admin/PurgeAccountModal'
 import { AdAccountEditMenu as AdAccountEditMenu_df26cb05b35d429e66cd830e778904ac } from '../../../modules/ads/admin/AdAccountEditMenu'
 import { InsuranceCell as InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4 } from '../../../modules/marketing/admin/InsuranceCell'
@@ -264,6 +265,7 @@ export const importMap = {
   "/modules/marketing/admin/SequenceThemeRowLabel#SequenceThemeRowLabel": SequenceThemeRowLabel_f78827f64ca8974d62621135cef1d267,
   "/modules/forms/admin/FormOptionRowLabel#FormOptionRowLabel": FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b,
   "/modules/forms/admin/FormFieldRowLabel#FormFieldRowLabel": FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3,
+  "/modules/ads/admin/ConnectMetaPanel#ConnectMetaPanel": ConnectMetaPanel_0443b5b41d00975585a76653d22b342f,
   "/modules/ads/admin/PurgeAccountModal#PurgeAccountModal": PurgeAccountModal_1a62dd382667ad7a0e23522c172e8254,
   "/modules/ads/admin/AdAccountEditMenu#AdAccountEditMenu": AdAccountEditMenu_df26cb05b35d429e66cd830e778904ac,
   "/modules/marketing/admin/InsuranceCell#InsuranceCell": InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4,

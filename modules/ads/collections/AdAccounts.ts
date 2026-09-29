@@ -104,6 +104,8 @@ export const AdAccounts: CollectionConfig = {
     description:
       "Les comptes publicitaires dont le support lit les campagnes et les chiffres. Connexion par OAuth, ou par un jeton d'utilisateur système collé ici.",
     components: {
+      // Brancher un compte (OAuth ou jeton système) et choisir parmi ceux qu'ouvre le jeton.
+      beforeListTable: ["/modules/ads/admin/ConnectMetaPanel#ConnectMetaPanel"],
       edit: {
         // Monté en permanence : un modal ouvert depuis le menu disparaîtrait avec lui.
         beforeDocumentControls: ["/modules/ads/admin/PurgeAccountModal#PurgeAccountModal"],

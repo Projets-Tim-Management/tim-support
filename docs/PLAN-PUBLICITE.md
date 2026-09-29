@@ -100,6 +100,15 @@ recalcule l'état d'après les jetons.
 et l'alerte J-7 à zéro et sort le compte de l'archive ; coller un jeton
 d'utilisateur système fait de même. Jamais un second compte pour le même `act_…`.
 
+**Brancher un compte** (en tête de « Comptes publicitaires ») : « Connecter un compte
+Meta » ouvre l'écran de consentement (droit `ads_read` seul en phase 0 ;
+`ads_management` viendra avec les écritures). Au retour, le jeton longue durée ouvre
+un ou plusieurs comptes : un seul est connecté d'office ; plusieurs, on choisit dans
+la liste — le jeton attend dans un cookie HttpOnly chiffré de 10 minutes, lié à
+l'admin qui a lancé la connexion, jamais dans l'URL. Adresse de retour à déclarer
+dans l'app Meta : `{NEXT_PUBLIC_SITE_URL}/api/admin/ads/meta/callback`. Autre chemin :
+créer le compte à la main et coller le jeton d'utilisateur système.
+
 **La suppression définitive est réservée au super-admin.** La suppression native est
 fermée à tous (API et liste) ; elle passe par « Supprimer définitivement… », qui
 annonce d'abord ce qui partira (le compte, N campagnes, M lignes de chiffres) et
