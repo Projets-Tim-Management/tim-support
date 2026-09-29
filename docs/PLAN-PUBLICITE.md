@@ -1579,18 +1579,14 @@ code. Défauts :
 | 7 | Bilan mensuel et revue du carnet | — |
 | 8 | Écrans : registre des tests, alertes, rythme dans la salle de contrôle ; `REGLES-SUPPORT.md` | — |
 
-### 7. Questions
+### 7. Décisions du 29/09/2026 (réponses aux questions)
 
-1. **Le volume réaliste.** À 30 € de CPL, 50 leads **qualifiés** par variante,
-   c'est 1 500 € par variante. Avec les budgets de départ, un test sur le CPL
-   qualifié mettra des mois. Proposition : **un seul test à la fois par
-   campagne**, avec des variantes franchement différentes, et un verdict
-   « provisoire » sur le CPL simple (50 leads), confirmé plus tard sur le CPL
-   qualifié. D'accord ?
-2. **Revalidation** à 90 jours par défaut : ça te va ?
-3. **Alertes** : par e-mail en plus du tableau de bord, ou tableau de bord seul ?
-4. **Urgence en mode `proposer`** : la pause attend ton clic (proposé), ou une
-   pub **refusée par Meta** peut se mettre en pause seule quel que soit le mode ?
+| # | Sujet | Décision |
+|---|---|---|
+| 1 | Volume des tests | **Un seul test à la fois par campagne.** Verdict **provisoire** sur le coût par lead (50 leads par variante), **confirmé** ensuite sur le coût par lead qualifié. Le registre porte les deux verdicts (`verdictStage` : `provisoire` · `confirme`) |
+| 2 | Revalidation | **90 jours** |
+| 3 | E-mails | Par Brevo, **pour les urgences seulement** : pub refusée, dépense anormale, diffusion à zéro, **jeton qui expire** (le jeton de la bibliothèque publicitaire à J-7 compris). Tout le reste : tableau de bord seul |
+| 4 | Pub refusée par Meta | **Mise en pause automatique, quel que soit le niveau d'autonomie**, avec une décision journalisée et un e-mail. C'est la seule exception au niveau d'autonomie ; les autres urgences suivent le niveau de la campagne |
 
 ---
 
