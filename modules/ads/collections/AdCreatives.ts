@@ -29,11 +29,11 @@ const deleteUndecided: Access = ({ req: { user } }) =>
 /** Longueur de chaque texte et drapeau « test », recalculés à chaque écriture. */
 const derive: CollectionBeforeChangeHook = ({ data }) => {
   if (!data) return data;
-  const texts = Array.isArray(data.texts)
-    ? (data.texts as { text?: string }[]).map((t) => ({ ...t, chars: [...String(t.text ?? "")].length }))
-    : data.texts;
+  const copy = Array.isArray(data.copy)
+    ? (data.copy as { text?: string }[]).map((t) => ({ ...t, chars: [...String(t.text ?? "")].length }))
+    : data.copy;
   const tests = Array.isArray(data.tests) ? data.tests : undefined;
-  return { ...data, texts, ...(tests ? { isTest: tests.length > 0 } : {}) };
+  return { ...data, copy, ...(tests ? { isTest: tests.length > 0 } : {}) };
 };
 
 const decision = { create: () => false, update: () => false };
@@ -98,7 +98,11 @@ export const AdCreatives: CollectionConfig = {
       admin: { position: "sidebar", readOnly: true, description: "Comptée à part dans les résultats." },
     },
     {
-      name: "texts",
+      // « copy » et non « texts » : Payload réserve la table `<collection>_texts`
+      // à ses champs texte à valeurs multiples. Nommé `texts`, ce tableau prenait
+      // cette table, et toute lecture complète d'une créa échouait (Drizzle :
+      // « reading 'referencedTable' », relation `_texts` inconnue).
+      name: "copy",
       type: "array",
       label: "Textes",
       labels: { singular: "Texte", plural: "Textes" },

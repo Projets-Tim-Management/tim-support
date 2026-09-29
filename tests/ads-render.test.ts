@@ -83,7 +83,7 @@ describe("visuels d'une créa", () => {
     campaign: { id: 4, name: "Pointage BTP" },
     facts: [],
     status: "brouillon",
-    texts: [
+    copy: [
       { kind: "principal", text: "Gagnez du temps.", status: "ok" },
       { kind: "titre", text: "Le pointage sans papier", status: "ok" },
     ],
@@ -100,7 +100,7 @@ describe("visuels d'une créa", () => {
   }, 30_000);
 
   it("sans texte principal passé, la créa reste en brouillon", async () => {
-    const { payload } = memory({ ...base, texts: [{ kind: "titre", text: "T", status: "ok" }] });
+    const { payload } = memory({ ...base, copy: [{ kind: "titre", text: "T", status: "ok" }] });
     const r = await renderCreativeVisuals(payload, 9, { load: async () => { throw new Error("rien à charger"); } });
     expect(r).toMatchObject({ template: "texte", status: "brouillon" });
   }, 30_000);

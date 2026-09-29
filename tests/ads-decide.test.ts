@@ -4,7 +4,7 @@ import { decisionData, decisionError } from "@/modules/ads/lib/decide";
 
 const complete = {
   status: "a-valider",
-  texts: [
+  copy: [
     { kind: "principal", status: "ok" },
     { kind: "titre", status: "ok" },
   ],
@@ -19,7 +19,7 @@ describe("valider ou refuser une créa", () => {
 
   it("on ne valide qu'une créa complète : textes passés et trois formats", () => {
     expect(decisionError(complete, { decision: "validee" })).toBeNull();
-    expect(decisionError({ ...complete, texts: [{ kind: "principal", status: "ok" }] }, { decision: "validee" })).toMatch(/un titre/);
+    expect(decisionError({ ...complete, copy: [{ kind: "principal", status: "ok" }] }, { decision: "validee" })).toMatch(/un titre/);
     expect(decisionError({ ...complete, assets: complete.assets.slice(0, 2) }, { decision: "validee" })).toMatch(/Visuel manquant : 9x16/);
   });
 

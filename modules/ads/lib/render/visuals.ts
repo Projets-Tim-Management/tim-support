@@ -31,7 +31,7 @@ type Creative = {
   cta?: string | null;
   campaign?: { id: number | string; name?: string } | number | string | null;
   facts?: (Fact | number)[] | null;
-  texts?: { kind: string; text: string; status: string }[] | null;
+  copy?: { kind: string; text: string; status: string }[] | null;
   status?: string | null;
 };
 
@@ -118,7 +118,7 @@ export async function renderCreativeVisuals(
   const template = opts.template ?? pickTemplate(have);
   if (!templateAvailable(template, have)) throw new Error(`Le gabarit « ${template} » n'a pas sa matière (capture, fait ou photo manquant).`);
 
-  const hook = creative.hook?.trim() || creative.texts?.find((t) => t.kind === "titre" && t.status === "ok")?.text || creative.angle;
+  const hook = creative.hook?.trim() || creative.copy?.find((t) => t.kind === "titre" && t.status === "ok")?.text || creative.angle;
   const input: VisualInput = {
     hook,
     cta: ctaLabel(creative.cta) ?? "En savoir plus",
@@ -145,7 +145,7 @@ export async function renderCreativeVisuals(
 
   // Publiable : textes ET visuels. Une créa déjà décidée ne revient pas en arrière.
   const undecided = creative.status === "brouillon" || creative.status === "a-valider" || !creative.status;
-  const status = undecided ? (publishable(creative.texts ?? []) ? "a-valider" : "brouillon") : (creative.status as string);
+  const status = undecided ? (publishable(creative.copy ?? []) ? "a-valider" : "brouillon") : (creative.status as string);
   await payload.update({ collection: "ad-creatives", id: creativeId, data: { assets, status } as never, overrideAccess: true });
   return { template, assets: assets.length, status };
 }

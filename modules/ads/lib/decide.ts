@@ -16,7 +16,7 @@ export type Decision = { decision: "validee" } | { decision: "refusee"; reason: 
 
 type Creative = {
   status?: string | null;
-  texts?: { kind: string; status: string }[] | null;
+  copy?: { kind: string; status: string }[] | null;
   assets?: { format: string; type: string }[] | null;
 };
 
@@ -26,7 +26,7 @@ export function decisionError(c: Creative, d: Decision): string | null {
   if (d.decision === "refusee") {
     return REFUSAL_REASONS.some((r) => r.value === d.reason) ? null : "Choisissez un motif de refus.";
   }
-  if (!publishable(c.texts ?? [])) return "Il faut au moins un texte principal et un titre passés par les garde-fous.";
+  if (!publishable(c.copy ?? [])) return "Il faut au moins un texte principal et un titre passés par les garde-fous.";
   const formats = new Set((c.assets ?? []).filter((a) => a.type === "image").map((a) => a.format));
   const missing = FORMAT_KEYS.filter((f) => !formats.has(f));
   return missing.length ? `Visuel manquant : ${missing.join(", ")}.` : null;

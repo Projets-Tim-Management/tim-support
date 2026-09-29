@@ -116,7 +116,7 @@ export function creativeFromAngle(a: CopyAngle, ctx: { brief: BriefInput; forbid
     tone,
     cta: ctx.brief.ctaValue,
     tests,
-    texts,
+    copy: texts,
     facts: a.factIds.filter((id) => known.has(String(id))).map((id) => (Number.isFinite(Number(id)) ? Number(id) : id)),
     origin: "generee" as const,
     generation: { model: ADS_TEXT_MODEL, costEur: ctx.costEur, batch: ctx.batch },
@@ -212,8 +212,8 @@ export async function generateCreatives(
   let toneTests = 0;
   for (const a of angles) {
     const data = creativeFromAngle(a, { brief: ctx.brief, forbidden: ctx.forbidden, campaignId, batch, costEur: share });
-    ok += data.texts.filter((t) => t.status === "ok").length;
-    rejected += data.texts.filter((t) => t.status === "rejete").length;
+    ok += data.copy.filter((t) => t.status === "ok").length;
+    rejected += data.copy.filter((t) => t.status === "rejete").length;
     if (data.tests.length) toneTests++;
     const doc = await payload.create({ collection: "ad-creatives", data: data as never, overrideAccess: true });
     created.push(doc.id);

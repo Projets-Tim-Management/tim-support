@@ -91,12 +91,12 @@ describe("après l'appel", () => {
     expect(usage).toMatchObject({ kind: "texte", model: ADS_TEXT_MODEL, campaign: 4 });
     expect(usage.usd).toBeCloseTo(claudeCostUsd(ADS_TEXT_MODEL, USAGE), 4);
 
-    const crea = created.find((c) => c.collection === "ad-creatives")!.data as { texts: { text: string; status: string; reason: string | null }[]; status: string; cta: string; facts: unknown[]; tone: string; tests: unknown[] };
+    const crea = created.find((c) => c.collection === "ad-creatives")!.data as { copy: { text: string; status: string; reason: string | null }[]; status: string; cta: string; facts: unknown[]; tone: string; tests: unknown[] };
     expect(crea).toMatchObject({ status: "brouillon", cta: "reserver", tone: "vous", tests: [] });
     // Le fait inconnu (99) n'est pas retenu
     expect(crea.facts).toEqual([7]);
     // « 3 clics » : chiffre non sourcé ; « révolutionnaire » : interdit de campagne
-    const rejected = crea.texts.filter((t) => t.status === "rejete").map((t) => t.reason);
+    const rejected = crea.copy.filter((t) => t.status === "rejete").map((t) => t.reason);
     expect(rejected).toEqual(expect.arrayContaining([expect.stringMatching(/non sourcé : 3/), expect.stringMatching(/révolutionnaire/)]));
     expect(r.texts.rejected).toBe(2);
     expect(r.costEur).toBeCloseTo(usdToEur(claudeCostUsd(ADS_TEXT_MODEL, USAGE)), 6);
@@ -132,7 +132,7 @@ describe("une créa à partir d'un angle", () => {
   });
   it("ne garde pas plus de variantes que Meta n'en accepte", () => {
     const c = creativeFromAngle(angle({ headlines: Array.from({ length: 8 }, (_, i) => `Titre ${i}`) }), { brief, forbidden: [], campaignId: 4, batch: "b", costEur: 0 });
-    expect(c.texts.filter((t) => t.kind === "titre")).toHaveLength(5);
+    expect(c.copy.filter((t) => t.kind === "titre")).toHaveLength(5);
   });
   it("une créa publiable a au moins un texte principal et un titre passés", () => {
     expect(publishable([{ kind: "principal", status: "ok" }, { kind: "titre", status: "ok" }])).toBe(true);
