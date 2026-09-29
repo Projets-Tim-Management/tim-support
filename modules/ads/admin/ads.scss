@@ -157,3 +157,13 @@
   .ads-connect__fields { flex-direction: column; align-items: stretch; }
   .ads-connect__input { width: 100%; }
 }
+
+/* Actions d'un compte (à côté de « Sauvegarder ») : les gestes courants en
+   neutre, la suppression définitive en rouge mais sans aplat — elle ne doit pas
+   attirer l'œil plus que l'archivage, qui est le geste normal. */
+.ads-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.ads-actions__danger {
+  border-color: var(--tim-red);
+  color: var(--tim-red);
+  &:hover { background: var(--tim-red-bg); color: var(--tim-red); }
+}

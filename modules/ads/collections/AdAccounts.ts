@@ -21,7 +21,7 @@ import { PASSWORD_MASK, encryptPasswordValue } from "@/modules/marketing/lib/cre
  *    l'enregistrement, masqué à la lecture : on voit qu'il est posé, jamais sa
  *    valeur.
  *
- * Un compte ne se supprime pas, il s'ARCHIVE (menu 3-points) : plus de synchro,
+ * Un compte ne se supprime pas, il s'ARCHIVE (bouton « Archiver » de la fiche) : plus de synchro,
  * campagnes et chiffres conservés — on le reconnectera, et les agents auront
  * besoin de son historique. La suppression définitive est réservée au
  * super-admin, par une route qui annonce d'abord le nombre de lignes effacées ;
@@ -122,9 +122,13 @@ export const AdAccounts: CollectionConfig = {
       // Brancher un compte (OAuth ou jeton système) et choisir parmi ceux qu'ouvre le jeton.
       beforeListTable: ["/modules/ads/admin/ConnectMetaPanel#ConnectMetaPanel"],
       edit: {
-        // Monté en permanence : un modal ouvert depuis le menu disparaîtrait avec lui.
-        beforeDocumentControls: ["/modules/ads/admin/PurgeAccountModal#PurgeAccountModal"],
-        editMenuItems: ["/modules/ads/admin/AdAccountEditMenu#AdAccountEditMenu"],
+        // Les actions en boutons, pas dans le menu ⋯ : Payload ne l'affiche que si
+        // l'on peut créer ou supprimer ici, et ces droits sont fermés (voir
+        // AdAccountActions). Le modal de purge reste monté en permanence.
+        beforeDocumentControls: [
+          "/modules/ads/admin/AdAccountActions#AdAccountActions",
+          "/modules/ads/admin/PurgeAccountModal#PurgeAccountModal",
+        ],
       },
     },
   },
@@ -175,7 +179,7 @@ export const AdAccounts: CollectionConfig = {
       admin: {
         position: "sidebar",
         readOnly: true,
-        description: "Constaté par la synchro et par la connexion, jamais saisi. « Archivé » se pose et se retire par le menu ⋯.",
+        description: "Constaté par la synchro et par la connexion, jamais saisi. « Archivé » se pose et se retire par le bouton « Archiver » / « Réactiver ».",
       },
     },
     {

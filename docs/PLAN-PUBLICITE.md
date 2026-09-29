@@ -115,7 +115,8 @@ Nouveau module `modules/ads`, groupe de nav **« Publicité »**.
 **Un compte ne se supprime pas, il s'archive.** Archivé, il n'est plus synchronisé ;
 ses campagnes et ses chiffres restent en place — on le reconnectera (au passage au
 jeton d'utilisateur système, typiquement), et les agents auront besoin de son
-historique. Archiver et réactiver se font par le menu ⋯ de la fiche ; réactiver
+historique. Archiver et réactiver se font par les boutons de la fiche (à côté de
+« Sauvegarder ») ; réactiver
 recalcule l'état d'après les jetons.
 
 **Une reconnexion retrouve toujours le même enregistrement**, par sa clé
@@ -215,7 +216,7 @@ Les montants sont dans la devise du compte ; le tableau de bord additionne des
 euros et signale à part un compte dans une autre devise.
 
 **Synchro** (`/api/cron/ads-sync`, chaque jour à 04:30 UTC, et « Synchroniser
-maintenant » dans le menu ⋯ d'un compte) : les campagnes, puis les chiffres des 7
+maintenant », bouton de la fiche d'un compte) : les campagnes, puis les chiffres des 7
 derniers jours — aujourd'hui compris, partiel — aux trois niveaux. Une ligne
 inchangée n'est pas réécrite. Un compte à la fois ; une erreur s'écrit sur sa fiche
 (`expire` si la régie refuse le jeton, `erreur` sinon) et n'arrête pas les suivants.
@@ -494,10 +495,10 @@ n'est prise en compte qu'au **déploiement suivant**.
    l'identifiant est pré-rempli (seul compte autorisé), coller le jeton d'utilisateur
    système › **Vérifier et connecter**. Meta confirme que le jeton ouvre le compte et
    donne son nom, sa devise et son fuseau ; rien n'est enregistré avant.
-3. Sur sa fiche, menu ⋯ › **Synchroniser maintenant** ; vérifier campagnes et chiffres.
+3. Sur sa fiche, bouton **Synchroniser maintenant** ; vérifier campagnes et chiffres.
 4. **Archiver le compte « [SIMULÉ] TIM — compte simulé »** (`act_000000000000`, créé
-   le 29/09/2026 pour tester l'écran, il vit dans la base de production) : menu ⋯ ›
-   *Archiver le compte*. Ses campagnes et chiffres simulés sortent du tableau de bord,
+   le 29/09/2026 pour tester l'écran, il vit dans la base de production) : bouton
+   *Archiver* (ou, en super-admin, *Supprimer définitivement…*). Ses campagnes et chiffres simulés sortent du tableau de bord,
    et le bandeau « Données simulées » disparaît. Le cron de production ne l'a jamais
    lu (compte simulé hors mode simulé, et hors liste autorisée) ; l'archivage reste
    possible bien qu'il soit hors liste.
