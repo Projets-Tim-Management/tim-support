@@ -15,10 +15,19 @@
 
 Ce ne sont pas des secrets : ils désignent les objets, ils n'y donnent pas accès.
 
+⚠️ **État au 29/09/2026 — rien à coder, à suivre :**
+- L'**annonceur / payeur par défaut** du compte publicitaire est encore le **profil
+  personnel** de Charlie : la vérification au nom de **LC DEV** a échoué, elle est
+  relancée. À corriger avant de dépenser à l'échelle (factures, mentions de
+  l'annonceur sur les publicités).
+- Le **portefeuille business n'est pas encore vérifié** : Meta bloque la création de
+  l'utilisateur système tant qu'il ne l'est pas. Le module est en production sans
+  compte connecté ; la connexion (§9 bis, étape 2) attend le jeton.
+
 | Objet | Identifiant | À savoir |
 |---|---|---|
 | Portefeuille business Tim Management | `3355241681427676` | Là où se crée l'utilisateur système (D11) |
-| **Compte publicitaire** | **`act_211325410243618`** | **Le seul à connecter pour TIM.** Vérifié (annonceur / payeur : LC DEV). Deux autres comptes publicitaires au nom de Charlie sont visibles depuis son profil : à **ignorer** au moment du choix |
+| **Compte publicitaire** | **`act_211325410243618`** | **Le seul à connecter pour TIM.** Deux autres comptes publicitaires au nom de Charlie sont visibles depuis son profil : à **ignorer** (et refusés par `META_ALLOWED_AD_ACCOUNTS`) |
 | Jeu de données / pixel (Conversions API, phase 1) | `695680415425351` | Le seul relié au compte publicitaire. Deux autres pixels existent dans le portefeuille : **ne pas les utiliser** |
 | Page Facebook | `113709758267544` | |
 | Instagram @tim.management.co | `17841457267166708` | |
