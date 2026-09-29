@@ -1296,7 +1296,8 @@ Rien n'est stocké en double.
 | Champ | Type | Rôle |
 |---|---|---|
 | `name` | text | Nom affiché |
-| `pageId`, `pageUrl` | text | La page Facebook, pour `search_page_ids` |
+| `pageId` | text, **unique, obligatoire** | L'identifiant de la page Meta, référence du concurrent et clé de `search_page_ids`. On y colle un lien de la bibliothèque publicitaire (l'identifiant est extrait de `view_all_page_id`) ou l'identifiant seul ; un lien sans identifiant est refusé avec la marche à suivre ; un doublon est refusé en nommant le concurrent déjà présent (décision du 29/09/2026) |
+| `sourceUrl` | text, lecture seule | Le lien collé, tel quel |
 | `status` | select | `suivi` · `propose` · `refuse` |
 | `proposedBy` | relation → `ad-agent-runs` | Vide pour la liste de départ |
 | `keywords`, `rationale` | text / textarea | Les mots-clés qui l'ont fait trouver, et pourquoi l'agent le propose |
@@ -1386,6 +1387,210 @@ Sources (relevées le 29/09/2026) :
   [Swipekit — accès et limites](https://swipekit.app/articles/meta-ad-library-api) ;
 - [Vercel Workflows — tarifs et limites](https://vercel.com/docs/workflows/pricing),
   [Vercel Workflows](https://vercel.com/docs/workflows).
+
+---
+
+## 9 quinquies. Apprentissage et rythme des agents
+
+> Plan demandé le 29/09/2026. **Rien n'est codé.** Une partie entre dans la 3c
+> (elle n'a besoin d'aucune donnée de Meta) ; le reste forme la **3d**, qui ne
+> peut commencer qu'une fois des campagnes publiées (3b) et le jeton d'écriture
+> posé (phase 2).
+
+### 1. Ce qui entre où
+
+| Élément | Phase | Pourquoi là |
+|---|---|---|
+| Consignes permanentes, refus → consigne proposée | **3c** | Les refus de créas existent déjà (atelier 3a) ; l'agent de préparation doit les lire dès son premier passage |
+| Carnet d'apprentissages : lecture au démarrage, citation dans les décisions, promotion en global | **3c** | Même raison. En 3c, il ne se remplit que par les refus et les consignes |
+| Registre des tests, verdicts | **3d** | Un verdict demande des résultats Meta par annonce, et les leads qualifiés rattachés à l'annonce (phase 1 : `utm_content={{ad.id}}`, déjà dans les paramètres d'URL) |
+| Rythme (continu, jour, semaine, mois), alertes, fatigue | **3d** | Il n'y a rien à surveiller avant la publication |
+
+### 2. Ce que dit Meta — pages relues dans le navigateur le 29/09/2026
+
+- **Phase d'apprentissage** : un ensemble de publicités en sort « généralement
+  après environ **50 résultats** dans la semaine suivant la dernière modification
+  importante ». Pendant cette phase, les performances sont moins stables et le
+  coût par résultat plus élevé. Source :
+  [Meta — À propos de la phase d'apprentissage](https://www.facebook.com/business/help/112167992830700).
+- **Modifications importantes**, qui relancent la phase d'apprentissage :
+  - toute modification du ciblage, du contenu publicitaire, de l'évènement
+    d'optimisation ou de la stratégie d'enchère ;
+  - **l'ajout d'une nouvelle publicité à l'ensemble** ;
+  - une pause d'au moins sept jours (relance à la reprise) ;
+  - le budget, la limite de dépense ou l'objectif de coût, **selon l'ampleur**
+    (100 € → 101 € non, 100 € → 1 000 € peut-être).
+
+  Source : [Meta — Modifications importantes et phase d'apprentissage](https://www.facebook.com/business/help/316478108955072).
+
+**Conséquences pour les agents :**
+
+- **Les nouvelles créas n'entrent qu'au passage hebdomadaire, groupées** : une
+  seule relance d'apprentissage par semaine et par ensemble, pas une par créa.
+  Le passage quotidien **prépare** les remplacements, il ne les ajoute pas.
+- **Une pause de 7 jours ou plus** relance l'apprentissage : l'agent le sait
+  avant de la proposer, et le journal le dit.
+- **Le garde-fou « ±20 % de budget par décision » (§6) reste**. Meta ne donne
+  pas de seuil chiffré pour « l'ampleur », donc 20 % est notre prudence, pas
+  une règle de Meta.
+
+### 3. Règles, en code
+
+1. **Pas de verdict sous le seuil.** Tant que le volume et la durée minimum ne
+   sont pas atteints, un test est « en attente de volume » : aucune conclusion ne
+   s'écrit, et le code refuse `conclure_test`.
+2. **Le verdict est calculé par le code, pas par le modèle** : comparaison
+   statistique des variantes, probabilité que la meilleure le soit vraiment. Le
+   modèle **interprète** le verdict ; il ne le fabrique pas.
+3. **Rien n'assouplit un garde-fou codé.** Budgets, règles Meta, chiffres
+   sourcés, faux témoignages : ce sont des vérifications en code, exécutées après
+   le modèle. Une consigne ou un apprentissage n'est qu'un texte donné au modèle ;
+   il ne peut ni sauter une vérification, ni en changer un seuil. Le prompt le
+   dit aussi, mais la garantie vient du code.
+4. **Un apprentissage de campagne ne devient global qu'après validation de
+   Charlie.**
+5. **Charlie peut modifier ou supprimer toute ligne** du carnet, des consignes et
+   des tests. L'historique reste dans les décisions qui les ont cités (copie du
+   texte au moment de la citation).
+6. **« Attendre » est une décision.** Sous le volume minimum, pendant les 7
+   premiers jours, ou pendant la phase d'apprentissage de Meta, l'agent décide
+   `attente`, avec sa raison journalisée. On sait pourquoi rien n'a bougé.
+
+### 4. Modèle de données
+
+**`ad-tests` — le registre des tests (3d)**
+
+| Champ | Type | Rôle |
+|---|---|---|
+| `campaign`, `run` | relations | La campagne, le passage qui l'a ouvert |
+| `hypothesis` | textarea | « Un angle “temps gagné” coûte moins cher par lead qualifié qu'un angle “zéro papier” » |
+| `dimension` | select | `ton` · `angle` · `accroche` · `format` · `visuel` · `cta` · **`audience`** (à ajouter à `TEST_DIMENSIONS`) |
+| `variants` | array | `label`, `creatives` (relation → `ad-creatives`, plusieurs) ou `audience` (json), `adsetExternalId` |
+| `metric` | select | `cpl-qualifie` (défaut) · `cpl` · `ctr` · `cout-par-signe` |
+| `minResults`, `minDays` | number | Volume et durée minimum **par variante** avant verdict. Défauts : 50 résultats (seuil de Meta) et 14 jours pour le CPL qualifié (délai de qualification) |
+| `maxDays` | number | Au-delà, le test se clôt « sans verdict » plutôt que de tourner indéfiniment. Défaut : 42 jours |
+| `status` | select | `en-cours` · `en-attente-de-volume` · `conclu` · `sans-verdict` · `abandonne` |
+| `results` | json | Photo des chiffres par variante au moment du verdict |
+| `winner`, `confidence`, `probability` | text / select / number | Écrits par le code. Confiance : `forte` (≥ 95 %), `moyenne` (≥ 80 %) ; en dessous, pas de gagnant |
+| `interpretation` | textarea | Ce que le modèle en retient, en une ou deux phrases |
+| `openedAt`, `closedAt` | dates | — |
+
+**`ad-learnings` — le carnet d'apprentissages (3c)**
+
+| Champ | Type | Rôle |
+|---|---|---|
+| `statement` | text | La conclusion, **une phrase** |
+| `scope` | select | `campagne` · `global` |
+| `campaign` | relation | Si `campagne` |
+| `confidence` | select | `faible` · `moyenne` · `forte` |
+| `source` | select | `test` · `refus` · `consigne` · `resultat-decision` |
+| `sourceTest`, `sourceDecision`, `sourceCreative` | relations | La preuve, selon la source |
+| `status` | select | `actif` · `global-propose` (attend la validation de Charlie) · `archive` |
+| `learnedAt`, `revalidateAt` | dates | Revalidation par défaut à **90 jours** ; passée la date, l'apprentissage est lu avec la mention « à revalider » et revu au bilan mensuel |
+| `promotedBy`, `promotedAt` | relation / date | La validation en global |
+
+**`ad-instructions` — les consignes (3c)**
+
+| Champ | Type | Rôle |
+|---|---|---|
+| `text` | textarea | « Jamais de chantier de nuit sur les visuels » |
+| `scope`, `campaign` | select / relation | `global` ou une campagne |
+| `origin` | select | `saisie` · `refus` |
+| `sourceCreative`, `refusalReason` | relation / text | Pour une consigne née d'un refus |
+| `status` | select | `active` · `proposee` · `ecartee` |
+| `confirmedBy`, `confirmedAt` | relation / date | — |
+
+**Refus → consigne.** Un refus de créa porte déjà un motif (liste fermée de 3a)
+et un détail. L'agent (Haiku, moins d'un centime) propose une consigne
+généralisée, née `proposee`. Elle apparaît dans « À valider » sous la créa
+refusée, avec deux boutons : **« En faire une consigne »** (le clic l'active, et
+le texte reste modifiable) et **« Non »**. Sans IA disponible, le texte proposé
+est le motif et le détail, tels quels.
+
+**Ce qui change sur les collections de la 3c :**
+
+| Collection | Ajout | Rôle |
+|---|---|---|
+| `ad-agent-runs` | `kind` : `preparation` · `quotidien` · `hebdomadaire` · `mensuel` | Le même moteur sert aux quatre rythmes |
+| `ad-agent-runs` | `learningsRead`, `instructionsRead` (json) | Ce que l'agent avait sous les yeux au démarrage (identifiants et texte copié) |
+| `ad-decisions` | `learnings`, `instructions` (relations, plusieurs) + `citations` (json, texte copié) | Quels apprentissages ont servi à quelle décision. L'outil qui propose une décision exige ses `appuis` ; le code vérifie qu'ils existent |
+| `ad-decisions` | `kind` : + `attente` · `test` · `alerte` | « Attendre » journalisé, ouverture et clôture de test, urgence |
+| `ad-campaigns` | groupe `cadence` (3d) | Voir §5 |
+
+**`ad-alerts` — les urgences, en code, sans IA (3d)**
+
+| Champ | Type | Rôle |
+|---|---|---|
+| `campaign`, `adExternalId` | relation / text | Où |
+| `kind` | select | `pub-refusee` · `depense-anormale` · `diffusion-nulle` · `lien-casse` |
+| `detail`, `detectedAt`, `resolvedAt` | text / dates | — |
+| `decision` | relation → `ad-decisions` | La pause proposée ou exécutée, selon le niveau d'autonomie |
+
+### 5. Rythme d'analyse et de décision (3d)
+
+Réglable par campagne (groupe `cadence` sur `ad-campaigns`), dans des bornes en
+code. Défauts :
+
+| Rythme | Quand | Qui | Ce qu'il fait | Peut modifier ? |
+|---|---|---|---|---|
+| Continu | À chaque synchro, et toutes les heures pour la page d'arrivée | **Code, sans IA** | Pub refusée, dépense anormale (au-delà de 175 % du budget du jour, le plafond annoncé par Meta), diffusion à zéro depuis 24 h, page d'arrivée en erreur | **Seulement l'urgence** : proposer la pause, ou l'exécuter en mode `autonome` |
+| Quotidien | 7 h (Paris) | Sonnet 5.5, passage léger | Lit les chiffres, détecte la fatigue (fréquence > 3 **et** taux de clic en baisse de 30 % sur 7 jours face aux 7 précédents), **prépare** des remplacements | **Non**, hors urgence |
+| Hebdomadaire | Lundi 8 h, sur la semaine Meta écoulée (dimanche → samedi, fuseau du compte) | Opus 5.5, passage complet | Budget, pauses, nouvelles créas **groupées**, angles, audiences, répartition IA / Meta, ouverture et clôture de tests | Oui, sous les garde-fous et le niveau d'autonomie |
+| Mensuel | Premier lundi du mois | Opus 5.5 | Bilan : coût par lead qualifié et par client signé ; revue du carnet (apprentissages à revalider, promotions en global à proposer) | Non : il propose |
+
+**Bornes, en code :**
+
+- **Gel des 7 premiers jours** d'une campagne, sauf urgence.
+- **Volume minimum** : aucune décision de budget, de pause ou d'audience sur un
+  ensemble encore en phase d'apprentissage (moins de ~50 résultats depuis sa
+  dernière modification importante). La décision est `attente`.
+- **Fenêtre du CPL qualifié** : 14 à 30 jours (21 par défaut), à cause du délai
+  de qualification. Un lead de la veille n'est pas encore qualifié : il ne compte
+  pas comme un échec.
+- **72 h entre deux modifications d'un même objet** (§6) : un plancher, pas un
+  rythme. Le rythme, c'est la semaine.
+- Les passages quotidiens, hebdomadaires et mensuels puisent dans la **part IA
+  quotidienne** de la campagne (total × part IA max), comme décidé le 29/09.
+
+**Coût estimé par campagne et par mois** : quotidien ~0,05 € × 30 ; hebdomadaire
+~0,80 € × 4,3 ; mensuel ~1 €. Soit **~6 € par mois**, à comparer à la part IA :
+30 €/jour × 15 % = 4,50 €/jour. À mesurer au premier mois.
+
+### 6. Place dans le découpage en commits
+
+**Ajouts à la 3c** (après le commit 4 de §9 quater, avant la salle de contrôle) :
+
+| # | Commit | Schéma |
+|---|---|---|
+| 4 bis | Consignes et carnet : collections `ad-learnings` et `ad-instructions` ; `kind`, `learningsRead`, `instructionsRead` sur les passages ; `learnings`, `instructions`, `citations` et le type `attente` sur les décisions. Lecture au démarrage, `appuis` exigés par les outils de décision | **migration** (la deuxième de la 3c, après celle des concurrents ; celle du commit 1 est déjà appliquée) |
+| 4 ter | Refus → consigne proposée (Haiku, repli sans IA), boutons dans « À valider » ; promotion d'un apprentissage en global | — |
+| 7 | La salle de contrôle montre, sous chaque décision, les apprentissages et consignes cités | — |
+
+**Phase 3d** (après la 3b et la phase 2) :
+
+| # | Commit | Schéma |
+|---|---|---|
+| 1 | `ad-tests`, `ad-alerts`, groupe `cadence`, dimension `audience`, types de décision `test` et `alerte` | migration |
+| 2 | Moteur de verdict, **pur et testé** : seuils, probabilité, confiance, « sans verdict » | — |
+| 3 | Alertes en code (synchro + contrôle horaire de la page d'arrivée) | — |
+| 4 | Ordonnanceur des rythmes dans `ads-agent-tick` : quotidien, hebdomadaire (semaine Meta), mensuel ; gel des 7 jours ; phase d'apprentissage | — |
+| 5 | Détection de la fatigue et préparation des remplacements | — |
+| 6 | Passage hebdomadaire complet : ouverture et clôture de tests, créas groupées | — |
+| 7 | Bilan mensuel et revue du carnet | — |
+| 8 | Écrans : registre des tests, alertes, rythme dans la salle de contrôle ; `REGLES-SUPPORT.md` | — |
+
+### 7. Questions
+
+1. **Le volume réaliste.** À 30 € de CPL, 50 leads **qualifiés** par variante,
+   c'est 1 500 € par variante. Avec les budgets de départ, un test sur le CPL
+   qualifié mettra des mois. Proposition : **un seul test à la fois par
+   campagne**, avec des variantes franchement différentes, et un verdict
+   « provisoire » sur le CPL simple (50 leads), confirmé plus tard sur le CPL
+   qualifié. D'accord ?
+2. **Revalidation** à 90 jours par défaut : ça te va ?
+3. **Alertes** : par e-mail en plus du tableau de bord, ou tableau de bord seul ?
+4. **Urgence en mode `proposer`** : la pause attend ton clic (proposé), ou une
+   pub **refusée par Meta** peut se mettre en pause seule quel que soit le mode ?
 
 ---
 
