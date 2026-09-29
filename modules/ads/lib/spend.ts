@@ -1,7 +1,9 @@
 import type { Payload } from "payload";
 
 import { usdToEur } from "@/core/lib/ai-pricing";
+import { PARIS_TZ } from "@/core/lib/dates";
 import type { AdSpendKind } from "@/modules/ads/collections/AdAiUsage";
+import { zonedStart } from "@/modules/ads/lib/zoned";
 
 /**
  * Les plafonds de dépense de l'atelier de créas, APPLIQUÉS avant chaque appel
@@ -40,7 +42,8 @@ export type BudgetCheck =
   | { ok: true; remainingDay: number | null; remainingMonth: number }
   | { ok: false; reason: string };
 
-const eur = (n: number) => `${n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+/** « 1,50 € » — les montants des messages de refus. */
+export const eur = (n: number) => `${n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
 /** Pure — c'est elle qu'on teste. */
 export function checkBudget(limits: Limits, spent: Spent, maxEur: number): BudgetCheck {
@@ -55,24 +58,8 @@ export function checkBudget(limits: Limits, spent: Spent, maxEur: number): Budge
   return { ok: true, remainingDay, remainingMonth };
 }
 
-/** Décalage de Paris par rapport à UTC, en minutes, à un instant donné. */
-function parisOffsetMinutes(at: Date): number {
-  const name = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Paris", timeZoneName: "shortOffset" })
-    .formatToParts(at)
-    .find((p) => p.type === "timeZoneName")?.value;
-  const m = /GMT([+-]\d+)(?::(\d+))?/.exec(name ?? "");
-  return m ? Number(m[1]) * 60 + Math.sign(Number(m[1])) * Number(m[2] ?? 0) : 0;
-}
-
 /** Minuit à Paris, pour le jour (ou le 1er du mois) qui contient `now`, en instant UTC. */
-export function parisStart(now: Date, of: "day" | "month"): Date {
-  const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" })
-    .format(now)
-    .split("-")
-    .map(Number);
-  const guess = Date.UTC(y, m - 1, of === "month" ? 1 : d, 0, 0, 0);
-  return new Date(guess - parisOffsetMinutes(new Date(guess)) * 60_000);
-}
+export const parisStart = (now: Date, of: "day" | "month"): Date => zonedStart(now, of, PARIS_TZ);
 
 export class AdsBudgetError extends Error {
   constructor(message: string) {
