@@ -167,3 +167,27 @@
   color: var(--tim-red);
   &:hover { background: var(--tim-red-bg); color: var(--tim-red); }
 }
+
+/* ─── Générer des créas (en tête du brief) ───────────────────────────────── */
+.ads-gen {
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent);
+  border-radius: 0.75rem;
+  background: var(--tim-white);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.ads-gen--muted { color: var(--tim-muted); font-size: 0.85rem; }
+.ads-gen__head { display: flex; flex-direction: column; gap: 0.15rem; font-size: 0.85rem; color: var(--tim-muted); }
+.ads-gen__head strong { color: var(--tim-foreground); font-size: 0.95rem; }
+.ads-gen__controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.ads-gen__field { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
+.ads-gen__field select { padding: 0.35rem 0.5rem; border: 1px solid var(--tim-border); border-radius: 0.4rem; background: var(--tim-white); font: inherit; }
+.ads-gen__check { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; }
+.ads-gen__facts { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.82rem; color: var(--tim-muted); }
+.ads-gen__bad { color: var(--tim-red); }
+.ads-gen__warn { color: var(--tim-amber); }
+.ads-gen__done { margin: 0; padding: 0.5rem 0.75rem; border-radius: 0.5rem; background: var(--tim-green-bg); color: var(--tim-green); font-size: 0.85rem; }
+.ads-gen__done a { color: inherit; font-weight: 600; }

@@ -79,6 +79,11 @@ export const AdCampaigns: CollectionConfig = {
           description: "Ce que la génération de créas lit. À nous, modifiable à tout moment.",
           fields: [
             {
+              name: "generate",
+              type: "ui",
+              admin: { components: { Field: "/modules/ads/admin/GenerateCreatives#GenerateCreatives" } },
+            },
+            {
               name: "brief",
               type: "group",
               label: false,
