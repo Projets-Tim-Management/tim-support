@@ -8,12 +8,15 @@
  *   node scripts/db-migrate.mjs create <nom>     # génère la migration (payload CLI)
  *   node scripts/db-migrate.mjs apply            # applique les migrations EN ATTENTE
  *   node scripts/db-migrate.mjs apply --allow-destructive   # autorise DROP/DELETE (à éviter)
- *   node scripts/db-migrate.mjs status           # liste appliquées / en attente
+ *   node scripts/db-migrate.mjs status           # liste appliquées / en attente, puis contrôle de sécurité
+ *   node scripts/db-migrate.mjs security         # contrôle de sécurité seul (schéma public fermé à l'API Supabase)
  *
  * `apply` : pour chaque migration non enregistrée dans `payload_migrations`, extrait
  * le SQL de `up()`, REFUSE s'il contient un statement destructif (sauf override),
  * l'exécute dans UNE transaction avec lock_timeout/statement_timeout (ne bloque
- * jamais la prod), puis enregistre la migration. Non-interactif, déterministe.
+ * jamais la prod), active RLS sur les tables qu'elle a créées (scripts/db-security.mjs),
+ * puis enregistre la migration. Non-interactif, déterministe. À la fin, le contrôle de
+ * sécurité fait échouer la commande si une table est ouverte à l'API Supabase.
  *
  * ⚠️ Coupe le serveur dev avant `apply` (il tient des connexions ; pooler Supabase
  *    plafonné à 15). Voir mémoire « migrations-payload-prod ».
@@ -23,6 +26,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+
+import { checkSecurity, HARDEN_SQL } from "./db-security.mjs";
 
 const projectDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const migrationsDir = join(projectDir, "migrations");
@@ -68,12 +73,35 @@ async function getApplied(client) {
   return new Set(r.rows.map((x) => x.name));
 }
 
+/** Le schéma public reste fermé à l'API Supabase ; sinon, la commande échoue (code 1). */
+async function reportSecurity(c) {
+  const problems = await checkSecurity(c);
+  if (!problems.length) {
+    console.log("🔒 Sécurité : schéma public fermé à l'API Supabase (anon, authenticated), RLS partout.");
+    return true;
+  }
+  console.error(`❌ Sécurité : ${problems.length} écart(s) — le schéma public est lisible par l'API Supabase :`);
+  for (const p of problems.slice(0, 20)) console.error(`   · ${p}`);
+  if (problems.length > 20) console.error(`   · … et ${problems.length - 20} autre(s)`);
+  return false;
+}
+
 async function cmdStatus() {
   const c = newClient();
   await c.connect();
   const applied = await getApplied(c);
   for (const name of diskMigrations()) console.log(`${applied.has(name) ? "✓ appliquée" : "· EN ATTENTE"}  ${name}`);
+  const ok = await reportSecurity(c);
   await c.end();
+  if (!ok) process.exit(1);
+}
+
+async function cmdSecurity() {
+  const c = newClient();
+  await c.connect();
+  const ok = await reportSecurity(c);
+  await c.end();
+  if (!ok) process.exit(1);
 }
 
 function cmdCreate(name) {
@@ -105,6 +133,7 @@ async function cmdApply(allowDestructive) {
       await c.query("SET LOCAL lock_timeout = '10s'");     // ne jamais faire la queue derrière la prod
       await c.query("SET LOCAL statement_timeout = '120s'");
       await c.query(sqlUp);
+      await c.query(HARDEN_SQL);
       await c.query("INSERT INTO payload_migrations (name, batch) VALUES ($1, $2)", [name, batch]);
       await c.query("COMMIT");
       console.log(`✅ ${name}`);
@@ -114,7 +143,9 @@ async function cmdApply(allowDestructive) {
       await c.end(); process.exit(1);
     }
   }
+  const ok = await reportSecurity(c);
   await c.end();
+  if (!ok) process.exit(1);
   console.log("\nTerminé. Pense à (re)démarrer le serveur dev.");
 }
 
@@ -125,5 +156,6 @@ async function cmdApply(allowDestructive) {
   if (cmd === "create") cmdCreate(arg);
   else if (cmd === "apply") await cmdApply(allowDestructive);
   else if (cmd === "status") await cmdStatus();
-  else { console.error("Usage: db-migrate.mjs <create <nom> | apply [--allow-destructive] | status>"); process.exit(1); }
+  else if (cmd === "security") await cmdSecurity();
+  else { console.error("Usage: db-migrate.mjs <create <nom> | apply [--allow-destructive] | status | security>"); process.exit(1); }
 })().catch((e) => { console.error("ERR", e.message); process.exit(1); });

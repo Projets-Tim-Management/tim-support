@@ -16,6 +16,7 @@
     "db:migrate:create": "node scripts/db-migrate.mjs create",
     "db:migrate:apply": "node scripts/db-migrate.mjs apply",
     "db:migrate:status": "node scripts/db-migrate.mjs status",
+    "db:security": "node scripts/db-migrate.mjs security",
     "test": "vitest run",
     "test:watch": "vitest"
   },

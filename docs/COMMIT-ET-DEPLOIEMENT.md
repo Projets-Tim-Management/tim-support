@@ -142,6 +142,13 @@ Ne jamais utiliser `payload migrate` directement : il gèle sur une invite
 « data loss » en mode non interactif. Le helper `scripts/db-migrate.mjs` la
 traite.
 
+**Le schéma `public` reste fermé à l'API Supabase** (incident du 29/09/2026,
+`docs/INCIDENT-2026-09-29-API-SUPABASE.md`). `db:migrate:apply` active RLS sur
+les tables que chaque migration crée, puis lance le contrôle `npm run
+db:security`, qui fait échouer la commande si une table est ouverte à `anon` /
+`authenticated` ou sans RLS. Un échec de ce contrôle se traite avant toute
+autre chose.
+
 Un `npm run build` local ne touche pas au schéma (le push est désactivé), il est
 donc sans danger pour la production.
 
