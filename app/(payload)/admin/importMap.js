@@ -140,6 +140,7 @@ import { default as default_31771f6a3fa0ba20a52c3d00b490cd26 } from '../../../ad
 import { default as default_d8e7bbf9f25486534fff2dfe79658e80 } from '../../../modules/partner/admin/BillingCheckView'
 import { default as default_3fac943f745ba0ff2dbf26360a2df675 } from '../../../modules/analytics/admin/BillingView'
 import { default as default_3125f72c9cf5e6cdd1ecf6cff4f3fd8c } from '../../../modules/analytics/admin/PipelineView'
+import { default as default_8e6317c196aa90c5c449f01aad526c7f } from '../../../modules/ads/admin/ValidationQueueView'
 import { default as default_1c3d467279591bbf05bba5b4228f8e57 } from '../../../modules/ads/admin/AdsDashboardView'
 import { default as default_8052050c666bd08f67a59ad1c2e0cc41 } from '../../../modules/analytics/admin/AcquisitionView'
 import { default as default_c44913679fe220161a8e8e8eb237e954 } from '../../../modules/analytics/admin/SupportView'
@@ -291,6 +292,7 @@ export const importMap = {
   "/modules/partner/admin/BillingCheckView#default": default_d8e7bbf9f25486534fff2dfe79658e80,
   "/modules/analytics/admin/BillingView#default": default_3fac943f745ba0ff2dbf26360a2df675,
   "/modules/analytics/admin/PipelineView#default": default_3125f72c9cf5e6cdd1ecf6cff4f3fd8c,
+  "/modules/ads/admin/ValidationQueueView#default": default_8e6317c196aa90c5c449f01aad526c7f,
   "/modules/ads/admin/AdsDashboardView#default": default_1c3d467279591bbf05bba5b4228f8e57,
   "/modules/analytics/admin/AcquisitionView#default": default_8052050c666bd08f67a59ad1c2e0cc41,
   "/modules/analytics/admin/SupportView#default": default_c44913679fe220161a8e8e8eb237e954,

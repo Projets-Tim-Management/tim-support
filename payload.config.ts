@@ -255,6 +255,13 @@ export default buildConfig({
           exact: true,
           meta: { title: "Analyses · Clients & pipeline" },
         },
+        // Publicité › À valider — la file de validation des créas (ValidationQueueView).
+        publiciteAValider: {
+          Component: "/modules/ads/admin/ValidationQueueView#default",
+          path: "/publicite/a-valider",
+          exact: true,
+          meta: { title: "Publicité · À valider" },
+        },
         // Publicité › Tableau de bord — voir modules/ads/admin/AdsDashboardView.
         publicite: {
           Component: "/modules/ads/admin/AdsDashboardView#default",

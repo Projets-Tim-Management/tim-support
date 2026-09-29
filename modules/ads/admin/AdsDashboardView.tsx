@@ -83,7 +83,7 @@ export function Filters({ d, platform }: { d: AdsDashboard; platform: string | n
   );
 }
 
-export function Report({ d, platform }: { d: AdsDashboard; platform: string | null }) {
+export function Report({ d, platform, toValidate = 0 }: { d: AdsDashboard; platform: string | null; toValidate?: number }) {
   const accountsHref = "/admin/collections/ad-accounts";
   const compared = `vs les ${d.period.days} jours précédents`;
   const delta = (cur: number, prev: number) => deltaPct(cur, prev, d.previous.covered);
@@ -102,12 +102,21 @@ export function Report({ d, platform }: { d: AdsDashboard; platform: string | nu
       )}
 
       {/* 1. Ce qui attend une décision — en tête, même vide. */}
-      <section className="ads-dash__todo">
-        <span className="ads-dash__todo-count">0</span>
+      <section className={`ads-dash__todo${toValidate ? " ads-dash__todo--active" : ""}`}>
+        <span className="ads-dash__todo-count">{toValidate}</span>
         <span className="ads-dash__todo-text">
           <strong>À valider</strong>
           <span>
-            Rien pour l&apos;instant. Les propositions des agents — budgets, pauses, nouvelles créas — arriveront ici à partir de la phase 2.
+            {toValidate ? (
+              <>
+                {toValidate} créa{toValidate > 1 ? "s" : ""} attend{toValidate > 1 ? "ent" : ""} une décision.{" "}
+                <Link href="/admin/publicite/a-valider" prefetch={false}>
+                  Ouvrir la file
+                </Link>
+              </>
+            ) : (
+              "Rien pour l'instant. Les créas générées arrivent ici ; les propositions des agents (budgets, pauses) suivront en phase 2."
+            )}
           </span>
         </span>
       </section>
@@ -213,7 +222,7 @@ export default async function AdsDashboardView(view: AdminViewServerProps) {
     const now = new Date();
     // Deux périodes : l'actuelle, et la précédente pour les écarts.
     const from = new Date(now.getTime() - (2 * days + 1) * 86_400_000).toISOString().slice(0, 10);
-    const [accounts, campaigns, metrics] = await Promise.all([
+    const [accounts, campaigns, metrics, toValidate] = await Promise.all([
       payload.find({ collection: "ad-accounts", pagination: false, depth: 0, overrideAccess: true }),
       payload.find({ collection: "ad-campaigns", pagination: false, depth: 0, overrideAccess: true }),
       payload.find({
@@ -224,6 +233,7 @@ export default async function AdsDashboardView(view: AdminViewServerProps) {
         overrideAccess: true,
         select: { account: true, platform: true, externalId: true, day: true, spend: true, impressions: true, clicks: true, leads: true } as never,
       }),
+      payload.count({ collection: "ad-creatives", where: { status: { equals: "a-valider" } }, overrideAccess: true }),
     ]);
     const d = buildAdsDashboard({
       accounts: accounts.docs as DashAccount[],
@@ -236,7 +246,7 @@ export default async function AdsDashboardView(view: AdminViewServerProps) {
     body = (
       <>
         <Filters d={d} platform={platform} />
-        <Report d={d} platform={platform} />
+        <Report d={d} platform={platform} toValidate={toValidate.totalDocs} />
       </>
     );
   }

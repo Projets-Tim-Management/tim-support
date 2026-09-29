@@ -515,8 +515,10 @@ dans `main` en `--no-ff`, dans un worktree — le serveur de dev reste intact. L
 
 ## 9 ter. Phase 3a — Atelier de créas
 
-> Statut : **validé le 29/09/2026** — commits 1 à 7 en cours sur la branche
-> `publicite`. Décisions ci-dessous (« Décisions du 29/09/2026 »).
+> Statut : **commits 1 à 7 faits le 29/09/2026** sur la branche `publicite` (non
+> déployés) — atelier utilisable : brief, textes, visuels, validation, téléchargement.
+> Migration `20260929_095438` à appliquer avant tout essai (base partagée). Restent
+> les commits 8 (fonds Imagen), 9 (motion) et 10 (vidéo Veo).
 > Objectif : produire dans le back-office des créas **prêtes à publier** — textes,
 > visuels statiques, motion, et en option vidéo générée — les faire valider, et les
 > **télécharger** aux formats Meta. L'envoi à Meta (upload, création d'annonce) est la
