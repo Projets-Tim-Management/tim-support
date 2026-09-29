@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { CHANNELS } from "@/core/lib/channels";
 import { AdAccounts } from "@/modules/ads/collections/AdAccounts";
 import { AdCampaigns } from "@/modules/ads/collections/AdCampaigns";
 import { AdMetricsDaily } from "@/modules/ads/collections/AdMetricsDaily";
-import { AD_PLATFORMS, isPlatformKey, platformLabel, validatePlatform } from "@/modules/ads/lib/platforms";
+import { isPlatformKey, platformLabel, validatePlatform } from "@/modules/ads/lib/platforms";
 import { decryptSecret } from "@/core/lib/secrets";
 import { PASSWORD_MASK } from "@/modules/marketing/lib/credential-secrets";
 
@@ -30,15 +29,11 @@ describe("registre des régies", () => {
     expect(platformLabel("google")).toBe("Google Ads");
   });
 
-  it("ne relie une régie qu'à des canaux qui existent", () => {
-    const known = new Set<string>(CHANNELS.map((c) => c.value));
-    for (const p of AD_PLATFORMS) for (const c of p.channels) expect(known.has(c), `${p.key} → ${c}`).toBe(true);
-  });
 });
 
-describe("campagnes et métriques : un miroir, écrit par la synchro seule", () => {
+describe("métriques : un miroir, écrit par la synchro seule", () => {
   it("refuse création et modification depuis le back-office, même à un admin", () => {
-    for (const col of [AdCampaigns, AdMetricsDaily]) {
+    for (const col of [AdMetricsDaily]) {
       expect((col.access!.create as (a: unknown) => boolean)(admin), col.slug).toBe(false);
       expect((col.access!.update as (a: unknown) => boolean)(admin), col.slug).toBe(false);
       expect((col.access!.read as (a: unknown) => boolean)(admin), col.slug).toBe(true);

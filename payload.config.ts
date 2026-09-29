@@ -34,6 +34,11 @@ import { AdAccounts } from "./modules/ads/collections/AdAccounts";
 import { AdCampaigns } from "./modules/ads/collections/AdCampaigns";
 import { AdMetricsDaily } from "./modules/ads/collections/AdMetricsDaily";
 import { AdsSettings } from "./modules/ads/globals/AdsSettings";
+import { AdsBrandKit } from "./modules/ads/globals/AdsBrandKit";
+import { AdMedia } from "./modules/ads/collections/AdMedia";
+import { AdFacts } from "./modules/ads/collections/AdFacts";
+import { AdAiUsage } from "./modules/ads/collections/AdAiUsage";
+import { AdCreatives } from "./modules/ads/collections/AdCreatives";
 import { SupportConnectionsGlobal } from "./core/globals/SupportConnections";
 import { Forms } from "./modules/forms/collections/Forms";
 import { FormSubmissions } from "./modules/forms/collections/FormSubmissions";
@@ -117,6 +122,10 @@ const ROLE_NAV_HIDDEN: Record<string, (args: { user?: unknown }) => boolean> = {
   "ad-accounts": hideUnlessAdmin,
   "ad-campaigns": hideUnlessAdmin,
   "ad-metrics-daily": hideUnlessAdmin,
+  "ad-media": hideUnlessAdmin,
+  "ad-facts": hideUnlessAdmin,
+  "ad-ai-usage": hideUnlessAdmin,
+  "ad-creatives": hideUnlessAdmin,
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -246,6 +255,13 @@ export default buildConfig({
           exact: true,
           meta: { title: "Analyses · Clients & pipeline" },
         },
+        // Publicité › À valider — la file de validation des créas (ValidationQueueView).
+        publiciteAValider: {
+          Component: "/modules/ads/admin/ValidationQueueView#default",
+          path: "/publicite/a-valider",
+          exact: true,
+          meta: { title: "Publicité · À valider" },
+        },
         // Publicité › Tableau de bord — voir modules/ads/admin/AdsDashboardView.
         publicite: {
           Component: "/modules/ads/admin/AdsDashboardView#default",
@@ -326,8 +342,12 @@ export default buildConfig({
       FormSubmissions,
       // Publicité : comptes connectés, campagnes lues chez les régies, chiffres du jour
       AdCampaigns,
+      AdCreatives,
       AdAccounts,
       AdMetricsDaily,
+      AdMedia,
+      AdFacts,
+      AdAiUsage,
       // Adresses qui ne reçoivent plus d'envoi commercial — transverse à tous
       // les modules, d'où sa place à côté des collections système.
       EmailSuppressions,
@@ -515,7 +535,9 @@ export default buildConfig({
       enabled: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
       // Store public → on sert les images en direct depuis le CDN Blob
       // (URL blob.vercel-storage.com) plutôt qu'en proxy via Payload.
-      collections: { media: { disablePayloadAccessControl: true } },
+      // Médias publicitaires : même principe (servis par le CDN), rangés à part
+      // sous `ads/` — la liste, elle, reste réservée aux admins.
+      collections: { media: { disablePayloadAccessControl: true }, "ad-media": { disablePayloadAccessControl: true, prefix: "ads" } },
       token: process.env.BLOB_READ_WRITE_TOKEN || "",
       /**
        * Le dépôt direct sur le CDN n'est PAS celui du plugin.
@@ -529,7 +551,7 @@ export default buildConfig({
        */
     }),
   ],
-  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, AdsSettings],
+  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, AdsSettings, AdsBrandKit],
 
   db: postgresAdapter({
     // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :

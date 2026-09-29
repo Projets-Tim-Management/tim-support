@@ -82,7 +82,7 @@ export type AdsDashboard = {
   period: { days: PeriodDays; since: string; until: string; prevSince: string; prevUntil: string };
   platforms: string[];
   simulated: boolean;
-  accounts: { total: number; active: number; archived: number; otherCurrency: string[] };
+  accounts: { active: number; archived: number; otherCurrency: string[] };
   alerts: AccountAlert[];
   lastSyncAt: string | null;
   totals: Totals & { ctr: number | null; cpl: number | null };
@@ -170,8 +170,9 @@ export function buildAdsDashboard(input: {
     daily.push({ day: d, spend: round2(t.spend), leads: t.leads, clicks: t.clicks });
   }
 
+  // Un brouillon n'a rien dépensé : il se prépare dans l'atelier, pas ici.
   const campaigns: CampaignRow[] = input.campaigns
-    .filter((c) => counted.has(idOf(c.account) ?? ""))
+    .filter((c) => c.status !== "brouillon" && counted.has(idOf(c.account) ?? ""))
     .map((c) => {
       const t = byCampaign.get(`${idOf(c.account)}|${c.externalId}`) ?? zero();
       return {
@@ -197,7 +198,6 @@ export function buildAdsDashboard(input: {
     platforms,
     simulated: followed.some((a) => a.externalId === MOCK_ACCOUNT_ID),
     accounts: {
-      total: input.accounts.filter((a) => inPlatform(a.platform)).length,
       active: followed.length,
       archived: input.accounts.filter((a) => a.status === "archive" && inPlatform(a.platform)).length,
       otherCurrency: followed.filter((a) => !counted.has(String(a.id))).map((a) => `${a.name ?? a.id} (${a.currency})`),

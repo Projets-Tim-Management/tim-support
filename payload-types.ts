@@ -93,8 +93,12 @@ export interface Config {
     forms: Form;
     'form-submissions': FormSubmission;
     'ad-campaigns': AdCampaign;
+    'ad-creatives': AdCreative;
     'ad-accounts': AdAccount;
     'ad-metrics-daily': AdMetricsDaily;
+    'ad-media': AdMedia;
+    'ad-facts': AdFact;
+    'ad-ai-usage': AdAiUsage;
     'email-suppressions': EmailSuppression;
     'client-employees': ClientEmployee;
     'client-sites': ClientSite;
@@ -159,8 +163,12 @@ export interface Config {
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'ad-campaigns': AdCampaignsSelect<false> | AdCampaignsSelect<true>;
+    'ad-creatives': AdCreativesSelect<false> | AdCreativesSelect<true>;
     'ad-accounts': AdAccountsSelect<false> | AdAccountsSelect<true>;
     'ad-metrics-daily': AdMetricsDailySelect<false> | AdMetricsDailySelect<true>;
+    'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
+    'ad-facts': AdFactsSelect<false> | AdFactsSelect<true>;
+    'ad-ai-usage': AdAiUsageSelect<false> | AdAiUsageSelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
     'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
     'client-sites': ClientSitesSelect<false> | ClientSitesSelect<true>;
@@ -187,6 +195,7 @@ export interface Config {
     'company-settings': CompanySetting;
     'contract-settings': ContractSetting;
     'ads-settings': AdsSetting;
+    'ads-brand-kit': AdsBrandKit;
   };
   globalsSelect: {
     appearance: AppearanceSelect<false> | AppearanceSelect<true>;
@@ -194,6 +203,7 @@ export interface Config {
     'company-settings': CompanySettingsSelect<false> | CompanySettingsSelect<true>;
     'contract-settings': ContractSettingsSelect<false> | ContractSettingsSelect<true>;
     'ads-settings': AdsSettingsSelect<false> | AdsSettingsSelect<true>;
+    'ads-brand-kit': AdsBrandKitSelect<false> | AdsBrandKitSelect<true>;
   };
   locale: null;
   widgets: {
@@ -2151,7 +2161,7 @@ export interface Sequence {
   createdAt: string;
 }
 /**
- * Les campagnes lues chez les régies, mises à jour chaque nuit. Lecture seule : elles se modifient chez la régie.
+ * Les campagnes : celles lues chez les régies (mises à jour chaque nuit, chiffres en lecture seule) et les brouillons préparés ici, avec leur brief.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ad-campaigns".
@@ -2159,20 +2169,55 @@ export interface Sequence {
 export interface AdCampaign {
   id: number;
   name: string;
-  account: number | AdAccount;
+  brief?: {
+    audience?: string | null;
+    pain?: string | null;
+    /**
+     * Les chiffres écrits ici (durées, prix) sont autorisés dans les textes.
+     */
+    offer?: string | null;
+    /**
+     * Ce qui change après — vérifiable.
+     */
+    promise?: string | null;
+    /**
+     * Les seuls chiffres que les textes pourront citer, avec l'offre.
+     */
+    proofs?: (number | AdFact)[] | null;
+    /**
+     * Un par ligne. S'ajoutent à ceux du kit de marque.
+     */
+    forbidden?: string | null;
+    /**
+     * Les paramètres d'URL obligatoires sont ajoutés au téléchargement (plan, §4.8).
+     */
+    landingUrl?: string | null;
+    cta?: ('en-savoir-plus' | 's-inscrire' | 'reserver') | null;
+    /**
+     * Le tutoiement : en test étiqueté seulement.
+     */
+    tone?: ('vous' | 'tu') | null;
+    /**
+     * Facultatif. Vide, trois angles sont proposés.
+     */
+    angles?:
+      | {
+          angle: string;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  account?: (number | null) | AdAccount;
   externalId?: string | null;
   status?: ('brouillon' | 'active' | 'en-pause' | 'terminee') | null;
   objective?: ('leads' | 'trafic' | 'notoriete' | 'autre') | null;
   /**
-   * En devise du compte. Vide : le budget vit au niveau des ensembles de publicités.
+   * En devise du compte, lu chez la régie.
    */
   dailyBudget?: number | null;
-  platform: string;
-  /**
-   * Valeur brute, pour comprendre un écart avec l'état normalisé.
-   */
   externalStatus?: string | null;
   lastSyncAt?: string | null;
+  platform: string;
   kpis?:
     | {
         [k: string]: unknown;
@@ -2182,6 +2227,29 @@ export interface AdCampaign {
     | number
     | boolean
     | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Les chiffres qu'une publicité peut citer, chacun avec sa source. Aucun autre chiffre ne sort.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-facts".
+ */
+export interface AdFact {
+  id: number;
+  /**
+   * Tel qu'il pourra être écrit dans une publicité.
+   */
+  statement: string;
+  source: string;
+  date: string;
+  sourceUrl?: string | null;
+  /**
+   * Décoché : le fait n'est plus proposé (périmé, contesté).
+   */
+  active?: boolean | null;
+  notes?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2200,7 +2268,7 @@ export interface AdAccount {
   externalId: string;
   platform: string;
   /**
-   * Constaté par la synchro et par la connexion, jamais saisi. « Archivé » se pose et se retire par le menu ⋯.
+   * Constaté par la synchro et par la connexion, jamais saisi. « Archivé » se pose et se retire par le bouton « Archiver » / « Réactiver ».
    */
   status?: ('sans-jeton' | 'connecte' | 'expire' | 'erreur' | 'archive') | null;
   lastError?: string | null;
@@ -2231,6 +2299,121 @@ export interface AdAccount {
   createdAt: string;
 }
 /**
+ * Les créas de l'atelier : un angle, ses textes, ses visuels. Elles se valident dans la file « À valider ».
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-creatives".
+ */
+export interface AdCreative {
+  id: number;
+  /**
+   * L'idée en une ligne.
+   */
+  angle: string;
+  /**
+   * Le texte posé sur l'image.
+   */
+  hook?: string | null;
+  campaign: number | AdCampaign;
+  tone: 'vous' | 'tu';
+  cta?: ('en-savoir-plus' | 's-inscrire' | 'reserver') | null;
+  status?: ('brouillon' | 'a-valider' | 'validee' | 'refusee' | 'en-ligne' | 'retiree') | null;
+  /**
+   * Une variante = une dimension étiquetée. Vide : la créa n'est pas un test.
+   */
+  tests?:
+    | {
+        dimension: 'ton' | 'angle' | 'accroche' | 'format' | 'visuel' | 'cta';
+        value: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Comptée à part dans les résultats.
+   */
+  isTest?: boolean | null;
+  /**
+   * Générés et contrôlés par les garde-fous. Un texte rejeté reste visible, avec sa raison.
+   */
+  texts?:
+    | {
+        kind: 'principal' | 'titre' | 'description';
+        tone: 'vous' | 'tu';
+        chars?: number | null;
+        status: 'ok' | 'rejete';
+        reason?: string | null;
+        text: string;
+        id?: string | null;
+      }[]
+    | null;
+  assets?:
+    | {
+        format: '1x1' | '4x5' | '9x16';
+        type: 'image' | 'video';
+        template?: string | null;
+        media: number | AdMedia;
+        id?: string | null;
+      }[]
+    | null;
+  facts?: (number | AdFact)[] | null;
+  refusalReason?: ('hors-marque' | 'faux' | 'mal-ecrit' | 'visuel' | 'doublon' | 'autre') | null;
+  refusalDetail?: string | null;
+  decidedBy?: (number | null) | User;
+  decidedAt?: string | null;
+  origin?: ('generee' | 'agent' | 'manuelle') | null;
+  generation?: {
+    model?: string | null;
+    costEur?: number | null;
+    /**
+     * Les créas nées de la même génération.
+     */
+    batch?: string | null;
+  };
+  performance?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Logos, polices, captures de l'app, photos : la matière des créas. Et les créas rendues. Réservé à TIM.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-media".
+ */
+export interface AdMedia {
+  id: number;
+  kind: 'logo' | 'police' | 'capture' | 'photo' | 'musique' | 'fond' | 'crea';
+  /**
+   * Ce que montre le fichier, en une phrase.
+   */
+  alt?: string | null;
+  platform?: ('web' | 'mobile') | null;
+  feature?: string | null;
+  noClientData?: boolean | null;
+  /**
+   * Origine, auteur, date, licence ; pour une photo, l'accord des personnes visibles.
+   */
+  rights?: string | null;
+  license?: string | null;
+  prefix?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ad-metrics-daily".
  */
@@ -2250,6 +2433,40 @@ export interface AdMetricsDaily {
   leads?: number | null;
   qualifiedLeads?: number | null;
   won?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Chaque appel payant de l'atelier de créas, avec son coût. Écrit par le serveur ; les plafonds le relisent avant chaque appel.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-ai-usage".
+ */
+export interface AdAiUsage {
+  id: number;
+  kind: 'texte' | 'image' | 'video';
+  provider?: string | null;
+  model?: string | null;
+  eur: number;
+  usd?: number | null;
+  campaign?: (number | null) | AdCampaign;
+  /**
+   * Les créas nées de cet appel portent le même lot.
+   */
+  batch?: string | null;
+  detail?: string | null;
+  /**
+   * Tokens, images ou secondes, tels que le fournisseur les a comptés.
+   */
+  usage?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2825,12 +3042,28 @@ export interface PayloadLockedDocument {
         value: number | AdCampaign;
       } | null)
     | ({
+        relationTo: 'ad-creatives';
+        value: number | AdCreative;
+      } | null)
+    | ({
         relationTo: 'ad-accounts';
         value: number | AdAccount;
       } | null)
     | ({
         relationTo: 'ad-metrics-daily';
         value: number | AdMetricsDaily;
+      } | null)
+    | ({
+        relationTo: 'ad-media';
+        value: number | AdMedia;
+      } | null)
+    | ({
+        relationTo: 'ad-facts';
+        value: number | AdFact;
+      } | null)
+    | ({
+        relationTo: 'ad-ai-usage';
+        value: number | AdAiUsage;
       } | null)
     | ({
         relationTo: 'email-suppressions';
@@ -3883,15 +4116,90 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
  */
 export interface AdCampaignsSelect<T extends boolean = true> {
   name?: T;
+  brief?:
+    | T
+    | {
+        audience?: T;
+        pain?: T;
+        offer?: T;
+        promise?: T;
+        proofs?: T;
+        forbidden?: T;
+        landingUrl?: T;
+        cta?: T;
+        tone?: T;
+        angles?:
+          | T
+          | {
+              angle?: T;
+              id?: T;
+            };
+      };
   account?: T;
   externalId?: T;
   status?: T;
   objective?: T;
   dailyBudget?: T;
-  platform?: T;
   externalStatus?: T;
   lastSyncAt?: T;
+  platform?: T;
   kpis?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-creatives_select".
+ */
+export interface AdCreativesSelect<T extends boolean = true> {
+  angle?: T;
+  hook?: T;
+  campaign?: T;
+  tone?: T;
+  cta?: T;
+  status?: T;
+  tests?:
+    | T
+    | {
+        dimension?: T;
+        value?: T;
+        id?: T;
+      };
+  isTest?: T;
+  texts?:
+    | T
+    | {
+        kind?: T;
+        tone?: T;
+        chars?: T;
+        status?: T;
+        reason?: T;
+        text?: T;
+        id?: T;
+      };
+  assets?:
+    | T
+    | {
+        format?: T;
+        type?: T;
+        template?: T;
+        media?: T;
+        id?: T;
+      };
+  facts?: T;
+  refusalReason?: T;
+  refusalDetail?: T;
+  decidedBy?: T;
+  decidedAt?: T;
+  origin?: T;
+  generation?:
+    | T
+    | {
+        model?: T;
+        costEur?: T;
+        batch?: T;
+      };
+  performance?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -3935,6 +4243,60 @@ export interface AdMetricsDailySelect<T extends boolean = true> {
   leads?: T;
   qualifiedLeads?: T;
   won?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-media_select".
+ */
+export interface AdMediaSelect<T extends boolean = true> {
+  kind?: T;
+  alt?: T;
+  platform?: T;
+  feature?: T;
+  noClientData?: T;
+  rights?: T;
+  license?: T;
+  prefix?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-facts_select".
+ */
+export interface AdFactsSelect<T extends boolean = true> {
+  statement?: T;
+  source?: T;
+  date?: T;
+  sourceUrl?: T;
+  active?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-ai-usage_select".
+ */
+export interface AdAiUsageSelect<T extends boolean = true> {
+  kind?: T;
+  provider?: T;
+  model?: T;
+  eur?: T;
+  usd?: T;
+  campaign?: T;
+  batch?: T;
+  detail?: T;
+  usage?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4362,7 +4724,7 @@ export interface ContractSetting {
   createdAt?: string | null;
 }
 /**
- * Ce que les agents publicitaires n'ont pas le droit de faire. Réservé à TIM.
+ * Ce que les agents et l'atelier de créas n'ont pas le droit de faire, ni de dépenser. Réservé à TIM.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ads-settings".
@@ -4370,9 +4732,77 @@ export interface ContractSetting {
 export interface AdsSetting {
   id: number;
   /**
-   * Décoché : aucun agent ne tourne, aucune décision ne s'exécute. La synchro des chiffres, elle, continue — elle ne fait que lire.
+   * Décoché : aucun agent ne tourne, aucune génération ne part, aucune décision ne s'exécute. La synchro des chiffres, elle, continue — elle ne fait que lire.
    */
   enabled?: boolean | null;
+  /**
+   * Claude, génération des textes.
+   */
+  textDailyEur: number;
+  /**
+   * Claude, génération des textes.
+   */
+  textMonthlyEur: number;
+  /**
+   * Fonds générés (Imagen).
+   */
+  imagesMonthlyEur: number;
+  /**
+   * Plans générés (Veo).
+   */
+  videoMonthlyEur: number;
+  /**
+   * Au-delà, la génération attend la semaine suivante (plan, §6).
+   */
+  creativesPerCampaignPerWeek: number;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Le ton, les interdits et les polices des publicités. Couleurs et logo principal : Système › Apparence. Captures, photos et polices : Médias publicitaires. Chiffres : Faits sourcés.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ads-brand-kit".
+ */
+export interface AdsBrandKit {
+  id: number;
+  /**
+   * Vouvoiement par défaut. Le tutoiement ne sort qu'en variante étiquetée « test de ton », validée comme toute créa.
+   */
+  defaultTone: 'vous' | 'tu';
+  voice?: string | null;
+  goodExamples?: string | null;
+  badExamples?: string | null;
+  /**
+   * Refusées en code dans tout texte généré, sans tenir compte des majuscules ni des accents.
+   */
+  forbidden?:
+    | {
+        term: string;
+        reason?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Blanc ou monochrome. Le logo couleur est celui de Système › Apparence.
+   */
+  logoOnDark?: (number | null) | AdMedia;
+  /**
+   * Sans police déposée, les gabarits utilisent Lato (celle du contrat).
+   */
+  fonts?:
+    | {
+        role: 'titre' | 'texte';
+        weight?: number | null;
+        file: number | AdMedia;
+        id?: string | null;
+      }[]
+    | null;
+  advertiser?: string | null;
+  /**
+   * Ajoutées au fichier de textes téléchargé avec chaque créa.
+   */
+  legalNotice?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -4475,6 +4905,42 @@ export interface ContractSettingsSelect<T extends boolean = true> {
  */
 export interface AdsSettingsSelect<T extends boolean = true> {
   enabled?: T;
+  textDailyEur?: T;
+  textMonthlyEur?: T;
+  imagesMonthlyEur?: T;
+  videoMonthlyEur?: T;
+  creativesPerCampaignPerWeek?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ads-brand-kit_select".
+ */
+export interface AdsBrandKitSelect<T extends boolean = true> {
+  defaultTone?: T;
+  voice?: T;
+  goodExamples?: T;
+  badExamples?: T;
+  forbidden?:
+    | T
+    | {
+        term?: T;
+        reason?: T;
+        id?: T;
+      };
+  logoOnDark?: T;
+  fonts?:
+    | T
+    | {
+        role?: T;
+        weight?: T;
+        file?: T;
+        id?: T;
+      };
+  advertiser?: T;
+  legalNotice?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

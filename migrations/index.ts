@@ -121,6 +121,7 @@ import * as migration_20260928_121707_signature_pages_paraphees from './20260928
 import * as migration_20260928_122759_contresignature_tim from './20260928_122759_contresignature_tim';
 import * as migration_20260928_142655_media_depose_par from './20260928_142655_media_depose_par';
 import * as migration_20260929_073451_publicite_socle_et_canaux_meta from './20260929_073451_publicite_socle_et_canaux_meta';
+import * as migration_20260929_095438_publicite_atelier_de_creas from './20260929_095438_publicite_atelier_de_creas';
 
 export const migrations = [
   {
@@ -736,6 +737,11 @@ export const migrations = [
   {
     up: migration_20260929_073451_publicite_socle_et_canaux_meta.up,
     down: migration_20260929_073451_publicite_socle_et_canaux_meta.down,
-    name: '20260929_073451_publicite_socle_et_canaux_meta'
+    name: '20260929_073451_publicite_socle_et_canaux_meta',
+  },
+  {
+    up: migration_20260929_095438_publicite_atelier_de_creas.up,
+    down: migration_20260929_095438_publicite_atelier_de_creas.down,
+    name: '20260929_095438_publicite_atelier_de_creas'
   },
 ];

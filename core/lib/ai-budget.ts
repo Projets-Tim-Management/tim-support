@@ -1,5 +1,7 @@
 import type { Payload } from "payload";
 
+import { CLAUDE_PRICES, claudeCostUsd, usdToEur, type Usage } from "@/core/lib/ai-pricing";
+
 /**
  * Le plafond de dépense de l'assistant : tant d'euros par jour, tous comptes
  * confondus — un bug qui boucle, une distraction, un prompt qui explose ne
@@ -16,19 +18,15 @@ import type { Payload } from "payload";
  * support » sans aller sur leur console.
  */
 
-/** Tarif de Claude Haiku 4.5, en dollars par million de tokens. */
-export const HAIKU_PRICES = { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 } as const;
-/** Conversion indicative : le plafond est en euros, la facture en dollars. */
-const USD_PER_EUR = 1.1;
+/** Tarif de Claude Haiku 4.5 (le modèle de l'assistant) — lu dans la grille commune, core/lib/ai-pricing. */
+export const HAIKU_PRICES = CLAUDE_PRICES["claude-haiku-4-5"];
 
 export const dailyBudgetEur = (): number => Number(process.env.ASSISTANT_AI_DAILY_BUDGET_EUR) || 10;
 
-export type Usage = { input: number; output: number; cacheRead: number; cacheWrite: number };
+export type { Usage };
 
-export const costUsd = (u: Usage): number =>
-  (u.input * HAIKU_PRICES.input + u.output * HAIKU_PRICES.output + u.cacheWrite * HAIKU_PRICES.cacheWrite + u.cacheRead * HAIKU_PRICES.cacheRead) / 1_000_000;
-
-export const costEur = (u: Usage): number => costUsd(u) / USD_PER_EUR;
+export const costUsd = (u: Usage): number => claudeCostUsd("claude-haiku-4-5", u);
+export const costEur = (u: Usage): number => usdToEur(costUsd(u));
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type SpendEntry = {

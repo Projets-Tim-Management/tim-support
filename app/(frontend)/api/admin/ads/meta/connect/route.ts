@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { hasAdminRole } from "@/core/access";
-import { payloadClient } from "@/core/payload-client";
+import { adminRequest } from "@/modules/ads/lib/route-auth";
 import { signState } from "@/core/lib/secrets";
 import { ACCOUNTS_LIST, metaAuthUrl, metaRedirectUri } from "@/modules/ads/lib/meta-oauth";
 import { getPlatform, isMetaMock } from "@/modules/ads/platforms";
@@ -18,10 +17,9 @@ import { getPlatform, isMetaMock } from "@/modules/ads/platforms";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const payload = await payloadClient();
-  const { user } = await payload.auth({ headers: req.headers });
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (!hasAdminRole(user)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const auth = await adminRequest(req);
+  if ("response" in auth) return auth.response;
+  const { user } = auth;
 
   const state = signState({ uid: String(user.id), kind: "ads-meta" });
   if (isMetaMock()) {
