@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { Payload } from "payload";
 
-import { claudeCostUsd, claudeMaxCostUsd, usdToEur, type Usage } from "@/core/lib/ai-pricing";
+import { claudeCostUsd, claudeMaxCostUsd, estimateTokens, usdToEur, type Usage } from "@/core/lib/ai-pricing";
 import { allowedNumbers, guard, type TextKind } from "@/modules/ads/lib/copy/guardrails";
 import { PROMPT_VERSION, VARIANTS, systemPrompt, userPrompt, type BriefInput, type CopyAngle } from "@/modules/ads/lib/copy/prompt";
 import { ctaLabel } from "@/modules/ads/lib/cta";
@@ -84,9 +84,6 @@ export function briefInput(c: Campaign): BriefInput {
     forbidden: lines(b.forbidden),
   };
 }
-
-/** Estimation prudente des tokens d'entrée (≈ 3 caractères par token en français). */
-export const estimateTokens = (...texts: string[]) => Math.ceil(texts.reduce((n, t) => n + t.length, 0) / 3);
 
 type TextRow = { kind: "principal" | "titre" | "description"; tone: Tone; text: string; status: "ok" | "rejete"; reason: string | null };
 

@@ -19,6 +19,7 @@ export type TokenPrices = { input: number; output: number; cacheWrite: number; c
 export const CLAUDE_PRICES = {
   "claude-haiku-4-5": { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 },
   "claude-opus-5-5": { input: 4, output: 20, cacheWrite: 5, cacheRead: 0.2 },
+  "claude-sonnet-5-5": { input: 2, output: 10, cacheWrite: 2.5, cacheRead: 0.2 },
 } as const satisfies Record<string, TokenPrices>;
 
 export type ClaudeModel = keyof typeof CLAUDE_PRICES;
@@ -40,3 +41,10 @@ export const claudeMaxCostUsd = (model: ClaudeModel, inputTokens: number, maxTok
   claudeCostUsd(model, { input: inputTokens, output: maxTokens, cacheRead: 0, cacheWrite: 0 });
 
 export const usdToEur = (usd: number): number => usd / USD_PER_EUR;
+
+/**
+ * Estimation PRUDENTE des tokens d'entrée, avant l'appel : ≈ 3 caractères par
+ * token en français (le tokenizer des modèles récents compte large). Elle sert
+ * au coût maximal, qui doit surestimer plutôt que l'inverse.
+ */
+export const estimateTokens = (...texts: string[]): number => Math.ceil(texts.reduce((n, t) => n + t.length, 0) / 3);
