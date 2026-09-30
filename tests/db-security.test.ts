@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { HARDEN_SQL, SECURITY_SQL, violations } from "../scripts/db-security.mjs";
+import { acceptedFound, HARDEN_SQL, SECURITY_SQL, violations } from "../scripts/db-security.mjs";
 
 /**
  * Le schéma public reste fermé à l'API Supabase (alerte du 29/09/2026). Le
@@ -28,6 +28,22 @@ describe("contrôle de sécurité : ce qui est un écart", () => {
     expect(violations([row({ kind: "sequence", name: "s", rls: null, authenticated: true })])).toEqual(["sequence s : accessible à authenticated"]);
     expect(violations([row({ kind: "schema", name: "public", rls: null, anon: true })])).toEqual(["schema public : accessible à anon"]);
     expect(violations([row({ kind: "default-privilege", name: "postgres:r", rls: null, anon: true })])).toEqual(["default-privilege postgres:r : accessible à anon"]);
+  });
+
+  it("exception acceptée (30/09/2026) : l'usage du schéma public hérité de PUBLIC seulement — affichée, pas comptée", () => {
+    const inherited = row({ kind: "schema", name: "public", rls: null, anon: true, authenticated: true, via_public_only: true });
+    expect(violations([inherited])).toEqual([]);
+    expect(acceptedFound([inherited])).toEqual([expect.stringMatching(/^schema public : usage du schéma hérité de PUBLIC/)]);
+  });
+
+  it("l'exception ne couvre PAS un droit donné explicitement à anon sur le schéma", () => {
+    const explicit = row({ kind: "schema", name: "public", rls: null, anon: true, via_public_only: false });
+    expect(violations([explicit])).toEqual(["schema public : accessible à anon"]);
+    expect(acceptedFound([explicit])).toEqual([]);
+  });
+
+  it("l'exception ne couvre qu'un objet : une table, une séquence ou un autre schéma restent des écarts", () => {
+    expect(violations([row({ anon: true, via_public_only: true })])).toEqual(["table users : accessible à anon"]);
   });
 
   it("une vue n'a pas de RLS : elle n'est jugée que sur ses droits", () => {
