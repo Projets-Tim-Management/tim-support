@@ -14,6 +14,8 @@ export const MAX_DEPTH = 2;
 export const MAX_CONCURRENT = 3;
 /** Sous-agents créés au plus par passage. */
 export const MAX_AGENTS_PER_RUN = 12;
+/** Rejets du contrôleur par angle : au-delà, la créa part « À valider » marquée rejetée, avec les motifs. */
+export const MAX_REJECTIONS = 2;
 /** Tours de modèle au plus par agent : un agent qui tourne en rond s'arrête. */
 export const MAX_TURNS = 25;
 /** Échecs d'appel consécutifs (réseau, API) avant d'abandonner l'agent. */

@@ -15,14 +15,15 @@ import { eur } from "@/modules/ads/lib/spend";
  * fonction, qui renvoie ce que le modèle lira ET la phrase du fil d'activité —
  * écrite par le code, jamais par un modèle payé pour résumer.
  *
- * Ce commit ne pose que les outils de l'arbre ; ceux de l'atelier (textes,
- * visuels, contrôle) s'ajoutent au commit 4.
+ * Ici, les outils de l'arbre (créer, attendre, terminer) ; ceux qui passent par
+ * l'atelier sont dans tools-atelier.ts ; le registre complet, dans registry.ts.
  */
 
 export type ToolContext = { deps: AgentDeps; run: RunRow; agent: AgentRow; agents: AgentRow[]; step: StepRow; ledger: (a: AgentRow) => AgentLedger };
 
 export type ToolOutcome =
-  | { kind: "ok"; output: unknown; line: string; isError?: boolean }
+  /** `costEur` : ce que l'outil a payé (des textes écrits par l'atelier) — compté dans le budget de l'agent. */
+  | { kind: "ok"; output: unknown; line: string; isError?: boolean; costEur?: number }
   /** Pas encore : l'étape reste ouverte et l'agent attend (ses sous-agents). */
   | { kind: "wait" }
   /** L'agent rend son résultat et s'arrête. */
@@ -35,7 +36,7 @@ export type AgentTool = {
 
 export const FINISHED: readonly AgentStatus[] = ["termine", "echoue", "arrete"];
 
-const roleLabel = (role: string) => AGENT_ROLES.find((r) => r.value === role)?.label.toLowerCase() ?? role;
+export const roleLabel = (role: string) => AGENT_ROLES.find((r) => r.value === role)?.label.toLowerCase() ?? role;
 /** Une phrase du fil ne dépasse pas une ligne : au-delà de `n` caractères, elle est coupée. */
 export const clip = (s: string, n = 120) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
@@ -162,4 +163,4 @@ const terminer: AgentTool = {
   },
 };
 
-export const TOOLS: Record<string, AgentTool> = Object.fromEntries([creerSousAgent, attendreSousAgents, terminer].map((t) => [t.definition.name, t]));
+export const TREE_TOOLS: AgentTool[] = [creerSousAgent, attendreSousAgents, terminer];

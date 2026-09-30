@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 
+import { finishTool } from "@/modules/ads/agent/roles";
 import type { AgentRow, RunRow, StepRow } from "@/modules/ads/agent/types";
 import { eur } from "@/modules/ads/lib/spend";
 
@@ -16,9 +17,9 @@ import { eur } from "@/modules/ads/lib/spend";
  * messages de l'utilisateur qui se suivent sont réunis en un seul.
  */
 
-/** Pseudo-outil : le rappel envoyé à un agent qui s'est arrêté sans appeler « terminer ». */
+/** Pseudo-outil : le rappel envoyé à un agent qui s'est arrêté sans rendre son travail. */
 export const RELANCE = "relance";
-const RELANCE_TEXT = "Tu t'es arrêté sans rendre de résultat. Appelle « terminer » avec ce que tu as, ou poursuis ta mission avec tes outils.";
+const relanceText = (agent: AgentRow) => `Tu t'es arrêté sans rendre de résultat. Appelle « ${finishTool(agent.role)} » avec ce que tu as, ou poursuis ta mission avec tes outils.`;
 
 export type ModelOutput = { content: Anthropic.ContentBlock[]; stopReason: string | null };
 export type ToolInput = { toolUseId: string; input: Record<string, unknown> };
@@ -54,7 +55,7 @@ export function buildMessages(run: RunRow, agent: AgentRow, steps: StepRow[]): A
       if (content.length) messages.push({ role: "assistant", content: content as Anthropic.ContentBlockParam[] });
     } else if (s.tool === RELANCE) {
       flush();
-      pushUser(RELANCE_TEXT);
+      pushUser(relanceText(agent));
     } else {
       const { toolUseId } = s.input as ToolInput;
       const out = s.output as { result: unknown; isError?: boolean };

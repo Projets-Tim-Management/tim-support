@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 
 import type { ClaudeModel, Usage } from "@/core/lib/ai-pricing";
+import type { CampaignBudget, Split } from "@/modules/ads/agent/budget";
 import type { RunStatus } from "@/modules/ads/collections/AdAgentRuns";
 import type { AgentRole, AgentStatus } from "@/modules/ads/collections/AdAgents";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
@@ -110,7 +111,42 @@ export interface AgentStore {
   /** Lève `StepConflictError` si la clé d'idempotence existe déjà. */
   createStep(data: NewStep): Promise<StepRow>;
   updateStep(id: Id, patch: Partial<Omit<StepRow, "id">> & { finishedAt?: string }): Promise<void>;
-  createDecision(data: NewDecision): Promise<void>;
+  /** Renvoie l'identifiant de la décision, pour qu'on puisse y renvoyer (répartition en vigueur, fil). */
+  createDecision(data: NewDecision): Promise<Id>;
+  /** Les décisions d'un passage, d'un type donné, dans l'ordre. */
+  listDecisions(runId: Id, kind: DecisionKind): Promise<(NewDecision & { id: Id })[]>;
+}
+
+/** Une créa, telle qu'un agent la voit. */
+export type CreativeView = {
+  id: Id;
+  angle: string;
+  requestedAngle: string | null;
+  status: string;
+  publishable: boolean;
+  visuals: number;
+  texts: { kind: string; text: string; status: string; reason: string | null }[];
+};
+
+/**
+ * L'atelier de créas (phase 3a), vu par l'agent. Chaque méthode APPELLE le code
+ * de l'atelier (génération, garde-fous, rendu, file « À valider ») : l'agent ne
+ * recopie rien. Branché sur Payload au commit 6 ; faux dans les tests.
+ */
+export interface AtelierPort {
+  /** Le brief, le kit de marque et les faits, résumés pour un modèle ; le quota de la semaine ; les gabarits disponibles. */
+  brief(campaign: Id): Promise<{ resume: string; quotaRestant: number; gabarits: { cle: string; libelle: string; disponible: boolean }[] }>;
+  /** Fait écrire les textes des angles demandés par l'atelier (garde-fous compris). `preCheck` : budget de l'agent. */
+  generate(
+    campaign: Id,
+    req: { run: Id; agent: Id; angles: string[]; toneTest: boolean; preCheck: (maxEur: number) => Promise<void> },
+  ): Promise<{ creatives: CreativeView[]; costEur: number }>;
+  render(creative: Id, template?: string): Promise<{ template: string; visuals: number }>;
+  creatives(ids: Id[]): Promise<CreativeView[]>;
+  /** Passe des créas « À valider » ; celles qui ne sont pas publiables restent, avec la raison. */
+  submit(ids: Id[]): Promise<{ submitted: Id[]; skipped: { id: Id; reason: string }[] }>;
+  campaignBudget(campaign: Id): Promise<CampaignBudget | null>;
+  setSplit(campaign: Id, split: Split, decision: Id, at: Date): Promise<void>;
 }
 
 export type ModelRequest = {
@@ -131,4 +167,4 @@ export interface GlobalBudget {
   record(entry: { run: Id; agent: Id; campaign: Id; model: ClaudeModel; usd: number; usage: Usage; detail: string }): Promise<void>;
 }
 
-export type AgentDeps = { store: AgentStore; model: AgentModelCall; budget: GlobalBudget; now: () => Date };
+export type AgentDeps = { store: AgentStore; model: AgentModelCall; budget: GlobalBudget; atelier: AtelierPort; now: () => Date };

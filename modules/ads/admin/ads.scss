@@ -211,6 +211,7 @@
 .ads-card__head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
 .ads-card__angle { margin: 0; font-size: 1rem; color: var(--tim-foreground); }
 .ads-card__meta { margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--tim-muted); }
+.ads-card__origin { margin: 0.15rem 0 0; font-size: 0.8rem; font-style: italic; color: var(--tim-indigo); }
 .ads-card__badges { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .ads-badge { padding: 0.15rem 0.55rem; border-radius: 999px; background: var(--tim-surface); color: var(--tim-muted); font-size: 0.75rem; font-weight: 600; }
 .ads-badge--test { background: var(--tim-indigo-bg); color: var(--tim-indigo); }

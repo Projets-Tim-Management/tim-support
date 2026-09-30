@@ -1,115 +1,20 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { memoryStore, reply, say, scripted, toolCall } from "./helpers/agent-memory";
+
 import { buildMessages, nextAction, RELANCE } from "@/modules/ads/agent/conversation";
 import { ledgerOf, tickRun } from "@/modules/ads/agent/engine";
 import { MAX_AGENTS_PER_RUN, MAX_CONCURRENT } from "@/modules/ads/agent/limits";
-import { ROLE_TOOLS } from "@/modules/ads/agent/roles";
 import {
   StepConflictError,
   type AgentDeps,
   type AgentRow,
-  type AgentStore,
-  type Id,
-  type ModelRequest,
   type ModelResponse,
-  type NewDecision,
   type RunRow,
   type StepRow,
 } from "@/modules/ads/agent/types";
 import { AdsBudgetError } from "@/modules/ads/lib/spend";
-
-// ─── Un stockage en mémoire, fidèle au contrat d'AgentStore ─────────────────
-
-const ZERO = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-
-function memoryStore() {
-  let id = 0;
-  let clock = 0; // createdAt strictement croissant, comme en base
-  const runs = new Map<Id, RunRow & { leaseUntil?: Date | null; finishedAt?: string }>();
-  const agents: AgentRow[] = [];
-  const steps: StepRow[] = [];
-  const decisions: NewDecision[] = [];
-  const stamp = () => new Date(Date.UTC(2026, 9, 5, 8, 0, 0) + clock++).toISOString();
-  const store: AgentStore = {
-    async getRun(i) {
-      return { ...runs.get(i)! };
-    },
-    async updateRun(i, patch) {
-      Object.assign(runs.get(i)!, patch);
-    },
-    async acquireLease(i, until, now) {
-      const r = runs.get(i)!;
-      if (r.leaseUntil && r.leaseUntil >= now) return false;
-      r.leaseUntil = until;
-      return true;
-    },
-    async renewLease(i, held, until) {
-      const r = runs.get(i)!;
-      if (r.leaseUntil?.getTime() !== held.getTime()) return false;
-      r.leaseUntil = until;
-      return true;
-    },
-    async releaseLease(i, held) {
-      const r = runs.get(i)!;
-      if (r.leaseUntil?.getTime() === held.getTime()) r.leaseUntil = null;
-    },
-    async listAgents(run) {
-      return agents.filter((a) => a.run === run).map((a) => ({ ...a }));
-    },
-    async createAgent(data) {
-      const a: AgentRow = { ...data, id: ++id, spentEur: 0, tokens: { ...ZERO }, createdAt: stamp() };
-      agents.push(a);
-      return { ...a };
-    },
-    async updateAgent(i, patch) {
-      Object.assign(agents.find((a) => a.id === i)!, patch);
-    },
-    async listSteps(agent) {
-      return steps.filter((s) => s.agent === agent).sort((a, b) => a.seq - b.seq).map((s) => ({ ...s }));
-    },
-    async createStep(data) {
-      if (steps.some((s) => s.idempotencyKey === data.idempotencyKey)) throw new StepConflictError(data.idempotencyKey);
-      const s: StepRow = { ...data, id: ++id, costEur: 0, startedAt: stamp() };
-      steps.push(s);
-      return { ...s };
-    },
-    async updateStep(i, patch) {
-      Object.assign(steps.find((s) => s.id === i)!, patch);
-    },
-    async createDecision(d) {
-      decisions.push(d);
-    },
-  };
-  const newRun = (budgetEur = 5) => {
-    const r: RunRow = { id: ++id, campaign: 77, objective: "Des démos auprès des PME du BTP", status: "en-cours", budgetEur, costEur: 0, tokens: { ...ZERO } };
-    runs.set(r.id, r);
-    return r;
-  };
-  const newRoot = async (run: RunRow) =>
-    store.createAgent({ run: run.id, parent: null, depth: 0, role: "orchestrateur", status: "en-cours", mission: "Préparer la campagne", tools: [...ROLE_TOOLS.orchestrateur], model: "claude-opus-5-5", budgetEur: run.budgetEur });
-  return { store, runs, agents, steps, decisions, newRun, newRoot };
-}
-
-// ─── Un faux modèle : un scénario par mission ───────────────────────────────
-
-const toolCall = (id: string, name: string, input: Record<string, unknown>) => ({ type: "tool_use", id, name, input }) as Anthropic.ContentBlock;
-const say = (text: string) => ({ type: "text", text, citations: null }) as Anthropic.ContentBlock;
-const reply = (stopReason: string, ...content: Anthropic.ContentBlock[]): ModelResponse => ({ content, stopReason, usage: { input: 1_000, output: 500, cacheRead: 0, cacheWrite: 0 } });
-
-/** Chaque appel reçoit la réponse suivante du scénario dont la clé figure dans la mission. */
-function scripted(scenarios: Record<string, ModelResponse[]>) {
-  const calls: ModelRequest[] = [];
-  const model = vi.fn(async (req: ModelRequest) => {
-    calls.push(req);
-    const first = String(req.messages[0].content);
-    const key = Object.keys(scenarios).find((k) => first.includes(k));
-    const next = key ? scenarios[key].shift() : undefined;
-    if (!next) throw new Error(`Scénario épuisé pour : ${first.slice(0, 60)}`);
-    return next;
-  });
-  return { model, calls };
-}
 
 let mem: ReturnType<typeof memoryStore>;
 const budget = { assert: vi.fn(async () => {}), record: vi.fn(async () => {}) };
@@ -117,7 +22,13 @@ const START = Date.parse("2026-10-05T08:00:00Z");
 let clock = START; // une horloge qu'un test peut avancer (verrou expiré)
 const now = () => new Date(clock);
 const later = new Date("2026-10-05T09:00:00Z");
-const deps = (model: AgentDeps["model"]): AgentDeps => ({ store: mem.store, model, budget, now });
+/** Un atelier qui ne sert pas : les tests du moteur n'appellent aucun outil de l'atelier (voir ads-agent-tools.test.ts). */
+const noAtelier = new Proxy({} as AgentDeps["atelier"], {
+  get: (_t, name) => () => {
+    throw new Error(`atelier.${String(name)} appelé dans un test du moteur`);
+  },
+});
+const deps = (model: AgentDeps["model"]): AgentDeps => ({ store: mem.store, model, budget, atelier: noAtelier, now });
 
 beforeEach(() => {
   clock = START;

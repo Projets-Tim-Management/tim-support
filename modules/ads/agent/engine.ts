@@ -5,7 +5,8 @@ import { canSpend, type AgentLedger } from "@/modules/ads/agent/budget";
 import { buildMessages, nextAction, RELANCE, type ModelOutput, type ToolInput } from "@/modules/ads/agent/conversation";
 import { LEASE_MS, MAX_CALL_FAILURES, MAX_CONCURRENT, MAX_STEPS_PER_TICK, MAX_TURNS, STEP_MAX_MS } from "@/modules/ads/agent/limits";
 import { ROLE_SUBJECT, systemPrompt } from "@/modules/ads/agent/roles";
-import { clip, FINISHED, TOOLS, type ToolContext } from "@/modules/ads/agent/tools";
+import { TOOLS } from "@/modules/ads/agent/registry";
+import { clip, FINISHED, type ToolContext } from "@/modules/ads/agent/tools";
 import { StepConflictError, type AgentDeps, type AgentRow, type RunRow, type StepRow } from "@/modules/ads/agent/types";
 import { ADS_AGENT_MAX_TOKENS } from "@/modules/ads/lib/models";
 import { AdsBudgetError } from "@/modules/ads/lib/spend";
@@ -151,12 +152,16 @@ async function runTool(deps: AgentDeps, run: RunRow, agent: AgentRow, agents: Ag
   const ctx: ToolContext = { deps, run, agent, agents, step, ledger: (a) => ledgerOf(a, agents) };
   const outcome = await tool.run(ctx, input.input);
   if (outcome.kind === "wait") return "attente";
+  // Ce que l'outil a payé (des textes écrits par l'atelier) entre dans la dépense de l'agent, par son étape.
+  const costEur = outcome.kind === "ok" && outcome.costEur ? round4(outcome.costEur) : 0;
   await deps.store.updateStep(step.id, {
     status: "fait",
     output: { result: outcome.output, ...(outcome.kind === "ok" && outcome.isError ? { isError: true } : {}) },
     line: outcome.line,
+    costEur,
     finishedAt: iso(deps.now()),
   });
+  if (costEur) await reconcile(deps, agent, [...steps.filter((s) => s.id !== step.id), { ...step, costEur }]);
   if (outcome.kind === "finish") {
     await deps.store.updateAgent(agent.id, { status: "termine", result: outcome.result });
     return "fin";

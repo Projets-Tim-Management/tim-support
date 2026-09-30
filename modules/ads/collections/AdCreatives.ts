@@ -54,6 +54,15 @@ export const AdCreatives: CollectionConfig = {
   hooks: { beforeChange: [derive] },
   fields: [
     { name: "angle", type: "text", label: "Angle", required: true, admin: { description: "L'idée en une ligne." } },
+    {
+      // L'angle tel que l'agent l'a demandé (plan, §9 quater ; décision du 30/09/2026) : le rédacteur le
+      // reformule parfois, on garde la trace de ce qui avait été choisi, et par quel passage.
+      name: "requestedAngle",
+      type: "text",
+      label: "Angle demandé par l'agent",
+      admin: { readOnly: true, condition: (d) => Boolean(d?.requestedAngle) },
+    },
+    { name: "run", type: "relationship", relationTo: "ad-agent-runs", label: "Passage d'agent", index: true, admin: { readOnly: true, position: "sidebar", condition: (d) => Boolean(d?.run) } },
     { name: "hook", type: "text", label: "Accroche du visuel", admin: { description: "Le texte posé sur l'image." } },
     {
       type: "row",

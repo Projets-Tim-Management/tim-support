@@ -2528,6 +2528,8 @@ export interface AdCreative {
    * L'idée en une ligne.
    */
   angle: string;
+  requestedAngle?: string | null;
+  run?: (number | null) | AdAgentRun;
   /**
    * Le texte posé sur l'image.
    */
@@ -4433,6 +4435,8 @@ export interface AdCampaignsSelect<T extends boolean = true> {
  */
 export interface AdCreativesSelect<T extends boolean = true> {
   angle?: T;
+  requestedAngle?: T;
+  run?: T;
   hook?: T;
   campaign?: T;
   tone?: T;

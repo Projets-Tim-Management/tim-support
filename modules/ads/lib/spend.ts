@@ -1,4 +1,4 @@
-import type { Payload } from "payload";
+import type { Payload, Where } from "payload";
 
 import { usdToEur } from "@/core/lib/ai-pricing";
 import { PARIS_TZ } from "@/core/lib/dates";
@@ -68,10 +68,20 @@ export class AdsBudgetError extends Error {
   }
 }
 
+/**
+ * Les lignes du registre qu'un plafond compte. Une dépense déclenchée par un
+ * agent (des textes écrits par l'atelier, par exemple) est UNE ligne, de sa
+ * nature (« texte »), rattachée au passage : elle compte donc dans le plafond de
+ * sa nature ET dans celui des agents — le plus strict l'emporte — sans jamais
+ * apparaître deux fois dans les totaux (décision du 30/09/2026).
+ */
+export const spendFilter = (kind: AdSpendKind): Where =>
+  kind === "agent" ? { or: [{ kind: { equals: "agent" } }, { run: { exists: true } }] } : { kind: { equals: kind } };
+
 async function spentSince(payload: Payload, kind: AdSpendKind, since: Date): Promise<number> {
   const rows = await payload.find({
     collection: "ad-ai-usage",
-    where: { and: [{ kind: { equals: kind } }, { createdAt: { greater_than_equal: since.toISOString() } }] },
+    where: { and: [spendFilter(kind), { createdAt: { greater_than_equal: since.toISOString() } }] },
     pagination: false,
     depth: 0,
     overrideAccess: true,
@@ -99,7 +109,19 @@ export async function assertAdsBudget(payload: Payload, kind: AdSpendKind, maxEu
 /** Inscrit un appel payant, au coût réellement facturé. */
 export async function recordAdsUsage(
   payload: Payload,
-  entry: { kind: AdSpendKind; provider: string; model: string; usd: number; campaign?: number | string | null; batch?: string; detail: string; usage?: unknown },
+  entry: {
+    kind: AdSpendKind;
+    provider: string;
+    model: string;
+    usd: number;
+    campaign?: number | string | null;
+    /** Le passage et l'agent qui ont déclenché la dépense, s'il y en a un. */
+    run?: number | string | null;
+    agent?: number | string | null;
+    batch?: string;
+    detail: string;
+    usage?: unknown;
+  },
 ) {
   return payload.create({
     collection: "ad-ai-usage",
@@ -110,6 +132,8 @@ export async function recordAdsUsage(
       usd: Math.round(entry.usd * 10_000) / 10_000,
       eur: Math.round(usdToEur(entry.usd) * 10_000) / 10_000,
       campaign: (entry.campaign ?? null) as number | null,
+      run: (entry.run ?? null) as number | null,
+      agent: (entry.agent ?? null) as number | null,
       batch: entry.batch ?? null,
       detail: entry.detail,
       usage: (entry.usage ?? null) as never,

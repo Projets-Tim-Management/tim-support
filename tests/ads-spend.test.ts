@@ -61,12 +61,17 @@ describe("plafonds de l'atelier", () => {
   });
 });
 
-function fakePayload(settings: Record<string, unknown>, rows: { kind: string; eur: number; createdAt: string }[] = []) {
+type Row = { kind: string; eur: number; createdAt: string; run?: number | null };
+type KindFilter = { kind?: { equals: string }; or?: ({ kind: { equals: string } } | { run: { exists: boolean } })[] };
+const matches = (f: KindFilter, r: Row): boolean =>
+  f.or ? f.or.some((g) => ("kind" in g ? r.kind === g.kind.equals : (r.run != null) === g.run.exists)) : r.kind === f.kind!.equals;
+
+function fakePayload(settings: Record<string, unknown>, rows: Row[] = []) {
   const created: Record<string, unknown>[] = [];
   const payload = {
     findGlobal: async () => settings,
-    find: async ({ where }: { where: { and: [{ kind: { equals: string } }, { createdAt: { greater_than_equal: string } }] } }) => ({
-      docs: rows.filter((r) => r.kind === where.and[0].kind.equals && r.createdAt >= where.and[1].createdAt.greater_than_equal),
+    find: async ({ where }: { where: { and: [KindFilter, { createdAt: { greater_than_equal: string } }] } }) => ({
+      docs: rows.filter((r) => matches(where.and[0], r) && r.createdAt >= where.and[1].createdAt.greater_than_equal),
     }),
     create: async ({ data }: { data: Record<string, unknown> }) => (created.push(data), data),
   };
@@ -89,6 +94,26 @@ describe("contrôle avant l'appel", () => {
     ]);
     await expect(assertAdsBudget(payload, "texte", 0.2, NOW)).rejects.toThrow(/Plafond du jour/);
     await expect(assertAdsBudget(payload, "texte", 0.05, NOW)).resolves.toMatchObject({ ok: true });
+  });
+
+  it("une dépense déclenchée par un agent compte dans le plafond de sa nature ET dans celui des agents — une seule ligne", async () => {
+    const rows: Row[] = [
+      { kind: "texte", eur: 0.9, createdAt: "2026-09-29T08:00:00.000Z", run: 12 }, // textes écrits pour un agent
+      { kind: "agent", eur: 13, createdAt: "2026-09-29T08:00:00.000Z" }, // les tokens des agents eux-mêmes
+      { kind: "texte", eur: 0.5, createdAt: "2026-09-29T08:00:00.000Z" }, // bouton « Générer », hors agent
+    ];
+    const { payload } = fakePayload({ enabled: true, textDailyEur: 1.5, agentDailyEur: 15 }, rows);
+    // Plafond des textes : 0,90 + 0,50 = 1,40 € — la ligne de l'agent y est.
+    await expect(assertAdsBudget(payload, "texte", 0.2, NOW)).rejects.toThrow(/1,40 € dépensés sur 1,50 €/);
+    // Plafond des agents : 13 + 0,90 = 13,90 € — la même ligne y est aussi, le bouton « Générer » non.
+    await expect(assertAdsBudget(payload, "agent", 1.2, NOW)).rejects.toThrow(/13,90 € dépensés sur 15,00 €/);
+    await expect(assertAdsBudget(payload, "agent", 1, NOW)).resolves.toMatchObject({ ok: true });
+  });
+
+  it("rattache la dépense au passage et à l'agent qui l'ont déclenchée", async () => {
+    const { payload, created } = fakePayload({});
+    await recordAdsUsage(payload, { kind: "texte", provider: "anthropic", model: "claude-opus-5-5", usd: 0.11, campaign: 4, run: 12, agent: 30, detail: "1 angle" });
+    expect(created[0]).toMatchObject({ kind: "texte", run: 12, agent: 30 });
   });
 
   it("inscrit le coût réellement facturé, en dollars et en euros", async () => {
