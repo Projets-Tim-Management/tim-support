@@ -123,6 +123,7 @@ import * as migration_20260928_142655_media_depose_par from './20260928_142655_m
 import * as migration_20260929_073451_publicite_socle_et_canaux_meta from './20260929_073451_publicite_socle_et_canaux_meta';
 import * as migration_20260929_095438_publicite_atelier_de_creas from './20260929_095438_publicite_atelier_de_creas';
 import * as migration_20260929_153500_creas_textes_en_copy from './20260929_153500_creas_textes_en_copy';
+import * as migration_20260929_200000_fermer_api_supabase from './20260929_200000_fermer_api_supabase';
 
 export const migrations = [
   {
@@ -749,5 +750,10 @@ export const migrations = [
     up: migration_20260929_153500_creas_textes_en_copy.up,
     down: migration_20260929_153500_creas_textes_en_copy.down,
     name: '20260929_153500_creas_textes_en_copy'
+  },
+  {
+    up: migration_20260929_200000_fermer_api_supabase.up,
+    down: migration_20260929_200000_fermer_api_supabase.down,
+    name: '20260929_200000_fermer_api_supabase'
   },
 ];
