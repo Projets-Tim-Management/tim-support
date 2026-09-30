@@ -7,7 +7,7 @@ import { ROLE_TOOLS } from "@/modules/ads/agent/roles";
 import type { ToolContext } from "@/modules/ads/agent/tools";
 import type { AgentDeps, AgentRow, AtelierPort, CreativeView, Id, RunRow, StepRow } from "@/modules/ads/agent/types";
 
-import { memoryStore, reply, scripted, toolCall } from "./helpers/agent-memory";
+import { memoryStore, reply, scripted, toolCall, unusedPort } from "./helpers/agent-memory";
 
 /**
  * Les outils de l'agent qui passent par l'atelier (plan, §9 quater, commit 4) :
@@ -61,7 +61,7 @@ async function setup(role: AgentRow["role"], atelier: ReturnType<typeof fakeAtel
       ? root
       : await mem.store.createAgent({ run: run.id, parent: root.id, depth: 1, role, status: "en-cours", mission: "M", tools: [...ROLE_TOOLS[role]], model: "claude-sonnet-5-5", budgetEur });
   const step = await mem.store.createStep({ run: run.id, agent: agent.id, seq: 0, kind: "outil", tool: "x", status: "en-cours", line: "", input: null, output: null, idempotencyKey: `${agent.id}:t`, startedAt: NOW.toISOString() });
-  const deps: AgentDeps = { store: mem.store, model: vi.fn(), budget, atelier, now: () => NOW };
+  const deps: AgentDeps = { store: mem.store, model: vi.fn(), budget, atelier, sources: unusedPort("sources"), now: () => NOW };
   const agents = await mem.store.listAgents(run.id);
   const ctx: ToolContext = { deps, run, agent: agents.find((a) => a.id === agent.id)!, agents, step: step as StepRow, ledger: (a) => ledgerOf(a, agents) };
   return { ctx, run, agent };
@@ -116,7 +116,7 @@ describe("generer_textes — l'atelier écrit, l'agent paie", () => {
       Rédiger: [reply("tool_use", toolCall("g", "generer_textes", { angles: ["Temps perdu"] })), reply("tool_use", toolCall("t", "terminer", { resume: "ok" }))],
       "Préparer la campagne": [reply("tool_use", toolCall("d", "deposer_a_valider", { creas: [100], resume: "Prêt" }))],
     });
-    await tickRun({ store: mem.store, model, budget, atelier, now: () => NOW }, run.id, new Date("2026-10-05T09:00:00Z"));
+    await tickRun({ store: mem.store, model, budget, atelier, sources: unusedPort("sources"), now: () => NOW }, run.id, new Date("2026-10-05T09:00:00Z"));
     const redacteur = mem.agents.find((a) => a.role === "redacteur")!;
     const modelCost = mem.steps.filter((s) => s.agent === redacteur.id && s.kind === "modele").reduce((n, s) => n + s.costEur, 0);
     expect(redacteur.spentEur).toBeCloseTo(modelCost + 0.12, 6);
@@ -204,7 +204,7 @@ describe("deposer_a_valider — la fin du passage", () => {
     const run = mem.newRun();
     await mem.newRoot(run);
     const { model } = scripted({ "Préparer la campagne": [reply("tool_use", toolCall("d", "deposer_a_valider", { creas: [100, 999], resume: "Deux angles, Advantage+" }))] });
-    const r = await tickRun({ store: mem.store, model, budget, atelier, now: () => NOW }, run.id, new Date("2026-10-05T09:00:00Z"));
+    const r = await tickRun({ store: mem.store, model, budget, atelier, sources: unusedPort("sources"), now: () => NOW }, run.id, new Date("2026-10-05T09:00:00Z"));
     expect(atelier.submit).toHaveBeenCalledWith([100, 999]);
     expect(r.outcome).toBe("a-valider");
     expect(mem.runs.get(run.id)!.summary).toBe("Deux angles, Advantage+");

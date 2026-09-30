@@ -2,6 +2,9 @@ import type Anthropic from "@anthropic-ai/sdk";
 
 import type { ClaudeModel, Usage } from "@/core/lib/ai-pricing";
 import type { CampaignBudget, Split } from "@/modules/ads/agent/budget";
+import type { AcquisitionSummary } from "@/modules/ads/agent/sources/acquisition";
+import type { LibraryAd, LibraryQuery } from "@/modules/ads/agent/sources/ad-library";
+import type { SitePage } from "@/modules/ads/agent/sources/site";
 import type { RunStatus } from "@/modules/ads/collections/AdAgentRuns";
 import type { AgentRole, AgentStatus } from "@/modules/ads/collections/AdAgents";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
@@ -167,4 +170,19 @@ export interface GlobalBudget {
   record(entry: { run: Id; agent: Id; campaign: Id; model: ClaudeModel; usd: number; usage: Usage; detail: string }): Promise<void>;
 }
 
-export type AgentDeps = { store: AgentStore; model: AgentModelCall; budget: GlobalBudget; atelier: AtelierPort; now: () => Date };
+/**
+ * Les sources du stratège (plan, §9 quater, point 2 ; commit 5) : le site de
+ * TIM (domaine en liste blanche), les leads et clients en chiffres anonymes, la
+ * bibliothèque publicitaire Meta pour les concurrents suivis.
+ */
+export interface SourcesPort {
+  site(urls?: string[]): Promise<{ pages: SitePage[]; refused: string[]; failed: string[] }>;
+  acquisition(months: number): Promise<AcquisitionSummary>;
+  /** Les concurrents SUIVIS (ajoutés ou validés par Charlie) — jamais ceux seulement proposés. */
+  competitors(): Promise<{ pageId: string; name: string }[]>;
+  adLibrary(q: LibraryQuery): Promise<LibraryAd[]>;
+  /** Propose un concurrent : il n'entre dans la liste qu'après validation de Charlie. */
+  proposeCompetitor(c: { pageId: string; name: string; keywords: string; rationale: string; run: Id }): Promise<"propose" | "deja-connu">;
+}
+
+export type AgentDeps = { store: AgentStore; model: AgentModelCall; budget: GlobalBudget; atelier: AtelierPort; sources: SourcesPort; now: () => Date };

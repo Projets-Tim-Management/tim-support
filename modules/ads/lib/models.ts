@@ -33,3 +33,10 @@ export const ADS_AGENT_MODELS = {
 
 /** Sortie maximale d'un tour d'agent (réflexion comprise) : elle fixe le coût maximal vérifié avant chaque appel. */
 export const ADS_AGENT_MAX_TOKENS = 12_000;
+
+/**
+ * Lire et résumer les sources du stratège (pages du site, publicités des
+ * concurrents) : Haiku, pour ne pas payer du Opus à lire du texte brut.
+ */
+export const ADS_EXTRACTION_MODEL = "claude-haiku-4-5" as const satisfies ClaudeModel;
+export const ADS_EXTRACTION_MAX_TOKENS = 2_000;

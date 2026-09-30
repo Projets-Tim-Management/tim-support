@@ -107,3 +107,11 @@ export function scripted(scenarios: Record<string, ModelResponse[]>) {
   return { model, calls };
 }
 
+
+/** Un port qui ne doit pas servir dans ce test : tout appel échoue en le disant. */
+export const unusedPort = <T extends object>(label: string): T =>
+  new Proxy({} as T, {
+    get: (_t, name) => () => {
+      throw new Error(`${label}.${String(name)} appelé alors que ce test ne s'en sert pas`);
+    },
+  });

@@ -30,7 +30,19 @@ export const finishTool = (role: AgentRole): string => (role === "orchestrateur"
 /** Les outils de chaque rôle (plan, §9 quater, point 2). Un parent peut en donner moins, jamais plus. */
 export const ROLE_TOOLS: Record<AgentRole, readonly string[]> = {
   orchestrateur: [...ORCHESTRATION, "lire_brief", "repartir_budget", "deposer_a_valider"],
-  stratege: [...ORCHESTRATION, "lire_brief", "proposer_positionnement", "proposer_angles", "proposer_audiences", "terminer"],
+  stratege: [
+    ...ORCHESTRATION,
+    "lire_brief",
+    "lire_site",
+    "lire_acquisition",
+    "lire_pubs_concurrents",
+    "rechercher_concurrents",
+    "proposer_concurrent",
+    "proposer_positionnement",
+    "proposer_angles",
+    "proposer_audiences",
+    "terminer",
+  ],
   redacteur: ["lire_brief", "generer_textes", "terminer"],
   "directeur-artistique": [...ORCHESTRATION, "lire_brief", "verifier_crea", "rendre_visuels", "terminer"],
   controleur: ["verifier_crea", "juger_crea", "terminer"],

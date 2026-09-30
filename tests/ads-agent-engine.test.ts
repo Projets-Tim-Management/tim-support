@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { memoryStore, reply, say, scripted, toolCall } from "./helpers/agent-memory";
+import { memoryStore, reply, say, scripted, toolCall, unusedPort } from "./helpers/agent-memory";
 
 import { buildMessages, nextAction, RELANCE } from "@/modules/ads/agent/conversation";
 import { ledgerOf, tickRun } from "@/modules/ads/agent/engine";
@@ -22,13 +22,8 @@ const START = Date.parse("2026-10-05T08:00:00Z");
 let clock = START; // une horloge qu'un test peut avancer (verrou expiré)
 const now = () => new Date(clock);
 const later = new Date("2026-10-05T09:00:00Z");
-/** Un atelier qui ne sert pas : les tests du moteur n'appellent aucun outil de l'atelier (voir ads-agent-tools.test.ts). */
-const noAtelier = new Proxy({} as AgentDeps["atelier"], {
-  get: (_t, name) => () => {
-    throw new Error(`atelier.${String(name)} appelé dans un test du moteur`);
-  },
-});
-const deps = (model: AgentDeps["model"]): AgentDeps => ({ store: mem.store, model, budget, atelier: noAtelier, now });
+// Les tests du moteur n'appellent ni l'atelier ni les sources (voir ads-agent-tools.test.ts).
+const deps = (model: AgentDeps["model"]): AgentDeps => ({ store: mem.store, model, budget, atelier: unusedPort("atelier"), sources: unusedPort("sources"), now });
 
 beforeEach(() => {
   clock = START;

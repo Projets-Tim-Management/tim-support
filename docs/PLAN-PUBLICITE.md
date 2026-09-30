@@ -1343,11 +1343,25 @@ Les quatre portes avant chaque commit. **Une seule migration**, au commit 1.
 | 2 | Moteur de budget, **pur et testé** : bornes, invariants, part IA du jour, semaine Meta (dimanche → samedi, fuseau du compte), réservation parent → enfants ; Sonnet 5.5 dans `CLAUDE_PRICES` ; `ADS_AGENT_MODELS` | — |
 | 3 | Moteur d'agents : registre des rôles et des outils, boucle de tool use avec chaque tour écrit en base, reconstruction de la conversation, bail et idempotence, limites de l'arbre. Tests avec un **faux modèle** (pas de réseau, cf. `setup-isolation`) | — |
 | 4 | Outils branchés sur l'atelier 3a (textes, garde-fous, rendu, kit, dépôt « À valider ») et outils d'orchestration (`creer_sous_agent`, `repartir_budget`, `deposer_a_valider`) ; phrases du fil. L'atelier est vu par un « port » (`AtelierPort`), branché sur Payload au commit 6. Décisions du 30/09/2026 : l'écriture des textes déclenchée par un agent compte dans le budget du passage ET dans le plafond global des agents, les plafonds de l'atelier restant appliqués — une seule ligne de dépense, rattachée au passage ; les angles de l'agent passent à l'atelier sans toucher au brief, et chaque créa garde l'angle demandé (affiché sur sa carte et dans la salle de contrôle) | migration (angle demandé et passage sur la créa) |
-| 5 | Sources du stratège : pages du site (liste blanche, extraction Haiku), agrégats anonymes leads / signés, bibliothèque publicitaire Meta (mode simulé par variable d'environnement tant que l'accès n'est pas ouvert) | — |
+| 5 | Sources du stratège : pages du site (liste blanche, extraction Haiku), agrégats anonymes leads / signés (canal, effectif, région, délai ; groupes de moins de 3 fondus dans « autres » ; les fiches ne sont lues que par ces champs), bibliothèque publicitaire Meta (`META_AD_LIBRARY_TOKEN`, ou `ADS_AD_LIBRARY_MOCK=1` pour des données simulées tant que l'accès n'est pas ouvert), recherche et proposition de concurrents (entrée dans la liste après validation), rappel J-7 du jeton par la synchro quotidienne. **Le métier manque** : aucune fiche ne porte de code NAF (décision du 30/09/2026 : avancer sans, voir « Chantier NAF » ci-dessous) | — |
 | 6 | Pilotage : route « Lancer l'agent » / « Arrêter », enchaînement par `after()`, cron `ads-agent-tick` chaque minute (`vercel.json`) | — |
 | 7 | Salle de contrôle : arbre, fil, jauges, journal | — |
 | 8 | Vue globale au tableau de bord, carte « Proposition de l'agent » dans « À valider », icônes du menu ; mise à jour de `docs/REGLES-SUPPORT.md` | — |
 | 9 | Outil `rendre_motion`, **après** le commit 3a n° 9 (Remotion) | — |
+
+**Chantier NAF (hors Publicité, à faire avant la première vraie campagne ; décision du 30/09/2026).**
+Constat : les fiches client portent le SIREN (18 fiches sur 166, dont 17 des 18
+clients gagnés) et rarement le SIRET (1 fiche) ; aucune ne porte de code NAF.
+
+| # | Commit | Schéma |
+|---|---|---|
+| N1 | Fiche client : `naf` (code, ex. « 43.22A »), `nafLabel` (libellé de la nomenclature NAF rév. 2, table en code) et `nafSource` (`insee` · `manuel`) ; la recherche INSEE les remplit pour les nouvelles fiches (activité principale de l'unité légale, ou de l'établissement si SIRET) ; une saisie à la main passe `nafSource` à `manuel` | migration (additive) |
+| N2 | Script `scripts/naf-recalcul.ts`, à blanc par défaut, `--appliquer` pour écrire : pour chaque fiche avec SIREN ou SIRET et sans code NAF, appel à l'API INSEE (sous le quota de l'API) ; **n'écrase jamais** un code déjà présent ni une saisie manuelle ; rapport : trouvées, introuvables (SIREN inconnu, radié), ignorées (déjà remplies, sans SIREN) | — |
+| N3 | Agent : le stratège reçoit aussi la répartition des clients signés par **division NAF** (2 chiffres, ex. « 43 — Travaux de construction spécialisés »), fondue dans « autres » sous 3 fiches comme le reste. Jamais le SIRET, le SIREN ni le nom | — |
+
+Coût : 3 commits, une migration. Couverture attendue : 17 clients gagnés sur 18
+(ceux qui ont un SIREN) ; les autres fiches restent sans métier tant que le
+SIREN n'est pas saisi.
 
 Les commits 1 à 8 donnent un agent complet sur les gabarits statiques. Le premier
 vrai passage se fera sur une campagne de test, avec un budget de préparation
