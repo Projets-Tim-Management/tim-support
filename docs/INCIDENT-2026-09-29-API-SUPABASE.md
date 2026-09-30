@@ -84,12 +84,18 @@ Contrôles après application :
 
 ## Reste ouvert
 
-1. **Usage du schéma par PUBLIC.** Postgres accorde par défaut l'usage du schéma
-   `public` à tous les rôles (PUBLIC) : `anon` en hérite encore. Il ne donne
-   accès à aucune table (plus aucun droit, RLS partout), seulement aux noms et aux
-   fonctions ouvertes à PUBLIC — il n'y en a aucune. Le retirer
-   (`REVOKE USAGE ON SCHEMA public FROM PUBLIC`) est proposé, en attente de
-   décision : c'est le seul écart que `db:security` signale encore.
+1. **Usage du schéma par PUBLIC — exception acceptée (décision du 30/09/2026).**
+   Postgres accorde par défaut l'usage du schéma `public` à tous les rôles
+   (PUBLIC) : `anon` et `authenticated` en héritent. Il ne donne accès à aucune
+   table (plus aucun droit, RLS partout) ni à aucune fonction (aucune dans le
+   schéma ; une fonction ouverte à PUBLIC serait signalée). Le retirer
+   (`REVOKE USAGE ON SCHEMA public FROM PUBLIC`) risquerait de gêner des rôles
+   internes de Supabase : **on ne le retire pas**. L'exception est inscrite dans
+   `scripts/db-security.mjs`, avec sa justification ; le contrôle l'affiche à
+   chaque passage sans la compter, et affiche « 0 écart non justifié ». Elle ne
+   couvre que l'héritage de PUBLIC : un droit explicite de `anon` ou
+   `authenticated` sur le schéma reste un écart. **Toute nouvelle exception doit
+   être validée par Charlie.**
 2. **Journaux de l'API Supabase, à consulter dès que le tableau de bord est
    accessible** : « API logs » (requêtes `/rest/v1/` et `/graphql/v1/`) et
    « Postgres logs » filtrés sur les rôles `anon` et `authenticated`, sur toute

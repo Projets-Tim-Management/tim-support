@@ -75,9 +75,10 @@ async function getApplied(client) {
 
 /** Le schéma public reste fermé à l'API Supabase ; sinon, la commande échoue (code 1). */
 async function reportSecurity(c) {
-  const problems = await checkSecurity(c);
+  const { problems, accepted } = await checkSecurity(c);
+  for (const a of accepted) console.log(`   · exception acceptée — ${a}`);
   if (!problems.length) {
-    console.log("🔒 Sécurité : schéma public fermé à l'API Supabase (anon, authenticated), RLS partout.");
+    console.log("🔒 Sécurité : 0 écart non justifié — schéma public fermé à l'API Supabase (anon, authenticated), RLS partout.");
     return true;
   }
   console.error(`❌ Sécurité : ${problems.length} écart(s) — le schéma public est lisible par l'API Supabase :`);
