@@ -23,12 +23,21 @@ export const MAX_CALL_FAILURES = 2;
 /** Durée du verrou d'un passage : au-delà, la fonction est tenue pour morte et le cron reprend. */
 export const LEASE_MS = 5 * 60_000;
 /**
- * Durée maximale d'une étape (un appel au modèle, délai de l'API compris). Une
- * étape ne démarre que s'il reste au moins ce temps avant la fin de la fonction :
- * un appel coupé en vol serait facturé sans être compté. Inférieure au verrou,
- * qui est prolongé après chaque étape.
+ * Durée maximale d'une étape, quelle qu'elle soit : un tour d'agent, ou
+ * l'écriture des textes par l'atelier (Opus, jusqu'à 16k tokens). Une étape ne
+ * démarre que s'il reste au moins ce temps avant la fin de la fonction : un
+ * appel coupé en vol serait facturé sans être compté. Chaque appel réseau de
+ * l'agent est donc borné en dessous (`CALL_TIMEOUT_MS`), SANS nouvelle tentative
+ * (relecture du 01/10/2026, G1 : une nouvelle tentative doublait la durée).
+ * Inférieure au verrou, prolongé après chaque étape.
  */
-export const STEP_MAX_MS = 150_000;
+export const STEP_MAX_MS = 240_000;
+/** Délai d'un appel à Claude dans une étape : la marge restante couvre l'écriture en base. */
+export const CALL_TIMEOUT_MS = STEP_MAX_MS - 20_000;
+/** Délai d'une lecture du site ou de la bibliothèque publicitaire. */
+export const FETCH_TIMEOUT_MS = 20_000;
+/** Une étape ouverte (coupure, erreur) est reprise au plus ce nombre de fois ; au-delà, l'agent échoue. */
+export const MAX_STEP_RESUMES = 2;
 /** Étapes au plus par exécution : une borne, au cas où le temps ne suffirait pas à arrêter la boucle. */
 export const MAX_STEPS_PER_TICK = 200;
 

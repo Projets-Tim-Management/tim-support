@@ -37,6 +37,7 @@ export function AgentPanel() {
   const [busy, setBusy] = useState(false);
 
   const base = id ? `/api/admin/ads/campaigns/${encodeURIComponent(String(id))}/agent` : null;
+  // L'aperçu complet (lourd : CRM, site, plafonds) — au chargement et après une saisie du plafond, pas en boucle.
   const load = useCallback(() => {
     if (!base) return;
     fetch(`${base}?cap=${encodeURIComponent(capEur)}`, { credentials: "include" })
@@ -48,13 +49,25 @@ export function AgentPanel() {
       .catch(() => null);
   }, [base, capEur]);
 
-  useEffect(load, [load]);
-  // Pendant un passage : on suit, toutes les 5 secondes.
   useEffect(() => {
-    if (!last?.enCours) return;
-    const t = setInterval(load, 5_000);
+    const t = setTimeout(load, 500); // on attend la fin de la frappe dans le champ « plafond »
+    return () => clearTimeout(t);
+  }, [load]);
+  // Pendant un passage : seulement son état, toutes les 5 secondes ; l'aperçu complet revient quand il se termine.
+  useEffect(() => {
+    if (!last?.enCours || !base) return;
+    const t = setInterval(() => {
+      fetch(`${base}?status=1`, { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { last: Last } | null) => {
+          if (!d) return;
+          setLast(d.last);
+          if (!d.last?.enCours) load();
+        })
+        .catch(() => null);
+    }, 5_000);
     return () => clearInterval(t);
-  }, [last?.enCours, load]);
+  }, [last?.enCours, base, load]);
 
   if (!id) return <p className="ads-gen ads-gen--muted">Enregistrez la campagne pour pouvoir lancer l&apos;agent.</p>;
 

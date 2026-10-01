@@ -3,10 +3,10 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { claudeCostUsd, claudeMaxCostUsd, estimateTokens, usdToEur, type Usage } from "@/core/lib/ai-pricing";
 import { canSpend, type AgentLedger } from "@/modules/ads/agent/budget";
 import { buildMessages, nextAction, RELANCE, type ModelOutput, type ToolInput } from "@/modules/ads/agent/conversation";
-import { LEASE_MS, MAX_CALL_FAILURES, MAX_CONCURRENT, MAX_STEPS_PER_TICK, MAX_TURNS, STEP_MAX_MS } from "@/modules/ads/agent/limits";
+import { LEASE_MS, MAX_CALL_FAILURES, MAX_CONCURRENT, MAX_STEP_RESUMES, MAX_STEPS_PER_TICK, MAX_TURNS, STEP_MAX_MS } from "@/modules/ads/agent/limits";
 import { ROLE_SUBJECT, systemPrompt } from "@/modules/ads/agent/roles";
 import { TOOLS } from "@/modules/ads/agent/registry";
-import { clip, FINISHED, type ToolContext } from "@/modules/ads/agent/tools";
+import { clip, FINISHED, type ToolContext, type ToolOutcome } from "@/modules/ads/agent/tools";
 import { StepConflictError, type AgentDeps, type AgentRow, type RunRow, type StepRow } from "@/modules/ads/agent/types";
 import { ADS_AGENT_MAX_TOKENS } from "@/modules/ads/lib/models";
 import { AdsBudgetError } from "@/modules/ads/lib/spend";
@@ -115,9 +115,11 @@ async function callModel(deps: AgentDeps, run: RunRow, agent: AgentRow, agents: 
 
   const usd = claudeCostUsd(agent.model, res.usage);
   const costEur = round4(usdToEur(usd));
-  await deps.budget.record({ run: run.id, agent: agent.id, campaign: run.campaign, model: agent.model, usd, usage: res.usage, detail: `${agent.role} — tour ${seq + 1}` });
   const output: ModelOutput = { content: res.content, stopReason: res.stopReason };
+  // L'étape d'abord (elle porte le coût de l'agent ET empêche de rejouer un appel payé), le registre global ensuite
+  // (relecture du 01/10/2026, M2). Une coupure entre les deux ne fait perdre qu'une ligne du registre, jamais un appel en double.
   await deps.store.updateStep(step.id, { status: "fait", output, tokens: res.usage, costEur, line: lineOfModel(agent, output), finishedAt: iso(deps.now()) });
+  await deps.budget.record({ run: run.id, agent: agent.id, campaign: run.campaign, model: agent.model, usd, usage: res.usage, detail: `${agent.role} — tour ${seq + 1}` });
   // Le total vient des étapes (celle-ci comprise) ; celui du passage, de ses agents (tickRun).
   await reconcile(deps, agent, [...steps.filter((s) => s.id !== step.id), { ...step, costEur, tokens: res.usage }]);
   return "avance";
@@ -150,7 +152,15 @@ async function runTool(deps: AgentDeps, run: RunRow, agent: AgentRow, agents: Ag
   }
 
   const ctx: ToolContext = { deps, run, agent, agents, step, ledger: (a) => ledgerOf(a, agents) };
-  const outcome = await tool.run(ctx, input.input);
+  // Une erreur inattendue d'un outil ne laisse pas l'étape ouverte pour toujours : le modèle la lit, et l'étape est close
+  // (relecture du 01/10/2026, G2). Ce que l'outil a payé avant d'échouer reste compté (`costEur` porté par l'erreur).
+  const outcome: ToolOutcome = await tool.run(ctx, input.input).catch((e: Error & { costEur?: number }) => ({
+    kind: "ok" as const,
+    isError: true,
+    costEur: e.costEur,
+    output: { refus: `Erreur de l'outil : ${e.message}` },
+    line: `${ROLE_SUBJECT[agent.role]} : « ${toolUse.name} » en erreur — ${clip(e.message, 90)}`,
+  }));
   if (outcome.kind === "wait") return "attente";
   // Ce que l'outil a payé (des textes écrits par l'atelier) entre dans la dépense de l'agent, par son étape.
   const costEur = outcome.kind === "ok" && outcome.costEur ? round4(outcome.costEur) : 0;
@@ -200,6 +210,15 @@ async function advanceAgent(deps: AgentDeps, run: RunRow, agent: AgentRow, agent
     }
     case "resume": {
       const open = action.step;
+      // Une étape reprise (coupure, délai dépassé) est comptée : au-delà de MAX_STEP_RESUMES, l'agent échoue au lieu de
+      // rejouer — et de repayer — chaque minute (relecture du 01/10/2026, G2).
+      const resumes = ((open.input as { reprises?: number } | null)?.reprises ?? 0) + 1;
+      if (resumes > MAX_STEP_RESUMES) {
+        await deps.store.updateStep(open.id, { status: "echoue", line: `${ROLE_SUBJECT[agent.role]} : étape reprise ${MAX_STEP_RESUMES} fois sans aboutir, abandonnée.`, finishedAt: iso(deps.now()) });
+        return fail(deps, agent, `Une étape n'a pas abouti après ${MAX_STEP_RESUMES} reprises.`);
+      }
+      await deps.store.updateStep(open.id, { input: { ...((open.input as object | null) ?? {}), reprises: resumes } });
+      open.input = { ...((open.input as object | null) ?? {}), reprises: resumes };
       if (open.kind === "modele") return callModel(deps, run, agent, agents, steps.filter((s) => s !== open), open);
       if (open.tool === RELANCE) {
         await deps.store.updateStep(open.id, { status: "fait", finishedAt: iso(deps.now()) });
@@ -238,6 +257,9 @@ export async function tickRun(deps: AgentDeps, runId: RunRow["id"], deadline: Da
   let count = 0;
   let lost = false;
   const finish = async (status: "a-valider" | "echoue", patch: { summary?: string | null; error?: string | null }): Promise<TickResult> => {
+    // Un « Arrêter » arrivé pendant l'étape l'emporte : on ne le remplace pas (relecture du 01/10/2026, F6).
+    const current = await store.getRun(runId);
+    if (current.status !== "en-cours") return { outcome: current.status === "en-pause-budget" ? "pause-budget" : current.status, steps: count };
     await store.updateRun(runId, { status, ...patch, finishedAt: iso(now()) });
     return { outcome: status, steps: count };
   };

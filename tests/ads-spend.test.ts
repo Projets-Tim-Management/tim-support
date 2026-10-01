@@ -16,8 +16,9 @@ describe("grille de tarifs commune", () => {
     expect(claudeCostUsd("claude-opus-5-5", { input: 1e6, output: 1e6, cacheRead: 0, cacheWrite: 0 })).toBe(24);
   });
 
-  it("le coût maximal compte toute la sortie autorisée au tarif de sortie", () => {
-    expect(claudeMaxCostUsd("claude-opus-5-5", 5_000, 16_000)).toBeCloseTo((5_000 * 4 + 16_000 * 20) / 1e6, 10);
+  it("le coût maximal compte toute la sortie autorisée au tarif de sortie, et l'entrée au tarif d'écriture du cache", () => {
+    // Opus 5.5 : écriture du cache 5 $ (> 4 $ l'entrée de base) — un tour peut réécrire tout son contexte.
+    expect(claudeMaxCostUsd("claude-opus-5-5", 5_000, 16_000)).toBeCloseTo((5_000 * 5 + 16_000 * 20) / 1e6, 10);
   });
 
   it("convertit en euros", () => {

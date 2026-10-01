@@ -1,7 +1,8 @@
 import type { Payload } from "payload";
 
 import type { AtelierPort, CreativeView, Id } from "@/modules/ads/agent/types";
-import { callClaude } from "@/modules/ads/lib/copy/claude";
+import { AGENT_CLIENT_OPTIONS } from "@/modules/ads/agent/claude";
+import { callClaudeWithin } from "@/modules/ads/lib/copy/claude";
 import { generateCreatives, loadGenerationContext, publishable, weeklyUsed } from "@/modules/ads/lib/copy/generate";
 import { briefLines } from "@/modules/ads/lib/copy/prompt";
 import { FORMAT_KEYS } from "@/modules/ads/lib/render/formats";
@@ -42,9 +43,11 @@ export function submitRefusal(c: CreativeView): string | null {
 }
 
 export function payloadAtelier(payload: Payload): AtelierPort {
-  const creatives = async (ids: Id[]) => {
-    if (!ids.length) return [];
-    const r = await payload.find({ collection: "ad-creatives", where: { id: { in: ids } }, pagination: false, depth: 0, overrideAccess: true });
+  /** Les créas demandées, de CETTE campagne seulement ; un identifiant qui n'est pas un nombre est ignoré (il ne désigne rien). */
+  const creatives = async (campaign: Id, ids: Id[]) => {
+    const numeric = ids.map((i) => Number(i)).filter((n) => Number.isInteger(n) && n > 0);
+    if (!numeric.length) return [];
+    const r = await payload.find({ collection: "ad-creatives", where: { and: [{ id: { in: numeric } }, { campaign: { equals: campaign } }] }, pagination: false, depth: 0, overrideAccess: true });
     return (r.docs as unknown as RawCreative[]).map(view);
   };
 
@@ -65,22 +68,24 @@ export function payloadAtelier(payload: Payload): AtelierPort {
         payload,
         campaign,
         { angles: 1, toneTest: req.toneTest, agent: { run: req.run, agent: req.agent, angles: req.angles, preCheck: req.preCheck } },
-        { call: callClaude },
+        // Les bornes d'une étape d'agent : pas de nouvelle tentative, délai sous STEP_MAX_MS.
+        { call: callClaudeWithin(AGENT_CLIENT_OPTIONS) },
       );
-      return { creatives: await creatives(r.created), costEur: r.costEur };
+      return { creatives: await creatives(campaign, r.created), costEur: r.costEur };
     },
 
-    async render(creative, template) {
+    async render(campaign, creative, template) {
+      if (!(await creatives(campaign, [creative])).length) throw new Error("Créa introuvable dans cette campagne.");
       const r = await renderCreativeVisuals(payload, creative, { template: template as TemplateKey | undefined, keepDraft: true });
       return { template: r.template, visuals: r.assets };
     },
 
     creatives,
 
-    async submit(ids) {
+    async submit(campaign, ids) {
       const submitted: Id[] = [];
       const skipped: { id: Id; reason: string }[] = [];
-      for (const c of await creatives(ids)) {
+      for (const c of await creatives(campaign, ids)) {
         const reason = submitRefusal(c);
         if (reason) {
           skipped.push({ id: c.id, reason });
@@ -89,7 +94,9 @@ export function payloadAtelier(payload: Payload): AtelierPort {
         await payload.update({ collection: "ad-creatives", id: c.id, data: { status: "a-valider" } as never, overrideAccess: true });
         submitted.push(c.id);
       }
-      for (const id of ids) if (!submitted.includes(id) && !skipped.some((s) => s.id === id)) skipped.push({ id, reason: "Créa introuvable." });
+      // Comparés en texte : le modèle envoie parfois « 12 » là où la base répond 12 (relecture du 01/10/2026, F3).
+      const seen = new Set([...submitted, ...skipped.map((s) => s.id)].map(String));
+      for (const id of ids) if (!seen.has(String(id))) skipped.push({ id, reason: "Créa introuvable dans cette campagne." });
       return { submitted, skipped };
     },
 

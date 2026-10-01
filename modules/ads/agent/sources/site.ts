@@ -94,6 +94,27 @@ export function planSitePages(listed: string[], max = MAX_PAGES): string[] {
   return [...new Set(withRest)].slice(0, max);
 }
 
+/**
+ * Un lecteur du site sûr : chaque lecture est bornée dans le temps, et une
+ * redirection n'est suivie que si elle reste sur le domaine (relecture du
+ * 01/10/2026, F5 : `redirect: "follow"` aurait lu n'importe quel site vers
+ * lequel une page redirige).
+ */
+export function siteFetcher(f: typeof fetch, timeoutMs: number): Fetcher {
+  return async (start) => {
+    let url = start;
+    for (let hop = 0; hop < 3; hop++) {
+      const res = await f(url, { redirect: "manual", signal: AbortSignal.timeout(timeoutMs), headers: { "user-agent": "TIM-support (agent de campagne)" } });
+      if (res.status < 300 || res.status >= 400) return res;
+      const location = res.headers.get("location");
+      const next = location ? new URL(location, url).toString() : null;
+      if (!next || !isSiteUrl(next)) break;
+      url = next;
+    }
+    return { ok: false, status: 310, text: async () => "" };
+  };
+}
+
 /** Les pages que la lecture du site prendra par défaut : le plan du site, ordonné. */
 export async function plannedSitePages(fetcher: Fetcher): Promise<string[]> {
   const map = await fetcher(`${SITE_ORIGIN}/sitemap.xml`).catch(() => null);

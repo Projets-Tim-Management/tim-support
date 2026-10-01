@@ -213,7 +213,12 @@ export async function generateCreatives(
   } catch (e) {
     // Facturé même quand la réponse est refusée ou tronquée.
     const usage = (e as { usage?: Usage }).usage;
-    if (usage) await recordAdsUsage(payload, { kind: "texte", provider: "anthropic", model: ADS_TEXT_MODEL, usd: claudeCostUsd(ADS_TEXT_MODEL, usage), campaign: campaignId, ...attribution, batch, detail: `Échec : ${(e as Error).message}`, usage });
+    if (usage) {
+      const usd = claudeCostUsd(ADS_TEXT_MODEL, usage);
+      await recordAdsUsage(payload, { kind: "texte", provider: "anthropic", model: ADS_TEXT_MODEL, usd, campaign: campaignId, ...attribution, batch, detail: `Échec : ${(e as Error).message}`, usage });
+      // Le coût voyage avec l'erreur : l'agent qui a demandé l'écriture le compte aussi (relecture du 01/10/2026, M1).
+      Object.assign(e as object, { costEur: usdToEur(usd) });
+    }
     throw e;
   }
 

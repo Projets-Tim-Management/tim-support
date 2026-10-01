@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 import type { Usage } from "@/core/lib/ai-pricing";
-import { STEP_MAX_MS } from "@/modules/ads/agent/limits";
+import { CALL_TIMEOUT_MS } from "@/modules/ads/agent/limits";
 import type { AgentModelCall, ModelRequest } from "@/modules/ads/agent/types";
 
 /**
@@ -17,7 +17,9 @@ import type { AgentModelCall, ModelRequest } from "@/modules/ads/agent/types";
  *   avec la fonction, facturé sans être compté.
  */
 
-const client = () => new Anthropic({ timeout: STEP_MAX_MS - 15_000, maxRetries: 1 });
+/** Aucune nouvelle tentative : elle doublerait la durée de l'étape (relecture du 01/10/2026, G1). Une étape échouée se reprend au tour suivant. */
+export const AGENT_CLIENT_OPTIONS = { timeout: CALL_TIMEOUT_MS, maxRetries: 0 } as const;
+const client = () => new Anthropic(AGENT_CLIENT_OPTIONS);
 
 /** La requête envoyée à l'API. Pure — c'est elle qu'on teste. */
 export function toApiRequest(req: ModelRequest): Anthropic.MessageCreateParamsNonStreaming {

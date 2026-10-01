@@ -144,10 +144,12 @@ export interface AtelierPort {
     campaign: Id,
     req: { run: Id; agent: Id; angles: string[]; toneTest: boolean; preCheck: (maxEur: number) => Promise<void> },
   ): Promise<{ creatives: CreativeView[]; costEur: number }>;
-  render(creative: Id, template?: string): Promise<{ template: string; visuals: number }>;
-  creatives(ids: Id[]): Promise<CreativeView[]>;
+  // Chaque méthode qui touche une créa ne voit que celles de la campagne du passage : une créa d'une autre
+  // campagne est introuvable pour l'agent (relecture du 01/10/2026, M3).
+  render(campaign: Id, creative: Id, template?: string): Promise<{ template: string; visuals: number }>;
+  creatives(campaign: Id, ids: Id[]): Promise<CreativeView[]>;
   /** Passe des créas « À valider » ; celles qui ne sont pas publiables restent, avec la raison. */
-  submit(ids: Id[]): Promise<{ submitted: Id[]; skipped: { id: Id; reason: string }[] }>;
+  submit(campaign: Id, ids: Id[]): Promise<{ submitted: Id[]; skipped: { id: Id; reason: string }[] }>;
   campaignBudget(campaign: Id): Promise<CampaignBudget | null>;
   setSplit(campaign: Id, split: Split, decision: Id, at: Date): Promise<void>;
 }

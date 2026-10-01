@@ -4,10 +4,10 @@ import { payloadAtelier } from "@/modules/ads/agent/atelier-port";
 import { prepBudget } from "@/modules/ads/agent/budget";
 import { callAgentModel } from "@/modules/ads/agent/claude";
 import { tickRun, type TickResult } from "@/modules/ads/agent/engine";
-import { LEASE_MS, MAX_AGENTS_PER_RUN, MAX_CONCURRENT, MAX_DEPTH, MAX_REJECTIONS, MAX_TURNS } from "@/modules/ads/agent/limits";
+import { FETCH_TIMEOUT_MS, LEASE_MS, MAX_AGENTS_PER_RUN, MAX_CONCURRENT, MAX_DEPTH, MAX_REJECTIONS, MAX_TURNS } from "@/modules/ads/agent/limits";
 import { ROLE_TOOLS } from "@/modules/ads/agent/roles";
 import { createSourcesPort } from "@/modules/ads/agent/sources/port";
-import { MAX_PAGES, plannedSitePages } from "@/modules/ads/agent/sources/site";
+import { MAX_PAGES, plannedSitePages, siteFetcher } from "@/modules/ads/agent/sources/site";
 import { payloadAgentStore } from "@/modules/ads/agent/store-payload";
 import type { AgentDeps, Id } from "@/modules/ads/agent/types";
 import { FINISHED } from "@/modules/ads/agent/tools";
@@ -49,6 +49,8 @@ export class LaunchError extends Error {
 }
 
 const ACTIVE = ["en-cours", "en-pause-budget"];
+/** Ce qu'il faut de libre au plafond global pour reprendre un passage en pause. */
+const RESUME_MARGIN_EUR = 1;
 
 async function activeRun(payload: Payload, campaign: Id) {
   const r = await payload.find({ collection: "ad-agent-runs", where: { and: [{ campaign: { equals: campaign } }, { status: { in: ACTIVE } }] }, limit: 1, depth: 0, overrideAccess: true });
@@ -82,7 +84,7 @@ export async function previewRun(payload: Payload, campaignId: Id, capEur: numbe
     sources.competitors(),
     sources.acquisition(12),
     activeRun(payload, campaignId),
-    plannedSitePages((url) => f(url)),
+    plannedSitePages(siteFetcher(f, FETCH_TIMEOUT_MS)),
   ]);
   const library = env.ADS_AD_LIBRARY_MOCK === "1" ? "simulée" : env.META_AD_LIBRARY_TOKEN ? "réelle" : "non connectée";
   const blockers = [
@@ -152,6 +154,15 @@ export async function launchRun(payload: Payload, input: { campaign: Id; objecti
     } as never,
     overrideAccess: true,
   });
+  // Deux lancements simultanés (double clic, deux onglets) : le second se retire (relecture du 01/10/2026, F4).
+  const racing = await payload.count({ collection: "ad-agent-runs", where: { and: [{ campaign: { equals: input.campaign } }, { status: { in: ACTIVE } }] }, overrideAccess: true });
+  if (racing.totalDocs > 1) {
+    const older = await activeRun(payload, input.campaign);
+    if (older && older.id !== run.id) {
+      await payload.delete({ collection: "ad-agent-runs", id: run.id, overrideAccess: true });
+      throw new LaunchError("Un passage vient d'être lancé sur cette campagne.");
+    }
+  }
   await payload.create({
     collection: "ad-agents",
     data: {
@@ -193,7 +204,8 @@ export async function tickDueRuns(payload: Payload, deadline: Date, deps: AgentD
   const paused = await payload.find({ collection: "ad-agent-runs", where: { status: { equals: "en-pause-budget" } }, pagination: false, depth: 0, overrideAccess: true });
   for (const r of paused.docs as { id: Id }[]) {
     try {
-      await assertAdsBudget(payload, "agent", 0.5, now);
+      // La marge d'un tour d'Opus avec un long historique : en dessous, le passage repartirait pour se remettre en pause aussitôt.
+      await assertAdsBudget(payload, "agent", RESUME_MARGIN_EUR, now);
       await payload.update({ collection: "ad-agent-runs", id: r.id, data: { status: "en-cours", error: null } as never, overrideAccess: true });
       out.push({ run: r.id, result: "repris" });
     } catch (e) {
@@ -210,7 +222,13 @@ export async function tickDueRuns(payload: Payload, deadline: Date, deps: AgentD
   });
   for (const r of due.docs as { id: Id }[]) {
     if (deps.now().getTime() + LEASE_MS / 10 > deadline.getTime()) break;
-    out.push({ run: r.id, result: await tickRun(deps, r.id, deadline) });
+    // Une erreur sur un passage n'empêche pas les suivants d'avancer (relecture du 01/10/2026, G2).
+    try {
+      out.push({ run: r.id, result: await tickRun(deps, r.id, deadline) });
+    } catch (e) {
+      payload.logger.error(`[publicité] passage ${r.id} : ${(e as Error).message}`);
+      out.push({ run: r.id, result: { outcome: "echoue", steps: 0 } });
+    }
   }
   return out;
 }

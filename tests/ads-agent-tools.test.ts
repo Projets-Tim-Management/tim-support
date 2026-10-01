@@ -33,8 +33,8 @@ function fakeAtelier(over: Partial<AtelierPort> = {}) {
       return { creatives: req.angles.map((a, i) => crea(100 + i, { requestedAngle: a })), costEur: 0.12 };
     }),
     render: vi.fn(async () => ({ template: "texte", visuals: 3 })),
-    creatives: vi.fn(async (ids: Id[]) => ids.map((i) => crea(i))),
-    submit: vi.fn(async (ids: Id[]) => ({ submitted: ids.filter((i) => i !== 999), skipped: ids.includes(999) ? [{ id: 999, reason: "Pas de titre passé." }] : [] })),
+    creatives: vi.fn(async (_campaign: Id, ids: Id[]) => ids.map((i) => crea(i))),
+    submit: vi.fn(async (_campaign: Id, ids: Id[]) => ({ submitted: ids.filter((i) => i !== 999), skipped: ids.includes(999) ? [{ id: 999, reason: "Pas de titre passé." }] : [] })),
     campaignBudget: vi.fn(async () => ({ totalDailyEur: 30, maxAiSharePct: 15, metaFloorEur: 5 })),
     setSplit: vi.fn(async () => {}),
     ...over,
@@ -127,7 +127,7 @@ describe("generer_textes — l'atelier écrit, l'agent paie", () => {
 
 describe("juger_crea — le contrôleur, et la limite de réécriture", () => {
   it(`rejette avec motif, compte par angle, et arrête la réécriture à ${MAX_REJECTIONS}`, async () => {
-    const atelier = fakeAtelier({ creatives: vi.fn(async (ids: Id[]) => ids.map((i) => crea(i, { requestedAngle: "Temps perdu" }))) });
+    const atelier = fakeAtelier({ creatives: vi.fn(async (_campaign: Id, ids: Id[]) => ids.map((i) => crea(i, { requestedAngle: "Temps perdu" }))) });
     const { ctx } = await setup("controleur", atelier);
     const first = await use(ctx, "juger_crea", { crea: 1, verdict: "rejete", motif: "Promesse invérifiable" });
     expect(first).toMatchObject({ output: { rejete: true, rejet: 1 } });
@@ -205,7 +205,7 @@ describe("deposer_a_valider — la fin du passage", () => {
     await mem.newRoot(run);
     const { model } = scripted({ "Préparer la campagne": [reply("tool_use", toolCall("d", "deposer_a_valider", { creas: [100, 999], resume: "Deux angles, Advantage+" }))] });
     const r = await tickRun({ store: mem.store, model, budget, atelier, sources: unusedPort("sources"), now: () => NOW }, run.id, new Date("2026-10-05T09:00:00Z"));
-    expect(atelier.submit).toHaveBeenCalledWith([100, 999]);
+    expect(atelier.submit).toHaveBeenCalledWith(run.campaign, [100, 999]);
     expect(r.outcome).toBe("a-valider");
     expect(mem.runs.get(run.id)!.summary).toBe("Deux angles, Advantage+");
     expect(mem.steps.find((s) => s.tool === "deposer_a_valider")!.line).toMatch(/dépose 1 créa\(s\) « À valider » \(1 écartée\(s\)\)/);

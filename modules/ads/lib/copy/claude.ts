@@ -16,6 +16,9 @@ import { ADS_TEXT_MAX_TOKENS, ADS_TEXT_MODEL } from "@/modules/ads/lib/models";
 
 export type ModelCall = (input: { system: string; user: string }) => Promise<{ result: CopyResult; usage: Usage }>;
 
+/** Les bornes du client : celles du SDK par défaut pour le bouton « Générer » ; l'agent les resserre (une étape a une durée maximale). */
+export type CallLimits = { timeout?: number; maxRetries?: number };
+
 export class CopyModelError extends Error {
   constructor(message: string) {
     super(message);
@@ -23,8 +26,10 @@ export class CopyModelError extends Error {
   }
 }
 
-export const callClaude: ModelCall = async ({ system, user }) => {
-  const client = new Anthropic();
+export const callClaude: ModelCall = (input) => callClaudeWithin({})(input);
+
+export const callClaudeWithin = (limits: CallLimits): ModelCall => async ({ system, user }) => {
+  const client = new Anthropic(limits);
   const res = await client.messages.parse({
     model: ADS_TEXT_MODEL,
     max_tokens: ADS_TEXT_MAX_TOKENS,

@@ -22,6 +22,8 @@ const idOf = (v: unknown): Id => (typeof v === "number" ? v : String(v));
 const errorOf = (ctx: ToolContext, e: unknown, what: string): ToolOutcome => ({
   kind: "ok",
   isError: true,
+  // Un appel facturé puis refusé (réponse tronquée, déclinée) reste dans la dépense de l'agent.
+  costEur: (e as { costEur?: number }).costEur,
   output: { refus: (e as Error).message },
   line: `${who(ctx)} : ${what} refusé — ${clip((e as Error).message, 100)}`,
 });
@@ -67,8 +69,16 @@ const genererTextes: AgentTool = {
     },
   },
   async run(ctx, input) {
-    const angles = (Array.isArray(input.angles) ? input.angles : []).map((a) => String(a).trim()).filter(Boolean).slice(0, 3);
-    if (!angles.length) return { kind: "ok", isError: true, output: { refus: "Aucun angle." }, line: `${who(ctx)} : aucun angle à écrire.` };
+    const asked = (Array.isArray(input.angles) ? input.angles : []).map((a) => String(a).trim()).filter(Boolean).slice(0, 3);
+    if (!asked.length) return { kind: "ok", isError: true, output: { refus: "Aucun angle." }, line: `${who(ctx)} : aucun angle à écrire.` };
+    // Un angle rejeté MAX_REJECTIONS fois par le contrôleur ne se réécrit plus : la règle tient en code, pas dans une consigne
+    // (relecture du 01/10/2026, M4).
+    const exhausted: string[] = [];
+    for (const a of asked) if ((await rejectionsOf(ctx, a)) >= MAX_REJECTIONS) exhausted.push(a);
+    const angles = asked.filter((a) => !exhausted.includes(a));
+    if (!angles.length) {
+      return { kind: "ok", isError: true, output: { refus: `Ces angles ont été rejetés ${MAX_REJECTIONS} fois : on ne les réécrit plus.`, angles: exhausted }, line: `${who(ctx)} : angle(s) rejeté(s) ${MAX_REJECTIONS} fois, pas de réécriture.` };
+    }
     try {
       const r = await ctx.deps.atelier.generate(ctx.run.campaign, {
         run: ctx.run.id,
@@ -86,7 +96,7 @@ const genererTextes: AgentTool = {
       return {
         kind: "ok",
         costEur: r.costEur,
-        output: r.creatives,
+        output: exhausted.length ? { creas: r.creatives, ecartes: exhausted, raison: `rejetés ${MAX_REJECTIONS} fois` } : r.creatives,
         line: `${who(ctx)} fait écrire ${r.creatives.length} créa(s) (${eur(r.costEur)}) : ${angles.map((a) => `« ${clip(a, 50)} »`).join(", ")}${rejected ? ` — ${rejected} texte(s) écarté(s) par les garde-fous` : ""}.`,
       };
     } catch (e) {
@@ -107,7 +117,7 @@ const rendreVisuels: AgentTool = {
   },
   async run(ctx, input) {
     try {
-      const r = await ctx.deps.atelier.render(idOf(input.crea), input.gabarit ? String(input.gabarit) : undefined);
+      const r = await ctx.deps.atelier.render(ctx.run.campaign, idOf(input.crea), input.gabarit ? String(input.gabarit) : undefined);
       return { kind: "ok", output: r, line: `${who(ctx)} rend les visuels de la créa ${String(input.crea)} (gabarit « ${r.template} », ${r.visuals} format(s)).` };
     } catch (e) {
       return errorOf(ctx, e, "le rendu des visuels");
@@ -128,7 +138,7 @@ const verifierCrea: AgentTool = {
     input_schema: { type: "object", properties: { crea: { type: ["number", "string"] } }, required: ["crea"] },
   },
   async run(ctx, input) {
-    const [c] = await ctx.deps.atelier.creatives([idOf(input.crea)]);
+    const [c] = await ctx.deps.atelier.creatives(ctx.run.campaign, [idOf(input.crea)]);
     if (!c) return { kind: "ok", isError: true, output: { refus: "Créa introuvable." }, line: `${who(ctx)} : créa ${String(input.crea)} introuvable.` };
     const rejets = await rejectionsOf(ctx, c.requestedAngle ?? c.angle);
     return { kind: "ok", output: { ...c, rejetsPrecedents: rejets, rejetsMax: MAX_REJECTIONS }, line: `${who(ctx)} relit la créa « ${clip(c.angle, 60)} ».` };
@@ -146,7 +156,7 @@ const jugerCrea: AgentTool = {
     },
   },
   async run(ctx, input) {
-    const [c] = await ctx.deps.atelier.creatives([idOf(input.crea)]);
+    const [c] = await ctx.deps.atelier.creatives(ctx.run.campaign, [idOf(input.crea)]);
     if (!c) return { kind: "ok", isError: true, output: { refus: "Créa introuvable." }, line: `${who(ctx)} : créa ${String(input.crea)} introuvable.` };
     const motif = String(input.motif ?? "").trim();
     if (input.verdict !== "rejete") return { kind: "ok", output: { accepte: true }, line: `${who(ctx)} accepte la créa « ${clip(c.angle, 60)} ».` };
@@ -287,7 +297,7 @@ const deposerAValider: AgentTool = {
   },
   async run(ctx, input) {
     const ids = (Array.isArray(input.creas) ? input.creas : []).map(idOf);
-    const r = await ctx.deps.atelier.submit(ids);
+    const r = await ctx.deps.atelier.submit(ctx.run.campaign, ids);
     const resume = String(input.resume ?? "").trim();
     return {
       kind: "finish",

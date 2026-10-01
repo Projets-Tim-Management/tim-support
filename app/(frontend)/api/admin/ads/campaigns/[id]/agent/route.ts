@@ -9,6 +9,8 @@ import { adminRequest } from "@/modules/ads/lib/route-auth";
  *
  * GET  ?cap=2 → avant le clic : ce que l'agent va lire, ce que le passage peut
  *      coûter au plus, ce qui bloquerait le lancement ; et le dernier passage.
+ * GET  ?status=1 → le dernier passage SEUL : ce que le panneau relit toutes les
+ *      5 s pendant un passage (l'aperçu complet lit tout le CRM et le site).
  * POST { objective, capEur } → lance le passage, répond tout de suite, et le fait
  *      avancer après la réponse ; le cron (chaque minute) prend le relais.
  */
@@ -26,7 +28,9 @@ export async function GET(req: Request, { params }: Params) {
   const auth = await adminRequest(req);
   if ("response" in auth) return auth.response;
   const { payload } = auth;
-  const [preview, last] = await Promise.all([previewRun(payload, id, cap(new URL(req.url).searchParams.get("cap"))), runStatus(payload, id)]);
+  const url = new URL(req.url);
+  if (url.searchParams.get("status") === "1") return NextResponse.json({ last: await runStatus(payload, id) });
+  const [preview, last] = await Promise.all([previewRun(payload, id, cap(url.searchParams.get("cap"))), runStatus(payload, id)]);
   return NextResponse.json({ preview, last });
 }
 

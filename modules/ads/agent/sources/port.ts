@@ -2,7 +2,8 @@ import type { Payload } from "payload";
 
 import { anonymousSummary, type ClientIn, type LeadIn } from "@/modules/ads/agent/sources/acquisition";
 import { searchAdLibrary } from "@/modules/ads/agent/sources/ad-library";
-import { readSite } from "@/modules/ads/agent/sources/site";
+import { FETCH_TIMEOUT_MS } from "@/modules/ads/agent/limits";
+import { readSite, siteFetcher } from "@/modules/ads/agent/sources/site";
 import type { SourcesPort } from "@/modules/ads/agent/types";
 
 /**
@@ -18,7 +19,7 @@ export function createSourcesPort(payload: Payload, deps: { fetch?: typeof fetch
   const now = deps.now ?? (() => new Date());
 
   return {
-    site: (urls) => readSite((url) => f(url, { redirect: "follow", headers: { "user-agent": "TIM-support (agent de campagne)" } }), urls),
+    site: (urls) => readSite(siteFetcher(f, FETCH_TIMEOUT_MS), urls),
 
     async acquisition(months) {
       const [leads, clients] = await Promise.all([
@@ -40,7 +41,7 @@ export function createSourcesPort(payload: Payload, deps: { fetch?: typeof fetch
       return (r.docs as { pageId: string; name: string }[]).map((c) => ({ pageId: c.pageId, name: c.name }));
     },
 
-    adLibrary: (q) => searchAdLibrary(q, { fetch: (url) => f(url), env, now: now() }),
+    adLibrary: (q) => searchAdLibrary(q, { fetch: (url) => f(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }), env, now: now() }),
 
     async proposeCompetitor(c) {
       const known = await payload.count({ collection: "ad-competitors", where: { pageId: { equals: c.pageId } }, overrideAccess: true });
