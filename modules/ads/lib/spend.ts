@@ -90,6 +90,12 @@ async function spentSince(payload: Payload, kind: AdSpendKind, since: Date): Pro
   return rows.docs.reduce((s, r) => s + (Number((r as { eur?: number }).eur) || 0), 0);
 }
 
+/** Ce que compte un plafond, dépensé depuis minuit et depuis le 1er du mois (Paris). */
+export async function spentOf(payload: Payload, kind: AdSpendKind, now = new Date()): Promise<Spent> {
+  const [day, month] = await Promise.all([spentSince(payload, kind, parisStart(now, "day")), spentSince(payload, kind, parisStart(now, "month"))]);
+  return { day, month };
+}
+
 /**
  * À appeler AVANT chaque appel payant. Lève `AdsBudgetError` avec la raison
  * (interrupteur coupé, plafond du jour, plafond du mois) ; sinon renvoie ce
@@ -100,8 +106,7 @@ export async function assertAdsBudget(payload: Payload, kind: AdSpendKind, maxEu
   if (settings?.enabled === false) {
     throw new AdsBudgetError("Interrupteur général coupé (Publicité › Paramètres › Garde-fous) : aucune génération ne part.");
   }
-  const [day, month] = await Promise.all([spentSince(payload, kind, parisStart(now, "day")), spentSince(payload, kind, parisStart(now, "month"))]);
-  const check = checkBudget(limitsFor(kind, settings), { day, month }, maxEur);
+  const check = checkBudget(limitsFor(kind, settings), await spentOf(payload, kind, now), maxEur);
   if (!check.ok) throw new AdsBudgetError(check.reason);
   return check;
 }

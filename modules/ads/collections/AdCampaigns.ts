@@ -188,6 +188,11 @@ export const AdCampaigns: CollectionConfig = {
             "Le budget quotidien total, que l'agent partage entre l'IA et Meta (plan, §9 quater). Tant que la campagne n'est pas publiée, rien n'est dépensé chez Meta.",
           fields: [
             {
+              name: "agentPanel",
+              type: "ui",
+              admin: { components: { Field: "/modules/ads/admin/AgentPanel#AgentPanel" } },
+            },
+            {
               name: "agentBudget",
               type: "group",
               label: false,

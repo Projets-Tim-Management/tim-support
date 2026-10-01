@@ -62,6 +62,12 @@ export function templateAvailable(key: TemplateKey, have: { capture: boolean; fa
 /** Nom de fichier : l'angle en entier ferait une phrase. */
 const slug = (s: string) => slugify(s, { max: 40 });
 
+/** La matière des gabarits : une capture (sans données client) et une photo, déposées dans les médias publicitaires ? */
+export async function availableMaterial(payload: Payload): Promise<{ capture: boolean; photo: boolean }> {
+  const [capture, photo] = await Promise.all([latest(payload, "capture"), latest(payload, "photo")]);
+  return { capture: Boolean(capture), photo: Boolean(photo) };
+}
+
 async function latest(payload: Payload, kind: "capture" | "photo"): Promise<Media | null> {
   const where: Where = kind === "capture" ? { and: [{ kind: { equals: "capture" } }, { noClientData: { equals: true } }] } : { kind: { equals: "photo" } };
   const r = await payload.find({ collection: "ad-media", where, sort: "-createdAt", limit: 1, depth: 0, overrideAccess: true });
@@ -102,7 +108,12 @@ const imageOf = async (m: Media | null | undefined, load: FileLoader) => {
 export async function renderCreativeVisuals(
   payload: Payload,
   creativeId: number | string,
-  opts: { template?: TemplateKey; load?: FileLoader } = {},
+  /**
+   * `keepDraft` : l'agent de campagne rend les visuels AVANT que le contrôleur
+   * juge la créa ; c'est son dépôt, à la fin du passage, qui la passe « À
+   * valider » — pas le rendu.
+   */
+  opts: { template?: TemplateKey; load?: FileLoader; keepDraft?: boolean } = {},
 ): Promise<{ template: TemplateKey; assets: number; status: string }> {
   const load = opts.load ?? fetchFile;
   const [creative, appearance, kit, capture, photo] = await Promise.all([
@@ -145,7 +156,7 @@ export async function renderCreativeVisuals(
 
   // Publiable : textes ET visuels. Une créa déjà décidée ne revient pas en arrière.
   const undecided = creative.status === "brouillon" || creative.status === "a-valider" || !creative.status;
-  const status = undecided ? (publishable(creative.copy ?? []) ? "a-valider" : "brouillon") : (creative.status as string);
+  const status = undecided ? (publishable(creative.copy ?? []) && !opts.keepDraft ? "a-valider" : "brouillon") : (creative.status as string);
   await payload.update({ collection: "ad-creatives", id: creativeId, data: { assets, status } as never, overrideAccess: true });
   return { template, assets: assets.length, status };
 }
