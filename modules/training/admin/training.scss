@@ -553,6 +553,7 @@ th.tr-matrix__count { font-size: 0.6875rem; font-weight: 600; }
   &.is-due { background: var(--tim-primary-light); color: var(--tim-primary-dark); }
   &.is-planned { background: var(--tim-blue-bg); color: var(--tim-blue); }
   &.is-waiting, &.is-warn { background: var(--tim-amber-bg); color: var(--tim-amber); }
+  &.is-cancelled { background: var(--tim-gray-bg); color: var(--tim-gray); }
 }
 .tr-mail__people { font-size: 0.75rem; color: var(--tim-foreground); line-height: 1.4; }
 .tr-mail__people--next { color: var(--tim-muted); }
@@ -612,3 +613,20 @@ th.tr-matrix__count { font-size: 0.6875rem; font-weight: 600; }
   text-decoration: none;
   &:hover { border-color: var(--tim-primary); color: var(--tim-primary-dark); }
 }
+
+/* Annuler un envoi (motif) */
+.tr-cancel {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+}
+.tr-cancel__title { font-weight: 700; }
+.tr-cancel__reasons { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; }
+.tr-cancel__reason { display: inline-flex; align-items: center; gap: 0.375rem; cursor: pointer; input { accent-color: var(--tim-primary); } }
+.tr-cancel__note { width: 100%; max-width: 32rem; }
+.tr-cancel__foot { display: flex; justify-content: flex-end; gap: 0.5rem; }

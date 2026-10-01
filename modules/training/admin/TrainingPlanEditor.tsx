@@ -176,7 +176,7 @@ export function TrainingPlanEditor({
     // Échap ferme d'abord ce qui est ouvert PAR-DESSUS (aperçu d'un e-mail,
     // réglage d'une date d'envoi), pas tout le plan.
     const onKey = (e: KeyboardEvent) =>
-      e.key === "Escape" && !document.querySelector(".email-preview, .jr-datepop, .tr-attend") && close();
+      e.key === "Escape" && !document.querySelector(".email-preview, .jr-datepop, .tr-attend, .tr-cancel") && close();
     // Phase de CAPTURE : on passe avant les fenêtres ouvertes par-dessus, qui
     // se ferment sur la même touche — sinon elles auraient déjà disparu quand
     // on vérifie leur présence, et le plan se fermerait avec elles.

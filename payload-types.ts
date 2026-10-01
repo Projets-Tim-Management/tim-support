@@ -3214,6 +3214,10 @@ export interface TrainingDay {
         scheduledAt?: string | null;
         overridden?: boolean | null;
         sentAt?: string | null;
+        cancelledAt?: string | null;
+        cancelReason?: ('telephone' | 'sur-place' | 'autre') | null;
+        cancelNote?: string | null;
+        cancelledByName?: string | null;
         recipients?:
           | {
               email: string;
@@ -5087,6 +5091,10 @@ export interface TrainingDaysSelect<T extends boolean = true> {
         scheduledAt?: T;
         overridden?: T;
         sentAt?: T;
+        cancelledAt?: T;
+        cancelReason?: T;
+        cancelNote?: T;
+        cancelledByName?: T;
         recipients?:
           | T
           | {

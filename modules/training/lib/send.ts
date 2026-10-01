@@ -180,7 +180,8 @@ export function factsFor(key: string, b: DayBundle): DueFacts {
     // « Terminée » n'arrête pas les envois : l'après-formation part aux présents
     // justement quand tout est émargé. Seule une formation ANNULÉE se tait.
     trainingClosed: b.training?.status === "annule",
-    convocationAt: convocation && !convocation.sentAt ? (convocation.scheduledAt ?? null) : null,
+    // Une convocation ANNULÉE ne part pas : elle ne rend donc pas le rappel inutile.
+    convocationAt: convocation && !convocation.sentAt && !convocation.cancelledAt ? (convocation.scheduledAt ?? null) : null,
     convokedAt,
     attendanceTaken: activeSessions(b).some((s) => ((s.attendance as unknown[]) ?? []).length > 0),
     recipients: recipientsFor(key, b).map((r) => r.email),
@@ -232,6 +233,8 @@ export async function sendDayEmail(
   const all = listed.filter((r) => !suppressed.has(r.email.toLowerCase()));
   let targets: Recipient[];
   if (opts.force) {
+    // Annulé : on rétablit d'abord, on n'envoie pas « par-dessus » un choix.
+    if (row.cancelledAt) return { key, reason: "annule", sentTo: [] };
     const already = new Set((row.recipients ?? []).map((r) => r.email.toLowerCase()));
     const pending = all.filter((r) => !already.has(r.email.toLowerCase()));
     targets = pending.length ? pending : all;

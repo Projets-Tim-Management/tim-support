@@ -3,7 +3,7 @@ import type { CollectionBeforeChangeHook, CollectionBeforeDeleteHook, Collection
 import { hasAdminRole, isAdmin, metierScoped } from "@/core/access";
 import { partnerField } from "@/modules/marketing/collections/clientOwned";
 import { deriveOwnerFrom, derivedClientField, trainingRefId } from "@/modules/training/collections/trainingOwned";
-import { scheduleDayEmails, type DayEmailRow } from "@/modules/training/lib/email-schedule";
+import { CANCEL_REASONS, scheduleDayEmails, type DayEmailRow } from "@/modules/training/lib/email-schedule";
 import { TRAINER_TYPES, TRAINING_MODES } from "@/modules/training/lib/training";
 
 /**
@@ -189,6 +189,11 @@ export const TrainingDays: CollectionConfig = {
         { name: "scheduledAt", type: "date", admin: { date: { pickerAppearance: "dayAndTime" } } },
         { name: "overridden", type: "checkbox", defaultValue: false },
         { name: "sentAt", type: "date", admin: { date: { pickerAppearance: "dayAndTime" } } },
+        // Annulé à la main : le motif dit pourquoi (vu par téléphone, sur place…).
+        { name: "cancelledAt", type: "date" },
+        { name: "cancelReason", type: "select", options: CANCEL_REASONS.map((r) => ({ label: r.label, value: r.value })) },
+        { name: "cancelNote", type: "text" },
+        { name: "cancelledByName", type: "text" },
         {
           name: "recipients",
           type: "array",

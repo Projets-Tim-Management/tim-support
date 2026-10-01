@@ -133,6 +133,7 @@ import * as migration_20261001_072839_formation_programme_par_parcours from './2
 import * as migration_20261001_142616_formation_nom_formateur from './20261001_142616_formation_nom_formateur';
 import * as migration_20261001_150918_formation_complement_lieu from './20261001_150918_formation_complement_lieu';
 import * as migration_20261001_154228_formation_envois from './20261001_154228_formation_envois';
+import * as migration_20261001_161834_formation_envoi_annule from './20261001_161834_formation_envoi_annule';
 
 export const migrations = [
   {
@@ -808,6 +809,11 @@ export const migrations = [
   {
     up: migration_20261001_154228_formation_envois.up,
     down: migration_20261001_154228_formation_envois.down,
-    name: '20261001_154228_formation_envois'
+    name: '20261001_154228_formation_envois',
+  },
+  {
+    up: migration_20261001_161834_formation_envoi_annule.up,
+    down: migration_20261001_161834_formation_envoi_annule.down,
+    name: '20261001_161834_formation_envoi_annule'
   },
 ];

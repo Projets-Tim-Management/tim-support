@@ -97,7 +97,22 @@ export type DayEmailRow = {
   sentAt?: string | null;
   /** À qui c'est parti, une ligne par destinataire. */
   recipients?: { email: string; name?: string | null; sentAt?: string | null }[] | null;
+  /** Annulé à la main (« vu par téléphone »…) : plus rien ne part, pour personne. */
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
+  cancelNote?: string | null;
+  cancelledByName?: string | null;
 };
+
+/** Pourquoi un envoi est annulé : ce qu'il annonçait a été vu autrement. */
+export const CANCEL_REASONS = [
+  { value: "telephone", label: "Vu par téléphone" },
+  { value: "sur-place", label: "Vu sur place" },
+  { value: "autre", label: "Autre" },
+] as const;
+
+export const cancelReasonLabel = (value?: string | null): string =>
+  CANCEL_REASONS.find((r) => r.value === value)?.label ?? "Annulé";
 
 /** Pose l'heure d'envoi sur une date, en heure de Paris. */
 export const atParisHour = (iso: string, hhmm: string): string => {
@@ -148,7 +163,18 @@ export function scheduleDayEmails(
   return TRAINING_EMAILS.map((def) => {
     const row = byKey.get(def.key) ?? { key: def.key };
     if (dateChanged) {
-      return { key: def.key, scheduledAt: computed[def.key] ?? null, overridden: false, sentAt: null, recipients: [] };
+      // Une annulation tient à ce qui a été dit au client, pas à la date : elle reste.
+      return {
+        key: def.key,
+        scheduledAt: computed[def.key] ?? null,
+        overridden: false,
+        sentAt: null,
+        recipients: [],
+        cancelledAt: row.cancelledAt ?? null,
+        cancelReason: row.cancelReason ?? null,
+        cancelNote: row.cancelNote ?? null,
+        cancelledByName: row.cancelledByName ?? null,
+      };
     }
     if (row.sentAt || row.overridden) return { ...row, key: def.key };
     return { ...row, key: def.key, scheduledAt: computed[def.key] ?? null };
@@ -162,6 +188,7 @@ export const LATE_GRACE_HOURS = 36;
 
 export type TrainingDueReason =
   | "envoyer"
+  | "annule"
   | "deja-envoye"
   | "pas-de-date"
   | "a-venir"
@@ -175,6 +202,7 @@ export type TrainingDueReason =
 
 export const DUE_REASON_LABEL: Record<TrainingDueReason, string> = {
   envoyer: "part au prochain passage",
+  annule: "annulé",
   "deja-envoye": "envoyé",
   "pas-de-date": "ne partira pas (date retirée)",
   "a-venir": "à venir",
@@ -216,6 +244,9 @@ export function decideTrainingEmail(
   const def = trainingEmailDef(row.key);
   const none = (reason: TrainingDueReason) => ({ reason, to: [] as string[] });
   if (!def) return none("pas-de-date");
+  // L'annulation prime : choisie en connaissance de cause, elle vaut aussi
+  // pour les personnes ajoutées après coup.
+  if (row.cancelledAt) return none("annule");
   if (facts.trainingClosed) return none("formation-close");
   if (!facts.dayDate) return none("journee-sans-date");
   if (!row.scheduledAt) return none("pas-de-date");

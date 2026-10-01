@@ -219,3 +219,22 @@ describe("journée redatée et rappel par personne", () => {
     expect(decision.reason).toBe("convocation-recente");
   });
 });
+
+describe("envoi annulé à la main", () => {
+  it("annulé : ne part pas, même pour une personne ajoutée après coup", () => {
+    const r = { key: "convocation", scheduledAt: "2026-10-13T07:00:00.000Z", cancelledAt: "2026-10-10T09:00:00.000Z", cancelReason: "telephone" };
+    expect(decideTrainingEmail(r, facts(), Date.parse("2026-10-13T07:05:00Z")).reason).toBe("annule");
+  });
+
+  it("l'annulation survit au redatage de la journée", () => {
+    const rows: DayEmailRow[] = [{ key: "rappel-veille", cancelledAt: "2026-10-10T09:00:00.000Z", cancelReason: "sur-place", cancelNote: "Vu avec M. Souvet" }];
+    const next = scheduleDayEmails(DAY, rows, new Date("2026-10-02T10:00:00Z"), true);
+    expect(next.find((r) => r.key === "rappel-veille")).toMatchObject({ cancelReason: "sur-place", cancelNote: "Vu avec M. Souvet" });
+  });
+
+  it("motifs lisibles", async () => {
+    const { cancelReasonLabel } = await import("@/modules/training/lib/email-schedule");
+    expect(cancelReasonLabel("telephone")).toBe("Vu par téléphone");
+    expect(cancelReasonLabel("inconnu")).toBe("Annulé");
+  });
+});

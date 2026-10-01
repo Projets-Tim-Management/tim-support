@@ -3,8 +3,10 @@ import { NextResponse } from "next/server";
 import { payloadClient } from "@/core/payload-client";
 import {
   AUDIENCE_LABEL,
+  CANCEL_REASONS,
   DUE_REASON_LABEL,
   TRAINING_EMAILS,
+  cancelReasonLabel,
   computedSchedule,
   decideTrainingEmail,
   scheduleDayEmails,
@@ -23,6 +25,8 @@ import { trainingAccess } from "./access";
  *                     calculée), son état, à qui il est parti, à qui il ira.
  * POST { dayId, key, action: "set", at, overridden }  → régler la date
  *      { dayId, key, action: "send" }                 → envoyer maintenant
+ *      { dayId, key, action: "cancel", reason, note } → annuler (vu par téléphone…)
+ *      { dayId, key, action: "restore" }              → rétablir un envoi annulé
  */
 
 const idOf = trainingRefId;
@@ -69,7 +73,19 @@ export async function GET(req: Request) {
           overridden: Boolean(row.overridden),
           sentAt: row.sentAt ?? null,
           status: decision.reason,
-          statusLabel: DUE_REASON_LABEL[decision.reason],
+          statusLabel:
+            decision.reason === "annule"
+              ? `annulé — ${cancelReasonLabel(row.cancelReason).toLowerCase()}`
+              : DUE_REASON_LABEL[decision.reason],
+          cancel: row.cancelledAt
+            ? {
+                at: row.cancelledAt,
+                reason: row.cancelReason ?? null,
+                reasonLabel: cancelReasonLabel(row.cancelReason),
+                note: row.cancelNote ?? null,
+                by: row.cancelledByName ?? null,
+              }
+            : null,
           sentTo,
           willGoTo: recipientsFor(def.key, b!)
             .filter((r) => !already.has(r.email.toLowerCase()))
@@ -85,9 +101,11 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
     dayId?: number | string;
     key?: string;
-    action?: "set" | "send";
+    action?: "set" | "send" | "cancel" | "restore";
     at?: string | null;
     overridden?: boolean;
+    reason?: string;
+    note?: string;
   } | null;
   if (!body?.dayId || !body.key || !TRAINING_EMAILS.some((e) => e.key === body.key)) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
@@ -107,6 +125,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: r.reason === "echec" ? "L'envoi a échoué." : "Personne à qui envoyer ce message." }, { status: 422 });
     }
     return NextResponse.json({ ok: true, sentTo: r.sentTo });
+  }
+
+  if (body.action === "cancel" || body.action === "restore") {
+    if (body.action === "cancel" && !CANCEL_REASONS.some((r) => r.value === body.reason)) {
+      return NextResponse.json({ error: "Choisissez un motif." }, { status: 400 });
+    }
+    const { user } = await payload.auth({ headers: req.headers });
+    const who = user
+      ? [(user as { firstName?: string }).firstName, (user as { lastName?: string }).lastName].filter(Boolean).join(" ") ||
+        (user as { email?: string }).email ||
+        null
+      : null;
+    const base = (day.emails ?? []).length ? day.emails! : scheduleDayEmails(day.date ?? null, []);
+    const next = base.map((r) =>
+      r.key !== body.key
+        ? r
+        : body.action === "cancel"
+          ? {
+              ...r,
+              cancelledAt: new Date().toISOString(),
+              cancelReason: body.reason,
+              cancelNote: body.note?.trim().slice(0, 300) || null,
+              cancelledByName: who,
+            }
+          : { ...r, cancelledAt: null, cancelReason: null, cancelNote: null, cancelledByName: null },
+    );
+    await payload.update({ collection: "training-days", id: day.id, data: { emails: next } as never, overrideAccess: true });
+    return NextResponse.json({ ok: true });
   }
 
   // Régler la date : une date précise, « dès que possible » (maintenant),

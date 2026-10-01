@@ -35,7 +35,9 @@ type Training = {
   defaultAccessDelivery?: string;
 };
 
-type DayDoc = PlanDay & { emails?: { key: string; scheduledAt?: string | null; sentAt?: string | null }[] | null };
+type DayDoc = PlanDay & {
+  emails?: { key: string; scheduledAt?: string | null; sentAt?: string | null; cancelledAt?: string | null }[] | null;
+};
 type Plan = { days: DayDoc[]; sessions: PlanSession[] };
 
 const fmtShort = (iso: string) =>
@@ -313,7 +315,7 @@ function Upcoming({ plan }: { plan: Plan }) {
   });
   const nextDay = nextSession && plan.days.find((d) => String(d.id) === String(nextSession.session.day));
   const nextMail = plan.days
-    .flatMap((d) => (d.emails ?? []).filter((e) => e.scheduledAt && !e.sentAt && Date.parse(e.scheduledAt) > now - 3_600_000))
+    .flatMap((d) => (d.emails ?? []).filter((e) => e.scheduledAt && !e.sentAt && !e.cancelledAt && Date.parse(e.scheduledAt) > now - 3_600_000))
     .sort((a, b) => Date.parse(a.scheduledAt!) - Date.parse(b.scheduledAt!))[0];
   return (
     <>

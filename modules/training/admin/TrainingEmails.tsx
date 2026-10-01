@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { EmailPreview } from "@/core/admin/EmailPreview";
 import { MailDateEditor } from "@/modules/marketing/admin/MailDateEditor";
 import { fmtDay } from "@/modules/training/admin/TrainingPlanParts";
+import { CANCEL_REASONS } from "@/modules/training/lib/email-schedule";
 
 /**
  * Onglet « E-mails » du plan de formation — le pendant de celui de la phase de
@@ -30,13 +31,18 @@ type Row = {
   statusLabel: string;
   sentTo: Person[];
   willGoTo: Person[];
+  cancel: { at: string; reason: string | null; reasonLabel: string; note: string | null; by: string | null } | null;
 };
 type DayEmails = { dayId: number | string; date: string | null; emails: Row[] };
 
 /** États qui disent « ne partira pas » : MailDateEditor les affiche « sans objet ». */
-const MOOT = new Set(["journee-passee", "formation-close", "convocation-recente", "trop-tard"]);
+const MOOT = new Set(["journee-passee", "formation-close", "convocation-recente", "trop-tard", "annule"]);
+
+/** Inutile d'annuler ce qui ne partira plus de toute façon. */
+const NOT_CANCELLABLE = new Set(["journee-passee", "formation-close", "annule"]);
 
 const TONE: Record<string, string> = {
+  annule: "is-cancelled",
   envoyer: "is-due",
   "deja-envoye": "is-sent",
   "a-venir": "is-planned",
@@ -59,6 +65,7 @@ export function TrainingEmails({ trainingId, readOnly }: { trainingId: number | 
   const [admin, setAdmin] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ url: string; title: string } | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -157,13 +164,19 @@ export function TrainingEmails({ trainingId, readOnly }: { trainingId: number | 
 
                   <div className="tr-mail__state">
                     <span className={`tr-mail__status ${TONE[row.status] ?? ""}`}>{row.statusLabel}</span>
+                    {row.cancel && (
+                      <span className="tr-mail__people">
+                        {row.cancel.by ? `par ${row.cancel.by}, ` : ""}le {fmtWhen(row.cancel.at)}
+                        {row.cancel.note ? ` — « ${row.cancel.note} »` : ""}
+                      </span>
+                    )}
                     {row.sentTo.length > 0 && (
                       <span className="tr-mail__people" title={row.sentTo.map((p) => `${p.name} <${p.email}> — ${fmtWhen(p.sentAt)}`).join("\n")}>
                         Envoyé à {names(row.sentTo)}
                         {row.sentAt ? ` · ${fmtWhen(row.sentAt)}` : ""}
                       </span>
                     )}
-                    {row.willGoTo.length > 0 && (
+                    {row.willGoTo.length > 0 && !row.cancel && (
                       <span className="tr-mail__people tr-mail__people--next" title={row.willGoTo.map((p) => `${p.name} <${p.email}>`).join("\n")}>
                         {row.sentTo.length ? "Reste à envoyer à" : "Ira à"} {names(row.willGoTo)}
                       </span>
@@ -184,12 +197,39 @@ export function TrainingEmails({ trainingId, readOnly }: { trainingId: number | 
                     >
                       Aperçu
                     </button>
-                    {canAct && day.date && (row.willGoTo.length > 0 || row.sentTo.length > 0) && (
+                    {canAct && row.cancel && (
+                      <button
+                        type="button"
+                        className="tr-text-btn tr-text-btn--strong"
+                        disabled={busy === k}
+                        onClick={() => void post({ dayId: day.dayId, key: row.key, action: "restore" }, "Envoi rétabli.")}
+                      >
+                        Rétablir
+                      </button>
+                    )}
+                    {canAct && !row.cancel && !NOT_CANCELLABLE.has(row.status) && !(row.status === "deja-envoye" && !row.willGoTo.length) && (
+                      <button type="button" className="tr-text-btn" onClick={() => setCancelling(cancelling === k ? null : k)}>
+                        Annuler l&apos;envoi
+                      </button>
+                    )}
+                    {canAct && !row.cancel && day.date && (row.willGoTo.length > 0 || row.sentTo.length > 0) && (
                       <button type="button" className="tr-text-btn tr-text-btn--strong" disabled={busy === k} onClick={() => sendNow(day, row)}>
                         {busy === k ? "Envoi…" : row.willGoTo.length ? "Envoyer maintenant" : "Renvoyer"}
                       </button>
                     )}
                   </div>
+
+                  {cancelling === k && (
+                    <CancelForm
+                      label={row.label}
+                      busy={busy === k}
+                      onCancel={() => setCancelling(null)}
+                      onConfirm={async (reason, note) => {
+                        await post({ dayId: day.dayId, key: row.key, action: "cancel", reason, note }, "Envoi annulé.");
+                        setCancelling(null);
+                      }}
+                    />
+                  )}
                 </li>
               );
             })}
@@ -197,6 +237,55 @@ export function TrainingEmails({ trainingId, readOnly }: { trainingId: number | 
         </section>
       ))}
       {preview && <EmailPreview url={preview.url} title={preview.title} onClose={() => setPreview(null)} />}
+    </div>
+  );
+}
+
+/**
+ * Annuler un envoi : ce qu'il annonçait a été vu autrement — au téléphone, sur
+ * place. Le motif reste écrit sur la ligne : dans un mois, on saura que ce
+ * n'était pas un oubli.
+ */
+function CancelForm({
+  label,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  label: string;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: (reason: string, note: string) => Promise<void>;
+}) {
+  const [reason, setReason] = useState<string>("telephone");
+  const [note, setNote] = useState("");
+  return (
+    <div className="tr-cancel" role="group" aria-label={`Annuler « ${label} »`}>
+      <span className="tr-cancel__title">Pourquoi annuler « {label} » ?</span>
+      <div className="tr-cancel__reasons">
+        {CANCEL_REASONS.map((r) => (
+          <label key={r.value} className="tr-cancel__reason">
+            <input type="radio" name={`motif-${label}`} checked={reason === r.value} onChange={() => setReason(r.value)} />
+            {r.label}
+          </label>
+        ))}
+      </div>
+      <input
+        type="text"
+        className="tr-input tr-cancel__note"
+        placeholder="Précision (facultatif) : avec qui, quand…"
+        maxLength={300}
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+      />
+      <div className="tr-cancel__foot">
+        <button type="button" className="tr-text-btn" disabled={busy} onClick={onCancel}>
+          Fermer
+        </button>
+        <button type="button" className="tr-sign-btn" disabled={busy} onClick={() => void onConfirm(reason, note)}>
+          {busy ? "Annulation…" : "Annuler l'envoi"}
+        </button>
+      </div>
     </div>
   );
 }
