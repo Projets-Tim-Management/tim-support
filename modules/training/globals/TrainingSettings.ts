@@ -1,6 +1,8 @@
 import type { GlobalConfig, Payload } from "payload";
 
 import { isAdmin } from "@/core/access";
+import { TRAINING_EMAILS } from "@/modules/training/lib/email-schedule";
+import { TRAINING_VARIABLES } from "@/modules/training/lib/emails";
 import { MINUTES_PER_FEATURE, TRAINING_PROFILE_OPTIONS, programmesFromParcours } from "@/modules/training/lib/training";
 
 /**
@@ -24,6 +26,29 @@ export const TrainingSettings: GlobalConfig = {
   },
   access: { read: isAdmin, update: isAdmin },
   fields: [
+    {
+      // Comme les textes des e-mails de la phase de test : l'objet et le message
+      // d'introduction se reprennent ici, le reste (créneaux, lieu, « à
+      // prévoir ») vient du plan. Vide = le texte d'origine.
+      name: "emailTexts",
+      type: "array",
+      label: "Textes des e-mails",
+      labels: { singular: "Texte", plural: "Textes" },
+      admin: {
+        description: `Variables : ${TRAINING_VARIABLES.map((v) => `{{${v.key}}}`).join(", ")}. **gras** pour mettre en avant. Vide = texte d'origine.`,
+      },
+      fields: [
+        {
+          name: "key",
+          type: "select",
+          label: "E-mail",
+          required: true,
+          options: TRAINING_EMAILS.map((e) => ({ label: e.label, value: e.key })),
+        },
+        { name: "subject", type: "text", label: "Objet" },
+        { name: "intro", type: "textarea", label: "Message d'introduction" },
+      ],
+    },
     {
       name: "programmes",
       type: "array",

@@ -3208,6 +3208,23 @@ export interface TrainingDay {
   trainerType: 'tim' | 'partenaire';
   trainer?: (number | null) | User;
   trainerName?: string | null;
+  emails?:
+    | {
+        key: string;
+        scheduledAt?: string | null;
+        overridden?: boolean | null;
+        sentAt?: string | null;
+        recipients?:
+          | {
+              email: string;
+              name?: string | null;
+              sentAt?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
   checklist?:
     | {
         [k: string]: unknown;
@@ -5063,6 +5080,23 @@ export interface TrainingDaysSelect<T extends boolean = true> {
   trainerType?: T;
   trainer?: T;
   trainerName?: T;
+  emails?:
+    | T
+    | {
+        key?: T;
+        scheduledAt?: T;
+        overridden?: T;
+        sentAt?: T;
+        recipients?:
+          | T
+          | {
+              email?: T;
+              name?: T;
+              sentAt?: T;
+              id?: T;
+            };
+        id?: T;
+      };
   checklist?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -5335,6 +5369,17 @@ export interface ContractSetting {
  */
 export interface TrainingSetting {
   id: number;
+  /**
+   * Variables : {{prenom}}, {{entreprise}}, {{date}}, {{lieu}}, {{formateur}}. **gras** pour mettre en avant. Vide = texte d'origine.
+   */
+  emailTexts?:
+    | {
+        key: 'convocation' | 'recap-referent' | 'brief-formateur' | 'rappel-veille' | 'apres-formation';
+        subject?: string | null;
+        intro?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   programmes?:
     | {
         profile: 'admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon';
@@ -5550,6 +5595,14 @@ export interface ContractSettingsSelect<T extends boolean = true> {
  * via the `definition` "training-settings_select".
  */
 export interface TrainingSettingsSelect<T extends boolean = true> {
+  emailTexts?:
+    | T
+    | {
+        key?: T;
+        subject?: T;
+        intro?: T;
+        id?: T;
+      };
   programmes?:
     | T
     | {

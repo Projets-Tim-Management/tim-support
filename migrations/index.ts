@@ -132,6 +132,7 @@ import * as migration_20261001_071406_formation_socle from './20261001_071406_fo
 import * as migration_20261001_072839_formation_programme_par_parcours from './20261001_072839_formation_programme_par_parcours';
 import * as migration_20261001_142616_formation_nom_formateur from './20261001_142616_formation_nom_formateur';
 import * as migration_20261001_150918_formation_complement_lieu from './20261001_150918_formation_complement_lieu';
+import * as migration_20261001_154228_formation_envois from './20261001_154228_formation_envois';
 
 export const migrations = [
   {
@@ -802,6 +803,11 @@ export const migrations = [
   {
     up: migration_20261001_150918_formation_complement_lieu.up,
     down: migration_20261001_150918_formation_complement_lieu.down,
-    name: '20261001_150918_formation_complement_lieu'
+    name: '20261001_150918_formation_complement_lieu',
+  },
+  {
+    up: migration_20261001_154228_formation_envois.up,
+    down: migration_20261001_154228_formation_envois.down,
+    name: '20261001_154228_formation_envois'
   },
 ];

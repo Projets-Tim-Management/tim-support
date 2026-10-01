@@ -15,6 +15,7 @@ import {
   type Day,
   type User,
 } from "@/modules/training/admin/TrainingPlanParts";
+import { TrainingEmails } from "@/modules/training/admin/TrainingEmails";
 import {
   DAY_SLOTS,
   draftFromFormula,
@@ -112,6 +113,7 @@ export function TrainingPlanEditor({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<"plan" | "emails">("plan");
 
   const load = useCallback(async () => {
     try {
@@ -157,9 +159,15 @@ export function TrainingPlanEditor({
   }, [onClose]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Échap ferme d'abord ce qui est ouvert PAR-DESSUS (aperçu d'un e-mail,
+    // réglage d'une date d'envoi), pas tout le plan.
+    const onKey = (e: KeyboardEvent) =>
+      e.key === "Escape" && !document.querySelector(".email-preview, .jr-datepop") && close();
+    // Phase de CAPTURE : on passe avant les fenêtres ouvertes par-dessus, qui
+    // se ferment sur la même touche — sinon elles auraient déjà disparu quand
+    // on vérifie leur présence, et le plan se fermerait avec elles.
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [close]);
 
   /** Écriture avec indicateur ; en cas d'échec, on recharge l'état serveur. */
@@ -342,9 +350,20 @@ export function TrainingPlanEditor({
         </div>
       </header>
 
+      <nav className="tr-tabs" aria-label="Sections du plan">
+        <button type="button" className={`tr-tabs__tab${tab === "plan" ? " is-on" : ""}`} onClick={() => setTab("plan")}>
+          Plan
+        </button>
+        <button type="button" className={`tr-tabs__tab${tab === "emails" ? " is-on" : ""}`} onClick={() => setTab("emails")}>
+          E-mails
+        </button>
+      </nav>
+
       <div className="tr-plan__body">
         <main className="tr-plan__main">
-          {loading ? (
+          {tab === "emails" ? (
+            <TrainingEmails trainingId={trainingId} readOnly={readOnly} />
+          ) : loading ? (
             <p className="tr-plan__empty">Chargement du plan…</p>
           ) : !days.length ? (
             readOnly ? (

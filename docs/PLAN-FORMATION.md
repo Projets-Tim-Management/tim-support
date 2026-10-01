@@ -125,8 +125,11 @@ de ses clients ; il remet les accès et émarge celles dont il est le formateur.
    pas les comptes TIM) ; formateur vérifié contre son type côté serveur.
 3. **Kit de séance** — page d'impression (fiches filtrées, mémo par profil, programme, feuille de
    présence) + PDF pour la distance.
-4. **Agenda et e-mails** — événement de calendrier par journée (lien visio à distance), convocation J-7,
-   rappel formateur J-1, récapitulatif J+1, rappels dans `partner-steps`.
+4. ✅ **E-mails** (01/10/2026) — cinq envois par journée (convocation, organisation au référent, brief
+   du formateur, rappel de la veille, après la formation), dates resserrées sous 7 jours comme la phase
+   de test, passage horaire (`/api/cron/training-emails`), onglet « E-mails » du plan (dates réglables,
+   à qui c'est parti / ira, aperçu, envoyer maintenant), textes modifiables dans Système → Formation.
+   Reste : l'événement d'agenda par journée.
 5. **Remise des accès et émargement** — constats de remise, validation par les présents cochés,
    clôture du parcours.
 6. **Plus tard, à confirmer** — attestation PDF par participant, questionnaire de satisfaction,

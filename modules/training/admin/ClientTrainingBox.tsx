@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 
 import { hasAdminRole } from "@/core/access";
 import { TrainingPlanEditor } from "@/modules/training/admin/TrainingPlanEditor";
-import { planSteps, type PlanDay, type PlanSession } from "@/modules/training/lib/plan";
+import { trainingEmailDef } from "@/modules/training/lib/email-schedule";
+import { chronoSessions, planSteps, sessionTitle, type PlanDay, type PlanSession } from "@/modules/training/lib/plan";
 import { TRAINING_STATUSES, isTrainingClosed, trainingBeforeActivation } from "@/modules/training/lib/training";
 
 /**
@@ -34,7 +35,14 @@ type Training = {
   defaultAccessDelivery?: string;
 };
 
-type Plan = { days: PlanDay[]; sessions: PlanSession[] };
+type DayDoc = PlanDay & { emails?: { key: string; scheduledAt?: string | null; sentAt?: string | null }[] | null };
+type Plan = { days: DayDoc[]; sessions: PlanSession[] };
+
+const fmtShort = (iso: string) =>
+  new Date(iso).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
+/** Le jour seul : une journée est stockée à midi UTC, son heure ne veut rien dire. */
+const fmtDayShort = (iso: string) =>
+  new Date(iso).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: "Europe/Paris" });
 
 const fmt = (iso?: string) =>
   iso ? new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "—";
@@ -97,7 +105,7 @@ export function ClientTrainingBox() {
       if (t) {
         const by = `where[training][equals]=${t.id}`;
         const [days, sessions] = await Promise.all([
-          list<PlanDay>("training-days", by),
+          list<DayDoc>("training-days", by),
           list<Record<string, unknown>>("training-sessions", by),
         ]);
         setPlan({
@@ -279,6 +287,42 @@ function PlanSummary({ plan }: { plan: Plan }) {
         </ul>
       )}
       {plan.days.length > 0 && next && <span className="tr-box__next">À faire : {next.hint.toLowerCase()}</span>}
+      {!next && <Upcoming plan={plan} />}
     </div>
+  );
+}
+
+/**
+ * Une fois le plan complet : ce qui vient ENSUITE — la prochaine séance et le
+ * prochain envoi. Une liste toute cochée laissait croire qu'il n'y avait plus
+ * rien à faire.
+ */
+function Upcoming({ plan }: { plan: Plan }) {
+  // L'horloge est lue une fois, à l'affichage de l'encart (une lecture
+  // pendant le rendu serait impure).
+  const [now] = useState(() => Date.now());
+  const today = new Date(now).toISOString().slice(0, 10);
+  const nextSession = chronoSessions(plan.days, plan.sessions).find(({ session }) => {
+    const day = plan.days.find((d) => String(d.id) === String(session.day));
+    return day?.date && day.date.slice(0, 10) >= today && session.status !== "realisee";
+  });
+  const nextDay = nextSession && plan.days.find((d) => String(d.id) === String(nextSession.session.day));
+  const nextMail = plan.days
+    .flatMap((d) => (d.emails ?? []).filter((e) => e.scheduledAt && !e.sentAt && Date.parse(e.scheduledAt) > now - 3_600_000))
+    .sort((a, b) => Date.parse(a.scheduledAt!) - Date.parse(b.scheduledAt!))[0];
+  return (
+    <>
+      {nextSession && nextDay?.date && (
+        <span className="tr-box__upcoming">
+          <strong>Prochaine séance</strong> {fmtDayShort(nextDay.date)}
+          {nextSession.session.startTime ? `, ${nextSession.session.startTime}` : ""} · {sessionTitle(nextSession.session.profiles)}
+        </span>
+      )}
+      {nextMail && (
+        <span className="tr-box__upcoming">
+          <strong>Prochain envoi</strong> {trainingEmailDef(nextMail.key)?.label ?? nextMail.key} · {fmtShort(nextMail.scheduledAt!)}
+        </span>
+      )}
+    </>
   );
 }

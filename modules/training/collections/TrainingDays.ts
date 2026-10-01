@@ -3,6 +3,7 @@ import type { CollectionBeforeChangeHook, CollectionBeforeDeleteHook, Collection
 import { hasAdminRole, isAdmin, metierScoped } from "@/core/access";
 import { partnerField } from "@/modules/marketing/collections/clientOwned";
 import { deriveOwnerFrom, derivedClientField, trainingRefId } from "@/modules/training/collections/trainingOwned";
+import { scheduleDayEmails, type DayEmailRow } from "@/modules/training/lib/email-schedule";
 import { TRAINER_TYPES, TRAINING_MODES } from "@/modules/training/lib/training";
 
 /**
@@ -58,6 +59,22 @@ const checkTrainer: CollectionBeforeChangeHook = async ({ data, originalDoc, req
   return { ...data, trainerName: name };
 };
 
+/**
+ * Les envois de la journée, recalculés quand sa DATE change (ou à la
+ * création) : même règle que la phase de test — on ne redate pas à chaque
+ * enregistrement, sinon le resserrement « à moins de 7 jours » glisserait
+ * avec l'horloge. Les envois partis et les dates réglées à la main restent.
+ */
+const scheduleEmails: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
+  if (!data) return data;
+  const date = (data.date ?? (("date" in data) ? null : originalDoc?.date)) as string | null;
+  const current = ((data.emails ?? originalDoc?.emails ?? []) as DayEmailRow[]).map((r) => ({ ...r }));
+  const dateChanged = String(date ?? "") !== String(originalDoc?.date ?? "");
+  if (!dateChanged && current.length) return data;
+  // Redatée : le cycle repart (une convocation partie annonçait l'ancienne date).
+  return { ...data, emails: scheduleDayEmails(date, current, new Date(), dateChanged && originalDoc != null) };
+};
+
 /** Supprimer une journée emporte ses séances. */
 const deleteSessions: CollectionBeforeDeleteHook = async ({ id, req }) => {
   await req.payload.delete({ collection: "training-sessions", where: { day: { equals: id } }, overrideAccess: true, req });
@@ -78,7 +95,7 @@ export const TrainingDays: CollectionConfig = {
     delete: isAdmin,
   },
   hooks: {
-    beforeChange: [deriveOwnerFrom("training"), checkTrainer],
+    beforeChange: [deriveOwnerFrom("training"), checkTrainer, scheduleEmails],
     beforeDelete: [deleteSessions],
   },
   fields: [
@@ -160,6 +177,29 @@ export const TrainingDays: CollectionConfig = {
       ],
     },
     { name: "trainerName", type: "text", label: "Nom du formateur", admin: { readOnly: true } },
+    {
+      // Les envois de la journée (convocation, rappel, brief du formateur…),
+      // datés depuis la journée. Gérés depuis l'onglet « E-mails » du plan.
+      name: "emails",
+      type: "array",
+      label: "Envois",
+      admin: { readOnly: true },
+      fields: [
+        { name: "key", type: "text", required: true },
+        { name: "scheduledAt", type: "date", admin: { date: { pickerAppearance: "dayAndTime" } } },
+        { name: "overridden", type: "checkbox", defaultValue: false },
+        { name: "sentAt", type: "date", admin: { date: { pickerAppearance: "dayAndTime" } } },
+        {
+          name: "recipients",
+          type: "array",
+          fields: [
+            { name: "email", type: "text", required: true },
+            { name: "name", type: "text" },
+            { name: "sentAt", type: "date" },
+          ],
+        },
+      ],
+    },
     {
       // Liste de contrôle logistique (salle, vidéoprojecteur, lien testé…),
       // remplie à l'étape « Agenda et e-mails ».
