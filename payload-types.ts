@@ -104,6 +104,7 @@ export interface Config {
     'ad-agent-steps': AdAgentStep;
     'ad-decisions': AdDecision;
     'ad-competitors': AdCompetitor;
+    'ads-settings-history': AdsSettingsHistory;
     'email-suppressions': EmailSuppression;
     'client-employees': ClientEmployee;
     'client-sites': ClientSite;
@@ -179,6 +180,7 @@ export interface Config {
     'ad-agent-steps': AdAgentStepsSelect<false> | AdAgentStepsSelect<true>;
     'ad-decisions': AdDecisionsSelect<false> | AdDecisionsSelect<true>;
     'ad-competitors': AdCompetitorsSelect<false> | AdCompetitorsSelect<true>;
+    'ads-settings-history': AdsSettingsHistorySelect<false> | AdsSettingsHistorySelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
     'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
     'client-sites': ClientSitesSelect<false> | ClientSitesSelect<true>;
@@ -2718,6 +2720,31 @@ export interface AdCompetitor {
   createdAt: string;
 }
 /**
+ * Chaque changement des garde-fous : qui, quand, avant, après. Écrit par le serveur ; rien ne s'y modifie.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ads-settings-history".
+ */
+export interface AdsSettingsHistory {
+  id: number;
+  /**
+   * Vide : un script ou une migration.
+   */
+  changedBy?: (number | null) | User;
+  summary: string;
+  changes?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Adresses qui ne reçoivent plus d'envoi commercial. Les e-mails de service (tickets, accusés de réception, codes de connexion) continuent de partir.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3331,6 +3358,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-competitors';
         value: number | AdCompetitor;
+      } | null)
+    | ({
+        relationTo: 'ads-settings-history';
+        value: number | AdsSettingsHistory;
       } | null)
     | ({
         relationTo: 'email-suppressions';
@@ -4702,6 +4733,17 @@ export interface AdCompetitorsSelect<T extends boolean = true> {
   proposedBy?: T;
   keywords?: T;
   rationale?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ads-settings-history_select".
+ */
+export interface AdsSettingsHistorySelect<T extends boolean = true> {
+  changedBy?: T;
+  summary?: T;
+  changes?: T;
   updatedAt?: T;
   createdAt?: T;
 }

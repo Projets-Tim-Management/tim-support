@@ -127,6 +127,7 @@ import * as migration_20260929_161558_agent_de_campagne from './20260929_161558_
 import * as migration_20260929_190000_concurrents_par_identifiant_de_page from './20260929_190000_concurrents_par_identifiant_de_page';
 import * as migration_20260929_200000_fermer_api_supabase from './20260929_200000_fermer_api_supabase';
 import * as migration_20260930_164227_creas_angle_demande from './20260930_164227_creas_angle_demande';
+import * as migration_20261001_061405_historique_garde_fous from './20261001_061405_historique_garde_fous';
 
 export const migrations = [
   {
@@ -772,6 +773,11 @@ export const migrations = [
   {
     up: migration_20260930_164227_creas_angle_demande.up,
     down: migration_20260930_164227_creas_angle_demande.down,
-    name: '20260930_164227_creas_angle_demande'
+    name: '20260930_164227_creas_angle_demande',
+  },
+  {
+    up: migration_20261001_061405_historique_garde_fous.up,
+    down: migration_20261001_061405_historique_garde_fous.down,
+    name: '20261001_061405_historique_garde_fous'
   },
 ];

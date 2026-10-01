@@ -13,6 +13,7 @@ import { AdDecisions } from "@/modules/ads/collections/AdDecisions";
 import { AdFacts } from "@/modules/ads/collections/AdFacts";
 import { AdMedia } from "@/modules/ads/collections/AdMedia";
 import { AdMetricsDaily } from "@/modules/ads/collections/AdMetricsDaily";
+import { AdsSettingsHistory } from "@/modules/ads/collections/AdsSettingsHistory";
 import { AdsBrandKit } from "@/modules/ads/globals/AdsBrandKit";
 import { AdsSettings } from "@/modules/ads/globals/AdsSettings";
 
@@ -52,6 +53,7 @@ const ALL: (CollectionConfig | GlobalConfig)[] = [
   AdMetricsDaily,
   AdsBrandKit,
   AdsSettings,
+  AdsSettingsHistory,
 ];
 
 describe("noms de champs réservés par Payload", () => {

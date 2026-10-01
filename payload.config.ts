@@ -43,6 +43,7 @@ import { AdAgents } from "./modules/ads/collections/AdAgents";
 import { AdAgentSteps } from "./modules/ads/collections/AdAgentSteps";
 import { AdDecisions } from "./modules/ads/collections/AdDecisions";
 import { AdCompetitors } from "./modules/ads/collections/AdCompetitors";
+import { AdsSettingsHistory } from "./modules/ads/collections/AdsSettingsHistory";
 import { AdCreatives } from "./modules/ads/collections/AdCreatives";
 import { SupportConnectionsGlobal } from "./core/globals/SupportConnections";
 import { Forms } from "./modules/forms/collections/Forms";
@@ -359,6 +360,7 @@ export default buildConfig({
       AdAgentSteps,
       AdDecisions,
       AdCompetitors,
+      AdsSettingsHistory,
       // Adresses qui ne reçoivent plus d'envoi commercial — transverse à tous
       // les modules, d'où sa place à côté des collections système.
       EmailSuppressions,

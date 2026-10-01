@@ -863,7 +863,7 @@ Elles priment sur le texte qui suit quand il y a un écart.
 | 1 | Bibliothèque publicitaire Meta | Vérification d'identité : Charlie. Jeton de 60 jours : **rappel à J-7 et renouvellement à la main**, pas de rafraîchissement automatique. Date d'expiration saisie dans `ads-settings` |
 | 2 | Concurrents | Une **liste de départ** fournie par Charlie. L'agent peut en **proposer** d'autres par mots-clés : ils n'entrent dans la liste qu'**après validation** par Charlie. Collection `ad-competitors` (§6) |
 | 3 | Budget de préparation | **Séparé** : **5 € maximum par passage** de préparation (`agentPrepMaxEur`). La part IA quotidienne (total × part IA max) sert à l'**optimisation une fois la campagne publiée**, pas à la préparation |
-| 4 | Valeurs par défaut | Part IA 15 %, plancher Meta 5 €/jour, plafond global des agents **15 €/jour** et **150 €/mois**, 2 niveaux, 3 agents simultanés, 12 par passage, 2 rejets par créa |
+| 4 | Valeurs par défaut | Part IA 15 %, plancher Meta 5 €/jour, plafond global des agents **15 €/jour** et **150 €/mois**, 2 niveaux, 3 agents simultanés, 12 par passage, 2 rejets par créa. **Mis à jour le 01/10/2026 : on garde 10 €/jour et 200 €/mois** (5 € par passage) ; les garde-fous ont désormais un historique (qui, quand, avant, après) |
 | 5 | Clients signés | **Chiffres anonymes uniquement**, région comprise. **Jamais** de nom d'entreprise ni de personne |
 | 6 | Textes | Écrits par Opus via l'outil de l'atelier ; le rédacteur ne fait que cadrer |
 | 7 | Audiences | Ciblage détaillé **et** Advantage+ comparés en test **seulement si le budget Meta suffit à alimenter les deux**. L'agent justifie le seuil dans le journal (chiffres à l'appui). Sinon, **Advantage+ seul** |
