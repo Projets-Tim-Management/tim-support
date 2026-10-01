@@ -130,6 +130,7 @@ import * as migration_20260930_164227_creas_angle_demande from './20260930_16422
 import * as migration_20261001_061405_historique_garde_fous from './20261001_061405_historique_garde_fous';
 import * as migration_20261001_071406_formation_socle from './20261001_071406_formation_socle';
 import * as migration_20261001_072839_formation_programme_par_parcours from './20261001_072839_formation_programme_par_parcours';
+import * as migration_20261001_142616_formation_nom_formateur from './20261001_142616_formation_nom_formateur';
 
 export const migrations = [
   {
@@ -790,6 +791,11 @@ export const migrations = [
   {
     up: migration_20261001_072839_formation_programme_par_parcours.up,
     down: migration_20261001_072839_formation_programme_par_parcours.down,
-    name: '20261001_072839_formation_programme_par_parcours'
+    name: '20261001_072839_formation_programme_par_parcours',
+  },
+  {
+    up: migration_20261001_142616_formation_nom_formateur.up,
+    down: migration_20261001_142616_formation_nom_formateur.down,
+    name: '20261001_142616_formation_nom_formateur'
   },
 ];

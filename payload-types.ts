@@ -3206,6 +3206,7 @@ export interface TrainingDay {
   link?: string | null;
   trainerType: 'tim' | 'partenaire';
   trainer?: (number | null) | User;
+  trainerName?: string | null;
   checklist?:
     | {
         [k: string]: unknown;
@@ -5059,6 +5060,7 @@ export interface TrainingDaysSelect<T extends boolean = true> {
   link?: T;
   trainerType?: T;
   trainer?: T;
+  trainerName?: T;
   checklist?: T;
   updatedAt?: T;
   createdAt?: T;
