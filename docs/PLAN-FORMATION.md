@@ -123,8 +123,9 @@ de ses clients ; il remet les accès et émarge celles dont il est le formateur.
    accès), tableau « Qui va à quelle séance » (contacts × créneaux), enregistrement immédiat, étapes constatées et points d'attention. Lecture seule pour le
    partenaire et pour une formation close. Nom du formateur recopié sur la journée (le partenaire ne lit
    pas les comptes TIM) ; formateur vérifié contre son type côté serveur.
-3. **Kit de séance** — page d'impression (fiches filtrées, mémo par profil, programme, feuille de
-   présence) + PDF pour la distance.
+3. ✅ **Kit de séance** (01/10/2026) — « Imprimer le kit » par journée (`/impression/formation?day=`) :
+   programme horodaté, feuille de présence, fiches d'identifiants (TIM seulement), mémo par profil
+   (adresses des pages du support ; QR codes possibles plus tard avec une bibliothèque dédiée).
 4. ✅ **E-mails** (01/10/2026) — cinq envois par journée (convocation, organisation au référent, brief
    du formateur, rappel de la veille, après la formation), dates resserrées sous 7 jours comme la phase
    de test, passage horaire (`/api/cron/training-emails`), onglet « E-mails » du plan (dates réglables,

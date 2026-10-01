@@ -462,6 +462,7 @@ export function TrainingPlanEditor({
                   readOnly={readOnly}
                   canSign={canSignDay(day)}
                   canUndoSign={admin && signable}
+                  canPrint={admin || (userId != null && String(day.trainer) === String(userId))}
                   onSign={signSession}
                   onPatch={(p) => patchDay(day.id, p)}
                   onRemove={() => removeDay(day)}

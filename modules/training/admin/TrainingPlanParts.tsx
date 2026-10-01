@@ -214,6 +214,7 @@ export function DayCard({
   readOnly,
   canSign = false,
   canUndoSign = false,
+  canPrint = false,
   onSign,
   onPatch,
   onRemove,
@@ -228,6 +229,8 @@ export function DayCard({
   canSign?: boolean;
   /** Annuler un émargement : TIM seulement (cela peut rouvrir la formation). */
   canUndoSign?: boolean;
+  /** Imprimer le kit de la journée : TIM ou son formateur. */
+  canPrint?: boolean;
   onSign?: (s: PlanSession, attendance: (number | string)[] | null) => Promise<boolean>;
   sessions: PlanSession[];
   contacts: PlanContact[];
@@ -250,6 +253,18 @@ export function DayCard({
       <div className="tr-day__top">
         <span className="tr-day__badge">Journée {index}</span>
         <h3 className={`tr-day__title${day.date ? "" : " is-missing"}`}>{fmtDay(day.date)}</h3>
+        {canPrint && sessions.some((s) => s.status !== "annulee") && (
+          // Programme, feuille de présence, fiches d'identifiants, mémos — une
+          // page à part, faite pour le papier (voir /impression/formation).
+          <a
+            className="tr-print-link"
+            href={`/impression/formation?day=${day.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Imprimer le kit
+          </a>
+        )}
         {!readOnly && (
           <button
             type="button"

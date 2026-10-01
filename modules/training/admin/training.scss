@@ -596,3 +596,19 @@ th.tr-matrix__count { font-size: 0.6875rem; font-weight: 600; }
 }
 .tr-attend__foot { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; }
 .tr-attend__undo { margin-right: auto; color: var(--tim-danger-text); }
+
+/* Lien « Imprimer le kit » (en-tête de journée) */
+.tr-print-link {
+  display: inline-flex;
+  align-items: center;
+  height: 1.875rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+  text-decoration: none;
+  &:hover { border-color: var(--tim-primary); color: var(--tim-primary-dark); }
+}
