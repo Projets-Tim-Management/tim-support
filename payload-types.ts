@@ -3204,6 +3204,7 @@ export interface TrainingDay {
   mode: 'sur-place' | 'distance';
   location?: string | null;
   link?: string | null;
+  locationDetails?: string | null;
   trainerType: 'tim' | 'partenaire';
   trainer?: (number | null) | User;
   trainerName?: string | null;
@@ -5058,6 +5059,7 @@ export interface TrainingDaysSelect<T extends boolean = true> {
   mode?: T;
   location?: T;
   link?: T;
+  locationDetails?: T;
   trainerType?: T;
   trainer?: T;
   trainerName?: T;

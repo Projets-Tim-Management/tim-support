@@ -71,6 +71,8 @@ export function ClientTrainingBox() {
   const clientStatus = useFormFields(([fields]) => fields?.clientStatus?.value as string | undefined);
   const partnerRef = useFormFields(([fields]) => fields?.partner?.value as unknown);
   const companyName = useFormFields(([fields]) => fields?.companyName?.value as string | undefined);
+  const billingAddress = useFormFields(([fields]) => fields?.billingAddress?.value as string | undefined);
+  const billingComplement = useFormFields(([fields]) => fields?.billingAddressComplement?.value as string | undefined);
   const partnerId =
     partnerRef && typeof partnerRef === "object" ? ((partnerRef as { id?: number | string }).id ?? null) : ((partnerRef as number | string) ?? null);
 
@@ -243,6 +245,7 @@ export function ClientTrainingBox() {
           partnerId={partnerId}
           companyName={companyName}
           defaultAccessDelivery={training.defaultAccessDelivery}
+          clientAddress={{ address: billingAddress, complement: billingComplement }}
           // Une formation close se consulte, elle ne se replanifie pas.
           readOnly={!admin || closed}
           onClose={() => {

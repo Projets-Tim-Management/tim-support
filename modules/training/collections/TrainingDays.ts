@@ -117,9 +117,11 @@ export const TrainingDays: CollectionConfig = {
       ],
     },
     {
+      // L'adresse, choisie dans la Base Adresse Nationale (texte libre accepté :
+      // une adresse à l'étranger n'y figure pas).
       name: "location",
       type: "textarea",
-      label: "Lieu et consignes",
+      label: "Adresse",
       admin: { condition: (data) => data?.mode === "sur-place" },
     },
     {
@@ -127,6 +129,13 @@ export const TrainingDays: CollectionConfig = {
       type: "text",
       label: "Lien de la visio",
       admin: { condition: (data) => data?.mode === "distance" },
+    },
+    {
+      // Sur place : salle, étage, interlocuteur, parking. À distance : code
+      // d'accès, numéro à appeler en cas de souci. Repris dans la convocation.
+      name: "locationDetails",
+      type: "textarea",
+      label: "Complément",
     },
     {
       type: "row",

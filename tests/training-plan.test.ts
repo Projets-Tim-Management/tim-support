@@ -143,3 +143,26 @@ describe("formules", () => {
     expect(matchingContacts(contacts, ["chefChantier", "admin"]).map((c) => c.id)).toEqual([1, 3, 4]);
   });
 });
+
+describe("groupe déduit des participants", () => {
+  it("profils des participants, dans l'ordre hiérarchique", async () => {
+    const { profilesOf } = await import("@/modules/training/lib/plan");
+    expect(profilesOf([3, 1], contacts)).toEqual(["admin", "chefChantier"]);
+  });
+
+  it("sans participant profilé, garde les profils d'avant", async () => {
+    const { profilesOf } = await import("@/modules/training/lib/plan");
+    expect(profilesOf([5], contacts, ["compagnon"])).toEqual(["compagnon"]);
+    expect(profilesOf([], contacts, ["admin"])).toEqual(["admin"]);
+  });
+
+  it("nom d'usage et ordre du déroulé", async () => {
+    const { chronoSessions, sessionTitle } = await import("@/modules/training/lib/plan");
+    expect(sessionTitle(["admin", "conducteur"])).toBe("Admin + Conducteur de travaux");
+    const order = chronoSessions(
+      [day(1, "2026-10-21"), day(2, "2026-10-14")],
+      [session(1, 1), session(2, 2, { startTime: "14:00" }), session(3, 2, { startTime: "09:00" }), session(4, 2, { status: "annulee" })],
+    );
+    expect(order.map((o) => [o.session.id, o.dayIndex])).toEqual([[3, 1], [2, 1], [1, 2]]);
+  });
+});

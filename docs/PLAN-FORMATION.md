@@ -119,8 +119,8 @@ de ses clients ; il remet les accès et émarge celles dont il est le formateur.
 2. ✅ **Plan de formation** (01/10/2026) — écran plein écran ouvert depuis l'encart (« Construire /
    Modifier / Voir le plan ») : formules (Admin seul ; Admin + conducteurs puis chefs de chantier ; un
    groupe par profil ; sur mesure), journées (date, sur place / à distance, lieu ou lien, formateur TIM
-   ou partenaire), créneaux (horaires, profils, participants cochés parmi les contacts, remise des
-   accès), enregistrement immédiat, étapes constatées et points d'attention. Lecture seule pour le
+   ou partenaire), créneaux (une ligne chacun : horaires, groupe déduit des participants, remise des
+   accès), tableau « Qui va à quelle séance » (contacts × créneaux), enregistrement immédiat, étapes constatées et points d'attention. Lecture seule pour le
    partenaire et pour une formation close. Nom du formateur recopié sur la journée (le partenaire ne lit
    pas les comptes TIM) ; formateur vérifié contre son type côté serveur.
 3. **Kit de séance** — page d'impression (fiches filtrées, mémo par profil, programme, feuille de

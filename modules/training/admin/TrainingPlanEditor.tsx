@@ -5,13 +5,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { PROFILS } from "@/modules/partner/lib/pricing";
-import { DayCard, FormulaPicker, idOf, type Day, type User } from "@/modules/training/admin/TrainingPlanParts";
+import {
+  DayCard,
+  FormulaPicker,
+  PeopleMatrix,
+  asId,
+  idOf,
+  type ClientAddress,
+  type Day,
+  type User,
+} from "@/modules/training/admin/TrainingPlanParts";
 import {
   DAY_SLOTS,
   draftFromFormula,
   matchingContacts,
   planSteps,
   planWarnings,
+  profilesOf,
   sessionsOfDay,
   sortDays,
   type Formula,
@@ -57,6 +67,7 @@ const toDay = (d: Record<string, unknown>): Day => ({
   mode: (d.mode as string) ?? "sur-place",
   location: (d.location as string) ?? "",
   link: (d.link as string) ?? "",
+  locationDetails: (d.locationDetails as string) ?? "",
   trainerType: (d.trainerType as string) ?? "tim",
   trainer: idOf(d.trainer),
   trainerName: (d.trainerName as string) ?? null,
@@ -79,9 +90,11 @@ export function TrainingPlanEditor({
   partnerId,
   companyName,
   defaultAccessDelivery,
+  clientAddress,
   readOnly,
   onClose,
 }: {
+  clientAddress?: ClientAddress;
   trainingId: number | string;
   clientId: number | string;
   partnerId: number | string | null;
@@ -261,6 +274,17 @@ export function TrainingPlanEditor({
     }
   };
 
+  /** Cocher / décocher des personnes dans un créneau ; son groupe suit. */
+  const toggleParticipants = (session: PlanSession, ids: (number | string)[], on: boolean) => {
+    const current = (session.participants ?? []).map(String);
+    const wanted = ids.map(String);
+    const next = on ? [...current, ...wanted.filter((id) => !current.includes(id))] : current.filter((id) => !wanted.includes(id));
+    patchSession(session.id, {
+      participants: next.map(asId),
+      profiles: profilesOf(next, contacts, session.profiles ?? []),
+    });
+  };
+
   const changeAccessDefault = (v: string) => {
     setAccessDefault(v);
     enqueue(`t${trainingId}`, () =>
@@ -283,7 +307,6 @@ export function TrainingPlanEditor({
     return (w: { dayId?: number | string; sessionId?: number | string }) =>
       (w.sessionId != null ? at.get(`s${w.sessionId}`) : undefined) ?? (w.dayId != null ? at.get(`d${w.dayId}`) : undefined);
   }, [sorted, sessions]);
-  const accessDefaultLabel = ACCESS_DELIVERY.find((a) => a.value === accessDefault)?.label.toLowerCase() ?? "";
   const unprofiled = contacts.filter((c) => !c.licenceProfile).length;
 
   if (typeof document === "undefined") return null;
@@ -299,7 +322,11 @@ export function TrainingPlanEditor({
           {steps.map((s) => (
             <li key={s.key} className={`tr-steps__item${s.done ? " is-done" : ""}`} title={s.hint}>
               <span className="tr-steps__dot" aria-hidden="true">
-                {s.done ? "✓" : ""}
+                {s.done && (
+                  <svg viewBox="0 0 12 12" width="10" height="10">
+                    <path d="M2.5 6.2l2.3 2.3 4.7-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
               </span>
               {s.label}
             </li>
@@ -327,6 +354,7 @@ export function TrainingPlanEditor({
             )
           ) : (
             <>
+              <h3 className="tr-section-title tr-section-title--first">Déroulé</h3>
               {sorted.map((day, i) => (
                 <DayCard
                   key={day.id}
@@ -336,7 +364,8 @@ export function TrainingPlanEditor({
                   contacts={contacts}
                   warnings={warnings}
                   trainers={day.trainerType === "partenaire" ? partnerUsers : timUsers}
-                  accessDefaultLabel={accessDefaultLabel}
+                  accessDefault={accessDefault}
+                  clientAddress={clientAddress}
                   readOnly={readOnly}
                   onPatch={(p) => patchDay(day.id, p)}
                   onRemove={() => removeDay(day)}
@@ -350,6 +379,7 @@ export function TrainingPlanEditor({
                   + Ajouter une journée
                 </button>
               )}
+              <PeopleMatrix days={days} sessions={sessions} contacts={contacts} readOnly={readOnly} onToggle={toggleParticipants} />
             </>
           )}
         </main>

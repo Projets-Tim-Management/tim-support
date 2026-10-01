@@ -253,3 +253,37 @@ export const matchingContacts = (contacts: PlanContact[], profiles: string[]): P
   contacts
     .filter((c) => c.licenceProfile && profiles.includes(c.licenceProfile))
     .sort((a, b) => profileRank(a.licenceProfile) - profileRank(b.licenceProfile) || contactName(a).localeCompare(contactName(b)));
+
+// ─── Groupe d'une séance, déduit de ses participants ────────────────────────
+
+/**
+ * Les profils formés dans une séance = ceux de ses participants, dans l'ordre
+ * hiérarchique. On choisit des PERSONNES ; le groupe en découle. Sans
+ * participant profilé, on garde les profils d'avant (une séance en forme au
+ * moins un — champ obligatoire).
+ */
+export function profilesOf(
+  participants: (number | string)[],
+  contacts: PlanContact[],
+  fallback: string[] = [],
+): string[] {
+  const ids = new Set(participants.map(String));
+  const found = new Set(
+    contacts.filter((c) => ids.has(String(c.id)) && c.licenceProfile).map((c) => c.licenceProfile as string),
+  );
+  const ordered = PROFILS.map((p) => p.key).filter((k) => found.has(k));
+  return ordered.length ? ordered : fallback;
+}
+
+/** « Admin + Conducteur de travaux » — le nom d'usage d'une séance. */
+export const sessionTitle = (profiles?: string[] | null): string =>
+  (profiles ?? []).length ? (profiles ?? []).map((p) => profileLabel(p)).join(" + ") : "Groupe à composer";
+
+/** Séances non annulées, dans l'ordre du déroulé (journées puis horaires). */
+export function chronoSessions<T extends PlanSession>(days: PlanDay[], sessions: T[]): { session: T; dayIndex: number }[] {
+  return sortDays(days).flatMap((d, i) =>
+    sessionsOfDay(sessions, d.id)
+      .filter(isActive)
+      .map((session) => ({ session, dayIndex: i + 1 })),
+  );
+}

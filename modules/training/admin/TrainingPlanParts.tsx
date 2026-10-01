@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { PROFILS } from "@/modules/partner/lib/pricing";
 import {
+  chronoSessions,
   contactName,
   dayKey,
   draftFromFormula,
-  matchingContacts,
-  profileLabel,
+  sessionTitle,
   FORMULAS,
   type Formula,
   type PlanContact,
@@ -16,18 +16,34 @@ import {
   type PlanSession,
   type PlanWarning,
 } from "@/modules/training/lib/plan";
+import { AddressSearch } from "@/modules/training/admin/AddressSearch";
+import { joinAddress } from "@/modules/training/lib/address";
 import { ACCESS_DELIVERY, TRAINER_TYPES, TRAINING_MODES } from "@/modules/training/lib/training";
 
 /**
- * Les morceaux d'affichage du plan de formation : choix d'une formule, carte
- * d'une journée, carte d'un créneau. Sans état serveur — l'éditeur
+ * Les morceaux d'affichage du plan de formation : choix d'une formule, le
+ * DÉROULÉ (une carte par journée, une ligne par créneau) et le tableau « Qui va
+ * à quelle séance » (contacts × créneaux). Sans état serveur — l'éditeur
  * (TrainingPlanEditor) charge, enregistre et leur passe les données.
+ *
+ * Les participants se choisissent dans le TABLEAU, pas dans chaque créneau : on
+ * y voit d'un coup d'œil qui va où, et qui n'a aucune séance. Le groupe d'un
+ * créneau (« Admin + Conducteur de travaux ») se déduit des personnes cochées.
  */
 
-export type User = { id: number | string; firstName?: string | null; lastName?: string | null; email?: string | null };
-export type Day = PlanDay & { trainerName?: string | null };
+export type User = {
+  id: number | string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+};
+export type Day = PlanDay & { trainerName?: string | null; locationDetails?: string | null };
 
-export const userName = (u: User) => [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email || `Compte ${u.id}`;
+/** L'adresse de facturation de la fiche, proposée comme lieu en un clic. */
+export type ClientAddress = { address?: string | null; complement?: string | null };
+
+export const userName = (u: User) =>
+  [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email || `Compte ${u.id}`;
 
 /** Les ids Postgres sont des entiers : un id lu dans un <select> arrive en texte. */
 export const asId = (v: string | number): number | string => (typeof v === "string" && /^\d+$/.test(v) ? Number(v) : v);
@@ -35,10 +51,24 @@ export const asId = (v: string | number): number | string => (typeof v === "stri
 export const idOf = (ref: unknown): number | string | null =>
   ref && typeof ref === "object" ? ((ref as { id?: number | string }).id ?? null) : ((ref as number | string) ?? null);
 
-export const fmtDay = (iso?: string | null) =>
-  iso
-    ? new Date(iso).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
-    : "Date à fixer";
+/** « Vendredi 2 octobre 2026 » — majuscule au seul premier mot. */
+export const fmtDay = (iso?: string | null) => {
+  if (!iso) return "Date à fixer";
+  const s = new Date(iso).toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
+/** Remise des accès, en mots courts pour une ligne de créneau. */
+const ACCESS_SHORT: Record<string, string> = {
+  formateur: "remis par le formateur",
+  client: "distribués par le client",
+};
 
 /** Champ texte enregistré à la sortie (et non à chaque frappe). */
 function BlurField({
@@ -157,7 +187,8 @@ export function FormulaPicker({
               <span className="tr-formula__label">{f.label}</span>
               <span className="tr-formula__detail">{f.detail}</span>
               <span className="tr-formula__count">
-                {draft.length} journée{draft.length > 1 ? "s" : ""}, {n} séance{n > 1 ? "s" : ""}
+                {draft.length} journée{draft.length > 1 ? "s" : ""}, {n} séance
+                {n > 1 ? "s" : ""}
               </span>
             </button>
           );
@@ -178,7 +209,8 @@ export function DayCard({
   contacts,
   warnings,
   trainers,
-  accessDefaultLabel,
+  accessDefault,
+  clientAddress,
   readOnly,
   onPatch,
   onRemove,
@@ -188,11 +220,12 @@ export function DayCard({
 }: {
   index: number;
   day: Day;
+  clientAddress?: ClientAddress;
   sessions: PlanSession[];
   contacts: PlanContact[];
   warnings: PlanWarning[];
   trainers: User[];
-  accessDefaultLabel: string;
+  accessDefault: string;
   readOnly: boolean;
   onPatch: (p: Partial<Day>) => void;
   onRemove: () => void;
@@ -200,64 +233,53 @@ export function DayCard({
   onPatchSession: (id: PlanSession["id"], p: Partial<PlanSession>) => void;
   onRemoveSession: (s: PlanSession) => void;
 }) {
-  const dayWarnings = warnings.filter((w) => w.dayId != null && String(w.dayId) === String(day.id) && w.sessionId == null);
   // Le formateur choisi n'est pas (encore) dans la liste : on le garde visible.
   const trainerKnown = day.trainer == null || trainers.some((u) => String(u.id) === String(day.trainer));
+  const distance = day.mode === "distance";
 
   return (
     <section className="tr-day" aria-label={`Journée ${index}`}>
-      <div className="tr-day__head">
-        <div className="tr-day__when">
-          <h3 className="tr-day__title">Journée {index}</h3>
-          <span className={`tr-day__date${day.date ? "" : " is-missing"}`}>{fmtDay(day.date)}</span>
-        </div>
-        <BlurInput
-          type="date"
-          className="tr-input tr-day__picker"
-          aria-label="Date de la journée"
-          value={dayKey(day.date) ?? ""}
-          disabled={readOnly}
-          onCommit={(v) => onPatch({ date: v ? `${v}T12:00:00.000Z` : null })}
-        />
-        <Segmented
-          label="Mode"
-          options={TRAINING_MODES}
-          value={day.mode}
-          disabled={readOnly}
-          onChange={(v) => onPatch({ mode: v })}
-        />
+      <div className="tr-day__top">
+        <span className="tr-day__badge">Journée {index}</span>
+        <h3 className={`tr-day__title${day.date ? "" : " is-missing"}`}>{fmtDay(day.date)}</h3>
         {!readOnly && (
-          <button type="button" className="tr-icon-btn" onClick={onRemove} aria-label="Supprimer la journée" title="Supprimer la journée">
+          <button
+            type="button"
+            className="tr-icon-btn"
+            onClick={onRemove}
+            aria-label="Supprimer la journée"
+            title="Supprimer la journée"
+          >
             ×
           </button>
         )}
       </div>
 
-      <div className="tr-day__grid">
-        <label className="tr-field">
-          <span className="tr-field__label">{day.mode === "distance" ? "Lien de la visio" : "Adresse et consignes"}</span>
-          {day.mode === "distance" ? (
-            <BlurField
-              className="tr-input"
-              value={day.link ?? ""}
-              placeholder="https://meet.google.com/…"
-              disabled={readOnly}
-              onCommit={(v) => onPatch({ link: v })}
-            />
-          ) : (
-            <BlurField
-              multiline
-              className="tr-input"
-              value={day.location ?? ""}
-              placeholder="Adresse, salle, interlocuteur sur place…"
-              disabled={readOnly}
-              onCommit={(v) => onPatch({ location: v })}
-            />
-          )}
+      <div className="tr-day__controls">
+        <label className="tr-ctl">
+          <span className="tr-ctl__label">Date</span>
+          <BlurInput
+            type="date"
+            className="tr-input"
+            aria-label="Date de la journée"
+            value={dayKey(day.date) ?? ""}
+            disabled={readOnly}
+            onCommit={(v) => onPatch({ date: v ? `${v}T12:00:00.000Z` : null })}
+          />
         </label>
-        <div className="tr-field">
-          <span className="tr-field__label">Formateur</span>
-          <div className="tr-day__trainer">
+        <div className="tr-ctl">
+          <span className="tr-ctl__label">Mode</span>
+          <Segmented
+            label="Mode"
+            options={TRAINING_MODES}
+            value={day.mode}
+            disabled={readOnly}
+            onChange={(v) => onPatch({ mode: v })}
+          />
+        </div>
+        <div className="tr-ctl">
+          <span className="tr-ctl__label">Formateur</span>
+          <div className="tr-ctl__row">
             <Segmented
               label="Type de formateur"
               options={TRAINER_TYPES}
@@ -268,16 +290,22 @@ export function DayCard({
               onChange={(v) => onPatch({ trainerType: v, trainer: null })}
             />
             {readOnly ? (
-              <span className="tr-day__trainer-name">{day.trainerName ?? "À désigner"}</span>
+              <span className="tr-ctl__value">{day.trainerName ?? "À désigner"}</span>
             ) : (
               <select
-                className="ctr-select"
+                className="tr-input tr-select"
                 aria-label="Qui forme"
                 value={day.trainer != null ? String(day.trainer) : ""}
-                onChange={(e) => onPatch({ trainer: e.target.value ? asId(e.target.value) : null })}
+                onChange={(e) =>
+                  onPatch({
+                    trainer: e.target.value ? asId(e.target.value) : null,
+                  })
+                }
               >
                 <option value="">À désigner</option>
-                {!trainerKnown && <option value={String(day.trainer)}>{day.trainerName ?? `Compte ${day.trainer}`}</option>}
+                {!trainerKnown && (
+                  <option value={String(day.trainer)}>{day.trainerName ?? `Compte ${day.trainer}`}</option>
+                )}
                 {trainers.map((u) => (
                   <option key={u.id} value={String(u.id)}>
                     {userName(u)}
@@ -287,38 +315,85 @@ export function DayCard({
             )}
           </div>
           {!readOnly && day.trainerType === "partenaire" && !trainers.length && (
-            <span className="tr-field__hint">Le partenaire de ce client n&apos;a aucun compte utilisateur.</span>
+            <span className="tr-ctl__hint">Le partenaire de ce client n&apos;a aucun compte utilisateur.</span>
           )}
+        </div>
+        <div className="tr-day__place">
+          {distance ? (
+            <label className="tr-ctl">
+              <span className="tr-ctl__label">Lien de la visio</span>
+              <BlurField
+                className="tr-input"
+                value={day.link ?? ""}
+                placeholder="https://meet.google.com/…"
+                disabled={readOnly}
+                onCommit={(v) => onPatch({ link: v })}
+              />
+            </label>
+          ) : (
+            <div className="tr-ctl">
+              <span className="tr-ctl__label">Adresse</span>
+              <AddressSearch
+                value={day.location ?? ""}
+                placeholder="Rechercher une adresse…"
+                disabled={readOnly}
+                onCommit={(v) => onPatch({ location: v })}
+              />
+              {!readOnly && !day.location && clientAddress?.address && (
+                <button
+                  type="button"
+                  className="tr-chip-btn"
+                  // Le complément de facturation (bâtiment, étage) rejoint le
+                  // complément du lieu, s'il est encore vide.
+                  onClick={() =>
+                    onPatch({
+                      location: clientAddress.address ?? "",
+                      ...(!day.locationDetails && clientAddress.complement
+                        ? { locationDetails: clientAddress.complement }
+                        : {}),
+                    })
+                  }
+                >
+                  Utiliser l&apos;adresse du client : {joinAddress(clientAddress.address, clientAddress.complement)}
+                </button>
+              )}
+            </div>
+          )}
+          <label className="tr-ctl">
+            <span className="tr-ctl__label">{distance ? "Consignes" : "Complément"}</span>
+            <BlurField
+              multiline
+              className="tr-input"
+              value={day.locationDetails ?? ""}
+              placeholder={
+                distance
+                  ? "Code d'accès, numéro à appeler en cas de souci…"
+                  : "Salle, étage, interlocuteur sur place, parking…"
+              }
+              disabled={readOnly}
+              onCommit={(v) => onPatch({ locationDetails: v })}
+            />
+          </label>
         </div>
       </div>
 
-      {dayWarnings.length > 0 && (
-        <ul className="tr-warns tr-warns--inline">
-          {dayWarnings.map((w, i) => (
-            <li key={i} className={`tr-warn tr-warn--${w.level}`}>
-              {w.text}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="tr-day__sessions">
-        {sessions.length === 0 && <p className="tr-plan__empty tr-plan__empty--small">Aucun créneau dans cette journée.</p>}
+      <ol className="tr-slots">
         {sessions.map((s) => (
-          <SessionCard
+          <SessionRow
             key={s.id}
             session={s}
             contacts={contacts}
             warnings={warnings.filter((w) => w.sessionId != null && String(w.sessionId) === String(s.id))}
-            accessDefaultLabel={accessDefaultLabel}
+            accessDefault={accessDefault}
             readOnly={readOnly}
             onPatch={(p) => onPatchSession(s.id, p)}
             onRemove={() => onRemoveSession(s)}
           />
         ))}
-      </div>
+        {sessions.length === 0 && <li className="tr-slots__empty">Aucun créneau dans cette journée.</li>}
+      </ol>
       {!readOnly && (
-        <button type="button" className="tr-add tr-add--small" onClick={onAddSession}>
+        <button type="button" className="tr-link-add" onClick={onAddSession}>
           + Ajouter un créneau
         </button>
       )}
@@ -326,11 +401,12 @@ export function DayCard({
   );
 }
 
-function SessionCard({
+/** Une ligne du déroulé : l'horaire, le groupe, qui vient, la remise des accès. */
+function SessionRow({
   session,
   contacts,
   warnings,
-  accessDefaultLabel,
+  accessDefault,
   readOnly,
   onPatch,
   onRemove,
@@ -338,171 +414,280 @@ function SessionCard({
   session: PlanSession;
   contacts: PlanContact[];
   warnings: PlanWarning[];
-  accessDefaultLabel: string;
+  accessDefault: string;
   readOnly: boolean;
   onPatch: (p: Partial<PlanSession>) => void;
   onRemove: () => void;
 }) {
-  const [showOthers, setShowOthers] = useState(false);
-  const profiles = session.profiles ?? [];
-  const participants = (session.participants ?? []).map(String);
-  const matching = matchingContacts(contacts, profiles);
-  const others = contacts.filter((c) => !matching.includes(c));
-  // Un contact hors profil déjà coché reste visible sans déplier.
-  const othersChecked = others.filter((c) => participants.includes(String(c.id)));
   const cancelled = session.status === "annulee";
   const done = session.status === "realisee";
-
-  /**
-   * Cocher un profil ajoute ses contacts ; le décocher retire ceux qui n'ont
-   * que ce profil-là. On décoche ensuite qui ne vient pas.
-   */
-  const toggleProfile = (key: string) => {
-    const on = profiles.includes(key);
-    if (on && profiles.length === 1) return; // une séance forme au moins un profil
-    const nextProfiles = on ? profiles.filter((p) => p !== key) : PROFILS.map((p) => p.key).filter((k) => k === key || profiles.includes(k));
-    const ofProfile = contacts.filter((c) => c.licenceProfile === key).map((c) => String(c.id));
-    const nextPeople = on
-      ? participants.filter((id) => !ofProfile.includes(id))
-      : [...participants, ...ofProfile.filter((id) => !participants.includes(id))];
-    onPatch({ profiles: nextProfiles, participants: nextPeople.map(asId) });
-  };
-
-  const togglePerson = (id: string) =>
-    onPatch({ participants: (participants.includes(id) ? participants.filter((p) => p !== id) : [...participants, id]).map(asId) });
-
-  const allMatchingIn = matching.length > 0 && matching.every((c) => participants.includes(String(c.id)));
-  const toggleAllMatching = () => {
-    const ids = matching.map((c) => String(c.id));
-    onPatch({
-      participants: (allMatchingIn
-        ? participants.filter((p) => !ids.includes(p))
-        : [...participants, ...ids.filter((id) => !participants.includes(id))]
-      ).map(asId),
-    });
-  };
-
-  const person = (c: PlanContact) => {
-    const id = String(c.id);
-    return (
-      <label key={id} className="tr-person">
-        <input type="checkbox" checked={participants.includes(id)} disabled={readOnly || cancelled} onChange={() => togglePerson(id)} />
-        <span className="tr-person__name">{contactName(c)}</span>
-        <span className="tr-person__profile">{profileLabel(c.licenceProfile)}</span>
-        {!c.email && <span className="tr-person__flag">sans e-mail</span>}
-      </label>
-    );
-  };
+  const ids = new Set((session.participants ?? []).map(String));
+  const people = contacts.filter((c) => ids.has(String(c.id))).map(contactName);
+  const alert = warnings.some((w) => w.level === "alerte");
 
   return (
-    <div className={`tr-session${cancelled ? " is-cancelled" : ""}`}>
-      <div className="tr-session__head">
-        <div className="tr-session__time">
-          <BlurInput
-            type="time"
-            className="tr-input"
-            aria-label="Début"
-            value={session.startTime ?? ""}
-            disabled={readOnly || cancelled}
-            onCommit={(v) => onPatch({ startTime: v })}
-          />
-          <span aria-hidden="true">–</span>
-          <BlurInput
-            type="time"
-            className="tr-input"
-            aria-label="Fin"
-            value={session.endTime ?? ""}
-            disabled={readOnly || cancelled}
-            onCommit={(v) => onPatch({ endTime: v })}
-          />
-        </div>
-        <div className="tr-chips" role="group" aria-label="Profils formés">
-          {PROFILS.map((p) => {
-            const on = profiles.includes(p.key);
-            return (
-              <button
-                key={p.key}
-                type="button"
-                className={`tr-chip${on ? " is-on" : ""}`}
-                aria-pressed={on}
-                disabled={readOnly || cancelled || (on && profiles.length === 1)}
-                title={on && profiles.length === 1 ? "Une séance forme au moins un profil" : undefined}
-                onClick={() => toggleProfile(p.key)}
-              >
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-        {cancelled && <span className="tr-session__badge">Annulée</span>}
-        {done && <span className="tr-session__badge tr-session__badge--done">Réalisée</span>}
-        {!readOnly && !done && (
-          <div className="tr-session__menu">
-            <button type="button" className="ctr-link" onClick={() => onPatch({ status: cancelled ? "planifiee" : "annulee" })}>
-              {cancelled ? "Rétablir le créneau" : "Annuler le créneau"}
-            </button>
-            <button type="button" className="tr-icon-btn" onClick={onRemove} aria-label="Supprimer le créneau" title="Supprimer le créneau">
-              ×
-            </button>
-          </div>
-        )}
+    <li className={`tr-slot${cancelled ? " is-cancelled" : ""}`}>
+      <div className="tr-slot__time">
+        <BlurInput
+          type="time"
+          className="tr-input tr-input--time"
+          aria-label="Début"
+          value={session.startTime ?? ""}
+          disabled={readOnly || cancelled}
+          onCommit={(v) => onPatch({ startTime: v })}
+        />
+        <span aria-hidden="true">–</span>
+        <BlurInput
+          type="time"
+          className="tr-input tr-input--time"
+          aria-label="Fin"
+          value={session.endTime ?? ""}
+          disabled={readOnly || cancelled}
+          onCommit={(v) => onPatch({ endTime: v })}
+        />
       </div>
 
-      <div className="tr-session__people">
-        <div className="tr-session__people-head">
-          <span className="tr-field__label">
-            Participants · {participants.length}
-          </span>
-          {!readOnly && !cancelled && matching.length > 1 && (
-            <button type="button" className="ctr-link" onClick={toggleAllMatching}>
-              {allMatchingIn ? "Tout décocher" : "Tout cocher"}
-            </button>
+      <div className="tr-slot__main">
+        <span className="tr-slot__title">
+          {sessionTitle(session.profiles)}
+          {warnings.length > 0 && (
+            <span
+              className={`tr-slot__flag${alert ? " is-alert" : ""}`}
+              title={warnings.map((w) => w.text).join("\n")}
+              aria-label={`${warnings.length} point${warnings.length > 1 ? "s" : ""} d'attention`}
+            >
+              !
+            </span>
           )}
-        </div>
-        {matching.length ? (
-          <div className="tr-people">{matching.map(person)}</div>
-        ) : (
-          <p className="tr-field__hint">Aucun contact du client n&apos;a ces profils de licence.</p>
-        )}
-        {othersChecked.length > 0 && !showOthers && <div className="tr-people">{othersChecked.map(person)}</div>}
-        {others.length > 0 && (
-          <>
-            <button type="button" className="ctr-link tr-session__others" onClick={() => setShowOthers((v) => !v)}>
-              {showOthers ? "Masquer les autres contacts" : `Autres contacts (${others.length})`}
-            </button>
-            {showOthers && <div className="tr-people">{others.map(person)}</div>}
-          </>
-        )}
+        </span>
+        <span className={`tr-slot__people${people.length ? "" : " is-empty"}`}>
+          {people.length
+            ? people.join(", ")
+            : "Personne pour l'instant — cochez les participants dans le tableau ci-dessous."}
+        </span>
       </div>
 
-      <div className="tr-session__foot">
-        <label className="tr-session__access">
-          <span className="tr-field__label">Remise des accès</span>
+      <div className="tr-slot__side">
+        {cancelled && <span className="tr-badge">Annulé</span>}
+        {done && <span className="tr-badge tr-badge--done">Réalisé</span>}
+        {!cancelled && (
           <select
-            className="ctr-select"
+            className="tr-quiet-select"
+            aria-label="Remise des accès"
             value={session.accessDelivery ?? ""}
-            disabled={readOnly || cancelled}
+            disabled={readOnly}
             onChange={(e) => onPatch({ accessDelivery: e.target.value || null })}
           >
-            <option value="">Comme la formation ({accessDefaultLabel})</option>
+            <option value="">Accès {ACCESS_SHORT[accessDefault] ?? ""} (par défaut)</option>
             {ACCESS_DELIVERY.map((a) => (
               <option key={a.value} value={a.value}>
-                {a.label}
+                Accès {ACCESS_SHORT[a.value] ?? a.label}
               </option>
             ))}
           </select>
-        </label>
+        )}
+        {!readOnly && !done && (
+          <>
+            <button
+              type="button"
+              className="tr-text-btn"
+              onClick={() => onPatch({ status: cancelled ? "planifiee" : "annulee" })}
+            >
+              {cancelled ? "Rétablir" : "Annuler"}
+            </button>
+            <button
+              type="button"
+              className="tr-icon-btn"
+              onClick={onRemove}
+              aria-label="Supprimer le créneau"
+              title="Supprimer le créneau"
+            >
+              ×
+            </button>
+          </>
+        )}
       </div>
+    </li>
+  );
+}
 
-      {warnings.length > 0 && (
-        <ul className="tr-warns tr-warns--inline">
-          {warnings.map((w, i) => (
-            <li key={i} className={`tr-warn tr-warn--${w.level}`}>
-              {w.text}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+/** Case à trois états (tout / une partie / rien) pour un groupe de contacts. */
+function GroupCheckbox({
+  checked,
+  partial,
+  disabled,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  partial: boolean;
+  disabled?: boolean;
+  label: string;
+  onChange: (on: boolean) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = partial;
+  }, [partial]);
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label={label}
+      checked={checked}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.checked)}
+    />
+  );
+}
+
+/**
+ * « Qui va à quelle séance » — une ligne par contact (rangés par profil), une
+ * colonne par créneau. La case de groupe coche tout un profil dans un créneau.
+ * La dernière colonne dit combien de séances a chacun : « Aucune » saute aux
+ * yeux, sans être une erreur (on ne forme parfois que l'admin).
+ */
+export function PeopleMatrix({
+  days,
+  sessions,
+  contacts,
+  readOnly,
+  onToggle,
+}: {
+  days: PlanDay[];
+  sessions: PlanSession[];
+  contacts: PlanContact[];
+  readOnly: boolean;
+  onToggle: (session: PlanSession, contactIds: (number | string)[], on: boolean) => void;
+}) {
+  const cols = chronoSessions(days, sessions);
+  if (!cols.length) return null;
+
+  const groups = [
+    ...PROFILS.map((p) => ({ key: p.key as string, label: p.label })),
+    { key: "", label: "Sans profil de licence" },
+  ]
+    .map((g) => ({
+      ...g,
+      members: contacts
+        .filter((c) => (c.licenceProfile ?? "") === g.key)
+        .sort((a, b) => contactName(a).localeCompare(contactName(b))),
+    }))
+    .filter((g) => g.members.length);
+
+  const has = (s: PlanSession, id: number | string) => (s.participants ?? []).some((p) => String(p) === String(id));
+
+  return (
+    <section className="tr-matrix" aria-label="Qui va à quelle séance">
+      <div className="tr-matrix__head">
+        <h3 className="tr-section-title">Qui va à quelle séance</h3>
+        <p className="tr-section-hint">
+          Cochez les participants de chaque créneau. Le groupe du créneau se déduit des personnes cochées.
+        </p>
+      </div>
+      <div className="tr-matrix__scroll">
+        <table className="tr-matrix__table">
+          <thead>
+            <tr>
+              <th scope="col" className="tr-matrix__corner">
+                Contact
+              </th>
+              {cols.map(({ session, dayIndex }) => (
+                <th key={session.id} scope="col" className="tr-matrix__col">
+                  <span className="tr-matrix__col-when">
+                    J{dayIndex} · {session.startTime || "—"}
+                    {session.endTime ? `–${session.endTime}` : ""}
+                  </span>
+                  <span className="tr-matrix__col-what">{sessionTitle(session.profiles)}</span>
+                </th>
+              ))}
+              <th scope="col" className="tr-matrix__count">
+                Séances
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((g) => (
+              <GroupRows
+                key={g.key || "none"}
+                group={g}
+                cols={cols.map((c) => c.session)}
+                has={has}
+                readOnly={readOnly}
+                onToggle={onToggle}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function GroupRows({
+  group,
+  cols,
+  has,
+  readOnly,
+  onToggle,
+}: {
+  group: { key: string; label: string; members: PlanContact[] };
+  cols: PlanSession[];
+  has: (s: PlanSession, id: number | string) => boolean;
+  readOnly: boolean;
+  onToggle: (session: PlanSession, contactIds: (number | string)[], on: boolean) => void;
+}) {
+  const ids = group.members.map((c) => c.id);
+  return (
+    <>
+      <tr className="tr-matrix__group">
+        <th scope="row">
+          {group.label} <span className="tr-matrix__n">{group.members.length}</span>
+        </th>
+        {cols.map((s) => {
+          const n = ids.filter((id) => has(s, id)).length;
+          return (
+            <td key={s.id}>
+              {/* Un profil d'une seule personne : sa propre case suffit. */}
+              {ids.length > 1 && (
+                <GroupCheckbox
+                  label={`${group.label} — tous dans ce créneau`}
+                  checked={n === ids.length}
+                  partial={n > 0 && n < ids.length}
+                  disabled={readOnly}
+                  onChange={(on) => onToggle(s, ids, on)}
+                />
+              )}
+            </td>
+          );
+        })}
+        <td />
+      </tr>
+      {group.members.map((c) => {
+        const count = cols.filter((s) => has(s, c.id)).length;
+        return (
+          <tr key={c.id}>
+            <th scope="row" className="tr-matrix__person">
+              <span className="tr-matrix__who">
+                <span className="tr-matrix__name">{contactName(c)}</span>
+                {!c.email && <span className="tr-person__flag">sans e-mail</span>}
+              </span>
+            </th>
+            {cols.map((s) => (
+              <td key={s.id}>
+                <input
+                  type="checkbox"
+                  aria-label={`${contactName(c)} — ${sessionTitle(s.profiles)} ${s.startTime ?? ""}`}
+                  checked={has(s, c.id)}
+                  disabled={readOnly}
+                  onChange={(e) => onToggle(s, [c.id], e.target.checked)}
+                />
+              </td>
+            ))}
+            <td className={`tr-matrix__count${count ? "" : " is-none"}`}>{count || "Aucune"}</td>
+          </tr>
+        );
+      })}
+    </>
   );
 }
