@@ -1,12 +1,13 @@
 import { headers } from "next/headers";
 
 import { hasAdminRole } from "@/core/access";
-import { SITE_URL } from "@/core/lib/email-template";
 import { payloadClient } from "@/core/payload-client";
-import { readPassword } from "@/modules/marketing/lib/credential-secrets";
+import { PROFILS } from "@/modules/partner/lib/pricing";
 import { trainingRefId } from "@/modules/training/collections/trainingOwned";
-import { memoGestures, printableUrl, timedProgramme, type Programme } from "@/modules/training/lib/kit";
-import { contactName, profileLabel, sessionTitle, sessionsOfDay, type PlanSession } from "@/modules/training/lib/plan";
+import { timedProgramme } from "@/modules/training/lib/kit";
+import { contactName, profileLabel, sessionTitle } from "@/modules/training/lib/plan";
+import { loadTrainingPrint, slotsForProfile, type PrintPerson } from "@/modules/training/lib/print-data";
+import { RoleSheet } from "@/modules/training/print/RoleSheet";
 
 import PrintNow from "../acces/PrintNow";
 
@@ -15,8 +16,7 @@ import PrintNow from "../acces/PrintNow";
  *
  * Pour chaque créneau : le programme horodaté, la feuille de présence, puis les
  * fiches d'identifiants des participants (si c'est le formateur qui les
- * remet). En fin de kit : un mémo « Bien démarrer » par profil formé, à
- * distribuer.
+ * remet). En fin de kit : une fiche de rôle par profil formé, à distribuer.
  *
  * Pour TIM et le formateur de la journée. Les mots de passe ne s'impriment que
  * pour TIM (même règle que la feuille d'accès) : un formateur partenaire a le
@@ -48,48 +48,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ d
     return <p className="p-10 text-muted">Kit réservé à l&apos;équipe TIM et au formateur de la journée.</p>;
   }
 
-  const clientId = trainingRefId(day.client);
-  const [client, training, sessionsRes, settings] = await Promise.all([
-    clientId != null ? payload.findByID({ collection: "partner-clients", id: clientId, depth: 0, overrideAccess: true }).catch(() => null) : null,
-    payload.findByID({ collection: "trainings", id: trainingRefId(day.training) as number | string, depth: 0, overrideAccess: true }).catch(() => null),
-    payload.find({ collection: "training-sessions", where: { day: { equals: dayId } }, depth: 0, limit: 100, overrideAccess: true }),
-    payload.findGlobal({ slug: "training-settings", depth: 0, overrideAccess: true }).catch(() => null),
-  ]);
-  const companyName = (client as { companyName?: string } | null)?.companyName ?? "";
-  const defaultDelivery = (training as { defaultAccessDelivery?: string } | null)?.defaultAccessDelivery ?? "formateur";
-  const sessions = sessionsOfDay(
-    (sessionsRes.docs as unknown as (PlanSession & Doc)[]).map((s) => ({ ...s, day: trainingRefId(s.day) as number | string })),
-    day.id,
-  ).filter((s) => s.status !== "annulee");
-  const programmes = ((settings as { programmes?: Programme[] } | null)?.programmes ?? []) as Programme[];
-
-  // Participants : contacts du client (avec les mots de passe pour TIM seulement).
-  const contactsRes = clientId != null
-    ? await payload.find({ collection: "client-contacts", where: { client: { equals: clientId } }, depth: 0, limit: 300, overrideAccess: true })
-    : { docs: [] };
-  const contacts = new Map((contactsRes.docs as unknown as Doc[]).map((c) => [String(c.id), c]));
-  // Les mots de passe des PARTICIPANTS de la journée seulement, lus en brut
-  // (l'API les masque) puis déchiffrés — pour TIM uniquement.
-  const participantIds = [...new Set(sessions.flatMap((s) => (s.participants ?? []).map(String)))];
-  const passwords = new Map<string, string | null>();
-  if (admin && participantIds.length) {
-    const raw = (await payload.db.find({
-      collection: "client-contacts",
-      where: { id: { in: participantIds } },
-      limit: participantIds.length,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any)) as { docs?: { id: number | string; timPassword?: string | null }[] };
-    for (const c of raw.docs ?? []) passwords.set(String(c.id), readPassword(c.timPassword));
-  }
-
-  // Mémos : un par profil formé ce jour-là, gestes tirés du 1er module du programme.
-  const profiles = [...new Set(sessions.flatMap((s) => s.profiles ?? []))];
-  const parcoursIds = profiles.map((p) => programmes.find((x) => x.profile === p)?.modules?.[0]?.parcours).filter((v) => v != null);
-  const parcoursRes = parcoursIds.length
-    ? await payload.find({ collection: "parcours", where: { id: { in: parcoursIds as (number | string)[] } }, depth: 1, limit: 20, overrideAccess: true })
-    : { docs: [] };
-  const parcoursById = new Map((parcoursRes.docs as unknown as Doc[]).map((p) => [String(p.id), p]));
-  const site = SITE_URL.replace(/\/$/, "");
+  // Les mêmes données que les étiquettes et les fiches par rôle (mots de
+  // passe déchiffrés pour TIM seulement).
+  const data = await loadTrainingPrint(payload, trainingRefId(day.training) as number | string, {
+    withPasswords: admin,
+    dayId: day.id,
+  });
+  if (!data) return <p className="p-10 text-muted">Formation introuvable.</p>;
+  const { companyName, defaultDelivery, sessions, programmes } = data;
+  const people = new Map(data.people.map((p) => [p.id, p]));
+  const profiles = PROFILS.map((p) => p.key as string).filter((k) => sessions.some((s) => (s.profiles ?? []).includes(k)));
 
   const place =
     day.mode === "distance"
@@ -103,11 +71,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ d
       {sessions.length === 0 && <p className="text-muted">Aucun créneau dans cette journée.</p>}
 
       {sessions.map((s, i) => {
-        const people = (s.participants ?? []).map((id) => contacts.get(String(id))).filter(Boolean) as Doc[];
+        const attendees = (s.participants ?? []).map((id) => people.get(String(id))).filter(Boolean) as PrintPerson[];
         const prog = timedProgramme(programmes, s.profiles ?? [], s.startTime, s.endTime);
         const byTrainer = (s.accessDelivery || defaultDelivery) === "formateur";
         const head = (
-          <header className="mb-6">
+          // Pas de <header> : la feuille d'impression du site masque toutes ces
+          // balises (pour retirer le bandeau du site) — l'en-tête disparaîtrait.
+          <div className="mb-6">
             <p className="text-xs font-semibold tracking-wide text-muted uppercase">
               {companyName} · {day.date ? frDay(day.date as string) : "date à fixer"}
             </p>
@@ -120,7 +90,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ d
               {day.locationDetails ? ` · ${String(day.locationDetails).replace(/\n/g, " · ")}` : ""}
               {day.trainerName ? ` · Formateur : ${day.trainerName as string}` : ""}
             </p>
-          </header>
+          </div>
         );
         return (
           <div key={String(s.id)} className={i > 0 ? "break-before-page pt-10 print:pt-0" : ""}>
@@ -164,10 +134,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ d
                   </tr>
                 </thead>
                 <tbody>
-                  {people.map((c) => (
-                    <tr key={String(c.id)} className="h-12 border-b border-border">
-                      <td>{contactName(c as never)}</td>
-                      <td className="text-muted">{profileLabel(c.licenceProfile as string)}</td>
+                  {attendees.map((c) => (
+                    <tr key={c.id} className="h-12 border-b border-border">
+                      <td>{contactName(c)}</td>
+                      <td className="text-muted">{profileLabel(c.profile)}</td>
                       <td />
                     </tr>
                   ))}
@@ -194,20 +164,20 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ d
                   </p>
                 ) : (
                   <div className="mt-4 flex flex-col gap-3">
-                    {people.map((c) => (
-                      <section key={String(c.id)} className="break-inside-avoid rounded-lg border border-border p-4">
+                    {attendees.map((c) => (
+                      <section key={c.id} className="break-inside-avoid rounded-lg border border-border p-4">
                         <div className="flex items-baseline justify-between gap-4">
-                          <span className="text-base font-semibold">{contactName(c as never)}</span>
-                          <span className="text-sm text-muted">{profileLabel(c.licenceProfile as string)}</span>
+                          <span className="text-base font-semibold">{contactName(c)}</span>
+                          <span className="text-sm text-muted">{profileLabel(c.profile)}</span>
                         </div>
                         <dl className="mt-3 flex flex-col gap-1 text-sm">
                           <div className="flex gap-2">
                             <dt className="w-28 shrink-0 text-muted">Identifiant</dt>
-                            <dd className="font-mono">{(c.email as string) || "—"}</dd>
+                            <dd className="font-mono">{c.email || "—"}</dd>
                           </div>
                           <div className="flex gap-2">
                             <dt className="w-28 shrink-0 text-muted">Mot de passe</dt>
-                            <dd className="font-mono">{passwords.get(String(c.id)) || "pas encore généré"}</dd>
+                            <dd className="font-mono">{c.password || "pas encore généré"}</dd>
                           </div>
                         </dl>
                       </section>
@@ -220,46 +190,19 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ d
         );
       })}
 
-      {/* 4. Mémos « Bien démarrer », un par profil */}
-      {profiles.map((p) => {
-        const first = programmes.find((x) => x.profile === p)?.modules?.[0];
-        const parcours = first?.parcours != null ? parcoursById.get(String(first.parcours)) : undefined;
-        const gestures = memoGestures(((parcours?.steps as { title?: string; slug?: string }[]) ?? []).filter((f) => typeof f === "object"), site);
-        return (
-          <div key={p} className="break-before-page pt-10 print:pt-0">
-            <p className="text-xs font-semibold tracking-wide text-muted uppercase">Mémo · {profileLabel(p)}</p>
-            <h1 className="mt-1 mb-6 text-2xl font-bold">Bien démarrer avec TIM</h1>
-            <ol className="flex flex-col gap-4 text-sm">
-              <li>
-                <strong>1. Installez l&apos;application TIM</strong> sur votre téléphone : App Store ou Google Play, cherchez « TIM ».
-              </li>
-              <li>
-                <strong>2. Connectez-vous</strong> : votre identifiant est votre adresse e-mail, votre mot de passe vous a été remis.
-              </li>
-              <li>
-                <strong>3. Mot de passe oublié ?</strong> Lien « Mot de passe oublié » sur l&apos;écran de connexion.
-              </li>
-              {gestures.length > 0 && (
-                <li>
-                  <strong>4. Vos premiers gestes</strong>
-                  <ul className="mt-2 flex flex-col gap-1.5">
-                    {gestures.map((g) => (
-                      <li key={g.url} className="flex justify-between gap-4 border-b border-border pb-1.5">
-                        <span>{g.title}</span>
-                        <span className="font-mono text-xs text-muted">{printableUrl(g.url)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              )}
-              <li>
-                <strong>{gestures.length ? "5" : "4"}. Pour aller plus loin</strong> : tous les guides pas à pas sur{" "}
-                <span className="font-mono">{printableUrl(`${site}/parcours`)}</span>
-              </li>
-            </ol>
-          </div>
-        );
-      })}
+      {/* 4. Une fiche de rôle par profil formé ce jour-là (la même que
+          « Fiches par rôle ») : à distribuer en fin de séance. */}
+      {profiles.map((p) => (
+        <RoleSheet
+          key={p}
+          profile={p}
+          companyName={companyName}
+          modules={programmes.find((x) => x.profile === p)?.modules ?? []}
+          slots={slotsForProfile(data, p)}
+          gestures={data.gestures[p] ?? []}
+          site={data.site}
+        />
+      ))}
     </div>
   );
 }

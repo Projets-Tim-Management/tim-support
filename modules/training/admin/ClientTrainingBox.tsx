@@ -261,6 +261,7 @@ export function ClientTrainingBox() {
           admin={admin}
           userId={user?.id ?? null}
           signable={training.status !== "annule"}
+          userName={[(user as { firstName?: string } | null)?.firstName, (user as { lastName?: string } | null)?.lastName].filter(Boolean).join(" ") || (user as { email?: string } | null)?.email || null}
           onStatusChange={(status) => setTraining((t) => (t ? { ...t, status } : t))}
           onClose={() => {
             setEditing(false);

@@ -18,6 +18,7 @@ import {
 } from "@/modules/training/lib/plan";
 import { AddressSearch } from "@/modules/training/admin/AddressSearch";
 import { joinAddress } from "@/modules/training/lib/address";
+import type { StoredChecklist } from "@/modules/training/lib/checklist";
 import { ACCESS_DELIVERY, TRAINER_TYPES, TRAINING_MODES } from "@/modules/training/lib/training";
 
 /**
@@ -37,7 +38,14 @@ export type User = {
   lastName?: string | null;
   email?: string | null;
 };
-export type Day = PlanDay & { trainerName?: string | null; locationDetails?: string | null };
+export type Day = PlanDay & {
+  trainerName?: string | null;
+  locationDetails?: string | null;
+  /** Checklist de préparation (gestes cochés, points ajoutés). */
+  checklist?: StoredChecklist | null;
+  /** Envois de la journée (lus pour la checklist : convocation partie…). */
+  emails?: { key: string; sentAt?: string | null; cancelledAt?: string | null }[] | null;
+};
 
 /** L'adresse de facturation de la fiche, proposée comme lieu en un clic. */
 export type ClientAddress = { address?: string | null; complement?: string | null };

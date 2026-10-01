@@ -16,6 +16,7 @@ import {
   type User,
 } from "@/modules/training/admin/TrainingPlanParts";
 import { TrainingEmails } from "@/modules/training/admin/TrainingEmails";
+import { TrainingPreparation } from "@/modules/training/admin/TrainingPreparation";
 import {
   DAY_SLOTS,
   draftFromFormula,
@@ -70,6 +71,8 @@ const toDay = (d: Record<string, unknown>): Day => ({
   location: (d.location as string) ?? "",
   link: (d.link as string) ?? "",
   locationDetails: (d.locationDetails as string) ?? "",
+  checklist: (d.checklist as Day["checklist"]) ?? null,
+  emails: (d.emails as Day["emails"]) ?? null,
   trainerType: (d.trainerType as string) ?? "tim",
   trainer: idOf(d.trainer),
   trainerName: (d.trainerName as string) ?? null,
@@ -98,9 +101,12 @@ export function TrainingPlanEditor({
   admin = false,
   userId,
   signable = true,
+  userName,
   onStatusChange,
   onClose,
 }: {
+  /** Nom de la personne connectée : qui a coché un point de la préparation. */
+  userName?: string | null;
   /** La formation vient de se terminer ou de se rouvrir (droits de l'écran à jour). */
   onStatusChange?: (status: string) => void;
   /** Faux pour une formation annulée : plus rien ne s'émarge. */
@@ -127,7 +133,7 @@ export function TrainingPlanEditor({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"plan" | "emails">("plan");
+  const [tab, setTab] = useState<"plan" | "preparation" | "emails">("plan");
 
   const load = useCallback(async () => {
     try {
@@ -428,6 +434,21 @@ export function TrainingPlanEditor({
         <button type="button" className={`tr-tabs__tab${tab === "plan" ? " is-on" : ""}`} onClick={() => setTab("plan")}>
           Plan
         </button>
+        <button
+          type="button"
+          className={`tr-tabs__tab${tab === "preparation" ? " is-on" : ""}`}
+          // Relu en arrivant sur l'onglet (une convocation a pu partir depuis),
+          // APRÈS les enregistrements en cours : relire avant écraserait ce qui
+          // vient d'être coché ou saisi. Déjà sur l'onglet : rien à relire.
+          onClick={async () => {
+            if (tab === "preparation") return;
+            setTab("preparation");
+            await Promise.all([...queues.current.values()]);
+            await load();
+          }}
+        >
+          Préparation
+        </button>
         <button type="button" className={`tr-tabs__tab${tab === "emails" ? " is-on" : ""}`} onClick={() => setTab("emails")}>
           E-mails
         </button>
@@ -437,6 +458,15 @@ export function TrainingPlanEditor({
         <main className="tr-plan__main">
           {tab === "emails" ? (
             <TrainingEmails trainingId={trainingId} readOnly={readOnly} />
+          ) : tab === "preparation" ? (
+            <TrainingPreparation
+              days={sorted}
+              sessions={sessions}
+              contacts={contacts}
+              readOnly={readOnly}
+              userName={userName}
+              onPatchDay={patchDay}
+            />
           ) : loading ? (
             <p className="tr-plan__empty">Chargement du plan…</p>
           ) : !days.length ? (
@@ -482,6 +512,26 @@ export function TrainingPlanEditor({
         </main>
 
         <aside className="tr-plan__aside">
+          {admin && sessions.some((s) => s.status !== "annulee") && (
+            <section className="tr-aside">
+              <h3 className="tr-aside__title">Documents à imprimer</h3>
+              <ul className="tr-docs">
+                <li>
+                  <a href={`/impression/formation/etiquettes?training=${trainingId}`} target="_blank" rel="noopener noreferrer">
+                    Étiquettes d&apos;identifiants
+                  </a>
+                  <span>Planche A4 de 24 étiquettes (70 × 37 mm), une par personne formée.</span>
+                </li>
+                <li>
+                  <a href={`/impression/formation/roles?training=${trainingId}`} target="_blank" rel="noopener noreferrer">
+                    Fiches par rôle
+                  </a>
+                  <span>Ce qui sera abordé et les premières fonctionnalités, une page par profil.</span>
+                </li>
+              </ul>
+              <p className="tr-aside__hint">Le kit complet d&apos;une journée : « Imprimer le kit » sur la journée.</p>
+            </section>
+          )}
           <section className="tr-aside">
             <h3 className="tr-aside__title">Remise des accès</h3>
             <p className="tr-aside__text">Qui donne leurs identifiants aux participants, par défaut :</p>
