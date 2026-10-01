@@ -6,7 +6,7 @@ import { ROLE_TOOLS } from "@/modules/ads/agent/roles";
 import { anonymousSummary, buckets, departement, MIN_GROUP, regionOf } from "@/modules/ads/agent/sources/acquisition";
 import { libraryTokenReminderDue, libraryUrl, parseAds, searchAdLibrary } from "@/modules/ads/agent/sources/ad-library";
 import { createSourcesPort } from "@/modules/ads/agent/sources/port";
-import { htmlToText, isSiteUrl, MAX_PAGES, readSite, sitemapUrls } from "@/modules/ads/agent/sources/site";
+import { htmlToText, isSiteUrl, MAX_PAGES, planSitePages, readSite, sitemapUrls } from "@/modules/ads/agent/sources/site";
 import type { ToolContext } from "@/modules/ads/agent/tools";
 import type { AgentDeps, AgentRow, SourcesPort, StepRow } from "@/modules/ads/agent/types";
 
@@ -26,6 +26,34 @@ describe("site de TIM — liste blanche", () => {
   it("garde le texte lisible : ni scripts, ni menus, ni pied de page", () => {
     const html = `<html><head><title>Pointage &amp; chantier</title><script>var x=1</script></head><body><nav>Menu</nav><h1>Le pointage</h1><p>Sans papier&nbsp;!</p><footer>Mentions</footer></body></html>`;
     expect(htmlToText(html)).toEqual({ title: "Pointage & chantier", text: "Le pointage\nSans papier !" });
+  });
+
+  it("choisit les pages dans l'ordre décidé le 30/09/2026 — sur un extrait du vrai plan du site", () => {
+    const O = "https://tim-management.co";
+    const listed = [
+      "calcul-avancement-chantier", "calcul-cout-revient-ouvrier", "politique-de-cookies-ue", "calculer-planning-ouvrier", "suivi-heures-chantier",
+      "contact-visio", "centre-aide", "offres", "contact", "calculer-pointage-ouvrier", "plaquiste-peintre", "pointage-maconnerie", "employes-rh",
+      "suivi-chantier", "plannings-engins", "plannings-ouvriers", "pointage-digital-mobile-chantier", "", "feuilles-dheures-btp", "actualite", "mentions-legales",
+    ].map((p) => `${O}/${p}`.replace(/\/$/, ""));
+    expect(planSitePages(listed)).toEqual([
+      `${O}/`,
+      `${O}/pointage-digital-mobile-chantier`,
+      `${O}/feuilles-dheures-btp`,
+      `${O}/plannings-ouvriers`,
+      `${O}/suivi-chantier`,
+      `${O}/offres`,
+    ]);
+    // Avec de la place : les autres pages de fonctionnalités, puis les calculateurs ; jamais une page légale.
+    const more = planSitePages(listed, 30);
+    expect(more.indexOf(`${O}/suivi-heures-chantier`)).toBeLessThan(more.indexOf(`${O}/calcul-avancement-chantier`));
+    expect(more.some((u) => /cookies|mentions/.test(u))).toBe(false);
+  });
+
+  it("refuse une page légale demandée explicitement", async () => {
+    const fetcher = vi.fn(async () => ({ ok: true, status: 200, text: async () => "<p>ok</p>" }));
+    const r = await readSite(fetcher, ["https://tim-management.co/politique-de-cookies-ue", "https://tim-management.co/offres"]);
+    expect(r.refused).toEqual(["https://tim-management.co/politique-de-cookies-ue"]);
+    expect(r.pages.map((p) => p.url)).toEqual(["https://tim-management.co/offres"]);
   });
 
   it("lit l'accueil puis le plan du site, borné, et refuse ce qui sort du domaine", async () => {

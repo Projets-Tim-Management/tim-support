@@ -47,19 +47,69 @@ export function sitemapUrls(xml: string): string[] {
 export type SitePage = { url: string; title: string; text: string };
 export type Fetcher = (url: string) => Promise<{ ok: boolean; status: number; text: () => Promise<string> }>;
 
+/** Pages légales : jamais lues, elles n'apprennent rien au stratège (décision du 30/09/2026). */
+const LEGAL = /mentions|cookie|cgv|cgu|conditions-generales|confidentialit|privacy|politique-de-donnees|legal|rgpd/i;
+
 /**
- * Lit des pages du site. Sans adresse demandée : l'accueil puis le plan du
- * site, dans cet ordre. Une adresse hors du domaine est refusée, une page en
- * erreur est sautée (et dite).
+ * Les pages de fonctionnalités, par sujet, dans l'ordre de priorité ; pour
+ * chaque sujet, le motif le plus précis d'abord (la page de la fonctionnalité
+ * avant une page métier qui en parle).
+ */
+const PRODUCT_TOPICS: RegExp[][] = [
+  [/^\/pointage-digital/, /pointage/],
+  [/^\/feuilles?-d-?heures/, /feuilles?-d-?heures/],
+  [/^\/plannings?-ouvriers?/, /planning/],
+  [/^\/suivi-chantier$/, /suivi/],
+];
+const PRICING = /offres|tarif|prix|pricing/i;
+const CALCULATOR = /calcul/i;
+
+const pathOf = (url: string) => new URL(url).pathname.replace(/\/$/, "") || "/";
+
+/**
+ * Les pages à lire, dans l'ordre (décision du 30/09/2026) : l'accueil ; une page
+ * par fonctionnalité (pointage, feuilles d'heures, plannings, suivi de chantier) ;
+ * les offres ; les autres pages de fonctionnalités ; les calculateurs ; le reste.
+ * Jamais une page légale. Pure — c'est elle qu'on teste, et l'aperçu montre son
+ * résultat tel quel.
+ */
+export function planSitePages(listed: string[], max = MAX_PAGES): string[] {
+  const home = `${SITE_ORIGIN}/`;
+  const urls = [...new Set(listed.filter((u) => isSiteUrl(u) && !LEGAL.test(pathOf(u)) && pathOf(u) !== "/"))];
+  const taken = new Set<string>();
+  const take = (u: string | undefined) => u && taken.add(u);
+  for (const topic of PRODUCT_TOPICS) {
+    for (const re of topic) {
+      const hit = urls.find((u) => !taken.has(u) && !CALCULATOR.test(pathOf(u)) && re.test(pathOf(u)));
+      if (hit) {
+        take(hit);
+        break;
+      }
+    }
+  }
+  const product = (u: string) => !CALCULATOR.test(pathOf(u)) && PRODUCT_TOPICS.some((t) => t.some((re) => re.test(pathOf(u))));
+  const rest = (test: (u: string) => boolean) => urls.filter((u) => !taken.has(u) && test(u));
+  const ordered = [home, ...taken, ...rest((u) => PRICING.test(pathOf(u))), ...rest(product), ...rest((u) => CALCULATOR.test(pathOf(u)))];
+  const withRest = [...ordered, ...urls.filter((u) => !ordered.includes(u))];
+  return [...new Set(withRest)].slice(0, max);
+}
+
+/** Les pages que la lecture du site prendra par défaut : le plan du site, ordonné. */
+export async function plannedSitePages(fetcher: Fetcher): Promise<string[]> {
+  const map = await fetcher(`${SITE_ORIGIN}/sitemap.xml`).catch(() => null);
+  return planSitePages(map?.ok ? sitemapUrls(await map.text()) : []);
+}
+
+/**
+ * Lit des pages du site. Sans adresse demandée : celles de `planSitePages`. Une
+ * adresse hors du domaine, ou une page légale, est refusée ; une page en erreur
+ * est sautée (et dite).
  */
 export async function readSite(fetcher: Fetcher, urls?: string[]): Promise<{ pages: SitePage[]; refused: string[]; failed: string[] }> {
-  const refused = (urls ?? []).filter((u) => !isSiteUrl(u));
-  let wanted = (urls ?? []).filter(isSiteUrl);
-  if (!wanted.length) {
-    const map = await fetcher(`${SITE_ORIGIN}/sitemap.xml`).catch(() => null);
-    const listed = map?.ok ? sitemapUrls(await map.text()) : [];
-    wanted = [`${SITE_ORIGIN}/`, ...listed.filter((u) => u.replace(/\/$/, "") !== SITE_ORIGIN)];
-  }
+  const allowed = (u: string) => isSiteUrl(u) && !LEGAL.test(pathOf(u));
+  const refused = (urls ?? []).filter((u) => !allowed(u));
+  let wanted = (urls ?? []).filter(allowed);
+  if (!wanted.length) wanted = await plannedSitePages(fetcher);
   const pages: SitePage[] = [];
   const failed: string[] = [];
   for (const url of [...new Set(wanted)].slice(0, MAX_PAGES)) {
