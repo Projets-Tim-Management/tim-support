@@ -1,8 +1,10 @@
 "use client";
 
+import { useAuth } from "@payloadcms/ui";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 
+import { hasAdminRole } from "@/core/access";
 import { PRODUCTION_STEPS } from "@/modules/marketing/lib/journey";
 
 /**
@@ -18,6 +20,10 @@ import { PRODUCTION_STEPS } from "@/modules/marketing/lib/journey";
  * l'onglet « Signature » de la fiche. Un client passé par un test a déjà son
  * espace : la case le renvoie simplement vers sa page « Signature ».
  *
+ * TIM peut aussi y cocher « Formation incluse » quand l'entreprise a pris une
+ * formation : le parcours « Formation » s'ouvre avec la mise en production.
+ * Case réservée à l'admin — c'est TIM qui bâtit le plan de formation.
+ *
  * Rendu par PORTAIL sur <body>, habillage `tim-archive` : même famille que le
  * modal « Affaire gagnée ».
  */
@@ -30,9 +36,11 @@ export function StartSigningModal({
   companyName?: string;
   email?: string | null;
   onCancel: () => void;
-  onConfirm: (sendInvite: boolean) => void;
+  onConfirm: (sendInvite: boolean, openTraining: boolean) => void;
 }) {
+  const { user } = useAuth();
   const [invite, setInvite] = useState(false);
+  const [training, setTraining] = useState(false);
   if (typeof document === "undefined") return null;
 
   return createPortal(
@@ -52,6 +60,7 @@ export function StartSigningModal({
           ))}
         </ol>
         <SigningInviteChoice email={email} checked={invite} onChange={setInvite} />
+        {hasAdminRole(user) && <TrainingChoice checked={training} onChange={setTraining} />}
         <div className="tim-archive__actions">
           <button type="button" className="tim-archive__btn tim-archive__btn--ghost" onClick={onCancel}>
             Annuler
@@ -59,7 +68,7 @@ export function StartSigningModal({
           <button
             type="button"
             className="tim-archive__btn tim-archive__btn--primary"
-            onClick={() => onConfirm(invite)}
+            onClick={() => onConfirm(invite, training)}
           >
             Lancer la mise en production
           </button>
@@ -67,6 +76,23 @@ export function StartSigningModal({
       </div>
     </div>,
     document.body,
+  );
+}
+
+/** « Formation incluse » — ouvre le parcours « Formation » avec la mise en production. */
+function TrainingChoice({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <label className="sig-invite">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span>
+        Formation incluse
+        <span className="sig-invite__hint">
+          {checked
+            ? "Le parcours « Formation » s'ouvre : vous bâtirez le plan (journées, séances, participants) depuis la fiche."
+            : "Payée ou offerte. Vous pourrez aussi l'ouvrir plus tard depuis la fiche."}
+        </span>
+      </span>
+    </label>
   );
 }
 

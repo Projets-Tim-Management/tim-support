@@ -63,6 +63,10 @@ import { ClientContracts } from "./modules/partner/collections/ClientContracts";
 import { CalendarConnections } from "./modules/marketing/collections/CalendarConnections";
 import { seedJourneys } from "./modules/marketing/lib/seed";
 import { ContractSettings, seedContractSettings } from "./modules/partner/globals/ContractSettings";
+import { Trainings } from "./modules/training/collections/Trainings";
+import { TrainingDays } from "./modules/training/collections/TrainingDays";
+import { TrainingSessions } from "./modules/training/collections/TrainingSessions";
+import { TrainingSettings, seedTrainingSettings } from "./modules/training/globals/TrainingSettings";
 import { CompanySettings, seedCompanySettings } from "./core/globals/CompanySettings";
 import { seedForms } from "./modules/forms/lib/seed";
 import { seedSequences } from "./modules/marketing/lib/sequence-seed";
@@ -374,6 +378,10 @@ export default buildConfig({
       ClientPortalAccounts,
       ElectronicSignatures,
       ClientContracts, // caché : géré depuis l'onglet « Signature » de la fiche
+      // Parcours « Formation » (facultatif) — cachés : gérés depuis l'encart de la fiche.
+      Trainings,
+      TrainingDays,
+      TrainingSessions,
       // Agendas connectés des partenaires (jetons OAuth chiffrés).
       CalendarConnections,
       // Système
@@ -520,6 +528,8 @@ export default buildConfig({
     await seedJourneys(payload);
     // Le modèle du contrat SaaS, s'il n'est pas encore en base.
     await seedContractSettings(payload);
+    // Le programme type de formation, tiré des parcours éditoriaux s'il est vide.
+    await seedTrainingSettings(payload);
     // L'identité de la société (page Système → Entreprise), si elle est vide.
     await seedCompanySettings(payload);
 
@@ -564,7 +574,7 @@ export default buildConfig({
        */
     }),
   ],
-  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, AdsSettings, AdsBrandKit],
+  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, TrainingSettings, AdsSettings, AdsBrandKit],
 
   db: postgresAdapter({
     // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :

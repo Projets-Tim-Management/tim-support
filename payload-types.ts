@@ -113,6 +113,9 @@ export interface Config {
     'client-portal-accounts': ClientPortalAccount;
     'electronic-signatures': ElectronicSignature;
     'client-contracts': ClientContract;
+    trainings: Training;
+    'training-days': TrainingDay;
+    'training-sessions': TrainingSession;
     'calendar-connections': CalendarConnection;
     media: Media;
     users: User;
@@ -189,6 +192,9 @@ export interface Config {
     'client-portal-accounts': ClientPortalAccountsSelect<false> | ClientPortalAccountsSelect<true>;
     'electronic-signatures': ElectronicSignaturesSelect<false> | ElectronicSignaturesSelect<true>;
     'client-contracts': ClientContractsSelect<false> | ClientContractsSelect<true>;
+    trainings: TrainingsSelect<false> | TrainingsSelect<true>;
+    'training-days': TrainingDaysSelect<false> | TrainingDaysSelect<true>;
+    'training-sessions': TrainingSessionsSelect<false> | TrainingSessionsSelect<true>;
     'calendar-connections': CalendarConnectionsSelect<false> | CalendarConnectionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
@@ -206,6 +212,7 @@ export interface Config {
     'support-connections': SupportConnection;
     'company-settings': CompanySetting;
     'contract-settings': ContractSetting;
+    'training-settings': TrainingSetting;
     'ads-settings': AdsSetting;
     'ads-brand-kit': AdsBrandKit;
   };
@@ -214,6 +221,7 @@ export interface Config {
     'support-connections': SupportConnectionsSelect<false> | SupportConnectionsSelect<true>;
     'company-settings': CompanySettingsSelect<false> | CompanySettingsSelect<true>;
     'contract-settings': ContractSettingsSelect<false> | ContractSettingsSelect<true>;
+    'training-settings': TrainingSettingsSelect<false> | TrainingSettingsSelect<true>;
     'ads-settings': AdsSettingsSelect<false> | AdsSettingsSelect<true>;
     'ads-brand-kit': AdsBrandKitSelect<false> | AdsBrandKitSelect<true>;
   };
@@ -543,6 +551,7 @@ export interface PartnerClient {
   id: number;
   signingStartedAt?: string | null;
   sendPortalInvite?: boolean | null;
+  openTraining?: boolean | null;
   geo?: {
     lat?: number | null;
     lng?: number | null;
@@ -3164,6 +3173,80 @@ export interface ClientContract {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "trainings".
+ */
+export interface Training {
+  id: number;
+  client: number | PartnerClient;
+  partner?: (number | null) | Partner;
+  status: 'ouvert' | 'termine' | 'annule';
+  /**
+   * Valeur par défaut de chaque séance, modifiable séance par séance.
+   */
+  defaultAccessDelivery: 'formateur' | 'client';
+  notes?: string | null;
+  openedAt?: string | null;
+  openedBy?: (number | null) | User;
+  closedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "training-days".
+ */
+export interface TrainingDay {
+  id: number;
+  training: number | Training;
+  client?: (number | null) | PartnerClient;
+  partner?: (number | null) | Partner;
+  date?: string | null;
+  mode: 'sur-place' | 'distance';
+  location?: string | null;
+  link?: string | null;
+  trainerType: 'tim' | 'partenaire';
+  trainer?: (number | null) | User;
+  checklist?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "training-sessions".
+ */
+export interface TrainingSession {
+  id: number;
+  day: number | TrainingDay;
+  training?: (number | null) | Training;
+  client?: (number | null) | PartnerClient;
+  partner?: (number | null) | Partner;
+  order?: number | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  status: 'planifiee' | 'realisee' | 'annulee';
+  profiles: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon')[];
+  participants?: (number | ClientContact)[] | null;
+  /**
+   * Laisser vide pour reprendre le réglage de la formation.
+   */
+  accessDelivery?: ('formateur' | 'client') | null;
+  attendance?: (number | ClientContact)[] | null;
+  attendanceAt?: string | null;
+  attendanceBy?: (number | null) | User;
+  accessDeliveredAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "calendar-connections".
  */
 export interface CalendarConnection {
@@ -3394,6 +3477,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'client-contracts';
         value: number | ClientContract;
+      } | null)
+    | ({
+        relationTo: 'trainings';
+        value: number | Training;
+      } | null)
+    | ({
+        relationTo: 'training-days';
+        value: number | TrainingDay;
+      } | null)
+    | ({
+        relationTo: 'training-sessions';
+        value: number | TrainingSession;
       } | null)
     | ({
         relationTo: 'calendar-connections';
@@ -3812,6 +3907,7 @@ export interface PartnersSelect<T extends boolean = true> {
 export interface PartnerClientsSelect<T extends boolean = true> {
   signingStartedAt?: T;
   sendPortalInvite?: T;
+  openTraining?: T;
   geo?:
     | T
     | {
@@ -4935,6 +5031,63 @@ export interface ClientContractsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "trainings_select".
+ */
+export interface TrainingsSelect<T extends boolean = true> {
+  client?: T;
+  partner?: T;
+  status?: T;
+  defaultAccessDelivery?: T;
+  notes?: T;
+  openedAt?: T;
+  openedBy?: T;
+  closedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "training-days_select".
+ */
+export interface TrainingDaysSelect<T extends boolean = true> {
+  training?: T;
+  client?: T;
+  partner?: T;
+  date?: T;
+  mode?: T;
+  location?: T;
+  link?: T;
+  trainerType?: T;
+  trainer?: T;
+  checklist?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "training-sessions_select".
+ */
+export interface TrainingSessionsSelect<T extends boolean = true> {
+  day?: T;
+  training?: T;
+  client?: T;
+  partner?: T;
+  order?: T;
+  startTime?: T;
+  endTime?: T;
+  status?: T;
+  profiles?: T;
+  participants?: T;
+  accessDelivery?: T;
+  attendance?: T;
+  attendanceAt?: T;
+  attendanceBy?: T;
+  accessDeliveredAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "calendar-connections_select".
  */
 export interface CalendarConnectionsSelect<T extends boolean = true> {
@@ -5171,6 +5324,32 @@ export interface ContractSetting {
   createdAt?: string | null;
 }
 /**
+ * Le programme type de chaque profil, prérempli depuis les parcours d'apprentissage du site support. Il sert au programme des séances et au mémo « Bien démarrer ». Réservé à TIM.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "training-settings".
+ */
+export interface TrainingSetting {
+  id: number;
+  programmes?:
+    | {
+        profile: 'admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon';
+        modules?:
+          | {
+              title: string;
+              minutes?: number | null;
+              parcours?: (number | null) | Parcour;
+              feature?: (number | null) | Feature;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * Ce que les agents et l'atelier de créas n'ont pas le droit de faire, ni de dépenser. Réservé à TIM.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -5357,6 +5536,30 @@ export interface ContractSettingsSelect<T extends boolean = true> {
         priceNoticeDelay?: T;
         debitDay?: T;
         territory?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "training-settings_select".
+ */
+export interface TrainingSettingsSelect<T extends boolean = true> {
+  programmes?:
+    | T
+    | {
+        profile?: T;
+        modules?:
+          | T
+          | {
+              title?: T;
+              minutes?: T;
+              parcours?: T;
+              feature?: T;
+              id?: T;
+            };
+        id?: T;
       };
   updatedAt?: T;
   createdAt?: T;

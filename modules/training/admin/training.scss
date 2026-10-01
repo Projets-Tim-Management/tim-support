@@ -1,0 +1,21 @@
+/* ─── Parcours « Formation » (encart de la fiche client) ────────────────────────
+   Reprend l'habillage des encarts de parcours (.jr-box, journey.scss) ; ici
+   seulement ce qui lui est propre. Couleurs en tokens (styles/_tokens.scss). */
+
+/* Avertissement non bloquant : formation ouverte avant l'activation. */
+.tr-box__warn {
+  margin: 0.5rem 0 0.625rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+/* Geste rare et réversible à la main : discret, sous le reste. */
+.tr-box__cancel {
+  display: block;
+  margin-top: 0.625rem;
+  padding-left: 0;
+}

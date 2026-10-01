@@ -43,6 +43,7 @@ import { ensureSigningAccess, templateTexts } from "@/modules/partner/lib/signin
 import { afterResponse } from "@/core/lib/after-response";
 import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
 import { startProductionJourney } from "@/modules/marketing/lib/production";
+import { openTraining } from "@/modules/training/lib/open";
 import { signingStarted, signingSteps, stampDocumentDates } from "@/modules/partner/lib/signing";
 import { LEGAL_FORMS } from "@/modules/partner/lib/legal-forms";
 import { ENGAGEMENT_OPTIONS } from "@/modules/partner/lib/contract-vars";
@@ -265,6 +266,10 @@ const CLIENT_CHILDREN = [
   "client-contacts",
   "client-contracts",
   "electronic-signatures",
+  // Séances, puis journées, puis la formation : l'ordre des dépendances.
+  "training-sessions",
+  "training-days",
+  "trainings",
 ] as const;
 
 const deleteClientChildren: CollectionBeforeDeleteHook = async ({ req, id }) => {
@@ -356,6 +361,13 @@ const armJourneySteps: CollectionAfterChangeHook = async ({ doc, previousDoc, re
 const SEND_INVITE = "sendPortalInvite";
 
 /**
+ * Canal « Formation incluse », posé par le modal « En signature » : ouvre le
+ * parcours « Formation » une fois la fiche enregistrée (voir openTrainingOnRequest).
+ * Même mécanique que l'invitation : champ virtuel, relayé par le contexte.
+ */
+const OPEN_TRAINING = "openTraining";
+
+/**
  * Process de signature : pose les dates des documents qui arrivent, et la date
  * de démarrage au passage en « Gagnée » (voir lib/signing).
  */
@@ -366,6 +378,10 @@ const stampSigning: CollectionBeforeChangeHook = ({ data, originalDoc, req }) =>
   if (SEND_INVITE in next) {
     ctx[SEND_INVITE] = next[SEND_INVITE] === true;
     delete next[SEND_INVITE];
+  }
+  if (OPEN_TRAINING in next) {
+    ctx[OPEN_TRAINING] = next[OPEN_TRAINING] === true;
+    delete next[OPEN_TRAINING];
   }
 
   const now = new Date().toISOString();
@@ -470,6 +486,22 @@ const openProduction: CollectionAfterChangeHook = async ({ doc, previousDoc, req
   if (!result.ok) {
     req.payload.logger.warn(`[signature] accès espace client de ${doc.id} : ${result.reason}.`);
   }
+  return doc;
+};
+
+/**
+ * « Formation incluse » cochée : le parcours « Formation » s'ouvre. Réservé à
+ * TIM, qui seul bâtit le plan — la case n'est proposée qu'à un admin, et le
+ * serveur ne l'honore que pour lui. Un échec ne bloque pas l'enregistrement :
+ * la formation s'ouvre aussi depuis l'encart de la fiche. Hors transaction de
+ * la fiche (voir openTraining), pour qu'un échec ne l'annule pas.
+ */
+const openTrainingOnRequest: CollectionAfterChangeHook = async ({ doc, req }) => {
+  const ctx = req.context as Record<string, unknown>;
+  const wanted = ctx[OPEN_TRAINING] === true;
+  delete ctx[OPEN_TRAINING];
+  if (!wanted || doc?._status === "draft" || !hasAdminRole(req.user)) return doc;
+  await openTraining(req.payload, doc.id, { openedBy: req.user?.id ?? null });
   return doc;
 };
 
@@ -662,7 +694,15 @@ export const PartnerClients: CollectionConfig = {
     // sur les transitions de « Perdue », et ne doit jamais faire échouer un
     // enregistrement — on ne refuse pas de clore une affaire parce qu'un envoi
     // futur n'a pas pu être planifié.
-    afterChange: [armJourneySteps, writeJournal, openProduction, notifyDocumentAvailable, linkSignedContract, enrollSequence],
+    afterChange: [
+      armJourneySteps,
+      writeJournal,
+      openProduction,
+      openTrainingOnRequest,
+      notifyDocumentAvailable,
+      linkSignedContract,
+      enrollSequence,
+    ],
     // Vide ce qui n'existe que par ce client avant de le supprimer, sans quoi
     // Postgres refuse la suppression (cf. deleteClientChildren).
     beforeDelete: [deleteClientChildren],
@@ -710,6 +750,7 @@ export const PartnerClients: CollectionConfig = {
      */
     { name: "signingStartedAt", type: "date", admin: { hidden: true } },
     { name: "sendPortalInvite", type: "checkbox", virtual: true, admin: { hidden: true } },
+    { name: "openTraining", type: "checkbox", virtual: true, admin: { hidden: true } },
     {
       name: "geo",
       type: "group",
@@ -1539,6 +1580,16 @@ export const PartnerClients: CollectionConfig = {
       admin: {
         position: "sidebar",
         components: { Field: "/modules/marketing/admin/ClientJourneyBox#ClientJourneyBox" },
+      },
+    },
+    // Le parcours « Formation », facultatif : sous le parcours principal, parce
+    // qu'il le complète sans le remplacer (il ne touche pas au statut).
+    {
+      name: "trainingBox",
+      type: "ui",
+      admin: {
+        position: "sidebar",
+        components: { Field: "/modules/training/admin/ClientTrainingBox#ClientTrainingBox" },
       },
     },
     /**

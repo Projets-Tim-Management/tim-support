@@ -1198,13 +1198,15 @@ export function PartnerClientsBoard() {
           companyName={startingSigning.companyName}
           email={startingSigning.email}
           onCancel={() => setStartingSigning(null)}
-          onConfirm={(sendInvite) => {
+          onConfirm={(sendInvite, openTraining) => {
             const client = startingSigning;
             setStartingSigning(null);
-            // Champ virtuel, lu par le serveur (voir openProduction).
+            // Champs virtuels, lus par le serveur (voir openProduction et
+            // openTrainingOnRequest).
             void applyMove(client, "en-signature", {
               resiliationDate: null,
               sendPortalInvite: sendInvite,
+              openTraining,
             } as Partial<ClientDoc>);
           }}
         />
