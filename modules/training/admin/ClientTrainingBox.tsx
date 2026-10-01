@@ -256,6 +256,10 @@ export function ClientTrainingBox() {
           clientAddress={{ address: billingAddress, complement: billingComplement }}
           // Une formation close se consulte, elle ne se replanifie pas.
           readOnly={!admin || closed}
+          admin={admin}
+          userId={user?.id ?? null}
+          signable={training.status !== "annule"}
+          onStatusChange={(status) => setTraining((t) => (t ? { ...t, status } : t))}
           onClose={() => {
             setEditing(false);
             void reload();
@@ -270,7 +274,8 @@ export function ClientTrainingBox() {
 function PlanSummary({ plan }: { plan: Plan }) {
   const steps = planSteps(plan.days, plan.sessions);
   const active = plan.sessions.filter((s) => s.status !== "annulee");
-  const next = steps.find((s) => !s.done);
+  // Ce qui reste à PRÉPARER (les trois premières) ; l'émargement vient ensuite.
+  const next = steps.slice(0, 3).find((s) => !s.done);
   return (
     <div className="jr-box__current">
       <span className="jr-box__current-k">Plan de formation</span>
@@ -287,7 +292,7 @@ function PlanSummary({ plan }: { plan: Plan }) {
         </ul>
       )}
       {plan.days.length > 0 && next && <span className="tr-box__next">À faire : {next.hint.toLowerCase()}</span>}
-      {!next && <Upcoming plan={plan} />}
+      {!next && !steps[3].done && <Upcoming plan={plan} />}
     </div>
   );
 }

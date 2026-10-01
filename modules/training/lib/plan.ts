@@ -25,6 +25,8 @@ export type PlanSession = {
   endTime?: string | null;
   profiles?: string[] | null;
   participants?: (number | string)[] | null;
+  /** Présents, cochés à l'émargement. */
+  attendance?: (number | string)[] | null;
   accessDelivery?: string | null;
   status?: string | null;
 };
@@ -99,8 +101,34 @@ export function planSteps(days: PlanDay[], sessions: PlanSession[]): PlanStep[] 
       done: usedDays.length > 0 && usedDays.every((d) => Boolean(d.date)),
       hint: "Toutes les journées qui ont une séance sont datées.",
     },
+    {
+      key: "realisees",
+      label: "Séances réalisées",
+      done: allSessionsDone(sessions),
+      hint: "Chaque séance non annulée est émargée.",
+    },
   ];
 }
+
+/**
+ * Toutes les séances non annulées sont réalisées (émargées) — et il y en a au
+ * moins une. C'est ce qui termine la formation.
+ */
+export const allSessionsDone = (sessions: PlanSession[]): boolean => {
+  const active = sessions.filter(isActive);
+  return active.length > 0 && active.every((s) => s.status === "realisee");
+};
+
+/** Jour civil de Paris d'un instant (« 2026-10-02 »). */
+export const parisDay = (ms: number): string =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(ms);
+
+/**
+ * Une séance s'émarge à partir de SON jour (jour civil de Paris), jamais avant :
+ * l'émargement constate une présence, il ne l'annonce pas.
+ */
+export const canSignOn = (dayDate: string | null | undefined, nowMs: number): boolean =>
+  Boolean(dayDate) && (dayKey(dayDate) as string) <= parisDay(nowMs);
 
 // ─── Points d'attention ─────────────────────────────────────────────────────
 

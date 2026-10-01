@@ -558,3 +558,41 @@ th.tr-matrix__count { font-size: 0.6875rem; font-weight: 600; }
 .tr-mail__people--next { color: var(--tim-muted); }
 .tr-mail__actions { display: flex; gap: 0.25rem; justify-content: flex-end; }
 .tr-text-btn--strong { font-weight: 700; color: var(--tim-primary); }
+
+/* ─── Émargement ─── */
+.tr-slot.is-signing { grid-template-columns: auto minmax(0, 1fr) auto; }
+.tr-slot__present { color: var(--tim-green); }
+.tr-sign-btn {
+  height: 1.875rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  &:hover:not(:disabled) { background: var(--tim-primary-dark); }
+  &:disabled { opacity: 0.5; cursor: default; }
+}
+.tr-attend {
+  grid-column: 1 / -1;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--tim-primary);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary-light);
+}
+.tr-attend__head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.tr-attend__title { font-weight: 700; }
+.tr-attend__people { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.25rem 1rem; margin: 0.5rem 0; }
+.tr-attend__person {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  cursor: pointer;
+  input { width: 1rem; height: 1rem; accent-color: var(--tim-primary); }
+}
+.tr-attend__foot { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; }
+.tr-attend__undo { margin-right: auto; color: var(--tim-danger-text); }

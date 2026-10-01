@@ -212,6 +212,9 @@ export function DayCard({
   accessDefault,
   clientAddress,
   readOnly,
+  canSign = false,
+  canUndoSign = false,
+  onSign,
   onPatch,
   onRemove,
   onAddSession,
@@ -221,6 +224,11 @@ export function DayCard({
   index: number;
   day: Day;
   clientAddress?: ClientAddress;
+  /** Peut émarger les créneaux de cette journée (TIM ou son formateur, à partir du jour J). */
+  canSign?: boolean;
+  /** Annuler un émargement : TIM seulement (cela peut rouvrir la formation). */
+  canUndoSign?: boolean;
+  onSign?: (s: PlanSession, attendance: (number | string)[] | null) => Promise<boolean>;
   sessions: PlanSession[];
   contacts: PlanContact[];
   warnings: PlanWarning[];
@@ -386,6 +394,9 @@ export function DayCard({
             warnings={warnings.filter((w) => w.sessionId != null && String(w.sessionId) === String(s.id))}
             accessDefault={accessDefault}
             readOnly={readOnly}
+            canSign={canSign}
+            canUndoSign={canUndoSign}
+            onSign={onSign ? (attendance) => onSign(s, attendance) : undefined}
             onPatch={(p) => onPatchSession(s.id, p)}
             onRemove={() => onRemoveSession(s)}
           />
@@ -408,32 +419,41 @@ function SessionRow({
   warnings,
   accessDefault,
   readOnly,
+  canSign,
+  canUndoSign,
+  onSign,
   onPatch,
   onRemove,
 }: {
   session: PlanSession;
+  canUndoSign: boolean;
   contacts: PlanContact[];
   warnings: PlanWarning[];
   accessDefault: string;
   readOnly: boolean;
+  canSign: boolean;
+  onSign?: (attendance: (number | string)[] | null) => Promise<boolean>;
   onPatch: (p: Partial<PlanSession>) => void;
   onRemove: () => void;
 }) {
   const cancelled = session.status === "annulee";
   const done = session.status === "realisee";
   const ids = new Set((session.participants ?? []).map(String));
-  const people = contacts.filter((c) => ids.has(String(c.id))).map(contactName);
+  const participants = contacts.filter((c) => ids.has(String(c.id)));
+  const people = participants.map(contactName);
+  const present = new Set((session.attendance ?? []).map(String));
   const alert = warnings.some((w) => w.level === "alerte");
+  const [signing, setSigning] = useState(false);
 
   return (
-    <li className={`tr-slot${cancelled ? " is-cancelled" : ""}`}>
+    <li className={`tr-slot${cancelled ? " is-cancelled" : ""}${signing ? " is-signing" : ""}`}>
       <div className="tr-slot__time">
         <BlurInput
           type="time"
           className="tr-input tr-input--time"
           aria-label="Début"
           value={session.startTime ?? ""}
-          disabled={readOnly || cancelled}
+          disabled={readOnly || cancelled || done}
           onCommit={(v) => onPatch({ startTime: v })}
         />
         <span aria-hidden="true">–</span>
@@ -442,7 +462,7 @@ function SessionRow({
           className="tr-input tr-input--time"
           aria-label="Fin"
           value={session.endTime ?? ""}
-          disabled={readOnly || cancelled}
+          disabled={readOnly || cancelled || done}
           onCommit={(v) => onPatch({ endTime: v })}
         />
       </div>
@@ -460,17 +480,40 @@ function SessionRow({
             </span>
           )}
         </span>
-        <span className={`tr-slot__people${people.length ? "" : " is-empty"}`}>
-          {people.length
-            ? people.join(", ")
-            : "Personne pour l'instant — cochez les participants dans le tableau ci-dessous."}
-        </span>
+        {done ? (
+          <span className="tr-slot__people">
+            <strong className="tr-slot__present">
+              {present.size} présent{present.size > 1 ? "s" : ""} sur {participants.length}
+            </strong>
+            {participants.some((c) => !present.has(String(c.id))) &&
+              ` · absent${participants.filter((c) => !present.has(String(c.id))).length > 1 ? "s" : ""} : ${participants
+                .filter((c) => !present.has(String(c.id)))
+                .map(contactName)
+                .join(", ")}`}
+          </span>
+        ) : (
+          <span className={`tr-slot__people${people.length ? "" : " is-empty"}`}>
+            {people.length
+              ? people.join(", ")
+              : "Personne pour l'instant — cochez les participants dans le tableau ci-dessous."}
+          </span>
+        )}
       </div>
 
       <div className="tr-slot__side">
         {cancelled && <span className="tr-badge">Annulé</span>}
         {done && <span className="tr-badge tr-badge--done">Réalisé</span>}
-        {!cancelled && (
+        {canSign && onSign && !cancelled && participants.length > 0 && !signing && (
+          <button
+            type="button"
+            className={done ? "tr-text-btn" : "tr-sign-btn"}
+            onClick={() => setSigning(true)}
+          >
+            {done ? "Modifier l'émargement" : "Émarger"}
+          </button>
+        )}
+        {/* Réalisé : la remise des accès est un fait passé, plus un réglage. */}
+        {!cancelled && !done && (
           <select
             className="tr-quiet-select"
             aria-label="Remise des accès"
@@ -486,7 +529,7 @@ function SessionRow({
             ))}
           </select>
         )}
-        {!readOnly && !done && (
+        {!readOnly && !done && !signing && (
           <>
             <button
               type="button"
@@ -507,7 +550,98 @@ function SessionRow({
           </>
         )}
       </div>
+
+      {signing && onSign && (
+        <AttendancePanel
+          participants={participants}
+          initial={done ? [...present] : []}
+          canUndo={done && canUndoSign}
+          onCancel={() => setSigning(false)}
+          onSubmit={async (attendance) => {
+            if (await onSign(attendance)) setSigning(false);
+          }}
+        />
+      )}
     </li>
+  );
+}
+
+/**
+ * Qui est présent ? On coche ceux qui sont là — rien n'est coché d'avance :
+ * l'émargement constate, il ne présume pas. « Tous présents » pour le cas
+ * courant. Personne n'est venu ? On annule le créneau plutôt que de l'émarger
+ * vide.
+ */
+function AttendancePanel({
+  participants,
+  initial,
+  canUndo,
+  onCancel,
+  onSubmit,
+}: {
+  participants: PlanContact[];
+  initial: string[];
+  canUndo: boolean;
+  onCancel: () => void;
+  onSubmit: (attendance: (number | string)[] | null) => Promise<void>;
+}) {
+  const [checked, setChecked] = useState<Set<string>>(new Set(initial));
+  const [busy, setBusy] = useState(false);
+  const toggle = (id: string) =>
+    setChecked((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const submit = async (value: (number | string)[] | null) => {
+    setBusy(true);
+    try {
+      await onSubmit(value);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="tr-attend" role="group" aria-label="Émargement">
+      <div className="tr-attend__head">
+        <span className="tr-attend__title">Qui est présent ?</span>
+        <button
+          type="button"
+          className="tr-text-btn"
+          onClick={() => setChecked(new Set(participants.map((c) => String(c.id))))}
+        >
+          Tous présents
+        </button>
+      </div>
+      <div className="tr-attend__people">
+        {participants.map((c) => (
+          <label key={c.id} className="tr-attend__person">
+            <input type="checkbox" checked={checked.has(String(c.id))} onChange={() => toggle(String(c.id))} />
+            {contactName(c)}
+          </label>
+        ))}
+      </div>
+      <div className="tr-attend__foot">
+        {canUndo && (
+          <button type="button" className="tr-text-btn tr-attend__undo" disabled={busy} onClick={() => void submit(null)}>
+            Annuler l&apos;émargement
+          </button>
+        )}
+        <button type="button" className="tr-text-btn" disabled={busy} onClick={onCancel}>
+          Fermer
+        </button>
+        <button
+          type="button"
+          className="tr-sign-btn"
+          disabled={busy || checked.size === 0}
+          title={checked.size === 0 ? "Personne n'est venu ? Annulez plutôt le créneau." : undefined}
+          onClick={() => void submit([...checked].map(asId))}
+        >
+          {busy ? "Enregistrement…" : `Valider : ${checked.size} présent${checked.size > 1 ? "s" : ""}`}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -654,7 +788,7 @@ function GroupRows({
                   label={`${group.label} — tous dans ce créneau`}
                   checked={n === ids.length}
                   partial={n > 0 && n < ids.length}
-                  disabled={readOnly}
+                  disabled={readOnly || s.status === "realisee"}
                   onChange={(on) => onToggle(s, ids, on)}
                 />
               )}
@@ -679,7 +813,8 @@ function GroupRows({
                   type="checkbox"
                   aria-label={`${contactName(c)} — ${sessionTitle(s.profiles)} ${s.startTime ?? ""}`}
                   checked={has(s, c.id)}
-                  disabled={readOnly}
+                  // Réalisé : les participants sont figés (l'émargement s'appuie dessus).
+                  disabled={readOnly || s.status === "realisee"}
                   onChange={(e) => onToggle(s, [c.id], e.target.checked)}
                 />
               </td>

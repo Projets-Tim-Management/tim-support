@@ -130,7 +130,9 @@ de ses clients ; il remet les accès et émarge celles dont il est le formateur.
    de test, passage horaire (`/api/cron/training-emails`), onglet « E-mails » du plan (dates réglables,
    à qui c'est parti / ira, aperçu, envoyer maintenant), textes modifiables dans Système → Formation.
    Reste : l'événement d'agenda par journée.
-5. **Remise des accès et émargement** — constats de remise, validation par les présents cochés,
-   clôture du parcours.
+5. ✅ **Émargement et clôture** (01/10/2026) — « Émarger » sur le créneau dès le jour J (TIM ou le
+   formateur de la journée), présents cochés, créneau « Réalisé » ; formation « Terminée » quand tout
+   est réalisé, rouverte si un émargement est annulé. Débloque « Après la formation ».
+   Reste : le constat « accès remis » (avec le kit de séance).
 6. **Plus tard, à confirmer** — attestation PDF par participant, questionnaire de satisfaction,
    vue des journées dans l'espace client.

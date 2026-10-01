@@ -12,7 +12,6 @@ import {
 } from "@/modules/training/lib/email-schedule";
 import { DEFAULT_TEXTS, TRAINING_EMAIL_BUILDERS, type MailSlot, type TrainingMailContext } from "@/modules/training/lib/emails";
 import { trainingRefId } from "@/modules/training/collections/trainingOwned";
-import { isTrainingClosed } from "@/modules/training/lib/training";
 
 /**
  * Envois de la formation — côté serveur : qui reçoit quoi, l'envoi, la trace.
@@ -178,7 +177,9 @@ export function factsFor(key: string, b: DayBundle): DueFacts {
   for (const r of convocation?.recipients ?? []) if (r.sentAt) convokedAt[r.email.toLowerCase()] = r.sentAt;
   return {
     dayDate: (b.day.date as string) ?? null,
-    trainingClosed: isTrainingClosed(b.training?.status as string | undefined),
+    // « Terminée » n'arrête pas les envois : l'après-formation part aux présents
+    // justement quand tout est émargé. Seule une formation ANNULÉE se tait.
+    trainingClosed: b.training?.status === "annule",
     convocationAt: convocation && !convocation.sentAt ? (convocation.scheduledAt ?? null) : null,
     convokedAt,
     attendanceTaken: activeSessions(b).some((s) => ((s.attendance as unknown[]) ?? []).length > 0),

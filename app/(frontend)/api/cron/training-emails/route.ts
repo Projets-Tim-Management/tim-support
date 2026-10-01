@@ -9,8 +9,10 @@ import { loadDay, sendDayEmail, type SendResult } from "@/modules/training/lib/s
  * phase de test : chaque heure, les messages dus partent, à l'heure de Paris
  * prévue ou dès le passage suivant.
  *
- * Ne regarde que les journées des formations OUVERTES, de J−8 (convocation la
- * plus en amont + marge) à J+3 (après-formation + rattrapage).
+ * Ne regarde que les journées des formations ouvertes ou TERMINÉES (une
+ * formation se termine à l'émargement, juste avant l'après-formation), de J−3
+ * à J+9 autour d'aujourd'hui : la convocation la plus en amont (J−7) et le
+ * rattrapage de l'après-formation.
  *
  * `?dry=1` : liste ce qui partirait, sans rien envoyer.
  */
@@ -25,7 +27,13 @@ export async function GET(req: Request) {
 
   const open = await payload.find({
     collection: "trainings",
-    where: { status: { equals: "ouvert" } },
+    // Les terminées RÉCENTES seulement : au-delà, leur après-formation est passé.
+    where: {
+      or: [
+        { status: { equals: "ouvert" } },
+        { and: [{ status: { equals: "termine" } }, { closedAt: { greater_than_equal: new Date(now - 10 * 86_400_000).toISOString() } }] },
+      ],
+    },
     depth: 0,
     limit: 500,
     pagination: false,

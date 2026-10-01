@@ -21,6 +21,7 @@ import {
   draftFromFormula,
   matchingContacts,
   planSteps,
+  canSignOn,
   planWarnings,
   profilesOf,
   sessionsOfDay,
@@ -81,6 +82,7 @@ const toSession = (s: Record<string, unknown>): PlanSession => ({
   endTime: (s.endTime as string) ?? "",
   profiles: (s.profiles as string[]) ?? [],
   participants: ((s.participants as unknown[]) ?? []).map(idOf).filter((v): v is number | string => v != null),
+  attendance: ((s.attendance as unknown[]) ?? []).map(idOf).filter((v): v is number | string => v != null),
   accessDelivery: (s.accessDelivery as string) ?? null,
   status: (s.status as string) ?? "planifiee",
 });
@@ -93,9 +95,21 @@ export function TrainingPlanEditor({
   defaultAccessDelivery,
   clientAddress,
   readOnly,
+  admin = false,
+  userId,
+  signable = true,
+  onStatusChange,
   onClose,
 }: {
+  /** La formation vient de se terminer ou de se rouvrir (droits de l'écran à jour). */
+  onStatusChange?: (status: string) => void;
+  /** Faux pour une formation annulée : plus rien ne s'émarge. */
+  signable?: boolean;
   clientAddress?: ClientAddress;
+  /** TIM : émarge toutes les journées. */
+  admin?: boolean;
+  /** Le formateur d'une journée l'émarge aussi, même partenaire. */
+  userId?: number | string | null;
   trainingId: number | string;
   clientId: number | string;
   partnerId: number | string | null;
@@ -162,7 +176,7 @@ export function TrainingPlanEditor({
     // Échap ferme d'abord ce qui est ouvert PAR-DESSUS (aperçu d'un e-mail,
     // réglage d'une date d'envoi), pas tout le plan.
     const onKey = (e: KeyboardEvent) =>
-      e.key === "Escape" && !document.querySelector(".email-preview, .jr-datepop") && close();
+      e.key === "Escape" && !document.querySelector(".email-preview, .jr-datepop, .tr-attend") && close();
     // Phase de CAPTURE : on passe avant les fenêtres ouvertes par-dessus, qui
     // se ferment sur la même touche — sinon elles auraient déjà disparu quand
     // on vérifie leur présence, et le plan se fermerait avec elles.
@@ -212,9 +226,18 @@ export function TrainingPlanEditor({
     });
   };
 
+  /** Le statut de la formation a pu bouger (dernier créneau annulé, supprimé) : on le relit. */
+  const refreshStatus = useCallback(async () => {
+    const r = await api<{ status?: string }>(`trainings/${trainingId}?depth=0`).catch(() => null);
+    if (r?.status) onStatusChange?.(r.status);
+  }, [trainingId, onStatusChange]);
+
   const patchSession = (id: PlanSession["id"], patch: Partial<PlanSession>) => {
     setSessions((ss) => ss.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-    enqueue(`s${id}`, () => api(`training-sessions/${id}`, { method: "PATCH", body: JSON.stringify(patch) }));
+    enqueue(`s${id}`, async () => {
+      await api(`training-sessions/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+      if ("status" in patch) await refreshStatus();
+    });
   };
 
   const createDay = async (): Promise<Day | null> =>
@@ -265,7 +288,10 @@ export function TrainingPlanEditor({
   const removeSession = (s: PlanSession) => {
     if (!window.confirm("Supprimer ce créneau ?")) return;
     setSessions((ss) => ss.filter((x) => x.id !== s.id));
-    enqueue(`s${s.id}`, () => api(`training-sessions/${s.id}`, { method: "DELETE" }));
+    enqueue(`s${s.id}`, async () => {
+      await api(`training-sessions/${s.id}`, { method: "DELETE" });
+      await refreshStatus();
+    });
   };
 
   const applyFormula = async (f: Formula | null) => {
@@ -279,6 +305,54 @@ export function TrainingPlanEditor({
       }
     } finally {
       setBusy(false);
+    }
+  };
+
+  // L'horloge est lue à l'ouverture du plan : l'émargement s'ouvre au jour J.
+  const [openedAt] = useState(() => Date.now());
+  const canSignDay = (day: Day) =>
+    signable && (admin || (userId != null && String(day.trainer) === String(userId))) && canSignOn(day.date, openedAt);
+
+  /** Émarger (ou annuler l'émargement) : le geste qui valide la séance. */
+  const signSession = (session: PlanSession, attendance: (number | string)[] | null): Promise<boolean> => {
+    // Dans la file du créneau : une modification de participants encore en
+    // route doit arriver AVANT l'émargement qui s'appuie dessus.
+    const key = `s${session.id}`;
+    const run = (queues.current.get(key) ?? Promise.resolve()).then(() => doSign(session, attendance));
+    queues.current.set(key, run);
+    return run;
+  };
+  const doSign = async (session: PlanSession, attendance: (number | string)[] | null): Promise<boolean> => {
+    setSaving((n) => n + 1);
+    try {
+      const res = await fetch("/api/admin/training-attendance", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: session.id, attendance }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "L'émargement n'a pas pu être enregistré.");
+      setSessions((ss) =>
+        ss.map((s) =>
+          s.id === session.id
+            ? { ...s, attendance: attendance ?? [], status: attendance ? "realisee" : "planifiee" }
+            : s,
+        ),
+      );
+      const change = data?.trainingChange as string | null;
+      if (change === "termine") toast.success("Toutes les séances sont réalisées : formation terminée.");
+      else if (change === "ouvert") toast.success("Émargement annulé : la formation est rouverte.");
+      else if (change === "refuse")
+        toast.warning("Émargement annulé, mais la formation reste terminée : une autre formation est ouverte pour ce client.");
+      else toast.success(attendance ? "Séance émargée." : "Émargement annulé.");
+      if (change === "termine" || change === "ouvert") onStatusChange?.(change);
+      return true;
+    } catch (e) {
+      toast.error((e as Error).message);
+      return false;
+    } finally {
+      setSaving((n) => n - 1);
     }
   };
 
@@ -386,6 +460,9 @@ export function TrainingPlanEditor({
                   accessDefault={accessDefault}
                   clientAddress={clientAddress}
                   readOnly={readOnly}
+                  canSign={canSignDay(day)}
+                  canUndoSign={admin && signable}
+                  onSign={signSession}
                   onPatch={(p) => patchDay(day.id, p)}
                   onRemove={() => removeDay(day)}
                   onAddSession={() => addSession(day.id)}

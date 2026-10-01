@@ -1,8 +1,16 @@
-import type { CollectionBeforeChangeHook, CollectionConfig, Validate } from "payload";
+import type {
+  CollectionAfterChangeHook,
+  CollectionAfterDeleteHook,
+  CollectionBeforeChangeHook,
+  CollectionConfig,
+  Payload,
+  Validate,
+} from "payload";
 
 import { isAdmin, metierScoped } from "@/core/access";
 import { partnerField } from "@/modules/marketing/collections/clientOwned";
 import { deriveOwnerFrom, derivedClientField, trainingRefId } from "@/modules/training/collections/trainingOwned";
+import { allSessionsDone, type PlanSession } from "@/modules/training/lib/plan";
 import { ACCESS_DELIVERY, SESSION_STATUSES, TRAINING_PROFILE_OPTIONS } from "@/modules/training/lib/training";
 
 /**
@@ -53,16 +61,72 @@ const sameClientPeople: CollectionBeforeChangeHook = async ({ data, originalDoc,
   return data;
 };
 
-/** Un présent est forcément un participant : on émarge parmi les personnes attendues. */
+/**
+ * Un présent est forcément un participant : on émarge parmi les personnes
+ * attendues. Vérifié aussi quand seuls les participants changent — retirer un
+ * présent des participants laisserait un « présent » qui n'était pas attendu.
+ */
 const attendanceWithinParticipants: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
   const participants = new Set(
     ((data?.participants ?? originalDoc?.participants ?? []) as unknown[]).map((r) => String(trainingRefId(r))),
   );
-  const attendance = (data?.attendance ?? []) as unknown[];
+  const attendance = (data?.attendance ?? originalDoc?.attendance ?? []) as unknown[];
   if (attendance.some((r) => !participants.has(String(trainingRefId(r))))) {
     throw new Error("Un présent coché ne fait pas partie des participants de la séance.");
   }
   return data;
+};
+
+/** Où la synchronisation dépose son résultat, pour la route qui l'a déclenchée. */
+export const TRAINING_STATUS_CHANGE = "trainingStatusChange";
+
+/**
+ * La formation suit ses séances : « Terminée » quand toutes les non annulées
+ * sont réalisées, rouverte sinon. Quel que soit le geste — émarger, annuler ou
+ * supprimer le dernier créneau restant.
+ *
+ * HORS de la transaction de la séance (pas de `req`) : rouvrir peut être refusé
+ * (une autre formation a été ouverte depuis), et une requête en échec
+ * annulerait toute la transaction — donc l'émargement lui-même. La séance qui
+ * vient de changer n'est pas encore visible hors transaction : on la remplace
+ * à la main dans la liste lue.
+ */
+async function syncTrainingStatus(
+  payload: Payload,
+  trainingId: number | string | null,
+  changed: { id: number | string; doc: PlanSession | null },
+  context: Record<string, unknown>,
+) {
+  if (trainingId == null) return;
+  try {
+    const [training, others] = await Promise.all([
+      payload.findByID({ collection: "trainings", id: trainingId, depth: 0, overrideAccess: true }) as Promise<{ status?: string }>,
+      payload.find({ collection: "training-sessions", where: { training: { equals: trainingId } }, depth: 0, limit: 500, overrideAccess: true }),
+    ]);
+    const list = (others.docs as unknown as PlanSession[]).filter((s) => String(s.id) !== String(changed.id));
+    if (changed.doc) list.push(changed.doc);
+    const done = allSessionsDone(list);
+    const next = done && training.status === "ouvert" ? "termine" : !done && training.status === "termine" ? "ouvert" : null;
+    if (!next) return;
+    await payload.update({ collection: "trainings", id: trainingId, data: { status: next } as never, overrideAccess: true });
+    context[TRAINING_STATUS_CHANGE] = next;
+  } catch (err) {
+    context[TRAINING_STATUS_CHANGE] = "refuse";
+    payload.logger.warn(`[formation] statut de la formation ${trainingId} non synchronisé : ${err}`);
+  }
+}
+
+const syncAfterChange: CollectionAfterChangeHook = async ({ doc, previousDoc, req, context }) => {
+  // Seuls le statut et le rattachement comptent : un changement d'horaire ne
+  // termine ni ne rouvre rien.
+  if (previousDoc && previousDoc.status === doc.status && String(previousDoc.training) === String(doc.training)) return doc;
+  await syncTrainingStatus(req.payload, trainingRefId(doc.training), { id: doc.id, doc: doc as PlanSession }, context);
+  return doc;
+};
+
+const syncAfterDelete: CollectionAfterDeleteHook = async ({ doc, req, context }) => {
+  await syncTrainingStatus(req.payload, trainingRefId(doc.training), { id: doc.id, doc: null }, context);
+  return doc;
 };
 
 export const TrainingSessions: CollectionConfig = {
@@ -81,6 +145,8 @@ export const TrainingSessions: CollectionConfig = {
   },
   hooks: {
     beforeChange: [deriveOwnerFrom("day"), sameClientPeople, attendanceWithinParticipants],
+    afterChange: [syncAfterChange],
+    afterDelete: [syncAfterDelete],
   },
   fields: [
     {

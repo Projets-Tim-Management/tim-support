@@ -180,7 +180,7 @@ export const DUE_REASON_LABEL: Record<TrainingDueReason, string> = {
   "a-venir": "à venir",
   "journee-passee": "sans objet : la journée est passée",
   "trop-tard": "non parti : l'heure prévue est dépassée de plus de 36 h",
-  "formation-close": "sans objet : formation close",
+  "formation-close": "sans objet : formation annulée",
   "journee-sans-date": "en attente de la date de la journée",
   "convocation-recente": "sans objet : la convocation vient de partir",
   "attente-emargement": "en attente de l'émargement",

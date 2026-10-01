@@ -54,18 +54,19 @@ describe("ordre du plan", () => {
 
 describe("étapes constatées", () => {
   it("plan vide : rien n'est fait", () => {
-    expect(planSteps([], []).map((s) => s.done)).toEqual([false, false, false]);
+    expect(planSteps([], []).map((s) => s.done)).toEqual([false, false, false, false]);
   });
 
   it("une séance sans participant ni date : seul le plan est défini", () => {
     const steps = planSteps([day(1, null)], [session(1, 1, { participants: [] })]);
-    expect(steps.map((s) => s.done)).toEqual([true, false, false]);
+    expect(steps.map((s) => s.done)).toEqual([true, false, false, false]);
   });
 
   it("tout est fait quand chaque séance a ses participants et chaque journée utilisée sa date", () => {
     const steps = planSteps([day(1, "2026-10-14"), day(2, null)], [session(1, 1)]);
-    // La journée 2, vide, ne compte pas.
-    expect(steps.every((s) => s.done)).toBe(true);
+    // La journée 2, vide, ne compte pas. Reste l'émargement.
+    expect(steps.slice(0, 3).every((s) => s.done)).toBe(true);
+    expect(steps[3].done).toBe(false);
   });
 
   it("une séance annulée ne compte pas", () => {
@@ -164,5 +165,30 @@ describe("groupe déduit des participants", () => {
       [session(1, 1), session(2, 2, { startTime: "14:00" }), session(3, 2, { startTime: "09:00" }), session(4, 2, { status: "annulee" })],
     );
     expect(order.map((o) => [o.session.id, o.dayIndex])).toEqual([[3, 1], [2, 1], [1, 2]]);
+  });
+});
+
+describe("émargement et clôture", () => {
+  it("séances réalisées : toutes les non annulées, au moins une", async () => {
+    const { allSessionsDone } = await import("@/modules/training/lib/plan");
+    expect(allSessionsDone([])).toBe(false);
+    expect(allSessionsDone([session(1, 1, { status: "realisee" }), session(2, 1, { status: "annulee" })])).toBe(true);
+    expect(allSessionsDone([session(1, 1, { status: "realisee" }), session(2, 1)])).toBe(false);
+    expect(allSessionsDone([session(1, 1, { status: "annulee" })])).toBe(false);
+  });
+
+  it("s'émarge à partir du jour de la séance (heure de Paris), jamais avant", async () => {
+    const { canSignOn } = await import("@/modules/training/lib/plan");
+    const day = "2026-10-14T12:00:00.000Z";
+    expect(canSignOn(day, Date.parse("2026-10-13T21:30:00Z"))).toBe(false); // 23 h 30 à Paris, la veille
+    expect(canSignOn(day, Date.parse("2026-10-13T22:30:00Z"))).toBe(true); // 0 h 30 à Paris, le jour J
+    expect(canSignOn(day, Date.parse("2026-10-20T10:00:00Z"))).toBe(true);
+    expect(canSignOn(null, Date.now())).toBe(false);
+  });
+
+  it("4ᵉ étape constatée : séances réalisées", () => {
+    const steps = planSteps([day(1, "2026-10-14")], [session(1, 1, { status: "realisee" })]);
+    expect(steps.map((s) => s.key)).toEqual(["plan-formation", "participants", "dates", "realisees"]);
+    expect(steps[3].done).toBe(true);
   });
 });
