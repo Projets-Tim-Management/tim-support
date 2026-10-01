@@ -15,6 +15,7 @@ export const AD_SPEND_KINDS = [
   { label: "Textes", value: "texte" },
   { label: "Images", value: "image" },
   { label: "Vidéo générée", value: "video" },
+  { label: "Agent de campagne", value: "agent" },
 ] as const;
 
 export type AdSpendKind = (typeof AD_SPEND_KINDS)[number]["value"];
@@ -42,6 +43,13 @@ export const AdAiUsage: CollectionConfig = {
     },
     { name: "usd", type: "number", label: "Coût facturé ($)" },
     { name: "campaign", type: "relationship", relationTo: "ad-campaigns", label: "Campagne", index: true },
+    {
+      type: "row",
+      fields: [
+        { name: "run", type: "relationship", relationTo: "ad-agent-runs", label: "Passage d'agent", index: true, admin: { width: "50%" } },
+        { name: "agent", type: "relationship", relationTo: "ad-agents", label: "Agent", index: true, admin: { width: "50%" } },
+      ],
+    },
     { name: "batch", type: "text", label: "Lot", index: true, admin: { description: "Les créas nées de cet appel portent le même lot." } },
     { name: "detail", type: "text", label: "Détail" },
     { name: "usage", type: "json", label: "Consommation", admin: { description: "Tokens, images ou secondes, tels que le fournisseur les a comptés." } },

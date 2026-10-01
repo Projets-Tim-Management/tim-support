@@ -2,12 +2,18 @@ import type { CollectionConfig, Field, GlobalConfig } from "payload";
 import { describe, expect, it } from "vitest";
 
 import { AdAccounts } from "@/modules/ads/collections/AdAccounts";
+import { AdAgentRuns } from "@/modules/ads/collections/AdAgentRuns";
+import { AdAgents } from "@/modules/ads/collections/AdAgents";
+import { AdAgentSteps } from "@/modules/ads/collections/AdAgentSteps";
 import { AdAiUsage } from "@/modules/ads/collections/AdAiUsage";
 import { AdCampaigns } from "@/modules/ads/collections/AdCampaigns";
+import { AdCompetitors } from "@/modules/ads/collections/AdCompetitors";
 import { AdCreatives } from "@/modules/ads/collections/AdCreatives";
+import { AdDecisions } from "@/modules/ads/collections/AdDecisions";
 import { AdFacts } from "@/modules/ads/collections/AdFacts";
 import { AdMedia } from "@/modules/ads/collections/AdMedia";
 import { AdMetricsDaily } from "@/modules/ads/collections/AdMetricsDaily";
+import { AdsSettingsHistory } from "@/modules/ads/collections/AdsSettingsHistory";
 import { AdsBrandKit } from "@/modules/ads/globals/AdsBrandKit";
 import { AdsSettings } from "@/modules/ads/globals/AdsSettings";
 
@@ -32,7 +38,23 @@ function names(fields: Field[], path = ""): string[] {
   return out;
 }
 
-const ALL: (CollectionConfig | GlobalConfig)[] = [AdAccounts, AdAiUsage, AdCampaigns, AdCreatives, AdFacts, AdMedia, AdMetricsDaily, AdsBrandKit, AdsSettings];
+const ALL: (CollectionConfig | GlobalConfig)[] = [
+  AdAccounts,
+  AdAgentRuns,
+  AdAgents,
+  AdAgentSteps,
+  AdAiUsage,
+  AdCampaigns,
+  AdCompetitors,
+  AdCreatives,
+  AdDecisions,
+  AdFacts,
+  AdMedia,
+  AdMetricsDaily,
+  AdsBrandKit,
+  AdsSettings,
+  AdsSettingsHistory,
+];
 
 describe("noms de champs réservés par Payload", () => {
   it.each(ALL.map((c) => [c.slug, c] as const))("%s n'en utilise aucun, à aucun niveau", (_slug, c) => {

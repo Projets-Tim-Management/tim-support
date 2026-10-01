@@ -16,8 +16,9 @@ describe("grille de tarifs commune", () => {
     expect(claudeCostUsd("claude-opus-5-5", { input: 1e6, output: 1e6, cacheRead: 0, cacheWrite: 0 })).toBe(24);
   });
 
-  it("le coût maximal compte toute la sortie autorisée au tarif de sortie", () => {
-    expect(claudeMaxCostUsd("claude-opus-5-5", 5_000, 16_000)).toBeCloseTo((5_000 * 4 + 16_000 * 20) / 1e6, 10);
+  it("le coût maximal compte toute la sortie autorisée au tarif de sortie, et l'entrée au tarif d'écriture du cache", () => {
+    // Opus 5.5 : écriture du cache 5 $ (> 4 $ l'entrée de base) — un tour peut réécrire tout son contexte.
+    expect(claudeMaxCostUsd("claude-opus-5-5", 5_000, 16_000)).toBeCloseTo((5_000 * 5 + 16_000 * 20) / 1e6, 10);
   });
 
   it("convertit en euros", () => {
@@ -30,6 +31,11 @@ describe("plafonds de l'atelier", () => {
     expect(limitsFor("texte", null)).toEqual({ day: 5, month: 50 });
     expect(limitsFor("image", null)).toEqual({ month: 20 });
     expect(limitsFor("video", { videoMonthlyEur: 12 })).toEqual({ month: 12 });
+  });
+
+  it("donne aux agents leurs propres plafonds globaux (15 €/jour, 150 €/mois), pas ceux de la vidéo", () => {
+    expect(limitsFor("agent", null)).toEqual({ day: 15, month: 150 });
+    expect(limitsFor("agent", { agentDailyEur: 8, agentMonthlyEur: 90, videoMonthlyEur: 12 })).toEqual({ day: 8, month: 90 });
   });
 
   it("refuse un appel dont le coût MAXIMAL dépasse le reste du jour", () => {
@@ -56,12 +62,17 @@ describe("plafonds de l'atelier", () => {
   });
 });
 
-function fakePayload(settings: Record<string, unknown>, rows: { kind: string; eur: number; createdAt: string }[] = []) {
+type Row = { kind: string; eur: number; createdAt: string; run?: number | null };
+type KindFilter = { kind?: { equals: string }; or?: ({ kind: { equals: string } } | { run: { exists: boolean } })[] };
+const matches = (f: KindFilter, r: Row): boolean =>
+  f.or ? f.or.some((g) => ("kind" in g ? r.kind === g.kind.equals : (r.run != null) === g.run.exists)) : r.kind === f.kind!.equals;
+
+function fakePayload(settings: Record<string, unknown>, rows: Row[] = []) {
   const created: Record<string, unknown>[] = [];
   const payload = {
     findGlobal: async () => settings,
-    find: async ({ where }: { where: { and: [{ kind: { equals: string } }, { createdAt: { greater_than_equal: string } }] } }) => ({
-      docs: rows.filter((r) => r.kind === where.and[0].kind.equals && r.createdAt >= where.and[1].createdAt.greater_than_equal),
+    find: async ({ where }: { where: { and: [KindFilter, { createdAt: { greater_than_equal: string } }] } }) => ({
+      docs: rows.filter((r) => matches(where.and[0], r) && r.createdAt >= where.and[1].createdAt.greater_than_equal),
     }),
     create: async ({ data }: { data: Record<string, unknown> }) => (created.push(data), data),
   };
@@ -84,6 +95,26 @@ describe("contrôle avant l'appel", () => {
     ]);
     await expect(assertAdsBudget(payload, "texte", 0.2, NOW)).rejects.toThrow(/Plafond du jour/);
     await expect(assertAdsBudget(payload, "texte", 0.05, NOW)).resolves.toMatchObject({ ok: true });
+  });
+
+  it("une dépense déclenchée par un agent compte dans le plafond de sa nature ET dans celui des agents — une seule ligne", async () => {
+    const rows: Row[] = [
+      { kind: "texte", eur: 0.9, createdAt: "2026-09-29T08:00:00.000Z", run: 12 }, // textes écrits pour un agent
+      { kind: "agent", eur: 13, createdAt: "2026-09-29T08:00:00.000Z" }, // les tokens des agents eux-mêmes
+      { kind: "texte", eur: 0.5, createdAt: "2026-09-29T08:00:00.000Z" }, // bouton « Générer », hors agent
+    ];
+    const { payload } = fakePayload({ enabled: true, textDailyEur: 1.5, agentDailyEur: 15 }, rows);
+    // Plafond des textes : 0,90 + 0,50 = 1,40 € — la ligne de l'agent y est.
+    await expect(assertAdsBudget(payload, "texte", 0.2, NOW)).rejects.toThrow(/1,40 € dépensés sur 1,50 €/);
+    // Plafond des agents : 13 + 0,90 = 13,90 € — la même ligne y est aussi, le bouton « Générer » non.
+    await expect(assertAdsBudget(payload, "agent", 1.2, NOW)).rejects.toThrow(/13,90 € dépensés sur 15,00 €/);
+    await expect(assertAdsBudget(payload, "agent", 1, NOW)).resolves.toMatchObject({ ok: true });
+  });
+
+  it("rattache la dépense au passage et à l'agent qui l'ont déclenchée", async () => {
+    const { payload, created } = fakePayload({});
+    await recordAdsUsage(payload, { kind: "texte", provider: "anthropic", model: "claude-opus-5-5", usd: 0.11, campaign: 4, run: 12, agent: 30, detail: "1 angle" });
+    expect(created[0]).toMatchObject({ kind: "texte", run: 12, agent: 30 });
   });
 
   it("inscrit le coût réellement facturé, en dollars et en euros", async () => {

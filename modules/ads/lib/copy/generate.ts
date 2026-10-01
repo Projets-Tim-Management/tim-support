@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { Payload } from "payload";
 
-import { claudeCostUsd, claudeMaxCostUsd, usdToEur, type Usage } from "@/core/lib/ai-pricing";
+import { claudeCostUsd, claudeMaxCostUsd, estimateTokens, usdToEur, type Usage } from "@/core/lib/ai-pricing";
 import { allowedNumbers, guard, type TextKind } from "@/modules/ads/lib/copy/guardrails";
 import { PROMPT_VERSION, VARIANTS, systemPrompt, userPrompt, type BriefInput, type CopyAngle } from "@/modules/ads/lib/copy/prompt";
 import { ctaLabel } from "@/modules/ads/lib/cta";
@@ -24,9 +24,24 @@ import type { ModelCall } from "@/modules/ads/lib/copy/claude";
  *  6. chaque texte passe les garde-fous ; un texte rejeté reste visible avec sa
  *     raison ;
  *  7. une créa par angle, en brouillon (les visuels viennent ensuite).
+ *
+ * Appelée par l'agent de campagne (plan, §9 quater), elle reçoit les angles
+ * choisis par le stratège SANS toucher au brief saisi, garde sur chaque créa
+ * l'angle demandé et le passage qui l'a demandée, et rattache la dépense au
+ * passage. Le contrôle `preCheck` de l'agent s'ajoute aux plafonds de
+ * l'atelier : le plus strict l'emporte (décision du 30/09/2026).
  */
 
-export type GenerateOptions = { angles: 1 | 2 | 3; toneTest: boolean };
+export type AgentRequest = {
+  run: number | string;
+  agent: number | string;
+  /** Les angles demandés, dans l'ordre (1 à 3). Ils remplacent, pour cette génération seulement, ceux du brief. */
+  angles: string[];
+  /** Le budget de l'agent et le plafond global des agents, vérifiés avec le coût maximal ; lève si ça ne tient pas. */
+  preCheck: (maxEur: number) => Promise<void>;
+};
+
+export type GenerateOptions = { angles: 1 | 2 | 3; toneTest: boolean; agent?: AgentRequest };
 
 export class GenerateError extends Error {
   constructor(message: string) {
@@ -85,13 +100,13 @@ export function briefInput(c: Campaign): BriefInput {
   };
 }
 
-/** Estimation prudente des tokens d'entrée (≈ 3 caractères par token en français). */
-export const estimateTokens = (...texts: string[]) => Math.ceil(texts.reduce((n, t) => n + t.length, 0) / 3);
-
 type TextRow = { kind: "principal" | "titre" | "description"; tone: Tone; text: string; status: "ok" | "rejete"; reason: string | null };
 
 /** Une créa (à écrire) à partir d'un angle de la réponse. Pure — c'est elle qu'on teste. */
-export function creativeFromAngle(a: CopyAngle, ctx: { brief: BriefInput; forbidden: string[]; campaignId: number | string; batch: string; costEur: number }) {
+export function creativeFromAngle(
+  a: CopyAngle,
+  ctx: { brief: BriefInput; forbidden: string[]; campaignId: number | string; batch: string; costEur: number; requested?: { angle: string; run: number | string } },
+) {
   const tone: Tone = a.tone === "tu" ? "tu" : "vous";
   const g = { tone, forbidden: ctx.forbidden, allowed: allowedNumbers([...ctx.brief.facts.map((f) => f.statement), ctx.brief.offer ?? ""]) };
   const rows = (kind: TextRow["kind"], list: string[], n: number): TextRow[] =>
@@ -118,7 +133,9 @@ export function creativeFromAngle(a: CopyAngle, ctx: { brief: BriefInput; forbid
     tests,
     copy: texts,
     facts: a.factIds.filter((id) => known.has(String(id))).map((id) => (Number.isFinite(Number(id)) ? Number(id) : id)),
-    origin: "generee" as const,
+    origin: ctx.requested ? ("agent" as const) : ("generee" as const),
+    requestedAngle: ctx.requested?.angle ?? null,
+    run: ctx.requested?.run ?? null,
     generation: { model: ADS_TEXT_MODEL, costEur: ctx.costEur, batch: ctx.batch },
     status: "brouillon" as const,
   };
@@ -172,14 +189,22 @@ export async function generateCreatives(
   const missing = missingBrief(ctx.campaign);
   if (missing.length) throw new GenerateError(`Brief incomplet : il manque ${missing.join(", ")}.`);
 
-  const planned = opts.angles + (opts.toneTest ? 1 : 0);
+  const requested = opts.agent?.angles.slice(0, 3);
+  if (opts.agent && !requested?.length) throw new GenerateError("Aucun angle demandé.");
+  const angleCount = requested?.length ?? opts.angles;
+  const planned = angleCount + (opts.toneTest ? 1 : 0);
   const used = await weeklyUsed(payload, campaignId, now);
   if (used + planned > ctx.weeklyLimit) {
     throw new GenerateError(`Quota de la semaine : ${used} créa(s) sur ${ctx.weeklyLimit} pour cette campagne, cette génération en ajouterait ${planned}.`);
   }
 
-  const user = userPrompt(ctx.brief, opts);
-  await assertAdsBudget(payload, "texte", maxCostEur(ctx.system, user), now);
+  // Les angles de l'agent ne passent que dans CE prompt : le brief enregistré ne bouge pas.
+  const brief = requested ? { ...ctx.brief, angles: requested } : ctx.brief;
+  const user = userPrompt(brief, { angles: angleCount, toneTest: opts.toneTest });
+  const maxEur = maxCostEur(ctx.system, user);
+  await assertAdsBudget(payload, "texte", maxEur, now);
+  await opts.agent?.preCheck(maxEur);
+  const attribution = opts.agent ? { run: opts.agent.run, agent: opts.agent.agent } : {};
 
   const batch = `gen-${now.toISOString().slice(0, 10)}-${randomUUID().slice(0, 8)}`;
   let result: Awaited<ReturnType<ModelCall>>;
@@ -188,7 +213,12 @@ export async function generateCreatives(
   } catch (e) {
     // Facturé même quand la réponse est refusée ou tronquée.
     const usage = (e as { usage?: Usage }).usage;
-    if (usage) await recordAdsUsage(payload, { kind: "texte", provider: "anthropic", model: ADS_TEXT_MODEL, usd: claudeCostUsd(ADS_TEXT_MODEL, usage), campaign: campaignId, batch, detail: `Échec : ${(e as Error).message}`, usage });
+    if (usage) {
+      const usd = claudeCostUsd(ADS_TEXT_MODEL, usage);
+      await recordAdsUsage(payload, { kind: "texte", provider: "anthropic", model: ADS_TEXT_MODEL, usd, campaign: campaignId, ...attribution, batch, detail: `Échec : ${(e as Error).message}`, usage });
+      // Le coût voyage avec l'erreur : l'agent qui a demandé l'écriture le compte aussi (relecture du 01/10/2026, M1).
+      Object.assign(e as object, { costEur: usdToEur(usd) });
+    }
     throw e;
   }
 
@@ -200,6 +230,7 @@ export async function generateCreatives(
     model: ADS_TEXT_MODEL,
     usd,
     campaign: campaignId,
+    ...attribution,
     batch,
     detail: `${angles.length} angle(s), prompt ${PROMPT_VERSION}`,
     usage: result.usage,
@@ -210,8 +241,10 @@ export async function generateCreatives(
   let ok = 0;
   let rejected = 0;
   let toneTests = 0;
-  for (const a of angles) {
-    const data = creativeFromAngle(a, { brief: ctx.brief, forbidden: ctx.forbidden, campaignId, batch, costEur: share });
+  for (const [i, a] of angles.entries()) {
+    // Le test de ton reprend le premier angle : il en porte donc l'origine.
+    const origin = requested && opts.agent ? { angle: requested[i] ?? requested[0], run: opts.agent.run } : undefined;
+    const data = creativeFromAngle(a, { brief: ctx.brief, forbidden: ctx.forbidden, campaignId, batch, costEur: share, requested: origin });
     ok += data.copy.filter((t) => t.status === "ok").length;
     rejected += data.copy.filter((t) => t.status === "rejete").length;
     if (data.tests.length) toneTests++;

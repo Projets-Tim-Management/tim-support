@@ -1,6 +1,8 @@
 import { sql } from "@payloadcms/db-postgres";
 import type { Payload } from "payload";
 
+import { execSql, rowsOf } from "@/core/lib/raw-sql";
+
 /**
  * Les gestes de signature qui ne doivent se produire qu'UNE fois — envoyer un
  * contrat, consommer un code, compter un essai — se jouent en une seule
@@ -18,10 +20,7 @@ const CODES = {
 
 export type CodeTarget = keyof typeof CODES;
 
-type Rows = { rows?: Record<string, unknown>[] } | Record<string, unknown>[];
-const rowsOf = (r: Rows) => (Array.isArray(r) ? r : (r.rows ?? []));
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const exec = (payload: Payload, q: ReturnType<typeof sql>) => (payload.db as any).drizzle.execute(q) as Promise<Rows>;
+const exec = execSql;
 
 /**
  * Compte un essai AVANT de comparer le code. Renvoie le nombre d'essais

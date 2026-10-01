@@ -99,6 +99,12 @@ export interface Config {
     'ad-media': AdMedia;
     'ad-facts': AdFact;
     'ad-ai-usage': AdAiUsage;
+    'ad-agent-runs': AdAgentRun;
+    'ad-agents': AdAgent;
+    'ad-agent-steps': AdAgentStep;
+    'ad-decisions': AdDecision;
+    'ad-competitors': AdCompetitor;
+    'ads-settings-history': AdsSettingsHistory;
     'email-suppressions': EmailSuppression;
     'client-employees': ClientEmployee;
     'client-sites': ClientSite;
@@ -169,6 +175,12 @@ export interface Config {
     'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
     'ad-facts': AdFactsSelect<false> | AdFactsSelect<true>;
     'ad-ai-usage': AdAiUsageSelect<false> | AdAiUsageSelect<true>;
+    'ad-agent-runs': AdAgentRunsSelect<false> | AdAgentRunsSelect<true>;
+    'ad-agents': AdAgentsSelect<false> | AdAgentsSelect<true>;
+    'ad-agent-steps': AdAgentStepsSelect<false> | AdAgentStepsSelect<true>;
+    'ad-decisions': AdDecisionsSelect<false> | AdDecisionsSelect<true>;
+    'ad-competitors': AdCompetitorsSelect<false> | AdCompetitorsSelect<true>;
+    'ads-settings-history': AdsSettingsHistorySelect<false> | AdsSettingsHistorySelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
     'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
     'client-sites': ClientSitesSelect<false> | ClientSitesSelect<true>;
@@ -2207,6 +2219,26 @@ export interface AdCampaign {
         }[]
       | null;
   };
+  agentBudget?: {
+    /**
+     * IA et Meta ensemble.
+     */
+    totalDailyEur?: number | null;
+    /**
+     * De 0 à 50 %. Sert une fois la campagne publiée.
+     */
+    maxAiSharePct?: number | null;
+    /**
+     * L'agent ne descend jamais la dépense Meta en dessous.
+     */
+    metaFloorEur?: number | null;
+    split?: {
+      aiDailyEur?: number | null;
+      metaDailyEur?: number | null;
+      decidedAt?: string | null;
+      decision?: (number | null) | AdDecision;
+    };
+  };
   account?: (number | null) | AdAccount;
   externalId?: string | null;
   status?: ('brouillon' | 'active' | 'en-pause' | 'terminee') | null;
@@ -2250,6 +2282,194 @@ export interface AdFact {
    */
   active?: boolean | null;
   notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Ce que les agents ont décidé, et pourquoi. Écrit par le serveur.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-decisions".
+ */
+export interface AdDecision {
+  id: number;
+  campaign: number | AdCampaign;
+  run?: (number | null) | AdAgentRun;
+  agent?: (number | null) | AdAgent;
+  step?: (number | null) | AdAgentStep;
+  kind:
+    | 'repartition-budget'
+    | 'positionnement'
+    | 'angle'
+    | 'audience'
+    | 'rejet-controleur'
+    | 'creation-sous-agent'
+    | 'concurrent';
+  status: 'proposee' | 'executee' | 'bloquee';
+  rationale: string;
+  before?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Les valeurs structurées de la décision (montants, audience, angle…).
+   */
+  after?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  guardrail?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Chaque préparation de campagne par l'agent : objectif, budget, coût, bilan. Écrit par le serveur.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-agent-runs".
+ */
+export interface AdAgentRun {
+  id: number;
+  campaign: number | AdCampaign;
+  objective: string;
+  status: 'en-cours' | 'en-pause-budget' | 'a-valider' | 'arrete' | 'echoue';
+  budgetEur: number;
+  costEur?: number | null;
+  tokens?: {
+    input?: number | null;
+    output?: number | null;
+    cacheRead?: number | null;
+    cacheWrite?: number | null;
+  };
+  startedBy?: (number | null) | User;
+  startedAt: string;
+  finishedAt?: string | null;
+  /**
+   * Profondeur, simultanés, rejets, budget : la photo de ce qui s'appliquait.
+   */
+  limits?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  leaseUntil?: string | null;
+  /**
+   * Ce que l'orchestrateur a déposé dans « À valider ».
+   */
+  summary?: string | null;
+  error?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Les agents d'un passage, du plus haut au plus bas. Écrit par le serveur ; se lit dans la salle de contrôle.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-agents".
+ */
+export interface AdAgent {
+  id: number;
+  run: number | AdAgentRun;
+  parent?: (number | null) | AdAgent;
+  role: 'orchestrateur' | 'stratege' | 'redacteur' | 'directeur-artistique' | 'controleur' | 'analyste';
+  depth: number;
+  status: 'en-attente' | 'en-cours' | 'termine' | 'echoue' | 'arrete';
+  mission: string;
+  /**
+   * Noms d'outils, vérifiés contre le registre du rôle.
+   */
+  tools?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  model: string;
+  budgetEur: number;
+  spentEur?: number | null;
+  tokens?: {
+    input?: number | null;
+    output?: number | null;
+    cacheRead?: number | null;
+    cacheWrite?: number | null;
+  };
+  /**
+   * Ce que l'agent a rendu à son parent.
+   */
+  result?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  error?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-agent-steps".
+ */
+export interface AdAgentStep {
+  id: number;
+  run: number | AdAgentRun;
+  agent: number | AdAgent;
+  seq: number;
+  kind: 'modele' | 'outil';
+  tool?: string | null;
+  status: 'en-cours' | 'fait' | 'echoue';
+  line: string;
+  input?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Pour un appel au modèle : les blocs de la réponse, réflexion comprise, pour reprendre la conversation.
+   */
+  output?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  tokens?: {
+    input?: number | null;
+    output?: number | null;
+    cacheRead?: number | null;
+    cacheWrite?: number | null;
+  };
+  costEur?: number | null;
+  idempotencyKey?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2310,6 +2530,8 @@ export interface AdCreative {
    * L'idée en une ligne.
    */
   angle: string;
+  requestedAngle?: string | null;
+  run?: (number | null) | AdAgentRun;
   /**
    * Le texte posé sur l'image.
    */
@@ -2444,12 +2666,14 @@ export interface AdMetricsDaily {
  */
 export interface AdAiUsage {
   id: number;
-  kind: 'texte' | 'image' | 'video';
+  kind: 'texte' | 'image' | 'video' | 'agent';
   provider?: string | null;
   model?: string | null;
   eur: number;
   usd?: number | null;
   campaign?: (number | null) | AdCampaign;
+  run?: (number | null) | AdAgentRun;
+  agent?: (number | null) | AdAgent;
   /**
    * Les créas nées de cet appel portent le même lot.
    */
@@ -2459,6 +2683,56 @@ export interface AdAiUsage {
    * Tokens, images ou secondes, tels que le fournisseur les a comptés.
    */
   usage?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Les pages Facebook des concurrents dont l'agent lit les publicités. Il peut en proposer ; elles n'entrent qu'après validation.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-competitors".
+ */
+export interface AdCompetitor {
+  id: number;
+  name: string;
+  /**
+   * Collez le lien de l'annonceur dans la bibliothèque publicitaire Meta (il contient view_all_page_id=…), ou l'identifiant seul. À l'enregistrement, seul l'identifiant reste ici ; le lien est gardé en dessous.
+   */
+  pageId: string;
+  /**
+   * Le lien collé, tel quel.
+   */
+  sourceUrl?: string | null;
+  status: 'suivi' | 'propose' | 'refuse';
+  decidedAt?: string | null;
+  proposedBy?: (number | null) | AdAgentRun;
+  keywords?: string | null;
+  rationale?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Chaque changement des garde-fous : qui, quand, avant, après. Écrit par le serveur ; rien ne s'y modifie.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ads-settings-history".
+ */
+export interface AdsSettingsHistory {
+  id: number;
+  /**
+   * Vide : un script ou une migration.
+   */
+  changedBy?: (number | null) | User;
+  summary: string;
+  changes?:
     | {
         [k: string]: unknown;
       }
@@ -3064,6 +3338,30 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-ai-usage';
         value: number | AdAiUsage;
+      } | null)
+    | ({
+        relationTo: 'ad-agent-runs';
+        value: number | AdAgentRun;
+      } | null)
+    | ({
+        relationTo: 'ad-agents';
+        value: number | AdAgent;
+      } | null)
+    | ({
+        relationTo: 'ad-agent-steps';
+        value: number | AdAgentStep;
+      } | null)
+    | ({
+        relationTo: 'ad-decisions';
+        value: number | AdDecision;
+      } | null)
+    | ({
+        relationTo: 'ad-competitors';
+        value: number | AdCompetitor;
+      } | null)
+    | ({
+        relationTo: 'ads-settings-history';
+        value: number | AdsSettingsHistory;
       } | null)
     | ({
         relationTo: 'email-suppressions';
@@ -4135,6 +4433,21 @@ export interface AdCampaignsSelect<T extends boolean = true> {
               id?: T;
             };
       };
+  agentBudget?:
+    | T
+    | {
+        totalDailyEur?: T;
+        maxAiSharePct?: T;
+        metaFloorEur?: T;
+        split?:
+          | T
+          | {
+              aiDailyEur?: T;
+              metaDailyEur?: T;
+              decidedAt?: T;
+              decision?: T;
+            };
+      };
   account?: T;
   externalId?: T;
   status?: T;
@@ -4153,6 +4466,8 @@ export interface AdCampaignsSelect<T extends boolean = true> {
  */
 export interface AdCreativesSelect<T extends boolean = true> {
   angle?: T;
+  requestedAngle?: T;
+  run?: T;
   hook?: T;
   campaign?: T;
   tone?: T;
@@ -4294,9 +4609,141 @@ export interface AdAiUsageSelect<T extends boolean = true> {
   eur?: T;
   usd?: T;
   campaign?: T;
+  run?: T;
+  agent?: T;
   batch?: T;
   detail?: T;
   usage?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-agent-runs_select".
+ */
+export interface AdAgentRunsSelect<T extends boolean = true> {
+  campaign?: T;
+  objective?: T;
+  status?: T;
+  budgetEur?: T;
+  costEur?: T;
+  tokens?:
+    | T
+    | {
+        input?: T;
+        output?: T;
+        cacheRead?: T;
+        cacheWrite?: T;
+      };
+  startedBy?: T;
+  startedAt?: T;
+  finishedAt?: T;
+  limits?: T;
+  leaseUntil?: T;
+  summary?: T;
+  error?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-agents_select".
+ */
+export interface AdAgentsSelect<T extends boolean = true> {
+  run?: T;
+  parent?: T;
+  role?: T;
+  depth?: T;
+  status?: T;
+  mission?: T;
+  tools?: T;
+  model?: T;
+  budgetEur?: T;
+  spentEur?: T;
+  tokens?:
+    | T
+    | {
+        input?: T;
+        output?: T;
+        cacheRead?: T;
+        cacheWrite?: T;
+      };
+  result?: T;
+  error?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-agent-steps_select".
+ */
+export interface AdAgentStepsSelect<T extends boolean = true> {
+  run?: T;
+  agent?: T;
+  seq?: T;
+  kind?: T;
+  tool?: T;
+  status?: T;
+  line?: T;
+  input?: T;
+  output?: T;
+  tokens?:
+    | T
+    | {
+        input?: T;
+        output?: T;
+        cacheRead?: T;
+        cacheWrite?: T;
+      };
+  costEur?: T;
+  idempotencyKey?: T;
+  startedAt?: T;
+  finishedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-decisions_select".
+ */
+export interface AdDecisionsSelect<T extends boolean = true> {
+  campaign?: T;
+  run?: T;
+  agent?: T;
+  step?: T;
+  kind?: T;
+  status?: T;
+  rationale?: T;
+  before?: T;
+  after?: T;
+  guardrail?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-competitors_select".
+ */
+export interface AdCompetitorsSelect<T extends boolean = true> {
+  name?: T;
+  pageId?: T;
+  sourceUrl?: T;
+  status?: T;
+  decidedAt?: T;
+  proposedBy?: T;
+  keywords?: T;
+  rationale?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ads-settings-history_select".
+ */
+export interface AdsSettingsHistorySelect<T extends boolean = true> {
+  changedBy?: T;
+  summary?: T;
+  changes?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4755,6 +5202,22 @@ export interface AdsSetting {
    * Au-delà, la génération attend la semaine suivante (plan, §6).
    */
   creativesPerCampaignPerWeek: number;
+  /**
+   * Le budget maximal d'un clic sur « Lancer l'agent ».
+   */
+  agentPrepMaxEur: number;
+  /**
+   * Toutes campagnes confondues.
+   */
+  agentDailyEur: number;
+  /**
+   * Toutes campagnes confondues.
+   */
+  agentMonthlyEur: number;
+  /**
+   * 60 jours après sa création. Rappel à J-7 ; le renouvellement se fait à la main.
+   */
+  adLibraryTokenExpiresAt?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
 }
@@ -4910,6 +5373,10 @@ export interface AdsSettingsSelect<T extends boolean = true> {
   imagesMonthlyEur?: T;
   videoMonthlyEur?: T;
   creativesPerCampaignPerWeek?: T;
+  agentPrepMaxEur?: T;
+  agentDailyEur?: T;
+  agentMonthlyEur?: T;
+  adLibraryTokenExpiresAt?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

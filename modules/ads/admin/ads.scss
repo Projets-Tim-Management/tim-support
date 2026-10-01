@@ -191,6 +191,18 @@
 .ads-gen__warn { color: var(--tim-amber); }
 .ads-gen__done { margin: 0; padding: 0.5rem 0.75rem; border-radius: 0.5rem; background: var(--tim-green-bg); color: var(--tim-green); font-size: 0.85rem; }
 .ads-gen__done a { color: inherit; font-weight: 600; }
+.ads-gen__field input { width: 5rem; padding: 0.35rem 0.5rem; border: 1px solid var(--tim-border); border-radius: 0.4rem; background: var(--tim-white); font: inherit; }
+.ads-agent__objective-field { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; }
+.ads-agent__objective-field textarea { padding: 0.5rem 0.6rem; border: 1px solid var(--tim-border); border-radius: 0.4rem; background: var(--tim-white); font: inherit; resize: vertical; }
+.ads-agent__live { display: flex; flex-direction: column; gap: 0.5rem; }
+.ads-agent__status { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; font-size: 0.85rem; }
+.ads-agent__status .tim-btn { margin-left: auto; }
+.ads-agent__objective { margin: 0; font-size: 0.85rem; font-style: italic; color: var(--tim-muted); }
+.ads-agent__feed { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.82rem; }
+.ads-agent__feed time { color: var(--tim-muted); font-variant-numeric: tabular-nums; margin-right: 0.4rem; }
+.ads-agent__pages { margin: 0.2rem 0 0.2rem 1.1rem; padding: 0; display: flex; flex-wrap: wrap; gap: 0.15rem 1.2rem; }
+.ads-agent__pages a { color: var(--tim-indigo); }
+.ads-agent__last { margin: 0; padding: 0.5rem 0.75rem; border-radius: 0.5rem; background: var(--tim-surface); color: var(--tim-muted); font-size: 0.85rem; }
 
 /* ─── File « À valider » : une carte par créa ────────────────────────────── */
 .ads-queue__empty { color: var(--tim-muted); font-size: 0.9rem; }
@@ -211,6 +223,7 @@
 .ads-card__head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
 .ads-card__angle { margin: 0; font-size: 1rem; color: var(--tim-foreground); }
 .ads-card__meta { margin: 0.15rem 0 0; font-size: 0.8rem; color: var(--tim-muted); }
+.ads-card__origin { margin: 0.15rem 0 0; font-size: 0.8rem; font-style: italic; color: var(--tim-indigo); }
 .ads-card__badges { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .ads-badge { padding: 0.15rem 0.55rem; border-radius: 999px; background: var(--tim-surface); color: var(--tim-muted); font-size: 0.75rem; font-weight: 600; }
 .ads-badge--test { background: var(--tim-indigo-bg); color: var(--tim-indigo); }

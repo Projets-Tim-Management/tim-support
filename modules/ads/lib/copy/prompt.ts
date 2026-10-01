@@ -63,11 +63,9 @@ export function systemPrompt(v: BrandVoice): string {
     .join("\n");
 }
 
-export function userPrompt(b: BriefInput, opts: { angles: number; toneTest: boolean }): string {
+/** Le brief et ses faits autorisés, en lignes — pour le rédacteur (prompt de l'atelier) comme pour l'agent de campagne. */
+export function briefLines(b: BriefInput): string[] {
   const facts = b.facts.length ? b.facts.map((f) => `- [${f.id}] ${f.statement} (source : ${f.source})`).join("\n") : "- (aucun : n'écris aucun chiffre hors de l'offre)";
-  const wanted = b.angles.length
-    ? `Angles imposés, dans cet ordre : ${b.angles.slice(0, opts.angles).map((a) => `« ${a} »`).join(", ")}.`
-    : `Propose ${opts.angles} angle(s) nettement différents.`;
   return [
     `CAMPAGNE : ${b.campaign}`,
     `Cible : ${b.audience ?? "—"}`,
@@ -79,6 +77,15 @@ export function userPrompt(b: BriefInput, opts: { angles: number; toneTest: bool
     "",
     "FAITS AUTORISÉS (les seuls chiffres permis, avec ceux de l'offre) :",
     facts,
+  ];
+}
+
+export function userPrompt(b: BriefInput, opts: { angles: number; toneTest: boolean }): string {
+  const wanted = b.angles.length
+    ? `Angles imposés, dans cet ordre : ${b.angles.slice(0, opts.angles).map((a) => `« ${a} »`).join(", ")}.`
+    : `Propose ${opts.angles} angle(s) nettement différents.`;
+  return [
+    ...briefLines(b),
     "",
     wanted,
     `Ton de tous les angles : ${b.tone === "vous" ? "« vous » (vouvoiement)" : "« tu » (tutoiement)"}.`,

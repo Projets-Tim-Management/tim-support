@@ -11,7 +11,7 @@ import { Fragment, useState } from "react";
 import { hasAdminRole } from "@/core/access";
 
 import CollapsibleGroup from "./CollapsibleGroup";
-import { NAV_LAYOUT, NAV_ORDER, isLink, isSubGroup, type NavItem, type NavLink } from "./nav-structure";
+import { NAV_LAYOUT, NAV_ORDER, isActiveHref, isLink, isSubGroup, type NavItem, type NavLink } from "./nav-structure";
 import { useNavRail } from "./useNavRail";
 
 const baseClass = "nav";
@@ -35,11 +35,10 @@ interface Props {
   groups: NavGroupData[];
 }
 
-/** Vrai si l'URL courante correspond à ce lien (logique identique à Payload). */
+/** Vrai si l'URL courante correspond à ce lien — le plus précis du menu seulement. */
 function useIsActive() {
   const pathname = usePathname();
-  return (href: string) =>
-    pathname.startsWith(href) && ["/", undefined].includes(pathname[href.length]);
+  return (href: string) => isActiveHref(pathname, href);
 }
 
 /** Lien de menu — réplique fidèle du rendu de `DefaultNavClient` (id, classes,

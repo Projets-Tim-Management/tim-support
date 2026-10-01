@@ -22,7 +22,11 @@ const PORTES = `Les quatre portes du projet, dans cet ordre — chacune attrape 
   1. npx vitest run       → 100 % au vert
   2. npx tsc --noEmit     → aucune erreur
   3. npx eslint .         → 0 erreur ET 0 avertissement
-  4. npm run build        → compile (Vercel le rejouera : une erreur découverte là-bas laisse la prod sur la version précédente)`;
+  4. npm run build        → compile (Vercel le rejouera : une erreur découverte là-bas laisse la prod sur la version précédente)
+     AVANT le build (et avant toute migration) : \`pgrep -fl "next dev"\`. Un serveur de dev tourne ?
+     Demander à l'utilisateur de le couper — ne pas lancer quand même, ne pas le couper soi-même.
+  Migration refusée comme destructive : s'arrêter, montrer les statements en cause, attendre l'accord
+  explicite avant \`--allow-destructive\` — même avec un feu vert donné avant.`;
 
 const COMMIT = `RAPPEL — commit (docs/COMMIT-ET-DEPLOIEMENT.md)
 

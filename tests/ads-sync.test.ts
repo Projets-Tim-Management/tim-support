@@ -14,7 +14,7 @@ type Doc = Record<string, unknown> & { id: number };
 type Where = Record<string, unknown>;
 
 /** Une base en mémoire : juste ce que la synchro utilise (find, update, create, db.find, sendEmail). */
-function memoryPayload(seed: Record<string, Doc[]> = {}) {
+function memoryPayload(seed: Record<string, Doc[]> = {}, settings: Record<string, unknown> = {}) {
   const tables: Record<string, Doc[]> = { "ad-accounts": [], "ad-campaigns": [], "ad-metrics-daily": [], users: [], ...seed };
   let next = 1000;
   const mails: { to: string; subject: string; text: string }[] = [];
@@ -46,6 +46,7 @@ function memoryPayload(seed: Record<string, Doc[]> = {}) {
     },
     db: { find: async ({ collection, where }: { collection: string; where?: Where }) => ({ docs: tables[collection].filter((d) => match(d, where ?? {})) }) },
     sendEmail: async (m: { to: string; subject: string; text: string }) => void mails.push(m),
+    findGlobal: async () => settings,
     logger: { info() {}, warn() {}, error() {} },
   };
   return { payload: payload as never, tables, mails, writes };
@@ -213,6 +214,23 @@ describe("un passage complet", () => {
     expect(tables["ad-accounts"][0].tokenAlertSentAt).toBe(NOW.toISOString());
     await runAdsSync(payload, { now: NOW, env: { ADS_META_MOCK: "1" } });
     expect(mails).toHaveLength(1);
+  });
+
+  it("rappelle aux admins, à J-7, le jeton de la bibliothèque publicitaire — par le cron seulement", async () => {
+    const admins = [{ id: 9, email: "admin@tim.test", roles: ["admin"] }];
+    const due = { adLibraryTokenExpiresAt: "2026-10-06T07:00:00.000Z" }; // dans 6 j 23 h
+    const run1 = memoryPayload({ users: admins }, due);
+    const { alerted } = await runAdsSync(run1.payload, { now: NOW, env: { ADS_META_MOCK: "1" } });
+    expect(run1.mails).toHaveLength(1);
+    expect(run1.mails[0].subject).toMatch(/bibliothèque publicitaire expire dans 7 jours/);
+    expect(alerted).toContain("Bibliothèque publicitaire (jeton)");
+    // « Synchroniser maintenant » (un compte) ne le renvoie pas ; le lendemain, il n'est plus dû.
+    const manual = memoryPayload({ "ad-accounts": [simulated()], users: admins }, due);
+    await runAdsSync(manual.payload, { now: NOW, env: { ADS_META_MOCK: "1" }, only: 1 });
+    expect(manual.mails).toHaveLength(0);
+    const nextDay = memoryPayload({ users: admins }, due);
+    await runAdsSync(nextDay.payload, { now: new Date(NOW.getTime() + 86_400_000), env: { ADS_META_MOCK: "1" } });
+    expect(nextDay.mails).toHaveLength(0);
   });
 
   it("à blanc : ne lit rien chez la régie et n'écrit rien", async () => {

@@ -19,6 +19,7 @@ export type TokenPrices = { input: number; output: number; cacheWrite: number; c
 export const CLAUDE_PRICES = {
   "claude-haiku-4-5": { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 },
   "claude-opus-5-5": { input: 4, output: 20, cacheWrite: 5, cacheRead: 0.2 },
+  "claude-sonnet-5-5": { input: 2, output: 10, cacheWrite: 2.5, cacheRead: 0.2 },
 } as const satisfies Record<string, TokenPrices>;
 
 export type ClaudeModel = keyof typeof CLAUDE_PRICES;
@@ -36,7 +37,18 @@ export function claudeCostUsd(model: ClaudeModel, u: Usage): number {
  * sortie. C'est ce montant qui doit tenir dans le budget restant — pas une
  * moyenne, qu'un appel qui s'emballe dépasserait.
  */
-export const claudeMaxCostUsd = (model: ClaudeModel, inputTokens: number, maxTokens: number): number =>
-  claudeCostUsd(model, { input: inputTokens, output: maxTokens, cacheRead: 0, cacheWrite: 0 });
+export const claudeMaxCostUsd = (model: ClaudeModel, inputTokens: number, maxTokens: number): number => {
+  // L'entrée au plus cher des deux tarifs : avec le cache, un tour peut RÉÉCRIRE tout le contexte (×1,25).
+  const p = CLAUDE_PRICES[model];
+  return (inputTokens * Math.max(p.input, p.cacheWrite) + maxTokens * p.output) / 1_000_000;
+};
 
 export const usdToEur = (usd: number): number => usd / USD_PER_EUR;
+
+/**
+ * Estimation PRUDENTE des tokens d'entrée, avant l'appel : 2,5 caractères par
+ * token — le français en compte environ 3, le JSON des conversations d'agents
+ * moins (relecture du 01/10/2026, F1). Elle sert au coût maximal, qui doit
+ * surestimer plutôt que l'inverse.
+ */
+export const estimateTokens = (...texts: string[]): number => Math.ceil(texts.reduce((n, t) => n + t.length, 0) / 2.5);

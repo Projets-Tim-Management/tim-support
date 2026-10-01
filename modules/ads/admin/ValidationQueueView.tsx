@@ -24,6 +24,7 @@ const BASE = "/admin/publicite/a-valider";
 type Raw = {
   id: number | string;
   angle: string;
+  requestedAngle?: string | null;
   hook?: string | null;
   tone?: string | null;
   cta?: string | null;
@@ -41,6 +42,7 @@ type Raw = {
 const toCard = (r: Raw): CardCreative => ({
   id: r.id,
   angle: r.angle,
+  requestedAngle: r.requestedAngle ?? null,
   hook: r.hook ?? null,
   tone: r.tone ?? "vous",
   toneLabel: toneLabel(r.tone),

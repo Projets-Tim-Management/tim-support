@@ -123,7 +123,11 @@ import * as migration_20260928_142655_media_depose_par from './20260928_142655_m
 import * as migration_20260929_073451_publicite_socle_et_canaux_meta from './20260929_073451_publicite_socle_et_canaux_meta';
 import * as migration_20260929_095438_publicite_atelier_de_creas from './20260929_095438_publicite_atelier_de_creas';
 import * as migration_20260929_153500_creas_textes_en_copy from './20260929_153500_creas_textes_en_copy';
+import * as migration_20260929_161558_agent_de_campagne from './20260929_161558_agent_de_campagne';
+import * as migration_20260929_190000_concurrents_par_identifiant_de_page from './20260929_190000_concurrents_par_identifiant_de_page';
 import * as migration_20260929_200000_fermer_api_supabase from './20260929_200000_fermer_api_supabase';
+import * as migration_20260930_164227_creas_angle_demande from './20260930_164227_creas_angle_demande';
+import * as migration_20261001_061405_historique_garde_fous from './20261001_061405_historique_garde_fous';
 
 export const migrations = [
   {
@@ -744,16 +748,36 @@ export const migrations = [
   {
     up: migration_20260929_095438_publicite_atelier_de_creas.up,
     down: migration_20260929_095438_publicite_atelier_de_creas.down,
-    name: '20260929_095438_publicite_atelier_de_creas'
+    name: '20260929_095438_publicite_atelier_de_creas',
   },
   {
     up: migration_20260929_153500_creas_textes_en_copy.up,
     down: migration_20260929_153500_creas_textes_en_copy.down,
-    name: '20260929_153500_creas_textes_en_copy'
+    name: '20260929_153500_creas_textes_en_copy',
+  },
+  {
+    up: migration_20260929_161558_agent_de_campagne.up,
+    down: migration_20260929_161558_agent_de_campagne.down,
+    name: '20260929_161558_agent_de_campagne',
+  },
+  {
+    up: migration_20260929_190000_concurrents_par_identifiant_de_page.up,
+    down: migration_20260929_190000_concurrents_par_identifiant_de_page.down,
+    name: '20260929_190000_concurrents_par_identifiant_de_page',
   },
   {
     up: migration_20260929_200000_fermer_api_supabase.up,
     down: migration_20260929_200000_fermer_api_supabase.down,
-    name: '20260929_200000_fermer_api_supabase'
+    name: '20260929_200000_fermer_api_supabase',
+  },
+  {
+    up: migration_20260930_164227_creas_angle_demande.up,
+    down: migration_20260930_164227_creas_angle_demande.down,
+    name: '20260930_164227_creas_angle_demande',
+  },
+  {
+    up: migration_20261001_061405_historique_garde_fous.up,
+    down: migration_20261001_061405_historique_garde_fous.down,
+    name: '20261001_061405_historique_garde_fous'
   },
 ];

@@ -124,6 +124,65 @@ describe("après l'appel", () => {
   });
 });
 
+describe("demandée par l'agent de campagne (décisions du 30/09/2026)", () => {
+  const prompts: string[] = [];
+  const recording = (angles: CopyAngle[]): ModelCall => async ({ user }) => {
+    prompts.push(user);
+    return { result: { angles }, usage: USAGE };
+  };
+  const agentOpts = (preCheck: (maxEur: number) => Promise<void> = async () => {}): GenerateOptions => ({ angles: 1, toneTest: true, agent: { run: 12, agent: 30, angles: ["Le temps perdu à ressaisir"], preCheck } });
+
+  it("passe les angles de l'agent au prompt sans toucher au brief, et garde l'angle demandé sur chaque créa", async () => {
+    prompts.length = 0;
+    const tu = angle({ angle: "Ta ressaisie te coûte cher", tone: "tu" });
+    const { payload, created } = memory();
+    await generateCreatives(payload, 4, agentOpts(), { call: recording([angle({ angle: "Ressaisir coûte cher" }), tu]), now: NOW });
+    expect(prompts[0]).toContain("Angles imposés, dans cet ordre : « Le temps perdu à ressaisir »");
+    expect(CAMPAIGN.brief.angles).toEqual([]); // le brief saisi n'a pas bougé
+    expect(created.some((c) => c.collection === "ad-campaigns")).toBe(false);
+    const creas = created.filter((c) => c.collection === "ad-creatives").map((c) => c.data);
+    // Le test de ton reprend le premier angle : il en porte l'origine.
+    expect(creas).toEqual([
+      expect.objectContaining({ angle: "Ressaisir coûte cher", requestedAngle: "Le temps perdu à ressaisir", run: 12, origin: "agent" }),
+      expect.objectContaining({ angle: "Ta ressaisie te coûte cher", requestedAngle: "Le temps perdu à ressaisir", run: 12, origin: "agent" }),
+    ]);
+  });
+
+  it("une seule ligne de dépense, de nature « texte », rattachée au passage et à l'agent", async () => {
+    const { payload, created } = memory();
+    await generateCreatives(payload, 4, agentOpts(), { call: recording([angle()]), now: NOW });
+    const usage = created.filter((c) => c.collection === "ad-ai-usage");
+    expect(usage).toHaveLength(1);
+    expect(usage[0].data).toMatchObject({ kind: "texte", campaign: 4, run: 12, agent: 30 });
+  });
+
+  it("le contrôle de l'agent reçoit le coût maximal, et s'il refuse, rien ne part", async () => {
+    let seen = 0;
+    const refuse = async (maxEur: number) => {
+      seen = maxEur;
+      throw new Error("Budget de l'agent épuisé");
+    };
+    const m = model([angle()]);
+    const { payload, created } = memory();
+    await expect(generateCreatives(payload, 4, agentOpts(refuse), { call: m, now: NOW })).rejects.toThrow(/Budget de l'agent épuisé/);
+    expect(seen).toBeGreaterThan(0);
+    expect(m.calls).toBe(0);
+    expect(created).toHaveLength(0);
+  });
+
+  it("les plafonds de l'atelier s'appliquent aussi : le plus strict l'emporte", async () => {
+    const check = { called: false };
+    const { payload } = memory({ spentToday: 4.9 });
+    await expect(generateCreatives(payload, 4, agentOpts(async () => void (check.called = true)), { call: model([angle()]), now: NOW })).rejects.toThrow(/Plafond du jour/);
+    expect(check.called).toBe(false);
+  });
+
+  it("sans agent, une créa garde l'origine « générée » et aucun angle demandé", () => {
+    const c = creativeFromAngle(angle(), { brief: { ...CAMPAIGN.brief, campaign: "x", ctaValue: "reserver", facts: [FACT], forbidden: [] } as never, forbidden: [], campaignId: 4, batch: "b", costEur: 0 });
+    expect(c).toMatchObject({ origin: "generee", requestedAngle: null, run: null });
+  });
+});
+
 describe("une créa à partir d'un angle", () => {
   const brief = { campaign: "C", cta: "Réserver", ctaValue: "reserver", tone: "vous" as const, angles: [], facts: [{ id: 7, statement: FACT.statement, source: FACT.source }], forbidden: [], offer: "Démo de 30 minutes" };
   it("remplace une accroche rejetée par le premier titre passé, jamais l'inverse", () => {

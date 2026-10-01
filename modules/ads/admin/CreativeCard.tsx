@@ -11,6 +11,8 @@ import { TEMPLATES } from "@/modules/ads/lib/render/templates";
 export type CardCreative = {
   id: number | string;
   angle: string;
+  /** L'angle tel que l'agent de campagne l'a demandé, s'il vient d'un passage d'agent. */
+  requestedAngle: string | null;
   hook: string | null;
   tone: string;
   toneLabel: string;
@@ -73,6 +75,11 @@ export function CreativeCard({ c }: { c: CardCreative }) {
       <header className="ads-card__head">
         <div>
           <h3 className="ads-card__angle">{c.angle}</h3>
+          {c.requestedAngle && (
+            <p className="ads-card__origin" title="Le rédacteur peut reformuler : voici l'angle que le stratège avait choisi.">
+              Angle demandé par l'agent : « {c.requestedAngle} »
+            </p>
+          )}
           <p className="ads-card__meta">
             {c.campaign?.name ?? "—"} · Bouton « {c.cta} »{c.costEur != null ? ` · ${c.costEur.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 3 })}` : ""}
           </p>

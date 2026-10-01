@@ -104,8 +104,12 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     { label: "À valider", href: "/admin/publicite/a-valider", adminOnly: true },
     "ad-campaigns",
     "ad-creatives",
-    // La matière des créas d'abord (kit, faits, médias), puis les réglages.
-    { label: "Paramètres", slugs: ["ads-brand-kit", "ad-facts", "ad-media", "ad-accounts", "ads-settings", "ad-ai-usage"] },
+    // Ce que l'agent a fait, puis pourquoi.
+    "ad-agent-runs",
+    "ad-decisions",
+    "ad-metrics-daily",
+    // Paramètres toujours en dernier. La matière des créas d'abord (kit, faits, médias, concurrents), puis les réglages.
+    { label: "Paramètres", slugs: ["ads-brand-kit", "ad-facts", "ad-media", "ad-competitors", "ad-accounts", "ads-settings", "ads-settings-history", "ad-ai-usage"] },
   ],
   /**
    * Ce que TIM facture. Aucune collection : l'écran lit Pennylane à la demande.
@@ -164,4 +168,21 @@ export function isSubGroup(item: NavItem): item is NavSubGroup {
 
 export function isLink(item: NavItem): item is NavLink {
   return typeof item !== "string" && "href" in item;
+}
+
+/** Les adresses des liens libres du menu, pour départager deux liens imbriqués. */
+const LINK_HREFS = Object.values(NAV_LAYOUT)
+  .flat()
+  .filter(isLink)
+  .map((l) => l.href);
+
+/**
+ * Vrai si la page courante correspond à ce lien (règle de Payload : l'adresse,
+ * ou une sous-page), SAUF si un lien plus précis du menu y correspond aussi :
+ * sur « /admin/publicite/a-valider », « À valider » s'allume, pas « Tableau de
+ * bord » (/admin/publicite) avec lui.
+ */
+export function isActiveHref(pathname: string, href: string, hrefs: readonly string[] = LINK_HREFS): boolean {
+  const matches = (h: string) => pathname.startsWith(h) && ["/", undefined].includes(pathname[h.length]);
+  return matches(href) && !hrefs.some((other) => other.length > href.length && other.startsWith(href) && matches(other));
 }

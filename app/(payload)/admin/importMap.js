@@ -117,6 +117,7 @@ import { SequenceThemeRowLabel as SequenceThemeRowLabel_f78827f64ca8974d62621135
 import { FormOptionRowLabel as FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b } from '../../../modules/forms/admin/FormOptionRowLabel'
 import { FormFieldRowLabel as FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3 } from '../../../modules/forms/admin/FormFieldRowLabel'
 import { GenerateCreatives as GenerateCreatives_6cd80f7ee9f5348c52d9fb524a9e5fe7 } from '../../../modules/ads/admin/GenerateCreatives'
+import { AgentPanel as AgentPanel_35a1e979f04c9e33500ed20b629a4bc2 } from '../../../modules/ads/admin/AgentPanel'
 import { CampaignKpisCell as CampaignKpisCell_17973b2b589d2f9fcdba067f516b0a98 } from '../../../modules/ads/admin/CampaignKpisCell'
 import { ConnectMetaPanel as ConnectMetaPanel_0443b5b41d00975585a76653d22b342f } from '../../../modules/ads/admin/ConnectMetaPanel'
 import { AdAccountActions as AdAccountActions_12a51012bbb4bca5fe46cd8a625e5627 } from '../../../modules/ads/admin/AdAccountActions'
@@ -270,6 +271,7 @@ export const importMap = {
   "/modules/forms/admin/FormOptionRowLabel#FormOptionRowLabel": FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b,
   "/modules/forms/admin/FormFieldRowLabel#FormFieldRowLabel": FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3,
   "/modules/ads/admin/GenerateCreatives#GenerateCreatives": GenerateCreatives_6cd80f7ee9f5348c52d9fb524a9e5fe7,
+  "/modules/ads/admin/AgentPanel#AgentPanel": AgentPanel_35a1e979f04c9e33500ed20b629a4bc2,
   "/modules/ads/admin/CampaignKpisCell#CampaignKpisCell": CampaignKpisCell_17973b2b589d2f9fcdba067f516b0a98,
   "/modules/ads/admin/ConnectMetaPanel#ConnectMetaPanel": ConnectMetaPanel_0443b5b41d00975585a76653d22b342f,
   "/modules/ads/admin/AdAccountActions#AdAccountActions": AdAccountActions_12a51012bbb4bca5fe46cd8a625e5627,
