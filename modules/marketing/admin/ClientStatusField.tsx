@@ -45,6 +45,7 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
   // Champ virtuel : « envoyer l'accès maintenant ? », lu par le serveur à
   // l'enregistrement (voir openSigningAccess dans PartnerClients).
   const { setValue: setSendInvite } = useField<boolean>({ path: "sendPortalInvite" });
+  const { setValue: setOpenTraining } = useField<boolean>({ path: "openTraining" });
   const { value: formEmail } = useField<string>({ path: "email" });
   const { id, savedDocumentData } = useDocumentInfo();
   const [asking, setAsking] = useState(false);
@@ -171,9 +172,10 @@ export function ClientStatusField({ path, field }: { path?: string; field?: { la
           companyName={companyName}
           email={formEmail || saved?.email}
           onCancel={() => setAskingSigning(false)}
-          onConfirm={(sendInvite) => {
+          onConfirm={(sendInvite, openTraining) => {
             setAskingSigning(false);
             setSendInvite(sendInvite);
+            setOpenTraining(openTraining);
             setValue("en-signature");
             // Enregistré dans le geste : c'est l'enregistrement qui ouvre le
             // parcours et, si demandé, envoie l'invitation.

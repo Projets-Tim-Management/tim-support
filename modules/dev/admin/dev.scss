@@ -274,7 +274,9 @@ body.tim-dev-kanban .collection-list__list-selection {
    occupe maintenant tout ce que la barre laisse. */
 .dev-check__row {
   display: flex;
-  align-items: center;
+  /* Haut aligné : sur un titre de deux lignes, case et numéro restent face
+     à la première. */
+  align-items: flex-start;
   gap: 0.5rem;
   width: 100%;
   min-width: 0;
@@ -342,6 +344,7 @@ body.tim-dev-kanban .collection-list__list-selection {
   display: none !important;
 }
 .dev-check__num {
+  line-height: 1.5rem;
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--tim-muted-light);
@@ -367,7 +370,16 @@ body.tim-dev-kanban .collection-list__list-selection {
   color: var(--tim-foreground);
   font: inherit;
   font-weight: 600;
-  text-overflow: ellipsis;
+  /* Zone de texte : un titre long passe à la ligne (hauteur ajustée en JS,
+     voir ChecklistRowLabel), sans poignée de redimensionnement ni ascenseur. */
+  /* Une ligne de titre fait exactement la hauteur de la case (1,5rem, bordure
+     et marges comprises) : sur un titre de deux lignes, tout ce qui l'entoure
+     reste aligné sur la PREMIÈRE ligne. */
+  line-height: calc(1.2rem - 2px);
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .dev-check__title:hover {
   border-color: color-mix(in srgb, var(--tim-border) 70%, transparent);
@@ -394,6 +406,7 @@ body.tim-dev-kanban .collection-list__list-selection {
   text-decoration: none;
 }
 .dev-check__count {
+  line-height: 1.5rem;
   font-size: 0.72rem;
   color: var(--tim-muted);
   white-space: nowrap;
@@ -867,6 +880,8 @@ body.tim-dev-kanban .collection-list__list-selection {
 /* Qui s'occupe d'un point, dans sa barre : des initiales, pas un nom complet —
    la barre doit rester lisible d'un coup d'œil sur vingt lignes. */
 .dev-check__who {
+  /* Centrée sur la première ligne du titre (1,5rem), pas sur toute la barre. */
+  margin-top: 0.05rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;

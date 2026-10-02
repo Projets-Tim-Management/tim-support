@@ -128,6 +128,12 @@ import * as migration_20260929_190000_concurrents_par_identifiant_de_page from '
 import * as migration_20260929_200000_fermer_api_supabase from './20260929_200000_fermer_api_supabase';
 import * as migration_20260930_164227_creas_angle_demande from './20260930_164227_creas_angle_demande';
 import * as migration_20261001_061405_historique_garde_fous from './20261001_061405_historique_garde_fous';
+import * as migration_20261001_071406_formation_socle from './20261001_071406_formation_socle';
+import * as migration_20261001_072839_formation_programme_par_parcours from './20261001_072839_formation_programme_par_parcours';
+import * as migration_20261001_142616_formation_nom_formateur from './20261001_142616_formation_nom_formateur';
+import * as migration_20261001_150918_formation_complement_lieu from './20261001_150918_formation_complement_lieu';
+import * as migration_20261001_154228_formation_envois from './20261001_154228_formation_envois';
+import * as migration_20261001_161834_formation_envoi_annule from './20261001_161834_formation_envoi_annule';
 
 export const migrations = [
   {
@@ -778,6 +784,36 @@ export const migrations = [
   {
     up: migration_20261001_061405_historique_garde_fous.up,
     down: migration_20261001_061405_historique_garde_fous.down,
-    name: '20261001_061405_historique_garde_fous'
+    name: '20261001_061405_historique_garde_fous',
+  },
+  {
+    up: migration_20261001_071406_formation_socle.up,
+    down: migration_20261001_071406_formation_socle.down,
+    name: '20261001_071406_formation_socle',
+  },
+  {
+    up: migration_20261001_072839_formation_programme_par_parcours.up,
+    down: migration_20261001_072839_formation_programme_par_parcours.down,
+    name: '20261001_072839_formation_programme_par_parcours',
+  },
+  {
+    up: migration_20261001_142616_formation_nom_formateur.up,
+    down: migration_20261001_142616_formation_nom_formateur.down,
+    name: '20261001_142616_formation_nom_formateur',
+  },
+  {
+    up: migration_20261001_150918_formation_complement_lieu.up,
+    down: migration_20261001_150918_formation_complement_lieu.down,
+    name: '20261001_150918_formation_complement_lieu',
+  },
+  {
+    up: migration_20261001_154228_formation_envois.up,
+    down: migration_20261001_154228_formation_envois.down,
+    name: '20261001_154228_formation_envois',
+  },
+  {
+    up: migration_20261001_161834_formation_envoi_annule.up,
+    down: migration_20261001_161834_formation_envoi_annule.down,
+    name: '20261001_161834_formation_envoi_annule'
   },
 ];

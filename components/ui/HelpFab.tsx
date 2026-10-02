@@ -51,7 +51,9 @@ export default function HelpFab() {
   }
 
   return (
-    <div ref={wrapperRef} className="fixed bottom-6 right-6 z-50">
+    // Masqué à l'impression : sur une feuille (accès, étiquettes, kit), le
+    // bouton d'aide sortait en rond blanc dans le coin.
+    <div ref={wrapperRef} className="fixed right-6 bottom-6 z-50 print:hidden">
       {/* Menu d'actions — apparaît au-dessus du bouton */}
       {open && (
         <div className="absolute bottom-16 right-0 flex flex-col gap-2 items-end animate-in">

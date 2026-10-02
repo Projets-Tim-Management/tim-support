@@ -156,6 +156,8 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     // Réservés à TIM (invisibles aux autres rôles).
     "company-settings",
     "contract-settings",
+    // Le programme type des formations (par profil).
+    "training-settings",
     "mailbox-connections",
     "media",
     { label: "Connexions du support", href: "/admin/connexions-support", adminOnly: true },
