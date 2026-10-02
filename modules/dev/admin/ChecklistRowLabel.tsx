@@ -1,7 +1,7 @@
 "use client";
 
 import { toast, useDocumentInfo, useField, useForm, useRowLabel } from "@payloadcms/ui";
-import { useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { initialsOf, useTeam } from "@/modules/dev/admin/team";
 import { commentCount, pendingQuestions, refId } from "@/modules/dev/lib/discussion";
@@ -49,6 +49,42 @@ export function ChecklistRowLabel() {
    * une information déjà lisible dans la barre.
    */
   const { setValue: setTitle, value: titleValue } = useField<string>({ path: `${path}.title` });
+
+  /**
+   * Ce qu'on tape vit d'abord dans un état LOCAL, recopié dans le formulaire.
+   *
+   * L'état du formulaire Payload ne se met pas à jour de façon synchrone : lié
+   * directement à `value`, le champ se re-rendait à chaque lettre avec une
+   * valeur décalée, et React renvoyait le curseur en fin de phrase — impossible
+   * de corriger un mot au milieu. On ne resynchronise depuis le formulaire que
+   * hors saisie (rechargement, autre onglet de la fiche…).
+   */
+  const [draft, setDraft] = useState<string>(String(titleValue ?? data?.title ?? ""));
+  const editing = useRef(false);
+  useEffect(() => {
+    if (!editing.current) setDraft(String(titleValue ?? data?.title ?? ""));
+  }, [titleValue, data?.title]);
+
+  /**
+   * Un titre long passe à la ligne au lieu d'être coupé : la zone de texte
+   * prend la hauteur de son contenu. On recalcule à chaque saisie et quand la
+   * largeur change (fenêtre redimensionnée, panneau ouvert à côté).
+   */
+  const box = useRef<HTMLTextAreaElement>(null);
+  const fit = () => {
+    const el = box.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  useLayoutEffect(fit, [draft]);
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   /**
    * Cocher ENREGISTRE, sans passer par le bouton « Sauvegarder » — et nommer
@@ -106,7 +142,7 @@ export function ChecklistRowLabel() {
   const savedTitle = useRef<string>(String(data?.title ?? ""));
   const commitTitle = async () => {
     if (typeof rowNumber !== "number") return;
-    const clean = String(titleValue ?? "").trim();
+    const clean = draft.trim();
     if (!clean || clean === savedTitle.current) return;
     try {
       if (await persist((row, i) => (i === rowNumber ? { ...row, title: clean } : row))) savedTitle.current = clean;
@@ -116,7 +152,6 @@ export function ChecklistRowLabel() {
   };
 
   const num = typeof rowNumber === "number" ? String(rowNumber + 1).padStart(2, "0") : "—";
-  const title = titleValue ?? data?.title ?? "";
   // On ne compte que les commentaires écrits : une ligne ajoutée puis laissée
   // vide ne doit pas gonfler le compteur.
   const comments = commentCount(data?.comments);
@@ -169,13 +204,26 @@ export function ChecklistRowLabel() {
           `stopPropagation` sur le clic, sinon la barre replierait le point sous
           le curseur ; Entrée ne soumet pas la fiche entière : elle termine la
           saisie (et le titre s'enregistre, comme en quittant le champ). */}
-      <input
-        type="text"
+      <textarea
+        ref={box}
+        rows={1}
         className={`dev-check__title${done ? " dev-check__title--done" : ""}`}
-        value={title}
+        value={draft}
         placeholder="Nouveau point"
-        onChange={(e) => setTitle(e.target.value)}
-        onBlur={() => void commitTitle()}
+        onFocus={() => {
+          editing.current = true;
+        }}
+        onChange={(e) => {
+          // Un titre reste une seule phrase : un retour à la ligne collé
+          // devient une espace — la mise à la ligne est visuelle seulement.
+          const next = e.target.value.replace(/\s*\n+\s*/g, " ");
+          setDraft(next);
+          setTitle(next);
+        }}
+        onBlur={() => {
+          editing.current = false;
+          void commitTitle();
+        }}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           e.stopPropagation();
