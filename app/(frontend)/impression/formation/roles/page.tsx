@@ -15,8 +15,9 @@ import PrintNow from "../../acces/PrintNow";
  */
 export const dynamic = "force-dynamic";
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ training?: string }> }) {
-  const { training } = await searchParams;
+export default async function Page({ searchParams }: { searchParams: Promise<{ training?: string; profile?: string }> }) {
+  // `profile` : une seule fiche (bouton « Admin », « Conducteur de travaux »…).
+  const { training, profile } = await searchParams;
   const payload = await payloadClient();
   const { user } = await payload.auth({ headers: await headers() });
   if (!training) return <p className="p-10 text-muted">Aucune formation indiquée.</p>;
@@ -26,7 +27,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
   const data = await loadTrainingPrint(payload, training, { withPasswords: false });
   if (!data) return <p className="p-10 text-muted">Formation introuvable.</p>;
 
-  const profiles = PROFILS.map((p) => p.key as string).filter((k) => data.sessions.some((s) => (s.profiles ?? []).includes(k)));
+  // Un profil demandé s'imprime même s'il n'est formé dans aucun créneau
+  // (sa fiche n'a alors pas de « quand ») ; sans choix : les profils formés.
+  const profiles = profile
+    ? PROFILS.map((p) => p.key as string).filter((k) => k === profile)
+    : PROFILS.map((p) => p.key as string).filter((k) => data.sessions.some((s) => (s.profiles ?? []).includes(k)));
   return (
     <div className="px-8 py-10 print:px-0 print:py-0 [&>div:first-of-type]:break-before-auto">
       <PrintNow />

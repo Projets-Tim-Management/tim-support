@@ -671,8 +671,42 @@ th.tr-matrix__count { font-size: 0.6875rem; font-weight: 600; }
 .tr-prep__hint { display: block; font-size: 0.6875rem; color: var(--tim-muted); }
 .tr-prep__add { display: flex; gap: 0.5rem; margin-top: 0.75rem; .tr-input { flex: 1; } }
 
-/* Documents à imprimer (colonne de droite) */
-.tr-docs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.625rem; }
-.tr-docs li { display: flex; flex-direction: column; gap: 0.125rem; }
-.tr-docs a { font-weight: 700; color: var(--tim-primary); text-decoration: none; &:hover { text-decoration: underline; } }
-.tr-docs span { font-size: 0.75rem; color: var(--tim-muted); }
+/* ─── Onglet « Impressions » ─── */
+.tr-docs-list { list-style: none; margin: 0 0 0.5rem; padding: 0; display: flex; flex-direction: column; gap: 0.625rem; }
+.tr-doc {
+  display: flex;
+  gap: 0.875rem;
+  padding: 0.875rem 1.125rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.tr-doc__step {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--tim-primary-light);
+  color: var(--tim-primary-dark);
+  font-weight: 800;
+}
+.tr-doc__body { flex: 1; min-width: 0; }
+.tr-doc__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.tr-doc__title { margin: 0; font-size: 0.9375rem; font-weight: 700; }
+.tr-doc__secret {
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.tr-doc__what { margin: 0.25rem 0 0; line-height: 1.45; }
+.tr-doc__who { margin: 0.125rem 0 0; font-size: 0.75rem; color: var(--tim-muted); }
+.tr-doc__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.625rem; }
+.tr-doc__actions .tr-sign-btn { height: 2rem; padding: 0 0.875rem; font-size: 0.8125rem; }
+.tr-chip-btn--print { border-style: solid; font-weight: 600; color: var(--tim-muted); }
+/* Profils formés dans ce plan : mis en avant. */
+.tr-chip-btn--print.is-trained { border-color: var(--tim-primary); background: var(--tim-primary-light); color: var(--tim-primary-dark); }

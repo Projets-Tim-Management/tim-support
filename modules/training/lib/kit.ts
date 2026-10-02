@@ -65,23 +65,45 @@ export function timedProgramme(
   return { modules, totalMinutes, overflow: available != null && available > 0 ? Math.max(0, totalMinutes - available) : 0 };
 }
 
-export type MemoGesture = { title: string; url: string };
+export type MemoGesture = { title: string; description: string; url: string };
+
+type FeatureLike = {
+  title?: string | null;
+  /** Titre affiché sur le site, s'il diffère du titre interne. */
+  titleFeature?: string | null;
+  /** Résumé d'une phrase (parfois en HTML, repris de l'ancien site). */
+  shortDescription?: string | null;
+  slug?: string | null;
+};
+
+/** Le résumé en texte, sans balise ni entité, coupé proprement. */
+const plainSummary = (html?: string | null, max = 150): string => {
+  const text = (html ?? "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&#039;|&apos;|&rsquo;/g, "’")
+    .replace(/&quot;/g, "\"")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > max ? `${text.slice(0, max).replace(/\s+\S*$/, "")}…` : text;
+};
 
 /**
- * Les gestes essentiels du mémo d'un profil : les fonctionnalités de son
- * PREMIER module (celui par lequel on commence), six au plus — un mémo qui
- * en liste vingt ne se lit pas.
+ * Les premières fonctionnalités d'un profil : celles de son PREMIER module
+ * (celui par lequel on commence), six au plus — une fiche qui en liste vingt
+ * ne se lit pas. Avec le titre et le résumé que montre le site support.
  */
-export function memoGestures(
-  features: { title?: string | null; slug?: string | null }[],
-  siteUrl: string,
-  max = 6,
-): MemoGesture[] {
+export function memoGestures(features: FeatureLike[], siteUrl: string, max = 6): MemoGesture[] {
   const base = siteUrl.replace(/\/$/, "");
   return features
-    .filter((f) => f.title?.trim() && f.slug)
+    .filter((f) => (f.titleFeature?.trim() || f.title?.trim()) && f.slug)
     .slice(0, max)
-    .map((f) => ({ title: f.title!.trim(), url: `${base}/features/${f.slug}` }));
+    .map((f) => ({
+      title: (f.titleFeature?.trim() || f.title!.trim()) as string,
+      description: plainSummary(f.shortDescription),
+      url: `${base}/features/${f.slug}`,
+    }));
 }
 
 /** Adresse lisible sur papier : sans « https:// ». */

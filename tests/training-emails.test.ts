@@ -238,3 +238,13 @@ describe("envoi annulé à la main", () => {
     expect(cancelReasonLabel("inconnu")).toBe("Annulé");
   });
 });
+
+describe("après la formation", async () => {
+  const { TRAINING_EMAIL_BUILDERS } = await import("@/modules/training/lib/emails");
+  it("renvoie vers l'accueil du guide", () => {
+    const m = TRAINING_EMAIL_BUILDERS["apres-formation"]({ dayDate: "2026-10-20T12:00:00.000Z", mode: "sur-place", slots: [], firstName: "Thomas" });
+    expect(m.text).toContain("pas à pas : https://support.tim-management.co/");
+    expect(m.text).not.toContain("/parcours");
+    expect(m.html).toContain('href="https://support.tim-management.co/"');
+  });
+});

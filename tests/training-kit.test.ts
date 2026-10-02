@@ -41,7 +41,27 @@ describe("mémo « Bien démarrer »", () => {
     const features = Array.from({ length: 8 }, (_, i) => ({ title: `Geste ${i + 1}`, slug: `geste-${i + 1}` }));
     const g = memoGestures([{ title: "", slug: "x" }, ...features], "https://support.tim-management.co/");
     expect(g).toHaveLength(6);
-    expect(g[0]).toEqual({ title: "Geste 1", url: "https://support.tim-management.co/features/geste-1" });
+    expect(g[0]).toEqual({ title: "Geste 1", description: "", url: "https://support.tim-management.co/features/geste-1" });
     expect(printableUrl(g[0].url)).toBe("support.tim-management.co/features/geste-1");
+  });
+});
+
+describe("fonctionnalités de la fiche de rôle", () => {
+  it("titre affiché du site, résumé en texte simple et coupé proprement", () => {
+    const [g] = memoGestures(
+      [
+        {
+          title: "creer-chantier-interne",
+          titleFeature: "Créer un chantier",
+          shortDescription: "<p>Créez un chantier&nbsp;: adresse, client, équipe &amp; dates — tout est prêt pour planifier la semaine suivante sans ressaisie ni oubli de quoi que ce soit, même des détails les plus fins.</p>",
+          slug: "creer-un-chantier",
+        },
+      ],
+      "https://support.tim-management.co",
+    );
+    expect(g.title).toBe("Créer un chantier");
+    expect(g.description.startsWith("Créez un chantier : adresse, client, équipe & dates")).toBe(true);
+    expect(g.description.endsWith("…")).toBe(true);
+    expect(g.description.length).toBeLessThanOrEqual(151);
   });
 });

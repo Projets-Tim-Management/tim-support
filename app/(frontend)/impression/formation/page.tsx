@@ -7,6 +7,7 @@ import { trainingRefId } from "@/modules/training/collections/trainingOwned";
 import { timedProgramme } from "@/modules/training/lib/kit";
 import { contactName, profileLabel, sessionTitle } from "@/modules/training/lib/plan";
 import { loadTrainingPrint, slotsForProfile, type PrintPerson } from "@/modules/training/lib/print-data";
+import { CredentialsTable } from "@/modules/training/print/CredentialsTable";
 import { RoleSheet } from "@/modules/training/print/RoleSheet";
 
 import PrintNow from "../acces/PrintNow";
@@ -160,28 +161,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ d
                 <h2 className="mb-1 text-lg font-semibold">Identifiants à remettre</h2>
                 {!admin ? (
                   <p className="text-sm text-muted">
-                    Les mots de passe ne s&apos;impriment que depuis un compte TIM : demandez les fiches à l&apos;équipe TIM.
+                    Les mots de passe ne s&apos;impriment que depuis un compte TIM : demandez les identifiants à l&apos;équipe TIM.
                   </p>
                 ) : (
-                  <div className="mt-4 flex flex-col gap-3">
-                    {attendees.map((c) => (
-                      <section key={c.id} className="break-inside-avoid rounded-lg border border-border p-4">
-                        <div className="flex items-baseline justify-between gap-4">
-                          <span className="text-base font-semibold">{contactName(c)}</span>
-                          <span className="text-sm text-muted">{profileLabel(c.profile)}</span>
-                        </div>
-                        <dl className="mt-3 flex flex-col gap-1 text-sm">
-                          <div className="flex gap-2">
-                            <dt className="w-28 shrink-0 text-muted">Identifiant</dt>
-                            <dd className="font-mono">{c.email || "—"}</dd>
-                          </div>
-                          <div className="flex gap-2">
-                            <dt className="w-28 shrink-0 text-muted">Mot de passe</dt>
-                            <dd className="font-mono">{c.password || "pas encore généré"}</dd>
-                          </div>
-                        </dl>
-                      </section>
-                    ))}
+                  <div className="mt-4">
+                    <CredentialsTable people={attendees} />
                   </div>
                 )}
               </div>

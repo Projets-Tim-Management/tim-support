@@ -17,6 +17,7 @@ import {
 } from "@/modules/training/admin/TrainingPlanParts";
 import { TrainingEmails } from "@/modules/training/admin/TrainingEmails";
 import { TrainingPreparation } from "@/modules/training/admin/TrainingPreparation";
+import { TrainingPrints } from "@/modules/training/admin/TrainingPrints";
 import {
   DAY_SLOTS,
   draftFromFormula,
@@ -133,7 +134,7 @@ export function TrainingPlanEditor({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"plan" | "preparation" | "emails">("plan");
+  const [tab, setTab] = useState<"plan" | "preparation" | "impressions" | "emails">("plan");
 
   const load = useCallback(async () => {
     try {
@@ -449,6 +450,13 @@ export function TrainingPlanEditor({
         >
           Préparation
         </button>
+        <button
+          type="button"
+          className={`tr-tabs__tab${tab === "impressions" ? " is-on" : ""}`}
+          onClick={() => setTab("impressions")}
+        >
+          Impressions
+        </button>
         <button type="button" className={`tr-tabs__tab${tab === "emails" ? " is-on" : ""}`} onClick={() => setTab("emails")}>
           E-mails
         </button>
@@ -458,6 +466,8 @@ export function TrainingPlanEditor({
         <main className="tr-plan__main">
           {tab === "emails" ? (
             <TrainingEmails trainingId={trainingId} readOnly={readOnly} />
+          ) : tab === "impressions" ? (
+            <TrainingPrints trainingId={trainingId} days={sorted} sessions={sessions} admin={admin} userId={userId} />
           ) : tab === "preparation" ? (
             <TrainingPreparation
               days={sorted}
@@ -512,26 +522,6 @@ export function TrainingPlanEditor({
         </main>
 
         <aside className="tr-plan__aside">
-          {admin && sessions.some((s) => s.status !== "annulee") && (
-            <section className="tr-aside">
-              <h3 className="tr-aside__title">Documents à imprimer</h3>
-              <ul className="tr-docs">
-                <li>
-                  <a href={`/impression/formation/etiquettes?training=${trainingId}`} target="_blank" rel="noopener noreferrer">
-                    Étiquettes d&apos;identifiants
-                  </a>
-                  <span>Planche A4 de 24 étiquettes (70 × 37 mm), une par personne formée.</span>
-                </li>
-                <li>
-                  <a href={`/impression/formation/roles?training=${trainingId}`} target="_blank" rel="noopener noreferrer">
-                    Fiches par rôle
-                  </a>
-                  <span>Ce qui sera abordé et les premières fonctionnalités, une page par profil.</span>
-                </li>
-              </ul>
-              <p className="tr-aside__hint">Le kit complet d&apos;une journée : « Imprimer le kit » sur la journée.</p>
-            </section>
-          )}
           <section className="tr-aside">
             <h3 className="tr-aside__title">Remise des accès</h3>
             <p className="tr-aside__text">Qui donne leurs identifiants aux participants, par défaut :</p>

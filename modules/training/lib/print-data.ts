@@ -1,10 +1,11 @@
 import type { Payload } from "payload";
 
-import { SITE_URL } from "@/core/lib/email-template";
 import { readPassword } from "@/modules/marketing/lib/credential-secrets";
 import { trainingRefId } from "@/modules/training/collections/trainingOwned";
 import { memoGestures, type MemoGesture, type Programme } from "@/modules/training/lib/kit";
 import { sessionTitle, sessionsOfDay, sortDays, type PlanDay, type PlanSession } from "@/modules/training/lib/plan";
+import { GUIDE_URL } from "@/modules/training/lib/training";
+import { PROFILS } from "@/modules/partner/lib/pricing";
 
 /**
  * Données des documents imprimés d'une formation (étiquettes, fiches par rôle,
@@ -41,7 +42,12 @@ export type PrintData = {
 export async function loadTrainingPrint(
   payload: Payload,
   trainingId: number | string,
-  opts: { withPasswords: boolean; dayId?: number | string | null },
+  opts: {
+    withPasswords: boolean;
+    dayId?: number | string | null;
+    /** Tous les contacts du client, et pas seulement les personnes formées. */
+    allContacts?: boolean;
+  },
 ): Promise<PrintData | null> {
   const training = (await payload
     .findByID({ collection: "trainings", id: trainingId, depth: 0, overrideAccess: true })
@@ -63,11 +69,12 @@ export async function loadTrainingPrint(
   // Les personnes formées : participants des créneaux retenus, lus en BRUT
   // (l'API masque les mots de passe), déchiffrés pour TIM seulement.
   const ids = [...new Set(sessions.flatMap((s) => (s.participants ?? []).map(String)))];
-  const raw = ids.length
+  const where = opts.allContacts ? (clientId != null ? { client: { equals: clientId } } : null) : ids.length ? { id: { in: ids } } : null;
+  const raw = where
     ? ((await payload.db.find({
         collection: "client-contacts",
-        where: { id: { in: ids } },
-        limit: ids.length,
+        where,
+        limit: opts.allContacts ? 1000 : ids.length,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any)) as { docs?: Doc[] })
     : { docs: [] };
@@ -81,7 +88,9 @@ export async function loadTrainingPrint(
   }));
 
   const programmes = ((settings as { programmes?: Programme[] } | null)?.programmes ?? []) as Programme[];
-  const profiles = [...new Set(sessions.flatMap((s) => s.profiles ?? []))];
+  // Tous les profils, formés ou non : une fiche « Chef de chantier » doit
+  // pouvoir s'imprimer même si aucun créneau ne forme ce profil.
+  const profiles = PROFILS.map((p) => p.key as string);
   const firstParcours = profiles
     .map((p) => [p, programmes.find((x) => x.profile === p)?.modules?.[0]?.parcours] as const)
     .filter(([, id]) => id != null);
@@ -95,10 +104,14 @@ export async function loadTrainingPrint(
       })
     : { docs: [] };
   const byId = new Map((parcoursRes.docs as unknown as Doc[]).map((p) => [String(p.id), p]));
-  const site = SITE_URL.replace(/\/$/, "");
+  // Adresse publique du guide : ces liens s'impriment (voir GUIDE_URL).
+  const site = GUIDE_URL;
   const gestures: Record<string, MemoGesture[]> = {};
   for (const [profile, id] of firstParcours) {
-    const steps = (byId.get(String(id))?.steps as { title?: string; slug?: string }[] | undefined) ?? [];
+    const steps =
+      (byId.get(String(id))?.steps as
+        | { title?: string; titleFeature?: string; shortDescription?: string; slug?: string }[]
+        | undefined) ?? [];
     gestures[profile] = memoGestures(steps.filter((f) => f && typeof f === "object"), site);
   }
 

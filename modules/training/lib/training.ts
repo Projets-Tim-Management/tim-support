@@ -75,6 +75,15 @@ export const PROFILE_TO_PARCOURS: Record<ProfilKey, string> = {
   compagnon: "compagnon",
 };
 
+/**
+ * L'adresse PUBLIQUE du guide, pour les liens qui partent sur papier ou par
+ * e-mail (fiches de rôle, après-formation). Jamais l'adresse du site en cours
+ * (`NEXT_PUBLIC_SITE_URL`) : en développement elle vaut « localhost:3001 », et
+ * une fiche imprimée ou un e-mail envoyé depuis là renvoyait vers une page
+ * inaccessible. `PUBLIC_GUIDE_URL` permet de viser une autre adresse si besoin.
+ */
+export const GUIDE_URL = (process.env.PUBLIC_GUIDE_URL || "https://support.tim-management.co").replace(/\/$/, "");
+
 /** Durée estimée par fonctionnalité enseignée, à défaut de programme réel. */
 export const MINUTES_PER_FEATURE = 10;
 

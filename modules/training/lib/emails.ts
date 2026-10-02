@@ -14,6 +14,7 @@
 
 import { BORDER, FONT, INK, MUTED, OUTER, SITE_URL, adminUrl, escape, paragraph, shell } from "@/core/lib/email-template";
 import { TIMEZONE as PARIS } from "@/modules/marketing/lib/scheduling";
+import { GUIDE_URL } from "@/modules/training/lib/training";
 
 export type BuiltEmail = { subject: string; text: string; html: string };
 
@@ -329,24 +330,26 @@ const rappelVeille = (ctx: TrainingMailContext): BuiltEmail => {
 
 const apresFormation = (ctx: TrainingMailContext): BuiltEmail => {
   const t = textsOf("apres-formation", ctx);
-  const guides = `${SITE_URL.replace(/\/$/, "")}/parcours`;
+  // L'accueil du guide (et non la seule page des parcours) : on y cherche une
+  // fonctionnalité, on y trouve les parcours et les nouveautés.
+  const guides = `${GUIDE_URL}/`;
   return assemble(
     "Et maintenant ?",
     "Les guides pas à pas, et comment poser une question",
     paragraph(escape(hello(ctx))) +
       paragraph(t.introHtml) +
       list([
-        "Les <strong>guides pas à pas</strong>, par profil, avec des démonstrations animées.",
+        "Le <strong>guide TIM</strong> : chaque fonctionnalité expliquée pas à pas, les parcours par profil et les nouveautés.",
         "Mot de passe oublié ? Utilisez le lien <strong>« Mot de passe oublié »</strong> de l'écran de connexion de TIM.",
         "Une question : répondez simplement à cet e-mail.",
       ]) +
-      button("Voir les guides", guides),
+      button("Ouvrir le guide", guides),
     [
       hello(ctx),
       "",
       t.introText,
       "",
-      `• Les guides pas à pas, par profil : ${guides}`,
+      `• Le guide TIM, chaque fonctionnalité expliquée pas à pas : ${guides}`,
       "• Mot de passe oublié ? Lien « Mot de passe oublié » de l'écran de connexion de TIM.",
       "• Une question : répondez simplement à cet e-mail.",
     ],
