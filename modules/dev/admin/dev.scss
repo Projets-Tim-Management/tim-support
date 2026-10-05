@@ -273,6 +273,8 @@ body.tim-dev-kanban .collection-list__list-selection {
    à son contenu, si bien que le champ du titre ne pouvait pas s'étendre. Il
    occupe maintenant tout ce que la barre laisse. */
 .dev-check__row {
+  /* Hauteur d'une ligne de titre : interligne + marges + bordures du champ. */
+  --dev-check-line: calc(1.4rem + 0.6rem + 2px);
   display: flex;
   /* Haut aligné : sur un titre de deux lignes, case et numéro restent face
      à la première. */
@@ -302,6 +304,8 @@ body.tim-dev-kanban .collection-list__list-selection {
      et la cible du geste le plus fréquent de l'écran. */
   width: 1.5rem;
   height: 1.5rem;
+  /* Centrée sur la première ligne du titre (voir .dev-check__row). */
+  margin-top: calc((var(--dev-check-line) - 1.5rem) / 2);
   flex: 0 0 auto;
   padding: 0;
   border-radius: 5px;
@@ -344,7 +348,7 @@ body.tim-dev-kanban .collection-list__list-selection {
   display: none !important;
 }
 .dev-check__num {
-  line-height: 1.5rem;
+  line-height: var(--dev-check-line);
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--tim-muted-light);
@@ -361,7 +365,7 @@ body.tim-dev-kanban .collection-list__list-selection {
   z-index: 2;
   flex: 1 1 auto;
   min-width: 0;
-  padding: 0.15rem 0.35rem;
+  padding: 0.3rem 0.6rem;
   border: 1px solid transparent;
   border-radius: var(--tim-radius-sm);
   /* Fond blanc dès le repos : sur la barre grise d'un point, le champ se
@@ -372,10 +376,11 @@ body.tim-dev-kanban .collection-list__list-selection {
   font-weight: 600;
   /* Zone de texte : un titre long passe à la ligne (hauteur ajustée en JS,
      voir ChecklistRowLabel), sans poignée de redimensionnement ni ascenseur. */
-  /* Une ligne de titre fait exactement la hauteur de la case (1,5rem, bordure
-     et marges comprises) : sur un titre de deux lignes, tout ce qui l'entoure
-     reste aligné sur la PREMIÈRE ligne. */
-  line-height: calc(1.2rem - 2px);
+  /* De l'air dans le champ et entre les lignes : serré à la hauteur de la
+     case, le texte touchait la bordure et deux lignes se collaient.
+     Une ligne de titre = var(--dev-check-line) ; tout ce qui l'entoure dans
+     la barre se cale sur cette PREMIÈRE ligne. */
+  line-height: 1.4rem;
   resize: none;
   overflow: hidden;
   white-space: pre-wrap;
@@ -406,7 +411,7 @@ body.tim-dev-kanban .collection-list__list-selection {
   text-decoration: none;
 }
 .dev-check__count {
-  line-height: 1.5rem;
+  line-height: var(--dev-check-line);
   font-size: 0.72rem;
   color: var(--tim-muted);
   white-space: nowrap;
@@ -880,8 +885,8 @@ body.tim-dev-kanban .collection-list__list-selection {
 /* Qui s'occupe d'un point, dans sa barre : des initiales, pas un nom complet —
    la barre doit rester lisible d'un coup d'œil sur vingt lignes. */
 .dev-check__who {
-  /* Centrée sur la première ligne du titre (1,5rem), pas sur toute la barre. */
-  margin-top: 0.05rem;
+  /* Centrée sur la première ligne du titre, pas sur toute la barre. */
+  margin-top: calc((var(--dev-check-line) - 1.4rem) / 2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
