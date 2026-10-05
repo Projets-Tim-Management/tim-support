@@ -8,6 +8,7 @@ import type {
 import { metierOwnedAccess } from "@/core/access";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { setPartnerFromClient } from "@/modules/marketing/collections/clientOwned";
+import { syncStepFromTask } from "@/modules/marketing/lib/journey-tasks";
 import { ACTIVITY_OPTIONS, TASK_KIND_OPTIONS, activityKind } from "@/modules/partner/lib/activity";
 import {
   DEFAULT_TASK_EVENT_MINUTES,
@@ -151,6 +152,8 @@ export const ClientActivities: CollectionConfig = {
       setOccurredAt,
       stampDone,
       setDisplayName,
+      // Rendez-vous de la phase de test : la coche de la tâche est celle de l'étape.
+      syncStepFromTask,
     ],
     afterChange: [syncTaskCalendar],
     afterDelete: [removeTaskCalendar],
@@ -306,6 +309,14 @@ export const ClientActivities: CollectionConfig = {
     // Écrits par la synchronisation (voir task-calendar), jamais à la main.
     { name: "calendarEventId", type: "text", admin: { hidden: true } },
     { name: "calendarLink", type: "text", admin: { hidden: true } },
+
+    /**
+     * Rendez-vous de la phase de test (prise en main, bilan) : la tâche est
+     * créée par le parcours et sa coche valide l'étape — voir
+     * marketing/lib/journey-tasks. Écrits par la synchronisation seulement.
+     */
+    { name: "journeyRun", type: "relationship", relationTo: "journey-runs", index: true, admin: { hidden: true } },
+    { name: "journeyStep", type: "text", admin: { hidden: true } },
 
     // ── E-mail : envoyé depuis la fiche, ou capté dans un échange ────────────
     {

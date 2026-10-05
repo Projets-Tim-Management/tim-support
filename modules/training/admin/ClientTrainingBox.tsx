@@ -199,8 +199,15 @@ export function ClientTrainingBox() {
           pouvez l&apos;ouvrir dès maintenant pour préparer le plan.
         </p>
       )}
-      <button type="button" className="jr-btn" disabled={busy} onClick={open}>
-        {training ? "Ouvrir une nouvelle formation" : "Ouvrir un parcours formation"}
+      {/* Une formation close en appelle rarement une autre : le geste reste
+          accessible, mais en retrait — il ne doit pas voler la vedette au plan. */}
+      <button
+        type="button"
+        className={training ? "jr-btn jr-btn--quiet tr-box__new" : "jr-btn"}
+        disabled={busy}
+        onClick={open}
+      >
+        {training ? "+ Ouvrir une nouvelle formation" : "Ouvrir un parcours formation"}
       </button>
     </>
   );
@@ -222,31 +229,36 @@ export function ClientTrainingBox() {
   return (
     <div className="jr-box">
       <h4 className="jr-box__title">Formation</h4>
-      <span className="tim-status-pill" style={{ background: style.bg, color: style.color }}>
-        {label}
-      </span>
-      <p className="jr-box__dates">
-        {closed ? `Close le ${fmt(training.closedAt)}` : `Ouverte le ${fmt(training.openedAt)}`}
-      </p>
+      {/* Statut et date sur une ligne : c'est une seule information. */}
+      <div className="tr-box__head">
+        <span className="tim-status-pill" style={{ background: style.bg, color: style.color }}>
+          {label}
+        </span>
+        <span className="tr-box__date">
+          {closed ? `le ${fmt(training.closedAt)}` : `ouverte le ${fmt(training.openedAt)}`}
+        </span>
+      </div>
 
       {plan && <PlanSummary plan={plan} />}
 
-      <button
-        type="button"
-        className={admin && !closed ? "jr-btn tr-box__plan" : "jr-box__cta tr-box__link"}
-        onClick={() => setEditing(true)}
-      >
-        {admin && !closed ? (plan?.days.length ? "Modifier le plan" : "Construire le plan") : "Voir le plan"}
-      </button>
-
-      {error && <p className="jr-box__ko">{error}</p>}
-      {openButton}
-
-      {admin && !closed && (
-        <button type="button" className="jr-btn jr-btn--small jr-btn--quiet tr-box__cancel" disabled={busy} onClick={cancel}>
-          Annuler la formation
+      <div className="tr-box__actions">
+        <button
+          type="button"
+          className={admin && !closed ? "jr-btn" : "jr-btn jr-btn--ghost"}
+          onClick={() => setEditing(true)}
+        >
+          {admin && !closed ? (plan?.days.length ? "Modifier le plan" : "Construire le plan") : "Voir le plan"}
         </button>
-      )}
+
+        {error && <p className="jr-box__ko">{error}</p>}
+        {openButton}
+
+        {admin && !closed && (
+          <button type="button" className="jr-btn jr-btn--small jr-btn--quiet tr-box__cancel" disabled={busy} onClick={cancel}>
+            Annuler la formation
+          </button>
+        )}
+      </div>
 
       {editing && (
         <TrainingPlanEditor
@@ -279,13 +291,26 @@ function PlanSummary({ plan }: { plan: Plan }) {
   const active = plan.sessions.filter((s) => s.status !== "annulee");
   // Ce qui reste à PRÉPARER (les trois premières) ; l'émargement vient ensuite.
   const next = steps.slice(0, 3).find((s) => !s.done);
+  const allDone = steps.every((s) => s.done);
+  // Le bilan, une fois des séances émargées : combien sont venus.
+  const done = active.filter((s) => s.status === "realisee");
+  const expected = done.reduce((n, s) => n + (s.participants?.length ?? 0), 0);
+  const present = done.reduce((n, s) => n + (s.attendance?.length ?? 0), 0);
   return (
     <div className="jr-box__current">
       <span className="jr-box__current-k">Plan de formation</span>
       {plan.days.length === 0
         ? "À construire : aucune journée pour l'instant."
-        : `${plan.days.length} journée${plan.days.length > 1 ? "s" : ""}, ${active.length} séance${active.length > 1 ? "s" : ""}`}
-      {plan.days.length > 0 && (
+        : `${plan.days.length} journée${plan.days.length > 1 ? "s" : ""} · ${active.length} séance${active.length > 1 ? "s" : ""}`}
+      {done.length > 0 && expected > 0 && (
+        <span className="tr-box__attendance">
+          <strong>{present}</strong> présent{present > 1 ? "s" : ""} sur {expected}
+        </span>
+      )}
+      {/* Tout est fait : une ligne suffit — quatre coches vertes ne disent
+          rien de plus et repoussent les actions loin du titre. */}
+      {plan.days.length > 0 && allDone && <span className="tr-box__alldone">✓ Toutes les étapes sont faites</span>}
+      {plan.days.length > 0 && !allDone && (
         <ul className="tr-box__steps">
           {steps.map((s) => (
             <li key={s.key} className={s.done ? "is-done" : ""}>

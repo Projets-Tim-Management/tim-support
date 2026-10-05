@@ -1815,6 +1815,8 @@ export interface ClientActivity {
   calendarMinutes?: number | null;
   calendarEventId?: string | null;
   calendarLink?: string | null;
+  journeyRun?: (number | null) | JourneyRun;
+  journeyStep?: string | null;
   emailDirection?: ('recu' | 'envoye') | null;
   sourceMessageId?: string | null;
   capturedFrom?: string | null;
@@ -4108,6 +4110,8 @@ export interface ClientActivitiesSelect<T extends boolean = true> {
   calendarMinutes?: T;
   calendarEventId?: T;
   calendarLink?: T;
+  journeyRun?: T;
+  journeyStep?: T;
   emailDirection?: T;
   sourceMessageId?: T;
   capturedFrom?: T;
