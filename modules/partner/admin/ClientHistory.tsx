@@ -486,13 +486,18 @@ export function ClientHistory() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ done: !a.done }),
         });
-        if (!res.ok) throw new Error();
+        if (!res.ok) {
+          // Le refus du serveur dit POURQUOI — une session qui ne se coche pas
+          // avant son jour, par exemple : on le montre tel quel.
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.errors?.[0]?.message ?? "");
+        }
         await load();
-      } catch {
+      } catch (err) {
         setItems((cur) =>
           (cur ?? []).map((x) => (x.id === a.id ? { ...x, done: a.done, doneAt: a.doneAt } : x)),
         );
-        setError("Impossible de mettre à jour cette tâche.");
+        setError((err as Error)?.message || "Impossible de mettre à jour cette tâche.");
       }
     },
     [load],

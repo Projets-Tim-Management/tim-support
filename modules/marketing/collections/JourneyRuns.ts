@@ -55,6 +55,7 @@ import {
   isStepDone,
   totalExtensionDays,
 } from "@/modules/marketing/lib/journey";
+import { syncJourneyTasks } from "@/modules/marketing/lib/journey-tasks";
 import { awaitingCountersign, contractStartOf } from "@/modules/partner/lib/contract-lifecycle";
 
 /**
@@ -1504,6 +1505,8 @@ export const JourneyRuns: CollectionConfig = {
       notifyProductionStepHook,
       openPortalOnGo,
       lockDossierOnValidation,
+      // Les rendez-vous (prise en main, bilan) en tâches dans l'historique.
+      syncJourneyTasks,
     ],
   },
   fields: [
