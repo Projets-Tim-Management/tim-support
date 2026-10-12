@@ -6,11 +6,11 @@ import HelpFab from "@/components/ui/HelpFab";
 
 export const metadata: Metadata = {
   title: {
-    default: "Centre d'aide – TIM Management",
-    template: "%s – Centre d'aide TIM Management",
+    default: "Centre d'aide – Tim Management",
+    template: "%s – Centre d'aide Tim Management",
   },
   description:
-    "Guides, tutoriels et réponses à vos questions sur TIM Management — logiciel de pointage et planning chantier.",
+    "Guides, tutoriels et réponses à vos questions sur Tim Management — logiciel de pointage et planning chantier.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://support.tim-management.co"
   ),

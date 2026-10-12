@@ -44,7 +44,7 @@ export default async function HomePage() {
             Comment pouvons-nous vous aider ?
           </h1>
           <p className="text-muted text-lg">
-            Documentation, assistance et suggestions — tout pour utiliser TIM Management au quotidien.
+            Documentation, assistance et suggestions — tout pour utiliser Tim Management au quotidien.
           </p>
           <SearchBar />
           <p className="text-xs text-muted pt-2">
@@ -122,7 +122,7 @@ export default async function HomePage() {
                   Proposer une amélioration
                 </h3>
                 <p className="text-sm text-muted mt-1">
-                  Vos idées font évoluer TIM Management. Partagez ce qui vous manque.
+                  Vos idées font évoluer Tim Management. Partagez ce qui vous manque.
                 </p>
               </div>
               <span className="text-sm text-primary font-medium mt-auto">

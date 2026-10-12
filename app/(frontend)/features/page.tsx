@@ -7,7 +7,7 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Fonctionnalités",
-  description: "Découvrez toutes les fonctionnalités de TIM Management.",
+  description: "Découvrez toutes les fonctionnalités de Tim Management.",
 };
 
 interface PageProps {

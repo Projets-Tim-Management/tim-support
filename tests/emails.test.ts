@@ -5,7 +5,8 @@ import { PHASE_DE_TEST_EMAILS } from "@/modules/marketing/lib/journey";
 const ctx = {
   clientName: "PIANCATELLI TOITURES",
   contactFirstName: "Charlie",
-  partnerName: "Tim Management",
+  // Distinct de la marque : la signature d'équipe écrit « Tim Management — … ».
+  partnerName: "Partenaire Essai",
   startDate: "2026-08-31T00:00:00.000Z",
   endDate: "2026-09-28T00:00:00.000Z",
   sessionAt: "2026-08-28T14:00:00.000Z",
@@ -23,7 +24,7 @@ describe("gabarits d'e-mails du parcours", () => {
       expect(mail.text.length, key).toBeGreaterThan(60);
       expect(mail.html, key).toContain("<!doctype html>");
       // Charte : logo en tête et pied de page signé.
-      expect(mail.html, key).toContain("TIM Management");
+      expect(mail.html, key).toContain("Tim Management");
     }
   });
 
@@ -112,7 +113,7 @@ describe("signature des e-mails", () => {
     for (const [key, build] of Object.entries(JOURNEY_EMAILS)) {
       const mail = build(ctx);
       // Le nom du partenaire ne doit apparaître dans AUCUN message au client.
-      expect(mail.html, key).not.toContain("Tim Management —");
+      expect(mail.html, key).not.toContain(`${ctx.partnerName} —`);
       expect(mail.text, key).not.toContain("votre interlocuteur TIM");
     }
   });

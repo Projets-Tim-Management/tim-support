@@ -10,7 +10,7 @@ export const revalidate = 600;
 export const metadata: Metadata = {
   title: "Parcours d'apprentissage",
   description:
-    "Suivez les parcours d'apprentissage par profil utilisateur pour maîtriser TIM Management étape par étape.",
+    "Suivez les parcours d'apprentissage par profil utilisateur pour maîtriser Tim Management étape par étape.",
 };
 
 interface ProfilDef {

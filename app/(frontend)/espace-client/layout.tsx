@@ -19,10 +19,10 @@ export default function EspaceClientLayout({ children }: { children: React.React
       {/* Au-dessus du contenu : une page peut peindre un fondu jusque derrière
           le logo (voir la page « Signature ») sans le recouvrir. */}
       <div className="relative z-10 px-6 pt-8 sm:px-8">
-        <Link href="/" className="inline-flex" aria-label="Centre d'aide TIM Management">
+        <Link href="/" className="inline-flex" aria-label="Centre d'aide Tim Management">
           <Image
             src="/logo-support.webp"
-            alt="TIM Management"
+            alt="Tim Management"
             width={160}
             height={32}
             className="h-8 w-auto"
