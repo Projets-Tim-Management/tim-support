@@ -40,6 +40,11 @@ export interface EnrollArgs {
   sequence: SequenceDoc;
   besoins?: string[];
   req?: PayloadRequest;
+  /**
+   * Départ de la séquence, maintenant par défaut. Un rattrapage en masse le
+   * décale pour étaler les premiers envois sur plusieurs jours.
+   */
+  startedAt?: Date;
 }
 
 /**
@@ -48,7 +53,7 @@ export interface EnrollArgs {
  */
 export async function enrollInSequence(
   payload: Payload,
-  { clientId, email, sequence, besoins = [], req }: EnrollArgs,
+  { clientId, email, sequence, besoins = [], req, startedAt = new Date() }: EnrollArgs,
 ): Promise<string | null> {
   const address = email.trim().toLowerCase();
   if (!address) return "aucune adresse";
@@ -66,7 +71,6 @@ export async function enrollInSequence(
   });
   if (running.totalDocs > 0) return "une séquence est déjà en cours";
 
-  const startedAt = new Date();
   const messages = planMessages(sequence.messages ?? [], besoins, startedAt);
   if (messages.length === 0) return "séquence sans message";
 
