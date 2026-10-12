@@ -171,9 +171,10 @@ export function shell(opts: {
 /**
  * Enveloppe des messages MARKETING — les séquences de relance.
  *
- * Même charte que `shell()` (en-tête lavande, encadré d'aide, réseaux, pied
- * marine), mais un autre rythme : un hero qui annonce le sujet, des bandes
- * d'images, un seul bouton d'action, et surtout un lien de DÉSINSCRIPTION.
+ * Même charte que `shell()` (encadré d'aide, réseaux, pied marine) mais sans
+ * le bandeau logo : le hero ouvre directement le message. Autre rythme aussi :
+ * un hero qui annonce le sujet, des bandes d'images, un seul bouton d'action,
+ * et surtout un lien de DÉSINSCRIPTION.
  *
  * Gabarit séparé plutôt qu'option de `shell()` : les e-mails de service ne
  * doivent jamais hériter par accident d'un lien de désinscription — un client
@@ -203,11 +204,11 @@ export function marketingShell(opts: {
 
   const hero = heroImageUrl
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-         <td width="52%" style="padding:34px 8px 34px 30px;vertical-align:middle;">
-           <h1 style="margin:0;font-family:${FONT};font-size:30px;line-height:1.1;color:${INK};font-weight:800;">${heading}</h1>
+         <td width="44%" style="padding:34px 8px 34px 30px;vertical-align:middle;">
+           <h1 style="margin:0;font-family:${FONT};font-size:28px;line-height:1.1;color:${INK};font-weight:800;">${heading}</h1>
          </td>
-         <td width="48%" style="padding:16px 16px 16px 8px;vertical-align:middle;">
-           <img src="${escape(heroImageUrl)}" alt="" width="270" style="display:block;width:100%;max-width:270px;border:0;border-radius:12px;">
+         <td width="56%" style="padding:14px 14px 14px 6px;vertical-align:middle;">
+           <img src="${escape(heroImageUrl)}" alt="" width="320" style="display:block;width:100%;max-width:320px;border:0;border-radius:12px;">
          </td>
        </tr></table>`
     : `<div style="padding:34px 30px;"><h1 style="margin:0;font-family:${FONT};font-size:30px;line-height:1.1;color:${INK};font-weight:800;">${heading}</h1></div>`;
@@ -223,10 +224,6 @@ export function marketingShell(opts: {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${OUTER};">
   <tr><td align="center" style="padding:28px 16px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid ${BORDER};border-radius:18px;overflow:hidden;">
-
-      <tr><td align="center" style="padding:24px 28px 20px;background:${HEADER_BG};">
-        <img src="${LOGO_URL}" alt="TIM" width="96" height="44" style="display:block;border:0;outline:none;text-decoration:none;height:44px;width:auto;">
-      </td></tr>
 
       <tr><td style="background:${BANNER};">${hero}</td></tr>
 
