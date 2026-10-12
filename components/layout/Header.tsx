@@ -49,7 +49,7 @@ export default function Header() {
             <Link href="/" className="flex items-center gap-2.5">
               <Image
                 src="/logo-support.webp"
-                alt="TIM Management"
+                alt="Tim Management"
                 width={160}
                 height={32}
                 className="h-8 w-auto"

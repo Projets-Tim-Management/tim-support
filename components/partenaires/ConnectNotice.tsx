@@ -11,7 +11,7 @@ export default function ConnectNotice() {
       <div className="text-4xl mb-4">🔒</div>
       <h2 className="text-xl font-bold text-foreground">Espace réservé aux partenaires</h2>
       <p className="mt-3 text-muted">
-        Cet espace est accessible uniquement depuis votre compte TIM Management.
+        Cet espace est accessible uniquement depuis votre compte Tim Management.
         Connectez-vous à l&apos;application pour consulter vos points et vos récompenses.
       </p>
       <a

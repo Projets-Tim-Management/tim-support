@@ -105,7 +105,7 @@ export const DEMO_FORM: FormDef = {
    * Durée et adresse validées par l'utilisateur le 04/09/2026.
    */
   legalNotice:
-    "Les informations recueillies dans ce formulaire sont utilisées par TIM Management pour traiter votre demande et vous recontacter. Elles sont conservées 3 ans à compter de notre dernier échange. Vous disposez d'un droit d'accès, de rectification, d'effacement et d'opposition, que vous pouvez exercer à support@tim-management.co.",
+    "Les informations recueillies dans ce formulaire sont utilisées par Tim Management pour traiter votre demande et vous recontacter. Elles sont conservées 3 ans à compter de notre dernier échange. Vous disposez d'un droit d'accès, de rectification, d'effacement et d'opposition, que vous pouvez exercer à support@tim-management.co.",
   fields: [
     {
       name: "company_name",

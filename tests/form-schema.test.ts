@@ -133,7 +133,7 @@ describe("textes et garde-fous", () => {
     // Les formulaires Brevo n'en avaient aucune : ni finalité, ni durée, ni
     // moyen d'exercer ses droits. Un formulaire neuf ne doit pas reconduire ça.
     const notice = DEMO_FORM.legalNotice ?? "";
-    expect(notice).toContain("TIM Management");
+    expect(notice).toContain("Tim Management");
     expect(notice).toContain("3 ans");
     expect(notice).toContain("support@tim-management.co");
     expect(notice).toMatch(/droit d'accès/);

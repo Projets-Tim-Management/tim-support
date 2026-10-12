@@ -53,7 +53,7 @@ const LOGO_URL =
   "https://ytlg8jezeqmgptjq.public.blob.vercel-storage.com/email/logo-tim-support.png";
 
 // Société (surchargable par variables d'env).
-const COMPANY_NAME = "TIM Management";
+const COMPANY_NAME = "Tim Management";
 const COMPANY_ADDRESS = process.env.COMPANY_ADDRESS || "44 quai Jayr, 69009 Lyon";
 
 // Réseaux sociaux (liens réels TIM ; surchargables par variables d'env).
