@@ -66,4 +66,18 @@ describe("rôle « prévient les demandeurs »", () => {
     const porteurs = DEV_STATUS_SEED.filter((s) => s.roles.includes("annonce")).map((s) => s.key);
     expect(porteurs).toEqual(["termine"]);
   });
+
+  it("reprend les textes et l'image du back-office ; un champ vide garde l'original", () => {
+    const m = buildAnnounceEmail({
+      ...base,
+      texts: { subject: "C'est prêt : {{titre}}", intro: "**{{titre}}** est là <b>!</b>", heading: "" },
+      heroImageUrl: "https://cdn.exemple/hero.png",
+    });
+    expect(m.subject).toBe("C'est prêt : Export des heures & absences");
+    expect(m.html).toContain("<strong>Export des heures &amp; absences</strong> est là &lt;b&gt;!&lt;/b&gt;");
+    expect(m.html).toContain("Bonne nouvelle !");
+    expect(m.html).toContain("https://cdn.exemple/hero.png");
+    expect(m.text).toContain("Export des heures & absences est là");
+  });
 });
+

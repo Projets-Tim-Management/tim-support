@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { hasAdminRole } from "@/core/access";
 import { payloadClient } from "@/core/payload-client";
 import { buildAnnounceEmail } from "@/modules/dev/lib/announce-email";
+import { readAnnounceSettings } from "@/modules/dev/lib/announce-settings";
 import { logActivity } from "@/modules/partner/lib/journal";
 
 /**
@@ -72,6 +73,7 @@ async function messageFor(
   payload: Awaited<ReturnType<typeof payloadClient>>,
   args: { email: string; title: string; client: Client | null; feature: Feature },
 ) {
+  const settings = await readAnnounceSettings(payload);
   const { client } = args;
   const partnerId = client ? idOf(client.partner) : null;
   const [partner, account] = await Promise.all([
@@ -107,6 +109,7 @@ async function messageFor(
     featureSlug: args.feature?.slug ?? null,
     featureTitle: args.feature?.title ?? null,
     recipientEmail: args.email,
+    ...settings,
   });
   return { built, replyTo: p?.email ?? null };
 }

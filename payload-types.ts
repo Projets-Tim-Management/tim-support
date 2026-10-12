@@ -213,6 +213,7 @@ export interface Config {
     'company-settings': CompanySetting;
     'contract-settings': ContractSetting;
     'training-settings': TrainingSetting;
+    'dev-announce-email': DevAnnounceEmail;
     'ads-settings': AdsSetting;
     'ads-brand-kit': AdsBrandKit;
   };
@@ -222,6 +223,7 @@ export interface Config {
     'company-settings': CompanySettingsSelect<false> | CompanySettingsSelect<true>;
     'contract-settings': ContractSettingsSelect<false> | ContractSettingsSelect<true>;
     'training-settings': TrainingSettingsSelect<false> | TrainingSettingsSelect<true>;
+    'dev-announce-email': DevAnnounceEmailSelect<false> | DevAnnounceEmailSelect<true>;
     'ads-settings': AdsSettingsSelect<false> | AdsSettingsSelect<true>;
     'ads-brand-kit': AdsBrandKitSelect<false> | AdsBrandKitSelect<true>;
   };
@@ -5411,6 +5413,42 @@ export interface TrainingSetting {
   createdAt?: string | null;
 }
 /**
+ * Le message qui prévient les clients qu'un développement demandé est livré. Variables : {{titre}} (titre du développement). **gras** pour mettre en avant. Un champ vidé reprend le texte d'origine.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "dev-announce-email".
+ */
+export interface DevAnnounceEmail {
+  id: number;
+  subject?: string | null;
+  /**
+   * La ligne grise affichée après l'objet dans la boîte de réception.
+   */
+  preheader?: string | null;
+  heading?: string | null;
+  /**
+   * Affichée à droite du titre. 540 × 400 px, dessinée sur le fond du bandeau (#ccd0f6) avec sa vague : les messageries n'affichent pas les formes dessinées en code. Vide = la fusée par défaut.
+   */
+  image?: (number | null) | Media;
+  /**
+   * Après « Bonjour {prénom}, », ajouté automatiquement.
+   */
+  intro?: string | null;
+  /**
+   * Seulement si le développement est relié à une fiche fonctionnalité.
+   */
+  featureLead?: string | null;
+  proposalWithBooking?: string | null;
+  proposalWithoutBooking?: string | null;
+  /**
+   * Le lien est celui du partenaire du client ; sans lien, pas de bouton.
+   */
+  ctaLabel?: string | null;
+  signoff?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * Ce que les agents et l'atelier de créas n'ont pas le droit de faire, ni de dépenser. Réservé à TIM.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -5630,6 +5668,25 @@ export interface TrainingSettingsSelect<T extends boolean = true> {
             };
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "dev-announce-email_select".
+ */
+export interface DevAnnounceEmailSelect<T extends boolean = true> {
+  subject?: T;
+  preheader?: T;
+  heading?: T;
+  image?: T;
+  intro?: T;
+  featureLead?: T;
+  proposalWithBooking?: T;
+  proposalWithoutBooking?: T;
+  ctaLabel?: T;
+  signoff?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

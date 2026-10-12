@@ -142,7 +142,11 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
   Développements: [
     "developments",
     "integrations",
-    { label: "Paramètres", slugs: ["dev-statuses"] },
+    {
+      label: "Paramètres",
+      slugs: ["dev-statuses"],
+      links: [{ label: "Modèles d'e-mail", href: "/admin/dev/modeles-email", adminOnly: true }],
+    },
   ],
   /**
    * Les réglages : comptes, apparence, boîtes connectées — et les connexions

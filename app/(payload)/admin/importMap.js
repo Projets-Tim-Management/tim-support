@@ -126,6 +126,8 @@ import { PurgeAccountModal as PurgeAccountModal_1a62dd382667ad7a0e23522c172e8254
 import { InsuranceCell as InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4 } from '../../../modules/marketing/admin/InsuranceCell'
 import { default as default_c08243cbb0e32dd70b45a5afb5f6cbd4 } from '../../../admin/components/SaveButton'
 import { default as default_72ee9fe55f81abe2c8ae550d52d0ab85 } from '../../../admin/fields/ColorField'
+import { EmailTemplatesBackLink as EmailTemplatesBackLink_7a3b3427a104dea3e6a7f18d27228e56 } from '../../../modules/dev/admin/EmailTemplatesBackLink'
+import { AnnounceEmailPreview as AnnounceEmailPreview_7677cf785fe8efda4b98a8d065538a81 } from '../../../modules/dev/admin/AnnounceEmailPreview'
 import { default as default_5599fe28f2b3157f52fea861e6ba12e6 } from '../../../admin/graphics/Avatar'
 import { default as default_8224f9d0d872abe7f15fe4a0b0d49bd9 } from '../../../admin/nav/CustomNav'
 import { default as default_bd65fe58e0079c6c4581354ef4ec3555 } from '../../../admin/header/PartnerSwitcher'
@@ -139,6 +141,7 @@ import { default as default_65ef55331b21a1936ed46e30c0e0c98a } from '../../../ad
 import { VercelBlobClientUploadHandler as VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e } from '@payloadcms/storage-vercel-blob/client'
 import { default as default_a8bdfd6ec46ed48bd1e9402d58bf4c34 } from '../../../admin/dashboard/DashboardView'
 import { default as default_6971e0609c24bbf2339323e60b70e021 } from '../../../modules/support/admin/NotificationsView'
+import { default as default_a53e8fe3edc1ecea3fa295b8b21d1b14 } from '../../../modules/dev/admin/DevEmailTemplatesView'
 import { default as default_31771f6a3fa0ba20a52c3d00b490cd26 } from '../../../admin/connections/SupportConnectionsView'
 import { default as default_d8e7bbf9f25486534fff2dfe79658e80 } from '../../../modules/partner/admin/BillingCheckView'
 import { default as default_3fac943f745ba0ff2dbf26360a2df675 } from '../../../modules/analytics/admin/BillingView'
@@ -281,6 +284,8 @@ export const importMap = {
   "/modules/marketing/admin/InsuranceCell#InsuranceCell": InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4,
   "/admin/components/SaveButton#default": default_c08243cbb0e32dd70b45a5afb5f6cbd4,
   "/admin/fields/ColorField#default": default_72ee9fe55f81abe2c8ae550d52d0ab85,
+  "/modules/dev/admin/EmailTemplatesBackLink#EmailTemplatesBackLink": EmailTemplatesBackLink_7a3b3427a104dea3e6a7f18d27228e56,
+  "/modules/dev/admin/AnnounceEmailPreview#AnnounceEmailPreview": AnnounceEmailPreview_7677cf785fe8efda4b98a8d065538a81,
   "/admin/graphics/Avatar#default": default_5599fe28f2b3157f52fea861e6ba12e6,
   "/admin/nav/CustomNav#default": default_8224f9d0d872abe7f15fe4a0b0d49bd9,
   "/admin/header/PartnerSwitcher#default": default_bd65fe58e0079c6c4581354ef4ec3555,
@@ -294,6 +299,7 @@ export const importMap = {
   "@payloadcms/storage-vercel-blob/client#VercelBlobClientUploadHandler": VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e,
   "/admin/dashboard/DashboardView#default": default_a8bdfd6ec46ed48bd1e9402d58bf4c34,
   "/modules/support/admin/NotificationsView#default": default_6971e0609c24bbf2339323e60b70e021,
+  "/modules/dev/admin/DevEmailTemplatesView#default": default_a53e8fe3edc1ecea3fa295b8b21d1b14,
   "/admin/connections/SupportConnectionsView#default": default_31771f6a3fa0ba20a52c3d00b490cd26,
   "/modules/partner/admin/BillingCheckView#default": default_d8e7bbf9f25486534fff2dfe79658e80,
   "/modules/analytics/admin/BillingView#default": default_3fac943f745ba0ff2dbf26360a2df675,

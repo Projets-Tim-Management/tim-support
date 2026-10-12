@@ -30,6 +30,7 @@ import { Tickets } from "./modules/support/collections/Tickets";
 import { Developments } from "./modules/dev/collections/Developments";
 import { DevStatuses } from "./modules/dev/collections/DevStatuses";
 import { Integrations } from "./modules/dev/collections/Integrations";
+import { DevAnnounceEmail } from "./modules/dev/globals/DevAnnounceEmail";
 import { AdAccounts } from "./modules/ads/collections/AdAccounts";
 import { AdCampaigns } from "./modules/ads/collections/AdCampaigns";
 import { AdMetricsDaily } from "./modules/ads/collections/AdMetricsDaily";
@@ -238,6 +239,14 @@ export default buildConfig({
         // Écran « Facturation » : les licences saisies sur chaque fiche face à
         // l'abonnement Pennylane — voir modules/partner/admin/BillingCheckView.
         // Connexions du support (Système) : état des variables, test, notes.
+        // Modèles d'e-mail des développements : la liste, chaque modèle
+        // s'ouvre sur son réglage — voir modules/dev/admin/DevEmailTemplatesView.
+        devModelesEmail: {
+          Component: "/modules/dev/admin/DevEmailTemplatesView#default",
+          path: "/dev/modeles-email",
+          exact: true,
+          meta: { title: "Modèles d'e-mail" },
+        },
         connexionsSupport: {
           Component: "/admin/connections/SupportConnectionsView#default",
           path: "/connexions-support",
@@ -574,7 +583,7 @@ export default buildConfig({
        */
     }),
   ],
-  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, TrainingSettings, AdsSettings, AdsBrandKit],
+  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, TrainingSettings, DevAnnounceEmail, AdsSettings, AdsBrandKit],
 
   db: postgresAdapter({
     // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :
