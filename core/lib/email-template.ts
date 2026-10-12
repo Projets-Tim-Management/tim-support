@@ -105,9 +105,30 @@ export function shell(opts: {
   heading: string;
   preheader?: string;
   bodyHtml: string;
+  /**
+   * Visuel à droite du titre, dans le bandeau. L'image porte elle-même la
+   * vague foncée et l'illustration (les messageries ignorent le SVG et les
+   * formes CSS) : elle doit donc être dessinée sur le fond `BANNER`, au ratio
+   * 540×400. Sans elle, le bandeau reste un titre seul sur toute la largeur.
+   */
+  heroImageUrl?: string;
   recipientEmail?: string;
 }): string {
-  const { heading, preheader = "", bodyHtml, recipientEmail } = opts;
+  const { heading, preheader = "", bodyHtml, heroImageUrl, recipientEmail } = opts;
+  const banner = heroImageUrl
+    ? `<tr><td style="background:${BANNER};">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td width="55%" style="padding:30px 10px 30px 30px;vertical-align:middle;">
+            <h1 style="margin:0;font-family:${FONT};font-size:30px;line-height:1.15;color:${INK};font-weight:800;">${heading}</h1>
+          </td>
+          <td width="45%" style="padding:0;vertical-align:bottom;font-size:0;line-height:0;">
+            <img src="${escape(heroImageUrl)}" alt="" width="270" style="display:block;width:100%;max-width:270px;height:auto;border:0;margin-left:auto;">
+          </td>
+        </tr></table>
+      </td></tr>`
+    : `<tr><td style="padding:30px 30px;background:${BANNER};">
+        <h1 style="margin:0;font-family:${FONT};font-size:26px;line-height:1.2;color:${INK};font-weight:800;">${heading}</h1>
+      </td></tr>`;
   return `<!doctype html>
 <html lang="fr"><head>
 <meta charset="utf-8">
@@ -120,15 +141,18 @@ export function shell(opts: {
   <tr><td align="center" style="padding:28px 16px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid ${BORDER};border-radius:18px;overflow:hidden;">
 
-      <!-- En-tête : logo -->
-      <tr><td align="center" style="padding:24px 28px 20px;background:${HEADER_BG};">
-        <img src="${LOGO_URL}" alt="TIM" width="96" height="44" style="display:block;border:0;outline:none;text-decoration:none;height:44px;width:auto;">
+      <!-- En-tête : logo. Avec un visuel, l'en-tête s'arrondit en bas sur le
+           fond du bandeau, comme dans la charte des e-mails TIM. -->
+      <tr><td style="background:${heroImageUrl ? BANNER : HEADER_BG};">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td align="center" style="padding:24px 28px 20px;background:${HEADER_BG};${heroImageUrl ? "border-radius:0 0 36px 36px;" : ""}">
+            <img src="${LOGO_URL}" alt="TIM" width="96" height="44" style="display:block;border:0;outline:none;text-decoration:none;height:44px;width:auto;">
+          </td>
+        </tr></table>
       </td></tr>
 
       <!-- Bandeau titre -->
-      <tr><td style="padding:30px 30px;background:${BANNER};">
-        <h1 style="margin:0;font-family:${FONT};font-size:26px;line-height:1.2;color:${INK};font-weight:800;">${heading}</h1>
-      </td></tr>
+      ${banner}
 
       <!-- Corps -->
       <tr><td style="padding:28px 30px 10px;font-family:${FONT};">
@@ -171,9 +195,10 @@ export function shell(opts: {
 /**
  * Enveloppe des messages MARKETING — les séquences de relance.
  *
- * Même charte que `shell()` (en-tête lavande, encadré d'aide, réseaux, pied
- * marine), mais un autre rythme : un hero qui annonce le sujet, des bandes
- * d'images, un seul bouton d'action, et surtout un lien de DÉSINSCRIPTION.
+ * Même charte que `shell()` (encadré d'aide, réseaux, pied marine) mais sans
+ * le bandeau logo : le hero ouvre directement le message. Autre rythme aussi :
+ * un hero qui annonce le sujet, des bandes d'images, un seul bouton d'action,
+ * et surtout un lien de DÉSINSCRIPTION.
  *
  * Gabarit séparé plutôt qu'option de `shell()` : les e-mails de service ne
  * doivent jamais hériter par accident d'un lien de désinscription — un client
@@ -203,11 +228,11 @@ export function marketingShell(opts: {
 
   const hero = heroImageUrl
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-         <td width="52%" style="padding:34px 8px 34px 30px;vertical-align:middle;">
-           <h1 style="margin:0;font-family:${FONT};font-size:30px;line-height:1.1;color:${INK};font-weight:800;">${heading}</h1>
+         <td width="44%" style="padding:34px 8px 34px 30px;vertical-align:middle;">
+           <h1 style="margin:0;font-family:${FONT};font-size:28px;line-height:1.1;color:${INK};font-weight:800;">${heading}</h1>
          </td>
-         <td width="48%" style="padding:16px 16px 16px 8px;vertical-align:middle;">
-           <img src="${escape(heroImageUrl)}" alt="" width="270" style="display:block;width:100%;max-width:270px;border:0;border-radius:12px;">
+         <td width="56%" style="padding:14px 14px 14px 6px;vertical-align:middle;">
+           <img src="${escape(heroImageUrl)}" alt="" width="320" style="display:block;width:100%;max-width:320px;border:0;border-radius:12px;">
          </td>
        </tr></table>`
     : `<div style="padding:34px 30px;"><h1 style="margin:0;font-family:${FONT};font-size:30px;line-height:1.1;color:${INK};font-weight:800;">${heading}</h1></div>`;
@@ -223,10 +248,6 @@ export function marketingShell(opts: {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${OUTER};">
   <tr><td align="center" style="padding:28px 16px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid ${BORDER};border-radius:18px;overflow:hidden;">
-
-      <tr><td align="center" style="padding:24px 28px 20px;background:${HEADER_BG};">
-        <img src="${LOGO_URL}" alt="TIM" width="96" height="44" style="display:block;border:0;outline:none;text-decoration:none;height:44px;width:auto;">
-      </td></tr>
 
       <tr><td style="background:${BANNER};">${hero}</td></tr>
 

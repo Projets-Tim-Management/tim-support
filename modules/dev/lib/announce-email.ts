@@ -14,10 +14,52 @@ import { BRAND, FONT, SITE_URL, escape, paragraph, shell } from "@/core/lib/emai
  * partenaire n'est pas nommé (demandé le 11/09/2026). La réponse, elle, lui
  * arrive (Reply-To posé à l'envoi).
  *
+ * Les textes et l'image se reprennent en back-office (Développements → Paramètres →
+ * Modèles d'e-mail → « C'est disponible », global `dev-announce-email`). Un
+ * champ vide = le texte d'origine ci-dessous : vider un champ ramène
+ * l'original, et rien ne change tant que personne n'écrit.
+ *
  * Pur : la fabrication se teste sans base ni envoi.
  */
 
 export type BuiltEmail = { subject: string; text: string; html: string };
+
+/** Les textes modifiables. Variables : {{titre}} ; **gras** pour mettre en avant. */
+export type AnnounceTexts = {
+  subject?: string | null;
+  heading?: string | null;
+  preheader?: string | null;
+  intro?: string | null;
+  featureLead?: string | null;
+  proposalWithBooking?: string | null;
+  proposalWithoutBooking?: string | null;
+  ctaLabel?: string | null;
+  signoff?: string | null;
+};
+
+export const ANNOUNCE_VARIABLES = [{ key: "titre", label: "Titre du développement" }];
+
+/** Le texte d'origine — affiché comme valeur par défaut dans le back-office. */
+export const DEFAULT_ANNOUNCE_TEXTS: Required<{ [K in keyof AnnounceTexts]: string }> = {
+  subject: "Bonne nouvelle : « {{titre}} » est prête !",
+  heading: "Bonne nouvelle !",
+  preheader: "« {{titre}} » est prête — on vous la montre ?",
+  intro:
+    "Vous souhaitiez la fonctionnalité **« {{titre}} »** : bonne nouvelle, **elle est prête !** Notre équipe technique l'a réalisée et elle est disponible dès aujourd'hui dans TIM Management.",
+  featureLead: "Le détail est sur notre site support :",
+  proposalWithBooking:
+    "Pour la découvrir, on vous propose une démonstration de 20 minutes ou un simple échange téléphonique, quand ça vous arrange : réservez un créneau ci-dessous, ou répondez à cet e-mail.",
+  proposalWithoutBooking:
+    "Pour la découvrir, on vous propose une démonstration de 20 minutes ou un simple échange téléphonique, quand ça vous arrange : répondez simplement à cet e-mail.",
+  ctaLabel: "Réserver une démo",
+  signoff: "À très vite,\nL'équipe TIM Management",
+};
+
+/**
+ * Visuel du bandeau par défaut (fusée sur vague), servi par le site depuis
+ * `public/email/`. Remplacé par l'image choisie en back-office, s'il y en a une.
+ */
+export const DEFAULT_ANNOUNCE_HERO = `${SITE_URL}/email/annonce-dev.png`;
 
 export type AnnounceContext = {
   /** Titre du développement, tel que saisi — c'est ce que le client reconnaîtra. */
@@ -30,61 +72,70 @@ export type AnnounceContext = {
   featureSlug?: string | null;
   featureTitle?: string | null;
   recipientEmail?: string;
+  /** Textes repris en back-office ; vides ou absents = texte d'origine. */
+  texts?: AnnounceTexts | null;
+  /** Image du bandeau choisie en back-office (URL absolue) ; absente = la fusée. */
+  heroImageUrl?: string | null;
 };
-
-const TEAM = "L'équipe TIM Management";
 
 const button = (label: string, url: string) =>
   `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 8px;"><tr><td>
      <a href="${url}" style="display:inline-block;padding:13px 26px;background:${BRAND};border-radius:9px;color:#ffffff;font-family:${FONT};font-size:15px;font-weight:700;text-decoration:none;">${escape(label)}</a>
    </td></tr></table>`;
 
+/** Échappe PUIS met en gras : le texte saisi ne porte jamais de HTML. */
+const richHtml = (s: string) => escape(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
+const plain = (s: string) => s.replace(/\*\*([^*]+)\*\*/g, "$1");
+
 export function buildAnnounceEmail(ctx: AnnounceContext): BuiltEmail {
+  const fill = (s: string) => s.replace(/\{\{\s*titre\s*\}\}/g, ctx.title);
+  const t = (key: keyof AnnounceTexts) => fill(ctx.texts?.[key]?.trim() || DEFAULT_ANNOUNCE_TEXTS[key]);
+  const oneLine = (s: string) => plain(s).replace(/\s*\n\s*/g, " ").trim();
+
   const hello = ctx.contactFirstName?.trim() ? `Bonjour ${ctx.contactFirstName.trim()},` : "Bonjour,";
   const featureUrl = ctx.featureSlug ? `${SITE_URL}/features/${ctx.featureSlug}` : null;
 
   // Le corps, en deux temps : la bonne nouvelle, puis la proposition — avec
   // un bouton de réservation si le partenaire en a un, sinon la réponse.
-  const bonneNouvelle = `Vous souhaitiez la fonctionnalité « ${ctx.title} » : bonne nouvelle, elle est prête ! Notre équipe technique l'a réalisée et elle est disponible dès aujourd'hui dans TIM Management.`;
-  const proposition = ctx.bookingUrl
-    ? "Pour la découvrir, on vous propose une démonstration de 20 minutes ou un simple échange téléphonique, quand ça vous arrange : réservez un créneau ci-dessous, ou répondez à cet e-mail."
-    : "Pour la découvrir, on vous propose une démonstration de 20 minutes ou un simple échange téléphonique, quand ça vous arrange : répondez simplement à cet e-mail.";
+  const intro = t("intro");
+  const proposition = t(ctx.bookingUrl ? "proposalWithBooking" : "proposalWithoutBooking");
+  const featureLead = t("featureLead");
+  const ctaLabel = oneLine(t("ctaLabel"));
+  const signoff = t("signoff");
 
-  const subject = `Bonne nouvelle : « ${ctx.title} » est prête !`;
+  const subject = oneLine(t("subject"));
 
   const text = [
     hello,
     "",
-    bonneNouvelle,
-    ...(featureUrl ? ["", `Le détail est sur notre site support : ${featureUrl}`] : []),
+    plain(intro),
+    ...(featureUrl ? ["", `${plain(featureLead)} ${featureUrl}`] : []),
     "",
-    proposition,
-    ...(ctx.bookingUrl ? ["", `Réserver une démo : ${ctx.bookingUrl}`] : []),
+    plain(proposition),
+    ...(ctx.bookingUrl ? ["", `${ctaLabel} : ${ctx.bookingUrl}`] : []),
     "",
-    "À très vite,",
-    TEAM,
+    plain(signoff),
   ].join("\n");
 
   const html = shell({
-    heading: "Bonne nouvelle !",
-    // `shell` insère le pré-en-tête tel quel : on l'échappe ici, comme le reste.
-    preheader: escape(`« ${ctx.title} » est prête — on vous la montre ?`),
+    // `shell` insère titre et pré-en-tête tels quels : on les échappe ici.
+    heading: escape(oneLine(t("heading"))),
+    heroImageUrl: ctx.heroImageUrl?.trim() || DEFAULT_ANNOUNCE_HERO,
+    preheader: escape(oneLine(t("preheader"))),
     recipientEmail: ctx.recipientEmail,
     bodyHtml:
       paragraph(escape(hello)) +
-      paragraph(
-        `Vous souhaitiez la fonctionnalité <strong>« ${escape(ctx.title)} »</strong> : bonne nouvelle, <strong>elle est prête !</strong> Notre équipe technique l'a réalisée et elle est disponible dès aujourd'hui dans TIM Management.`,
-      ) +
+      paragraph(richHtml(intro)) +
       (featureUrl
         ? paragraph(
-            `Le détail est sur notre site support : <a href="${featureUrl}" style="color:${BRAND};font-weight:700;text-decoration:none;">${escape(
+            `${richHtml(featureLead)} <a href="${featureUrl}" style="color:${BRAND};font-weight:700;text-decoration:none;">${escape(
               ctx.featureTitle?.trim() || ctx.title,
             )}</a>.`,
           )
         : "") +
-      paragraph(escape(proposition)) +
-      (ctx.bookingUrl ? button("Réserver une démo", ctx.bookingUrl) : "") +
-      `<p style="margin:18px 0 0;font-family:${FONT};font-size:15px;color:#4a4d57;">À très vite,<br>${TEAM}</p>`,
+      paragraph(richHtml(proposition)) +
+      (ctx.bookingUrl ? button(ctaLabel, ctx.bookingUrl) : "") +
+      `<p style="margin:18px 0 0;font-family:${FONT};font-size:15px;color:#4a4d57;">${richHtml(signoff)}</p>`,
   });
 
   return { subject, text, html };

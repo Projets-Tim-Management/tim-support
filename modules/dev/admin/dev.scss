@@ -1987,3 +1987,126 @@ body.dev-gallery-mode {
 
   p { margin: 0; max-width: 40rem; }
 }
+
+/* ─── Modèles d'e-mail (DevEmailTemplatesView) ─────────────────────────────── */
+.dev-mails {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-bottom: 2rem;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+  }
+  &__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: var(--tim-radius);
+    background: var(--tim-indigo-bg);
+    color: var(--tim-indigo);
+    svg { width: 22px; height: 22px; }
+  }
+  &__title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--tim-foreground);
+  }
+  &__sub,
+  &__empty {
+    margin: 0.2rem 0 0;
+    font-size: 0.875rem;
+    color: var(--tim-muted);
+  }
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+  &__card {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 1rem 1.125rem;
+    background: var(--tim-white);
+    border: 1px solid var(--tim-border);
+    border-radius: var(--tim-radius);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &:hover {
+      border-color: color-mix(in srgb, var(--tim-primary) 40%, var(--tim-border));
+      box-shadow: var(--tim-elevation-100);
+    }
+    &:hover .dev-mails__arrow { color: var(--tim-primary); transform: translateX(2px); }
+  }
+  &__card-icon {
+    display: inline-flex;
+    flex: none;
+    color: var(--tim-muted);
+  }
+  &__card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+    flex: 1;
+  }
+  &__name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--tim-foreground);
+  }
+  &__when {
+    font-size: 0.8125rem;
+    color: var(--tim-muted);
+  }
+  &__subject {
+    font-size: 0.8125rem;
+    color: var(--tim-foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: none;
+    font-size: 0.75rem;
+    color: var(--tim-muted);
+  }
+  &__arrow {
+    display: inline-flex;
+    transition: transform 0.15s, color 0.15s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dev-mails__card,
+  .dev-mails__arrow { transition: none; }
+}
+
+@media (max-width: 640px) {
+  .dev-mails__meta { display: none; }
+}
+
+.dev-mails-back {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  text-decoration: none;
+  &:hover { color: var(--tim-primary); }
+}

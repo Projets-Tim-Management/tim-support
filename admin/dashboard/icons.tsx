@@ -99,6 +99,11 @@ export const Icons = {
       <circle key="b" cx="12" cy="12" r="5" />,
       <circle key="c" cx="12" cy="12" r="1" />,
     ]),
+  mail: () =>
+    svg([
+      <rect key="a" x="2" y="4" width="20" height="16" rx="2" />,
+      <path key="b" d="M2 7l10 6 10-6" />,
+    ]),
 } as const;
 
 export type IconName = keyof typeof Icons;
