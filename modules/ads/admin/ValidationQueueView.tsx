@@ -5,6 +5,7 @@ import { Gutter } from "@payloadcms/ui";
 import Link from "next/link";
 
 import { hasAdminRole } from "@/core/access";
+import { pendingProposals, type AgentProposal } from "@/modules/ads/agent/overview";
 import { REFUSAL_REASONS } from "@/modules/ads/lib/creative-options";
 import { ctaLabel } from "@/modules/ads/lib/cta";
 import { testLabel, toneLabel, type TestDimension } from "@/modules/ads/lib/dimensions";
@@ -61,6 +62,41 @@ const toLearning = (r: { id: number | string; statement: string; confidence?: st
   campaign: named(r.campaign),
 });
 
+/** Ce que l'agent propose pour la campagne, avant ses créas : on juge les créas à la lumière du plan. */
+function ProposalCard({ p }: { p: AgentProposal }) {
+  const rows: [string, string | null][] = [
+    ["Positionnement", p.positionnement],
+    ["Audiences", p.audience],
+    ["Répartition du budget", p.repartition],
+  ];
+  return (
+    <article className="ads-card ads-card--proposal">
+      <header className="ads-card__head">
+        <div>
+          <h3 className="ads-card__angle">Proposition de l&apos;agent — {p.campagne.nom}</h3>
+          <p className="ads-card__origin">
+            {p.creasAValider} créa{p.creasAValider > 1 ? "s" : ""} de ce passage à décider ci-dessous. Rien n&apos;est envoyé à Meta.
+          </p>
+        </div>
+      </header>
+      <dl className="ads-proposal-card__rows">
+        {rows.map(([k, v]) => (
+          <div key={k}>
+            <dt>{k}</dt>
+            <dd>{v ?? <span className="ads-proposal-card__none">pas de proposition</span>}</dd>
+          </div>
+        ))}
+      </dl>
+      {p.bilan && <p className="ads-proposal-card__summary">{p.bilan}</p>}
+      <footer className="ads-card__actions">
+        <Link href={`/admin/collections/ad-campaigns/${p.campagne.id}`} prefetch={false} className="tim-btn">
+          Voir le passage (onglet « Agent »)
+        </Link>
+      </footer>
+    </article>
+  );
+}
+
 const toCard = (r: Raw): CardCreative => ({
   id: r.id,
   angle: r.angle,
@@ -92,12 +128,13 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
   if (hasAdminRole(user)) {
     const status = tab === "validees" ? "validee" : "a-valider";
     const where: Where = { and: [{ status: { equals: status } }, ...(campaignFilter ? [{ campaign: { equals: campaignFilter } }] : [])] };
-    const [list, counts, campaigns, proposedInstructions, proposedLearnings] = await Promise.all([
+    const [list, counts, campaigns, proposedInstructions, proposedLearnings, proposals] = await Promise.all([
       payload.find({ collection: "ad-creatives", where, sort: tab === "validees" ? "-decidedAt" : "createdAt", pagination: false, depth: 2, overrideAccess: true }),
       Promise.all(["a-valider", "validee"].map((s) => payload.count({ collection: "ad-creatives", where: { status: { equals: s } }, overrideAccess: true }))),
       payload.find({ collection: "ad-campaigns", pagination: false, depth: 0, overrideAccess: true, select: { name: true } as never }),
       payload.find({ collection: "ad-instructions", where: { status: { equals: "proposee" } }, sort: "createdAt", pagination: false, depth: 1, overrideAccess: true }),
       payload.find({ collection: "ad-learnings", where: { status: { equals: "global-propose" } }, sort: "createdAt", pagination: false, depth: 1, overrideAccess: true }),
+      tab === "a-valider" ? pendingProposals(payload, campaignFilter) : Promise.resolve([]),
     ]);
     const cards = (list.docs as unknown as Raw[]).map(toCard);
     const href = (t: string, c: string | null) => `${BASE}?vue=${t}${c ? `&campagne=${c}` : ""}`;
@@ -167,7 +204,14 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
             </section>
           ))
         ) : (
-          cards.map((c) => <CreativeCard key={String(c.id)} c={c} />)
+          <>
+            {proposals.map((p) => (
+              <ProposalCard key={String(p.run)} p={p} />
+            ))}
+            {cards.map((c) => (
+              <CreativeCard key={String(c.id)} c={c} />
+            ))}
+          </>
         )}
       </>
     );

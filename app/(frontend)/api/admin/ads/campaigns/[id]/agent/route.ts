@@ -1,16 +1,18 @@
 import { after, NextResponse } from "next/server";
 
 import { tickRun } from "@/modules/ads/agent/engine";
-import { agentDeps, launchRun, LaunchError, previewRun, runStatus } from "@/modules/ads/agent/run";
+import { controlRoom } from "@/modules/ads/agent/control-room";
+import { agentDeps, launchRun, LaunchError, previewRun } from "@/modules/ads/agent/run";
 import { adminRequest } from "@/modules/ads/lib/route-auth";
 
 /**
  * L'agent de campagne, depuis l'onglet « Agent » d'une campagne (plan, §9 quater).
  *
  * GET  ?cap=2 → avant le clic : ce que l'agent va lire, ce que le passage peut
- *      coûter au plus, ce qui bloquerait le lancement ; et le dernier passage.
- * GET  ?status=1 → le dernier passage SEUL : ce que le panneau relit toutes les
- *      5 s pendant un passage (l'aperçu complet lit tout le CRM et le site).
+ *      coûter au plus, ce qui bloquerait le lancement ; et la salle de contrôle.
+ * GET  ?status=1 → la salle de contrôle SEULE : ce que le panneau relit toutes
+ *      les 5 s pendant un passage (l'aperçu complet lit tout le CRM et le site).
+ * `&run=ID` : la salle de contrôle d'un passage précédent (les 10 derniers).
  * POST { objective, capEur } → lance le passage, répond tout de suite, et le fait
  *      avancer après la réponse ; le cron (chaque minute) prend le relais.
  */
@@ -29,9 +31,10 @@ export async function GET(req: Request, { params }: Params) {
   if ("response" in auth) return auth.response;
   const { payload } = auth;
   const url = new URL(req.url);
-  if (url.searchParams.get("status") === "1") return NextResponse.json({ last: await runStatus(payload, id) });
-  const [preview, last] = await Promise.all([previewRun(payload, id, cap(url.searchParams.get("cap"))), runStatus(payload, id)]);
-  return NextResponse.json({ preview, last });
+  const runId = url.searchParams.get("run") || null;
+  if (url.searchParams.get("status") === "1") return NextResponse.json({ room: await controlRoom(payload, id, runId) });
+  const [preview, room] = await Promise.all([previewRun(payload, id, cap(url.searchParams.get("cap"))), controlRoom(payload, id, runId)]);
+  return NextResponse.json({ preview, room });
 }
 
 export async function POST(req: Request, { params }: Params) {

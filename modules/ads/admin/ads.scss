@@ -194,7 +194,6 @@
 .ads-gen__field input { width: 5rem; padding: 0.35rem 0.5rem; border: 1px solid var(--tim-border); border-radius: 0.4rem; background: var(--tim-white); font: inherit; }
 .ads-agent__objective-field { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; }
 .ads-agent__objective-field textarea { padding: 0.5rem 0.6rem; border: 1px solid var(--tim-border); border-radius: 0.4rem; background: var(--tim-white); font: inherit; resize: vertical; }
-.ads-agent__live { display: flex; flex-direction: column; gap: 0.5rem; }
 .ads-agent__status { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; font-size: 0.85rem; }
 .ads-agent__status .tim-btn { margin-left: auto; }
 .ads-agent__objective { margin: 0; font-size: 0.85rem; font-style: italic; color: var(--tim-muted); }
@@ -203,6 +202,43 @@
 .ads-agent__pages { margin: 0.2rem 0 0.2rem 1.1rem; padding: 0; display: flex; flex-wrap: wrap; gap: 0.15rem 1.2rem; }
 .ads-agent__pages a { color: var(--tim-indigo); }
 .ads-agent__last { margin: 0; padding: 0.5rem 0.75rem; border-radius: 0.5rem; background: var(--tim-surface); color: var(--tim-muted); font-size: 0.85rem; }
+
+/* Salle de contrôle (onglet Agent) : jauges, arbre, fil, journal. */
+.ads-room { display: flex; flex-direction: column; gap: 0.75rem; padding-top: 0.75rem; border-top: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); }
+.ads-room__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; font-size: 0.9rem; }
+.ads-room__select { max-width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--tim-border); border-radius: 0.4rem; background: var(--tim-white); font: inherit; font-size: 0.85rem; }
+.ads-room__gauges { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.5rem 1rem; }
+.ads-room__gauge { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; }
+.ads-room__gauge-label { color: var(--tim-muted); }
+.ads-room__gauge-value { font-variant-numeric: tabular-nums; }
+.ads-room__gauge-note { color: var(--tim-muted); font-style: italic; }
+.ads-room__bar { display: block; height: 0.4rem; border-radius: 999px; background: var(--tim-gray-bg); overflow: hidden; }
+.ads-room__bar > span { display: block; height: 100%; background: var(--tim-indigo); }
+.ads-room__bar--high > span { background: var(--tim-amber); }
+.ads-room__block { display: flex; flex-direction: column; gap: 0.4rem; }
+.ads-room__block h4 { margin: 0; font-size: 0.9rem; color: var(--tim-foreground); }
+.ads-room__hint { margin: 0; font-size: 0.8rem; color: var(--tim-muted); }
+.ads-room__tree { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.82rem; }
+.ads-room__tree li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.5rem; }
+.ads-room__mission { flex: 1 1 12rem; min-width: 0; color: var(--tim-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ads-room__cost { font-variant-numeric: tabular-nums; color: var(--tim-muted); }
+.ads-room__dot { flex: none; width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--tim-gray); align-self: center; }
+.ads-room__dot--live { background: var(--tim-indigo); box-shadow: 0 0 0 3px var(--tim-indigo-bg); }
+.ads-room__dot--ok { background: var(--tim-green); }
+.ads-room__dot--bad { background: var(--tim-red); }
+.ads-room__dot--wait { background: var(--tim-muted-light); }
+.ads-room__error { flex-basis: 100%; margin: 0; font-size: 0.8rem; color: var(--tim-red); }
+.ads-room__failed { color: var(--tim-red); }
+.ads-room__more { align-self: flex-start; padding: 0; border: 0; background: none; color: var(--tim-indigo); font: inherit; font-size: 0.8rem; cursor: pointer; }
+.ads-room__decisions { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+.ads-room__decision { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.6rem 0.75rem; border-radius: 0.5rem; background: var(--tim-surface); font-size: 0.82rem; }
+.ads-room__decision-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.ads-room__decision-head time { color: var(--tim-muted); font-variant-numeric: tabular-nums; }
+.ads-room__by { color: var(--tim-muted); }
+.ads-room__what { margin: 0; font-weight: 600; }
+.ads-room__why { margin: 0; }
+.ads-room__appuis { margin: 0.15rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.15rem; color: var(--tim-muted); }
+.ads-room__ref { display: inline-block; min-width: 2.2rem; padding: 0 0.3rem; border-radius: 0.3rem; background: var(--tim-indigo-bg); color: var(--tim-indigo); font-weight: 600; text-align: center; }
 
 /* ─── File « À valider » : une carte par créa ────────────────────────────── */
 .ads-queue__empty { color: var(--tim-muted); font-size: 0.9rem; }
@@ -253,6 +289,26 @@
   font: inherit;
   font-size: 0.82rem;
 }
+
+/* Tableau de bord : la carte « Agents ». */
+.ads-dash__agents { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.9rem 1.1rem; border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); border-radius: 0.75rem; background: var(--tim-white); }
+.ads-dash__agents-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1rem; font-size: 0.875rem; color: var(--tim-muted); }
+.ads-dash__agents-head strong { color: var(--tim-foreground); font-size: 0.95rem; }
+.ads-dash__agents-head .ads-room__bar { flex: 0 1 10rem; }
+.ads-dash__agents-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; }
+.ads-dash__agents-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.6rem; }
+.ads-dash__agents-list a { color: var(--tim-primary-dark); font-weight: 600; }
+.ads-dash__agents-meta { margin: 0; color: var(--tim-muted); font-size: 0.82rem; }
+
+/* « À valider » : la proposition de l'agent, avant ses créas. */
+.ads-card--proposal { border-color: color-mix(in srgb, var(--tim-indigo) 35%, transparent); }
+.ads-proposal-card__rows { margin: 0; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; }
+.ads-proposal-card__rows > div { display: grid; grid-template-columns: minmax(8rem, 12rem) 1fr; gap: 0.75rem; }
+.ads-proposal-card__rows dt { color: var(--tim-muted); }
+.ads-proposal-card__rows dd { margin: 0; }
+.ads-proposal-card__none { color: var(--tim-muted); font-style: italic; }
+.ads-proposal-card__summary { margin: 0; font-size: 0.85rem; color: var(--tim-muted); }
+@media (max-width: 640px) { .ads-proposal-card__rows > div { grid-template-columns: 1fr; gap: 0.1rem; } }
 
 .ads-card {
   display: flex;

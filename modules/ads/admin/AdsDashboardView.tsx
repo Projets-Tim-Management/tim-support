@@ -8,6 +8,7 @@ import { compact } from "@/admin/dashboard/format";
 import { Icons } from "@/admin/dashboard/icons";
 import StatTile from "@/admin/dashboard/StatTile";
 import { hasAdminRole } from "@/core/access";
+import { agentsOverview, type AgentsOverview } from "@/modules/ads/agent/overview";
 import { CAMPAIGN_STATUSES, OBJECTIVES } from "@/modules/ads/collections/AdCampaigns";
 import { PERIODS, buildAdsDashboard, deltaPct, periodDays, type AdsDashboard, type DashAccount, type DashCampaign, type DashMetric } from "@/modules/ads/lib/dashboard";
 import { platformLabel } from "@/modules/ads/lib/platforms";
@@ -83,7 +84,45 @@ function Filters({ d, platform }: { d: AdsDashboard; platform: string | null }) 
   );
 }
 
-export function Report({ d, platform, toValidate = 0 }: { d: AdsDashboard; platform: string | null; toValidate?: number }) {
+const RUN_STATUS: Record<string, string> = { "en-cours": "En cours", "en-pause-budget": "En pause (plafond du jour)", "a-valider": "Terminé — à valider", arrete: "Arrêté", echoue: "Échoué" };
+
+/** La carte « Agents » : chaque campagne, son passage en cours ou le dernier, et le coût IA du jour. */
+function AgentsCard({ o }: { o: AgentsOverview }) {
+  const pct = o.jour.plafond ? Math.min(100, Math.round((o.jour.depense / o.jour.plafond) * 100)) : 0;
+  return (
+    <section className="ads-dash__agents">
+      <header className="ads-dash__agents-head">
+        <strong>Agents</strong>
+        <span>
+          IA aujourd&apos;hui : {eur(o.jour.depense)} sur {eur(o.jour.plafond)}
+        </span>
+        <span className={`ads-room__bar${pct >= 90 ? " ads-room__bar--high" : ""}`} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Plafond du jour des agents">
+          <span style={{ width: `${pct}%` }} />
+        </span>
+      </header>
+      {o.campagnes.length ? (
+        <ul className="ads-dash__agents-list">
+          {o.campagnes.map((c) => (
+            <li key={String(c.id)}>
+              <Link href={`/admin/collections/ad-campaigns/${c.id}`} prefetch={false}>
+                {c.nom}
+              </Link>
+              <span className={`ads-badge ${c.enCours ? "ads-badge--test" : c.statut === "a-valider" ? "ads-badge--ok" : c.statut === "echoue" ? "ads-badge--bad" : ""}`}>{RUN_STATUS[c.statut] ?? c.statut}</span>
+              <span className="ads-dash__agents-meta">
+                {c.enCours ? `${c.agentsActifs} agent${c.agentsActifs > 1 ? "s" : ""} actif${c.agentsActifs > 1 ? "s" : ""} · ` : ""}
+                passage {eur(c.depensePassage)} sur {eur(c.budgetPassage)} · aujourd&apos;hui {eur(c.coutJour)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="ads-dash__agents-meta">Aucun passage pour l&apos;instant. L&apos;agent se lance depuis l&apos;onglet « Agent » d&apos;une campagne en brouillon.</p>
+      )}
+    </section>
+  );
+}
+
+export function Report({ d, platform, toValidate = 0, toConfirm = 0, agents }: { d: AdsDashboard; platform: string | null; toValidate?: number; toConfirm?: number; agents?: AgentsOverview }) {
   const accountsHref = "/admin/collections/ad-accounts";
   const compared = `vs les ${d.period.days} jours précédents`;
   const delta = (cur: number, prev: number) => deltaPct(cur, prev, d.previous.covered);
@@ -102,24 +141,32 @@ export function Report({ d, platform, toValidate = 0 }: { d: AdsDashboard; platf
       )}
 
       {/* 1. Ce qui attend une décision — en tête, même vide. */}
-      <section className={`ads-dash__todo${toValidate ? " ads-dash__todo--active" : ""}`}>
-        <span className="ads-dash__todo-count">{toValidate}</span>
+      <section className={`ads-dash__todo${toValidate + toConfirm ? " ads-dash__todo--active" : ""}`}>
+        <span className="ads-dash__todo-count">{toValidate + toConfirm}</span>
         <span className="ads-dash__todo-text">
           <strong>À valider</strong>
           <span>
-            {toValidate ? (
+            {toValidate + toConfirm ? (
               <>
-                {toValidate} créa{toValidate > 1 ? "s" : ""} attend{toValidate > 1 ? "ent" : ""} une décision.{" "}
+                {[
+                  toValidate && `${toValidate} créa${toValidate > 1 ? "s" : ""}`,
+                  toConfirm && `${toConfirm} consigne${toConfirm > 1 ? "s" : ""} pour l'agent`,
+                ]
+                  .filter(Boolean)
+                  .join(" et ")}{" "}
+                attend{toValidate + toConfirm > 1 ? "ent" : ""} une décision.{" "}
                 <Link href="/admin/publicite/a-valider" prefetch={false}>
                   Ouvrir la file
                 </Link>
               </>
             ) : (
-              "Rien pour l'instant. Les créas générées arrivent ici ; les propositions des agents (budgets, pauses) suivront en phase 2."
+              "Rien pour l'instant. Les créas générées (à la main ou par l'agent) arrivent ici, avec les consignes nées des refus."
             )}
           </span>
         </span>
       </section>
+
+      {agents && <AgentsCard o={agents} />}
 
       {/* 2. Les comptes : un jeton qui expire fige tout ce qui suit. */}
       {d.accounts.active === 0 ? (
@@ -222,7 +269,7 @@ export default async function AdsDashboardView(view: AdminViewServerProps) {
     const now = new Date();
     // Deux périodes : l'actuelle, et la précédente pour les écarts.
     const from = new Date(now.getTime() - (2 * days + 1) * 86_400_000).toISOString().slice(0, 10);
-    const [accounts, campaigns, metrics, toValidate] = await Promise.all([
+    const [accounts, campaigns, metrics, toValidate, toConfirm, agents] = await Promise.all([
       payload.find({ collection: "ad-accounts", pagination: false, depth: 0, overrideAccess: true }),
       payload.find({ collection: "ad-campaigns", pagination: false, depth: 0, overrideAccess: true }),
       payload.find({
@@ -234,6 +281,8 @@ export default async function AdsDashboardView(view: AdminViewServerProps) {
         select: { account: true, platform: true, externalId: true, day: true, spend: true, impressions: true, clicks: true, leads: true } as never,
       }),
       payload.count({ collection: "ad-creatives", where: { status: { equals: "a-valider" } }, overrideAccess: true }),
+      payload.count({ collection: "ad-instructions", where: { status: { equals: "proposee" } }, overrideAccess: true }),
+      agentsOverview(payload, now),
     ]);
     const d = buildAdsDashboard({
       accounts: accounts.docs as DashAccount[],
@@ -246,7 +295,7 @@ export default async function AdsDashboardView(view: AdminViewServerProps) {
     body = (
       <>
         <Filters d={d} platform={platform} />
-        <Report d={d} platform={platform} toValidate={toValidate.totalDocs} />
+        <Report d={d} platform={platform} toValidate={toValidate.totalDocs} toConfirm={toConfirm.totalDocs} agents={agents} />
       </>
     );
   }
