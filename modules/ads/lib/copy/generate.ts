@@ -179,12 +179,15 @@ export const maxCostEur = (system: string, user: string) => usdToEur(claudeMaxCo
 
 export async function generateCreatives(
   payload: Payload,
-  campaignId: number | string,
+  requestedId: number | string,
   opts: GenerateOptions,
   deps: { call: ModelCall; now?: Date },
 ): Promise<GenerateResult> {
   const now = deps.now ?? new Date();
-  const ctx = await loadGenerationContext(payload, campaignId);
+  const ctx = await loadGenerationContext(payload, requestedId);
+  // L'identifiant de la campagne LUE : la route le reçoit en texte (« 7 »), et Payload refuse
+  // une relation Postgres en texte (créas, registre des dépenses) — constaté le 13/10/2026.
+  const campaignId = (ctx.campaign as { id: number | string }).id;
 
   const missing = missingBrief(ctx.campaign);
   if (missing.length) throw new GenerateError(`Brief incomplet : il manque ${missing.join(", ")}.`);

@@ -82,6 +82,13 @@ describe("avant l'appel : rien ne part si une condition manque", () => {
 });
 
 describe("après l'appel", () => {
+  it("écrit la campagne LUE, même si la route a reçu son identifiant en texte (13/10/2026)", async () => {
+    const { payload, created } = memory();
+    await generateCreatives(payload, "4", OPTS, { call: model([angle()]), now: NOW });
+    expect(created.find((c) => c.collection === "ad-ai-usage")!.data.campaign).toBe(4);
+    expect(created.find((c) => c.collection === "ad-creatives")!.data.campaign).toBe(4);
+  });
+
   it("inscrit la dépense réelle, puis une créa brouillon par angle, textes passés aux garde-fous", async () => {
     const m = model([angle()]);
     const { payload, created } = memory();

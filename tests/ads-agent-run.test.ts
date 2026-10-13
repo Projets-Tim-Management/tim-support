@@ -108,6 +108,12 @@ describe("lancer", () => {
     expect(created[1].data).toMatchObject({ role: "orchestrateur", depth: 0, budgetEur: 2, model: "claude-opus-5-5", tools: expect.arrayContaining(["deposer_a_valider"]) });
   });
 
+  it("enregistre la campagne par son identifiant LU, même si la route l'a reçu en texte (13/10/2026)", async () => {
+    const { payload, created } = fakePayload();
+    await launchRun(payload, { ...input, campaign: "4" }, NOW);
+    expect(created[0].data.campaign).toBe(4);
+  });
+
   it.each([
     ["sans objectif", { objective: " " }, {}, /objectif/],
     ["sur une campagne publiée", {}, { campaign: { status: "active" } }, /brouillon/],
