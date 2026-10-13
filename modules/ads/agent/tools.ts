@@ -1,11 +1,12 @@
 import type Anthropic from "@anthropic-ai/sdk";
 
+import { claudeMaxCostUsd, usdToEur } from "@/core/lib/ai-pricing";
 import { canReserve, type AgentLedger } from "@/modules/ads/agent/budget";
 import { MAX_AGENTS_PER_RUN, MAX_DEPTH } from "@/modules/ads/agent/limits";
 import { CREATABLE_ROLES, ROLE_SUBJECT, ROLE_TOOLS, type CreatableRole } from "@/modules/ads/agent/roles";
 import type { AgentDeps, AgentRow, RunRow, StepRow } from "@/modules/ads/agent/types";
 import { AGENT_ROLES, type AgentStatus } from "@/modules/ads/collections/AdAgents";
-import { ADS_AGENT_MODELS } from "@/modules/ads/lib/models";
+import { ADS_AGENT_MAX_TOKENS, ADS_AGENT_MODELS } from "@/modules/ads/lib/models";
 import { eur } from "@/modules/ads/lib/spend";
 
 /**
@@ -40,6 +41,19 @@ export const roleLabel = (role: string) => AGENT_ROLES.find((r) => r.value === r
 /** Une phrase du fil ne dépasse pas une ligne : au-delà de `n` caractères, elle est coupée. */
 export const clip = (s: string, n = 120) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
+/**
+ * Le budget minimal d'un sous-agent : DEUX tours (travailler, rendre) au coût
+ * MAXIMAL qu'on vérifie avant chaque appel, sur un contexte de référence.
+ * En dessous, il échoue dès son premier appel — constaté au premier passage
+ * réel (13/10/2026) : un stratège à 0,15 € face à un tour qui peut coûter 0,23 €.
+ * Arrondi aux 5 centimes supérieurs.
+ */
+const REFERENCE_CONTEXT_TOKENS = 8_000;
+const MIN_TURNS = 2;
+export const minAgentBudgetEur = (role: CreatableRole): number =>
+  Math.ceil(MIN_TURNS * usdToEur(claudeMaxCostUsd(ADS_AGENT_MODELS[role], REFERENCE_CONTEXT_TOKENS, ADS_AGENT_MAX_TOKENS)) * 20) / 20;
+const MINIMA = CREATABLE_ROLES.map((r) => `${roleLabel(r)} ${eur(minAgentBudgetEur(r))}`).join(", ");
+
 const refuse = async (ctx: ToolContext, reason: string, after: unknown): Promise<ToolOutcome> => {
   await ctx.deps.store.createDecision({
     campaign: ctx.run.campaign,
@@ -59,7 +73,7 @@ const creerSousAgent: AgentTool = {
   definition: {
     name: "creer_sous_agent",
     description:
-      "Crée un sous-agent chargé d'une mission, avec un budget prélevé sur le tien. Il démarre dès qu'une place se libère ; appelle ensuite « attendre_sous_agents » pour lire son résultat.",
+      `Crée un sous-agent chargé d'une mission, avec un budget prélevé sur le tien. Il démarre dès qu'une place se libère ; appelle ensuite « attendre_sous_agents » pour lire son résultat. Budget minimal par rôle (deux tours au coût maximal vérifié avant chaque appel) : ${MINIMA}. Ce qu'il ne dépense pas te revient quand il a fini. Garde aussi de quoi faire tes propres tours.`,
     input_schema: {
       type: "object",
       properties: {
@@ -91,6 +105,8 @@ const creerSousAgent: AgentTool = {
     const allowed = ROLE_TOOLS[role];
     const outside = asked.filter((t) => !allowed.includes(t));
     if (outside.length) return refuse(ctx, `outil(s) non autorisé(s) pour ce rôle : ${outside.join(", ")}.`, after);
+    const min = minAgentBudgetEur(role);
+    if (budgetEur < min) return refuse(ctx, `budget trop bas : un ${roleLabel(role)} demande au moins ${eur(min)} (deux tours au coût maximal), ${eur(budgetEur)} proposé.`, after);
     const reserve = canReserve(ctx.ledger(ctx.agent), budgetEur);
     if (reserve !== true) return refuse(ctx, reserve, after);
 
