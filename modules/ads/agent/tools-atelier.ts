@@ -48,6 +48,33 @@ function appuisOf(ctx: ToolContext, input: Record<string, unknown>): Appuis | To
 }
 const isOutcome = (v: Appuis | ToolOutcome): v is ToolOutcome => "kind" in v;
 
+/**
+ * Pas de stratégie à l'aveugle (premier passage réel, 13/10/2026 : des créas
+ * écrites sans aucune analyse). Positionnement et angles exigent que les
+ * publicités des concurrents aient été lues dans ce passage, et aucun texte ne
+ * s'écrit avant que le stratège ait choisi ses angles.
+ */
+async function competitorsRead(ctx: ToolContext): Promise<boolean> {
+  for (const a of ctx.agents) {
+    const steps = await ctx.deps.store.listSteps(a.id);
+    if (steps.some((st) => st.tool === "lire_pubs_concurrents" && st.status === "fait" && !(st.output as { isError?: boolean } | null)?.isError)) return true;
+  }
+  return false;
+}
+
+const NO_COMPETITORS: ToolOutcome = {
+  kind: "ok",
+  isError: true,
+  output: { refus: "Lis d'abord les publicités des concurrents (« lire_pubs_concurrents ») : un positionnement ou un angle se choisit face à ce qu'ils disent." },
+  line: "Décision refusée : les publicités des concurrents n'ont pas encore été lues.",
+};
+
+/** Ce que disent les concurrents, et en quoi ce choix s'en démarque : exigé, et gardé dans la décision. */
+const CONCURRENTS = {
+  type: "string",
+  description: "Ce que disent les concurrents sur ce terrain (d'après « lire_pubs_concurrents »), et en quoi ce choix s'en démarque.",
+} as const;
+
 async function decide(ctx: ToolContext, kind: DecisionKind, status: DecisionStatus, rationale: string, after: unknown, appuis: Appuis, guardrail?: string): Promise<Id> {
   return ctx.deps.store.createDecision({
     campaign: ctx.run.campaign,
@@ -94,6 +121,15 @@ const genererTextes: AgentTool = {
   async run(ctx, input) {
     const asked = (Array.isArray(input.angles) ? input.angles : []).map((a) => String(a).trim()).filter(Boolean).slice(0, 3);
     if (!asked.length) return { kind: "ok", isError: true, output: { refus: "Aucun angle." }, line: `${who(ctx)} : aucun angle à écrire.` };
+    const decided = (await ctx.deps.store.listDecisions(ctx.run.id, "angle")).filter((d) => d.status === "executee");
+    if (!decided.length) {
+      return {
+        kind: "ok",
+        isError: true,
+        output: { refus: "Aucun angle n'a été choisi par le stratège dans ce passage : rien ne s'écrit avant son analyse (concurrents, site, clients signés)." },
+        line: `${who(ctx)} : écriture refusée, le stratège n'a pas encore choisi d'angles.`,
+      };
+    }
     // Un angle rejeté MAX_REJECTIONS fois par le contrôleur ne se réécrit plus : la règle tient en code, pas dans une consigne
     // (relecture du 01/10/2026, M4).
     const exhausted: string[] = [];
@@ -204,15 +240,18 @@ const proposerPositionnement: AgentTool = {
     description: "Pose le positionnement de la campagne : ce qu'on promet, à qui, contre quoi. Journalisé avec sa justification.",
     input_schema: {
       type: "object",
-      properties: { positionnement: { type: "string" }, justification: { type: "string" }, appuis: APPUIS },
-      required: ["positionnement", "justification", "appuis"],
+      properties: { positionnement: { type: "string" }, concurrents: CONCURRENTS, justification: { type: "string" }, appuis: APPUIS },
+      required: ["positionnement", "concurrents", "justification", "appuis"],
     },
   },
   async run(ctx, input) {
     const appuis = appuisOf(ctx, input);
     if (isOutcome(appuis)) return appuis;
+    if (!(await competitorsRead(ctx))) return NO_COMPETITORS;
+    const concurrents = String(input.concurrents ?? "").trim();
+    if (!concurrents) return { kind: "ok", isError: true, output: { refus: "Dis ce que font les concurrents et en quoi ce positionnement s'en démarque." }, line: `${who(ctx)} : positionnement refusé, sans comparaison aux concurrents.` };
     const positionnement = String(input.positionnement ?? "").trim();
-    await decide(ctx, "positionnement", "executee", String(input.justification ?? ""), { positionnement }, appuis);
+    await decide(ctx, "positionnement", "executee", String(input.justification ?? ""), { positionnement, concurrents }, appuis);
     return { kind: "ok", output: { ok: true }, line: `${who(ctx)} pose le positionnement : « ${clip(positionnement, 90)} »` };
   },
 };
@@ -223,16 +262,19 @@ const proposerAngles: AgentTool = {
     description: "Choisit les angles de la campagne (1 à 3), chacun en une ligne. Journalisé avec sa justification.",
     input_schema: {
       type: "object",
-      properties: { angles: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 3 }, justification: { type: "string" }, appuis: APPUIS },
-      required: ["angles", "justification", "appuis"],
+      properties: { angles: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 3 }, concurrents: CONCURRENTS, justification: { type: "string" }, appuis: APPUIS },
+      required: ["angles", "concurrents", "justification", "appuis"],
     },
   },
   async run(ctx, input) {
     const appuis = appuisOf(ctx, input);
     if (isOutcome(appuis)) return appuis;
+    if (!(await competitorsRead(ctx))) return NO_COMPETITORS;
+    const concurrents = String(input.concurrents ?? "").trim();
+    if (!concurrents) return { kind: "ok", isError: true, output: { refus: "Dis ce que font les concurrents et en quoi ces angles s'en démarquent." }, line: `${who(ctx)} : angles refusés, sans comparaison aux concurrents.` };
     const angles = (Array.isArray(input.angles) ? input.angles : []).map((a) => String(a).trim()).filter(Boolean).slice(0, 3);
     if (!angles.length) return { kind: "ok", isError: true, output: { refus: "Aucun angle." }, line: `${who(ctx)} : aucun angle proposé.` };
-    await decide(ctx, "angle", "executee", String(input.justification ?? ""), { angles }, appuis);
+    await decide(ctx, "angle", "executee", String(input.justification ?? ""), { angles, concurrents }, appuis);
     return { kind: "ok", output: { ok: true, angles }, line: `${who(ctx)} choisit ${angles.length} angle(s) : ${angles.map((a) => `« ${clip(a, 40)} »`).join(", ")}.` };
   },
 };

@@ -96,6 +96,7 @@ export async function previewRun(payload: Payload, campaignId: Id, capEur: numbe
     used >= ctx.weeklyLimit && `Quota de créas de la semaine atteint (${used} sur ${ctx.weeklyLimit}).`,
     !budget.prep.ok && budget.prep.reason,
     active && "Un passage est déjà en cours sur cette campagne.",
+    libraryBlocker(competitors.length, env),
   ].filter((x): x is string => Boolean(x));
   return {
     campagne: { id: campaign.id, nom: campaign.name, statut: campaign.status },
@@ -129,6 +130,16 @@ export async function previewRun(payload: Payload, campaignId: Id, capEur: numbe
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/**
+ * Des concurrents suivis, mais pas de bibliothèque publicitaire pour lire leurs
+ * pubs : le passage préparerait une campagne à l'aveugle (premier passage réel,
+ * 13/10/2026). Il ne se lance pas. Pure.
+ */
+export function libraryBlocker(competitors: number, env: Record<string, string | undefined>): string | null {
+  if (!competitors || env.ADS_AD_LIBRARY_MOCK === "1" || env.META_AD_LIBRARY_TOKEN) return null;
+  return `Bibliothèque publicitaire Meta non connectée : l'agent ne pourrait pas analyser les publicités des ${competitors} concurrent(s) suivi(s). Poser META_AD_LIBRARY_TOKEN sur Vercel.`;
+}
+
 /** Les consignes et le carnet qui s'appliquent à une campagne, maintenant (la photo d'un passage). */
 export async function loadNotebook(payload: Payload, campaign: Id, now: Date): Promise<Notebook> {
   const [instructions, learnings] = await Promise.all([
@@ -158,6 +169,8 @@ export async function launchRun(payload: Payload, input: { campaign: Id; objecti
   const b = await runBudget(payload, input.capEur, now);
   if (!b.enabled) throw new LaunchError("Interrupteur général coupé (Publicité › Paramètres › Garde-fous).");
   if (!b.prep.ok) throw new LaunchError(b.prep.reason);
+  const blocked = libraryBlocker((await createSourcesPort(payload).competitors()).length, process.env);
+  if (blocked) throw new LaunchError(blocked);
   const notebook = await loadNotebook(payload, campaignId, now);
 
   const run = await payload.create({

@@ -84,7 +84,19 @@ export function memoryStore() {
   };
   const newRoot = async (run: RunRow) =>
     store.createAgent({ run: run.id, parent: null, depth: 0, role: "orchestrateur", status: "en-cours", mission: "Préparer la campagne", tools: [...ROLE_TOOLS.orchestrateur, "terminer"], model: "claude-opus-5-5", budgetEur: run.budgetEur });
-  return { store, runs, agents, steps, decisions, newRun, newRoot };
+  /**
+   * La stratégie déjà faite dans ce passage : les pubs des concurrents lues et
+   * des angles choisis — le préalable, en code, à toute décision et à toute écriture.
+   */
+  const withStrategy = async (run: RunRow, parentId?: Id) => {
+    // Un stratège déjà terminé porte la lecture et la décision : la conversation des autres agents n'en est pas touchée.
+    const parent = parentId ?? agents.find((a) => a.run === run.id && a.depth === 0)?.id ?? null;
+    const strat = await store.createAgent({ run: run.id, parent, depth: 1, role: "stratege", status: "termine", mission: "Stratégie", tools: [...ROLE_TOOLS.stratege], model: "claude-opus-5-5", budgetEur: 0 });
+    const agent = strat.id;
+    steps.push({ id: ++id, run: run.id, agent, seq: 900, kind: "outil", tool: "lire_pubs_concurrents", status: "fait", line: "", input: null, output: { result: { pubs: 3 } }, idempotencyKey: `strat:${run.id}:${id}`, costEur: 0, startedAt: stamp() });
+    decisions.push({ id: ++id, campaign: run.campaign, run: run.id, agent, step: 0, kind: "angle", status: "executee", rationale: "analyse", after: { angles: ["Temps perdu"] } });
+  };
+  return { store, runs, agents, steps, decisions, newRun, newRoot, withStrategy };
 }
 
 // ─── Un faux modèle : un scénario par mission ───────────────────────────────
