@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 
+import { notebookOf, notebookText } from "@/modules/ads/agent/notebook";
 import { finishTool } from "@/modules/ads/agent/roles";
 import type { AgentRow, RunRow, StepRow } from "@/modules/ads/agent/types";
 import { eur } from "@/modules/ads/lib/spend";
@@ -31,6 +32,9 @@ function firstMessage(run: RunRow, agent: AgentRow): string {
     `Mission : ${agent.mission}`,
     `Objectif de la campagne, tel que saisi : « ${run.objective} »`,
     `Ton budget : ${eur(agent.budgetEur)}. Chaque appel est vérifié avant de partir ; au-delà, il est refusé.`,
+    // La photo du lancement : la même à chaque reprise, pour chaque agent du passage.
+    "",
+    notebookText(notebookOf(run)),
   ].join("\n");
 }
 

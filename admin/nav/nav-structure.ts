@@ -107,6 +107,9 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     // Ce que l'agent a fait, puis pourquoi.
     "ad-agent-runs",
     "ad-decisions",
+    // Ce que l'agent doit respecter, et ce qu'il a appris : lu à chaque lancement.
+    "ad-instructions",
+    "ad-learnings",
     "ad-metrics-daily",
     // Paramètres toujours en dernier. La matière des créas d'abord (kit, faits, médias, concurrents), puis les réglages.
     { label: "Paramètres", slugs: ["ads-brand-kit", "ad-facts", "ad-media", "ad-competitors", "ad-accounts", "ads-settings", "ads-settings-history", "ad-ai-usage"] },

@@ -30,6 +30,9 @@ export type RunRow = {
   tokens: Usage;
   summary?: string | null;
   error?: string | null;
+  /** La photo des consignes et du carnet prise au lancement (agent/notebook.ts). */
+  instructionsRead?: unknown;
+  learningsRead?: unknown;
 };
 
 export type AgentRow = {
@@ -81,6 +84,10 @@ export type NewDecision = {
   rationale: string;
   after?: unknown;
   guardrail?: string | null;
+  /** Les appuis cités, vérifiés contre la photo du passage, texte copié. */
+  instructions?: Id[];
+  learnings?: Id[];
+  citations?: { ref: string; text: string }[];
 };
 
 /** Deux exécutions ont voulu écrire la même étape : la seconde s'arrête (clé d'idempotence unique). */

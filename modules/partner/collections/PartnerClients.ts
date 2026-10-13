@@ -46,6 +46,8 @@ import { startProductionJourney } from "@/modules/marketing/lib/production";
 import { openTraining } from "@/modules/training/lib/open";
 import { signingStarted, signingSteps, stampDocumentDates } from "@/modules/partner/lib/signing";
 import { LEGAL_FORMS } from "@/modules/partner/lib/legal-forms";
+import { isNafCode, NAF_SOURCES } from "@/modules/partner/lib/naf";
+import { setNaf } from "@/modules/partner/hooks/setNaf";
 import { ENGAGEMENT_OPTIONS } from "@/modules/partner/lib/contract-vars";
 import { pennylaneStampFor } from "@/modules/partner/lib/billing-check";
 import { BILLING_PERIOD_OPTIONS } from "@/modules/partner/lib/billing-period";
@@ -675,6 +677,7 @@ export const PartnerClients: CollectionConfig = {
     // calcul, plutôt que d'échouer à mi-chemin sur une fiche déjà recalculée.
     beforeChange: [
       setPhoneDigits,
+      setNaf,
       geocodeClient,
       requireTestSchedule,
       requireEmailFromTest,
@@ -1445,6 +1448,31 @@ export const PartnerClients: CollectionConfig = {
                   admin: { width: "50%", placeholder: "FR + 11 chiffres" },
                 },
               ],
+            },
+            // Le métier (code NAF) : posé par la recherche INSEE, corrigeable ici.
+            // Le stratège publicitaire en lit la division (2 chiffres) pour voir
+            // quels métiers signent — jamais le code ni la fiche elle-même.
+            {
+              type: "row",
+              fields: [
+                {
+                  name: "naf",
+                  type: "text",
+                  label: "Code NAF",
+                  validate: (value: unknown) =>
+                    !value || isNafCode(value) || "Code inconnu de la NAF rév. 2 (ex. 43.22A).",
+                  admin: { width: "50%", components: { Field: "/modules/partner/admin/NafField#NafField" } },
+                },
+              ],
+            },
+            // Libellé recalculé depuis le code, source posée par le geste (setNaf).
+            { name: "nafLabel", type: "text", label: "Activité (NAF)", admin: { hidden: true } },
+            {
+              name: "nafSource",
+              type: "select",
+              label: "Source du code NAF",
+              options: NAF_SOURCES.map((o) => ({ label: o.label, value: o.value })),
+              admin: { hidden: true },
             },
             // Identité juridique : ce qu'écrit l'en-tête du contrat (« LA SOCIÉTÉ
             // X, SAS au capital de …, représentée par … »). Préremplie par

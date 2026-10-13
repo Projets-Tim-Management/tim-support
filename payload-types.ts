@@ -104,6 +104,8 @@ export interface Config {
     'ad-agent-steps': AdAgentStep;
     'ad-decisions': AdDecision;
     'ad-competitors': AdCompetitor;
+    'ad-instructions': AdInstruction;
+    'ad-learnings': AdLearning;
     'ads-settings-history': AdsSettingsHistory;
     'email-suppressions': EmailSuppression;
     'client-employees': ClientEmployee;
@@ -183,6 +185,8 @@ export interface Config {
     'ad-agent-steps': AdAgentStepsSelect<false> | AdAgentStepsSelect<true>;
     'ad-decisions': AdDecisionsSelect<false> | AdDecisionsSelect<true>;
     'ad-competitors': AdCompetitorsSelect<false> | AdCompetitorsSelect<true>;
+    'ad-instructions': AdInstructionsSelect<false> | AdInstructionsSelect<true>;
+    'ad-learnings': AdLearningsSelect<false> | AdLearningsSelect<true>;
     'ads-settings-history': AdsSettingsHistorySelect<false> | AdsSettingsHistorySelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
     'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
@@ -736,6 +740,9 @@ export interface PartnerClient {
    */
   siret?: string | null;
   vatNumber?: string | null;
+  naf?: string | null;
+  nafLabel?: string | null;
+  nafSource?: ('insee' | 'manuel') | null;
   legalForm?: ('sas' | 'sasu' | 'sarl' | 'eurl' | 'sa' | 'snc' | 'ei' | 'autre') | null;
   shareCapital?: number | null;
   /**
@@ -2317,7 +2324,8 @@ export interface AdDecision {
     | 'audience'
     | 'rejet-controleur'
     | 'creation-sous-agent'
-    | 'concurrent';
+    | 'concurrent'
+    | 'attente';
   status: 'proposee' | 'executee' | 'bloquee';
   rationale: string;
   before?:
@@ -2342,6 +2350,20 @@ export interface AdDecision {
     | boolean
     | null;
   guardrail?: string | null;
+  instructions?: (number | AdInstruction)[] | null;
+  learnings?: (number | AdLearning)[] | null;
+  /**
+   * Les consignes et apprentissages tels que l'agent les a lus.
+   */
+  citations?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2355,6 +2377,7 @@ export interface AdAgentRun {
   id: number;
   campaign: number | AdCampaign;
   objective: string;
+  kind: 'preparation' | 'quotidien' | 'hebdomadaire' | 'mensuel';
   status: 'en-cours' | 'en-pause-budget' | 'a-valider' | 'arrete' | 'echoue';
   budgetEur: number;
   costEur?: number | null;
@@ -2367,6 +2390,30 @@ export interface AdAgentRun {
   startedBy?: (number | null) | User;
   startedAt: string;
   finishedAt?: string | null;
+  /**
+   * Les consignes actives au lancement, texte copié.
+   */
+  instructionsRead?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Le carnet au lancement, texte copié.
+   */
+  learningsRead?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   /**
    * Profondeur, simultanés, rejets, budget : la photo de ce qui s'appliquait.
    */
@@ -2487,47 +2534,22 @@ export interface AdAgentStep {
   createdAt: string;
 }
 /**
- * Les comptes publicitaires dont le support lit les campagnes et les chiffres. Connexion par OAuth, ou par un jeton d'utilisateur système collé ici.
+ * Ce que l'agent doit respecter, une phrase par consigne. Lues au lancement de chaque passage ; elles n'assouplissent aucun garde-fou du code.
  *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-accounts".
+ * via the `definition` "ad-instructions".
  */
-export interface AdAccount {
+export interface AdInstruction {
   id: number;
-  name: string;
-  /**
-   * « act_… » chez Meta. Posé à la connexion.
-   */
-  externalId: string;
-  platform: string;
-  /**
-   * Constaté par la synchro et par la connexion, jamais saisi. « Archivé » se pose et se retire par le bouton « Archiver » / « Réactiver ».
-   */
-  status?: ('sans-jeton' | 'connecte' | 'expire' | 'erreur' | 'archive') | null;
-  lastError?: string | null;
-  lastSyncAt?: string | null;
-  /**
-   * Lue à la connexion.
-   */
-  currency?: string | null;
-  /**
-   * Lu à la connexion : les jours de la régie sont ceux de ce fuseau.
-   */
-  timezone?: string | null;
-  /**
-   * Dépense publicitaire maximale du mois pour ce compte. Aucun agent ne le fait encore respecter (phase 2).
-   */
-  monthlyCapEur?: number | null;
-  /**
-   * Posé à la connexion. Alerte à J-7 ; à l'échéance, il faut reconnecter le compte — ou poser un jeton d'utilisateur système.
-   */
-  tokenExpiresAt?: string | null;
-  /**
-   * Business Manager › Utilisateurs système › Générer un jeton (droit ads_read). Il n'expire pas et prime sur l'OAuth. Collez-le puis enregistrez : il est chiffré et ne sera plus jamais affiché. Obligatoire avant que les agents puissent écrire.
-   */
-  systemUserToken?: string | null;
-  token?: string | null;
-  tokenAlertSentAt?: string | null;
+  text: string;
+  scope: 'global' | 'campagne';
+  campaign?: (number | null) | AdCampaign;
+  status: 'active' | 'proposee' | 'ecartee';
+  origin?: ('saisie' | 'refus') | null;
+  confirmedBy?: (number | null) | User;
+  confirmedAt?: string | null;
+  sourceCreative?: (number | null) | AdCreative;
+  refusalReason?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2647,6 +2669,77 @@ export interface AdMedia {
   filesize?: number | null;
   width?: number | null;
   height?: number | null;
+}
+/**
+ * Ce que les campagnes ont appris, une phrase par ligne. L'agent les lit au lancement et cite ceux qui ont pesé sur chaque décision.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-learnings".
+ */
+export interface AdLearning {
+  id: number;
+  statement: string;
+  scope: 'global' | 'campagne';
+  campaign?: (number | null) | AdCampaign;
+  confidence: 'faible' | 'moyenne' | 'forte';
+  status: 'actif' | 'global-propose' | 'archive';
+  source: 'test' | 'refus' | 'consigne' | 'resultat-decision' | 'saisie';
+  learnedAt?: string | null;
+  /**
+   * 90 jours après, par défaut.
+   */
+  revalidateAt?: string | null;
+  sourceDecision?: (number | null) | AdDecision;
+  sourceCreative?: (number | null) | AdCreative;
+  promotedBy?: (number | null) | User;
+  promotedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Les comptes publicitaires dont le support lit les campagnes et les chiffres. Connexion par OAuth, ou par un jeton d'utilisateur système collé ici.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-accounts".
+ */
+export interface AdAccount {
+  id: number;
+  name: string;
+  /**
+   * « act_… » chez Meta. Posé à la connexion.
+   */
+  externalId: string;
+  platform: string;
+  /**
+   * Constaté par la synchro et par la connexion, jamais saisi. « Archivé » se pose et se retire par le bouton « Archiver » / « Réactiver ».
+   */
+  status?: ('sans-jeton' | 'connecte' | 'expire' | 'erreur' | 'archive') | null;
+  lastError?: string | null;
+  lastSyncAt?: string | null;
+  /**
+   * Lue à la connexion.
+   */
+  currency?: string | null;
+  /**
+   * Lu à la connexion : les jours de la régie sont ceux de ce fuseau.
+   */
+  timezone?: string | null;
+  /**
+   * Dépense publicitaire maximale du mois pour ce compte. Aucun agent ne le fait encore respecter (phase 2).
+   */
+  monthlyCapEur?: number | null;
+  /**
+   * Posé à la connexion. Alerte à J-7 ; à l'échéance, il faut reconnecter le compte — ou poser un jeton d'utilisateur système.
+   */
+  tokenExpiresAt?: string | null;
+  /**
+   * Business Manager › Utilisateurs système › Générer un jeton (droit ads_read). Il n'expire pas et prime sur l'OAuth. Collez-le puis enregistrez : il est chiffré et ne sera plus jamais affiché. Obligatoire avant que les agents puissent écrire.
+   */
+  systemUserToken?: string | null;
+  token?: string | null;
+  tokenAlertSentAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3470,6 +3563,14 @@ export interface PayloadLockedDocument {
         value: number | AdCompetitor;
       } | null)
     | ({
+        relationTo: 'ad-instructions';
+        value: number | AdInstruction;
+      } | null)
+    | ({
+        relationTo: 'ad-learnings';
+        value: number | AdLearning;
+      } | null)
+    | ({
         relationTo: 'ads-settings-history';
         value: number | AdsSettingsHistory;
       } | null)
@@ -4018,6 +4119,9 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   siren?: T;
   siret?: T;
   vatNumber?: T;
+  naf?: T;
+  nafLabel?: T;
+  nafSource?: T;
   legalForm?: T;
   shareCapital?: T;
   rcsCity?: T;
@@ -4749,6 +4853,7 @@ export interface AdAiUsageSelect<T extends boolean = true> {
 export interface AdAgentRunsSelect<T extends boolean = true> {
   campaign?: T;
   objective?: T;
+  kind?: T;
   status?: T;
   budgetEur?: T;
   costEur?: T;
@@ -4763,6 +4868,8 @@ export interface AdAgentRunsSelect<T extends boolean = true> {
   startedBy?: T;
   startedAt?: T;
   finishedAt?: T;
+  instructionsRead?: T;
+  learningsRead?: T;
   limits?: T;
   leaseUntil?: T;
   summary?: T;
@@ -4842,6 +4949,9 @@ export interface AdDecisionsSelect<T extends boolean = true> {
   before?: T;
   after?: T;
   guardrail?: T;
+  instructions?: T;
+  learnings?: T;
+  citations?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4858,6 +4968,43 @@ export interface AdCompetitorsSelect<T extends boolean = true> {
   proposedBy?: T;
   keywords?: T;
   rationale?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-instructions_select".
+ */
+export interface AdInstructionsSelect<T extends boolean = true> {
+  text?: T;
+  scope?: T;
+  campaign?: T;
+  status?: T;
+  origin?: T;
+  confirmedBy?: T;
+  confirmedAt?: T;
+  sourceCreative?: T;
+  refusalReason?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-learnings_select".
+ */
+export interface AdLearningsSelect<T extends boolean = true> {
+  statement?: T;
+  scope?: T;
+  campaign?: T;
+  confidence?: T;
+  status?: T;
+  source?: T;
+  learnedAt?: T;
+  revalidateAt?: T;
+  sourceDecision?: T;
+  sourceCreative?: T;
+  promotedBy?: T;
+  promotedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

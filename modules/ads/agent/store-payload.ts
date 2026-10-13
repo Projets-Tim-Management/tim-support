@@ -31,6 +31,8 @@ const toRun = (d: Record<string, unknown>): RunRow => ({
   tokens: usage(d.tokens),
   summary: (d.summary as string | null) ?? null,
   error: (d.error as string | null) ?? null,
+  instructionsRead: d.instructionsRead ?? null,
+  learningsRead: d.learningsRead ?? null,
 });
 
 const toAgent = (d: Record<string, unknown>): AgentRow => ({

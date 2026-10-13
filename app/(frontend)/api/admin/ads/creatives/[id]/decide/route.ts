@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 
 import { adminRequest } from "@/modules/ads/lib/route-auth";
 import { decisionData, decisionError, type Decision } from "@/modules/ads/lib/decide";
+import { proposeFromRefusal } from "@/modules/ads/lib/refusal-instruction";
 
 /**
  * POST /api/admin/ads/creatives/:id/decide
  *   { decision: "validee" } | { decision: "refusee", reason, detail? }
  *
- * Le seul chemin qui change le statut d'une créa (voir lib/decide).
+ * Le seul chemin qui change le statut d'une créa (voir lib/decide). Un refus
+ * propose aussi une consigne pour l'agent, à confirmer dans « À valider »
+ * (lib/refusal-instruction) ; elle ne fait jamais échouer le refus.
  */
 export const dynamic = "force-dynamic";
 
@@ -31,5 +34,6 @@ export async function POST(req: Request, { params }: Params) {
 
   await payload.update({ collection: "ad-creatives", id, data: decisionData(d, user.id, new Date()) as never, overrideAccess: true });
   payload.logger.info(`[publicité] créa ${id} ${d.decision === "validee" ? "validée" : `refusée (${d.reason})`} par ${user.email}.`);
-  return NextResponse.json({ status: d.decision });
+  const proposed = d.decision === "refusee" ? await proposeFromRefusal(payload, creative as never, d) : null;
+  return NextResponse.json({ status: d.decision, consigneProposee: proposed });
 }

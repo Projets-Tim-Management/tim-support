@@ -66,7 +66,8 @@ async function setup(role: AgentRow["role"], atelier: ReturnType<typeof fakeAtel
   const ctx: ToolContext = { deps, run, agent: agents.find((a) => a.id === agent.id)!, agents, step: step as StepRow, ledger: (a) => ledgerOf(a, agents) };
   return { ctx, run, agent };
 }
-const use = (ctx: ToolContext, name: string, input: Record<string, unknown>) => TOOLS[name].run(ctx, input);
+// Les outils de décision exigent leurs appuis ; ces tests-ci n'en citent aucun (voir ads-agent-notebook.test.ts).
+const use = (ctx: ToolContext, name: string, input: Record<string, unknown>) => TOOLS[name].run(ctx, { appuis: [], ...input });
 
 describe("chaque rôle a ses outils, et chaque outil existe", () => {
   it("tous les outils des rôles sont au registre", () => {

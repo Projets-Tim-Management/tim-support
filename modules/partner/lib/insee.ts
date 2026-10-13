@@ -1,4 +1,5 @@
 import { legalFormFromInsee, type LegalForm } from "@/modules/partner/lib/legal-forms";
+import { isNafCode } from "@/modules/partner/lib/naf";
 
 /**
  * Recherche d'entreprise dans l'API Sirene de l'INSEE — partagée par la
@@ -23,12 +24,20 @@ type InseeUnite = {
   nomUniteLegale?: string;
   prenom1UniteLegale?: string;
   categorieJuridiqueUniteLegale?: string;
+  activitePrincipaleUniteLegale?: string | null;
+  nomenclatureActivitePrincipaleUniteLegale?: string | null;
+};
+type InseePeriode = {
+  activitePrincipaleEtablissement?: string | null;
+  nomenclatureActivitePrincipaleEtablissement?: string | null;
 };
 type InseeEtab = {
   siret?: string;
   siren?: string;
   uniteLegale?: InseeUnite;
   adresseEtablissement?: InseeAddress;
+  /** La plus récente en tête. */
+  periodesEtablissement?: InseePeriode[];
 };
 
 export type InseeResult = {
@@ -40,9 +49,20 @@ export type InseeResult = {
   ville: string | null;
   /** Forme juridique déduite de la catégorie INSEE. */
   formeJuridique: LegalForm | null;
+  /** Code NAF rév. 2 (« 43.22A »), `null` si absent ou d'une autre nomenclature. */
+  naf: string | null;
 };
 
-function normalize(e: InseeEtab): InseeResult {
+/** Le code seulement s'il est en NAF rév. 2 et connu de notre table. */
+const nafRev2 = (code?: string | null, nomenclature?: string | null): string | null =>
+  nomenclature === "NAFRev2" && isNafCode(code) ? (code as string) : null;
+
+/**
+ * `bySiret` : la saisie visait un établissement précis — son activité prime
+ * sur celle de l'unité légale (un siège administratif n'a pas le métier de
+ * l'agence qu'on facture).
+ */
+function normalize(e: InseeEtab, bySiret: boolean): InseeResult {
   const u = e.uniteLegale ?? {};
   const a = e.adresseEtablissement ?? {};
   const denomination =
@@ -61,13 +81,24 @@ function normalize(e: InseeEtab): InseeResult {
     codePostal: a.codePostalEtablissement ?? null,
     ville: a.libelleCommuneEtablissement ?? null,
     formeJuridique: legalFormFromInsee(u.categorieJuridiqueUniteLegale),
+    naf: nafOf(e, bySiret),
   };
 }
+
+function nafOf(e: InseeEtab, bySiret: boolean): string | null {
+  const u = e.uniteLegale ?? {};
+  const p = e.periodesEtablissement?.[0] ?? {};
+  const legal = nafRev2(u.activitePrincipaleUniteLegale, u.nomenclatureActivitePrincipaleUniteLegale);
+  const etab = nafRev2(p.activitePrincipaleEtablissement, p.nomenclatureActivitePrincipaleEtablissement);
+  return bySiret ? (etab ?? legal) : (legal ?? etab);
+}
+
+const isSiret = (q: string): boolean => /^\d{14}$/.test(q.replace(/\s/g, ""));
 
 /** Construit la requête INSEE selon la saisie (SIRET / SIREN / dénomination). */
 function buildUrl(q: string): string {
   const digits = q.replace(/\s/g, "");
-  if (/^\d{14}$/.test(digits)) return `${BASE}/siret/${digits}`;
+  if (isSiret(q)) return `${BASE}/siret/${digits}`;
   if (/^\d{9}$/.test(digits)) {
     return `${BASE}/siret?q=${encodeURIComponent(`siren:${digits} AND etablissementSiege:true`)}&nombre=10`;
   }
@@ -99,7 +130,8 @@ export async function inseeSearch(q: string): Promise<InseeResult[] | null> {
     if (!res.ok) return null;
     const data = (await res.json()) as { etablissements?: InseeEtab[]; etablissement?: InseeEtab };
     const list = data.etablissements ?? (data.etablissement ? [data.etablissement] : []);
-    return list.map(normalize);
+    const bySiret = isSiret(q);
+    return list.map((e) => normalize(e, bySiret));
   } catch {
     return null;
   }

@@ -78,7 +78,7 @@ const lireAcquisition: AgentTool = {
   definition: {
     name: "lire_acquisition",
     description:
-      "Les leads par canal (volume, opportunités, affaires gagnées, conversion) et les clients signés en chiffres anonymes : par canal, effectif, région, délai de signature. Jamais de nom. Les groupes de moins de 3 sont regroupés.",
+      "Les leads par canal (volume, opportunités, affaires gagnées, conversion) les clients signés en chiffres anonymes (par canal, effectif, région, métier en division NAF, délai de signature) et les opportunités de la période par métier. Jamais de nom. Les groupes de moins de 3 sont regroupés ; « manque » dit quelle part du métier est inconnue.",
     input_schema: { type: "object", properties: { mois: { type: "number", description: "Période, en mois (12 par défaut)." } } },
   },
   async run(ctx, input) {

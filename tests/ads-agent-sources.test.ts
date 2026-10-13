@@ -92,7 +92,7 @@ describe("leads et clients — chiffres anonymes seulement (décision 5 du 29/09
     ]);
   });
 
-  it("conversion par canal, clients signés par canal / effectif / région, délai médian — rien d'autre", () => {
+  it("conversion par canal, clients signés par canal / effectif / région / métier, délai médian — rien d'autre", () => {
     const leads = [1, 2, 3, 4].map((i) => ({ id: i, channel: "meta-ads-facebook", createdAt: "2026-09-01T00:00:00Z" }));
     const clients = [1, 2, 3].map((i) => ({
       formSubmission: i,
@@ -102,20 +102,37 @@ describe("leads et clients — chiffres anonymes seulement (décision 5 du 29/09
       postcode: "69003",
       createdAt: "2026-09-01T00:00:00Z",
       quoteSignedAt: `2026-09-${10 + i}T00:00:00Z`,
+      naf: ["43.22A", "43.21A", "43.99C"][i - 1],
     }));
     const s = anonymousSummary(leads, clients, 12, NOW);
     expect(s.canaux[0]).toMatchObject({ leads: 4, opportunites: 3, gagnees: 3, conversionPct: 75 });
     expect(s.signes).toMatchObject({ total: 3, parEffectif: [{ valeur: "11 à 50", n: 3 }], parRegion: [{ valeur: "Auvergne-Rhône-Alpes", n: 3 }], delaiMedianJours: 11 });
-    expect(s.manque[0]).toMatch(/métier/);
-    // Aucun champ d'identité dans ce qui part vers l'agent.
-    expect(JSON.stringify(s)).not.toMatch(/69003|siren|siret|name|nom|email/i);
+    // Trois codes différents, une seule division : le métier se lit à 2 chiffres.
+    expect(s.signes.parMetier).toEqual([{ valeur: "43 — Travaux de construction spécialisés", n: 3 }]);
+    expect(s.opportunites).toEqual({ total: 3, parMetier: [{ valeur: "43 — Travaux de construction spécialisés", n: 3 }] });
+    expect(s.manque).toEqual([]);
+    // Aucun champ d'identité, ni le code NAF complet dans ce qui part vers l'agent.
+    expect(JSON.stringify(s)).not.toMatch(/69003|siren|siret|name|nom|email|43\.2/i);
+  });
+
+  it("dit quelle part du métier est inconnue, et fond un métier rare dans « autres »", () => {
+    const won = (naf: string | null) => ({ clientStatus: "actif", createdAt: "2026-09-01T00:00:00Z", naf });
+    const s = anonymousSummary([], [won("43.22A"), won("43.21A"), won("43.32A"), won("70.10Z"), won(null)], 12, NOW);
+    expect(s.signes.parMetier).toEqual([
+      { valeur: "43 — Travaux de construction spécialisés", n: 3 },
+      { valeur: `autres (groupes de moins de ${MIN_GROUP})`, n: 2 },
+    ]);
+    expect(s.manque).toEqual([
+      "le métier (division NAF) n'est connu que pour 4 clients signés sur 5",
+      "le métier (division NAF) n'est connu que pour 4 opportunités de la période sur 5",
+    ]);
   });
 
   it("le port ne lit des fiches que les champs des agrégats : ni nom, ni SIREN, ni adresse", async () => {
     const find = vi.fn(async () => ({ docs: [] }));
     await createSourcesPort({ find } as never, { now: () => NOW }).acquisition(12);
     const clientQuery = (find.mock.calls as unknown as [{ collection: string; select: Record<string, unknown> }][]).find((c) => c[0].collection === "partner-clients")![0];
-    expect(Object.keys(clientQuery.select).sort()).toEqual(["clientStatus", "collaborateurs", "createdAt", "formSubmission", "geo", "quoteSignedAt", "source"]);
+    expect(Object.keys(clientQuery.select).sort()).toEqual(["clientStatus", "collaborateurs", "createdAt", "formSubmission", "geo", "naf", "quoteSignedAt", "source"]);
     expect(clientQuery.select.geo).toEqual({ postcode: true });
   });
 });

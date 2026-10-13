@@ -4,6 +4,7 @@ import { payloadAtelier } from "@/modules/ads/agent/atelier-port";
 import { prepBudget } from "@/modules/ads/agent/budget";
 import { callAgentModel } from "@/modules/ads/agent/claude";
 import { tickRun, type TickResult } from "@/modules/ads/agent/engine";
+import { notebookFor, type Notebook } from "@/modules/ads/agent/notebook";
 import { FETCH_TIMEOUT_MS, LEASE_MS, MAX_AGENTS_PER_RUN, MAX_CONCURRENT, MAX_DEPTH, MAX_REJECTIONS, MAX_TURNS } from "@/modules/ads/agent/limits";
 import { ROLE_TOOLS } from "@/modules/ads/agent/roles";
 import { createSourcesPort } from "@/modules/ads/agent/sources/port";
@@ -78,13 +79,14 @@ export async function previewRun(payload: Payload, campaignId: Id, capEur: numbe
   const ctx = await loadGenerationContext(payload, campaignId);
   const campaign = ctx.campaign as Campaign;
   const sources = createSourcesPort(payload, { fetch: f, env, now: () => now });
-  const [budget, used, competitors, acquisition, active, sitemap] = await Promise.all([
+  const [budget, used, competitors, acquisition, active, sitemap, notebook] = await Promise.all([
     runBudget(payload, capEur, now),
     weeklyUsed(payload, campaignId, now),
     sources.competitors(),
     sources.acquisition(12),
     activeRun(payload, campaignId),
     plannedSitePages(siteFetcher(f, FETCH_TIMEOUT_MS)),
+    loadNotebook(payload, campaignId, now),
   ]);
   const library = env.ADS_AD_LIBRARY_MOCK === "1" ? "simulée" : env.META_AD_LIBRARY_TOKEN ? "réelle" : "non connectée";
   const blockers = [
@@ -113,6 +115,11 @@ export async function previewRun(payload: Payload, campaignId: Id, capEur: numbe
       site: { pagesAuPlus: MAX_PAGES, adresses: sitemap },
       acquisition: { leadsParCanal: acquisition.canaux.length, clientsSignes: acquisition.signes.total, manque: acquisition.manque },
       concurrents: { suivis: competitors.map((c) => c.name), bibliotheque: library },
+      carnet: {
+        consignes: notebook.instructions.length,
+        apprentissages: notebook.learnings.length,
+        aRevalider: notebook.learnings.filter((l) => l.aRevalider).length,
+      },
     },
     creasPossibles: Math.max(0, ctx.weeklyLimit - used),
     modeles: Object.fromEntries([...AGENT_ROLES.filter((r) => r.value !== "analyste").map((r) => [r.label, ADS_AGENT_MODELS[r.value]]), ["Résumé des sources", ADS_EXTRACTION_MODEL]]),
@@ -121,6 +128,15 @@ export async function previewRun(payload: Payload, campaignId: Id, capEur: numbe
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Les consignes et le carnet qui s'appliquent à une campagne, maintenant (la photo d'un passage). */
+export async function loadNotebook(payload: Payload, campaign: Id, now: Date): Promise<Notebook> {
+  const [instructions, learnings] = await Promise.all([
+    payload.find({ collection: "ad-instructions", where: { status: { equals: "active" } }, pagination: false, depth: 0, overrideAccess: true }),
+    payload.find({ collection: "ad-learnings", where: { status: { equals: "actif" } }, pagination: false, depth: 0, overrideAccess: true }),
+  ]);
+  return notebookFor(campaign, instructions.docs as never[], learnings.docs as never[], now);
+}
 
 /** Lancer un passage : tout ce que montre l'aperçu est revérifié ici, au moment du clic. */
 export async function launchRun(payload: Payload, input: { campaign: Id; objective: string; capEur: number | null; userId: Id }, now = new Date()) {
@@ -139,13 +155,17 @@ export async function launchRun(payload: Payload, input: { campaign: Id; objecti
   const b = await runBudget(payload, input.capEur, now);
   if (!b.enabled) throw new LaunchError("Interrupteur général coupé (Publicité › Paramètres › Garde-fous).");
   if (!b.prep.ok) throw new LaunchError(b.prep.reason);
+  const notebook = await loadNotebook(payload, input.campaign, now);
 
   const run = await payload.create({
     collection: "ad-agent-runs",
     data: {
       campaign: input.campaign,
       objective,
+      kind: "preparation",
       status: "en-cours",
+      instructionsRead: notebook.instructions,
+      learningsRead: notebook.learnings,
       budgetEur: b.prep.budgetEur,
       costEur: 0,
       startedBy: input.userId,

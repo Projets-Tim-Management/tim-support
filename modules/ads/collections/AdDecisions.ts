@@ -24,6 +24,8 @@ export const DECISION_KINDS = [
   { label: "Rejet du contrôleur", value: "rejet-controleur" },
   { label: "Création d'un sous-agent", value: "creation-sous-agent" },
   { label: "Concurrent proposé", value: "concurrent" },
+  // « Attendre » est une décision : on sait pourquoi rien n'a bougé (§9 quinquies, règle 6).
+  { label: "Attente", value: "attente" },
 ] as const;
 
 export type DecisionKind = (typeof DECISION_KINDS)[number]["value"];
@@ -73,5 +75,16 @@ export const AdDecisions: CollectionConfig = {
     { name: "before", type: "json", label: "Avant" },
     { name: "after", type: "json", label: "Décidé", admin: { description: "Les valeurs structurées de la décision (montants, audience, angle…)." } },
     { name: "guardrail", type: "text", label: "Garde-fou déclenché" },
+    // Les appuis de la décision (§9 quinquies) : quelles consignes et quels
+    // apprentissages ont pesé. Le texte est copié au moment de la citation —
+    // la décision garde sa raison si la ligne est modifiée ou supprimée.
+    {
+      type: "row",
+      fields: [
+        { name: "instructions", type: "relationship", relationTo: "ad-instructions", hasMany: true, label: "Consignes citées", admin: { width: "50%" } },
+        { name: "learnings", type: "relationship", relationTo: "ad-learnings", hasMany: true, label: "Apprentissages cités", admin: { width: "50%" } },
+      ],
+    },
+    { name: "citations", type: "json", label: "Texte cité", admin: { description: "Les consignes et apprentissages tels que l'agent les a lus." } },
   ],
 };

@@ -187,7 +187,7 @@ export function CreativeCard({ c }: { c: CardCreative }) {
               type="button"
               className="tim-btn ads-actions__danger"
               disabled={!reason || busy != null}
-              onClick={() => call("ko", `/api/admin/ads/creatives/${c.id}/decide`, { decision: "refusee", reason, detail }, "Créa refusée.")}
+              onClick={() => call("ko", `/api/admin/ads/creatives/${c.id}/decide`, { decision: "refusee", reason, detail }, reason === "doublon" ? "Créa refusée." : "Créa refusée. Une consigne pour l'agent vous attend en haut de la page.")}
             >
               {busy === "ko" ? "…" : "Refuser"}
             </button>
