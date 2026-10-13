@@ -1,17 +1,20 @@
 import { channelLabel, provenanceLabel } from "@/core/lib/channels";
+import { nafDivision } from "@/modules/partner/lib/naf";
 
 /**
  * Ce que le stratège sait des leads et des clients signés (plan Publicité,
  * §9 quater ; décision 5 du 29/09/2026) : des CHIFFRES ANONYMES seulement —
- * canal, effectif, région, délai de signature. Jamais un nom d'entreprise ni de
- * personne, ni SIREN, ni adresse, ni ville.
+ * canal, effectif, région, métier, délai de signature. Jamais un nom
+ * d'entreprise ni de personne, ni SIREN, ni SIRET, ni adresse, ni ville.
  *
  * Et même anonyme, un groupe trop petit désigne quelqu'un (« le seul client de
  * Corse, 250 salariés ») : tout groupe de moins de `MIN_GROUP` fiches est fondu
  * dans « autres ».
  *
- * Le métier n'existe sur aucune fiche aujourd'hui : il manque, et c'est dit
- * (voir le plan, chantier NAF).
+ * Le métier, c'est la DIVISION NAF (2 chiffres, « 43 — Travaux de
+ * construction spécialisés ») : jamais le code complet, trop fin pour rester
+ * anonyme. Il n'est connu que des fiches qui ont un SIREN ; la part manquante
+ * est dite à l'agent, pour qu'il ne prenne pas un échantillon pour le tout.
  */
 
 export const MIN_GROUP = 3;
@@ -26,13 +29,16 @@ export type ClientIn = {
   postcode?: string | null;
   createdAt?: string | null;
   quoteSignedAt?: string | null;
+  naf?: string | null;
 };
 
 export type Bucket = { valeur: string; n: number };
 export type AcquisitionSummary = {
   periodeMois: number;
   canaux: { canal: string; leads: number; opportunites: number; gagnees: number; conversionPct: number | null }[];
-  signes: { total: number; parCanal: Bucket[]; parEffectif: Bucket[]; parRegion: Bucket[]; delaiMedianJours: number | null };
+  signes: { total: number; parCanal: Bucket[]; parEffectif: Bucket[]; parRegion: Bucket[]; parMetier: Bucket[]; delaiMedianJours: number | null };
+  /** Les fiches créées sur la période, toutes issues confondues : qui arrive, face à qui signe. */
+  opportunites: { total: number; parMetier: Bucket[] };
   manque: string[];
 };
 
@@ -85,6 +91,18 @@ export function buckets(values: (string | null | undefined)[]): Bucket[] {
   return others ? [...kept, { valeur: `autres (groupes de moins de ${MIN_GROUP})`, n: others }] : kept;
 }
 
+/** « 43 — Travaux de construction spécialisés », ou `null` sans code connu. */
+const metierOf = (naf?: string | null): string | null => {
+  const d = nafDivision(naf);
+  return d ? `${d.code} — ${d.label}` : null;
+};
+
+/** Ce qui manque pour lire le métier d'un groupe, ou rien s'il est complet. */
+const metierGap = (who: string, rows: ClientIn[]): string[] => {
+  const known = rows.filter((c) => nafDivision(c.naf)).length;
+  return known < rows.length ? [`le métier (division NAF) n'est connu que pour ${known} ${who} sur ${rows.length}`] : [];
+};
+
 const median = (xs: number[]): number | null => {
   if (!xs.length) return null;
   const s = [...xs].sort((a, b) => a - b);
@@ -114,6 +132,7 @@ export function anonymousSummary(leads: LeadIn[], clients: ClientIn[], months: n
     .sort((a, b) => b.leads - a.leads);
 
   const won = clients.filter((c) => WON_STATUSES.includes(c.clientStatus ?? ""));
+  const opened = clients.filter((c) => c.createdAt && Date.parse(c.createdAt) >= from);
   const delays = won
     .filter((c) => c.createdAt && c.quoteSignedAt)
     .map((c) => Math.round((Date.parse(c.quoteSignedAt!) - Date.parse(c.createdAt!)) / 86_400_000))
@@ -127,8 +146,10 @@ export function anonymousSummary(leads: LeadIn[], clients: ClientIn[], months: n
       parCanal: buckets(won.map((c) => provenanceLabel(c.source) ?? c.source)),
       parEffectif: buckets(won.map((c) => c.collaborateurs)),
       parRegion: buckets(won.map((c) => regionOf(c.postcode))),
+      parMetier: buckets(won.map((c) => metierOf(c.naf))),
       delaiMedianJours: median(delays),
     },
-    manque: ["le métier des clients (code NAF) : absent des fiches aujourd'hui"],
+    opportunites: { total: opened.length, parMetier: buckets(opened.map((c) => metierOf(c.naf))) },
+    manque: [...metierGap("clients signés", won), ...metierGap("opportunités de la période", opened)],
   };
 }

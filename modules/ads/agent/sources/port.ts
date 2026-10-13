@@ -10,8 +10,9 @@ import type { SourcesPort } from "@/modules/ads/agent/types";
  * Le port des sources du stratège, branché sur la base et sur le réseau.
  *
  * Les fiches clients ne sont lues QUE par les champs dont les agrégats ont
- * besoin (`select`) : ni nom, ni SIREN, ni adresse ne sortent de la base vers
- * l'agent — la règle tient dans la requête, pas seulement dans le résumé.
+ * besoin (`select`) : ni nom, ni SIREN, ni SIRET, ni adresse ne sortent de la
+ * base vers l'agent — la règle tient dans la requête, pas seulement dans le
+ * résumé. Le code NAF est lu, mais seule sa division en sort.
  */
 export function createSourcesPort(payload: Payload, deps: { fetch?: typeof fetch; env?: Record<string, string | undefined>; now?: () => Date } = {}): SourcesPort {
   const f = deps.fetch ?? fetch;
@@ -29,7 +30,7 @@ export function createSourcesPort(payload: Payload, deps: { fetch?: typeof fetch
           pagination: false,
           depth: 0,
           overrideAccess: true,
-          select: { formSubmission: true, clientStatus: true, source: true, collaborateurs: true, geo: { postcode: true }, createdAt: true, quoteSignedAt: true } as never,
+          select: { formSubmission: true, clientStatus: true, source: true, collaborateurs: true, geo: { postcode: true }, createdAt: true, quoteSignedAt: true, naf: true } as never,
         }),
       ]);
       const rows = (clients.docs as (ClientIn & { geo?: { postcode?: string | null } | null })[]).map((c) => ({ ...c, postcode: c.geo?.postcode ?? null }));
