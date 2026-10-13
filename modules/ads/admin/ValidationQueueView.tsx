@@ -10,6 +10,7 @@ import { ctaLabel } from "@/modules/ads/lib/cta";
 import { testLabel, toneLabel, type TestDimension } from "@/modules/ads/lib/dimensions";
 
 import { CreativeCard, type CardCreative } from "./CreativeCard";
+import { NotebookProposals, type ProposedInstruction, type ProposedLearning } from "./NotebookProposals";
 
 /**
  * Publicité › À valider (/admin/publicite/a-valider).
@@ -17,6 +18,9 @@ import { CreativeCard, type CardCreative } from "./CreativeCard";
  * L'écran qu'on ouvre chaque matin (plan, §8) : les créas à décider, une carte
  * chacune, avec tout ce qu'il faut voir pour trancher ; puis, dans l'onglet
  * « Validées », ce qui est prêt à partir, à télécharger par créa ou par campagne.
+ *
+ * En tête de l'onglet « À valider » : les consignes nées des refus et les
+ * apprentissages à étendre, que l'agent ne lira qu'une fois confirmés.
  */
 
 const BASE = "/admin/publicite/a-valider";
@@ -38,6 +42,24 @@ type Raw = {
   decidedAt?: string | null;
   refusalReason?: string | null;
 };
+
+type Named = { id: number | string; name: string } | number | null | undefined;
+const named = (v: Named) => (typeof v === "object" && v ? { id: v.id, name: v.name } : null);
+
+const toInstruction = (r: { id: number | string; text: string; refusalReason?: string | null; campaign?: Named; sourceCreative?: { angle?: string | null } | number | null }): ProposedInstruction => ({
+  id: r.id,
+  text: r.text,
+  refusal: r.refusalReason ?? null,
+  creativeAngle: typeof r.sourceCreative === "object" && r.sourceCreative ? (r.sourceCreative.angle ?? null) : null,
+  campaign: named(r.campaign),
+});
+
+const toLearning = (r: { id: number | string; statement: string; confidence?: string | null; campaign?: Named }): ProposedLearning => ({
+  id: r.id,
+  statement: r.statement,
+  confidence: r.confidence ?? null,
+  campaign: named(r.campaign),
+});
 
 const toCard = (r: Raw): CardCreative => ({
   id: r.id,
@@ -70,10 +92,12 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
   if (hasAdminRole(user)) {
     const status = tab === "validees" ? "validee" : "a-valider";
     const where: Where = { and: [{ status: { equals: status } }, ...(campaignFilter ? [{ campaign: { equals: campaignFilter } }] : [])] };
-    const [list, counts, campaigns] = await Promise.all([
+    const [list, counts, campaigns, proposedInstructions, proposedLearnings] = await Promise.all([
       payload.find({ collection: "ad-creatives", where, sort: tab === "validees" ? "-decidedAt" : "createdAt", pagination: false, depth: 2, overrideAccess: true }),
       Promise.all(["a-valider", "validee"].map((s) => payload.count({ collection: "ad-creatives", where: { status: { equals: s } }, overrideAccess: true }))),
       payload.find({ collection: "ad-campaigns", pagination: false, depth: 0, overrideAccess: true, select: { name: true } as never }),
+      payload.find({ collection: "ad-instructions", where: { status: { equals: "proposee" } }, sort: "createdAt", pagination: false, depth: 1, overrideAccess: true }),
+      payload.find({ collection: "ad-learnings", where: { status: { equals: "global-propose" } }, sort: "createdAt", pagination: false, depth: 1, overrideAccess: true }),
     ]);
     const cards = (list.docs as unknown as Raw[]).map(toCard);
     const href = (t: string, c: string | null) => `${BASE}?vue=${t}${c ? `&campagne=${c}` : ""}`;
@@ -86,6 +110,9 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
 
     body = (
       <>
+        {tab === "a-valider" && (
+          <NotebookProposals instructions={(proposedInstructions.docs as never[]).map(toInstruction)} learnings={(proposedLearnings.docs as never[]).map(toLearning)} />
+        )}
         <div className="ads-dash__filters">
           <nav className="an-filters" aria-label="File">
             <Link href={href("a-valider", campaignFilter)} prefetch={false} className={`an-filter${tab === "a-valider" ? " an-filter--on" : ""}`}>
