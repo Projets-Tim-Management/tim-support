@@ -137,6 +137,7 @@ import * as migration_20261001_161834_formation_envoi_annule from './20261001_16
 import * as migration_20261005_070133_historique_rdv_parcours from './20261005_070133_historique_rdv_parcours';
 import * as migration_20261012_093439_dev_announce_email from './20261012_093439_dev_announce_email';
 import * as migration_20261013_085023_naf_fiche_client from './20261013_085023_naf_fiche_client';
+import * as migration_20261013_091314_agent_consignes_carnet from './20261013_091314_agent_consignes_carnet';
 
 export const migrations = [
   {
@@ -832,6 +833,11 @@ export const migrations = [
   {
     up: migration_20261013_085023_naf_fiche_client.up,
     down: migration_20261013_085023_naf_fiche_client.down,
-    name: '20261013_085023_naf_fiche_client'
+    name: '20261013_085023_naf_fiche_client',
+  },
+  {
+    up: migration_20261013_091314_agent_consignes_carnet.up,
+    down: migration_20261013_091314_agent_consignes_carnet.down,
+    name: '20261013_091314_agent_consignes_carnet'
   },
 ];

@@ -21,6 +21,14 @@ export const RUN_STATUSES = [
 
 export type RunStatus = (typeof RUN_STATUSES)[number]["value"];
 
+/** Le même moteur sert aux quatre rythmes (§9 quinquies) ; la 3c ne lance que la préparation. */
+export const RUN_KINDS = [
+  { label: "Préparation", value: "preparation" },
+  { label: "Quotidien", value: "quotidien" },
+  { label: "Hebdomadaire", value: "hebdomadaire" },
+  { label: "Mensuel", value: "mensuel" },
+] as const;
+
 /** Les quatre compteurs de tokens, tels qu'Anthropic les facture. */
 export const tokensGroup = (): Field => ({
   name: "tokens",
@@ -56,6 +64,7 @@ export const AdAgentRuns: CollectionConfig = {
   fields: [
     { name: "campaign", type: "relationship", relationTo: "ad-campaigns", label: "Campagne", required: true, index: true },
     { name: "objective", type: "textarea", label: "Objectif", required: true },
+    { name: "kind", type: "select", label: "Rythme", options: [...RUN_KINDS], defaultValue: "preparation", required: true },
     {
       type: "row",
       fields: [
@@ -73,6 +82,9 @@ export const AdAgentRuns: CollectionConfig = {
         { name: "finishedAt", type: "date", label: "Fin", admin: { width: "33%", date: { pickerAppearance: "dayAndTime" } } },
       ],
     },
+    // La photo prise au lancement (agent/notebook.ts) : ce que l'agent avait sous les yeux, même si la ligne a changé depuis.
+    { name: "instructionsRead", type: "json", label: "Consignes lues", admin: { description: "Les consignes actives au lancement, texte copié." } },
+    { name: "learningsRead", type: "json", label: "Apprentissages lus", admin: { description: "Le carnet au lancement, texte copié." } },
     { name: "limits", type: "json", label: "Bornes au lancement", admin: { description: "Profondeur, simultanés, rejets, budget : la photo de ce qui s'appliquait." } },
     { name: "leaseUntil", type: "date", label: "Verrou jusqu'à", index: true, admin: { condition: () => false } },
     { name: "summary", type: "textarea", label: "Bilan", admin: { description: "Ce que l'orchestrateur a déposé dans « À valider »." } },

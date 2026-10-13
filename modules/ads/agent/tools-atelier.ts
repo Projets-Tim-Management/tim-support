@@ -1,5 +1,6 @@
 import { canSpend, splitViolations } from "@/modules/ads/agent/budget";
 import { MAX_REJECTIONS } from "@/modules/ads/agent/limits";
+import { notebookOf, resolveAppuis, type Appuis } from "@/modules/ads/agent/notebook";
 import { ROLE_SUBJECT } from "@/modules/ads/agent/roles";
 import { clip, type AgentTool, type ToolContext, type ToolOutcome } from "@/modules/ads/agent/tools";
 import type { Id } from "@/modules/ads/agent/types";
@@ -15,6 +16,10 @@ import { eur } from "@/modules/ads/lib/spend";
  *
  * Tout ce qui toucherait Meta (audiences, répartition du budget) naît
  * « proposée » : la 3c ne publie rien.
+ *
+ * Chaque outil de décision exige ses `appuis` (§9 quinquies) : les consignes
+ * et apprentissages qui ont pesé, cités par leur référence. Le code vérifie
+ * qu'ils sont dans la photo du passage avant d'écrire quoi que ce soit.
  */
 
 const who = (ctx: ToolContext) => ROLE_SUBJECT[ctx.agent.role];
@@ -28,7 +33,22 @@ const errorOf = (ctx: ToolContext, e: unknown, what: string): ToolOutcome => ({
   line: `${who(ctx)} : ${what} refusé — ${clip((e as Error).message, 100)}`,
 });
 
-async function decide(ctx: ToolContext, kind: DecisionKind, status: DecisionStatus, rationale: string, after: unknown, guardrail?: string): Promise<Id> {
+/** Le paramètre `appuis` des outils de décision. */
+const APPUIS = {
+  type: "array",
+  items: { type: "string" },
+  description: "Les références (ex. C4, A12) des consignes et apprentissages qui ont pesé sur ce choix ; liste vide si aucune.",
+} as const;
+
+/** Les appuis vérifiés, ou le refus à rendre au modèle (rien n'est journalisé : la décision n'a pas eu lieu). */
+function appuisOf(ctx: ToolContext, input: Record<string, unknown>): Appuis | ToolOutcome {
+  const r = resolveAppuis(notebookOf(ctx.run), input.appuis);
+  if ("error" in r) return { kind: "ok", isError: true, output: { refus: r.error }, line: `${who(ctx)} : décision refusée — ${clip(r.error, 100)}` };
+  return r;
+}
+const isOutcome = (v: Appuis | ToolOutcome): v is ToolOutcome => "kind" in v;
+
+async function decide(ctx: ToolContext, kind: DecisionKind, status: DecisionStatus, rationale: string, after: unknown, appuis: Appuis, guardrail?: string): Promise<Id> {
   return ctx.deps.store.createDecision({
     campaign: ctx.run.campaign,
     run: ctx.run.id,
@@ -39,6 +59,9 @@ async function decide(ctx: ToolContext, kind: DecisionKind, status: DecisionStat
     rationale: rationale.trim() || "—",
     after,
     guardrail: guardrail ?? null,
+    instructions: appuis.instructions,
+    learnings: appuis.learnings,
+    citations: appuis.citations,
   });
 }
 
@@ -151,11 +174,13 @@ const jugerCrea: AgentTool = {
     description: `Accepte ou rejette une créa, avec un motif précis (charte, faux témoignage, chiffre sans source, promesse invérifiable…). Au-delà de ${MAX_REJECTIONS} rejets sur le même angle, on ne réécrit plus : la créa part « À valider » marquée rejetée.`,
     input_schema: {
       type: "object",
-      properties: { crea: { type: ["number", "string"] }, verdict: { type: "string", enum: ["accepte", "rejete"] }, motif: { type: "string" } },
-      required: ["crea", "verdict", "motif"],
+      properties: { crea: { type: ["number", "string"] }, verdict: { type: "string", enum: ["accepte", "rejete"] }, motif: { type: "string" }, appuis: APPUIS },
+      required: ["crea", "verdict", "motif", "appuis"],
     },
   },
   async run(ctx, input) {
+    const appuis = appuisOf(ctx, input);
+    if (isOutcome(appuis)) return appuis;
     const [c] = await ctx.deps.atelier.creatives(ctx.run.campaign, [idOf(input.crea)]);
     if (!c) return { kind: "ok", isError: true, output: { refus: "Créa introuvable." }, line: `${who(ctx)} : créa ${String(input.crea)} introuvable.` };
     const motif = String(input.motif ?? "").trim();
@@ -164,7 +189,7 @@ const jugerCrea: AgentTool = {
     const angle = c.requestedAngle ?? c.angle;
     const n = (await rejectionsOf(ctx, angle)) + 1;
     const last = n >= MAX_REJECTIONS;
-    await decide(ctx, "rejet-controleur", "executee", motif, { crea: c.id, angle, rejet: n, limiteAtteinte: last });
+    await decide(ctx, "rejet-controleur", "executee", motif, { crea: c.id, angle, rejet: n, limiteAtteinte: last }, appuis);
     return {
       kind: "ok",
       output: last ? { rejete: true, limiteAtteinte: true, consigne: "Ne pas réécrire cet angle : la créa part « À valider » marquée rejetée, avec les motifs." } : { rejete: true, rejet: n, rejetsMax: MAX_REJECTIONS },
@@ -177,11 +202,17 @@ const proposerPositionnement: AgentTool = {
   definition: {
     name: "proposer_positionnement",
     description: "Pose le positionnement de la campagne : ce qu'on promet, à qui, contre quoi. Journalisé avec sa justification.",
-    input_schema: { type: "object", properties: { positionnement: { type: "string" }, justification: { type: "string" } }, required: ["positionnement", "justification"] },
+    input_schema: {
+      type: "object",
+      properties: { positionnement: { type: "string" }, justification: { type: "string" }, appuis: APPUIS },
+      required: ["positionnement", "justification", "appuis"],
+    },
   },
   async run(ctx, input) {
+    const appuis = appuisOf(ctx, input);
+    if (isOutcome(appuis)) return appuis;
     const positionnement = String(input.positionnement ?? "").trim();
-    await decide(ctx, "positionnement", "executee", String(input.justification ?? ""), { positionnement });
+    await decide(ctx, "positionnement", "executee", String(input.justification ?? ""), { positionnement }, appuis);
     return { kind: "ok", output: { ok: true }, line: `${who(ctx)} pose le positionnement : « ${clip(positionnement, 90)} »` };
   },
 };
@@ -192,14 +223,16 @@ const proposerAngles: AgentTool = {
     description: "Choisit les angles de la campagne (1 à 3), chacun en une ligne. Journalisé avec sa justification.",
     input_schema: {
       type: "object",
-      properties: { angles: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 3 }, justification: { type: "string" } },
-      required: ["angles", "justification"],
+      properties: { angles: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 3 }, justification: { type: "string" }, appuis: APPUIS },
+      required: ["angles", "justification", "appuis"],
     },
   },
   async run(ctx, input) {
+    const appuis = appuisOf(ctx, input);
+    if (isOutcome(appuis)) return appuis;
     const angles = (Array.isArray(input.angles) ? input.angles : []).map((a) => String(a).trim()).filter(Boolean).slice(0, 3);
     if (!angles.length) return { kind: "ok", isError: true, output: { refus: "Aucun angle." }, line: `${who(ctx)} : aucun angle proposé.` };
-    await decide(ctx, "angle", "executee", String(input.justification ?? ""), { angles });
+    await decide(ctx, "angle", "executee", String(input.justification ?? ""), { angles }, appuis);
     return { kind: "ok", output: { ok: true, angles }, line: `${who(ctx)} choisit ${angles.length} angle(s) : ${angles.map((a) => `« ${clip(a, 40)} »`).join(", ")}.` };
   },
 };
@@ -221,11 +254,14 @@ const proposerAudiences: AgentTool = {
         conversions_semaine_par_ensemble: { type: "number" },
         ciblage_detaille: { type: "string", description: "Métiers, âges, lieux — pour le test." },
         justification: { type: "string", description: "Et le seuil retenu, chiffres à l'appui." },
+        appuis: APPUIS,
       },
-      required: ["mode", "budget_meta_quotidien_eur", "ensembles", "justification"],
+      required: ["mode", "budget_meta_quotidien_eur", "ensembles", "justification", "appuis"],
     },
   },
   async run(ctx, input) {
+    const appuis = appuisOf(ctx, input);
+    if (isOutcome(appuis)) return appuis;
     const mode = String(input.mode) as keyof typeof MODES;
     const num = (k: string) => (typeof input[k] === "number" && Number.isFinite(input[k]) && (input[k] as number) > 0 ? (input[k] as number) : null);
     const after = {
@@ -251,10 +287,10 @@ const proposerAudiences: AgentTool = {
           : ["un mode connu"];
     if (missing.length) {
       const reason = `Il manque ${missing.join(", ")}.`;
-      await decide(ctx, "audience", "bloquee", String(input.justification ?? ""), after, reason);
+      await decide(ctx, "audience", "bloquee", String(input.justification ?? ""), after, appuis, reason);
       return { kind: "ok", isError: true, output: { refus: reason }, line: `${who(ctx)} : proposition d'audience refusée — ${reason}` };
     }
-    await decide(ctx, "audience", "proposee", String(input.justification ?? ""), after);
+    await decide(ctx, "audience", "proposee", String(input.justification ?? ""), after, appuis);
     return { kind: "ok", output: { ok: true }, line: `${who(ctx)} propose ${MODES[mode]} (${eur(after.budgetMetaQuotidienEur!)} par jour chez Meta).` };
   },
 };
@@ -266,20 +302,22 @@ const repartirBudget: AgentTool = {
       "Partage le budget quotidien total de la campagne entre l'IA (après publication) et la dépense Meta. Les bornes sont vérifiées en code (part IA maximale, plancher Meta, total). Une proposition : rien n'est envoyé à Meta.",
     input_schema: {
       type: "object",
-      properties: { ia_eur_jour: { type: "number" }, meta_eur_jour: { type: "number" }, justification: { type: "string" } },
-      required: ["ia_eur_jour", "meta_eur_jour", "justification"],
+      properties: { ia_eur_jour: { type: "number" }, meta_eur_jour: { type: "number" }, justification: { type: "string" }, appuis: APPUIS },
+      required: ["ia_eur_jour", "meta_eur_jour", "justification", "appuis"],
     },
   },
   async run(ctx, input) {
+    const appuis = appuisOf(ctx, input);
+    if (isOutcome(appuis)) return appuis;
     const split = { aiDailyEur: Number(input.ia_eur_jour), metaDailyEur: Number(input.meta_eur_jour) };
     const why = String(input.justification ?? "");
     const b = await ctx.deps.atelier.campaignBudget(ctx.run.campaign);
     const problems = !b ? ["Aucun budget quotidien total n'est saisi sur la campagne (onglet Agent)."] : splitViolations(b, split);
     if (problems.length) {
-      await decide(ctx, "repartition-budget", "bloquee", why, split, problems.join(" "));
+      await decide(ctx, "repartition-budget", "bloquee", why, split, appuis, problems.join(" "));
       return { kind: "ok", isError: true, output: { refus: problems }, line: `${who(ctx)} : répartition refusée — ${clip(problems.join(" "), 100)}` };
     }
-    const decision = await decide(ctx, "repartition-budget", "proposee", why, split);
+    const decision = await decide(ctx, "repartition-budget", "proposee", why, split, appuis);
     await ctx.deps.atelier.setSplit(ctx.run.campaign, split, decision, ctx.deps.now());
     return { kind: "ok", output: { ok: true }, line: `${who(ctx)} propose ${eur(split.aiDailyEur)} par jour pour l'IA et ${eur(split.metaDailyEur)} pour Meta.` };
   },

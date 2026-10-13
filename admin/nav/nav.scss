@@ -133,6 +133,10 @@ $nav-icons: (
   "ad-agent-runs":           "<circle cx='12' cy='12' r='9'/><path d='M10 8.5v7l6-3.5z'/>",
   /* Décisions : l'embranchement — un choix, et sa justification. */
   "ad-decisions":            "<path d='M12 21v-8'/><path d='M12 13L6 7M12 13l6-6'/><path d='M6 11V7h4M18 11V7h-4'/>",
+  /* Consignes : une liste cochée — ce que l'agent doit respecter. */
+  "ad-instructions":         "<path d='M9 6h11M9 12h11M9 18h11'/><path d='M3.5 6l1.2 1.2L6.5 5M3.5 12l1.2 1.2 1.8-2.2M3.5 18l1.2 1.2 1.8-2.2'/>",
+  /* Carnet d'apprentissages : un livre ouvert — ce qu'on a appris. */
+  "ad-learnings":            "<path d='M12 7c-2-1.5-5-2-8-1.5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5v-13c-3-.5-6 0-8 1.5z'/><path d='M12 7v13'/>",
   /* Concurrents : des jumelles — ceux qu'on observe. */
   "ad-competitors":          "<circle cx='7' cy='15' r='3.5'/><circle cx='17' cy='15' r='3.5'/><path d='M10.5 15h3'/><path d='M4.5 12.5L7 5h2.5l.5 7M19.5 12.5L17 5h-2.5l-.5 7'/>",
   /* Historique des garde-fous : une horloge — qui a changé quoi, et quand. */

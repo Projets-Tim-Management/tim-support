@@ -12,11 +12,13 @@ type Preview = {
     site: { pagesAuPlus: number; adresses: string[] };
     acquisition: { leadsParCanal: number; clientsSignes: number; manque: string[] };
     concurrents: { suivis: string[]; bibliotheque: string };
+    carnet: { consignes: number; apprentissages: number; aRevalider: number };
   };
   creasPossibles: number;
 };
 type Last = { id: number | string; statut: string; objectif: string; budgetEur: number; depenseEur: number; bilan: string | null; motif: string | null; enCours: boolean; fil: { ligne: string; le: string }[] } | null;
 
+const plural = (n: number, one: string, many: string) => (n ? `${n} ${n > 1 ? many : one}` : `aucun${one.startsWith("consigne") ? "e" : ""} ${one}`);
 const eur = (n: number) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
 const STATUS: Record<string, string> = { "en-cours": "En cours", "en-pause-budget": "En pause (plafond du jour)", "a-valider": "Terminé — à valider", arrete: "Arrêté", echoue: "Échoué" };
 
@@ -159,7 +161,9 @@ export function AgentPanel() {
                 {preview.lectures.concurrents.suivis.length
                   ? `les publicités de ${preview.lectures.concurrents.suivis.length} concurrent(s) suivi(s) (bibliothèque ${preview.lectures.concurrents.bibliotheque})`
                   : "aucun concurrent (aucun n'est suivi)"}
-                .
+                ; {plural(preview.lectures.carnet.consignes, "consigne active", "consignes actives")} et{" "}
+                {plural(preview.lectures.carnet.apprentissages, "apprentissage", "apprentissages")} du carnet
+                {preview.lectures.carnet.aRevalider ? ` (dont ${preview.lectures.carnet.aRevalider} à revalider)` : ""}.
               </li>
               {preview.lectures.acquisition.manque.map((m) => (
                 <li key={m} className="ads-gen__warn">
