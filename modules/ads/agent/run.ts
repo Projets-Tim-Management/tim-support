@@ -252,23 +252,3 @@ export async function tickDueRuns(payload: Payload, deadline: Date, deps: AgentD
   }
   return out;
 }
-
-/** Le dernier passage d'une campagne, pour son panneau : état, dépense face au budget, dernières lignes du fil. */
-export async function runStatus(payload: Payload, campaignId: Id) {
-  const r = await payload.find({ collection: "ad-agent-runs", where: { campaign: { equals: campaignId } }, sort: "-startedAt", limit: 1, depth: 0, overrideAccess: true });
-  const run = r.docs[0] as { id: Id; status: string; objective: string; budgetEur: number; costEur?: number | null; startedAt: string; summary?: string | null; error?: string | null } | undefined;
-  if (!run) return null;
-  const steps = await payload.find({ collection: "ad-agent-steps", where: { run: { equals: run.id } }, sort: "-createdAt", limit: 8, depth: 0, overrideAccess: true });
-  return {
-    id: run.id,
-    statut: run.status,
-    objectif: run.objective,
-    budgetEur: run.budgetEur,
-    depenseEur: run.costEur ?? 0,
-    lanceLe: run.startedAt,
-    bilan: run.summary ?? null,
-    motif: run.error ?? null,
-    enCours: ACTIVE.includes(run.status),
-    fil: (steps.docs as { line: string; createdAt: string }[]).map((st) => ({ ligne: st.line, le: st.createdAt })),
-  };
-}

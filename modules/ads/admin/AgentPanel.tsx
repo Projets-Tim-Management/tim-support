@@ -3,6 +3,10 @@
 import { toast, useDocumentInfo } from "@payloadcms/ui";
 import { useCallback, useEffect, useState } from "react";
 
+import type { ControlRoom as Room } from "@/modules/ads/agent/control-room";
+
+import { ControlRoom, RUN_STATUS } from "./ControlRoom";
+
 type Preview = {
   lancable: boolean;
   blocages: string[];
@@ -16,60 +20,67 @@ type Preview = {
   };
   creasPossibles: number;
 };
-type Last = { id: number | string; statut: string; objectif: string; budgetEur: number; depenseEur: number; bilan: string | null; motif: string | null; enCours: boolean; fil: { ligne: string; le: string }[] } | null;
+const ACTIVE = ["en-cours", "en-pause-budget"];
 
 const plural = (n: number, one: string, many: string) => (n ? `${n} ${n > 1 ? many : one}` : `aucun${one.startsWith("consigne") ? "e" : ""} ${one}`);
 const eur = (n: number) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
-const STATUS: Record<string, string> = { "en-cours": "En cours", "en-pause-budget": "En pause (plafond du jour)", "a-valider": "Terminé — à valider", arrete: "Arrêté", echoue: "Échoué" };
 
 /**
  * L'agent de campagne, dans l'onglet « Agent » (plan, §9 quater).
  *
  * Avant le clic : ce que l'agent va lire et ce que le passage peut coûter AU
- * PLUS — le bouton n'est actif que si rien ne bloque. Pendant un passage : sa
- * dépense face à son budget, ses dernières actions, et « Arrêter », toujours à
- * portée. Les deux boutons sont les gestes eux-mêmes : pas de confirmation.
+ * PLUS — le bouton n'est actif que si rien ne bloque. Pendant un passage :
+ * « Arrêter », toujours à portée. Les deux boutons sont les gestes eux-mêmes :
+ * pas de confirmation.
+ *
+ * En dessous, la salle de contrôle (commit 7) : le passage en cours ou le
+ * dernier, ou un précédent choisi dans la liste.
  */
 export function AgentPanel() {
   const { id } = useDocumentInfo();
   const [objective, setObjective] = useState("");
   const [capEur, setCapEur] = useState("2");
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [last, setLast] = useState<Last>(null);
+  const [room, setRoom] = useState<Room>(null);
+  const [runId, setRunId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const base = id ? `/api/admin/ads/campaigns/${encodeURIComponent(String(id))}/agent` : null;
   // L'aperçu complet (lourd : CRM, site, plafonds) — au chargement et après une saisie du plafond, pas en boucle.
+  const runParam = runId ? `&run=${encodeURIComponent(runId)}` : "";
   const load = useCallback(() => {
     if (!base) return;
-    fetch(`${base}?cap=${encodeURIComponent(capEur)}`, { credentials: "include" })
+    fetch(`${base}?cap=${encodeURIComponent(capEur)}${runParam}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { preview: Preview; last: Last } | null) => {
+      .then((d: { preview: Preview; room: Room } | null) => {
         setPreview(d?.preview ?? null);
-        setLast(d?.last ?? null);
+        setRoom(d?.room ?? null);
       })
       .catch(() => null);
-  }, [base, capEur]);
+  }, [base, capEur, runParam]);
 
   useEffect(() => {
     const t = setTimeout(load, 500); // on attend la fin de la frappe dans le champ « plafond »
     return () => clearTimeout(t);
   }, [load]);
-  // Pendant un passage : seulement son état, toutes les 5 secondes ; l'aperçu complet revient quand il se termine.
+  // Le passage le plus récent tourne-t-il ? (la salle peut montrer un passage précédent pendant ce temps)
+  const current = room?.passages[0] ?? null;
+  const running = Boolean(current && ACTIVE.includes(current.statut));
+  // Pendant un passage : seulement la salle de contrôle, toutes les 5 secondes ; l'aperçu complet revient quand il se termine.
   useEffect(() => {
-    if (!last?.enCours || !base) return;
+    if (!running || !base) return;
     const t = setInterval(() => {
-      fetch(`${base}?status=1`, { credentials: "include" })
+      fetch(`${base}?status=1${runParam}`, { credentials: "include" })
         .then((r) => (r.ok ? r.json() : null))
-        .then((d: { last: Last } | null) => {
+        .then((d: { room: Room } | null) => {
           if (!d) return;
-          setLast(d.last);
-          if (!d.last?.enCours) load();
+          setRoom(d.room);
+          if (!d.room?.passages[0] || !ACTIVE.includes(d.room.passages[0].statut)) load();
         })
         .catch(() => null);
     }, 5_000);
     return () => clearInterval(t);
-  }, [last?.enCours, base, load]);
+  }, [running, base, runParam, load]);
 
   if (!id) return <p className="ads-gen ads-gen--muted">Enregistrez la campagne pour pouvoir lancer l&apos;agent.</p>;
 
@@ -88,7 +99,6 @@ export function AgentPanel() {
     }
   };
 
-  const running = Boolean(last?.enCours);
   const canLaunch = Boolean(preview?.lancable && objective.trim() && !busy && Number(capEur) > 0);
 
   return (
@@ -98,25 +108,15 @@ export function AgentPanel() {
         <span>Il prépare positionnement, audiences, angles, textes et visuels, et dépose les créas « À valider ». Rien n&apos;est publié chez Meta.</span>
       </div>
 
-      {running && last && (
-        <div className="ads-agent__live">
-          <div className="ads-agent__status">
-            <span className="ads-badge ads-badge--test">{STATUS[last.statut] ?? last.statut}</span>
-            <span>
-              Dépensé <strong>{eur(last.depenseEur)}</strong> sur {eur(last.budgetEur)}
-            </span>
-            <button type="button" className="tim-btn ads-actions__danger" disabled={busy} onClick={() => post(`/api/admin/ads/agent-runs/${encodeURIComponent(String(last.id))}/stop`, {}, "Passage arrêté.")}>
-              Arrêter
-            </button>
-          </div>
-          <p className="ads-agent__objective">« {last.objectif} »</p>
-          <ol className="ads-agent__feed">
-            {last.fil.map((l, i) => (
-              <li key={i}>
-                <time>{new Date(l.le).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time> {l.ligne}
-              </li>
-            ))}
-          </ol>
+      {running && current && (
+        <div className="ads-agent__status">
+          <span className="ads-badge ads-badge--test">{RUN_STATUS[current.statut] ?? current.statut}</span>
+          <span>
+            Dépensé <strong>{eur(current.depenseEur)}</strong> sur {eur(current.budgetEur)}
+          </span>
+          <button type="button" className="tim-btn ads-actions__danger" disabled={busy} onClick={() => post(`/api/admin/ads/agent-runs/${encodeURIComponent(String(current.id))}/stop`, {}, "Passage arrêté.")}>
+            Arrêter
+          </button>
         </div>
       )}
 
@@ -173,14 +173,10 @@ export function AgentPanel() {
               <li>Créas possibles cette semaine : {preview.creasPossibles}.</li>
             </ul>
           )}
-          {last && (
-            <p className={last.statut === "a-valider" ? "ads-gen__done" : "ads-agent__last"}>
-              Dernier passage : {STATUS[last.statut] ?? last.statut}, {eur(last.depenseEur)} sur {eur(last.budgetEur)}.{last.bilan ? ` ${last.bilan}` : ""}
-              {last.motif ? ` ${last.motif}` : ""}
-            </p>
-          )}
         </>
       )}
+
+      {room && <ControlRoom room={room} onSelectRun={(id) => setRunId(id === String(room.passages[0]?.id) ? null : id)} />}
     </section>
   );
 }
