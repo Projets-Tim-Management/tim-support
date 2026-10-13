@@ -147,20 +147,23 @@ export async function launchRun(payload: Payload, input: { campaign: Id; objecti
 
   const ctx = await loadGenerationContext(payload, input.campaign);
   const campaign = ctx.campaign as Campaign;
+  // L'identifiant de la campagne LUE, pas celui de l'adresse : la route le reçoit en texte (« 7 »), et
+  // Payload refuse une relation Postgres en texte — premier vrai lancement, 13/10/2026.
+  const campaignId = campaign.id;
   if (campaign.status !== "brouillon") throw new LaunchError("L'agent ne prépare qu'une campagne en brouillon.");
   const missing = missingBrief(campaign as never);
   if (missing.length) throw new LaunchError(`Brief incomplet : il manque ${missing.join(", ")}.`);
-  if ((await weeklyUsed(payload, input.campaign, now)) >= ctx.weeklyLimit) throw new LaunchError("Quota de créas de la semaine atteint pour cette campagne.");
-  if (await activeRun(payload, input.campaign)) throw new LaunchError("Un passage est déjà en cours sur cette campagne.");
+  if ((await weeklyUsed(payload, campaignId, now)) >= ctx.weeklyLimit) throw new LaunchError("Quota de créas de la semaine atteint pour cette campagne.");
+  if (await activeRun(payload, campaignId)) throw new LaunchError("Un passage est déjà en cours sur cette campagne.");
   const b = await runBudget(payload, input.capEur, now);
   if (!b.enabled) throw new LaunchError("Interrupteur général coupé (Publicité › Paramètres › Garde-fous).");
   if (!b.prep.ok) throw new LaunchError(b.prep.reason);
-  const notebook = await loadNotebook(payload, input.campaign, now);
+  const notebook = await loadNotebook(payload, campaignId, now);
 
   const run = await payload.create({
     collection: "ad-agent-runs",
     data: {
-      campaign: input.campaign,
+      campaign: campaignId,
       objective,
       kind: "preparation",
       status: "en-cours",
@@ -175,9 +178,9 @@ export async function launchRun(payload: Payload, input: { campaign: Id; objecti
     overrideAccess: true,
   });
   // Deux lancements simultanés (double clic, deux onglets) : le second se retire (relecture du 01/10/2026, F4).
-  const racing = await payload.count({ collection: "ad-agent-runs", where: { and: [{ campaign: { equals: input.campaign } }, { status: { in: ACTIVE } }] }, overrideAccess: true });
+  const racing = await payload.count({ collection: "ad-agent-runs", where: { and: [{ campaign: { equals: campaignId } }, { status: { in: ACTIVE } }] }, overrideAccess: true });
   if (racing.totalDocs > 1) {
-    const older = await activeRun(payload, input.campaign);
+    const older = await activeRun(payload, campaignId);
     if (older && older.id !== run.id) {
       await payload.delete({ collection: "ad-agent-runs", id: run.id, overrideAccess: true });
       throw new LaunchError("Un passage vient d'être lancé sur cette campagne.");
