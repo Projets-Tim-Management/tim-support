@@ -290,6 +290,26 @@
   font-size: 0.82rem;
 }
 
+/* Tableau de bord : la carte « Agents ». */
+.ads-dash__agents { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.9rem 1.1rem; border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); border-radius: 0.75rem; background: var(--tim-white); }
+.ads-dash__agents-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1rem; font-size: 0.875rem; color: var(--tim-muted); }
+.ads-dash__agents-head strong { color: var(--tim-foreground); font-size: 0.95rem; }
+.ads-dash__agents-head .ads-room__bar { flex: 0 1 10rem; }
+.ads-dash__agents-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; }
+.ads-dash__agents-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.6rem; }
+.ads-dash__agents-list a { color: var(--tim-primary-dark); font-weight: 600; }
+.ads-dash__agents-meta { margin: 0; color: var(--tim-muted); font-size: 0.82rem; }
+
+/* « À valider » : la proposition de l'agent, avant ses créas. */
+.ads-card--proposal { border-color: color-mix(in srgb, var(--tim-indigo) 35%, transparent); }
+.ads-proposal-card__rows { margin: 0; display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; }
+.ads-proposal-card__rows > div { display: grid; grid-template-columns: minmax(8rem, 12rem) 1fr; gap: 0.75rem; }
+.ads-proposal-card__rows dt { color: var(--tim-muted); }
+.ads-proposal-card__rows dd { margin: 0; }
+.ads-proposal-card__none { color: var(--tim-muted); font-style: italic; }
+.ads-proposal-card__summary { margin: 0; font-size: 0.85rem; color: var(--tim-muted); }
+@media (max-width: 640px) { .ads-proposal-card__rows > div { grid-template-columns: 1fr; gap: 0.1rem; } }
+
 .ads-card {
   display: flex;
   flex-direction: column;
