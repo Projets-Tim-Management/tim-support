@@ -736,6 +736,9 @@ export interface PartnerClient {
    */
   siret?: string | null;
   vatNumber?: string | null;
+  naf?: string | null;
+  nafLabel?: string | null;
+  nafSource?: ('insee' | 'manuel') | null;
   legalForm?: ('sas' | 'sasu' | 'sarl' | 'eurl' | 'sa' | 'snc' | 'ei' | 'autre') | null;
   shareCapital?: number | null;
   /**
@@ -4018,6 +4021,9 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   siren?: T;
   siret?: T;
   vatNumber?: T;
+  naf?: T;
+  nafLabel?: T;
+  nafSource?: T;
   legalForm?: T;
   shareCapital?: T;
   rcsCity?: T;

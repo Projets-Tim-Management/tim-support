@@ -136,6 +136,7 @@ import * as migration_20261001_154228_formation_envois from './20261001_154228_f
 import * as migration_20261001_161834_formation_envoi_annule from './20261001_161834_formation_envoi_annule';
 import * as migration_20261005_070133_historique_rdv_parcours from './20261005_070133_historique_rdv_parcours';
 import * as migration_20261012_093439_dev_announce_email from './20261012_093439_dev_announce_email';
+import * as migration_20261013_085023_naf_fiche_client from './20261013_085023_naf_fiche_client';
 
 export const migrations = [
   {
@@ -826,6 +827,11 @@ export const migrations = [
   {
     up: migration_20261012_093439_dev_announce_email.up,
     down: migration_20261012_093439_dev_announce_email.down,
-    name: '20261012_093439_dev_announce_email'
+    name: '20261012_093439_dev_announce_email',
+  },
+  {
+    up: migration_20261013_085023_naf_fiche_client.up,
+    down: migration_20261013_085023_naf_fiche_client.down,
+    name: '20261013_085023_naf_fiche_client'
   },
 ];

@@ -83,6 +83,7 @@ import { ContractBox as ContractBox_bb71f8890865c8a70d69e400c7499081 } from '../
 import { OnboardingRecap as OnboardingRecap_d713ec8857fdf2ef0b320360e45593af } from '../../../modules/marketing/admin/OnboardingRecap'
 import { PreparationConsole as PreparationConsole_9e99600200a0e8a19593b41642fef9dc } from '../../../modules/marketing/admin/PreparationConsole'
 import { PortalAccessBox as PortalAccessBox_fc683d39455978ed93c806cafc5e09d9 } from '../../../modules/marketing/admin/PortalAccessBox'
+import { NafField as NafField_c3c2c9e0e89c862c7e35ae8a1b3428d3 } from '../../../modules/partner/admin/NafField'
 import { ClientJourneyBox as ClientJourneyBox_c84afba646637d6ef2144f2d37a0cb5c } from '../../../modules/marketing/admin/ClientJourneyBox'
 import { ClientTrainingBox as ClientTrainingBox_f0d1351ae0a30ed68a082611ee5b5b4f } from '../../../modules/training/admin/ClientTrainingBox'
 import { OpenPortalButton as OpenPortalButton_a3fc565eb6329e0985d2928ea67e79a3 } from '../../../modules/marketing/admin/OpenPortalButton'
@@ -241,6 +242,7 @@ export const importMap = {
   "/modules/marketing/admin/OnboardingRecap#OnboardingRecap": OnboardingRecap_d713ec8857fdf2ef0b320360e45593af,
   "/modules/marketing/admin/PreparationConsole#PreparationConsole": PreparationConsole_9e99600200a0e8a19593b41642fef9dc,
   "/modules/marketing/admin/PortalAccessBox#PortalAccessBox": PortalAccessBox_fc683d39455978ed93c806cafc5e09d9,
+  "/modules/partner/admin/NafField#NafField": NafField_c3c2c9e0e89c862c7e35ae8a1b3428d3,
   "/modules/marketing/admin/ClientJourneyBox#ClientJourneyBox": ClientJourneyBox_c84afba646637d6ef2144f2d37a0cb5c,
   "/modules/training/admin/ClientTrainingBox#ClientTrainingBox": ClientTrainingBox_f0d1351ae0a30ed68a082611ee5b5b4f,
   "/modules/marketing/admin/OpenPortalButton#OpenPortalButton": OpenPortalButton_a3fc565eb6329e0985d2928ea67e79a3,

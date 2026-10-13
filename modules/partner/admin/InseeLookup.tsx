@@ -6,8 +6,8 @@ import { useEffect, useRef, useState } from "react";
 /**
  * Champ de recherche INSEE (onglet « Facturation client ») : on tape la raison
  * sociale (ou un SIREN/SIRET), on choisit dans la liste, et les champs
- * disponibles se préremplissent (raison sociale, SIREN, N° TVA, adresse, et le
- * nom de l'entreprise s'il est vide). Les champs restent modifiables.
+ * disponibles se préremplissent (raison sociale, SIREN, N° TVA, adresse, code
+ * NAF, et le nom de l'entreprise s'il est vide). Les champs restent modifiables.
  *
  * Les données viennent de l'API Sirene INSEE via notre proxy /api/insee/search.
  */
@@ -20,6 +20,7 @@ type InseeResult = {
   adresse: string;
   codePostal: string | null;
   ville: string | null;
+  naf?: string | null;
 };
 
 /** TVA intracommunautaire FR calculée depuis le SIREN. */
@@ -36,6 +37,8 @@ export function InseeLookup() {
   const vatNumber = useField<string>({ path: "vatNumber" });
   const billingAddress = useField<string>({ path: "billingAddress" });
   const legalForm = useField<string>({ path: "legalForm" });
+  const naf = useField<string>({ path: "naf" });
+  const nafSource = useField<string | null>({ path: "nafSource" });
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<InseeResult[]>([]);
@@ -116,6 +119,11 @@ export function InseeLookup() {
     // Forme juridique déduite de la catégorie INSEE : elle fait l'en-tête du contrat.
     // « Autre » (catégorie inconnue) n'écrase pas une forme déjà précisée.
     if (r.formeJuridique && !(r.formeJuridique === "autre" && legalForm.value)) legalForm.setValue(r.formeJuridique);
+    // Le métier : une saisie à la main n'est jamais écrasée par l'INSEE.
+    if (r.naf && nafSource.value !== "manuel") {
+      naf.setValue(r.naf);
+      nafSource.setValue("insee");
+    }
     if (!companyName.value) companyName.setValue(r.denomination);
     // Le texte change → la recherche relancée par ce changement est ignorée ;
     // inchangé, aucune recherche ne part et le drapeau ne doit pas rester levé.

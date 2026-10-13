@@ -1731,6 +1731,16 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
   color: var(--tim-danger-text);
 }
 
+/* ─── Code NAF (fiche client, onglet Facturation) ────────────────────────────*/
+.tim-naf__hint {
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+}
+.tim-naf__hint--error {
+  color: var(--tim-danger-text);
+}
+
 /* ─── Recherche INSEE (préremplissage fiche client) ──────────────────────────*/
 .tim-insee {
   position: relative;
