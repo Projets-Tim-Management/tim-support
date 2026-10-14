@@ -46,6 +46,7 @@ import { AdDecisions } from "./modules/ads/collections/AdDecisions";
 import { AdCompetitors } from "./modules/ads/collections/AdCompetitors";
 import { AdInstructions } from "./modules/ads/collections/AdInstructions";
 import { AdInspirations } from "./modules/ads/collections/AdInspirations";
+import { AdRetouches } from "./modules/ads/collections/AdRetouches";
 import { AdRushes } from "./modules/ads/collections/AdRushes";
 import { AdStyles } from "./modules/ads/collections/AdStyles";
 import { AdLearnings } from "./modules/ads/collections/AdLearnings";
@@ -382,6 +383,7 @@ export default buildConfig({
       AdLearnings,
       AdRushes,
       AdInspirations,
+      AdRetouches,
       AdStyles,
       AdsSettingsHistory,
       // Adresses qui ne reçoivent plus d'envoi commercial — transverse à tous

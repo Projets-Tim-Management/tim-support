@@ -1,4 +1,4 @@
-import type { Access, CollectionBeforeChangeHook, CollectionConfig } from "payload";
+import type { Access, CollectionBeforeChangeHook, CollectionBeforeDeleteHook, CollectionConfig } from "payload";
 
 import { isAdmin } from "@/core/access";
 import { CTA_OPTIONS } from "@/modules/ads/lib/cta";
@@ -36,6 +36,11 @@ const derive: CollectionBeforeChangeHook = ({ data }) => {
   return { ...data, copy, ...(tests ? { isTest: tests.length > 0 } : {}) };
 };
 
+/** Une créa supprimée emporte l'historique de ses retouches (le lien est obligatoire). */
+const dropRetouches: CollectionBeforeDeleteHook = async ({ id, req }) => {
+  await req.payload.delete({ collection: "ad-retouches", where: { creative: { equals: id } }, overrideAccess: true, req });
+};
+
 const decision = { create: () => false, update: () => false };
 
 export const AdCreatives: CollectionConfig = {
@@ -51,7 +56,7 @@ export const AdCreatives: CollectionConfig = {
   access: { read: isAdmin, create: () => false, update: isAdmin, delete: deleteUndecided },
   disableDuplicate: true,
   defaultSort: "-createdAt",
-  hooks: { beforeChange: [derive] },
+  hooks: { beforeChange: [derive], beforeDelete: [dropRetouches] },
   fields: [
     { name: "angle", type: "text", label: "Angle", required: true, admin: { description: "L'idée en une ligne." } },
     {

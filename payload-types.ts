@@ -108,6 +108,7 @@ export interface Config {
     'ad-learnings': AdLearning;
     'ad-rushes': AdRush;
     'ad-inspirations': AdInspiration;
+    'ad-retouches': AdRetouch;
     'ad-styles': AdStyle;
     'ads-settings-history': AdsSettingsHistory;
     'email-suppressions': EmailSuppression;
@@ -192,6 +193,7 @@ export interface Config {
     'ad-learnings': AdLearningsSelect<false> | AdLearningsSelect<true>;
     'ad-rushes': AdRushesSelect<false> | AdRushesSelect<true>;
     'ad-inspirations': AdInspirationsSelect<false> | AdInspirationsSelect<true>;
+    'ad-retouches': AdRetouchesSelect<false> | AdRetouchesSelect<true>;
     'ad-styles': AdStylesSelect<false> | AdStylesSelect<true>;
     'ads-settings-history': AdsSettingsHistorySelect<false> | AdsSettingsHistorySelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
@@ -2551,7 +2553,7 @@ export interface AdInstruction {
   scope: 'global' | 'campagne';
   campaign?: (number | null) | AdCampaign;
   status: 'active' | 'proposee' | 'ecartee';
-  origin?: ('saisie' | 'refus') | null;
+  origin?: ('saisie' | 'refus' | 'retouche') | null;
   confirmedBy?: (number | null) | User;
   confirmedAt?: string | null;
   sourceCreative?: (number | null) | AdCreative;
@@ -3114,6 +3116,47 @@ export interface AdInspiration {
       | null;
     status?: ('proposee' | 'validee' | 'ecartee') | null;
   };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Les consignes données sur une créa précise et ce que l'IA en a fait. Se demandent depuis la carte de la créa, dans « À valider ».
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-retouches".
+ */
+export interface AdRetouch {
+  id: number;
+  creative: number | AdCreative;
+  instruction: string;
+  author?: (number | null) | User;
+  generalize?: boolean | null;
+  instructionDoc?: (number | null) | AdInstruction;
+  status: 'en-attente' | 'en-cours' | 'faite' | 'echec';
+  costEur?: number | null;
+  doneAt?: string | null;
+  summary?: string | null;
+  error?: string | null;
+  before?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  after?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  attempts?: number | null;
+  leaseUntil?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3869,6 +3912,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-inspirations';
         value: number | AdInspiration;
+      } | null)
+    | ({
+        relationTo: 'ad-retouches';
+        value: number | AdRetouch;
       } | null)
     | ({
         relationTo: 'ad-styles';
@@ -5436,6 +5483,28 @@ export interface AdInspirationsSelect<T extends boolean = true> {
         timeline?: T;
         status?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-retouches_select".
+ */
+export interface AdRetouchesSelect<T extends boolean = true> {
+  creative?: T;
+  instruction?: T;
+  author?: T;
+  generalize?: T;
+  instructionDoc?: T;
+  status?: T;
+  costEur?: T;
+  doneAt?: T;
+  summary?: T;
+  error?: T;
+  before?: T;
+  after?: T;
+  attempts?: T;
+  leaseUntil?: T;
   updatedAt?: T;
   createdAt?: T;
 }

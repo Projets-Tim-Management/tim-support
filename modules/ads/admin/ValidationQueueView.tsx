@@ -1,4 +1,4 @@
-import type { AdminViewServerProps, Where } from "payload";
+import type { AdminViewServerProps, Payload, Where } from "payload";
 
 import { DefaultTemplate } from "@payloadcms/next/templates";
 import { Gutter } from "@payloadcms/ui";
@@ -9,10 +9,11 @@ import { pendingProposals, type AgentProposal } from "@/modules/ads/agent/overvi
 import { REFUSAL_REASONS } from "@/modules/ads/lib/creative-options";
 import { ctaLabel } from "@/modules/ads/lib/cta";
 import { testLabel, toneLabel, type TestDimension } from "@/modules/ads/lib/dimensions";
+import { musicName } from "@/modules/ads/video/mount";
 
 import { CreativeCard, type CardCreative } from "./CreativeCard";
 import { NotebookProposals, type ProposedInstruction, type ProposedLearning } from "./NotebookProposals";
-import { musicName } from "@/modules/ads/video/mount";
+import type { CardRetouch } from "./CreativeRetouches";
 
 /**
  * Publicité › À valider (/admin/publicite/a-valider).
@@ -100,7 +101,7 @@ function ProposalCard({ p }: { p: AgentProposal }) {
   );
 }
 
-const toCard = (r: Raw): CardCreative => ({
+const toCard = (r: Raw, retouches: CardRetouch[] = []): CardCreative => ({
   id: r.id,
   angle: r.angle,
   requestedAngle: r.requestedAngle ?? null,
@@ -126,7 +127,24 @@ const toCard = (r: Raw): CardCreative => ({
         musicName: typeof r.video.music === "object" && r.video.music ? musicName(r.video.music as Record<string, unknown>) : null,
       }
     : null,
+  retouches,
 });
+
+type RetouchDoc = { id: number; creative: number | { id: number }; instruction: string; status: string; summary?: string | null; error?: string | null; author?: { name?: string | null; email?: string | null } | number | null; createdAt: string; generalize?: boolean | null; before?: CardRetouch["before"] };
+
+/** Les retouches de chaque créa affichée, de la plus ancienne à la plus récente. */
+async function retouchesOf(payload: Payload, ids: (number | string)[]): Promise<Map<string, CardRetouch[]>> {
+  const by = new Map<string, CardRetouch[]>();
+  if (!ids.length) return by;
+  const r = await payload.find({ collection: "ad-retouches", where: { creative: { in: ids } }, sort: "createdAt", pagination: false, depth: 1, overrideAccess: true });
+  for (const d of r.docs as unknown as RetouchDoc[]) {
+    const key = String(typeof d.creative === "object" ? d.creative.id : d.creative);
+    const author = d.author && typeof d.author === "object" ? (d.author.name ?? d.author.email ?? null) : null;
+    if (!by.has(key)) by.set(key, []);
+    by.get(key)!.push({ id: d.id, instruction: d.instruction, status: d.status, summary: d.summary ?? null, error: d.error ?? null, author, createdAt: d.createdAt, generalize: Boolean(d.generalize), before: d.before ?? null });
+  }
+  return by;
+}
 
 export default async function ValidationQueueView(view: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = view;
@@ -160,7 +178,8 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
     ]);
     const styleOptions = (styles.docs as unknown as { id: number; name: string }[]).map((x) => ({ id: x.id, name: x.name }));
     const musicOptions = (musics.docs as unknown as Record<string, unknown>[]).map((m) => ({ id: m.id as number, name: musicName(m) }));
-    const cards = (list.docs as unknown as Raw[]).map(toCard);
+    const retouches = await retouchesOf(payload, (list.docs as unknown as Raw[]).map((r) => r.id as number));
+    const cards = (list.docs as unknown as Raw[]).map((r) => toCard(r, retouches.get(String(r.id)) ?? []));
     const href = (t: string, c: string | null) => `${BASE}?vue=${t}${c ? `&campagne=${c}` : ""}`;
     const byCampaign = new Map<string, CardCreative[]>();
     for (const c of cards) {

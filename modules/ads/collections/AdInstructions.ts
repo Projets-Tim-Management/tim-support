@@ -70,7 +70,7 @@ export const AdInstructions: CollectionConfig = {
     {
       type: "row",
       fields: [
-        { name: "origin", type: "select", label: "Origine", options: [{ label: "Saisie", value: "saisie" }, { label: "Refus d'une créa", value: "refus" }], defaultValue: "saisie", admin: { width: "34%", readOnly: true } },
+        { name: "origin", type: "select", label: "Origine", options: [{ label: "Saisie", value: "saisie" }, { label: "Refus d'une créa", value: "refus" }, { label: "Retouche d'une créa", value: "retouche" }], defaultValue: "saisie", admin: { width: "34%", readOnly: true } },
         { name: "confirmedBy", type: "relationship", relationTo: "users", label: "Confirmée par", admin: { width: "33%", readOnly: true } },
         { name: "confirmedAt", type: "date", label: "Confirmée le", admin: { width: "33%", readOnly: true } },
       ],

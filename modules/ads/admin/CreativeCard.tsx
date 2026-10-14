@@ -8,6 +8,7 @@ import { TEXT_LIMITS } from "@/modules/ads/lib/copy/guardrails";
 import { CREATIVE_FORMATS, REFUSAL_REASONS, labelOf } from "@/modules/ads/lib/creative-options";
 import { TEMPLATES } from "@/modules/ads/lib/render/templates";
 
+import { CreativeRetouches, type CardRetouch } from "./CreativeRetouches";
 import { CreativeVideo, type CardVideo, type MusicOption, type StyleOption } from "./CreativeVideo";
 
 export type CardCreative = {
@@ -29,6 +30,8 @@ export type CardCreative = {
   decidedAt: string | null;
   refusal: string | null;
   video: CardVideo | null;
+  /** Les retouches demandées sur cette créa, de la plus ancienne à la plus récente. */
+  retouches: CardRetouch[];
 };
 
 const KIND: Record<string, string> = { principal: "Textes principaux", titre: "Titres", description: "Descriptions" };
@@ -164,6 +167,8 @@ export function CreativeCard({ c, styles = [], musics = [] }: { c: CardCreative;
           )}
         </div>
       </div>
+
+      {(pending || c.retouches.length > 0) && <CreativeRetouches id={c.id} retouches={c.retouches} />}
 
       <footer className="ads-card__actions">
         {pending && !refusing && (

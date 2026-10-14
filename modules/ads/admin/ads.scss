@@ -512,3 +512,21 @@
 /* Le contrôle du logo animable (Kit de marque › Logos). */
 .ads-logo-check { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.25rem 0 1rem; }
 .ads-logo-check__notes { margin: 0; padding-left: 1.2rem; font-size: 0.85rem; color: var(--tim-muted); }
+
+/* Les retouches d'une créa (historique des consignes, version d'avant, demande suivante). */
+.ads-retouch { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.9rem 1rem; border-top: 1px solid var(--tim-border); }
+.ads-retouch__title { margin: 0; font-size: 0.9rem; }
+.ads-retouch__title small { color: var(--tim-muted); font-weight: 400; }
+.ads-retouch__list { display: flex; flex-direction: column; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+.ads-retouch__item { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.6rem 0.75rem; border-radius: 0.5rem; background: var(--tim-gray-bg); }
+.ads-retouch__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.ads-retouch__meta { font-size: 0.75rem; color: var(--tim-muted); }
+.ads-retouch__instruction { margin: 0; font-style: italic; }
+.ads-retouch__summary { margin: 0; font-size: 0.85rem; }
+.ads-retouch__before { font-size: 0.8rem; }
+.ads-retouch__before p { margin: 0.25rem 0; }
+.ads-retouch__thumbs { display: flex; gap: 0.4rem; margin: 0.4rem 0; }
+.ads-retouch__thumbs img { height: 4.5rem; width: auto; border-radius: 0.3rem; border: 1px solid var(--tim-border); }
+.ads-retouch__form { display: flex; flex-direction: column; gap: 0.4rem; }
+.ads-retouch__form textarea { width: 100%; resize: vertical; font: inherit; padding: 0.5rem 0.6rem; border-radius: 0.4rem; border: 1px solid var(--tim-border); background: var(--tim-white); }
+.ads-retouch__send { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.8rem; }

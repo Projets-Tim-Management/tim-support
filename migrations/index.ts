@@ -147,6 +147,7 @@ import * as migration_20261014_112149_inspirations_musiques from './20261014_112
 import * as migration_20261014_112244_inspirations_source from './20261014_112244_inspirations_source';
 import * as migration_20261014_114057_inspirations_collection from './20261014_114057_inspirations_collection';
 import * as migration_20261014_121705_logo_anime from './20261014_121705_logo_anime';
+import * as migration_20261014_124815_retouches from './20261014_124815_retouches';
 
 export const migrations = [
   {
@@ -892,6 +893,11 @@ export const migrations = [
   {
     up: migration_20261014_121705_logo_anime.up,
     down: migration_20261014_121705_logo_anime.down,
-    name: '20261014_121705_logo_anime'
+    name: '20261014_121705_logo_anime',
+  },
+  {
+    up: migration_20261014_124815_retouches.up,
+    down: migration_20261014_124815_retouches.down,
+    name: '20261014_124815_retouches'
   },
 ];
