@@ -25,7 +25,7 @@ function usePalette(): Palette {
 }
 
 /** L'adresse d'un média publicitaire choisi (un identifiant dans le formulaire). */
-function useMediaUrl(value: unknown): string | null {
+export function useMediaUrl(value: unknown): string | null {
   const [url, setUrl] = useState<string | null>(null);
   const id = value && typeof value === "object" ? (value as { id?: unknown }).id : value;
   const direct = value && typeof value === "object" ? ((value as { url?: string }).url ?? null) : null;

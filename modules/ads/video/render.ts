@@ -10,6 +10,7 @@ import { FinalError, storeOnBlob, type Store } from "@/modules/ads/lib/rush-proc
 import { isInspiration } from "@/modules/ads/lib/rushes";
 import { beatAlign } from "@/modules/ads/video/beat";
 import { defaultScore } from "@/modules/ads/video/default-score";
+import { loadAnimatedLogo } from "@/modules/ads/video/logo-server";
 import { buildRenderProps, type RenderProps } from "@/modules/ads/video/props";
 import { FORMAT_KEYS, parseScore, scoreProblems, type FormatKey, type Score } from "@/modules/ads/video/score";
 
@@ -196,8 +197,9 @@ export async function processNextRender(payload: Payload, deps: RenderDeps = {})
     const facts = new Map(ctx.gen.brief.facts.map((f) => [Number(f.id), { statement: f.statement, source: f.source }]));
     // Sur une musique au tempo connu, chaque coupe va sur un temps (durées bornées : la partition reste valide).
     const timed = ctx.music?.bpm ? beatAlign(score, ctx.music.bpm) : score;
+    const logoAnimated = await loadAnimatedLogo(ctx.kit.logoAnimated);
     const props = FORMAT_KEYS.map((format) =>
-      buildRenderProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, music: ctx.music }),
+      buildRenderProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, music: ctx.music, logoAnimated }),
     );
     const files = await (deps.render ?? renderInSandbox)(props);
     const store = deps.store ?? storeOnBlob;

@@ -58,7 +58,18 @@ export function payloadAtelier(payload: Payload): AtelierPort {
       const [used, material] = await Promise.all([weeklyUsed(payload, campaign, new Date()), availableMaterial(payload)]);
       const have = { ...material, fact: ctx.brief.facts.length > 0 };
       return {
-        resume: [...briefLines(ctx.brief), "", `Ton : ${ctx.brief.tone === "vous" ? "vouvoiement" : "tutoiement"}.`, ctx.forbidden.length ? `Interdits (kit et campagne) : ${ctx.forbidden.join(", ")}.` : ""].filter(Boolean).join("\n"),
+        resume: [
+          ...briefLines(ctx.brief),
+          "",
+          `Ton : ${ctx.brief.tone === "vous" ? "vouvoiement" : "tutoiement"}.`,
+          ctx.forbidden.length ? `Interdits (kit et campagne) : ${ctx.forbidden.join(", ")}.` : "",
+          // Les textes à l'écran d'une vidéo (accroche, sous-titres, fin) s'écrivent dans cette voix.
+          ctx.voice.voice ? `VOIX DE LA MARQUE : ${ctx.voice.voice}` : "",
+          ctx.voice.goodExamples ? `Phrases justes :\n${ctx.voice.goodExamples}` : "",
+          ctx.voice.badExamples ? `Phrases à éviter :\n${ctx.voice.badExamples}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
         quotaRestant: Math.max(0, ctx.weeklyLimit - used),
         gabarits: TEMPLATES.map((t) => ({ cle: t.key, libelle: t.label, disponible: templateAvailable(t.key, have) })),
       };

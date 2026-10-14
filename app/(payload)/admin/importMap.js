@@ -134,6 +134,7 @@ import { default as default_72ee9fe55f81abe2c8ae550d52d0ab85 } from '../../../ad
 import { EmailTemplatesBackLink as EmailTemplatesBackLink_7a3b3427a104dea3e6a7f18d27228e56 } from '../../../modules/dev/admin/EmailTemplatesBackLink'
 import { AnnounceEmailPreview as AnnounceEmailPreview_7677cf785fe8efda4b98a8d065538a81 } from '../../../modules/dev/admin/AnnounceEmailPreview'
 import { LogoPreview as LogoPreview_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
+import { LogoAnimatedCheck as LogoAnimatedCheck_e28984435b13eb4492ede0a52a517f36 } from '../../../modules/ads/admin/LogoAnimatedCheck'
 import { PaletteCheck as PaletteCheck_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
 import { FontPreview as FontPreview_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
 import { StylesLink as StylesLink_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
@@ -301,6 +302,7 @@ export const importMap = {
   "/modules/dev/admin/EmailTemplatesBackLink#EmailTemplatesBackLink": EmailTemplatesBackLink_7a3b3427a104dea3e6a7f18d27228e56,
   "/modules/dev/admin/AnnounceEmailPreview#AnnounceEmailPreview": AnnounceEmailPreview_7677cf785fe8efda4b98a8d065538a81,
   "/modules/ads/admin/BrandKitPreview#LogoPreview": LogoPreview_f97f8060092912987144671ff9edb2ae,
+  "/modules/ads/admin/LogoAnimatedCheck#LogoAnimatedCheck": LogoAnimatedCheck_e28984435b13eb4492ede0a52a517f36,
   "/modules/ads/admin/BrandKitPreview#PaletteCheck": PaletteCheck_f97f8060092912987144671ff9edb2ae,
   "/modules/ads/admin/BrandKitPreview#FontPreview": FontPreview_f97f8060092912987144671ff9edb2ae,
   "/modules/ads/admin/BrandKitPreview#StylesLink": StylesLink_f97f8060092912987144671ff9edb2ae,

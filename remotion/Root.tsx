@@ -27,6 +27,7 @@ const EXAMPLE: RenderProps = {
     pace: "dynamique",
     transitions: ["zoom"],
     subtitles: "mot-a-mot",
+    logoAnimation: "construction",
   },
   palette: { primary: "#252B59", accent: "#F05761", darkBg: "#252B59", lightBg: "#F6F9FC", textOnDark: "#FFFFFF", textOnLight: "#252B59" },
   logos: { light: null, dark: null, symbol: null },
@@ -34,6 +35,7 @@ const EXAMPLE: RenderProps = {
   url: "tim-management.co",
   showLogo: true,
   music: null,
+  logoAnimated: null,
   shots: [
     { kind: "ouverture", frames: 66, text: "Fini la ressaisie du vendredi.", highlight: "ressaisie", sub: null },
     {

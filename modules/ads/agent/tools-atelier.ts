@@ -190,7 +190,7 @@ const lireRushes: AgentTool = {
   definition: {
     name: "lire_rushes",
     description:
-      "La matière des vidéos : les rushes prêts (écrans de l'app, chantier…) avec ce qu'on y voit, la description détaillée validée et ses plans repérés, la durée et le recadrage (zone utile, zone à ne jamais couper) ; les styles actifs, avec quand employer chacun ; les musiques, avec quand les employer et leur tempo ; et les inspirations de Charlie — des pubs à imiter ou à éviter, réduites à leur fiche de style (elles ne se montent jamais).",
+      "La matière des vidéos : les rushes prêts (écrans de l'app, chantier…) avec ce qu'on y voit, la description détaillée validée et ses plans repérés, la durée et le recadrage (zone utile, zone à ne jamais couper) ; les styles actifs, avec quand employer chacun et ce que le moteur en fait (un zoom ou un sous-titre que le style ignore ne sert à rien) ; les musiques, avec quand les employer et leur tempo ; les inspirations de Charlie — des pubs à imiter ou à éviter, réduites à leur fiche de style (elles ne se montent jamais) ; et ce que permet le logo.",
     input_schema: { type: "object", properties: {} },
   },
   async run(ctx) {
@@ -229,7 +229,7 @@ const monterVideo: AgentTool = {
               items: {
                 type: "object",
                 properties: {
-                  kind: { type: "string", enum: ["ouverture", "rush", "preuve", "fin"] },
+                  kind: { type: "string", enum: ["ouverture", "rush", "preuve", "logo", "fin"], description: "logo : le logo seul, animé (voir « logo » dans lire_rushes) — une signature, en ouverture par exemple." },
                   seconds: { type: "number" },
                   text: { type: "string", description: `ouverture : l'accroche, ${MAX_OPENING_CHARS} caractères au plus.` },
                   highlight: { type: "string", description: "ouverture : le mot à faire ressortir (dans le texte)." },

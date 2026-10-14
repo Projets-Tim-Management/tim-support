@@ -172,7 +172,9 @@ export async function loadGenerationContext(payload: Payload, campaignId: number
   const brief = briefInput(campaign);
   const forbidden = [...(kit.forbidden ?? []).map((f) => f.term ?? "").filter(Boolean), ...brief.forbidden];
   const system = systemPrompt({ defaultTone: kit.defaultTone ?? DEFAULT_TONE, voice: kit.voice, goodExamples: kit.goodExamples, badExamples: kit.badExamples, forbidden });
-  return { campaign, brief, forbidden, system, weeklyLimit: settings.creativesPerCampaignPerWeek ?? 6 };
+  // La voix de la marque, aussi pour qui écrit à l'écran sans passer par ce prompt (le directeur artistique).
+  const voice = { voice: kit.voice ?? null, goodExamples: kit.goodExamples ?? null, badExamples: kit.badExamples ?? null };
+  return { campaign, brief, forbidden, system, voice, weeklyLimit: settings.creativesPerCampaignPerWeek ?? 6 };
 }
 
 export const maxCostEur = (system: string, user: string) => usdToEur(claudeMaxCostUsd(ADS_TEXT_MODEL, estimateTokens(system, user), ADS_TEXT_MAX_TOKENS));

@@ -2746,6 +2746,7 @@ export interface AdStyle {
   background: 'sombre' | 'clair' | 'aplats';
   proof?: ('ligne' | 'chiffre-geant' | 'chiffre-source') | null;
   titleFont:
+    | 'kit'
     | 'montserrat'
     | 'inter'
     | 'poppins'
@@ -2757,6 +2758,7 @@ export interface AdStyle {
     | 'manrope'
     | 'lato';
   bodyFont:
+    | 'kit'
     | 'montserrat'
     | 'inter'
     | 'poppins'
@@ -2767,7 +2769,7 @@ export interface AdStyle {
     | 'dm-sans'
     | 'manrope'
     | 'lato';
-  titleCase?: ('normale' | 'majuscules') | null;
+  titleCase?: ('kit' | 'normale' | 'majuscules') | null;
   phoneFrame: 'maquette' | 'ecran-seul' | 'incline';
   /**
    * Dans la zone utile, sans jamais couper la zone protégée.
@@ -2784,6 +2786,10 @@ export interface AdStyle {
    */
   transitions?: ('coupe' | 'glisse' | 'zoom')[] | null;
   subtitles: 'bandeau' | 'mot-a-mot' | 'aucun';
+  /**
+   * Quand le logo est déposé en SVG à calques (Kit de marque › Logos) ; sinon, il est posé.
+   */
+  logoAnimation?: ('construction' | 'fondu' | 'aucune') | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -5454,6 +5460,7 @@ export interface AdStylesSelect<T extends boolean = true> {
   pace?: T;
   transitions?: T;
   subtitles?: T;
+  logoAnimation?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -6132,6 +6139,10 @@ export interface AdsBrandKit {
    * Carré, sans texte : coin d'une vidéo, petits espaces.
    */
   logoSymbol?: (number | null) | AdMedia;
+  /**
+   * Facultatif. Un SVG vectoriel dont les calques sont nommés « symbole » (un sous-calque par élément), « nom » (une lettre par sous-calque) et « baseline » : les vidéos font alors arriver le logo élément par élément.
+   */
+  logoAnimated?: (number | null) | AdMedia;
   palette?: {
     /**
      * La couleur de la marque.
@@ -6412,6 +6423,7 @@ export interface AdsBrandKitSelect<T extends boolean = true> {
   logoOnLight?: T;
   logoOnDark?: T;
   logoSymbol?: T;
+  logoAnimated?: T;
   palette?:
     | T
     | {

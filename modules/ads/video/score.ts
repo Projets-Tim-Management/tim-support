@@ -40,6 +40,8 @@ export type Shot =
   | { kind: "rush"; seconds: number; rush: number; from: number; to: number; zoom?: Rect | null; caption?: string | null }
   /** Une preuve chiffrée : un fait sourcé (Paramètres › Faits sourcés), jamais un chiffre inventé. */
   | { kind: "preuve"; seconds: number; fact: number }
+  /** Le logo seul, animé s'il est déposé en SVG à calques (Kit de marque › Logos) : une signature, en ouverture par exemple. */
+  | { kind: "logo"; seconds: number }
   /** La fin : logo, une phrase, le bouton et l'adresse du Kit de marque. */
   | { kind: "fin"; seconds: number; line?: string | null };
 
@@ -74,6 +76,8 @@ export function parseScore(raw: unknown): Score {
         }
         case "preuve":
           return { kind: "preuve", seconds, fact: n(x.fact) };
+        case "logo":
+          return { kind: "logo", seconds };
         default:
           return { kind: "fin", seconds, line: s(x.line) || null };
       }

@@ -4,6 +4,8 @@ import { loadGenerationContext, weeklyUsed } from "@/modules/ads/lib/copy/genera
 import type { Framing, Rect } from "@/modules/ads/lib/framing";
 import { FinalError } from "@/modules/ads/lib/rush-process";
 import { isInspiration } from "@/modules/ads/lib/rushes";
+import { loadAnimatedLogo } from "@/modules/ads/video/logo-server";
+import { renderStyleOf } from "@/modules/ads/video/props";
 import { requestVideo } from "@/modules/ads/video/render";
 
 /**
@@ -50,7 +52,42 @@ export type RushForAgent = {
   /** Ce que le recadrage permet : la zone utile et la zone à ne jamais couper, en fractions de l'image (0 à 1). */
   recadrage: { zoneUtile: Rect | null; zoneProtegee: Rect | null } | null;
 };
-export type StyleForAgent = { id: number; nom: string; quandLEmployer: string };
+export type StyleForAgent = { id: number; nom: string; quandLEmployer: string; reglages: string };
+
+/**
+ * Ce que le moteur fera VRAIMENT de la partition dans ce style, en une ligne :
+ * l'ouverture, l'écran, si un zoom demandé sera appliqué, les sous-titres, le
+ * rythme. Sans elle, l'agent écrit des zooms ou des sous-titres que le style
+ * ignore. Pure.
+ */
+export function styleSettings(doc: Raw): string {
+  const st = renderStyleOf(doc);
+  const label: Record<string, string> = {
+    "titre-mot-a-mot": "titre qui arrive mot à mot",
+    "aplat-probleme": "le problème sur un aplat de couleur",
+    "titre-pose": "titre posé",
+    maquette: "téléphone en maquette",
+    "ecran-seul": "écran seul, plein cadre",
+    incline: "téléphone incliné",
+    bandeau: "sous-titres en bandeau",
+    "mot-a-mot": "sous-titres mot à mot",
+    aucun: "aucun sous-titre (la légende d'un plan est ignorée)",
+    pose: "rythme posé",
+    dynamique: "rythme dynamique",
+    rapide: "rythme rapide",
+  };
+  return [
+    `Ouverture : ${label[st.opening]}`,
+    `fonds ${st.background}`,
+    label[st.phoneFrame],
+    st.zoomOnGesture ? "zoom sur le geste appliqué (le « zoom » d'un plan est suivi)" : "PAS de zoom (le « zoom » d'un plan est ignoré)",
+    label[st.subtitles],
+    label[st.pace],
+    `preuve « ${st.proof} »`,
+    `titres en ${doc.titleFont === "kit" ? "police du Kit de marque" : st.titleFont}${st.titleUpper ? ", majuscules" : ""}`,
+    `logo ${st.logoAnimation === "construction" ? "construit élément par élément" : st.logoAnimation === "fondu" ? "en fondu" : "posé"}`,
+  ].join(" ; ");
+}
 /** Une musique active et analysée : l'agent la choisit d'après « Quand l'employer » et son tempo. */
 export type MusicForAgent = { id: number; nom: string; quandLEmployer: string; bpm: number | null; dureeSec: number | null };
 /** Une inspiration, telle que l'agent la lit : seulement sa fiche de style validée — jamais ses images. */
@@ -82,10 +119,10 @@ export function rushForAgent(r: RushDoc): RushForAgent {
 }
 
 /** Les rushes prêts et les styles actifs : ce qu'un montage peut employer ; les inspirations validées : ce qui guide le goût. */
-export type VideoMaterial = { rushes: RushForAgent[]; styles: StyleForAgent[]; inspirations: InspirationForAgent[]; musiques: MusicForAgent[] };
+export type VideoMaterial = { rushes: RushForAgent[]; styles: StyleForAgent[]; inspirations: InspirationForAgent[]; musiques: MusicForAgent[]; logo: string };
 
 export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
-  const [rushes, styles, musics, inspirations] = await Promise.all([
+  const [rushes, styles, musics, inspirations, kit] = await Promise.all([
     payload.find({ collection: "ad-rushes", where: { "processing.status": { equals: "pret" } }, pagination: false, depth: 0, overrideAccess: true }),
     payload.find({ collection: "ad-styles", where: { active: { equals: true } }, pagination: false, depth: 0, sort: "name", overrideAccess: true }),
     payload.find({
@@ -96,13 +133,18 @@ export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
       overrideAccess: true,
     }),
     payload.find({ collection: "ad-inspirations", where: { "ai.status": { equals: "validee" } }, pagination: false, depth: 0, sort: "-createdAt", overrideAccess: true }),
+    payload.findGlobal({ slug: "ads-brand-kit", depth: 1, overrideAccess: true }) as unknown as Promise<Raw>,
   ]);
+  const animated = await loadAnimatedLogo(kit.logoAnimated);
   const docs = rushes.docs as unknown as RushDoc[];
   return {
     // Une ancienne fiche de rush marquée « inspiration » (avant la collection à part) n'est jamais de la matière.
     rushes: docs.filter((r) => !isInspiration(r)).map(rushForAgent),
+    logo: animated
+      ? `Logo animable : symbole en ${animated.symbol.length} élément(s), nom en ${animated.name.length} lettre(s)${animated.baseline ? ", signature" : ""}. Un plan « logo » le fait arriver selon le style.`
+      : "Pas de logo animable : un plan « logo » pose l'image du logo, en fondu.",
     inspirations: (inspirations.docs as unknown as RushDoc[]).map(inspirationForAgent).filter((i): i is InspirationForAgent => i !== null),
-    styles: (styles.docs as unknown as Raw[]).map((s) => ({ id: Number(s.id), nom: String(s.name ?? ""), quandLEmployer: String(s.intent ?? "") })),
+    styles: (styles.docs as unknown as Raw[]).map((s) => ({ id: Number(s.id), nom: String(s.name ?? ""), quandLEmployer: String(s.intent ?? ""), reglages: styleSettings(s) })),
     musiques: (musics.docs as unknown as Raw[]).map((m) => {
       const beat = (m.beat ?? {}) as { bpm?: number | null; durationSec?: number | null };
       return { id: Number(m.id), nom: musicName(m), quandLEmployer: String(m.whenToUse ?? ""), bpm: beat.bpm ?? null, dureeSec: beat.durationSec ?? null };

@@ -98,7 +98,7 @@ export const AdsBrandKit: GlobalConfig = {
         },
         {
           label: "Logos",
-          description: "Trois variantes, chacune pour sa place. Déposez-les dans Médias publicitaires, nature « Logo » (PNG transparent, WebP ou SVG).",
+          description: "Trois variantes, chacune pour sa place, et un logo animable. Déposez-les dans Médias publicitaires, nature « Logo » (PNG transparent, WebP ou SVG).",
           fields: [
             {
               type: "row",
@@ -109,6 +109,18 @@ export const AdsBrandKit: GlobalConfig = {
               ],
             },
             { name: "logoPreview", type: "ui", admin: { components: { Field: "/modules/ads/admin/BrandKitPreview#LogoPreview" } } },
+            {
+              name: "logoAnimated",
+              type: "upload",
+              relationTo: "ad-media",
+              label: "Logo animable (SVG à calques)",
+              filterOptions: { kind: { equals: "logo" } },
+              admin: {
+                description:
+                  "Facultatif. Un SVG vectoriel dont les calques sont nommés « symbole » (un sous-calque par élément), « nom » (une lettre par sous-calque) et « baseline » : les vidéos font alors arriver le logo élément par élément.",
+              },
+            },
+            { name: "logoAnimatedCheck", type: "ui", admin: { components: { Field: "/modules/ads/admin/LogoAnimatedCheck#LogoAnimatedCheck" } } },
           ],
         },
         {

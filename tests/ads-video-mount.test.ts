@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { mountVideo, rushForAgent, variantCopyOf } from "@/modules/ads/video/mount";
+import { mountVideo, rushForAgent, styleSettings, variantCopyOf } from "@/modules/ads/video/mount";
 
 /**
  * La vidéo vue par l'agent (plan Publicité, §9 sexies, D4) : ce qu'il lit d'un
@@ -174,5 +174,13 @@ describe("le montage dans 1 à 3 styles", () => {
   it("trois vidéos au plus, musiques comprises", async () => {
     const { payload } = fake();
     await expect(mountVideo(payload, 4, 9, { styles: [1], musics: [20, 21, 24, 25], score: SCORE }, NOW)).rejects.toThrow(/3 vidéos au plus/);
+  });
+});
+
+describe("ce que l'agent sait d'un style", () => {
+  it("dit si un zoom ou un sous-titre écrit dans la partition sera suivi", () => {
+    expect(styleSettings({ opening: "titre-mot-a-mot", zoomOnGesture: true, subtitles: "mot-a-mot", pace: "rapide" })).toMatch(/titre qui arrive mot à mot.*zoom sur le geste appliqué.*sous-titres mot à mot.*rythme rapide/);
+    expect(styleSettings({ zoomOnGesture: false, subtitles: "aucun" })).toMatch(/PAS de zoom.*aucun sous-titre/);
+    expect(styleSettings({ titleFont: "kit", logoAnimation: "construction" })).toMatch(/police du Kit de marque.*logo construit élément par élément/);
   });
 });

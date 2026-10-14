@@ -1,5 +1,6 @@
 import { coverRect, FULL, type Framing, type Rect } from "@/modules/ads/lib/framing";
 import { fontFamily, paletteOf, type Palette } from "@/modules/ads/lib/style";
+import type { LogoParts } from "@/modules/ads/video/logo";
 import { FORMAT_SIZES, FPS, MAX_SPEED, MIN_SPEED, type FormatKey, type Score } from "@/modules/ads/video/score";
 
 /**
@@ -24,6 +25,8 @@ export type RenderStyle = {
   pace: "pose" | "dynamique" | "rapide";
   transitions: string[];
   subtitles: "bandeau" | "mot-a-mot" | "aucun";
+  /** Comment le logo arrive, quand il est déposé en SVG à calques : élément par élément, en fondu, ou posé (l'image). */
+  logoAnimation: "construction" | "fondu" | "aucune";
 };
 
 export type RenderShot =
@@ -46,6 +49,7 @@ export type RenderShot =
       caption: string | null;
     }
   | { kind: "preuve"; frames: number; value: string; label: string; source: string }
+  | { kind: "logo"; frames: number }
   | { kind: "fin"; frames: number; line: string | null };
 
 export type RenderProps = {
@@ -61,6 +65,8 @@ export type RenderProps = {
   showLogo: boolean;
   /** La musique de cette vidéo : prise à son passage retenu ; `beatFrames` (un temps, en images) quand le tempo est connu. */
   music: { src: string; startSec: number; beatFrames: number | null } | null;
+  /** Le logo animable (SVG à calques, découpé), ou `null` : on pose alors l'image du logo. */
+  logoAnimated: LogoParts | null;
   shots: RenderShot[];
 };
 
@@ -69,15 +75,18 @@ type Kit = Record<string, unknown> & { palette?: Record<string, unknown> | null;
 const urlOf = (v: unknown): string | null => (v && typeof v === "object" ? ((v as { url?: string }).url ?? null) : null);
 const one = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T => (allowed.includes(v as T) ? (v as T) : fallback);
 
+/** Une police de style : la sienne, ou celle du Kit de marque quand le style dit « kit ». */
+const fontOf = (v: unknown, kit: unknown): string => fontFamily(v === "kit" ? kit : v);
+
 /** Le style tel que le moteur le lit, chaque valeur inconnue remplacée par celle du style A. Pure. */
-export function renderStyleOf(doc: StyleDoc): RenderStyle {
+export function renderStyleOf(doc: StyleDoc, kit: Record<string, unknown> = {}): RenderStyle {
   return {
     opening: one(doc.opening, ["titre-mot-a-mot", "aplat-probleme", "titre-pose"] as const, "titre-mot-a-mot"),
     background: one(doc.background, ["sombre", "clair", "aplats"] as const, "sombre"),
     proof: one(doc.proof, ["ligne", "chiffre-geant", "chiffre-source"] as const, "ligne"),
-    titleFont: fontFamily(doc.titleFont),
-    bodyFont: fontFamily(doc.bodyFont),
-    titleUpper: doc.titleCase === "majuscules",
+    titleFont: fontOf(doc.titleFont, kit.titleFont),
+    bodyFont: fontOf(doc.bodyFont, kit.bodyFont),
+    titleUpper: (doc.titleCase === "kit" ? kit.titleCase : doc.titleCase) === "majuscules",
     phoneFrame: one(doc.phoneFrame, ["maquette", "ecran-seul", "incline"] as const, "maquette"),
     zoomOnGesture: doc.zoomOnGesture === true,
     corners: one(doc.corners, ["carres", "arrondis", "pilule"] as const, "arrondis"),
@@ -85,6 +94,7 @@ export function renderStyleOf(doc: StyleDoc): RenderStyle {
     pace: one(doc.pace, ["pose", "dynamique", "rapide"] as const, "dynamique"),
     transitions: Array.isArray(doc.transitions) ? (doc.transitions as string[]) : [],
     subtitles: one(doc.subtitles, ["bandeau", "mot-a-mot", "aucun"] as const, "bandeau"),
+    logoAnimation: one(doc.logoAnimation, ["construction", "fondu", "aucune"] as const, "construction"),
   };
 }
 
@@ -104,6 +114,7 @@ export type ResolveContext = {
   facts: Map<number, { statement: string; source: string }>;
   /** La musique choisie pour cette vidéo (aucune : `null`). La partition est déjà calée sur son tempo. */
   music?: { url: string; startSec: number; bpm: number | null } | null;
+  logoAnimated?: LogoParts | null;
 };
 
 /** La partition résolue pour un format. Suppose une partition VÉRIFIÉE (scoreProblems vide). Pure. */
@@ -116,12 +127,13 @@ export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps
     width,
     height,
     fps: FPS,
-    style: renderStyleOf(ctx.style),
+    style: renderStyleOf(ctx.style, ctx.kit),
     palette: paletteOf(ctx.kit, ctx.appearance),
     logos: { light: urlOf(ctx.kit.logoOnLight), dark: urlOf(ctx.kit.logoOnDark), symbol: urlOf(ctx.kit.logoSymbol) },
     cta: ctx.cta,
     url: ctx.kit.endCard?.url || "tim-management.co",
     showLogo: ctx.kit.endCard?.showLogo !== false,
+    logoAnimated: ctx.logoAnimated ?? null,
     music: ctx.music ? { src: ctx.music.url, startSec: ctx.music.startSec, beatFrames: ctx.music.bpm ? Math.round((60 / ctx.music.bpm) * FPS * 100) / 100 : null } : null,
     shots: score.shots.map((shot): RenderShot => {
       switch (shot.kind) {
@@ -150,6 +162,8 @@ export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps
           const f = ctx.facts.get(shot.fact)!;
           return { kind: "preuve", frames: frames(shot.seconds), value: figureOf(f.statement), label: f.statement, source: f.source };
         }
+        case "logo":
+          return { kind: "logo", frames: frames(shot.seconds) };
         default:
           return { kind: "fin", frames: frames(shot.seconds), line: shot.line ?? null };
       }

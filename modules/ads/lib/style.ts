@@ -61,6 +61,16 @@ export const TRANSITIONS = [
   { label: "Zoom", value: "zoom" },
 ] as const;
 
+/** Comment le logo arrive dans une vidéo, quand il est déposé en SVG à calques (Kit de marque › Logos). */
+export const LOGO_ANIMATIONS = [
+  { label: "Construction : élément par élément", value: "construction" },
+  { label: "Fondu", value: "fondu" },
+  { label: "Aucune (logo posé)", value: "aucune" },
+] as const;
+
+/** Pour un style : reprendre la police (ou la casse) du Kit de marque plutôt que d'en imposer une. */
+export const FROM_KIT = { label: "Celle du Kit de marque", value: "kit" } as const;
+
 export const SUBTITLE_STYLES = [
   { label: "En bandeau", value: "bandeau" },
   { label: "Mot à mot surligné", value: "mot-a-mot" },
