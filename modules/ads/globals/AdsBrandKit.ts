@@ -174,31 +174,10 @@ export const AdsBrandKit: GlobalConfig = {
           ],
         },
         {
-          label: "Formes",
-          description: "La mise en scène des visuels et des vidéos.",
+          label: "Formes et mouvement",
+          description: "La mise en scène et le rythme se règlent PAR STYLE, dans Publicité › Paramètres › Styles : l'agent choisit parmi les styles actifs et les fait tester entre eux. Ici, ce qui vaut pour tous les styles.",
           fields: [
-            {
-              type: "row",
-              fields: [
-                { name: "corners", type: "select", label: "Coins", options: [...CORNERS], defaultValue: "arrondis", admin: { width: "33%" } },
-                { name: "phoneFrame", type: "select", label: "L'écran de l'app", options: [...PHONE_FRAMES], defaultValue: "maquette", admin: { width: "33%" } },
-                { name: "graphics", type: "select", hasMany: true, label: "Éléments graphiques", options: [...GRAPHICS], admin: { width: "34%", description: "Aucun si vide." } },
-              ],
-            },
-          ],
-        },
-        {
-          label: "Mouvement",
-          description: "Le rythme et l'habillage des vidéos.",
-          fields: [
-            {
-              type: "row",
-              fields: [
-                { name: "pace", type: "select", label: "Rythme", options: [...PACES], defaultValue: "dynamique", admin: { width: "33%" } },
-                { name: "transitions", type: "select", hasMany: true, label: "Transitions", options: [...TRANSITIONS], admin: { width: "33%", description: "Coupe sèche si vide." } },
-                { name: "subtitles", type: "select", label: "Sous-titres", options: [...SUBTITLE_STYLES], defaultValue: "mot-a-mot", admin: { width: "34%", description: "La plupart des vidéos se regardent sans le son." } },
-              ],
-            },
+            { name: "stylesLink", type: "ui", admin: { components: { Field: "/modules/ads/admin/BrandKitPreview#StylesLink" } } },
             { name: "music", type: "upload", relationTo: "ad-media", label: "Musique par défaut", filterOptions: { kind: { equals: "musique" } }, admin: { description: "Libre de droits. Sans musique, les vidéos sortent sans son." } },
             {
               name: "endCard",
@@ -215,6 +194,14 @@ export const AdsBrandKit: GlobalConfig = {
                 },
               ],
             },
+            // Remplacés par les styles (14/10/2026) : colonnes conservées en base, champs masqués et ignorés
+            // — les retirer demanderait une migration destructive, à décider avec Charlie.
+            { name: "corners", type: "select", options: [...CORNERS], defaultValue: "arrondis", admin: { hidden: true } },
+            { name: "phoneFrame", type: "select", options: [...PHONE_FRAMES], defaultValue: "maquette", admin: { hidden: true } },
+            { name: "graphics", type: "select", hasMany: true, options: [...GRAPHICS], admin: { hidden: true } },
+            { name: "pace", type: "select", options: [...PACES], defaultValue: "dynamique", admin: { hidden: true } },
+            { name: "transitions", type: "select", hasMany: true, options: [...TRANSITIONS], admin: { hidden: true } },
+            { name: "subtitles", type: "select", options: [...SUBTITLE_STYLES], defaultValue: "mot-a-mot", admin: { hidden: true } },
           ],
         },
         {

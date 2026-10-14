@@ -46,6 +46,7 @@ import { AdDecisions } from "./modules/ads/collections/AdDecisions";
 import { AdCompetitors } from "./modules/ads/collections/AdCompetitors";
 import { AdInstructions } from "./modules/ads/collections/AdInstructions";
 import { AdRushes } from "./modules/ads/collections/AdRushes";
+import { AdStyles } from "./modules/ads/collections/AdStyles";
 import { AdLearnings } from "./modules/ads/collections/AdLearnings";
 import { AdsSettingsHistory } from "./modules/ads/collections/AdsSettingsHistory";
 import { AdCreatives } from "./modules/ads/collections/AdCreatives";
@@ -379,6 +380,7 @@ export default buildConfig({
       AdInstructions,
       AdLearnings,
       AdRushes,
+      AdStyles,
       AdsSettingsHistory,
       // Adresses qui ne reçoivent plus d'envoi commercial — transverse à tous
       // les modules, d'où sa place à côté des collections système.

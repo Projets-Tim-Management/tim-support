@@ -67,6 +67,26 @@ export const SUBTITLE_STYLES = [
   { label: "Aucun", value: "aucun" },
 ] as const;
 
+/** Comment la pub s'ouvre : les deux premières secondes, celles qui arrêtent le pouce. */
+export const OPENINGS = [
+  { label: "Titre qui s'écrit mot à mot", value: "titre-mot-a-mot" },
+  { label: "Le problème, en grand sur un aplat", value: "aplat-probleme" },
+  { label: "Titre posé, avec une phrase d'appui", value: "titre-pose" },
+] as const;
+
+export const BACKGROUNDS = [
+  { label: "Fond sombre", value: "sombre" },
+  { label: "Fond clair", value: "clair" },
+  { label: "Aplats de couleur (accent et sombre)", value: "aplats" },
+] as const;
+
+/** Comment une preuve chiffrée (un fait sourcé) apparaît. */
+export const PROOF_STYLES = [
+  { label: "Une ligne discrète", value: "ligne" },
+  { label: "Le chiffre en géant", value: "chiffre-geant" },
+  { label: "Le chiffre et sa source", value: "chiffre-source" },
+] as const;
+
 export const INSPIRATION_VERDICTS = [
   { label: "J'aime", value: "aimer" },
   { label: "À éviter", value: "eviter" },

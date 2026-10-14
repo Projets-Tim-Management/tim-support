@@ -63,6 +63,7 @@ export const AdCreatives: CollectionConfig = {
       admin: { readOnly: true, condition: (d) => Boolean(d?.requestedAngle) },
     },
     { name: "run", type: "relationship", relationTo: "ad-agent-runs", label: "Passage d'agent", index: true, admin: { readOnly: true, position: "sidebar", condition: (d) => Boolean(d?.run) } },
+    { name: "style", type: "relationship", relationTo: "ad-styles", label: "Style", index: true, admin: { position: "sidebar", description: "Le style qui a rendu les visuels et la vidéo de cette créa." } },
     { name: "hook", type: "text", label: "Accroche du visuel", admin: { description: "Le texte posé sur l'image." } },
     {
       type: "row",

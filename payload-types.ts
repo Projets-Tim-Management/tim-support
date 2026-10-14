@@ -107,6 +107,7 @@ export interface Config {
     'ad-instructions': AdInstruction;
     'ad-learnings': AdLearning;
     'ad-rushes': AdRush;
+    'ad-styles': AdStyle;
     'ads-settings-history': AdsSettingsHistory;
     'email-suppressions': EmailSuppression;
     'client-employees': ClientEmployee;
@@ -189,6 +190,7 @@ export interface Config {
     'ad-instructions': AdInstructionsSelect<false> | AdInstructionsSelect<true>;
     'ad-learnings': AdLearningsSelect<false> | AdLearningsSelect<true>;
     'ad-rushes': AdRushesSelect<false> | AdRushesSelect<true>;
+    'ad-styles': AdStylesSelect<false> | AdStylesSelect<true>;
     'ads-settings-history': AdsSettingsHistorySelect<false> | AdsSettingsHistorySelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
     'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
@@ -2570,6 +2572,10 @@ export interface AdCreative {
   requestedAngle?: string | null;
   run?: (number | null) | AdAgentRun;
   /**
+   * Le style qui a rendu les visuels et la vidéo de cette créa.
+   */
+  style?: (number | null) | AdStyle;
+  /**
    * Le texte posé sur l'image.
    */
   hook?: string | null;
@@ -2582,7 +2588,7 @@ export interface AdCreative {
    */
   tests?:
     | {
-        dimension: 'ton' | 'angle' | 'accroche' | 'format' | 'visuel' | 'cta';
+        dimension: 'ton' | 'angle' | 'accroche' | 'format' | 'visuel' | 'cta' | 'style';
         value: string;
         id?: string | null;
       }[]
@@ -2637,6 +2643,65 @@ export interface AdCreative {
     | number
     | boolean
     | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Les styles visuels et vidéo que l'agent emploie et teste entre eux. Désactivez un style pour qu'il ne serve plus.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-styles".
+ */
+export interface AdStyle {
+  id: number;
+  name: string;
+  active?: boolean | null;
+  /**
+   * Ce que l'agent lit pour choisir ce style : son idée, ses forces, ce qu'il lui faut (des images de chantier, un chiffre…).
+   */
+  intent: string;
+  opening: 'titre-mot-a-mot' | 'aplat-probleme' | 'titre-pose';
+  background: 'sombre' | 'clair' | 'aplats';
+  proof?: ('ligne' | 'chiffre-geant' | 'chiffre-source') | null;
+  titleFont:
+    | 'montserrat'
+    | 'inter'
+    | 'poppins'
+    | 'archivo'
+    | 'archivo-black'
+    | 'bebas-neue'
+    | 'space-grotesk'
+    | 'dm-sans'
+    | 'manrope'
+    | 'lato';
+  bodyFont:
+    | 'montserrat'
+    | 'inter'
+    | 'poppins'
+    | 'archivo'
+    | 'archivo-black'
+    | 'bebas-neue'
+    | 'space-grotesk'
+    | 'dm-sans'
+    | 'manrope'
+    | 'lato';
+  titleCase?: ('normale' | 'majuscules') | null;
+  phoneFrame: 'maquette' | 'ecran-seul' | 'incline';
+  /**
+   * Dans la zone utile, sans jamais couper la zone protégée.
+   */
+  zoomOnGesture?: boolean | null;
+  corners?: ('carres' | 'arrondis' | 'pilule') | null;
+  /**
+   * Aucun si vide.
+   */
+  graphics?: ('pastilles' | 'soulignements' | 'bandeaux')[] | null;
+  pace: 'pose' | 'dynamique' | 'rapide';
+  /**
+   * Coupe sèche si vide.
+   */
+  transitions?: ('coupe' | 'glisse' | 'zoom')[] | null;
+  subtitles: 'bandeau' | 'mot-a-mot' | 'aucun';
   updatedAt: string;
   createdAt: string;
 }
@@ -3669,6 +3734,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-rushes';
         value: number | AdRush;
+      } | null)
+    | ({
+        relationTo: 'ad-styles';
+        value: number | AdStyle;
       } | null)
     | ({
         relationTo: 'ads-settings-history';
@@ -4797,6 +4866,7 @@ export interface AdCreativesSelect<T extends boolean = true> {
   angle?: T;
   requestedAngle?: T;
   run?: T;
+  style?: T;
   hook?: T;
   campaign?: T;
   tone?: T;
@@ -5154,6 +5224,30 @@ export interface AdRushesSelect<T extends boolean = true> {
         timeline?: T;
         status?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-styles_select".
+ */
+export interface AdStylesSelect<T extends boolean = true> {
+  name?: T;
+  active?: T;
+  intent?: T;
+  opening?: T;
+  background?: T;
+  proof?: T;
+  titleFont?: T;
+  bodyFont?: T;
+  titleCase?: T;
+  phoneFrame?: T;
+  zoomOnGesture?: T;
+  corners?: T;
+  graphics?: T;
+  pace?: T;
+  transitions?: T;
+  subtitles?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -5898,21 +5992,6 @@ export interface AdsBrandKit {
         id?: string | null;
       }[]
     | null;
-  corners?: ('carres' | 'arrondis' | 'pilule') | null;
-  phoneFrame?: ('maquette' | 'ecran-seul' | 'incline') | null;
-  /**
-   * Aucun si vide.
-   */
-  graphics?: ('pastilles' | 'soulignements' | 'bandeaux')[] | null;
-  pace?: ('pose' | 'dynamique' | 'rapide') | null;
-  /**
-   * Coupe sèche si vide.
-   */
-  transitions?: ('coupe' | 'glisse' | 'zoom')[] | null;
-  /**
-   * La plupart des vidéos se regardent sans le son.
-   */
-  subtitles?: ('bandeau' | 'mot-a-mot' | 'aucun') | null;
   /**
    * Libre de droits. Sans musique, les vidéos sortent sans son.
    */
@@ -5922,6 +6001,12 @@ export interface AdsBrandKit {
     url?: string | null;
     showLogo?: boolean | null;
   };
+  corners?: ('carres' | 'arrondis' | 'pilule') | null;
+  phoneFrame?: ('maquette' | 'ecran-seul' | 'incline') | null;
+  graphics?: ('pastilles' | 'soulignements' | 'bandeaux')[] | null;
+  pace?: ('pose' | 'dynamique' | 'rapide') | null;
+  transitions?: ('coupe' | 'glisse' | 'zoom')[] | null;
+  subtitles?: ('bandeau' | 'mot-a-mot' | 'aucun') | null;
   inspirations?:
     | {
         verdict: 'aimer' | 'eviter';
@@ -6142,12 +6227,6 @@ export interface AdsBrandKitSelect<T extends boolean = true> {
         file?: T;
         id?: T;
       };
-  corners?: T;
-  phoneFrame?: T;
-  graphics?: T;
-  pace?: T;
-  transitions?: T;
-  subtitles?: T;
   music?: T;
   endCard?:
     | T
@@ -6156,6 +6235,12 @@ export interface AdsBrandKitSelect<T extends boolean = true> {
         url?: T;
         showLogo?: T;
       };
+  corners?: T;
+  phoneFrame?: T;
+  graphics?: T;
+  pace?: T;
+  transitions?: T;
+  subtitles?: T;
   inspirations?:
     | T
     | {
