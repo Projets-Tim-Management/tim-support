@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { memoryStore, reply, say, scripted, toolCall, unusedPort } from "./helpers/agent-memory";
 
 import { buildMessages, nextAction, RELANCE } from "@/modules/ads/agent/conversation";
+import { minAgentBudgetEur } from "@/modules/ads/agent/tools";
 import { ledgerOf, tickRun } from "@/modules/ads/agent/engine";
 import { MAX_AGENTS_PER_RUN, MAX_CONCURRENT } from "@/modules/ads/agent/limits";
 import {
@@ -101,6 +102,19 @@ describe("les garde-fous de l'arbre, en code", () => {
     expect(result.isError).toBe(true);
   });
 
+  it("refuse un budget sous le minimum du rôle : deux tours au coût maximal (premier passage réel, 13/10/2026)", async () => {
+    const run = mem.newRun();
+    await mem.newRoot(run);
+    const min = minAgentBudgetEur("stratege");
+    const { model } = scripted({ "Préparer la campagne": [create({ role: "stratege", mission: "M", budget_eur: 0.15 }), reply("tool_use", toolCall("t", "terminer", { resume: "fin" }))] });
+    await tickRun(deps(model), run.id, later);
+    expect(mem.agents.filter((a) => a.depth > 0)).toHaveLength(0);
+    expect(mem.decisions[0].guardrail).toMatch(/budget trop bas : un stratège demande au moins/);
+    // Un tour d'Opus peut coûter 0,23 € : le minimum en couvre deux, et l'orchestrateur le lit dans la description de l'outil.
+    expect(min).toBeGreaterThanOrEqual(0.45);
+    expect(minAgentBudgetEur("redacteur")).toBeLessThan(min);
+  });
+
   it("refuse un outil que le rôle n'a pas", async () => {
     const run = mem.newRun();
     await mem.newRoot(run);
@@ -155,9 +169,11 @@ describe("les garde-fous de l'arbre, en code", () => {
   });
 
   it(`refuse au-delà de ${MAX_AGENTS_PER_RUN} sous-agents par passage`, async () => {
-    const run = mem.newRun(50);
+    // Chaque rédacteur reçoit le minimum de son rôle ; le passage a de quoi en payer treize.
+    const each = minAgentBudgetEur("redacteur");
+    const run = mem.newRun(Math.ceil(each * (MAX_AGENTS_PER_RUN + 2)));
     await mem.newRoot(run);
-    const creates = Array.from({ length: MAX_AGENTS_PER_RUN + 1 }, (_, i) => create({ role: "redacteur", mission: `R${i}`, budget_eur: 0.1 }));
+    const creates = Array.from({ length: MAX_AGENTS_PER_RUN + 1 }, (_, i) => create({ role: "redacteur", mission: `R${i}`, budget_eur: each }));
     const scen: Record<string, ModelResponse[]> = { "Préparer la campagne": [...creates, reply("tool_use", toolCall("t", "terminer", { resume: "fin" }))] };
     const { model } = scripted(scen);
     // Les enfants ne tournent pas ici : seul l'orchestrateur est scénarisé, on arrête avant.

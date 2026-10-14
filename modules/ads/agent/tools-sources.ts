@@ -3,6 +3,7 @@ import { canSpend } from "@/modules/ads/agent/budget";
 import { ROLE_SUBJECT } from "@/modules/ads/agent/roles";
 import type { LibraryAd } from "@/modules/ads/agent/sources/ad-library";
 import { clip, type AgentTool, type ToolContext, type ToolOutcome } from "@/modules/ads/agent/tools";
+import { PAGES_PER_QUERY } from "@/modules/ads/agent/sources/ad-library";
 import { PAGE_ID } from "@/modules/ads/lib/ad-library";
 import { ADS_EXTRACTION_MAX_TOKENS, ADS_EXTRACTION_MODEL } from "@/modules/ads/lib/models";
 import { eur } from "@/modules/ads/lib/spend";
@@ -92,6 +93,9 @@ const lireAcquisition: AgentTool = {
 const oneLine = (s: string, n = 80) => clip(s.replace(/[\r\n\t]+/g, " ").replace(/[<>]/g, "").trim(), n);
 
 /** Ce qu'un modèle doit voir d'une pub : ses mots, sa durée, ses plateformes — pas un identifiant de trop. */
+/** Au plus, ce que le stratège reçoit : les plus longues diffusions d'abord, l'indice de ce qui marche. */
+const MAX_ADS_READ = 120;
+
 const adLines = (ads: LibraryAd[]) =>
   ads
     .map((a) => `- ${oneLine(a.pageName)} · ${a.runningDays ?? "?"} j de diffusion${a.stop ? "" : " (en cours)"} · ${a.platforms.join(", ")}\n  ${[...a.titles, ...a.texts, ...a.descriptions].join(" | ")}`)
@@ -110,11 +114,16 @@ const lirePubsConcurrents: AgentTool = {
       if (!followed.length) {
         return { kind: "ok", output: { concurrents: 0, note: "Aucun concurrent suivi : Charlie les ajoute dans Publicité › Paramètres › Concurrents." }, line: `${who(ctx)} : aucun concurrent suivi pour l'instant.` };
       }
-      const ads = await ctx.deps.sources.adLibrary({ pageIds: followed.slice(0, 10).map((c) => c.pageId) });
+      // TOUS les concurrents suivis, par lots de 10 (limite de Meta) — on n'en lisait que les 10 premiers.
+      const batches: string[][] = [];
+      for (let i = 0; i < followed.length; i += PAGES_PER_QUERY) batches.push(followed.slice(i, i + PAGES_PER_QUERY).map((c) => c.pageId));
+      const all = (await Promise.all(batches.map((pageIds) => ctx.deps.sources.adLibrary({ pageIds })))).flat();
+      const ads = all.sort((a, b) => (b.runningDays ?? 0) - (a.runningDays ?? 0)).slice(0, MAX_ADS_READ);
+      const silent = followed.filter((c) => !all.some((a) => a.pageId === c.pageId)).map((c) => c.name);
       if (!ads.length) return { kind: "ok", output: { concurrents: followed.length, pubs: 0 }, line: `${who(ctx)} : aucune publicité en France chez les ${followed.length} concurrent(s) suivi(s).` };
       const { resume, costEur } = await extract(
         ctx,
-        "Par concurrent : les angles, promesses et appels à l'action, en signalant ceux des publicités diffusées le plus longtemps. Signale aussi ce que personne ne dit.",
+        "Par concurrent : ses angles, ses promesses, ses preuves, ses offres et ses appels à l'action, en signalant ceux des publicités diffusées le plus longtemps (indice de ce qui rapporte). Puis, pour le marché : les messages que TOUT LE MONDE martèle (à ne pas répéter tels quels), et ce que PERSONNE ne dit (les places à prendre).",
         adLines(ads),
         "publicités concurrentes",
       );
@@ -122,7 +131,14 @@ const lirePubsConcurrents: AgentTool = {
       return {
         kind: "ok",
         costEur,
-        output: { concurrents: followed.length, pubs: ads.length, plusLongueDiffusionJours: Math.max(...ads.map((a) => a.runningDays ?? 0)), resume, ...(simulated ? { simule: true } : {}) },
+        output: {
+          concurrents: followed.length,
+          pubs: ads.length,
+          plusLongueDiffusionJours: Math.max(...ads.map((a) => a.runningDays ?? 0)),
+          sansPubEnFrance: silent,
+          resume,
+          ...(simulated ? { simule: true } : {}),
+        },
         line: `${who(ctx)} lit ${ads.length} publicité(s) de ${followed.length} concurrent(s)${simulated ? " [SIMULÉ]" : ""} (${eur(costEur)}).`,
       };
     } catch (e) {

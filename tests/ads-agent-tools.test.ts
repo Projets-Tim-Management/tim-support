@@ -61,6 +61,7 @@ async function setup(role: AgentRow["role"], atelier: ReturnType<typeof fakeAtel
       ? root
       : await mem.store.createAgent({ run: run.id, parent: root.id, depth: 1, role, status: "en-cours", mission: "M", tools: [...ROLE_TOOLS[role]], model: "claude-sonnet-5-5", budgetEur });
   const step = await mem.store.createStep({ run: run.id, agent: agent.id, seq: 0, kind: "outil", tool: "x", status: "en-cours", line: "", input: null, output: null, idempotencyKey: `${agent.id}:t`, startedAt: NOW.toISOString() });
+  await mem.withStrategy(run, root.id);
   const deps: AgentDeps = { store: mem.store, model: vi.fn(), budget, atelier, sources: unusedPort("sources"), now: () => NOW };
   const agents = await mem.store.listAgents(run.id);
   const ctx: ToolContext = { deps, run, agent: agents.find((a) => a.id === agent.id)!, agents, step: step as StepRow, ledger: (a) => ledgerOf(a, agents) };
@@ -110,6 +111,7 @@ describe("generer_textes — l'atelier écrit, l'agent paie", () => {
     const atelier = fakeAtelier();
     const run = mem.newRun();
     const root = await mem.newRoot(run);
+    await mem.withStrategy(run, root.id);
     await mem.store.createAgent({ run: run.id, parent: root.id, depth: 1, role: "redacteur", status: "en-cours", mission: "Rédiger", tools: [...ROLE_TOOLS.redacteur], model: "claude-sonnet-5-5", budgetEur: 1 });
     const wait = toolCall("w", "attendre_sous_agents", {});
     await mem.store.createStep({ run: run.id, agent: root.id, seq: 0, kind: "modele", tool: null, status: "fait", line: "", input: null, output: { content: [wait], stopReason: "tool_use" }, idempotencyKey: `${root.id}:0`, startedAt: NOW.toISOString() });
@@ -141,7 +143,7 @@ describe("juger_crea — le contrôleur, et la limite de réécriture", () => {
     const { ctx } = await setup("controleur", fakeAtelier());
     expect(await use(ctx, "juger_crea", { crea: 1, verdict: "rejete", motif: " " })).toMatchObject({ isError: true });
     expect(await use(ctx, "juger_crea", { crea: 1, verdict: "accepte", motif: "Conforme" })).toMatchObject({ output: { accepte: true } });
-    expect(mem.decisions).toHaveLength(0);
+    expect(mem.decisions.filter((d) => d.kind !== "angle")).toHaveLength(0);
   });
 });
 
@@ -150,7 +152,7 @@ describe("proposer_audiences — décision 7 du 29/09/2026", () => {
     const { ctx } = await setup("stratege", fakeAtelier());
     const r = await use(ctx, "proposer_audiences", { mode: "test-detaille-vs-advantage-plus", budget_meta_quotidien_eur: 20, ensembles: 2, justification: "…" });
     expect(r).toMatchObject({ isError: true });
-    expect(mem.decisions[0]).toMatchObject({ kind: "audience", status: "bloquee", guardrail: expect.stringMatching(/CPL cible.*conversions.*ciblage détaillé/) });
+    expect(mem.decisions.at(-1)!).toMatchObject({ kind: "audience", status: "bloquee", guardrail: expect.stringMatching(/CPL cible.*conversions.*ciblage détaillé/) });
   });
 
   it("avec ses chiffres, le test est proposé (rien n'est envoyé à Meta)", async () => {
@@ -164,7 +166,7 @@ describe("proposer_audiences — décision 7 du 29/09/2026", () => {
       ciblage_detaille: "Conducteurs de travaux, 30-55 ans, France",
       justification: "40 €/jour nourrissent deux ensembles à 5 leads par semaine chacun",
     });
-    expect(mem.decisions[0]).toMatchObject({ kind: "audience", status: "proposee", after: expect.objectContaining({ ensembles: 2, cplCibleEur: 30 }) });
+    expect(mem.decisions.at(-1)!).toMatchObject({ kind: "audience", status: "proposee", after: expect.objectContaining({ ensembles: 2, cplCibleEur: 30 }) });
   });
 
   it("Advantage+ seul demande au moins son budget", async () => {
@@ -178,7 +180,7 @@ describe("repartir_budget — bornes en code, proposition seulement", () => {
     const atelier = fakeAtelier();
     const { ctx, run } = await setup("orchestrateur", atelier);
     await use(ctx, "repartir_budget", { ia_eur_jour: 4, meta_eur_jour: 26, justification: "Préparation : l'IA sert après publication" });
-    const d = mem.decisions[0];
+    const d = mem.decisions.at(-1)!;
     expect(d).toMatchObject({ kind: "repartition-budget", status: "proposee", after: { aiDailyEur: 4, metaDailyEur: 26 } });
     expect(atelier.setSplit).toHaveBeenCalledWith(run.campaign, { aiDailyEur: 4, metaDailyEur: 26 }, d.id, NOW);
   });
@@ -187,7 +189,7 @@ describe("repartir_budget — bornes en code, proposition seulement", () => {
     const atelier = fakeAtelier();
     const { ctx } = await setup("orchestrateur", atelier);
     await use(ctx, "repartir_budget", { ia_eur_jour: 10, meta_eur_jour: 20, justification: "…" });
-    expect(mem.decisions[0]).toMatchObject({ status: "bloquee", guardrail: expect.stringMatching(/au-delà du maximum de 4,50 €/) });
+    expect(mem.decisions.at(-1)!).toMatchObject({ status: "bloquee", guardrail: expect.stringMatching(/au-delà du maximum de 4,50 €/) });
     expect(atelier.setSplit).not.toHaveBeenCalled();
   });
 
@@ -195,7 +197,7 @@ describe("repartir_budget — bornes en code, proposition seulement", () => {
     const atelier = fakeAtelier({ campaignBudget: vi.fn(async () => null) });
     const { ctx } = await setup("orchestrateur", atelier);
     await use(ctx, "repartir_budget", { ia_eur_jour: 1, meta_eur_jour: 10, justification: "…" });
-    expect(mem.decisions[0].guardrail).toMatch(/Aucun budget quotidien total/);
+    expect(mem.decisions.at(-1)!.guardrail).toMatch(/Aucun budget quotidien total/);
   });
 });
 

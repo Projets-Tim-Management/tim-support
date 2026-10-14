@@ -28,8 +28,10 @@ export const AD_LIBRARY_FIELDS = [
   "eu_total_reach",
 ];
 
-/** Pubs lues au plus par requête : de quoi voir les angles d'un concurrent, sans noyer le stratège. */
-export const MAX_ADS = 25;
+/** Pubs lues au plus par requête (un lot de 10 pages au plus, limite de Meta sur `search_page_ids`). */
+export const MAX_ADS = 50;
+/** Pages par requête : Meta n'en accepte pas plus de 10 dans `search_page_ids`. */
+export const PAGES_PER_QUERY = 10;
 
 export type LibraryAd = {
   id: string;

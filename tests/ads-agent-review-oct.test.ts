@@ -106,6 +106,7 @@ async function agentCtx(role: AgentRow["role"], over: Partial<AgentDeps> = {}) {
   const root = await mem.newRoot(run);
   const agent = await mem.store.createAgent({ run: run.id, parent: root.id, depth: 1, role, status: "en-cours", mission: "M", tools: [...ROLE_TOOLS[role]], model: "claude-sonnet-5-5", budgetEur: 2 });
   const step = await mem.store.createStep({ run: run.id, agent: agent.id, seq: 0, kind: "outil", tool: "x", status: "en-cours", line: "", input: null, output: null, idempotencyKey: `${agent.id}:t`, startedAt: NOW.toISOString() });
+  await mem.withStrategy(run, root.id);
   const agents = await mem.store.listAgents(run.id);
   const ctx: ToolContext = { deps: deps(vi.fn(), over), run, agent: agents.find((a) => a.id === agent.id)!, agents, step: step as StepRow, ledger: (a) => ledgerOf(a, agents) };
   return { ctx, run };

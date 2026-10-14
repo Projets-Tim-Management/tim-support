@@ -89,6 +89,7 @@ describe("les appuis d'une décision", () => {
     const root = await mem.newRoot(r);
     const agent = await mem.store.createAgent({ run: r.id, parent: root.id, depth: 1, role: "stratege", status: "en-cours", mission: "M", tools: [...ROLE_TOOLS.stratege], model: "claude-sonnet-5-5", budgetEur: 1 });
     const step = await mem.store.createStep({ run: r.id, agent: agent.id, seq: 0, kind: "outil", tool: "x", status: "en-cours", line: "", input: null, output: null, idempotencyKey: "k", startedAt: NOW.toISOString() });
+    await mem.withStrategy(r, agent.id);
     const deps = { store: mem.store, model: vi.fn(), budget: unusedPort("budget"), atelier: unusedPort("atelier"), sources: unusedPort("sources"), now: () => NOW } as unknown as AgentDeps;
     const agents = await mem.store.listAgents(r.id);
     const ctx = { deps, run: r, agent: agents.find((a) => a.id === agent.id)!, agents, step: step as StepRow, ledger: () => ({}) } as unknown as ToolContext;
@@ -97,22 +98,22 @@ describe("les appuis d'une décision", () => {
 
   it("un outil de décision journalise ses appuis vérifiés", async () => {
     const { ctx, mem } = await stratege({ instructionsRead: nb.instructions, learningsRead: nb.learnings } as RunRow);
-    const out = await TOOLS.proposer_angles.run(ctx, { angles: ["Temps gagné"], justification: "A12 le montre", appuis: ["A12", "C4"] });
+    const out = await TOOLS.proposer_angles.run(ctx, { angles: ["Temps gagné"], concurrents: "Tous promettent « zéro papier »", justification: "A12 le montre", appuis: ["A12", "C4"] });
     expect(out).toMatchObject({ kind: "ok", output: { ok: true } });
-    expect(mem.decisions[0]).toMatchObject({ kind: "angle", instructions: [4], learnings: [12], citations: [{ ref: "C4" }, { ref: "A12" }] });
+    expect(mem.decisions.at(-1)).toMatchObject({ kind: "angle", instructions: [4], learnings: [12], citations: [{ ref: "C4" }, { ref: "A12" }] });
   });
 
   it("un appui inventé est refusé, et rien n'est journalisé", async () => {
     const { ctx, mem } = await stratege({ instructionsRead: nb.instructions, learningsRead: nb.learnings } as RunRow);
     const out = await TOOLS.proposer_positionnement.run(ctx, { positionnement: "P", justification: "J", appuis: ["C9"] });
     expect(out).toMatchObject({ isError: true, output: { refus: expect.stringContaining("C9") } });
-    expect(mem.decisions).toHaveLength(0);
+    expect(mem.decisions.filter((d) => d.kind === "positionnement")).toHaveLength(0);
   });
 
   it("sans le paramètre, la décision est refusée", async () => {
     const { ctx, mem } = await stratege({} as RunRow);
     expect(await TOOLS.proposer_positionnement.run(ctx, { positionnement: "P", justification: "J" })).toMatchObject({ isError: true });
-    expect(mem.decisions).toHaveLength(0);
+    expect(mem.decisions.filter((d) => d.kind === "positionnement")).toHaveLength(0);
   });
 
   it("chaque outil de décision déclare ses appuis comme obligatoires", () => {
