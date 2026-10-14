@@ -121,10 +121,19 @@ export function transcodeArgs(input: string, output: string, m: RushMeta, opts: 
   ];
 }
 
-/** Les instants des images clés : répartis au milieu de chaque sixième de la vidéo. Pure. */
+/**
+ * Une image clé ne se prend pas dans la dernière demi-seconde : la dernière
+ * image d'une vidéo n'est pas toujours lisible à son horodatage, et ffmpeg ne
+ * produit alors RIEN sans signaler d'erreur — constaté sur un enregistrement
+ * d'écran de l'iPhone le 14/10/2026.
+ */
+export const END_MARGIN_SEC = 0.5;
+
+/** Les instants des images clés : répartis au milieu de chaque sixième de la vidéo, jamais dans la dernière demi-seconde. Pure. */
 export function keyframeTimes(durationSec: number | null, n = KEYFRAMES): number[] {
   const d = durationSec && durationSec > 0 ? durationSec : 1;
-  return Array.from({ length: n }, (_, i) => Math.round(((i + 0.5) * d * 100) / n) / 100);
+  const last = Math.max(0, d - END_MARGIN_SEC);
+  return Array.from({ length: n }, (_, i) => Math.min(last, Math.round(((i + 0.5) * d * 100) / n) / 100));
 }
 
 /** Les arguments de ffmpeg pour une image extraite de la version de travail, 720 px sur le grand côté. Pure. */

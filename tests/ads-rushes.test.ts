@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { AdRushes } from "@/modules/ads/collections/AdRushes";
-import { isRushBlobUrl, isRushPathname, mediaTypeOf, rushPathname, rushRefusal, RUSH_MAX_BYTES } from "@/modules/ads/lib/rushes";
+import { isRushBlobUrl, isRushPathname, mediaTypeOf, rushPathname, rushRefusal, rushStage, RUSH_MAX_BYTES } from "@/modules/ads/lib/rushes";
 
 /**
  * Les rushes (plan Publicité, §9 sexies) : ce qui s'importe, où ça se range,
@@ -76,5 +76,23 @@ describe("la fiche", () => {
     expect(del).toHaveBeenCalledWith([BLOB, "w", "p", "k1"], { token: "t" });
     vi.unstubAllEnvs();
     vi.doUnmock("@vercel/blob");
+  });
+});
+
+describe("l'étape d'un rush, en une étiquette et une couleur", () => {
+  const ready = (ai?: Record<string, unknown>) => ({ processing: { status: "pret" }, ai });
+
+  it("conversion : gris en attente, bleu en cours, rouge en échec", () => {
+    expect(rushStage({ processing: { status: "en-attente" } })).toMatchObject({ label: "En attente de conversion", tone: "gris" });
+    expect(rushStage(null)).toMatchObject({ tone: "gris" });
+    expect(rushStage({ processing: { status: "en-cours" } })).toMatchObject({ label: "Conversion en cours", tone: "bleu" });
+    expect(rushStage({ processing: { status: "echec" } })).toMatchObject({ label: "Échec — voir la fiche", tone: "rouge" });
+  });
+
+  it("prêt : orange tant que Charlie doit agir, vert quand les agents lisent tout", () => {
+    expect(rushStage(ready({ proposal: "…", status: "proposee" }))).toMatchObject({ label: "Description à valider", tone: "orange" });
+    expect(rushStage(ready())).toMatchObject({ label: "Description à proposer", tone: "orange" });
+    expect(rushStage(ready({ proposal: "…", status: "validee" }))).toMatchObject({ label: "Prêt — lu par les agents", tone: "vert" });
+    expect(rushStage(ready({ proposal: "…", status: "ecartee" }))).toMatchObject({ tone: "gris" });
   });
 });

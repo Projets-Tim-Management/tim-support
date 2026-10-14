@@ -1,9 +1,9 @@
 "use client";
 
-import { useField, useFormFields } from "@payloadcms/ui";
+import { toast, useDocumentInfo, useField, useFormFields } from "@payloadcms/ui";
 import { useRef, useState } from "react";
 
-import { rushPathname, rushRefusal, RUSH_CONTENT_TYPES } from "@/modules/ads/lib/rushes";
+import { rushPathname, rushRefusal, rushStage, RUSH_CONTENT_TYPES } from "@/modules/ads/lib/rushes";
 
 /**
  * Le dépôt d'un rush, en tête de sa fiche (plan Publicité, §9 sexies).
@@ -15,7 +15,10 @@ import { rushPathname, rushRefusal, RUSH_CONTENT_TYPES } from "@/modules/ads/lib
  */
 
 const mo = (n: number) => `${(n / 1024 / 1024).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} Mo`;
-const STATUS: Record<string, string> = { "en-attente": "En attente de conversion", "en-cours": "Conversion en cours…", pret: "Prêt", echec: "Échec de la conversion" };
+
+const StagePill = ({ stage }: { stage: ReturnType<typeof rushStage> }) => (
+  <span className={`tim-status-pill ads-rush-stage ads-rush-stage--${stage.tone}`}>{stage.label}</span>
+);
 
 export function RushUploadField() {
   const url = useField<string>({ path: "original.url" });
@@ -25,9 +28,29 @@ export function RushUploadField() {
   const size = useField<number>({ path: "original.size" });
   const title = useField<string>({ path: "title" });
   const status = useFormFields(([f]) => f?.["processing.status"]?.value as string | undefined);
+  const aiStatus = useFormFields(([f]) => f?.["ai.status"]?.value as string | undefined);
+  const aiProposal = useFormFields(([f]) => f?.["ai.proposal"]?.value as string | undefined);
+  const failure = useFormFields(([f]) => f?.["processing.error"]?.value as string | undefined);
   const poster = useFormFields(([f]) => f?.["working.posterUrl"]?.value as string | undefined);
 
+  const { id } = useDocumentInfo();
   const input = useRef<HTMLInputElement>(null);
+  const [relaunching, setRelaunching] = useState(false);
+
+  // Un rush en échec repart en conversion, sans réimporter le fichier.
+  const relaunch = async () => {
+    setRelaunching(true);
+    try {
+      const res = await fetch(`/api/admin/ads/rushes/${encodeURIComponent(String(id))}/reconvertir`, { method: "POST", credentials: "include" });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(data.error || String(res.status));
+      toast.success("Rush remis en conversion : comptez une à deux minutes.");
+      window.location.reload();
+    } catch (e) {
+      toast.error((e as Error).message);
+      setRelaunching(false);
+    }
+  };
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
@@ -83,7 +106,13 @@ export function RushUploadField() {
             <span>
               {isVideo ? "Vidéo" : "Image"} · {size.value ? mo(size.value) : "taille inconnue"}
             </span>
-            {status && <span className={`ads-rush-upload__status ads-rush-upload__status--${status}`}>{STATUS[status] ?? status}</span>}
+            {status && <StagePill stage={rushStage({ processing: { status }, ai: { status: aiStatus, proposal: aiProposal } })} />}
+            {status === "echec" && failure && <span className="ads-rush-upload__error">{failure}</span>}
+            {status === "echec" && id && (
+              <button type="button" className="tim-btn tim-btn--primary" disabled={relaunching} onClick={relaunch}>
+                {relaunching ? "…" : "Relancer la conversion"}
+              </button>
+            )}
             <button type="button" className="tim-btn" onClick={() => input.current?.click()}>
               Remplacer le fichier…
             </button>

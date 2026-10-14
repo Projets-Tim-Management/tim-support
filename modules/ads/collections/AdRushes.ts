@@ -58,7 +58,7 @@ export const AdRushes: CollectionConfig = {
   labels: { singular: "Rush", plural: "Rushes" },
   admin: {
     useAsTitle: "title",
-    defaultColumns: ["title", "source", "mediaType", "processing.status", "updatedAt"],
+    defaultColumns: ["title", "etat", "source", "mediaType", "updatedAt"],
     group: "Publicité",
     description:
       "La matière première des vidéos : écrans de l'app, chantier, bureau. Le fichier d'origine est conservé tel quel ; les agents en tirent leurs montages.",
@@ -124,6 +124,8 @@ export const AdRushes: CollectionConfig = {
         },
       ],
     },
+    // L'étape, calculée (conversion + description IA) : une colonne de la liste, jamais stockée.
+    { name: "etat", type: "ui", label: "État", admin: { components: { Cell: "/modules/ads/admin/RushStageCell#RushStageCell" } } },
     { name: "mediaType", type: "select", label: "Type", options: [{ label: "Vidéo", value: "video" }, { label: "Image", value: "image" }], index: true, admin: { ...readOnly, position: "sidebar" } },
     {
       name: "processing",

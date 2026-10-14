@@ -317,12 +317,15 @@
 .ads-rush-upload__preview { width: min(18rem, 100%); max-height: 20rem; border-radius: 0.6rem; background: var(--tim-gray-bg); object-fit: contain; }
 .ads-rush-upload__info { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; color: var(--tim-muted); }
 .ads-rush-upload__info strong { color: var(--tim-foreground); word-break: break-all; }
-.ads-rush-upload__info .tim-btn { align-self: flex-start; }
-.ads-rush-upload__status { align-self: flex-start; padding: 0.1rem 0.5rem; border-radius: 999px; background: var(--tim-gray-bg); color: var(--tim-gray); font-weight: 600; }
-.ads-rush-upload__status--pret { background: var(--tim-green-bg); color: var(--tim-green); }
-.ads-rush-upload__status--echec { background: var(--tim-red-bg); color: var(--tim-red); }
-.ads-rush-upload__status--en-cours { background: var(--tim-indigo-bg); color: var(--tim-indigo); }
+.ads-rush-upload__info .tim-btn, .ads-rush-upload__info .tim-status-pill { align-self: flex-start; }
 .ads-rush-upload__error { margin: 0; color: var(--tim-red); font-size: 0.85rem; }
+
+/* Rushes : l'étape, en pastille (liste et fiche). Une couleur = une situation (voir rushStage). */
+.ads-rush-stage--gris { background: var(--tim-gray-bg); color: var(--tim-gray); }
+.ads-rush-stage--bleu { background: var(--tim-indigo-bg); color: var(--tim-indigo); }
+.ads-rush-stage--orange { background: var(--tim-amber-bg); color: var(--tim-amber); }
+.ads-rush-stage--vert { background: var(--tim-green-bg); color: var(--tim-green); }
+.ads-rush-stage--rouge { background: var(--tim-red-bg); color: var(--tim-red); }
 
 /* Rushes : ce que voient les agents (images clés, plans, description IA). */
 .ads-rush-insight { display: flex; flex-direction: column; gap: 0.6rem; margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); border-radius: 0.75rem; background: var(--tim-white); }

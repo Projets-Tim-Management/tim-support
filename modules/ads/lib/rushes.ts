@@ -100,3 +100,29 @@ export function isRushBlobUrl(url: unknown): boolean {
     return false;
   }
 }
+
+/**
+ * Où en est un rush, en une étiquette et une couleur (liste et fiche) : la
+ * conversion et la description de l'IA réunies, parce que c'est la question
+ * qu'on se pose — « est-ce que les agents peuvent s'en servir ? ». Pure.
+ *
+ * - gris : en attente, ou description écartée (l'agent lit seulement celle de Charlie) ;
+ * - bleu : conversion en cours ;
+ * - orange : une action de Charlie est attendue (description à valider ou à proposer) ;
+ * - vert : prêt, description validée — l'agent lit tout ;
+ * - rouge : échec, la raison est sur la fiche.
+ */
+export type RushTone = "gris" | "bleu" | "orange" | "vert" | "rouge";
+export type RushStage = { key: string; label: string; tone: RushTone };
+
+export function rushStage(doc: { processing?: { status?: string | null } | null; ai?: { status?: string | null; proposal?: string | null } | null } | null | undefined): RushStage {
+  const status = doc?.processing?.status ?? "en-attente";
+  if (status === "en-cours") return { key: "conversion", label: "Conversion en cours", tone: "bleu" };
+  if (status === "echec") return { key: "echec", label: "Échec — voir la fiche", tone: "rouge" };
+  if (status !== "pret") return { key: "attente", label: "En attente de conversion", tone: "gris" };
+  const ai = doc?.ai?.status;
+  if (ai === "validee") return { key: "valide", label: "Prêt — lu par les agents", tone: "vert" };
+  if (ai === "ecartee") return { key: "ecarte", label: "Prêt — description IA écartée", tone: "gris" };
+  if (doc?.ai?.proposal) return { key: "a-valider", label: "Description à valider", tone: "orange" };
+  return { key: "a-proposer", label: "Description à proposer", tone: "orange" };
+}
