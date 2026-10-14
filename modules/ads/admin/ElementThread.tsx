@@ -4,7 +4,7 @@ import { toast, useDocumentInfo, useFormFields } from "@payloadcms/ui";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { claudeCodeLink } from "@/modules/dev/lib/claude-code-link";
+import { CopyForClaudeCode } from "@/modules/dev/admin/CopyForClaudeCode";
 import { paramSpecs } from "@/modules/ads/video/element-params";
 import { isElementType } from "@/modules/ads/video/elements";
 
@@ -12,7 +12,7 @@ import { isElementType } from "@/modules/ads/video/elements";
  * Le fil d'amélioration d'un élément (atelier des éléments) : les idées de
  * Charlie, les propositions de l'IA (réglages et explication) et ce qui en a
  * été fait. Chaque bouton EST le geste : proposer, appliquer, en faire une
- * variante, écarter, transmettre au développement, ouvrir dans Claude Code,
+ * variante, écarter, transmettre au développement, copier la consigne pour Claude Code,
  * dupliquer, restaurer une version.
  */
 
@@ -140,9 +140,7 @@ export function ElementThread() {
                   <a className="tim-btn" href={`/admin/collections/developments/${dev.id}`}>
                     Voir la demande n°{dev.id}
                   </a>
-                  <a className="tim-btn tim-btn--primary" href={claudeCodeLink(dev)}>
-                    Ouvrir dans Claude Code
-                  </a>
+                  <CopyForClaudeCode dev={dev} />
                 </div>
               )}
             </li>

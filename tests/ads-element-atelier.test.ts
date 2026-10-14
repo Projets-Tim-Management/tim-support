@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AdElements } from "@/modules/ads/collections/AdElements";
 import { baseElements, decide, parseProposal, proposalPrompt, proposeImprovement, restoreVersion, toDevelopment, type ProposalResult } from "@/modules/ads/lib/element-atelier";
 import { previewScore } from "@/modules/ads/lib/element-preview";
-import { claudeCodeLink } from "@/modules/dev/lib/claude-code-link";
+import { CLAUDE_CODE_STEPS, claudeCodePrompt } from "@/modules/dev/lib/claude-code-prompt";
 import { elementProblems, ELEMENT_TYPES, parseElement } from "@/modules/ads/video/elements";
 
 /**
@@ -157,10 +157,9 @@ describe("dans les vidéos", () => {
   });
 });
 
-describe("ouvrir dans Claude Code", () => {
-  it("le lien documenté de l'extension VS Code, avec la demande", () => {
-    const l = claudeCodeLink({ id: 12, title: "Élément « Notification » : vibrer" });
-    expect(l.startsWith("vscode://anthropic.claude-code/open?prompt=")).toBe(true);
-    expect(decodeURIComponent(l.split("prompt=")[1])).toMatch(/Demande de développement n°12 : « Élément « Notification » : vibrer »/);
+describe("la consigne pour Claude Code", () => {
+  it("dit la demande et quoi faire ; la marche à suivre passe par le dossier ouvert dans VS Code", () => {
+    expect(claudeCodePrompt({ id: 12, title: "Élément « Notification » : vibrer" })).toMatch(/^Demande de développement n°12 : « Élément « Notification » : vibrer »\..*Ne pousse rien sans mon accord\.$/);
+    expect(CLAUDE_CODE_STEPS).toMatch(/dossier tim-support dans VS Code/);
   });
 });
