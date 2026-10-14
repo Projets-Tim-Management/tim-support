@@ -94,7 +94,7 @@ export const ELEMENT_GUIDE: Record<ElementType, string> = {
   notification: "Notification de l'app. data : app, titre, texte. Opaque.",
   bouton: "Bouton de l'app tapé, qui s'enfonce, puis une confirmation. data : bouton, confirmation (facultative). Opaque.",
   planning: "Carte planning dont les cases se remplissent. data : titre, lignes (2 à 5), jours (5 à 7). Opaque.",
-  fiche: "Fiche chantier. data : lieu, lignes (1 à 3). Opaque.",
+  fiche: "L'écran chantier de l'app : en-tête, onglets, plan avec l'épingle, adresse et « Itinéraire », dates avec la barre d'avancement, nombre d'ouvriers, référents internes. data : lieu, adresse, onglets (≤4, ex. Infos, Documents, Planning, Véhicules), debut, fin (ex. 30/06/21), avancement (0 à 100), ouvriers (nombre), referents [{nom, role}] (≤3), lignes (≤3, infos libres). Tout est donnée de démo. Opaque, grand : à poser seul ou presque.",
   champ: "Champ de saisie qui se remplit comme au clavier. data : libelle, valeur. Opaque.",
   badge: "Pastille d'état qui apparaît (« Validé », « Envoyé »). data : texte. Opaque.",
   tap: "Un doigt qui tape à l'endroit (x, y), avec l'onde. data : {}. Transparent : à poser SUR un bouton filmé ou recréé.",
@@ -107,7 +107,7 @@ export const ELEMENT_GUIDE: Record<ElementType, string> = {
   compteur: "Chiffre SOURCÉ qui défile jusqu'à sa valeur, avec sa source. data : fact (identifiant d'un fait du brief), libelle. Transparent.",
   logo: "Le logo (construit s'il est animable). data : {}. Transparent.",
   cta: "Le bouton d'appel à l'action de la campagne. data : {}. Opaque.",
-  pastilles: "Les pastilles de la marque, en motif. data : {}. Transparent.",
+  pastilles: "Le symbole du logo TIM, sans le texte (les formes de ton logo), qui arrive forme par forme sur les temps : une signature discrète, dans un coin, près d'un titre ou sur un aplat. data : {}. Transparent.",
   confettis: "Une petite explosion de validation. data : {}. Transparent.",
 };
 
@@ -117,7 +117,11 @@ const SIZE: Record<ElementType, { w: number; ratio: (d: Record<string, unknown>)
   notification: { w: 0.86, ratio: () => 0.3, opaque: true },
   bouton: { w: 0.6, ratio: () => 0.28, opaque: true },
   planning: { w: 0.82, ratio: (d) => 0.24 + 0.12 * (Array.isArray(d.lignes) ? d.lignes.length : 3), opaque: true },
-  fiche: { w: 0.78, ratio: (d) => 0.26 + 0.1 * (Array.isArray(d.lignes) ? d.lignes.length : 2), opaque: true },
+  fiche: {
+    w: 0.86,
+    ratio: (d) => 0.62 + (d.carte === false ? 0 : 0.36) + 0.11 * (Array.isArray(d.referents) ? d.referents.length : 0) + 0.08 * (Array.isArray(d.lignes) ? d.lignes.length : 0),
+    opaque: true,
+  },
   champ: { w: 0.7, ratio: () => 0.26, opaque: true },
   badge: { w: 0.36, ratio: () => 0.3, opaque: true },
   tap: { w: 0.12, ratio: () => 1, opaque: false },
@@ -130,7 +134,7 @@ const SIZE: Record<ElementType, { w: number; ratio: (d: Record<string, unknown>)
   compteur: { w: 0.8, ratio: () => 0.45, opaque: false },
   logo: { w: 0.42, ratio: () => 0.45, opaque: false },
   cta: { w: 0.5, ratio: () => 0.22, opaque: true },
-  pastilles: { w: 0.14, ratio: () => 1, opaque: false },
+  pastilles: { w: 0.2, ratio: () => 0.9, opaque: false },
   confettis: { w: 0.5, ratio: () => 1, opaque: false },
 };
 
@@ -229,11 +233,29 @@ function textsOf(e: Element): { pub: string[]; ui: string[]; problems: string[] 
       break;
     }
     case "fiche": {
+      // L'écran « chantier » de l'app : tout y est donnée d'interface fictive (nom, adresse, dates, équipe, référents).
       const lignes = strs(d.lignes);
+      const onglets = strs(d.onglets);
+      const refs = (Array.isArray(d.referents) ? d.referents : []) as Raw[];
       len("Lieu", str(d.lieu), MAX.ligne);
-      if (lignes.length < 1 || lignes.length > 3) problems.push("Une fiche a 1 à 3 lignes.");
+      len("Adresse", str(d.adresse), 60, false);
+      len("Début", str(d.debut), 12, false);
+      len("Fin", str(d.fin), 12, false);
+      if (lignes.length > 3) problems.push("Une fiche a 3 lignes libres au plus.");
       lignes.forEach((l, i) => len(`Ligne ${i + 1}`, l, MAX.ligne));
-      ui.push(str(d.lieu), ...lignes);
+      if (onglets.length > 4) problems.push("4 onglets au plus.");
+      onglets.forEach((o, i) => len(`Onglet ${i + 1}`, o, 14));
+      if (refs.length > 3) problems.push("3 référents au plus.");
+      refs.forEach((r, i) => {
+        len(`Référent ${i + 1}`, str(r.nom), MAX.nom);
+        len(`Rôle ${i + 1}`, str(r.role), MAX.detail, false);
+        ui.push(str(r.nom), str(r.role));
+      });
+      const av = d.avancement;
+      if (av !== undefined && !(typeof av === "number" && av >= 0 && av <= 100)) problems.push("Avancement : un pourcentage de 0 à 100.");
+      const ou = d.ouvriers;
+      if (ou !== undefined && !(typeof ou === "number" && ou >= 0 && ou <= 999)) problems.push("Ouvriers : un nombre de 0 à 999.");
+      ui.push(str(d.lieu), str(d.adresse), str(d.debut), str(d.fin), ...onglets, ...lignes);
       break;
     }
     case "champ":
@@ -390,7 +412,7 @@ export const ELEMENT_LABELS: Record<ElementType, string> = {
   compteur: "Compteur sourcé",
   logo: "Logo",
   cta: "Bouton d'action",
-  pastilles: "Pastilles",
+  pastilles: "Symbole du logo",
   confettis: "Confettis",
 };
 
@@ -403,7 +425,20 @@ export const ELEMENT_SAMPLES: Record<ElementType, Omit<Element, "type" | "debut"
   notification: { data: { app: "TIM", titre: "Heures reçues au bureau", texte: "Prêtes pour la paie, sans ressaisie." }, x: 0.5, y: 0.4 },
   bouton: { data: { bouton: "Pointer l'arrivée", confirmation: "Arrivée enregistrée" }, x: 0.5, y: 0.5 },
   planning: { data: { titre: "Semaine du chantier", lignes: ["Gros œuvre", "Électricité", "Finitions"], jours: 5 }, x: 0.5, y: 0.5 },
-  fiche: { data: { lieu: "Chantier Les Terrasses", lignes: ["2 équipes sur place", "Planning à jour"] }, x: 0.5, y: 0.5 },
+  fiche: {
+    data: {
+      lieu: "Chantier Les Terrasses",
+      adresse: "12 avenue des Arts, Villeurbanne",
+      onglets: ["Infos", "Documents", "Planning", "Véhicules"],
+      debut: "02/09/24",
+      fin: "30/06/26",
+      avancement: 64,
+      ouvriers: 5,
+      referents: [{ nom: "Antoine Durel", role: "Chef de chantier" }, { nom: "Luc Viard", role: "Conducteur de travaux" }],
+    },
+    x: 0.5,
+    y: 0.5,
+  },
   champ: { data: { libelle: "Heure d'arrivée", valeur: "7 h 32" }, x: 0.5, y: 0.5 },
   badge: { data: { texte: "Validé" }, x: 0.5, y: 0.5 },
   tap: { data: {}, x: 0.5, y: 0.55 },

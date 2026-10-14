@@ -26,9 +26,12 @@ describe("le contrat des réglages", () => {
     ]);
   });
 
-  it("chaque partie colorée se règle parmi les couleurs du kit, jamais une couleur libre", () => {
+  it("chaque partie colorée se règle parmi les couleurs du kit, ou une couleur personnalisée #RRGGBB", () => {
     expect(checkParams("liste", { couleur_coche: "texte-clair", couleur_texte: "auto" }).errors).toEqual([]);
-    expect(checkParams("liste", { couleur_coche: "#ff00ff" }).errors[0]).toMatch(/Couleur des coches : « #ff00ff » n'est pas un choix possible/);
+    expect(checkParams("liste", { couleur_coche: "#FF00AA" }).params.couleur_coche).toBe("#ff00aa");
+    expect(checkParams("liste", { couleur_coche: "rose" }).errors[0]).toMatch(/Couleur des coches : « rose » n'est pas un choix possible \(.*ou une couleur #RRGGBB\)/);
+    // Une surface n'est pas une couleur : « verre » ou un code hexadécimal n'y ont pas le même sens.
+    expect(checkParams("liste", { surface: "#ffffff" }).errors[0]).toMatch(/Surface/);
     expect(checkParams("liste", { avatars: "silhouette" }).params.avatars).toBe("silhouette");
   });
 

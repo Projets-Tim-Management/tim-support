@@ -1,5 +1,5 @@
-import type { CSSProperties, ReactNode } from "react";
-import { AbsoluteFill, Easing, interpolate, Sequence, useCurrentFrame } from "remotion";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { AbsoluteFill, continueRender, delayRender, Easing, interpolate, Sequence, useCurrentFrame } from "remotion";
 
 import type { RenderElement, RenderProps } from "../modules/ads/video/props";
 import { AnimatedLogo } from "./logo";
@@ -42,6 +42,8 @@ const stepOf = (p: RenderProps): number => (p.music?.beatFrames ? p.music.beatFr
 
 /** Une couleur du kit, par son rôle. */
 function colorOf(p: RenderProps, role: string): string {
+  // Une couleur personnalisée (#RRGGBB) passe telle quelle.
+  if (/^#[0-9a-f]{6}$/i.test(role)) return role;
   const c = p.palette;
   return role === "principale" ? c.primary : role === "clair" ? c.lightBg : role === "sombre" ? c.darkBg : role === "texte-clair" ? c.textOnDark : role === "texte-sombre" ? c.textOnLight : c.accent;
 }
@@ -51,7 +53,14 @@ const pick = (p: RenderProps, prm: Params, key: string, fallback: string) => {
   return role === "auto" ? fallback : colorOf(p, role);
 };
 /** Le texte lisible sur une couleur du kit. */
-const onColor = (p: RenderProps, role: string) => (role === "clair" ? p.palette.textOnLight : p.palette.textOnDark);
+const onColor = (p: RenderProps, role: string) => {
+  if (/^#[0-9a-f]{6}$/i.test(role)) {
+    // Sur une couleur personnalisée : le texte sombre du kit si elle est claire, le clair sinon.
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(role.slice(i, i + 2), 16) / 255);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.6 ? p.palette.textOnLight : p.palette.textOnDark;
+  }
+  return role === "clair" ? p.palette.textOnLight : p.palette.textOnDark;
+};
 
 /** Les coins : ceux du style, ou ceux du réglage. */
 function radiusOf(p: RenderProps, prm: Params, s: number, base = 34): number {
@@ -294,23 +303,162 @@ function Planning({ e, ctx, s, w }: Props) {
   );
 }
 
-function Fiche({ e, ctx, s }: Props) {
+/** Le petit plan de la fiche chantier : un parc, un boulevard, des rues — et l'épingle qui tombe. */
+function MiniMap({ w, h, pin, drop }: { w: number; h: number; pin: string; drop: number }) {
+  return (
+    <svg width={w} height={h} viewBox="0 0 400 140" preserveAspectRatio="xMidYMid slice" style={{ display: "block" }}>
+      <rect width="400" height="140" fill="#eef1ee" />
+      <path d="M0 0 H400 V55 L0 95 Z" fill="#cfe8cf" />
+      <path d="M-10 92 L410 40" stroke="#f6dc8b" strokeWidth="18" />
+      <path d="M-10 92 L410 40" stroke="#ffffff" strokeWidth="1.5" strokeDasharray="6 8" opacity="0.8" />
+      <path d="M120 140 L150 104 M200 140 L215 96 M290 140 L280 85 M330 120 L400 112" stroke="#ffffff" strokeWidth="6" />
+      <rect x="230" y="105" width="40" height="22" rx="3" fill="#dde3df" />
+      <rect x="300" y="100" width="55" height="26" rx="3" fill="#dde3df" />
+      <g transform={`translate(200 ${30 - (1 - drop) * 60})`} opacity={Math.min(1, drop * 2)}>
+        <path d="M0 0C-9 0 -15 6.5 -15 15c0 11 15 25 15 25s15-14 15-25C15 6.5 9 0 0 0z" fill={pin} />
+        <circle cx="0" cy="15" r="5.5" fill="#ffffff" />
+      </g>
+    </svg>
+  );
+}
+
+/** L'écran chantier de l'app : en-tête, onglets, plan, adresse, infos (dates, avancement, ouvriers), référents. */
+function Fiche({ e, ctx, s, w }: Props) {
   const frame = useFrame(e);
   const p = ctx.p;
-  const puce = opt(e.params, "puce", "rond");
-  const dot = pick(p, e.params, "couleur_puce", p.palette.accent);
+  const prm = e.params;
+  const d = e.data;
+  const sf = surface(p, prm, s, 40);
+  const accent = pick(p, prm, "couleur_accent", p.palette.accent);
+  const bar = pick(p, prm, "couleur_barre", p.palette.primary);
+  const dot = pick(p, prm, "couleur_puce", p.palette.accent);
+  const step = stepOf(p);
+  const pop = popOf(e);
+  const onglets = strs(d.onglets);
+  const lignes = strs(d.lignes);
+  const refs = (Array.isArray(d.referents) ? d.referents : []) as { nom?: string; role?: string }[];
+  const avancement = typeof d.avancement === "number" ? d.avancement : null;
+  const ouvriers = typeof d.ouvriers === "number" ? d.ouvriers : null;
+  const pad = 34 * s;
+  const tile: CSSProperties = { background: `${sf.fg}0d`, borderRadius: 24 * s, padding: `${22 * s}px ${26 * s}px` };
+  const label: CSSProperties = { fontFamily: ctx.title, fontWeight: 800, fontSize: 32 * s, margin: `${26 * s}px 0 ${12 * s}px` };
+  const show = (at: number) => ({ opacity: t(frame, at, 9), transform: `translateY(${(1 - t(frame, at, 9)) * 24 * s}px)` });
   return (
-    <Card e={e} ctx={ctx} s={s} title={str(e.data.lieu)}>
-      {strs(e.data.lignes).map((l, i) => {
-        const k = t(frame, 6 + stepOf(p) * (1 + i), 8);
-        return (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 16 * s, fontFamily: ctx.body, fontSize: 30 * s, padding: `${8 * s}px 0`, opacity: k }}>
-            {puce === "coche" ? <Check k={k} color={dot} size={34 * s} /> : <div style={{ width: puce === "trait" ? 24 * s : 14 * s, height: puce === "trait" ? 5 * s : 14 * s, borderRadius: 14 * s, background: dot }} />}
-            {l}
+    <div style={{ ...sf.style, overflow: "hidden", padding: pad }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 * s, fontFamily: ctx.title, fontWeight: 800, fontSize: 36 * s }}>
+        <svg width={30 * s} height={38 * s} viewBox="0 0 30 40">
+          <path d="M15 0C6.7 0 0 6.7 0 15c0 11 15 25 15 25s15-14 15-25C30 6.7 23.3 0 15 0z" fill={accent} />
+          <circle cx="15" cy="15" r="5.5" fill="#ffffff" />
+        </svg>
+        <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{str(d.lieu)}</span>
+        <svg width={24 * s} height={24 * s} viewBox="0 0 24 24" style={{ opacity: 0.5 }}>
+          <path d="M6 9l6 6 6-6" fill="none" stroke={sf.fg} strokeWidth="2.4" strokeLinecap="round" />
+        </svg>
+      </div>
+      {yes(prm, "onglets", true) && onglets.length > 0 && (
+        <div style={{ display: "flex", gap: 8 * s, marginTop: 18 * s, fontFamily: ctx.body, fontSize: 26 * s }}>
+          {onglets.map((o, i) => (
+            <div key={i} style={{ padding: `${12 * s}px ${20 * s}px`, borderRadius: 16 * s, background: i === 0 ? `${sf.fg}12` : "transparent", color: i === 0 ? accent : sf.fg, fontWeight: i === 0 ? 800 : 500, opacity: i === 0 ? 1 : 0.8 }}>
+              {o}
+            </div>
+          ))}
+        </div>
+      )}
+      {yes(prm, "carte", true) && (
+        <div style={{ marginTop: 18 * s, borderRadius: 26 * s, overflow: "hidden", boxShadow: `0 ${8 * s}px ${24 * s}px -${10 * s}px rgba(0,0,0,0.25)` }}>
+          <MiniMap w={w - pad * 2} h={(w - pad * 2) * 0.36} pin={accent} drop={t(frame, 6, 14, Easing.out(Easing.bounce))} />
+          <div style={{ display: "flex", alignItems: "center", gap: 16 * s, padding: `${20 * s}px ${24 * s}px`, background: `${sf.fg}08` }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: ctx.title, fontWeight: 800, fontSize: 30 * s }}>{str(d.lieu)}</div>
+              {str(d.adresse) && <div style={{ fontFamily: ctx.body, fontSize: 24 * s, opacity: 0.6 }}>{str(d.adresse)}</div>}
+            </div>
+            {yes(prm, "itineraire", true) && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 * s, background: `${accent}1f`, color: accent, borderRadius: 999, padding: `${12 * s}px ${22 * s}px`, fontFamily: ctx.body, fontWeight: 800, fontSize: 24 * s, transform: `scale(${0.9 + 0.1 * t(frame, 14, 10, pop)})` }}>
+                <svg width={22 * s} height={22 * s} viewBox="0 0 24 24">
+                  <path d="M3 11l18-8-8 18-2-8z" fill={accent} />
+                </svg>
+                Itinéraire
+              </div>
+            )}
           </div>
-        );
-      })}
-    </Card>
+        </div>
+      )}
+      {(str(d.debut) || ouvriers !== null) && (
+        <div style={show(step * 2)}>
+          <div style={label}>Infos chantier</div>
+          <div style={tile}>
+            {(str(d.debut) || str(d.fin)) && (
+              <div style={{ display: "flex", alignItems: "center", gap: 18 * s }}>
+                <div style={{ width: 52 * s, height: 52 * s, borderRadius: 14 * s, background: `${sf.fg}12`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 * s }}>
+                  <svg width={28 * s} height={28 * s} viewBox="0 0 24 24">
+                    <rect x="3" y="5" width="18" height="16" rx="3" fill="none" stroke={sf.fg} strokeOpacity="0.7" strokeWidth="2" />
+                    <path d="M3 10h18M8 3v4M16 3v4" stroke={sf.fg} strokeOpacity="0.7" strokeWidth="2" />
+                  </svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: ctx.body, fontWeight: 800, fontSize: 28 * s }}>
+                    Du {str(d.debut)} au {str(d.fin)}
+                  </div>
+                  {avancement !== null && (
+                    <div style={{ marginTop: 10 * s, height: 10 * s, borderRadius: 10 * s, background: `${sf.fg}1a`, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${avancement * t(frame, step * 2.5, 18, Easing.out(Easing.cubic))}%`, background: bar, borderRadius: 10 * s }} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {ouvriers !== null && (
+              <div style={{ display: "flex", alignItems: "center", gap: 18 * s, marginTop: 16 * s, paddingTop: 16 * s, borderTop: `1px solid ${sf.line}` }}>
+                <div style={{ width: 52 * s, height: 52 * s, borderRadius: 14 * s, background: `${sf.fg}12`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 * s }}>
+                  <svg width={30 * s} height={30 * s} viewBox="0 0 24 24">
+                    <circle cx="9" cy="9" r="3.2" fill={sf.fg} fillOpacity="0.7" />
+                    <circle cx="16.5" cy="10" r="2.6" fill={sf.fg} fillOpacity="0.5" />
+                    <path d="M3 19c.6-3.4 3-5.2 6-5.2s5.4 1.8 6 5.2zM14 19c.3-2.2 1.6-3.8 3.6-3.8 2 0 3.2 1.6 3.4 3.8z" fill={sf.fg} fillOpacity="0.6" />
+                  </svg>
+                </div>
+                <div style={{ fontFamily: ctx.body, fontWeight: 800, fontSize: 28 * s }}>{ouvriers} ouvrier{ouvriers > 1 ? "s" : ""}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {lignes.length > 0 && (
+        <div style={{ marginTop: 16 * s }}>
+          {lignes.map((l, i) => {
+            const k = t(frame, step * (3 + i), 8);
+            const puce = opt(prm, "puce", "rond");
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 14 * s, fontFamily: ctx.body, fontSize: 28 * s, padding: `${6 * s}px 0`, opacity: k }}>
+                {puce === "coche" ? <Check k={k} color={dot} size={32 * s} /> : <div style={{ width: puce === "trait" ? 22 * s : 12 * s, height: puce === "trait" ? 5 * s : 12 * s, borderRadius: 12 * s, background: dot }} />}
+                {l}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {refs.length > 0 && (
+        <div>
+          <div style={{ ...label, ...show(step * 3.5) }}>Référents internes</div>
+          <div style={tile}>
+            {refs.map((r, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 18 * s, padding: `${10 * s}px 0`, borderTop: i ? `1px solid ${sf.line}` : "none", ...show(step * (4 + i)) }}>
+                <Avatar mode={opt(prm, "avatars", "photos")} name={str(r.nom)} color={accent} face={p.faces?.length ? p.faces[i % p.faces.length] : null} size={64 * s} font={ctx.body} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: ctx.body, fontWeight: 800, fontSize: 28 * s }}>{str(r.nom)}</div>
+                  {str(r.role) && <div style={{ fontFamily: ctx.body, fontSize: 22 * s, opacity: 0.6 }}>{str(r.role)}</div>}
+                </div>
+                <div style={{ width: 52 * s, height: 52 * s, borderRadius: 14 * s, background: `${accent}1f`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width={26 * s} height={26 * s} viewBox="0 0 24 24">
+                    <path d="M3 6h18v12H3z" fill={accent} />
+                    <path d="M3 6l9 7 9-7" fill="none" stroke="#ffffff" strokeWidth="1.8" />
+                  </svg>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -548,15 +696,75 @@ function Cta({ e, ctx, s }: Props) {
   );
 }
 
+/**
+ * Le symbole du logo, sans le texte : les formes découpées du logo animable
+ * (Kit de marque › Logos), avec leurs ombres et reflets, qui arrivent une à
+ * une. Sans logo animable : le « Symbole seul » du kit ; sans lui, quatre
+ * pastilles aux couleurs du kit.
+ */
 function Pastilles({ e, ctx, w }: Props) {
-  const color = colorOf(ctx.p, opt(e.params, "couleur", "accent"));
+  const frame = useFrame(e);
+  const p = ctx.p;
+  const prm = e.params;
+  const tint = opt(prm, "couleur", "auto");
+  const color = tint === "auto" ? null : colorOf(p, tint);
+  const mode = opt(prm, "animation", "construction");
+  const step = p.music?.beatFrames ? p.music.beatFrames / 2 : 5;
+  const logo = p.logoAnimated;
+  if (logo && logo.symbol.length) return <Symbol e={e} logo={logo} color={color} mode={mode} step={step} frame={frame} w={w} />;
+  const k = mode === "aucune" ? 1 : t(frame, 0, 12);
+  if (p.logos.symbol) {
+    // eslint-disable-next-line @next/next/no-img-element -- rendu vidéo (Remotion), pas une page Next.
+    return <img src={p.logos.symbol} alt="" style={{ width: "100%", height: "auto", opacity: k }} />;
+  }
   const d = w * 0.42;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(2, ${d}px)`, gap: w * 0.16 }}>
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(2, ${d}px)`, gap: w * 0.16, opacity: k }}>
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} style={{ width: d, height: d, borderRadius: i === 1 ? "50% 50% 50% 0" : "50%", background: color }} />
+        <div key={i} style={{ width: d, height: d, borderRadius: i === 1 ? "50% 50% 50% 0" : "50%", background: color ?? p.palette.accent }} />
       ))}
     </div>
+  );
+}
+
+/**
+ * Le symbole découpé du logo, recadré sur lui seul : le cadre du SVG englobe
+ * tout le logo (nom compris). Il est mesuré au rendu sur une copie invisible
+ * et non animée ; le rendu attend la mesure, pour que la vidéo soit juste dès
+ * la première image.
+ */
+function Symbol({ e, logo, color, mode, step, frame, w }: { e: RenderElement; logo: NonNullable<RenderProps["logoAnimated"]>; color: string | null; mode: string; step: number; frame: number; w: number }) {
+  const measure = useRef<SVGGElement>(null);
+  const [box, setBox] = useState<string | null>(null);
+  const [handle] = useState(() => delayRender("Mesure du symbole du logo"));
+  useLayoutEffect(() => {
+    const b = measure.current?.getBBox();
+    const pad = b ? Math.max(b.width, b.height) * 0.04 : 0;
+    setBox(b && b.width > 0 ? `${b.x - pad} ${b.y - pad} ${b.width + pad * 2} ${b.height + pad * 2}` : logo.viewBox);
+    continueRender(handle);
+  }, [logo, handle]);
+  const pop = popOf(e);
+  const cls = `sym-${Math.round(w)}`;
+  return (
+    <svg viewBox={box ?? logo.viewBox} style={{ width: "100%", height: "auto", overflow: "visible" }}>
+      {color && <style>{`.${cls} *{fill:${color} !important}`}</style>}
+      {logo.defs && <g dangerouslySetInnerHTML={{ __html: logo.defs }} />}
+      <g ref={measure} style={{ visibility: "hidden" }} dangerouslySetInnerHTML={{ __html: logo.symbol.join("") }} />
+      {box && (
+        <g className={color ? cls : undefined}>
+          {logo.symbol.map((m, i) => {
+            const k = mode === "aucune" ? 1 : mode === "fondu" ? t(frame, 0, 12) : t(frame, i * step, 8, pop);
+            return (
+              <g
+                key={i}
+                style={{ opacity: Math.min(1, k * 1.5), transform: mode === "construction" ? `scale(${k})` : undefined, transformBox: "fill-box", transformOrigin: "center" }}
+                dangerouslySetInnerHTML={{ __html: m }}
+              />
+            );
+          })}
+        </g>
+      )}
+    </svg>
   );
 }
 
@@ -638,7 +846,7 @@ const DEFAULT_W: Record<string, number> = {
   notification: 0.86,
   bouton: 0.6,
   planning: 0.82,
-  fiche: 0.78,
+  fiche: 0.86,
   champ: 0.7,
   badge: 0.36,
   tap: 0.12,
@@ -651,7 +859,7 @@ const DEFAULT_W: Record<string, number> = {
   compteur: 0.8,
   logo: 0.42,
   cta: 0.5,
-  pastilles: 0.14,
+  pastilles: 0.2,
   confettis: 0.5,
 };
 

@@ -21,8 +21,8 @@ export const FORMAT_SIZES = {
 export type FormatKey = keyof typeof FORMAT_SIZES;
 export const FORMAT_KEYS = Object.keys(FORMAT_SIZES) as FormatKey[];
 
-/** Une pub vidéo Meta efficace tient en 6 à 20 secondes (au-delà, on perd le fil d'actualité). */
-export const MIN_TOTAL = 6;
+/** Une pub vidéo Meta efficace tient en 5 à 20 secondes (au-delà, on perd le fil d'actualité). */
+export const MIN_TOTAL = 5;
 export const MAX_TOTAL = 20;
 export const MIN_SHOT = 0.8;
 export const MAX_SHOT = 6;

@@ -156,7 +156,7 @@ export function retouchPrompt(input: {
   const system = [
     "Tu retouches UNE publicité Meta de TIM, logiciel de gestion pour les entreprises du BTP, à la demande de Charlie.",
     "Tu changes ce que sa consigne demande, et RIEN d'autre : tout ce qui n'est pas visé reste identique (null dans ta réponse). Tu respectes aussi toutes ses consignes précédentes sur cette créa : une retouche n'en défait jamais une autre.",
-    "Les textes, l'accroche et la vidéo sont vérifiés par le code après toi : aucun chiffre absent des faits autorisés et de l'offre, aucune mention interdite, aucun témoignage, longueurs Meta (principal 500, titre 40, description 30, accroche courte). Une vidéo : 6 à 20 s, plans de 0,8 à 6 s, au moins un plan de rush prêt, une seule fin et en dernier.",
+    "Les textes, l'accroche et la vidéo sont vérifiés par le code après toi : aucun chiffre absent des faits autorisés et de l'offre, aucune mention interdite, aucun témoignage, longueurs Meta (principal 500, titre 40, description 30, accroche courte). Une vidéo : 5 à 20 s, plans de 0,8 à 6 s, au moins un plan de rush prêt, une seule fin et en dernier.",
     input.voice.voice ? `Voix de la marque : ${input.voice.voice}` : "",
     input.voice.goodExamples ? `Phrases justes :\n${input.voice.goodExamples}` : "",
     input.voice.badExamples ? `Phrases à éviter :\n${input.voice.badExamples}` : "",

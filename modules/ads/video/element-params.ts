@@ -83,7 +83,18 @@ const OWN: Record<ElementType, ParamSpec[]> = {
     TEXT,
     DOT,
   ],
-  fiche: [...SURFACE, { key: "puce", label: "Puce", kind: "choix", options: ["rond", "trait", "coche"], defaut: "rond" }, color("couleur_puce", "Couleur des puces", "accent"), TEXT, DOT],
+  fiche: [
+    ...SURFACE,
+    { key: "carte", label: "Plan avec l'épingle", kind: "oui-non", defaut: true },
+    { key: "onglets", label: "Onglets", kind: "oui-non", defaut: true },
+    { key: "itineraire", label: "Bouton « Itinéraire »", kind: "oui-non", defaut: true },
+    { key: "avatars", label: "Avatars des référents", kind: "choix", options: ["initiales", "silhouette", "photos", "aucun"], defaut: "photos", aide: "« photos » : les visages déposés (nature « Visage ») ; sans visage, la silhouette." },
+    { key: "puce", label: "Puce des lignes libres", kind: "choix", options: ["rond", "trait", "coche"], defaut: "rond" },
+    color("couleur_accent", "Couleur de l'épingle, de l'onglet actif et d'« Itinéraire »", "accent"),
+    color("couleur_barre", "Couleur de la barre d'avancement", "principale"),
+    color("couleur_puce", "Couleur des puces", "accent"),
+    TEXT,
+  ],
   champ: [
     ...SURFACE,
     { key: "curseur", label: "Curseur clignotant", kind: "oui-non", defaut: true },
@@ -137,9 +148,17 @@ const OWN: Record<ElementType, ParamSpec[]> = {
     { key: "pulsation", label: "Pulsation", kind: "oui-non", defaut: false },
     color("couleur_texte", "Couleur du texte", "auto", true),
   ],
-  pastilles: [{ key: "couleur", label: "Couleur", kind: "choix", options: COLOR, defaut: "accent" }],
+  pastilles: [
+    { key: "animation", label: "Arrivée", kind: "choix", options: ["construction", "fondu", "aucune"], defaut: "construction", aide: "« construction » : les formes arrivent une à une, sur les temps de la musique." },
+    color("couleur", "Couleur (auto : celles du logo)", "auto", true),
+  ],
   confettis: [{ key: "quantite", label: "Quantité", kind: "nombre", min: 8, max: 40, defaut: 18 }, { key: "couleurs", label: "Couleurs", kind: "choix", options: ["marque", "accent"], defaut: "marque" }],
 };
+
+/** Une couleur personnalisée, au format #RRGGBB. */
+export const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+/** Un réglage de couleur : ses choix sont des couleurs du kit (et « auto ») ; il accepte aussi une couleur personnalisée. Pure. */
+export const isColorSpec = (s: ParamSpec): boolean => s.kind === "choix" && s.options.every((o) => o === "auto" || (COLOR as readonly string[]).includes(o));
 
 /** Tous les réglages d'un type d'élément : les siens, puis les communs. Pure. */
 export const paramSpecs = (type: ElementType): ParamSpec[] => [...(OWN[type] ?? []), ...COMMON];
@@ -167,8 +186,8 @@ export function checkParams(type: ElementType, raw: unknown): { params: Record<s
       continue;
     }
     if (s.kind === "choix") {
-      if (typeof v === "string" && s.options.includes(v)) params[k] = v;
-      else errors.push(`${s.label} : « ${String(v)} » n'est pas un choix possible (${s.options.join(", ")}).`);
+      if (typeof v === "string" && (s.options.includes(v) || (isColorSpec(s) && HEX_COLOR.test(v)))) params[k] = isColorSpec(s) && HEX_COLOR.test(v) ? v.toLowerCase() : v;
+      else errors.push(`${s.label} : « ${String(v)} » n'est pas un choix possible (${s.options.join(", ")}${isColorSpec(s) ? ", ou une couleur #RRGGBB" : ""}).`);
     } else if (s.kind === "nombre") {
       const n = typeof v === "number" ? v : Number(v);
       if (Number.isFinite(n) && n >= s.min && n <= s.max) params[k] = n;
@@ -182,6 +201,6 @@ export function checkParams(type: ElementType, raw: unknown): { params: Record<s
 /** Les réglages d'un type, décrits pour l'IA (ce qu'elle peut proposer). Pure. */
 export function describeParams(type: ElementType): string {
   return paramSpecs(type)
-    .map((s) => `- ${s.key} (${s.label}) : ${s.kind === "choix" ? s.options.join(" | ") : s.kind === "nombre" ? `${s.min} à ${s.max}` : "oui | non"} ; défaut ${String(s.defaut)}${s.aide ? ` — ${s.aide}` : ""}`)
+    .map((s) => `- ${s.key} (${s.label}) : ${s.kind === "choix" ? s.options.join(" | ") + (isColorSpec(s) ? " | une couleur personnalisée #RRGGBB (hors charte : à n'employer que si Charlie le demande)" : "") : s.kind === "nombre" ? `${s.min} à ${s.max}` : "oui | non"} ; défaut ${String(s.defaut)}${s.aide ? ` — ${s.aide}` : ""}`)
     .join("\n");
 }

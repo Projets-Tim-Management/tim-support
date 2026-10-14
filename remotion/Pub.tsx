@@ -18,6 +18,14 @@ import { Elements } from "./elements";
 
 type Ctx = { p: RenderProps; title: string; body: string; u: number };
 
+/**
+ * Le texte de base du moteur, posé à la racine : sans lui, l'aperçu EN DIRECT
+ * (joué dans la page d'administration) hériterait de l'interligne fixe du
+ * back-office, et les lignes d'un gros texte se chevaucheraient. La vidéo
+ * rendue et l'aperçu doivent être identiques.
+ */
+const BASE_TEXT: CSSProperties = { lineHeight: 1.25, letterSpacing: "normal", textAlign: "left", fontWeight: 400, whiteSpace: "normal", wordSpacing: "normal" };
+
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const ease = Easing.bezier(0.2, 0.7, 0.2, 1);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -386,7 +394,7 @@ export const Pub: React.FC<RenderProps> = (p) => {
   // L'image où commence chaque plan : la somme des plans qui le précèdent.
   const starts = p.shots.map((_, i) => p.shots.slice(0, i).reduce((t, x) => t + x.frames, 0));
   return (
-    <AbsoluteFill style={{ background: p.palette.darkBg }}>
+    <AbsoluteFill style={{ background: p.palette.darkBg, ...BASE_TEXT }}>
       {p.shots.map((shot, i) => (
         <Sequence key={i} from={starts[i]} durationInFrames={shot.frames} name={`${i + 1}. ${shot.kind}`}>
           <ShotView shot={shot} ctx={ctx} />
@@ -442,7 +450,7 @@ export const Affiche: React.FC<RenderProps> = (p) => {
   const animated = p.logoAnimated && p.style.logoAnimation !== "aucune";
   const pill: CSSProperties = { background: p.palette.accent, color: p.palette.textOnDark, fontFamily: body, fontWeight: 800, fontSize: 40 * u, padding: `${22 * u}px ${46 * u}px`, borderRadius: radius(p.style, u) };
   return (
-    <AbsoluteFill style={{ background: bg, color: fg }}>
+    <AbsoluteFill style={{ background: bg, color: fg, ...BASE_TEXT }}>
       {p.style.graphics.includes("pastilles") && <Dots color={p.palette.accent} u={u} />}
       <div style={{ position: "absolute", left: 80 * u, right: 80 * u, top: 0, height: textH, display: "flex", alignItems: rush ? "flex-end" : "center", paddingBottom: rush ? 30 * u : 0 }}>
         <div style={{ fontFamily: title, fontWeight: 800, fontSize: size, lineHeight: 1.02, letterSpacing: "-0.02em", textTransform: upper }}>

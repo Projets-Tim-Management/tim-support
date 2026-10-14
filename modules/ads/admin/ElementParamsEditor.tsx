@@ -3,7 +3,7 @@
 import { useField, useFormFields } from "@payloadcms/ui";
 
 import type { Palette } from "@/modules/ads/lib/style";
-import { COLOR, paramSpecs, type ParamSpec } from "@/modules/ads/video/element-params";
+import { HEX_COLOR, isColorSpec, paramSpecs, type ParamSpec } from "@/modules/ads/video/element-params";
 import { isElementType } from "@/modules/ads/video/elements";
 
 import { useAtelierContext } from "./useAtelierContext";
@@ -46,7 +46,6 @@ export function ElementParamsEditor() {
 const swatch = (p: Palette, role: string): string | null =>
   ({ accent: p.accent, principale: p.primary, clair: p.lightBg, sombre: p.darkBg, "texte-clair": p.textOnDark, "texte-sombre": p.textOnLight })[role] ?? null;
 const ROLE_LABEL: Record<string, string> = { auto: "Auto", accent: "Accent", principale: "Principale", clair: "Fond clair", sombre: "Fond sombre", "texte-clair": "Texte clair", "texte-sombre": "Texte sombre" };
-const isColorSpec = (s: ParamSpec) => s.kind === "choix" && s.options.every((o) => o === "auto" || (COLOR as readonly string[]).includes(o));
 
 function Control({ spec, value, onChange, palette }: { spec: ParamSpec; value: string | number | boolean | undefined; onChange: (v: string | number | boolean | undefined) => void; palette: Palette | null }) {
   const custom = value !== undefined && value !== spec.defaut;
@@ -80,7 +79,12 @@ function Control({ spec, value, onChange, palette }: { spec: ParamSpec; value: s
               </button>
             );
           })}
-          <span className="ads-elparams__swatch-name">{ROLE_LABEL[String(shown)] ?? String(shown)}</span>
+          {/* La couleur personnalisée : hors charte, au choix de chacun. */}
+          <label className={`ads-elparams__swatch ads-elparams__swatch--custom${HEX_COLOR.test(String(shown)) ? " ads-elparams__swatch--on" : ""}`} title="Personnalisée" style={HEX_COLOR.test(String(shown)) ? { background: String(shown) } : undefined}>
+            <input type="color" value={HEX_COLOR.test(String(shown)) ? String(shown) : palette.accent} onChange={(e) => onChange(e.target.value)} aria-label={`${spec.label} : couleur personnalisée`} />
+            {HEX_COLOR.test(String(shown)) ? "" : "+"}
+          </label>
+          <span className="ads-elparams__swatch-name">{HEX_COLOR.test(String(shown)) ? `Personnalisée ${String(shown)}` : (ROLE_LABEL[String(shown)] ?? String(shown))}</span>
         </span>
       )}
       {spec.kind === "choix" && !(isColorSpec(spec) && palette) && (
