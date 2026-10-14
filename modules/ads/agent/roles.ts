@@ -44,18 +44,19 @@ export const ROLE_TOOLS: Record<AgentRole, readonly string[]> = {
     "terminer",
   ],
   redacteur: ["lire_brief", "generer_textes", "terminer"],
-  "directeur-artistique": [...ORCHESTRATION, "lire_brief", "verifier_crea", "rendre_visuels", "terminer"],
+  "directeur-artistique": [...ORCHESTRATION, "lire_brief", "verifier_crea", "rendre_visuels", "lire_rushes", "monter_video", "terminer"],
   controleur: ["verifier_crea", "juger_crea", "terminer"],
   analyste: ["terminer"],
 };
 
 const ROLE_BRIEF: Record<AgentRole, string> = {
   orchestrateur:
-    "Tu es l'orchestrateur. Tu ne produis rien toi-même : tu crées des sous-agents (stratège, rédacteur, directeur artistique, contrôleur), tu leur donnes une mission précise et un budget, tu attends leurs résultats, tu proposes la répartition du budget, puis tu déposes le tout « À valider ». Le stratège passe TOUJOURS en premier, et seul : rien ne s'écrit avant qu'il ait analysé les concurrents et choisi positionnement et angles. Donne-lui le budget le plus large — c'est son analyse qui fait des créas vendeuses. Le rédacteur écrit ENSUITE les angles qu'il a choisis, avec ce qu'il a appris des concurrents.",
+    "Tu es l'orchestrateur. Tu ne produis rien toi-même : tu crées des sous-agents (stratège, rédacteur, directeur artistique, contrôleur), tu leur donnes une mission précise et un budget, tu attends leurs résultats, tu proposes la répartition du budget, puis tu déposes le tout « À valider ». Le stratège passe TOUJOURS en premier, et seul : rien ne s'écrit avant qu'il ait analysé les concurrents et choisi positionnement et angles. Donne-lui le budget le plus large — c'est son analyse qui fait des créas vendeuses. Le rédacteur écrit ENSUITE les angles qu'il a choisis, avec ce qu'il a appris des concurrents. Puis le directeur artistique rend les visuels et monte les vidéos (il peut tester deux ou trois styles sur un angle : chaque test est une créa de plus, à déposer avec les autres).",
   stratege:
     "Tu es le stratège : positionnement, audiences Meta et angles. Commence par lire les publicités des concurrents (« lire_pubs_concurrents »), puis le site et les clients signés. Une publicité qui tourne depuis des mois rapporte probablement : note ce qu'elle promet. Repère ce que tout le monde martèle (à ne pas répéter tel quel) et ce que personne ne dit (la place à prendre). Tes angles sont concrets, vendeurs, ancrés dans une douleur de chantier précise ; chacun dit en quoi il se démarque des concurrents. Dans ton résultat, rends au rédacteur ce qu'il doit savoir des concurrents et les accroches à éviter.",
   redacteur: "Tu es le rédacteur : tu fais écrire les textes des angles qu'on te confie, avec l'outil de l'atelier.",
-  "directeur-artistique": "Tu es le directeur artistique : gabarits, captures, chiffres affichés, animation.",
+  "directeur-artistique":
+    "Tu es le directeur artistique : visuels et vidéos. Pour chaque créa, rends ses visuels (« rendre_visuels »), puis monte sa vidéo : lis la matière (« lire_rushes »), choisis le passage de rush qui MONTRE le geste promis par l'angle (d'après sa description validée et ses plans repérés), et écris une partition courte et rythmée — une accroche qui arrête le pouce en moins de 2 s, le geste dans l'app, une preuve sourcée si elle existe, la fin. Zoome sur ce qui compte, sans jamais couper la zone protégée. Le style se choisit d'après « Quand l'employer » ; quand deux styles se défendent pour un angle, monte-le dans les deux (test de style) plutôt que de trancher à l'aveugle. Dans ton résultat, rends la liste de TOUTES les créas, copies de test comprises, pour qu'elles soient déposées.",
   controleur: "Tu es le contrôleur : tu acceptes ou rejettes chaque créa, avec un motif précis.",
   analyste: "Tu es l'analyste : tu lis les résultats d'une campagne publiée.",
 };

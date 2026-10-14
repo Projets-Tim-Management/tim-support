@@ -8,6 +8,7 @@ import { briefLines } from "@/modules/ads/lib/copy/prompt";
 import { FORMAT_KEYS } from "@/modules/ads/lib/render/formats";
 import { TEMPLATES, type TemplateKey } from "@/modules/ads/lib/render/templates";
 import { availableMaterial, renderCreativeVisuals, templateAvailable } from "@/modules/ads/lib/render/visuals";
+import { mountVideo, videoMaterial } from "@/modules/ads/video/mount";
 
 /**
  * L'atelier de créas (phase 3a), branché pour l'agent de campagne : chaque
@@ -81,6 +82,13 @@ export function payloadAtelier(payload: Payload): AtelierPort {
     },
 
     creatives,
+
+    videoMaterial: () => videoMaterial(payload),
+
+    async video(campaign, creative, req) {
+      if (!(await creatives(campaign, [creative])).length) throw new Error("Créa introuvable dans cette campagne.");
+      return mountVideo(payload, campaign, creative, req, new Date());
+    },
 
     async submit(campaign, ids) {
       const submitted: Id[] = [];

@@ -37,6 +37,11 @@ function fakeAtelier(over: Partial<AtelierPort> = {}) {
     submit: vi.fn(async (_campaign: Id, ids: Id[]) => ({ submitted: ids.filter((i) => i !== 999), skipped: ids.includes(999) ? [{ id: 999, reason: "Pas de titre passé." }] : [] })),
     campaignBudget: vi.fn(async () => ({ totalDailyEur: 30, maxAiSharePct: 15, metaFloorEur: 5 })),
     setSplit: vi.fn(async () => {}),
+    videoMaterial: vi.fn(async () => ({ rushes: [], styles: [{ id: 1, nom: "A · Le geste en gros plan", quandLEmployer: "Un geste dans l'app" }] })),
+    video: vi.fn(async (_c: Id, crea: Id, req: { styles: Id[] }) => ({
+      creas: req.styles.map((st, i) => ({ crea: i ? 200 + i : Number(crea), style: Number(st), styleNom: `Style ${String(st)}`, test: i > 0 })),
+      ecartes: [],
+    })),
     ...over,
   };
   return atelier;
@@ -212,5 +217,40 @@ describe("deposer_a_valider — la fin du passage", () => {
     expect(r.outcome).toBe("a-valider");
     expect(mem.runs.get(run.id)!.summary).toBe("Deux angles, Advantage+");
     expect(mem.steps.find((s) => s.tool === "deposer_a_valider")!.line).toMatch(/dépose 1 créa\(s\) « À valider » \(1 écartée\(s\)\)/);
+  });
+});
+
+describe("la vidéo — le directeur artistique monte, le code vérifie (D4)", () => {
+  const PARTITION = { shots: [{ kind: "ouverture", seconds: 2, text: "Fini la ressaisie" }, { kind: "rush", seconds: 4, rush: 1, from: 0, to: 4 }, { kind: "fin", seconds: 2.5 }] };
+
+  it("seul le directeur artistique monte des vidéos", () => {
+    expect(ROLE_TOOLS["directeur-artistique"]).toEqual(expect.arrayContaining(["lire_rushes", "monter_video"]));
+    for (const role of ["orchestrateur", "stratege", "redacteur", "controleur"] as const) expect(ROLE_TOOLS[role]).not.toContain("monter_video");
+  });
+
+  it("lire_rushes rend la matière et les styles", async () => {
+    const atelier = fakeAtelier();
+    const { ctx } = await setup("directeur-artistique", atelier);
+    const r = await use(ctx, "lire_rushes", {});
+    expect(r).toMatchObject({ kind: "ok", output: { styles: [{ id: 1 }] }, line: expect.stringMatching(/0 rush\(es\) prêt\(s\) et 1 style/) });
+  });
+
+  it("monter_video transmet la partition et les styles ; les tests de style sont comptés", async () => {
+    const atelier = fakeAtelier();
+    const { ctx, run } = await setup("directeur-artistique", atelier);
+    const r = await use(ctx, "monter_video", { crea: 12, styles: [1, 3], partition: PARTITION, justification: "Deux styles se défendent." });
+    expect(atelier.video).toHaveBeenCalledWith(run.campaign, 12, { styles: [1, 3], score: PARTITION });
+    expect(r).toMatchObject({ kind: "ok", line: expect.stringMatching(/monte la vidéo de la créa 12 en « Style 1 », « Style 3 » \(1 test\(s\) de style\)/) });
+  });
+
+  it("une partition refusée revient au modèle avec la raison, sans rien casser", async () => {
+    const atelier = fakeAtelier({
+      video: vi.fn(async () => {
+        throw new Error("Partition refusée : Chiffre non sourcé : 3.");
+      }),
+    });
+    const { ctx } = await setup("directeur-artistique", atelier);
+    const r = await use(ctx, "monter_video", { crea: 12, styles: [1], partition: PARTITION, justification: "x" });
+    expect(r).toMatchObject({ kind: "ok", isError: true, output: { refus: expect.stringMatching(/Chiffre non sourcé/) }, line: expect.stringMatching(/montage vidéo refusé/) });
   });
 });

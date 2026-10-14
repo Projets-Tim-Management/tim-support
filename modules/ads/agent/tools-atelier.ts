@@ -6,6 +6,8 @@ import { clip, type AgentTool, type ToolContext, type ToolOutcome } from "@/modu
 import type { Id } from "@/modules/ads/agent/types";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
 import { eur } from "@/modules/ads/lib/spend";
+import { MAX_STYLES } from "@/modules/ads/video/mount";
+import { MAX_CAPTION_CHARS, MAX_OPENING_CHARS, MAX_SHOT, MAX_TOTAL, MIN_SHOT, MIN_TOTAL, MIN_ZOOM } from "@/modules/ads/video/score";
 
 /**
  * Les outils qui passent par l'atelier de créas (plan Publicité, §9 quater,
@@ -180,6 +182,83 @@ const rendreVisuels: AgentTool = {
       return { kind: "ok", output: r, line: `${who(ctx)} rend les visuels de la créa ${String(input.crea)} (gabarit « ${r.template} », ${r.visuals} format(s)).` };
     } catch (e) {
       return errorOf(ctx, e, "le rendu des visuels");
+    }
+  },
+};
+
+const lireRushes: AgentTool = {
+  definition: {
+    name: "lire_rushes",
+    description:
+      "La matière des vidéos : les rushes prêts (écrans de l'app, chantier…) avec ce qu'on y voit, la description détaillée validée et ses plans repérés, la durée et le recadrage (zone utile, zone à ne jamais couper) ; et les styles actifs, avec quand employer chacun.",
+    input_schema: { type: "object", properties: {} },
+  },
+  async run(ctx) {
+    const m = await ctx.deps.atelier.videoMaterial();
+    return { kind: "ok", output: m, line: `${who(ctx)} passe en revue ${m.rushes.length} rush(es) prêt(s) et ${m.styles.length} style(s).` };
+  },
+};
+
+const RECT = { type: "object", properties: { x: { type: "number" }, y: { type: "number" }, w: { type: "number" }, h: { type: "number" } }, description: "En fractions de l'image (0 à 1)." } as const;
+
+const monterVideo: AgentTool = {
+  definition: {
+    name: "monter_video",
+    description: [
+      `Monte la vidéo d'une créa : tu écris la partition (les plans, dans l'ordre), le moteur la rend aux trois formats Meta dans chacun des styles choisis (${MAX_STYLES} au plus).`,
+      "Le premier style va sur la créa ; chaque style suivant crée une copie étiquetée « test de style » (même angle, mêmes textes), comptée dans le quota de la semaine : c'est ainsi qu'on compare des styles.",
+      `Le code vérifie la partition avant tout rendu : ${MIN_TOTAL} à ${MAX_TOTAL} s au total, plans de ${MIN_SHOT} à ${MAX_SHOT} s, au moins un plan de rush, une seule fin et en dernier, des rushes prêts pris dans leur durée, aucun zoom plus serré que ${MIN_ZOOM * 100} % ni qui coupe la zone protégée, aucun chiffre absent des faits sourcés et de l'offre, aucune mention interdite. Un refus dit pourquoi : corrige et rappelle.`,
+      "Le rendu prend quelques minutes, sans coût IA ; la vidéo apparaît sur la carte de la créa.",
+    ].join(" "),
+    input_schema: {
+      type: "object",
+      properties: {
+        crea: { type: ["number", "string"] },
+        styles: { type: "array", items: { type: "number" }, minItems: 1, maxItems: MAX_STYLES, description: "Les identifiants des styles (voir lire_rushes), le préféré d'abord." },
+        partition: {
+          type: "object",
+          properties: {
+            shots: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  kind: { type: "string", enum: ["ouverture", "rush", "preuve", "fin"] },
+                  seconds: { type: "number" },
+                  text: { type: "string", description: `ouverture : l'accroche, ${MAX_OPENING_CHARS} caractères au plus.` },
+                  highlight: { type: "string", description: "ouverture : le mot à faire ressortir (dans le texte)." },
+                  sub: { type: "string", description: "ouverture : une ligne sous l'accroche." },
+                  rush: { type: "number", description: "rush : l'identifiant du rush." },
+                  from: { type: "number", description: "rush : début du passage, en secondes." },
+                  to: { type: "number", description: "rush : fin du passage, en secondes." },
+                  zoom: { ...RECT, description: "rush : la zone à montrer de près, en fractions de l'image ; jamais hors de la zone utile ni coupant la zone protégée." },
+                  caption: { type: "string", description: `rush : le sous-titre, ${MAX_CAPTION_CHARS} caractères au plus.` },
+                  fact: { type: "number", description: "preuve : l'identifiant du fait sourcé (voir lire_brief)." },
+                  line: { type: "string", description: "fin : une phrase au-dessus du bouton." },
+                },
+                required: ["kind", "seconds"],
+              },
+            },
+          },
+          required: ["shots"],
+        },
+        justification: { type: "string", description: "Pourquoi ce montage et ces styles pour cet angle." },
+      },
+      required: ["crea", "styles", "partition", "justification"],
+    },
+  },
+  async run(ctx, input) {
+    const styles = (Array.isArray(input.styles) ? input.styles : []).map(idOf);
+    try {
+      const r = await ctx.deps.atelier.video(ctx.run.campaign, idOf(input.crea), { styles, score: input.partition });
+      const tests = r.creas.filter((c) => c.test).length;
+      return {
+        kind: "ok",
+        output: r,
+        line: `${who(ctx)} monte la vidéo de la créa ${String(input.crea)} en ${r.creas.map((c) => `« ${clip(c.styleNom, 30)} »`).join(", ")}${tests ? ` (${tests} test(s) de style)` : ""}${r.ecartes.length ? ` — ${r.ecartes.length} style(s) écarté(s) : quota` : ""}.`,
+      };
+    } catch (e) {
+      return errorOf(ctx, e, "le montage vidéo");
     }
   },
 };
@@ -392,6 +471,8 @@ export const ATELIER_TOOLS: AgentTool[] = [
   lireBrief,
   genererTextes,
   rendreVisuels,
+  lireRushes,
+  monterVideo,
   verifierCrea,
   jugerCrea,
   proposerPositionnement,
