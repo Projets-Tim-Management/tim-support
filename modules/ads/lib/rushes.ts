@@ -20,6 +20,20 @@ export const RUSH_USES = [
 export type RushUse = (typeof RUSH_USES)[number]["value"];
 export const isInspiration = (d: { use?: unknown } | null | undefined): boolean => d?.use === "inspiration";
 
+/**
+ * Les deux collections de fichiers importés : les rushes (la matière des
+ * montages) et les inspirations (des pubs dont l'IA tire le style). Même
+ * import, même conversion, même description IA ; deux listes, deux fiches.
+ */
+export const IMPORT_COLLECTIONS = ["ad-rushes", "ad-inspirations"] as const;
+export type ImportCollection = (typeof IMPORT_COLLECTIONS)[number];
+export const isImportCollection = (v: unknown): v is ImportCollection => (IMPORT_COLLECTIONS as readonly unknown[]).includes(v);
+/** La collection désignée par une requête (« ?collection=ad-inspirations »), les rushes par défaut. Pure. */
+export const importCollectionOf = (url: string): ImportCollection => {
+  const v = new URL(url, "http://x").searchParams.get("collection");
+  return isImportCollection(v) ? v : "ad-rushes";
+};
+
 export const RUSH_SOURCES = [
   { label: "Écran de l'app mobile", value: "app-mobile" },
   { label: "Écran de l'app web", value: "app-web" },

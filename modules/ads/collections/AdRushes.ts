@@ -21,7 +21,7 @@ import { INSPIRATION_VERDICTS } from "@/modules/ads/lib/style";
  */
 
 /** Ce qu'on sait du fichier déposé, et le remise en file quand il change. */
-const prepare: CollectionBeforeChangeHook = ({ data, originalDoc, operation }) => {
+export const prepare: CollectionBeforeChangeHook = ({ data, originalDoc, operation }) => {
   if (!data) return data;
   const original = { ...(originalDoc?.original ?? {}), ...(data.original ?? {}) } as { url?: string; contentType?: string };
   if (!isRushBlobUrl(original.url)) throw new Error("Déposez d'abord le fichier : il n'a pas été envoyé au stockage.");
@@ -41,8 +41,10 @@ const prepare: CollectionBeforeChangeHook = ({ data, originalDoc, operation }) =
   return out;
 };
 
-/** Supprimer une fiche supprime ses fichiers : un rush abandonné ne reste pas en ligne. */
-const deleteFiles: CollectionAfterDeleteHook = async ({ doc, req }) => {
+/** Supprimer une fiche supprime ses fichiers : un rush abandonné ne reste pas en ligne. Sert aussi aux inspirations. */
+export const deleteFiles: CollectionAfterDeleteHook = async ({ doc, req, context }) => {
+  // Une fiche déplacée vers une autre collection (scripts/ads-inspirations-separation.ts) garde ses fichiers.
+  if (context?.keepFiles) return doc;
   const urls = [
     doc?.original?.url,
     doc?.working?.url,
@@ -63,13 +65,13 @@ const readOnly = { readOnly: true } as const;
 
 export const AdRushes: CollectionConfig = {
   slug: "ad-rushes",
-  labels: { singular: "Rush ou inspiration", plural: "Rushes et inspirations" },
+  labels: { singular: "Rush", plural: "Rushes" },
   admin: {
     useAsTitle: "title",
-    defaultColumns: ["title", "use", "etat", "source", "mediaType", "updatedAt"],
+    defaultColumns: ["title", "etat", "source", "mediaType", "updatedAt"],
     group: "Publicité",
     description:
-      "La matière première des vidéos (écrans de l'app, chantier, bureau), et les inspirations : des pubs dont l'IA tire le style. Le fichier d'origine est conservé tel quel.",
+      "La matière première des vidéos : écrans de l'app, chantier, bureau. Le fichier d'origine est conservé tel quel ; les agents en tirent leurs montages. Les pubs qui vous inspirent vont dans Publicité › Inspirations.",
   },
   access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
   defaultSort: "-createdAt",
@@ -98,16 +100,14 @@ export const AdRushes: CollectionConfig = {
       defaultValue: "matiere",
       required: true,
       index: true,
-      admin: {
-        layout: "horizontal",
-        description: "Matière : les agents la montent dans les vidéos. Inspiration : une pub, de TIM ou d'ailleurs, dont l'IA tire le style — jamais montrée.",
-      },
+      // Les inspirations ont leur collection (ad-inspirations) : ce champ et les trois suivants ne servent plus, gardés en base
+      // jusqu'au nettoyage (migration destructive, avec l'accord de Charlie).
+      admin: { hidden: true },
     },
     { name: "title", type: "text", label: "Nom", required: true, admin: { placeholder: "Pointage du matin, équipe gros œuvre" } },
-    // Une inspiration : le verdict, le lien d'où elle vient, et ce qui plaît ou pas — ce que l'IA lit avec les images.
     {
       type: "row",
-      admin: { condition: (d) => isInspiration(d) },
+      admin: { condition: (d) => isInspiration(d), hidden: true },
       fields: [
         { name: "verdict", type: "select", label: "Verdict", options: [...INSPIRATION_VERDICTS], defaultValue: "aimer", required: true, admin: { width: "30%" } },
         { name: "link", type: "text", label: "Lien (facultatif)", admin: { width: "70%", placeholder: "Bibliothèque publicitaire Meta, Instagram…" } },
@@ -119,11 +119,7 @@ export const AdRushes: CollectionConfig = {
       label: "Ce qui plaît, ou pas",
       required: true,
       maxLength: 600,
-      admin: {
-        condition: (d) => isInspiration(d),
-        placeholder: "Le téléphone en très gros plan, les mots qui apparaissent un à un, les couleurs franches…",
-        description: "Ce qui vous fait l'aimer (ou la rejeter) : l'IA regarde les images avec cette phrase pour en tirer une fiche de style.",
-      },
+      admin: { condition: (d) => isInspiration(d), hidden: true },
     },
     {
       type: "row",

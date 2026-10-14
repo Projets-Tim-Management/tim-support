@@ -107,6 +107,7 @@ export interface Config {
     'ad-instructions': AdInstruction;
     'ad-learnings': AdLearning;
     'ad-rushes': AdRush;
+    'ad-inspirations': AdInspiration;
     'ad-styles': AdStyle;
     'ads-settings-history': AdsSettingsHistory;
     'email-suppressions': EmailSuppression;
@@ -190,6 +191,7 @@ export interface Config {
     'ad-instructions': AdInstructionsSelect<false> | AdInstructionsSelect<true>;
     'ad-learnings': AdLearningsSelect<false> | AdLearningsSelect<true>;
     'ad-rushes': AdRushesSelect<false> | AdRushesSelect<true>;
+    'ad-inspirations': AdInspirationsSelect<false> | AdInspirationsSelect<true>;
     'ad-styles': AdStylesSelect<false> | AdStylesSelect<true>;
     'ads-settings-history': AdsSettingsHistorySelect<false> | AdsSettingsHistorySelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
@@ -2941,7 +2943,7 @@ export interface AdCompetitor {
   createdAt: string;
 }
 /**
- * La matière première des vidéos (écrans de l'app, chantier, bureau), et les inspirations : des pubs dont l'IA tire le style. Le fichier d'origine est conservé tel quel.
+ * La matière première des vidéos : écrans de l'app, chantier, bureau. Le fichier d'origine est conservé tel quel ; les agents en tirent leurs montages. Les pubs qui vous inspirent vont dans Publicité › Inspirations.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ad-rushes".
@@ -2955,16 +2957,10 @@ export interface AdRush {
     contentType?: string | null;
     size?: number | null;
   };
-  /**
-   * Matière : les agents la montent dans les vidéos. Inspiration : une pub, de TIM ou d'ailleurs, dont l'IA tire le style — jamais montrée.
-   */
   use: 'matiere' | 'inspiration';
   title: string;
   verdict: 'aimer' | 'eviter';
   link?: string | null;
-  /**
-   * Ce qui vous fait l'aimer (ou la rejeter) : l'IA regarde les images avec cette phrase pour en tirer une fiche de style.
-   */
   why?: string | null;
   source?: ('app-mobile' | 'app-web' | 'chantier' | 'bureau' | 'autre') | null;
   features?:
@@ -2995,6 +2991,77 @@ export interface AdRush {
     | null;
   origin?: string | null;
   noRealData?: boolean | null;
+  mediaType?: ('video' | 'image') | null;
+  processing?: {
+    status?: ('en-attente' | 'en-cours' | 'pret' | 'echec') | null;
+    error?: string | null;
+    attempts?: number | null;
+    processedAt?: string | null;
+    leaseUntil?: string | null;
+  };
+  /**
+   * Produite par la conversion : c'est elle que les montages utilisent.
+   */
+  working?: {
+    url?: string | null;
+    posterUrl?: string | null;
+    keyframes?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    meta?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+  };
+  ai?: {
+    proposal?: string | null;
+    timeline?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    status?: ('proposee' | 'validee' | 'ecartee') | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Des pubs que vous aimez, ou à éviter — de TIM ou de n'importe quelle marque. L'IA en tire une fiche de style que vous validez ; le directeur artistique la lit avant chaque montage. Jamais montrées dans une vidéo.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-inspirations".
+ */
+export interface AdInspiration {
+  id: number;
+  original?: {
+    url?: string | null;
+    pathname?: string | null;
+    filename?: string | null;
+    contentType?: string | null;
+    size?: number | null;
+  };
+  title: string;
+  verdict: 'aimer' | 'eviter';
+  link?: string | null;
+  /**
+   * Ce qui vous fait l'aimer (ou la rejeter) : l'IA regarde les images avec cette phrase pour en tirer une fiche de style.
+   */
+  why: string;
   mediaType?: ('video' | 'image') | null;
   processing?: {
     status?: ('en-attente' | 'en-cours' | 'pret' | 'echec') | null;
@@ -3792,6 +3859,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-rushes';
         value: number | AdRush;
+      } | null)
+    | ({
+        relationTo: 'ad-inspirations';
+        value: number | AdInspiration;
       } | null)
     | ({
         relationTo: 'ad-styles';
@@ -5288,6 +5359,52 @@ export interface AdRushesSelect<T extends boolean = true> {
   framing?: T;
   origin?: T;
   noRealData?: T;
+  mediaType?: T;
+  processing?:
+    | T
+    | {
+        status?: T;
+        error?: T;
+        attempts?: T;
+        processedAt?: T;
+        leaseUntil?: T;
+      };
+  working?:
+    | T
+    | {
+        url?: T;
+        posterUrl?: T;
+        keyframes?: T;
+        meta?: T;
+      };
+  ai?:
+    | T
+    | {
+        proposal?: T;
+        timeline?: T;
+        status?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-inspirations_select".
+ */
+export interface AdInspirationsSelect<T extends boolean = true> {
+  original?:
+    | T
+    | {
+        url?: T;
+        pathname?: T;
+        filename?: T;
+        contentType?: T;
+        size?: T;
+      };
+  title?: T;
+  verdict?: T;
+  link?: T;
+  why?: T;
   mediaType?: T;
   processing?:
     | T

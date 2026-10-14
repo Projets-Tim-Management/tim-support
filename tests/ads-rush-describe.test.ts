@@ -55,7 +55,7 @@ describe("proposer la description", () => {
     const { payload, created, updates } = fake();
     const call = vi.fn(async () => ({ result: INSIGHT, usage }));
     const fetcher = vi.fn(async () => new Response(Buffer.from("jpg"), { headers: { "content-type": "image/jpeg" } }));
-    await describeRush(payload, 7, { call, fetch: fetcher as never });
+    await describeRush(payload, 7, "ad-rushes", { call, fetch: fetcher as never });
     // Le serveur lit les images clés lui-même : Claude les reçoit, sans avoir à les télécharger.
     expect(fetcher.mock.calls.map((c) => (c as unknown as [string])[0])).toEqual(["https://cdn/k1.jpg", "https://cdn/k2.jpg"]);
     expect(call).toHaveBeenCalledWith(expect.objectContaining({ images: [expect.objectContaining({ atSec: 1, mediaType: "image/jpeg" }), expect.objectContaining({ atSec: 3 })] }));
@@ -66,7 +66,7 @@ describe("proposer la description", () => {
   it("interrupteur coupé : rien ne part, la fiche ne change pas", async () => {
     const { payload, updates } = fake({ enabled: false });
     const call = vi.fn();
-    await expect(describeRush(payload, 7, { call })).rejects.toThrow(/Interrupteur/);
+    await expect(describeRush(payload, 7, "ad-rushes", { call })).rejects.toThrow(/Interrupteur/);
     expect(call).not.toHaveBeenCalled();
     expect(updates).toHaveLength(0);
   });
@@ -77,7 +77,7 @@ describe("proposer la description", () => {
       throw Object.assign(new Error("Réponse illisible"), { usage });
     });
     const fetcher = vi.fn(async () => new Response(Buffer.from("jpg")));
-    await expect(describeRush(payload, 7, { call, fetch: fetcher as never })).rejects.toThrow(/illisible/);
+    await expect(describeRush(payload, 7, "ad-rushes", { call, fetch: fetcher as never })).rejects.toThrow(/illisible/);
     expect(created[0].data.detail).toMatch(/échec/);
   });
 });

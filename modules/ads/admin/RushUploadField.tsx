@@ -33,7 +33,7 @@ export function RushUploadField() {
   const failure = useFormFields(([f]) => f?.["processing.error"]?.value as string | undefined);
   const poster = useFormFields(([f]) => f?.["working.posterUrl"]?.value as string | undefined);
 
-  const { id } = useDocumentInfo();
+  const { id, collectionSlug } = useDocumentInfo();
   const input = useRef<HTMLInputElement>(null);
   const [relaunching, setRelaunching] = useState(false);
 
@@ -41,7 +41,7 @@ export function RushUploadField() {
   const relaunch = async () => {
     setRelaunching(true);
     try {
-      const res = await fetch(`/api/admin/ads/rushes/${encodeURIComponent(String(id))}/reconvertir`, { method: "POST", credentials: "include" });
+      const res = await fetch(`/api/admin/ads/rushes/${encodeURIComponent(String(id))}/reconvertir?collection=${encodeURIComponent(String(collectionSlug))}`, { method: "POST", credentials: "include" });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error || String(res.status));
       toast.success("Rush remis en conversion : comptez une à deux minutes.");

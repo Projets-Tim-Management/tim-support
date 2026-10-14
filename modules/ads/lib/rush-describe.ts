@@ -5,7 +5,7 @@ import type { Payload } from "payload";
 import { claudeCostUsd, claudeMaxCostUsd, estimateTokens, usdToEur, type Usage } from "@/core/lib/ai-pricing";
 import { labelOf } from "@/modules/ads/lib/creative-options";
 import { ADS_VISION_MAX_TOKENS, ADS_VISION_MODEL } from "@/modules/ads/lib/models";
-import { isInspiration, RUSH_FEATURES, RUSH_SOURCES } from "@/modules/ads/lib/rushes";
+import { isInspiration, RUSH_FEATURES, RUSH_SOURCES, type ImportCollection } from "@/modules/ads/lib/rushes";
 import { assertAdsBudget, recordAdsUsage } from "@/modules/ads/lib/spend";
 
 /**
@@ -142,8 +142,15 @@ export const proposalHeading = (r: Rush): string => (!isInspiration(r) ? "Atouts
  * Propose la description d'un rush prêt, et l'écrit sur sa fiche. Lève en cas
  * d'échec (budget, API) : l'appelant décide s'il le dit ou l'ignore.
  */
-export async function describeRush(payload: Payload, rushId: number | string, deps: { call?: InsightCall; now?: Date; fetch?: typeof fetch } = {}) {
-  const r = (await payload.findByID({ collection: "ad-rushes", id: rushId, depth: 0, overrideAccess: true })) as unknown as Rush;
+export async function describeRush(
+  payload: Payload,
+  rushId: number | string,
+  collection: ImportCollection = "ad-rushes",
+  deps: { call?: InsightCall; now?: Date; fetch?: typeof fetch } = {},
+) {
+  const doc = (await payload.findByID({ collection, id: rushId, depth: 0, overrideAccess: true })) as unknown as Rush;
+  // Une fiche de la collection des inspirations se décrit en fiche de style, quoi qu'elle porte.
+  const r: Rush = collection === "ad-inspirations" ? { ...doc, use: "inspiration" } : doc;
   const frames = r.working?.keyframes ?? [];
   if (!frames.length) throw new Error("Pas d'image clé : le rush n'est pas encore converti.");
   const { system, text } = insightPrompt(r);
@@ -164,12 +171,12 @@ export async function describeRush(payload: Payload, rushId: number | string, de
     out = await (deps.call ?? callInsight)({ system, text, images });
   } catch (e) {
     const usage = (e as { usage?: Usage }).usage;
-    if (usage) await recordAdsUsage(payload, { kind: "texte", provider: "anthropic", model: ADS_VISION_MODEL, usd: claudeCostUsd(ADS_VISION_MODEL, usage), detail: `Description du rush ${rushId} — échec`, usage });
+    if (usage) await recordAdsUsage(payload, { kind: "texte", provider: "anthropic", model: ADS_VISION_MODEL, usd: claudeCostUsd(ADS_VISION_MODEL, usage), detail: `Description ${collection === "ad-rushes" ? "du rush" : "de l'inspiration"} ${rushId} — échec`, usage });
     throw e;
   }
-  await recordAdsUsage(payload, { kind: "texte", provider: "anthropic", model: ADS_VISION_MODEL, usd: claudeCostUsd(ADS_VISION_MODEL, out.usage), detail: `Description du rush ${rushId}`, usage: out.usage });
+  await recordAdsUsage(payload, { kind: "texte", provider: "anthropic", model: ADS_VISION_MODEL, usd: claudeCostUsd(ADS_VISION_MODEL, out.usage), detail: `Description ${collection === "ad-rushes" ? "du rush" : "de l'inspiration"} ${rushId}`, usage: out.usage });
   await payload.update({
-    collection: "ad-rushes",
+    collection,
     id: rushId,
     data: { ai: { proposal: proposalText(out.result, proposalHeading(r)), timeline: out.result.plans, status: "proposee" } } as never,
     depth: 0,

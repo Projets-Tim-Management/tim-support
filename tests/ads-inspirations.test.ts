@@ -1,38 +1,41 @@
 import { describe, expect, it } from "vitest";
 
-import { isActiveHref } from "@/admin/nav/nav-structure";
+import { AdInspirations } from "@/modules/ads/collections/AdInspirations";
 import { AdRushes } from "@/modules/ads/collections/AdRushes";
 import { insightPrompt, proposalHeading, proposalText } from "@/modules/ads/lib/rush-describe";
-import { isInspiration } from "@/modules/ads/lib/rushes";
+import { importCollectionOf } from "@/modules/ads/lib/rushes";
 import { inspirationForAgent, rushForAgent } from "@/modules/ads/video/mount";
 
 /**
  * Les inspirations (plan Publicité, §9 sexies, I1) : des pubs à imiter ou à
- * éviter, importées comme les rushes (captures ET vidéos), dont l'IA tire une
- * fiche de style — lue par le directeur artistique, jamais montée.
+ * éviter, dans leur propre collection, importées comme les rushes (captures ET
+ * vidéos), dont l'IA tire une fiche de style — lue par le directeur
+ * artistique, jamais montée.
  */
 
-type AnyField = { name?: string; type?: string; fields?: AnyField[]; admin?: { condition?: (d: unknown, s: unknown) => boolean } };
-const flat = (fields: AnyField[]): AnyField[] => fields.flatMap((f) => [f, ...(f.fields ? flat(f.fields) : [])]);
-const field = (name: string) => flat(AdRushes.fields as AnyField[]).find((f) => f.name === name)!;
-const rowOf = (name: string) => (AdRushes.fields as AnyField[]).find((f) => f.type === "row" && f.fields?.some((x) => x.name === name))!;
+type AnyField = { name?: string; type?: string; fields?: AnyField[] };
+const names = (fields: AnyField[]): string[] => fields.flatMap((f) => [...(f.name ? [f.name] : []), ...(f.fields ? names(f.fields) : [])]);
 
-describe("la fiche : un usage, et les champs qui vont avec", () => {
-  const INSP = { use: "inspiration" };
-  const MAT = { use: "matiere" };
+describe("une collection à part, sans rien d'une donnée de l'entreprise", () => {
+  const fields = names(AdInspirations.fields as AnyField[]);
 
-  it("une inspiration dit son verdict et ce qui plaît ; ni source, ni fonctionnalités, ni recadrage", () => {
-    expect(rowOf("verdict").admin!.condition!(INSP, {})).toBe(true);
-    expect(field("why").admin!.condition!(INSP, {})).toBe(true);
-    expect(rowOf("source").admin!.condition!(INSP, {})).toBe(false);
-    expect(field("description").admin!.condition!(INSP, {})).toBe(false);
-    expect(field("framingTool").admin!.condition!(INSP, {})).toBe(false);
+  it("verdict, lien, ce qui plaît — et la chaîne d'import des rushes", () => {
+    for (const f of ["upload", "original", "title", "verdict", "link", "why", "insight", "etat", "processing", "working", "ai"]) expect(fields, f).toContain(f);
   });
 
-  it("la matière garde ses champs, sans ceux d'une inspiration", () => {
-    expect(rowOf("source").admin!.condition!(MAT, {})).toBe(true);
-    expect(field("why").admin!.condition!(MAT, {})).toBe(false);
-    expect(isInspiration({})).toBe(false);
+  it("ni usage, ni source, ni fonctionnalités, ni droits, ni données réelles, ni recadrage", () => {
+    for (const f of ["use", "source", "features", "description", "origin", "noRealData", "framing", "framingTool"]) expect(fields, f).not.toContain(f);
+  });
+
+  it("deux listes, deux titres, deux boutons « Ajouter »", () => {
+    expect(AdInspirations.labels).toEqual({ singular: "Inspiration", plural: "Inspirations" });
+    expect(AdRushes.labels).toEqual({ singular: "Rush", plural: "Rushes" });
+  });
+
+  it("les routes partagées ne visent que l'une des deux collections", () => {
+    expect(importCollectionOf("/api/admin/ads/rushes/3/description?collection=ad-inspirations")).toBe("ad-inspirations");
+    expect(importCollectionOf("/api/admin/ads/rushes/3/description")).toBe("ad-rushes");
+    expect(importCollectionOf("/api/admin/ads/rushes/3/description?collection=users")).toBe("ad-rushes");
   });
 });
 
@@ -63,15 +66,5 @@ describe("l'agent lit la fiche validée, jamais les images", () => {
     expect(inspirationForAgent({ ...base, ai: { status: "validee", proposal: "Fiche" } })).toEqual({ id: 7, nom: "Pub X", verdict: "eviter", ceQuiPlait: "Trop chargé", ficheDeStyle: "Fiche" });
     expect(Object.keys(inspirationForAgent({ ...base, ai: { status: "validee", proposal: "F" } })!)).not.toContain("url");
     expect(rushForAgent({ id: 3 })).toMatchObject({ id: 3 });
-  });
-});
-
-describe("le menu : deux listes d'une même collection", () => {
-  const R = "/admin/collections/ad-rushes?where[use][equals]=matiere";
-  const I = "/admin/collections/ad-rushes?where[use][equals]=inspiration";
-  it("chaque liste s'allume sur son seul filtre", () => {
-    expect(isActiveHref("/admin/collections/ad-rushes", I, undefined, "where%5Buse%5D%5Bequals%5D=inspiration")).toBe(true);
-    expect(isActiveHref("/admin/collections/ad-rushes", R, undefined, "where%5Buse%5D%5Bequals%5D=inspiration")).toBe(false);
-    expect(isActiveHref("/admin/collections/ad-rushes", R, undefined, "")).toBe(false);
   });
 });

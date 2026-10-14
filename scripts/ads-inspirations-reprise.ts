@@ -45,7 +45,7 @@ for (const [i, insp] of list.entries()) {
     console.log(`  · ${title} : lien seul (${insp.link ?? "—"}) — à déposer en vidéo dans Publicité › Inspirations.`);
     continue;
   }
-  const exists = await payload.count({ collection: "ad-rushes", where: { title: { equals: title } }, overrideAccess: true });
+  const exists = await payload.count({ collection: "ad-inspirations", where: { title: { equals: title } }, overrideAccess: true });
   if (exists.totalDocs) {
     console.log(`  · ${title} : déjà reprise.`);
     continue;
@@ -58,9 +58,8 @@ for (const [i, insp] of list.entries()) {
   const contentType = insp.image.mimeType ?? "image/png";
   const blob = await put(`${RUSH_PREFIX}${insp.image.filename ?? `inspiration-${i + 1}.png`}`, data, { access: "public", contentType, addRandomSuffix: true, token: process.env.BLOB_READ_WRITE_TOKEN });
   await payload.create({
-    collection: "ad-rushes",
+    collection: "ad-inspirations",
     data: {
-      use: "inspiration",
       title,
       verdict: insp.verdict === "eviter" ? "eviter" : "aimer",
       link: insp.link ?? null,

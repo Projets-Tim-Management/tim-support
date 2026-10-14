@@ -85,7 +85,7 @@ export function rushForAgent(r: RushDoc): RushForAgent {
 export type VideoMaterial = { rushes: RushForAgent[]; styles: StyleForAgent[]; inspirations: InspirationForAgent[]; musiques: MusicForAgent[] };
 
 export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
-  const [rushes, styles, musics] = await Promise.all([
+  const [rushes, styles, musics, inspirations] = await Promise.all([
     payload.find({ collection: "ad-rushes", where: { "processing.status": { equals: "pret" } }, pagination: false, depth: 0, overrideAccess: true }),
     payload.find({ collection: "ad-styles", where: { active: { equals: true } }, pagination: false, depth: 0, sort: "name", overrideAccess: true }),
     payload.find({
@@ -95,11 +95,13 @@ export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
       depth: 0,
       overrideAccess: true,
     }),
+    payload.find({ collection: "ad-inspirations", where: { "ai.status": { equals: "validee" } }, pagination: false, depth: 0, sort: "-createdAt", overrideAccess: true }),
   ]);
   const docs = rushes.docs as unknown as RushDoc[];
   return {
+    // Une ancienne fiche de rush marquée « inspiration » (avant la collection à part) n'est jamais de la matière.
     rushes: docs.filter((r) => !isInspiration(r)).map(rushForAgent),
-    inspirations: docs.filter(isInspiration).map(inspirationForAgent).filter((i): i is InspirationForAgent => i !== null),
+    inspirations: (inspirations.docs as unknown as RushDoc[]).map(inspirationForAgent).filter((i): i is InspirationForAgent => i !== null),
     styles: (styles.docs as unknown as Raw[]).map((s) => ({ id: Number(s.id), nom: String(s.name ?? ""), quandLEmployer: String(s.intent ?? "") })),
     musiques: (musics.docs as unknown as Raw[]).map((m) => {
       const beat = (m.beat ?? {}) as { bpm?: number | null; durationSec?: number | null };
