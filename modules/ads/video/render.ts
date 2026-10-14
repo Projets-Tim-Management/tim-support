@@ -69,8 +69,41 @@ export async function loadVideoContext(payload: Payload, creative: Raw) {
   // Une inspiration (souvent la pub d'un autre) n'est jamais montée : elle n'est pas « prête » pour un montage.
   const music = await musicOf(payload, idOf((creative.video as Raw | null | undefined)?.music));
   const ready = rushes.filter((r) => !isInspiration(r) && r.processing?.status === "pret" && r.working?.url && r.working.meta?.width && r.working.meta?.height);
-  const elements = (await payload.find({ collection: "ad-elements", pagination: false, depth: 0, overrideAccess: true }).catch(() => ({ docs: [] }))).docs as unknown as { id: number; base: string; status: string; params?: unknown }[];
-  return { gen, style, kit, appearance, rushes, ready, music, elements };
+  const elements = (await payload.find({ collection: "ad-elements", pagination: false, depth: 0, overrideAccess: true }).catch(() => ({ docs: [] }))).docs as unknown as {
+    id: number;
+    name?: string;
+    base: string;
+    status: string;
+    params?: unknown;
+    versions?: { n: number }[] | null;
+  }[];
+  const faces = await facesOf(payload);
+  return { gen, style, kit, appearance, rushes, ready, music, elements, faces };
+}
+
+/**
+ * La photo des éléments d'un rendu : pour chaque élément posé, sa variante, son
+ * nom, sa VERSION et ses réglages du moment. Gardée avec la vidéo, elle dit à
+ * l'analyse quelle version a produit quel résultat, même si l'élément change
+ * ou est retiré ensuite. Pure.
+ */
+export function elementsUsed(score: Score, elements: { id: number; name?: string; base: string; params?: unknown; versions?: { n: number }[] | null }[]) {
+  const byId = new Map(elements.map((e) => [Number(e.id), e]));
+  const out: { type: string; variante: number | null; nom: string | null; version: number | null; params: unknown }[] = [];
+  for (const shot of score.shots) {
+    if (shot.kind !== "compo") continue;
+    for (const e of shot.elements) {
+      const v = e.variante != null ? byId.get(e.variante) : undefined;
+      out.push({ type: e.type, variante: v ? Number(v.id) : null, nom: v?.name ?? null, version: v ? (v.versions?.length ?? 1) : null, params: v?.params ?? {} });
+    }
+  }
+  return out;
+}
+
+/** Les visages des avatars (Médias publicitaires, nature « Visage »), les plus récents d'abord, 12 au plus. */
+export async function facesOf(payload: Payload): Promise<string[]> {
+  const r = await payload.find({ collection: "ad-media", where: { kind: { equals: "visage" } }, sort: "-createdAt", limit: 12, depth: 0, overrideAccess: true }).catch(() => ({ docs: [] }));
+  return (r.docs as unknown as { url?: string | null }[]).map((m) => m.url ?? "").filter(Boolean);
 }
 
 type MusicDoc = { id: number; kind?: string; active?: boolean | null; url?: string | null; filename?: string | null; beat?: { bpm?: number | null; bestStartSec?: number | null } | null };
@@ -104,7 +137,7 @@ async function resolveMusic(payload: Payload, kit: Raw, asked: number | string |
 export async function requestVideo(
   payload: Payload,
   creativeId: number | string,
-  input: { styleId: number | string; score?: unknown; music?: number | string | null },
+  input: { styleId: number | string; score?: unknown; music?: number | string | null; requireActiveElements?: boolean },
 ): Promise<{ score: Score; music: number | null }> {
   const creative = (await payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 0, overrideAccess: true })) as unknown as Raw & {
     hook?: string | null;
@@ -133,7 +166,7 @@ export async function requestVideo(
     if (!d.ok) throw new FinalError(d.error);
     score = d.score;
   }
-  const problems = scoreProblems(score, scoreContextOf(ctx));
+  const problems = scoreProblems(score, scoreContextOf(ctx, { requireActive: input.requireActiveElements }));
   if (problems.length) throw new FinalError(`Partition refusée : ${problems.join(" ")}`);
   const music = await resolveMusic(payload, ctx.kit, input.music);
   await payload.update({
@@ -146,7 +179,7 @@ export async function requestVideo(
   return { score, music };
 }
 
-export function scoreContextOf(ctx: Awaited<ReturnType<typeof loadVideoContext>>) {
+export function scoreContextOf(ctx: Awaited<ReturnType<typeof loadVideoContext>>, opts: { requireActive?: boolean } = {}) {
   const forbidden = [...((ctx.kit.forbidden as { term?: string }[] | undefined) ?? []).map((f) => f.term ?? "").filter(Boolean), ...ctx.gen.forbidden];
   return {
     rushes: new Map(
@@ -159,6 +192,7 @@ export function scoreContextOf(ctx: Awaited<ReturnType<typeof loadVideoContext>>
     offer: ctx.gen.brief.offer ?? null,
     forbidden,
     variants: new Map(ctx.elements.map((e) => [Number(e.id), { type: e.base, status: e.status }])),
+    requireActive: opts.requireActive ?? false,
   };
 }
 
@@ -219,11 +253,11 @@ export async function processNextRender(payload: Payload, deps: RenderDeps = {})
     const logoAnimated = await loadAnimatedLogo(ctx.kit.logoAnimated);
     const variants = new Map(ctx.elements.map((e) => [Number(e.id), { type: e.base, params: e.params ?? {} }]));
     const props = FORMAT_KEYS.map((format) =>
-      buildRenderProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, music: ctx.music, logoAnimated, variants }),
+      buildRenderProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, music: ctx.music, logoAnimated, variants, faces: ctx.faces }),
     );
     const hook = String((creative as Raw).hook ?? "");
     const posters = FORMAT_KEYS.map((format) =>
-      buildPosterProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, logoAnimated, variants }, hook),
+      buildPosterProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, logoAnimated, variants, faces: ctx.faces }, hook),
     );
     const files = await (deps.render ?? renderInSandbox)(props, posters);
     const store = deps.store ?? storeOnBlob;
@@ -231,7 +265,7 @@ export async function processNextRender(payload: Payload, deps: RenderDeps = {})
     const seconds = Math.round(timed.shots.reduce((t, s) => t + s.seconds, 0) * 100) / 100;
     const renders = [];
     for (const f of files) renders.push({ format: f.format, url: await store(`ads/creas/videos/${claimed.id}/${slug}-${f.format}.mp4`, f.data, "video/mp4"), seconds, bytes: f.data.length });
-    await write({ status: "prete", error: null, renders, attempts: claimed.attempts, renderedAt: now().toISOString(), leaseUntil: null });
+    await write({ status: "prete", error: null, renders, elements: elementsUsed(timed, ctx.elements), attempts: claimed.attempts, renderedAt: now().toISOString(), leaseUntil: null });
     // Les affiches, dans le style, remplacent les visuels de la créa (les anciens gabarits) quand les trois formats sont là.
     if (files.length && files.every((f) => f.poster)) {
       const assets = [];

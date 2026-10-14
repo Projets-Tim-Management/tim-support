@@ -2,8 +2,11 @@
 
 import { useField, useFormFields } from "@payloadcms/ui";
 
-import { paramSpecs, type ParamSpec } from "@/modules/ads/video/element-params";
+import type { Palette } from "@/modules/ads/lib/style";
+import { COLOR, paramSpecs, type ParamSpec } from "@/modules/ads/video/element-params";
 import { isElementType } from "@/modules/ads/video/elements";
+
+import { useAtelierContext } from "./useAtelierContext";
 
 /**
  * Les réglages d'un élément (atelier des éléments), générés depuis le contrat
@@ -14,6 +17,7 @@ import { isElementType } from "@/modules/ads/video/elements";
 type Params = Record<string, string | number | boolean>;
 
 export function ElementParamsEditor() {
+  const atelier = useAtelierContext();
   const base = useFormFields(([f]) => f?.base?.value as string | undefined);
   const { value, setValue } = useField<Params | null>({ path: "params" });
   if (!isElementType(base)) return null;
@@ -31,14 +35,20 @@ export function ElementParamsEditor() {
       <p className="ads-elparams__hint">Changer un réglage puis enregistrer crée une nouvelle version (l&apos;ancienne reste restaurable) et relance l&apos;aperçu.</p>
       <div className="ads-elparams__grid">
         {specs.map((s) => (
-          <Control key={s.key} spec={s} value={params[s.key]} onChange={(v) => set(s.key, v)} />
+          <Control key={s.key} spec={s} value={params[s.key]} onChange={(v) => set(s.key, v)} palette={atelier?.palette ?? null} />
         ))}
       </div>
     </section>
   );
 }
 
-function Control({ spec, value, onChange }: { spec: ParamSpec; value: string | number | boolean | undefined; onChange: (v: string | number | boolean | undefined) => void }) {
+/** La vraie couleur du kit derrière un rôle (« accent », « texte clair »…), pour la pastille. */
+const swatch = (p: Palette, role: string): string | null =>
+  ({ accent: p.accent, principale: p.primary, clair: p.lightBg, sombre: p.darkBg, "texte-clair": p.textOnDark, "texte-sombre": p.textOnLight })[role] ?? null;
+const ROLE_LABEL: Record<string, string> = { auto: "Auto", accent: "Accent", principale: "Principale", clair: "Fond clair", sombre: "Fond sombre", "texte-clair": "Texte clair", "texte-sombre": "Texte sombre" };
+const isColorSpec = (s: ParamSpec) => s.kind === "choix" && s.options.every((o) => o === "auto" || (COLOR as readonly string[]).includes(o));
+
+function Control({ spec, value, onChange, palette }: { spec: ParamSpec; value: string | number | boolean | undefined; onChange: (v: string | number | boolean | undefined) => void; palette: Palette | null }) {
   const custom = value !== undefined && value !== spec.defaut;
   const shown = value ?? spec.defaut;
   return (
@@ -51,7 +61,29 @@ function Control({ spec, value, onChange }: { spec: ParamSpec; value: string | n
           </button>
         )}
       </span>
-      {spec.kind === "choix" && (
+      {spec.kind === "choix" && isColorSpec(spec) && palette && (
+        <span className="ads-elparams__swatches" role="radiogroup" aria-label={spec.label}>
+          {spec.options.map((o) => {
+            const c = swatch(palette, o);
+            return (
+              <button
+                key={o}
+                type="button"
+                role="radio"
+                aria-checked={shown === o}
+                title={ROLE_LABEL[o] ?? o}
+                className={`ads-elparams__swatch${shown === o ? " ads-elparams__swatch--on" : ""}`}
+                style={c ? { background: c } : undefined}
+                onClick={() => onChange(o)}
+              >
+                {o === "auto" ? "A" : ""}
+              </button>
+            );
+          })}
+          <span className="ads-elparams__swatch-name">{ROLE_LABEL[String(shown)] ?? String(shown)}</span>
+        </span>
+      )}
+      {spec.kind === "choix" && !(isColorSpec(spec) && palette) && (
         <select value={String(shown)} onChange={(e) => onChange(e.target.value)}>
           {spec.options.map((o) => (
             <option key={o} value={o}>

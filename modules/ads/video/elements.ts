@@ -275,6 +275,12 @@ export type CompoContext = {
   rush: { srcAspect: number; framing: Framing | null } | null;
   /** Les variantes de l'atelier (Publicité › Éléments), par identifiant : leur élément de base et leur état. */
   variants?: Map<number, { type: string; status: string }>;
+  /**
+   * Un NOUVEAU montage (l'agent) : seules les variantes actives sont permises.
+   * Refaire une vidéo existante accepte une variante retirée depuis : ses
+   * derniers réglages servent, l'ancienne créa ne casse pas.
+   */
+  requireActive?: boolean;
 };
 
 /** Les proportions des trois formats Meta (largeur / hauteur). */
@@ -316,7 +322,7 @@ export function elementProblems(elements: Element[], fond: Fond, ctx: CompoConte
       const v = ctx.variants?.get(e.variante);
       if (!v) out.push(`${where} : variante ${e.variante} introuvable.`);
       else if (v.type !== e.type) out.push(`${where} : la variante ${e.variante} est un élément « ${v.type} », pas « ${e.type} ».`);
-      else if (v.status !== "actif") out.push(`${where} : la variante ${e.variante} n'est pas active (${v.status}).`);
+      else if (ctx.requireActive && v.status !== "actif") out.push(`${where} : la variante ${e.variante} n'est pas active (${v.status}) : choisis une variante active.`);
     }
     if (!(e.debut >= 0 && e.debut < ctx.seconds)) out.push(`${where} : début à ${e.debut} s, hors du plan (${ctx.seconds} s).`);
     if (e.fin !== undefined && !(e.fin > e.debut && e.fin <= ctx.seconds + 0.01)) out.push(`${where} : fin à ${e.fin} s, hors du plan.`);

@@ -3,11 +3,11 @@ import type { Payload } from "payload";
 
 import { execSql, rowsOf } from "@/core/lib/raw-sql";
 import { FinalError, storeOnBlob, type Store } from "@/modules/ads/lib/rush-process";
-import { ELEMENT_SAMPLES, isElementType, type ElementType } from "@/modules/ads/video/elements";
+import { isElementType } from "@/modules/ads/video/elements";
 import { loadAnimatedLogo } from "@/modules/ads/video/logo-server";
 import { buildRenderProps, type RenderProps } from "@/modules/ads/video/props";
-import { renderInSandbox, type RenderOne } from "@/modules/ads/video/render";
-import { parseScore } from "@/modules/ads/video/score";
+import { facesOf, renderInSandbox, type RenderOne } from "@/modules/ads/video/render";
+import { previewScore } from "@/modules/ads/video/preview-score";
 
 /**
  * L'aperçu d'un élément de l'atelier (plan Publicité) : une courte vidéo 9:16
@@ -18,11 +18,10 @@ import { parseScore } from "@/modules/ads/video/score";
 
 export const LEASE_MS = 10 * 60_000;
 export const MAX_ATTEMPTS = 3;
-const SECONDS = 3;
 
 type Raw = Record<string, unknown>;
 
-/** Prend le plus ancien aperçu à rendre. Atomique. */
+/** Prend l'aperçu à rendre le plus RÉCENT : celui qu'on vient de changer passe avant ceux qui attendent depuis longtemps. Atomique. */
 export async function claimNextPreview(payload: Payload, now: Date): Promise<{ id: number; attempts: number } | null> {
   const until = new Date(now.getTime() + LEASE_MS).toISOString();
   const rows = rowsOf(
@@ -32,22 +31,12 @@ export async function claimNextPreview(payload: Payload, now: Date): Promise<{ i
           WHERE "id" = (
             SELECT "id" FROM "ad_elements"
             WHERE "preview_status" = 'en-attente' OR ("preview_status" = 'en-cours' AND ("preview_lease_until" IS NULL OR "preview_lease_until" < ${now.toISOString()}::timestamptz))
-            ORDER BY "updated_at" LIMIT 1 FOR UPDATE SKIP LOCKED)
+            ORDER BY "updated_at" DESC LIMIT 1 FOR UPDATE SKIP LOCKED)
           RETURNING "id", "preview_attempts"`,
     ),
   ) as Raw[];
   const r = rows[0];
   return r ? { id: Number(r.id), attempts: Number(r.preview_attempts ?? 1) } : null;
-}
-
-/** La partition de l'aperçu : l'exemple de l'élément sur le fond du style, puis sur un rush flouté (s'il y en a un). Pure. */
-export function previewScore(base: ElementType, variantId: number, rushId: number | null, factId: number | null) {
-  const sample = ELEMENT_SAMPLES[base];
-  const data = base === "compteur" ? { ...sample.data, fact: factId ?? 0 } : sample.data;
-  const el = { type: base, variante: variantId, ...sample, data, debut: 0.2 };
-  const shots: Raw[] = [{ kind: "compo", seconds: SECONDS, fond: { type: "style" }, elements: [el] }];
-  if (rushId != null) shots.push({ kind: "compo", seconds: SECONDS, fond: { type: "rush", rush: rushId, from: 0, to: SECONDS, flou: true, voile: 0.45 }, elements: [el] });
-  return parseScore({ shots });
 }
 
 export type PreviewDeps = { now?: () => Date; render?: RenderOne; store?: Store };
@@ -82,6 +71,7 @@ export async function processNextPreview(payload: Payload, deps: PreviewDeps = {
       facts: fact ? new Map([[Number(fact.id), { statement: String(fact.statement ?? ""), source: String(fact.source ?? "") }]]) : new Map(),
       logoAnimated: await loadAnimatedLogo(kit.logoAnimated),
       variants: new Map([[el.id, { type: el.base, params: el.params ?? {} }]]),
+      faces: await facesOf(payload),
     });
     const [file] = await (deps.render ?? renderInSandbox)([props]);
     const url = await (deps.store ?? storeOnBlob)(`ads/elements/${el.id}/apercu.mp4`, file.data, "video/mp4");

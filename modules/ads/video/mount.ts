@@ -239,7 +239,8 @@ export async function mountVideo(
 
   const creative = (await payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 0, overrideAccess: true })) as unknown as Raw;
   // La partition est vérifiée ici, sur la créa d'origine : refusée, rien d'autre ne s'écrit.
-  const first = await requestVideo(payload, creativeId, { styleId: variants[0].style, score: input.score, music: variants[0].music });
+  // Un nouveau montage de l'agent : seules les variantes d'éléments actives.
+  const first = await requestVideo(payload, creativeId, { styleId: variants[0].style, score: input.score, music: variants[0].music, requireActiveElements: true });
   const entry = (crea: number, v: (typeof variants)[number], music: number | null, test: boolean) => ({
     crea,
     style: v.style,

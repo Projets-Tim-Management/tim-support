@@ -98,6 +98,8 @@ export const AdCreatives: CollectionConfig = {
         // La musique de la vidéo, résolue au moment de la demander (celle du kit par défaut) ; vide : sans musique.
         { name: "music", type: "relationship", relationTo: "ad-media", label: "Musique" },
         { name: "renders", type: "json", label: "Fichiers rendus" },
+        // La photo des éléments du rendu : variante, nom, version et réglages du moment (pour l'analyse).
+        { name: "elements", type: "json", label: "Éléments utilisés" },
         { name: "attempts", type: "number", label: "Essais", defaultValue: 0 },
         { name: "renderedAt", type: "date", label: "Rendue le", admin: { date: { pickerAppearance: "dayAndTime" } } },
         { name: "leaseUntil", type: "date", index: true, admin: { hidden: true } },

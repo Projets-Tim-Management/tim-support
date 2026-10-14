@@ -43,8 +43,13 @@ const stepOf = (p: RenderProps): number => (p.music?.beatFrames ? p.music.beatFr
 /** Une couleur du kit, par son rôle. */
 function colorOf(p: RenderProps, role: string): string {
   const c = p.palette;
-  return role === "principale" ? c.primary : role === "clair" ? c.lightBg : role === "sombre" ? c.darkBg : c.accent;
+  return role === "principale" ? c.primary : role === "clair" ? c.lightBg : role === "sombre" ? c.darkBg : role === "texte-clair" ? c.textOnDark : role === "texte-sombre" ? c.textOnLight : c.accent;
 }
+/** La couleur d'une partie : celle de son réglage, ou `fallback` quand le réglage dit « auto » (ou n'existe pas). */
+const pick = (p: RenderProps, prm: Params, key: string, fallback: string) => {
+  const role = opt(prm, key, "auto");
+  return role === "auto" ? fallback : colorOf(p, role);
+};
 /** Le texte lisible sur une couleur du kit. */
 const onColor = (p: RenderProps, role: string) => (role === "clair" ? p.palette.textOnLight : p.palette.textOnDark);
 
@@ -62,8 +67,10 @@ const shadowOf = (prm: Params, s: number) => SHADOW[opt(prm, "ombre", "forte") a
 function surface(p: RenderProps, prm: Params, s: number, base = 34): { style: CSSProperties; fg: string; line: string } {
   const c = p.palette;
   const kind = opt(prm, "surface", "clair");
-  const bg = kind === "sombre" ? c.darkBg : kind === "accent" ? c.accent : kind === "verre" ? "rgba(255,255,255,0.16)" : c.lightBg;
-  const fg = kind === "clair" ? c.textOnLight : c.textOnDark;
+  // Le verre est teinté du fond sombre du kit : translucide et flouté, mais le texte clair reste lisible sur un rush clair.
+  const glass = /^#[0-9a-f]{6}$/i.test(c.darkBg) ? `${c.darkBg}8c` : "rgba(15,20,40,0.55)";
+  const bg = kind === "sombre" ? c.darkBg : kind === "accent" ? c.accent : kind === "verre" ? glass : c.lightBg;
+  const fg = pick(p, prm, "couleur_texte", kind === "clair" ? c.textOnLight : c.textOnDark);
   const border = opt(prm, "bordure", kind === "verre" ? "fine" : "aucune");
   return {
     fg,
@@ -111,13 +118,34 @@ function Card({ e, ctx, s, title, children }: { e: RenderElement; ctx: Ctx; s: n
     <div style={{ ...sf.style, overflow: "hidden" }}>
       {header && (
         <div style={{ display: "flex", alignItems: "center", gap: 16 * s, padding: `${30 * s}px ${38 * s}px`, borderBottom: `${2 * s}px solid ${sf.line}` }}>
-          <div style={{ width: 16 * s, height: 16 * s, borderRadius: "50%", background: ctx.p.palette.accent }} />
+          <div style={{ width: 16 * s, height: 16 * s, borderRadius: "50%", background: pick(ctx.p, e.params, "couleur_point", ctx.p.palette.accent) }} />
           <div style={{ fontFamily: ctx.title, fontWeight: 800, fontSize: 38 * s }}>{title}</div>
         </div>
       )}
       <div style={{ padding: `${26 * s}px ${38 * s}px ${34 * s}px` }}>{children}</div>
     </div>
   );
+}
+
+/** L'avatar d'une ligne : initiales, silhouette, photo (Médias publicitaires, nature « Visage ») ou rien. */
+function Avatar({ mode, name, color, face, size, font }: { mode: string; name: string; color: string; face: string | null; size: number; font: string }) {
+  if (mode === "aucun") return null;
+  const ring: CSSProperties = { width: size, height: size, flex: "none", borderRadius: "50%", overflow: "hidden", background: `${color}26`, display: "flex", alignItems: "center", justifyContent: "center" };
+  if (mode === "photos" && face) {
+    // eslint-disable-next-line @next/next/no-img-element -- rendu vidéo (Remotion), pas une page Next.
+    return <img src={face} alt="" style={{ ...ring, objectFit: "cover" }} />;
+  }
+  if (mode === "silhouette" || mode === "photos") {
+    return (
+      <div style={ring}>
+        <svg width={size} height={size} viewBox="0 0 40 40">
+          <circle cx="20" cy="15" r="7" fill={color} />
+          <path d="M6 38c1.5-8 7-12 14-12s12.5 4 14 12z" fill={color} />
+        </svg>
+      </div>
+    );
+  }
+  return <div style={{ ...ring, color, fontFamily: font, fontWeight: 800, fontSize: size * 0.4 }}>{initials(name)}</div>;
 }
 
 function Liste({ e, ctx, s }: Props) {
@@ -136,21 +164,17 @@ function Liste({ e, ctx, s }: Props) {
         const k = t(frame, at, 9);
         return (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 22 * s, padding: `${18 * s}px 0`, borderBottom: i < items.length - 1 ? `1px solid ${sf.line}` : "none", opacity: k, transform: `translateX(${(1 - k) * 40 * s}px)` }}>
-            {yes(prm, "avatars", true) && (
-              <div style={{ width: 60 * s, height: 60 * s, borderRadius: "50%", background: `${p.palette.accent}26`, color: p.palette.accent, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: ctx.body, fontWeight: 800, fontSize: 24 * s }}>
-                {initials(str(it.nom))}
-              </div>
-            )}
+            <Avatar mode={opt(prm, "avatars", "initiales")} name={str(it.nom)} color={pick(p, prm, "couleur_avatar", p.palette.accent)} face={p.faces?.length ? p.faces[i % p.faces.length] : null} size={60 * s} font={ctx.body} />
             <div style={{ flex: 1 }}>
               <div style={{ fontFamily: ctx.body, fontWeight: 700, fontSize: 32 * s }}>{str(it.nom)}</div>
               {it.detail && <div style={{ fontFamily: ctx.body, fontSize: 24 * s, opacity: 0.6 }}>{str(it.detail)}</div>}
             </div>
-            <Check k={t(frame, at + step * 0.8, 8, pop)} color={p.palette.accent} size={50 * s} shape={opt(prm, "coche", "rond")} />
+            <Check k={t(frame, at + step * 0.8, 8, pop)} color={pick(p, prm, "couleur_coche", p.palette.accent)} size={50 * s} shape={opt(prm, "coche", "rond")} />
           </div>
         );
       })}
       {str(e.data.action) && (
-        <div style={{ marginTop: 26 * s, background: p.palette.accent, color: p.palette.textOnDark, borderRadius: radiusOf(p, prm, s, 20), padding: `${22 * s}px 0`, textAlign: "center", fontFamily: ctx.body, fontWeight: 800, fontSize: 32 * s, opacity: t(frame, done, 8), transform: `scale(${0.9 + 0.1 * t(frame, done, 10, pop)})` }}>
+        <div style={{ marginTop: 26 * s, background: pick(p, prm, "couleur_action", p.palette.accent), color: p.palette.textOnDark, borderRadius: radiusOf(p, prm, s, 20), padding: `${22 * s}px 0`, textAlign: "center", fontFamily: ctx.body, fontWeight: 800, fontSize: 32 * s, opacity: t(frame, done, 8), transform: `scale(${0.9 + 0.1 * t(frame, done, 10, pop)})` }}>
           {str(e.data.action)}
         </div>
       )}
@@ -168,7 +192,7 @@ function Notification({ e, ctx, s }: Props) {
   const logo = p.logos.symbol ?? p.logos.light;
   return (
     <div style={{ ...sf.style, display: "flex", gap: 26 * s, alignItems: "flex-start", padding: 34 * s }}>
-      {icon === "app" && <div style={{ width: 84 * s, height: 84 * s, flex: "none", borderRadius: 22 * s, background: p.palette.primary, color: p.palette.textOnDark, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: ctx.title, fontWeight: 900, fontSize: 28 * s }}>{app.slice(0, 3).toUpperCase()}</div>}
+      {icon === "app" && <div style={{ width: 84 * s, height: 84 * s, flex: "none", borderRadius: 22 * s, background: pick(p, prm, "couleur_icone", p.palette.primary), color: p.palette.textOnDark, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: ctx.title, fontWeight: 900, fontSize: 28 * s }}>{app.slice(0, 3).toUpperCase()}</div>}
       {/* eslint-disable-next-line @next/next/no-img-element -- rendu vidéo (Remotion), pas une page Next. */}
       {icon === "logo" && logo && <img src={logo} alt="" style={{ width: 84 * s, height: 84 * s, flex: "none", objectFit: "contain", borderRadius: 22 * s, background: p.palette.lightBg }} />}
       <div style={{ flex: 1 }}>
@@ -179,7 +203,7 @@ function Notification({ e, ctx, s }: Props) {
         <div style={{ fontFamily: ctx.body, fontWeight: 800, fontSize: 36 * s, lineHeight: 1.15 }}>{str(e.data.titre)}</div>
         <div style={{ fontFamily: ctx.body, fontSize: 28 * s, lineHeight: 1.3, opacity: 0.8, marginTop: 6 * s }}>{str(e.data.texte)}</div>
       </div>
-      {yes(prm, "coche", true) && <Check k={t(frame, stepOf(p) * 3, 8, popOf(e))} color={p.palette.accent} size={52 * s} />}
+      {yes(prm, "coche", true) && <Check k={t(frame, stepOf(p) * 3, 8, popOf(e))} color={pick(p, prm, "couleur_coche", p.palette.accent)} size={52 * s} />}
     </div>
   );
 }
@@ -194,24 +218,25 @@ function Bouton({ e, ctx, s, frames }: Props) {
   const ripple = t(frame, tap, 14);
   const ok = t(frame, tap + 6, 12, popOf(e));
   const conf = str(e.data.confirmation);
-  const sf = surface(p, { ...prm, surface: "clair" }, s);
+  const sf = surface(p, { ...prm, surface: "clair", couleur_texte: "auto" }, s);
+  const okColor = pick(p, prm, "couleur_coche", p.palette.accent);
   return (
     <div style={{ position: "relative" }}>
-      <div style={{ background: colorOf(p, role), color: onColor(p, role), borderRadius: radiusOf(p, prm, s, 22), padding: `${32 * s}px 0`, textAlign: "center", fontFamily: ctx.body, fontWeight: 800, fontSize: 42 * s, transform: `scale(${1 - press * 0.06})`, boxShadow: `0 ${(1 - press) * 16 * s}px ${34 * s}px -${12 * s}px rgba(0,0,0,0.45)` }}>
+      <div style={{ background: colorOf(p, role), color: pick(p, prm, "couleur_texte", onColor(p, role)), borderRadius: radiusOf(p, prm, s, 22), padding: `${32 * s}px 0`, textAlign: "center", fontFamily: ctx.body, fontWeight: 800, fontSize: 42 * s, transform: `scale(${1 - press * 0.06})`, boxShadow: `0 ${(1 - press) * 16 * s}px ${34 * s}px -${12 * s}px rgba(0,0,0,0.45)` }}>
         {str(e.data.bouton)}
       </div>
       {yes(prm, "onde", true) && (
-        <div style={{ position: "absolute", left: "50%", top: 54 * s, width: 40 * s, height: 40 * s, marginLeft: -20 * s, marginTop: -20 * s, borderRadius: "50%", border: `${4 * s}px solid ${p.palette.lightBg}`, transform: `scale(${1 + ripple * 6})`, opacity: (1 - ripple) * (frame >= tap ? 1 : 0) }} />
+        <div style={{ position: "absolute", left: "50%", top: 54 * s, width: 40 * s, height: 40 * s, marginLeft: -20 * s, marginTop: -20 * s, borderRadius: "50%", border: `${4 * s}px solid ${pick(p, prm, "couleur_onde", p.palette.lightBg)}`, transform: `scale(${1 + ripple * 6})`, opacity: (1 - ripple) * (frame >= tap ? 1 : 0) }} />
       )}
       {conf && opt(prm, "confirmation", "carte") === "carte" && (
         <div style={{ ...sf.style, marginTop: 26 * s, display: "flex", alignItems: "center", gap: 18 * s, padding: `${22 * s}px ${28 * s}px`, opacity: ok, transform: `translateY(${(1 - ok) * 40 * s}px)` }}>
-          <Check k={ok} color={p.palette.accent} size={50 * s} />
+          <Check k={ok} color={okColor} size={50 * s} />
           <div style={{ fontFamily: ctx.body, fontWeight: 700, fontSize: 32 * s }}>{conf}</div>
         </div>
       )}
       {conf && opt(prm, "confirmation", "carte") === "badge" && (
         <div style={{ display: "flex", justifyContent: "center", marginTop: 22 * s, opacity: ok, transform: `scale(${0.7 + 0.3 * ok})` }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 12 * s, background: p.palette.accent, color: p.palette.textOnDark, borderRadius: 999, padding: `${12 * s}px ${26 * s}px`, fontFamily: ctx.body, fontWeight: 800, fontSize: 28 * s }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 12 * s, background: okColor, color: p.palette.textOnDark, borderRadius: 999, padding: `${12 * s}px ${26 * s}px`, fontFamily: ctx.body, fontWeight: 800, fontSize: 28 * s }}>
             <Check k={ok} color={p.palette.textOnDark} size={34 * s} />
             {conf}
           </div>
@@ -233,7 +258,7 @@ function Planning({ e, ctx, s, w }: Props) {
   const lignes = strs(e.data.lignes);
   const labelW = w * 0.3;
   const cell = (w - 76 * s - labelW) / days.length - 8 * s;
-  const tones = [p.palette.accent, p.palette.primary, `${p.palette.accent}99`];
+  const tones = [pick(p, prm, "couleur_1", p.palette.accent), pick(p, prm, "couleur_2", p.palette.primary), pick(p, prm, "couleur_3", p.palette.darkBg)];
   const bars = opt(prm, "remplissage", "blocs") === "barres";
   const pop = popOf(e);
   return (
@@ -273,13 +298,14 @@ function Fiche({ e, ctx, s }: Props) {
   const frame = useFrame(e);
   const p = ctx.p;
   const puce = opt(e.params, "puce", "rond");
+  const dot = pick(p, e.params, "couleur_puce", p.palette.accent);
   return (
     <Card e={e} ctx={ctx} s={s} title={str(e.data.lieu)}>
       {strs(e.data.lignes).map((l, i) => {
         const k = t(frame, 6 + stepOf(p) * (1 + i), 8);
         return (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 16 * s, fontFamily: ctx.body, fontSize: 30 * s, padding: `${8 * s}px 0`, opacity: k }}>
-            {puce === "coche" ? <Check k={k} color={p.palette.accent} size={34 * s} /> : <div style={{ width: puce === "trait" ? 24 * s : 14 * s, height: puce === "trait" ? 5 * s : 14 * s, borderRadius: 14 * s, background: p.palette.accent }} />}
+            {puce === "coche" ? <Check k={k} color={dot} size={34 * s} /> : <div style={{ width: puce === "trait" ? 24 * s : 14 * s, height: puce === "trait" ? 5 * s : 14 * s, borderRadius: 14 * s, background: dot }} />}
             {l}
           </div>
         );
@@ -297,12 +323,13 @@ function Champ({ e, ctx, s }: Props) {
   const speed = num(prm, "frappe", 1);
   const typed = Math.round(interpolate(frame, [6, 6 + (value.length * 1.6) / speed], [0, value.length], clamp));
   const caret = yes(prm, "curseur", true) && Math.floor(frame / 8) % 2 === 0;
+  const line = pick(p, prm, "couleur_trait", p.palette.accent);
   return (
     <div style={{ ...sf.style, padding: `${26 * s}px ${32 * s}px` }}>
       <div style={{ fontFamily: ctx.body, fontSize: 24 * s, opacity: 0.6, marginBottom: 10 * s }}>{str(e.data.libelle)}</div>
-      <div style={{ fontFamily: ctx.body, fontWeight: 700, fontSize: 36 * s, borderBottom: `${3 * s}px solid ${p.palette.accent}`, paddingBottom: 8 * s, minHeight: 44 * s }}>
+      <div style={{ fontFamily: ctx.body, fontWeight: 700, fontSize: 36 * s, borderBottom: `${3 * s}px solid ${line}`, paddingBottom: 8 * s, minHeight: 44 * s }}>
         {value.slice(0, typed)}
-        <span style={{ opacity: caret ? 1 : 0, color: p.palette.accent }}>|</span>
+        <span style={{ opacity: caret ? 1 : 0, color: line }}>|</span>
       </div>
     </div>
   );
@@ -315,12 +342,13 @@ function Badge({ e, ctx, s }: Props) {
   const role = opt(prm, "couleur", "accent");
   const icon = opt(prm, "icone", "coche");
   const k = t(frame, 4, 8, popOf(e));
+  const fg = pick(p, prm, "couleur_texte", onColor(p, role));
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 14 * s, background: colorOf(p, role), color: onColor(p, role), borderRadius: 999, padding: `${16 * s}px ${30 * s}px ${16 * s}px ${icon === "aucune" ? 30 * s : 18 * s}px`, fontFamily: ctx.body, fontWeight: 800, fontSize: 32 * s, boxShadow: shadowOf(prm, s) }}>
-      {icon === "coche" && <Check k={k} color={onColor(p, role)} size={40 * s} />}
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 14 * s, background: colorOf(p, role), color: fg, borderRadius: 999, padding: `${16 * s}px ${30 * s}px ${16 * s}px ${icon === "aucune" ? 30 * s : 18 * s}px`, fontFamily: ctx.body, fontWeight: 800, fontSize: 32 * s, boxShadow: shadowOf(prm, s) }}>
+      {icon === "coche" && <Check k={k} color={fg} size={40 * s} />}
       {icon === "etoile" && (
         <svg width={38 * s} height={38 * s} viewBox="0 0 24 24" style={{ transform: `scale(${k}) rotate(${(1 - k) * 90}deg)` }}>
-          <path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6z" fill={onColor(p, role)} />
+          <path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6z" fill={fg} />
         </svg>
       )}
       {str(e.data.texte)}
@@ -336,6 +364,7 @@ function Tap({ e, ctx, s, w }: Props) {
   const ripple = t(frame, 9, 16);
   const inK = t(frame, 0, 8);
   const ring = opt(prm, "doigt", "disque") === "anneau";
+  const finger = pick(p, prm, "couleur_doigt", p.palette.textOnDark);
   return (
     <div style={{ position: "relative", width: w, height: w }}>
       <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `${5 * s}px solid ${colorOf(p, opt(prm, "onde_couleur", "accent"))}`, transform: `scale(${0.4 + ripple * 1.6})`, opacity: (1 - ripple) * (frame >= 9 ? 1 : 0) }} />
@@ -344,8 +373,8 @@ function Tap({ e, ctx, s, w }: Props) {
           position: "absolute",
           inset: "18%",
           borderRadius: "50%",
-          background: ring ? "transparent" : "#ffffff",
-          border: ring ? `${8 * s}px solid #ffffff` : "none",
+          background: ring ? "transparent" : finger,
+          border: ring ? `${8 * s}px solid ${finger}` : "none",
           opacity: 0.9 * inK,
           transform: `scale(${1 - press * 0.18}) translate(${(1 - inK) * 60}%, ${(1 - inK) * 80}%)`,
           boxShadow: `0 ${10 * s}px ${30 * s}px rgba(0,0,0,0.35)`,
@@ -393,10 +422,11 @@ function Soulignement({ e, ctx, s }: Props) {
   return <div style={{ height: h, borderRadius: h / 2, background: color, width: `${k * 100}%` }} />;
 }
 
-function Titre({ e, ctx, s, ink }: Props) {
+function Titre({ e, ctx, s, ink: plan }: Props) {
   const frame = useFrame(e);
   const p = ctx.p;
   const prm = e.params;
+  const ink = pick(p, prm, "couleur_texte", plan);
   const text = str(e.data.texte);
   const strong = str(e.data.mot_fort).toLowerCase();
   const anim = str(e.data.animation) || "mot-a-mot";
@@ -433,7 +463,7 @@ function Titre({ e, ctx, s, ink }: Props) {
         <div style={{ ...base, opacity: 1 - out }}>
           <span style={{ position: "relative" }}>
             {text}
-            <span style={{ position: "absolute", left: 0, top: "52%", height: 12 * s, width: `${strike * 100}%`, background: p.palette.accent, borderRadius: 6 * s }} />
+            <span style={{ position: "absolute", left: 0, top: "52%", height: 12 * s, width: `${strike * 100}%`, background: pick(p, prm, "couleur_barre", p.palette.accent), borderRadius: 6 * s }} />
           </span>
         </div>
         <div style={{ ...base, position: "absolute", inset: 0, color: hotColor, WebkitTextStroke: undefined, opacity: inn, transform: `translateY(${(1 - inn) * 60 * s}px)` }}>{str(e.data.remplacement)}</div>
@@ -460,7 +490,7 @@ function Etiquette({ e, ctx, s }: Props) {
   const sf = surface(ctx.p, e.params, s);
   return (
     <div style={{ ...sf.style, display: "inline-flex", alignItems: "center", gap: 14 * s, borderRadius: 999, padding: `${14 * s}px ${28 * s}px`, fontFamily: ctx.body, fontWeight: 700, fontSize: 30 * s }}>
-      <div style={{ width: 16 * s, height: 16 * s, borderRadius: "50%", background: ctx.p.palette.accent }} />
+      <div style={{ width: 16 * s, height: 16 * s, borderRadius: "50%", background: pick(ctx.p, e.params, "couleur_pastille", ctx.p.palette.accent) }} />
       {str(e.data.texte)}
     </div>
   );
@@ -477,11 +507,12 @@ function Bulle({ e, ctx, s }: Props) {
   );
 }
 
-function Compteur({ e, ctx, s, frames, ink }: Props) {
+function Compteur({ e, ctx, s, frames, ink: plan }: Props) {
   const frame = useFrame(e);
   const f = e.figure;
   if (!f) return null;
   const prm = e.params;
+  const ink = pick(ctx.p, prm, "couleur_libelle", plan);
   const target = Number(f.value.replace(/[^\d]/g, "")) || 0;
   const k = t(frame, 2, Math.min(frames * 0.55, 40), Easing.out(Easing.cubic));
   const current = Math.round(target * k).toLocaleString("fr-FR").replace(/ /g, " ");
@@ -513,7 +544,7 @@ function Cta({ e, ctx, s }: Props) {
   const beat = p.music?.beatFrames ?? 15;
   const pulse = yes(prm, "pulsation", false) ? 1 + Math.max(0, Math.sin((frame / beat) * Math.PI * 2)) * 0.05 : 1;
   return (
-    <div style={{ background: colorOf(p, role), color: onColor(p, role), borderRadius: radiusOf(p, prm, s, 26), padding: `${28 * s}px ${50 * s}px`, textAlign: "center", fontFamily: ctx.body, fontWeight: 800, fontSize: 44 * s, boxShadow: shadowOf(prm, s), transform: `scale(${pulse})` }}>{p.cta}</div>
+    <div style={{ background: colorOf(p, role), color: pick(p, prm, "couleur_texte", onColor(p, role)), borderRadius: radiusOf(p, prm, s, 26), padding: `${28 * s}px ${50 * s}px`, textAlign: "center", fontFamily: ctx.body, fontWeight: 800, fontSize: 44 * s, boxShadow: shadowOf(prm, s), transform: `scale(${pulse})` }}>{p.cta}</div>
   );
 }
 

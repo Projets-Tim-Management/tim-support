@@ -22,6 +22,8 @@ export const AD_MEDIA_KINDS = [
   { label: "Police", value: "police" },
   { label: "Capture de l'app", value: "capture" },
   { label: "Photo", value: "photo" },
+  // Un visage pour les avatars des éléments de motion design (liste qui se coche…) : photo libre de droits ou générée.
+  { label: "Visage (avatars des éléments)", value: "visage" },
   { label: "Musique", value: "musique" },
   { label: "Fond généré", value: "fond" },
   // Une pub qui plaît, ou à éviter : regardée par l'IA pour le style (Kit de marque › Inspirations).
@@ -149,10 +151,10 @@ export const AdMedia: CollectionConfig = {
       type: "textarea",
       label: "Droits d'usage",
       validate: (v: unknown, opts: { siblingData: Record<string, unknown> }) =>
-        ["photo", "musique"].includes(String(opts.siblingData?.kind)) ? required("Origine et droits d'usage publicitaire obligatoires.")(v, opts) : true,
+        ["photo", "musique", "visage"].includes(String(opts.siblingData?.kind)) ? required("Origine et droits d'usage publicitaire obligatoires.")(v, opts) : true,
       admin: {
-        description: "Origine, auteur, date, licence ; pour une photo, l'accord des personnes visibles.",
-        condition: (d) => d?.kind === "photo" || d?.kind === "musique",
+        description: "Origine, auteur, date, licence ; pour une photo ou un visage, l'accord des personnes visibles (ou « image générée »).",
+        condition: (d) => d?.kind === "photo" || d?.kind === "musique" || d?.kind === "visage",
       },
     },
     // Une musique : ce que l'agent lit pour la choisir, et son rythme, pour caler les coupes dessus (M).

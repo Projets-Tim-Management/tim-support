@@ -560,3 +560,12 @@
 .ads-elthread__form textarea { width: 100%; resize: vertical; font: inherit; padding: 0.5rem 0.6rem; border-radius: 0.4rem; border: 1px solid var(--tim-border); background: var(--tim-white); }
 .ads-elthread__versions ol { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.5rem 0 0; padding: 0; list-style: none; font-size: 0.85rem; }
 .ads-elthread__versions li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.ads-elpreview__panes { display: flex; flex-wrap: wrap; gap: 1.2rem; }
+.ads-elpreview__pane { display: flex; flex-direction: column; gap: 0.4rem; margin: 0; width: 270px; }
+.ads-elpreview__pane figcaption { font-size: 0.78rem; color: var(--tim-muted); }
+.ads-elpreview__pane .ads-elpreview__video { width: 270px; height: 480px; max-height: none; object-fit: cover; }
+.ads-elpreview__loading { width: 270px; height: 480px; display: flex; align-items: center; justify-content: center; border-radius: 0.5rem; background: var(--tim-gray-bg); color: var(--tim-muted); font-size: 0.85rem; text-align: center; padding: 1rem; }
+.ads-elparams__swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.ads-elparams__swatch { width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 1px solid var(--tim-border); cursor: pointer; padding: 0; font-size: 0.7rem; font-weight: 700; color: var(--tim-foreground); background: var(--tim-white); }
+.ads-elparams__swatch--on { outline: 3px solid var(--tim-foreground); outline-offset: 2px; }
+.ads-elparams__swatch-name { font-size: 0.75rem; color: var(--tim-muted); margin-left: 0.2rem; }

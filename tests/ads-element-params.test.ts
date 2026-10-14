@@ -17,13 +17,19 @@ describe("le contrat des réglages", () => {
   });
 
   it("une valeur hors contrat est refusée avec la raison, jamais appliquée ; le reste prend le défaut", () => {
-    const r = checkParams("liste", { coche: "carre", vitesse: 9, surface: "verre", inconnu: 1, avatars: "oui" });
-    expect(r.params).toMatchObject({ coche: "carre", surface: "verre", vitesse: 1, avatars: true, cadence: 1 });
+    const r = checkParams("liste", { coche: "carre", vitesse: 9, surface: "verre", inconnu: 1, en_tete: "oui" });
+    expect(r.params).toMatchObject({ coche: "carre", surface: "verre", vitesse: 1, en_tete: true, cadence: 1, avatars: "initiales", couleur_coche: "accent" });
     expect(r.errors).toEqual([
       expect.stringMatching(/Vitesse des animations : 9 hors de la plage 0.5 à 2/),
       expect.stringMatching(/Réglage « inconnu » inconnu/),
-      expect.stringMatching(/Initiales en pastille : oui ou non attendu/),
+      expect.stringMatching(/En-tête : oui ou non attendu/),
     ]);
+  });
+
+  it("chaque partie colorée se règle parmi les couleurs du kit, jamais une couleur libre", () => {
+    expect(checkParams("liste", { couleur_coche: "texte-clair", couleur_texte: "auto" }).errors).toEqual([]);
+    expect(checkParams("liste", { couleur_coche: "#ff00ff" }).errors[0]).toMatch(/Couleur des coches : « #ff00ff » n'est pas un choix possible/);
+    expect(checkParams("liste", { avatars: "silhouette" }).params.avatars).toBe("silhouette");
   });
 
   it("les défauts, et la description lue par l'IA", () => {

@@ -80,6 +80,8 @@ export type RenderProps = {
   music: { src: string; startSec: number; beatFrames: number | null } | null;
   /** Le logo animable (SVG à calques, découpé), ou `null` : on pose alors l'image du logo. */
   logoAnimated: LogoParts | null;
+  /** Les visages des avatars (Médias publicitaires, nature « Visage »), pour les éléments qui en montrent. */
+  faces?: string[];
   /**
    * L'affiche (image fixe) de la créa, quand on la rend : l'accroche, l'image
    * du rush dans son écran, le logo, le bouton. `null` pour la vidéo.
@@ -135,6 +137,8 @@ export type ResolveContext = {
   logoAnimated?: LogoParts | null;
   /** Les images des Médias publicitaires qu'un fond peut montrer, par identifiant. */
   media?: Map<number, string>;
+  /** Les visages des avatars (Médias publicitaires, nature « Visage »). */
+  faces?: string[];
   /** Les variantes d'éléments (Publicité › Éléments) : leur type de base et leurs réglages, par identifiant. */
   variants?: Map<number, { type: string; params: unknown }>;
 };
@@ -188,6 +192,7 @@ export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps
     url: ctx.kit.endCard?.url || "tim-management.co",
     showLogo: ctx.kit.endCard?.showLogo !== false,
     logoAnimated: ctx.logoAnimated ?? null,
+    faces: ctx.faces ?? [],
     music: ctx.music ? { src: ctx.music.url, startSec: ctx.music.startSec, beatFrames: ctx.music.bpm ? Math.round((60 / ctx.music.bpm) * FPS * 100) / 100 : null } : null,
     shots: score.shots.map((shot): RenderShot => {
       switch (shot.kind) {

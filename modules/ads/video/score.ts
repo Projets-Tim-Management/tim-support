@@ -60,6 +60,8 @@ export type ScoreContext = {
   forbidden?: string[];
   /** Les variantes de l'atelier des éléments, par identifiant. */
   variants?: Map<number, { type: string; status: string }>;
+  /** Un nouveau montage : seules les variantes actives (voir elements.ts). */
+  requireActive?: boolean;
 };
 
 const n = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : NaN);
@@ -164,7 +166,7 @@ export function scoreProblems(score: Score, ctx: ScoreContext): string[] {
           rush = r.srcAspect ? { srcAspect: r.srcAspect, framing: r.framing } : null;
         }
       }
-      for (const p of elementProblems(shot.elements, shot.fond, { seconds: shot.seconds, facts: new Set(ctx.facts.keys()), allowed, forbidden: ctx.forbidden ?? [], rush, variants: ctx.variants })) out.push(`${at} : ${p}`);
+      for (const p of elementProblems(shot.elements, shot.fond, { seconds: shot.seconds, facts: new Set(ctx.facts.keys()), allowed, forbidden: ctx.forbidden ?? [], rush, variants: ctx.variants, requireActive: ctx.requireActive })) out.push(`${at} : ${p}`);
     }
     for (const text of textsOf(shot).filter(Boolean)) {
       const problem = checkNumbers(text, allowed) ?? checkForbidden(text, ctx.forbidden ?? []) ?? checkTestimonial(text);

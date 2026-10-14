@@ -1,0 +1,127 @@
+import { sql } from "@payloadcms/db-postgres";
+import type { Payload } from "payload";
+
+import { execSql, rowsOf } from "@/core/lib/raw-sql";
+
+/**
+ * Le ménage du stockage des pubs (plan Publicité) : chaque nouvel aperçu,
+ * chaque vidéo refaite, chaque jeu d'affiches, chaque ZIP laisse l'ancien
+ * fichier sur le stockage. Chaque nuit, on retire :
+ *   - les ZIP de téléchargement de plus de 24 h (ils ne servent qu'au clic) ;
+ *   - les affiches remplacées (médias « Créa rendue » qu'aucune créa n'emploie
+ *     plus) de plus de 7 jours ;
+ *   - tout fichier « ads/ » de plus de 7 jours vers lequel plus rien ne pointe
+ *     en base.
+ * Ce qui sert à « Voir la version d'avant » d'une retouche est gardé : c'est
+ * une référence comme une autre. Les 7 jours évitent d'effacer un fichier
+ * qu'on vient de déposer et pas encore enregistré.
+ *
+ * Garde-fou : si le ménage voulait retirer plus de la moitié des fichiers, il
+ * s'arrête sans rien supprimer (une base mal lue ne vide pas le stockage).
+ */
+
+export const KEEP_DAYS = 7;
+export const ZIP_HOURS = 24;
+export const MAX_SHARE = 0.5;
+
+/** Les tables des pubs qui portent des adresses de fichiers (colonnes, JSON). */
+const TABLES = ["ad_rushes", "ad_inspirations", "ad_creatives", "ad_media", "ad_elements", "ad_retouches", "ad_element_notes", "ads_brand_kit"] as const;
+
+const BLOB_URL = /https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\/[^\s"'\\)<>]+/gi;
+/** Une adresse ramenée à une forme stable (encodage des accents et espaces). Pure. */
+export const normUrl = (u: string): string => {
+  try {
+    return decodeURI(u).normalize("NFC");
+  } catch {
+    return u.normalize("NFC");
+  }
+};
+/** Les adresses de fichiers contenues dans un texte (une ligne de base en JSON). Pure. */
+export const urlsIn = (text: string): string[] => (text.match(BLOB_URL) ?? []).map(normUrl);
+
+/** Toutes les adresses de fichiers vers lesquelles la base pointe encore. */
+export async function referencedUrls(payload: Payload): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (const table of TABLES) {
+    const rows = rowsOf(await execSql(payload, sql`SELECT row_to_json(t)::text AS j FROM ${sql.raw(`"${table}"`)} t`)) as { j: string }[];
+    for (const r of rows) for (const u of urlsIn(r.j)) out.add(u);
+  }
+  return out;
+}
+
+export type Blob = { url: string; pathname: string; size: number; uploadedAt: Date };
+export type CleanupDeps = {
+  now?: () => Date;
+  list?: () => Promise<Blob[]>;
+  del?: (urls: string[]) => Promise<void>;
+  /** À blanc : on compte, on ne supprime rien. */
+  dryRun?: boolean;
+};
+
+/** Ce que le ménage retirerait, d'après les fichiers et les références. Pure. */
+export function plan(blobs: Blob[], referenced: Set<string>, now: Date): { zips: Blob[]; orphans: Blob[] } {
+  const zipLimit = now.getTime() - ZIP_HOURS * 3_600_000;
+  const keepLimit = now.getTime() - KEEP_DAYS * 86_400_000;
+  const zips = blobs.filter((b) => b.pathname.startsWith("ads/zips/") && b.uploadedAt.getTime() < zipLimit);
+  const orphans = blobs.filter((b) => !b.pathname.startsWith("ads/zips/") && b.uploadedAt.getTime() < keepLimit && !referenced.has(normUrl(b.url)));
+  return { zips, orphans };
+}
+
+async function listAll(): Promise<Blob[]> {
+  const { list } = await import("@vercel/blob");
+  const out: Blob[] = [];
+  let cursor: string | undefined;
+  do {
+    const r = await list({ prefix: "ads/", cursor, limit: 1000, token: process.env.BLOB_READ_WRITE_TOKEN });
+    for (const b of r.blobs) out.push({ url: b.url, pathname: b.pathname, size: b.size, uploadedAt: new Date(b.uploadedAt) });
+    cursor = r.cursor;
+  } while (cursor);
+  return out;
+}
+
+async function delAll(urls: string[]) {
+  const { del } = await import("@vercel/blob");
+  for (let i = 0; i < urls.length; i += 100) await del(urls.slice(i, i + 100), { token: process.env.BLOB_READ_WRITE_TOKEN });
+}
+
+export type CleanupReport = { affiches: number; zips: number; orphelins: number; octets: number; arrete: string | null };
+
+/** Le ménage complet. Ne lève pas sur un fichier : le rapport dit ce qui a été fait. */
+export async function cleanupAdsStorage(payload: Payload, deps: CleanupDeps = {}): Promise<CleanupReport> {
+  const now = (deps.now ?? (() => new Date()))();
+  const report: CleanupReport = { affiches: 0, zips: 0, orphelins: 0, octets: 0, arrete: null };
+
+  // 1. Les affiches remplacées : des médias « Créa rendue » qu'aucune créa n'emploie, ni aucune retouche ne cite.
+  const keepLimit = new Date(now.getTime() - KEEP_DAYS * 86_400_000).toISOString();
+  const old = rowsOf(
+    await execSql(
+      payload,
+      sql`SELECT m."id", m."url" FROM "ad_media" m
+          WHERE m."kind" = 'crea' AND m."created_at" < ${keepLimit}::timestamptz
+            AND NOT EXISTS (SELECT 1 FROM "ad_creatives_assets" a WHERE a."media_id" = m."id")`,
+    ),
+  ) as { id: number; url: string | null }[];
+  const cited = new Set<string>();
+  for (const r of rowsOf(await execSql(payload, sql`SELECT row_to_json(t)::text AS j FROM "ad_retouches" t`)) as { j: string }[]) for (const u of urlsIn(r.j)) cited.add(u);
+  for (const m of old) {
+    if (m.url && cited.has(normUrl(m.url))) continue;
+    if (!deps.dryRun) await payload.delete({ collection: "ad-media", id: m.id, overrideAccess: true });
+    report.affiches++;
+  }
+
+  // 2. Les fichiers : ZIP périmés, et ce vers quoi plus rien ne pointe.
+  const blobs = await (deps.list ?? listAll)();
+  const referenced = await referencedUrls(payload);
+  const { zips, orphans } = plan(blobs, referenced, now);
+  const pool = blobs.filter((b) => !b.pathname.startsWith("ads/zips/")).length;
+  if (pool > 0 && orphans.length > pool * MAX_SHARE) {
+    report.arrete = `Ménage arrêté : ${orphans.length} fichiers sur ${pool} seraient retirés (plus de la moitié). Rien n'a été supprimé — à vérifier.`;
+    return report;
+  }
+  const doomed = [...zips, ...orphans];
+  if (!deps.dryRun && doomed.length) await (deps.del ?? delAll)(doomed.map((b) => b.url));
+  report.zips = zips.length;
+  report.orphelins = orphans.length;
+  report.octets = doomed.reduce((t, b) => t + b.size, 0);
+  return report;
+}

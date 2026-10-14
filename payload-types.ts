@@ -2601,6 +2601,15 @@ export interface AdCreative {
       | number
       | boolean
       | null;
+    elements?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
     attempts?: number | null;
     renderedAt?: string | null;
     leaseUntil?: string | null;
@@ -2688,7 +2697,7 @@ export interface AdCreative {
  */
 export interface AdMedia {
   id: number;
-  kind: 'logo' | 'police' | 'capture' | 'photo' | 'musique' | 'fond' | 'inspiration' | 'crea';
+  kind: 'logo' | 'police' | 'capture' | 'photo' | 'visage' | 'musique' | 'fond' | 'inspiration' | 'crea';
   /**
    * Ce que montre le fichier, en une phrase.
    */
@@ -2697,7 +2706,7 @@ export interface AdMedia {
   feature?: string | null;
   noClientData?: boolean | null;
   /**
-   * Origine, auteur, date, licence ; pour une photo, l'accord des personnes visibles.
+   * Origine, auteur, date, licence ; pour une photo ou un visage, l'accord des personnes visibles (ou « image générée »).
    */
   rights?: string | null;
   active?: boolean | null;
@@ -5158,6 +5167,7 @@ export interface AdCreativesSelect<T extends boolean = true> {
         score?: T;
         music?: T;
         renders?: T;
+        elements?: T;
         attempts?: T;
         renderedAt?: T;
         leaseUntil?: T;

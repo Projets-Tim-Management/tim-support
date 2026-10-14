@@ -34,13 +34,24 @@ const COMMON: ParamSpec[] = [
   { key: "rebond", label: "Rebond des entrées", kind: "nombre", min: 0, max: 3, defaut: 1.8, aide: "0 : aucun rebond." },
 ];
 
-const COLOR = ["accent", "principale", "clair", "sombre"] as const;
+/** Les couleurs possibles d'une partie d'élément : celles du Kit de marque, jamais une couleur libre (la charte tient). */
+export const COLOR = ["accent", "principale", "clair", "sombre", "texte-clair", "texte-sombre"] as const;
+/** Pareil, avec « auto » : la couleur suit la surface (texte sombre sur surface claire, et l'inverse). */
+const AUTO = ["auto", ...COLOR] as const;
+const color = (key: string, label: string, defaut: string, auto = false): ParamSpec => ({ key, label, kind: "choix", options: auto ? AUTO : COLOR, defaut });
+const TEXT = color("couleur_texte", "Couleur du texte", "auto", true);
+const DOT = color("couleur_point", "Couleur du point d'en-tête", "accent");
 
 const OWN: Record<ElementType, ParamSpec[]> = {
   liste: [
     ...SURFACE,
     { key: "coche", label: "Coche", kind: "choix", options: ["rond", "carre", "trait"], defaut: "rond" },
-    { key: "avatars", label: "Initiales en pastille", kind: "oui-non", defaut: true },
+    { key: "avatars", label: "Avatars", kind: "choix", options: ["initiales", "silhouette", "photos", "aucun"], defaut: "initiales", aide: "« photos » : les visages déposés dans Médias publicitaires (nature « Visage ») ; sans visage déposé, la silhouette." },
+    color("couleur_coche", "Couleur des coches", "accent"),
+    color("couleur_avatar", "Couleur des avatars", "accent"),
+    color("couleur_action", "Couleur du bouton final", "accent"),
+    TEXT,
+    DOT,
     { key: "cadence", label: "Cadence des lignes", kind: "nombre", min: 0.5, max: 2, defaut: 1, aide: "Multiplie l'écart entre deux lignes." },
     { key: "en_tete", label: "En-tête", kind: "oui-non", defaut: true },
   ],
@@ -49,22 +60,44 @@ const OWN: Record<ElementType, ParamSpec[]> = {
     { key: "icone", label: "Icône", kind: "choix", options: ["app", "logo", "aucune"], defaut: "app" },
     { key: "heure", label: "« maintenant »", kind: "oui-non", defaut: true },
     { key: "coche", label: "Coche de confirmation", kind: "oui-non", defaut: true },
+    color("couleur_icone", "Couleur de l'icône", "principale"),
+    color("couleur_coche", "Couleur de la coche", "accent"),
+    TEXT,
   ],
   bouton: [
     { key: "couleur", label: "Couleur du bouton", kind: "choix", options: COLOR, defaut: "accent" },
     { key: "coins", label: "Coins", kind: "choix", options: ["style", "carres", "arrondis", "pilule"], defaut: "style" },
     { key: "onde", label: "Onde au toucher", kind: "oui-non", defaut: true },
     { key: "confirmation", label: "Confirmation", kind: "choix", options: ["carte", "badge"], defaut: "carte" },
+    color("couleur_texte", "Couleur du texte du bouton", "auto", true),
+    color("couleur_onde", "Couleur de l'onde", "clair"),
+    color("couleur_coche", "Couleur de la coche", "accent"),
   ],
-  planning: [...SURFACE, { key: "remplissage", label: "Remplissage", kind: "choix", options: ["blocs", "barres"], defaut: "blocs" }, { key: "cadence", label: "Cadence", kind: "nombre", min: 0.5, max: 2, defaut: 1 }],
-  fiche: [...SURFACE, { key: "puce", label: "Puce", kind: "choix", options: ["rond", "trait", "coche"], defaut: "rond" }],
-  champ: [...SURFACE, { key: "curseur", label: "Curseur clignotant", kind: "oui-non", defaut: true }, { key: "frappe", label: "Vitesse de frappe", kind: "nombre", min: 0.5, max: 3, defaut: 1 }],
+  planning: [
+    ...SURFACE,
+    { key: "remplissage", label: "Remplissage", kind: "choix", options: ["blocs", "barres"], defaut: "blocs" },
+    { key: "cadence", label: "Cadence", kind: "nombre", min: 0.5, max: 2, defaut: 1 },
+    color("couleur_1", "Couleur de la 1re ligne (et 4e)", "accent"),
+    color("couleur_2", "Couleur de la 2e ligne (et 5e)", "principale"),
+    color("couleur_3", "Couleur de la 3e ligne", "sombre"),
+    TEXT,
+    DOT,
+  ],
+  fiche: [...SURFACE, { key: "puce", label: "Puce", kind: "choix", options: ["rond", "trait", "coche"], defaut: "rond" }, color("couleur_puce", "Couleur des puces", "accent"), TEXT, DOT],
+  champ: [
+    ...SURFACE,
+    { key: "curseur", label: "Curseur clignotant", kind: "oui-non", defaut: true },
+    { key: "frappe", label: "Vitesse de frappe", kind: "nombre", min: 0.5, max: 3, defaut: 1 },
+    color("couleur_trait", "Couleur du trait et du curseur", "accent"),
+    TEXT,
+  ],
   badge: [
     { key: "couleur", label: "Couleur", kind: "choix", options: COLOR, defaut: "accent" },
     { key: "icone", label: "Icône", kind: "choix", options: ["coche", "etoile", "aucune"], defaut: "coche" },
     { key: "ombre", label: "Ombre", kind: "choix", options: ["aucune", "douce", "forte"], defaut: "forte" },
+    color("couleur_texte", "Couleur du texte et de l'icône", "auto", true),
   ],
-  tap: [{ key: "doigt", label: "Doigt", kind: "choix", options: ["disque", "anneau"], defaut: "disque" }, { key: "onde_couleur", label: "Couleur de l'onde", kind: "choix", options: COLOR, defaut: "accent" }],
+  tap: [{ key: "doigt", label: "Doigt", kind: "choix", options: ["disque", "anneau"], defaut: "disque" }, { key: "onde_couleur", label: "Couleur de l'onde", kind: "choix", options: COLOR, defaut: "accent" }, color("couleur_doigt", "Couleur du doigt", "texte-clair")],
   surbrillance: [
     { key: "assombrir", label: "Assombrir le reste", kind: "nombre", min: 0, max: 0.8, defaut: 0.45 },
     { key: "epaisseur", label: "Épaisseur du trait", kind: "nombre", min: 2, max: 14, defaut: 6 },
@@ -83,19 +116,26 @@ const OWN: Record<ElementType, ParamSpec[]> = {
   titre: [
     { key: "graisse", label: "Graisse", kind: "nombre", min: 400, max: 900, defaut: 900 },
     { key: "casse", label: "Casse", kind: "choix", options: ["style", "majuscules", "normale"], defaut: "style" },
+    color("couleur_texte", "Couleur du texte", "auto", true),
     { key: "mot_fort_couleur", label: "Couleur du mot fort", kind: "choix", options: COLOR, defaut: "accent" },
+    color("couleur_barre", "Couleur de la barre (barré-remplacé)", "accent"),
     { key: "contour", label: "Contour des lettres", kind: "oui-non", defaut: false },
     { key: "ombre_texte", label: "Ombre du texte", kind: "oui-non", defaut: false, aide: "Utile sur un rush." },
     { key: "alignement", label: "Alignement", kind: "choix", options: ["gauche", "centre"], defaut: "gauche" },
   ],
-  etiquette: [...SURFACE],
-  bulle: [...SURFACE, { key: "pointe", label: "Pointe", kind: "choix", options: ["bas-gauche", "bas-droite", "aucune"], defaut: "bas-gauche" }],
-  compteur: [{ key: "couleur", label: "Couleur du chiffre", kind: "choix", options: COLOR, defaut: "accent" }, { key: "source", label: "Afficher la source", kind: "oui-non", defaut: true }],
+  etiquette: [...SURFACE, color("couleur_pastille", "Couleur de la pastille", "accent"), TEXT],
+  bulle: [...SURFACE, { key: "pointe", label: "Pointe", kind: "choix", options: ["bas-gauche", "bas-droite", "aucune"], defaut: "bas-gauche" }, TEXT],
+  compteur: [
+    { key: "couleur", label: "Couleur du chiffre", kind: "choix", options: COLOR, defaut: "accent" },
+    { key: "source", label: "Afficher la source", kind: "oui-non", defaut: true },
+    color("couleur_libelle", "Couleur du libellé et de la source", "auto", true),
+  ],
   logo: [],
   cta: [
     { key: "couleur", label: "Couleur", kind: "choix", options: COLOR, defaut: "accent" },
     { key: "coins", label: "Coins", kind: "choix", options: ["style", "carres", "arrondis", "pilule"], defaut: "style" },
     { key: "pulsation", label: "Pulsation", kind: "oui-non", defaut: false },
+    color("couleur_texte", "Couleur du texte", "auto", true),
   ],
   pastilles: [{ key: "couleur", label: "Couleur", kind: "choix", options: COLOR, defaut: "accent" }],
   confettis: [{ key: "quantite", label: "Quantité", kind: "nombre", min: 8, max: 40, defaut: 18 }, { key: "couleurs", label: "Couleurs", kind: "choix", options: ["marque", "accent"], defaut: "marque" }],

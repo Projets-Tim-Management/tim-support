@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AdElements } from "@/modules/ads/collections/AdElements";
 import { baseElements, decide, parseProposal, proposalPrompt, proposeImprovement, restoreVersion, toDevelopment, type ProposalResult } from "@/modules/ads/lib/element-atelier";
-import { previewScore } from "@/modules/ads/lib/element-preview";
+import { previewScore } from "@/modules/ads/video/preview-score";
 import { CLAUDE_CODE_STEPS, claudeCodePrompt } from "@/modules/dev/lib/claude-code-prompt";
 import { elementProblems, ELEMENT_TYPES, parseElement } from "@/modules/ads/video/elements";
 
@@ -146,7 +146,7 @@ describe("les versions et l'aperçu", () => {
 });
 
 describe("dans les vidéos", () => {
-  const ctx = (status: string, type = "badge") => ({ seconds: 3, facts: new Set<number>(), allowed: new Set<number>(), forbidden: [], rush: null, variants: new Map([[7, { type, status }]]) });
+  const ctx = (status: string, type = "badge", requireActive = true) => ({ seconds: 3, facts: new Set<number>(), allowed: new Set<number>(), forbidden: [], rush: null, variants: new Map([[7, { type, status }]]), requireActive });
   const e = parseElement({ type: "badge", variante: 7, data: { texte: "Validé" }, x: 0.5, y: 0.5, debut: 0 });
 
   it("une variante active du bon type passe ; brouillon, autre type ou inconnue, non", () => {
@@ -154,6 +154,20 @@ describe("dans les vidéos", () => {
     expect(elementProblems([e], { type: "style" }, ctx("brouillon")).join(" ")).toMatch(/n'est pas active/);
     expect(elementProblems([e], { type: "style" }, ctx("actif", "liste")).join(" ")).toMatch(/est un élément « liste »/);
     expect(elementProblems([{ ...e, variante: 99 }], { type: "style" }, ctx("actif")).join(" ")).toMatch(/introuvable/);
+  });
+
+  it("refaire une vidéo existante accepte une variante retirée depuis : l'ancienne créa ne casse pas", () => {
+    expect(elementProblems([e], { type: "style" }, ctx("retire", "badge", false))).toEqual([]);
+  });
+
+  it("chaque rendu garde la photo de ses éléments : variante, nom, version, réglages", async () => {
+    const { elementsUsed } = await import("@/modules/ads/video/render");
+    const { parseScore } = await import("@/modules/ads/video/score");
+    const sc = parseScore({ shots: [{ kind: "compo", seconds: 3, fond: { type: "style" }, elements: [{ type: "badge", variante: 7, data: { texte: "Validé" }, x: 0.5, y: 0.5, debut: 0 }, { type: "tap", data: {}, x: 0.5, y: 0.7, debut: 1 }] }, { kind: "fin", seconds: 2 }] });
+    expect(elementsUsed(sc, [{ id: 7, name: "Badge · verre", base: "badge", params: { couleur: "principale" }, versions: [{ n: 1 }, { n: 2 }, { n: 3 }] }])).toEqual([
+      { type: "badge", variante: 7, nom: "Badge · verre", version: 3, params: { couleur: "principale" } },
+      { type: "tap", variante: null, nom: null, version: null, params: {} },
+    ]);
   });
 });
 

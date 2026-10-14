@@ -67,6 +67,10 @@
     {
       "path": "/api/cron/ads-retouches",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/ads-storage",
+      "schedule": "30 3 * * *"
     }
   ]
 }
