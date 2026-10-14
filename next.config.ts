@@ -49,6 +49,12 @@ const nextConfig: NextConfig = {
    * dossiers `linux-x64` n'existent pas et ces lignes ne coûtent rien.
    */
   outputFileTracingIncludes: {
+    /**
+     * Le projet vidéo compilé (npm run build:video), lu à l'exécution par le
+     * rendu des pubs et déposé dans la Sandbox Vercel : rien ne l'importe, Next
+     * ne le tracerait pas.
+     */
+    "/api/cron/ads-renders": ["./remotion-bundle/**"],
     "/**": [
       "./node_modules/@img/sharp-linux-x64/**",
       "./node_modules/@img/sharp-libvips-linux-x64/**",

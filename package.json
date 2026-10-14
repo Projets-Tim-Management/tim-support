@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3001",
-    "build": "next build",
+    "build": "npm run build:video && next build",
+    "build:video": "node scripts/video-bundle.mjs",
     "start": "next start",
     "lint": "eslint .",
     "payload": "payload",
@@ -29,6 +30,8 @@
     "@payloadcms/storage-vercel-blob": "^3.86.0",
     "@pdf-lib/fontkit": "1.1.1",
     "@react-pdf/renderer": "4.9.0",
+    "@remotion/google-fonts": "4.0.530",
+    "@remotion/vercel": "4.0.530",
     "@vercel/blob": "2.3.1",
     "@vercel/sandbox": "3.5.1",
     "fflate": "^0.8.3",
@@ -44,11 +47,13 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^3.10.1",
+    "remotion": "4.0.530",
     "satori": "^0.33.5",
     "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.6",
+    "@remotion/cli": "4.0.530",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/jsdom": "^28.0.3",
     "@types/leaflet": "^1.9.22",

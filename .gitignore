@@ -5,6 +5,9 @@ node_modules/
 
 # Next.js
 .next/
+
+# Projet vidéo des pubs, compilé au build (scripts/video-bundle.mjs)
+remotion-bundle/
 out/
 tsconfig.tsbuildinfo
 
