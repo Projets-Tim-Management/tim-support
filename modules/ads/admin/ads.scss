@@ -324,6 +324,20 @@
 .ads-rush-upload__status--en-cours { background: var(--tim-indigo-bg); color: var(--tim-indigo); }
 .ads-rush-upload__error { margin: 0; color: var(--tim-red); font-size: 0.85rem; }
 
+/* Rushes : ce que voient les agents (images clés, plans, description IA). */
+.ads-rush-insight { display: flex; flex-direction: column; gap: 0.6rem; margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); border-radius: 0.75rem; background: var(--tim-white); }
+.ads-rush-insight__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.ads-rush-insight__status { padding: 0.1rem 0.5rem; border-radius: 999px; background: var(--tim-indigo-bg); color: var(--tim-indigo); font-size: 0.8rem; font-weight: 600; }
+.ads-rush-insight__status--validee { background: var(--tim-green-bg); color: var(--tim-green); }
+.ads-rush-insight__status--ecartee { background: var(--tim-gray-bg); color: var(--tim-gray); }
+.ads-rush-insight__frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+.ads-rush-insight__frames li { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.78rem; color: var(--tim-muted); }
+.ads-rush-insight__frames img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 0.4rem; background: var(--tim-gray-bg); }
+.ads-rush-insight__frames time { font-weight: 600; color: var(--tim-foreground); font-variant-numeric: tabular-nums; }
+.ads-rush-insight__proposal { margin: 0; white-space: pre-line; font-size: 0.88rem; }
+.ads-rush-insight__empty, .ads-rush-insight__hint { margin: 0; font-size: 0.8rem; color: var(--tim-muted); }
+.ads-rush-insight__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
 /* Tableau de bord : la carte « Agents ». */
 .ads-dash__agents { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.9rem 1.1rem; border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); border-radius: 0.75rem; background: var(--tim-white); }
 .ads-dash__agents-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1rem; font-size: 0.875rem; color: var(--tim-muted); }

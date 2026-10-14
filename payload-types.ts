@@ -2896,9 +2896,6 @@ export interface AdRush {
       | boolean
       | null;
   };
-  /**
-   * Proposée par l'IA à partir des images clés, à corriger ou valider.
-   */
   ai?: {
     proposal?: string | null;
     timeline?:

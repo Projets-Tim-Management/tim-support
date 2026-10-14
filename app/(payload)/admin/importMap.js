@@ -125,6 +125,7 @@ import { ConnectMetaPanel as ConnectMetaPanel_0443b5b41d00975585a76653d22b342f }
 import { AdAccountActions as AdAccountActions_12a51012bbb4bca5fe46cd8a625e5627 } from '../../../modules/ads/admin/AdAccountActions'
 import { PurgeAccountModal as PurgeAccountModal_1a62dd382667ad7a0e23522c172e8254 } from '../../../modules/ads/admin/PurgeAccountModal'
 import { RushUploadField as RushUploadField_7f0ac0fc82e45c8450fea964cdbee83c } from '../../../modules/ads/admin/RushUploadField'
+import { RushInsightPanel as RushInsightPanel_903b87dc6a6f018c59eba9e37fb1c267 } from '../../../modules/ads/admin/RushInsightPanel'
 import { InsuranceCell as InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4 } from '../../../modules/marketing/admin/InsuranceCell'
 import { default as default_c08243cbb0e32dd70b45a5afb5f6cbd4 } from '../../../admin/components/SaveButton'
 import { default as default_72ee9fe55f81abe2c8ae550d52d0ab85 } from '../../../admin/fields/ColorField'
@@ -285,6 +286,7 @@ export const importMap = {
   "/modules/ads/admin/AdAccountActions#AdAccountActions": AdAccountActions_12a51012bbb4bca5fe46cd8a625e5627,
   "/modules/ads/admin/PurgeAccountModal#PurgeAccountModal": PurgeAccountModal_1a62dd382667ad7a0e23522c172e8254,
   "/modules/ads/admin/RushUploadField#RushUploadField": RushUploadField_7f0ac0fc82e45c8450fea964cdbee83c,
+  "/modules/ads/admin/RushInsightPanel#RushInsightPanel": RushInsightPanel_903b87dc6a6f018c59eba9e37fb1c267,
   "/modules/marketing/admin/InsuranceCell#InsuranceCell": InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4,
   "/admin/components/SaveButton#default": default_c08243cbb0e32dd70b45a5afb5f6cbd4,
   "/admin/fields/ColorField#default": default_72ee9fe55f81abe2c8ae550d52d0ab85,

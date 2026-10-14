@@ -2,6 +2,7 @@ import { sql } from "@payloadcms/db-postgres";
 import type { Payload } from "payload";
 
 import { execSql, rowsOf } from "@/core/lib/raw-sql";
+import { describeRush } from "@/modules/ads/lib/rush-describe";
 import { durationRefusal, keyframeTimes, orientationOf, parseProbe, stillArgs, transcodeArgs, type RushMeta } from "@/modules/ads/lib/rush-convert";
 
 /**
@@ -141,6 +142,8 @@ export type ProcessDeps = {
   convertVideo?: (url: string) => Promise<Outputs>;
   convertImage?: (url: string) => Promise<Outputs>;
   store?: Store;
+  /** La description proposée par l'IA après la conversion (D1c). */
+  describe?: (payload: Payload, id: number) => Promise<unknown>;
 };
 
 /**
@@ -165,6 +168,9 @@ export async function processNextRush(payload: Payload, deps: ProcessDeps = {}):
       processing: { status: "pret", error: null, attempts: claimed.attempts, processedAt: now().toISOString(), leaseUntil: null },
       working: { url: workingUrl, posterUrl, keyframes, meta: out.meta },
     });
+    // La description proposée par l'IA : un plus, jamais une condition. En cas d'échec, le rush reste prêt
+    // et la proposition se relance depuis sa fiche.
+    await (deps.describe ?? describeRush)(payload, claimed.id).catch((e) => payload.logger.warn(`[publicité] rush ${claimed.id} : description IA non proposée (${(e as Error).message})`));
     return { id: claimed.id, outcome: "pret" };
   } catch (e) {
     const message = (e as Error).message.slice(0, 500);

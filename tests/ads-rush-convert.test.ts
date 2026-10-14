@@ -78,12 +78,13 @@ describe("le cycle d'un rush", () => {
     const payload = {
       db: { drizzle: { execute: vi.fn(async () => ({ rows: claimed ? [claimed] : [] })) } },
       update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => updates.push(data)),
-      logger: { error: vi.fn() },
+      logger: { error: vi.fn(), warn: vi.fn() },
     };
     return { payload: payload as never, updates };
   }
   const row = (attempts = 1) => ({ id: 7, original_url: "https://x.public.blob.vercel-storage.com/ads/rushes/a.mov", original_content_type: "video/quicktime", media_type: "video", processing_attempts: attempts });
   const store = vi.fn(async (p: string) => `https://cdn/${p}`);
+  const describe = vi.fn(async () => undefined);
 
   it("rien à convertir : rien ne se passe", async () => {
     expect(await processNextRush(fake(null).payload)).toBeNull();
@@ -91,13 +92,22 @@ describe("le cycle d'un rush", () => {
 
   it("converti : sorties rangées à part, fiche « Prêt » avec sa fiche technique", async () => {
     const { payload, updates } = fake(row());
-    const r = await processNextRush(payload, { convertVideo: async () => outputs, store });
+    const r = await processNextRush(payload, { convertVideo: async () => outputs, store, describe });
     expect(r).toEqual({ id: 7, outcome: "pret" });
     expect(store.mock.calls.map((c) => c[0])).toEqual(["ads/rushes/travail/7/travail.mp4", "ads/rushes/travail/7/vignette.jpg", "ads/rushes/travail/7/image-1.jpg", "ads/rushes/travail/7/image-2.jpg"]);
+    expect(describe).toHaveBeenCalledWith(payload, 7);
     expect(updates[0]).toMatchObject({
       processing: { status: "pret", error: null, leaseUntil: null },
       working: { url: "https://cdn/ads/rushes/travail/7/travail.mp4", keyframes: [{ atSec: 1 }, { atSec: 3 }], meta: { orientation: "vertical" } },
     });
+  });
+
+  it("une description IA qui échoue ne fait pas échouer la conversion", async () => {
+    const { payload } = fake(row());
+    const failing = vi.fn(async () => {
+      throw new Error("API indisponible");
+    });
+    expect(await processNextRush(payload, { convertVideo: async () => outputs, store, describe: failing })).toEqual({ id: 7, outcome: "pret" });
   });
 
   it("un échec passager repart en attente ; au troisième, « Échec » avec la raison", async () => {
@@ -105,10 +115,10 @@ describe("le cycle d'un rush", () => {
       throw new Error("sandbox indisponible");
     };
     const first = fake(row(1));
-    expect(await processNextRush(first.payload, { convertVideo: boom, store })).toMatchObject({ outcome: "reessai" });
+    expect(await processNextRush(first.payload, { convertVideo: boom, store, describe })).toMatchObject({ outcome: "reessai" });
     expect(first.updates[0]).toMatchObject({ processing: { status: "en-attente", error: "sandbox indisponible" } });
     const last = fake(row(MAX_ATTEMPTS));
-    expect(await processNextRush(last.payload, { convertVideo: boom, store })).toMatchObject({ outcome: "echec" });
+    expect(await processNextRush(last.payload, { convertVideo: boom, store, describe })).toMatchObject({ outcome: "echec" });
   });
 
   it("une vidéo trop longue échoue tout de suite : réessayer n'y changerait rien", async () => {
@@ -116,7 +126,7 @@ describe("le cycle d'un rush", () => {
     const tooLong = async () => {
       throw new FinalError("Vidéo trop longue");
     };
-    expect(await processNextRush(payload, { convertVideo: tooLong, store })).toMatchObject({ outcome: "echec" });
+    expect(await processNextRush(payload, { convertVideo: tooLong, store, describe })).toMatchObject({ outcome: "echec" });
     expect(updates[0]).toMatchObject({ processing: { status: "echec" } });
   });
 });

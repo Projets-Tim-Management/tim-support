@@ -101,6 +101,8 @@ export const AdRushes: CollectionConfig = {
         description: "Quelques phrases : c'est ce qui permet aux agents de choisir ce rush et d'en tirer le bon passage.",
       },
     },
+    // Ce que l'IA voit du rush converti : images clés, plans, description à valider (D1c).
+    { name: "insight", type: "ui", admin: { components: { Field: "/modules/ads/admin/RushInsightPanel#RushInsightPanel" } } },
     {
       type: "row",
       fields: [
@@ -144,7 +146,8 @@ export const AdRushes: CollectionConfig = {
       fields: [
         { name: "url", type: "text", label: "Fichier de travail", admin: readOnly },
         { name: "posterUrl", type: "text", label: "Vignette", admin: readOnly },
-        { name: "keyframes", type: "json", label: "Images clés", admin: readOnly },
+        // Montrées par le panneau « Ce que voient les agents ».
+        { name: "keyframes", type: "json", label: "Images clés", admin: { hidden: true } },
         { name: "meta", type: "json", label: "Fiche technique", admin: readOnly },
       ],
     },
@@ -152,7 +155,9 @@ export const AdRushes: CollectionConfig = {
       name: "ai",
       type: "group",
       label: "Description détaillée (IA)",
-      admin: { condition: (d) => Boolean(d?.ai?.proposal), description: "Proposée par l'IA à partir des images clés, à corriger ou valider." },
+      // Lu et modifié par le panneau « Ce que voient les agents » et sa route : jamais par le formulaire,
+      // qui réécrirait l'ancienne valeur en enregistrant.
+      admin: { hidden: true },
       fields: [
         { name: "proposal", type: "textarea", label: "Proposition" },
         { name: "timeline", type: "json", label: "Plans repérés", admin: readOnly },
