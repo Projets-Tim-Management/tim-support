@@ -104,6 +104,8 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     { label: "À valider", href: "/admin/publicite/a-valider", adminOnly: true },
     "ad-campaigns",
     "ad-creatives",
+    // La matière première des vidéos : importée par Charlie, retravaillée par les agents.
+    "ad-rushes",
     // Ce que l'agent a fait, puis pourquoi.
     "ad-agent-runs",
     "ad-decisions",

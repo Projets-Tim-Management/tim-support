@@ -106,6 +106,7 @@ export interface Config {
     'ad-competitors': AdCompetitor;
     'ad-instructions': AdInstruction;
     'ad-learnings': AdLearning;
+    'ad-rushes': AdRush;
     'ads-settings-history': AdsSettingsHistory;
     'email-suppressions': EmailSuppression;
     'client-employees': ClientEmployee;
@@ -187,6 +188,7 @@ export interface Config {
     'ad-competitors': AdCompetitorsSelect<false> | AdCompetitorsSelect<true>;
     'ad-instructions': AdInstructionsSelect<false> | AdInstructionsSelect<true>;
     'ad-learnings': AdLearningsSelect<false> | AdLearningsSelect<true>;
+    'ad-rushes': AdRushesSelect<false> | AdRushesSelect<true>;
     'ads-settings-history': AdsSettingsHistorySelect<false> | AdsSettingsHistorySelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
     'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
@@ -2826,6 +2828,91 @@ export interface AdCompetitor {
   createdAt: string;
 }
 /**
+ * La matière première des vidéos : écrans de l'app, chantier, bureau. Le fichier d'origine est conservé tel quel ; les agents en tirent leurs montages.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-rushes".
+ */
+export interface AdRush {
+  id: number;
+  original?: {
+    url?: string | null;
+    pathname?: string | null;
+    filename?: string | null;
+    contentType?: string | null;
+    size?: number | null;
+  };
+  title: string;
+  source: 'app-mobile' | 'app-web' | 'chantier' | 'bureau' | 'autre';
+  features?:
+    | (
+        | 'pointage'
+        | 'planning'
+        | 'feuilles-heures'
+        | 'conges'
+        | 'suivi-chantier'
+        | 'vehicules'
+        | 'documents'
+        | 'paie'
+        | 'autre'
+      )[]
+    | null;
+  /**
+   * Quelques phrases : c'est ce qui permet aux agents de choisir ce rush et d'en tirer le bon passage.
+   */
+  description: string;
+  origin?: string | null;
+  noRealData?: boolean | null;
+  mediaType?: ('video' | 'image') | null;
+  processing?: {
+    status?: ('en-attente' | 'en-cours' | 'pret' | 'echec') | null;
+    error?: string | null;
+    attempts?: number | null;
+    processedAt?: string | null;
+    leaseUntil?: string | null;
+  };
+  /**
+   * Produite par la conversion : c'est elle que les montages utilisent.
+   */
+  working?: {
+    url?: string | null;
+    posterUrl?: string | null;
+    keyframes?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    meta?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+  };
+  ai?: {
+    proposal?: string | null;
+    timeline?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    status?: ('proposee' | 'validee' | 'ecartee') | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Chaque changement des garde-fous : qui, quand, avant, après. Écrit par le serveur ; rien ne s'y modifie.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3569,6 +3656,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-learnings';
         value: number | AdLearning;
+      } | null)
+    | ({
+        relationTo: 'ad-rushes';
+        value: number | AdRush;
       } | null)
     | ({
         relationTo: 'ads-settings-history';
@@ -5005,6 +5096,54 @@ export interface AdLearningsSelect<T extends boolean = true> {
   sourceCreative?: T;
   promotedBy?: T;
   promotedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-rushes_select".
+ */
+export interface AdRushesSelect<T extends boolean = true> {
+  original?:
+    | T
+    | {
+        url?: T;
+        pathname?: T;
+        filename?: T;
+        contentType?: T;
+        size?: T;
+      };
+  title?: T;
+  source?: T;
+  features?: T;
+  description?: T;
+  origin?: T;
+  noRealData?: T;
+  mediaType?: T;
+  processing?:
+    | T
+    | {
+        status?: T;
+        error?: T;
+        attempts?: T;
+        processedAt?: T;
+        leaseUntil?: T;
+      };
+  working?:
+    | T
+    | {
+        url?: T;
+        posterUrl?: T;
+        keyframes?: T;
+        meta?: T;
+      };
+  ai?:
+    | T
+    | {
+        proposal?: T;
+        timeline?: T;
+        status?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
