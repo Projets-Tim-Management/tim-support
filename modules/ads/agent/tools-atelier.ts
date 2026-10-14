@@ -7,7 +7,7 @@ import type { Id } from "@/modules/ads/agent/types";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
 import { eur } from "@/modules/ads/lib/spend";
 import { MAX_VARIANTS } from "@/modules/ads/video/mount";
-import { SCENE_TYPES } from "@/modules/ads/video/scenes";
+import { BACKGROUNDS, ELEMENT_TYPES, ENTRIES, EXITS, MOVES } from "@/modules/ads/video/elements";
 import { MAX_CAPTION_CHARS, MAX_OPENING_CHARS, MAX_SHOT, MAX_TOTAL, MIN_SHOT, MIN_TOTAL, MIN_ZOOM } from "@/modules/ads/video/score";
 
 /**
@@ -191,7 +191,7 @@ const lireRushes: AgentTool = {
   definition: {
     name: "lire_rushes",
     description:
-      "La matière des vidéos : les rushes prêts (écrans de l'app, chantier…) avec ce qu'on y voit, la description détaillée validée et ses plans repérés, la durée et le recadrage (zone utile, zone à ne jamais couper) ; les styles actifs, avec quand employer chacun et ce que le moteur en fait (un zoom ou un sous-titre que le style ignore ne sert à rien) ; les musiques, avec quand les employer et leur tempo ; les inspirations de Charlie — des pubs à imiter ou à éviter, réduites à leur fiche de style (elles ne se montent jamais) ; ce que permet le logo ; et les scènes de motion design disponibles, avec leurs données.",
+      "La matière des vidéos : les rushes prêts (écrans de l'app, chantier…) avec ce qu'on y voit, la description détaillée validée et ses plans repérés, la durée et le recadrage (zone utile, zone à ne jamais couper) ; les styles actifs, avec quand employer chacun et ce que le moteur en fait (un zoom ou un sous-titre que le style ignore ne sert à rien) ; les musiques, avec quand les employer et leur tempo ; les inspirations de Charlie — des pubs à imiter ou à éviter, réduites à leur fiche de style (elles ne se montent jamais) ; ce que permet le logo ; et le vocabulaire des éléments animés (sans fond, à poser sur n'importe quel fond), avec leurs données.",
     input_schema: { type: "object", properties: {} },
   },
   async run(ctx) {
@@ -213,7 +213,7 @@ const monterVideo: AgentTool = {
       `Monte la vidéo d'une créa : tu écris la partition (les plans, dans l'ordre), le moteur la rend aux trois formats Meta. Tu peux tester plusieurs styles sur une musique, OU un style sur plusieurs musiques — jamais les deux à la fois —, ${MAX_VARIANTS} vidéos au plus.`,
       "La première variante va sur la créa ; chaque suivante crée une copie étiquetée « test de style » ou « test de musique » (même angle, mêmes textes), comptée dans le quota de la semaine.",
       "Sur une musique au tempo connu, le moteur cale chaque coupe sur le temps le plus proche et fait tomber les mots de l'ouverture sur les temps : écris des durées proches de multiples du temps (60 / BPM). Sans musique précisée, c'est celle du Kit de marque.",
-      `Le code vérifie la partition avant tout rendu : ${MIN_TOTAL} à ${MAX_TOTAL} s au total, plans de ${MIN_SHOT} à ${MAX_SHOT} s, au moins un plan qui montre le logiciel (rush ou scène recréée), une seule fin et en dernier, des rushes prêts pris dans leur durée, aucun zoom plus serré que ${MIN_ZOOM * 100} % ni qui coupe la zone protégée, aucun chiffre absent des faits sourcés et de l'offre, aucune mention interdite. Un refus dit pourquoi : corrige et rappelle.`,
+      `Le code vérifie la partition avant tout rendu : ${MIN_TOTAL} à ${MAX_TOTAL} s au total, plans de ${MIN_SHOT} à ${MAX_SHOT} s, au moins un plan qui montre le logiciel (rush, ou plan composé sur un rush ou avec un élément d'interface), aucun élément hors du cadre ni opaque sur la zone protégée d'un rush dans aucun format, une seule fin et en dernier, des rushes prêts pris dans leur durée, aucun zoom plus serré que ${MIN_ZOOM * 100} % ni qui coupe la zone protégée, aucun chiffre absent des faits sourcés et de l'offre, aucune mention interdite. Un refus dit pourquoi : corrige et rappelle.`,
       "Le rendu prend quelques minutes, sans coût IA ; la vidéo apparaît sur la carte de la créa.",
     ].join(" "),
     input_schema: {
@@ -232,11 +232,39 @@ const monterVideo: AgentTool = {
                 properties: {
                   kind: {
                     type: "string",
-                    enum: ["ouverture", "rush", "preuve", "scene", "logo", "fin"],
-                    description: "scene : l'interface de TIM recréée en motion design (voir « scenes » dans lire_rushes). logo : le logo seul, animé — une signature, en ouverture par exemple.",
+                    enum: ["ouverture", "rush", "preuve", "compo", "logo", "fin"],
+                    description:
+                      "compo : un plan composé — un fond et des éléments animés posés dessus (voir « elements » dans lire_rushes). logo : le logo seul, animé — une signature.",
                   },
-                  scene: { type: "string", enum: [...SCENE_TYPES], description: "scene : le type de scène." },
-                  data: { type: "object", description: "scene : les données de la scène (voir « scenes » dans lire_rushes), et « legende » facultative." },
+                  fond: {
+                    type: "object",
+                    description: "compo : le fond. type : style (fond du style), couleur (couleur : principale, accent, sombre, clair), rush (rush, from, to, zoom, flou, voile 0 à 0,7), image (media, flou, voile).",
+                    properties: { type: { type: "string", enum: [...BACKGROUNDS] } },
+                  },
+                  elements: {
+                    type: "array",
+                    maxItems: 8,
+                    description: "compo : les éléments, chacun placé par son centre (x, y en fractions du cadre, 0 à 1), sa largeur (fraction du cadre), son début et sa fin (secondes dans le plan), son entrée, sa sortie et son mouvement.",
+                    items: {
+                      type: "object",
+                      properties: {
+                        type: { type: "string", enum: [...ELEMENT_TYPES] },
+                        data: { type: "object" },
+                        x: { type: "number" },
+                        y: { type: "number" },
+                        largeur: { type: "number" },
+                        hauteur: { type: "number", description: "surbrillance : la hauteur de la zone." },
+                        x2: { type: "number", description: "fleche : le point d'arrivée." },
+                        y2: { type: "number" },
+                        debut: { type: "number" },
+                        fin: { type: "number" },
+                        entree: { type: "string", enum: [...ENTRIES] },
+                        sortie: { type: "string", enum: [...EXITS] },
+                        mouvement: { type: "string", enum: [...MOVES] },
+                      },
+                      required: ["type", "x", "y", "debut"],
+                    },
+                  },
                   seconds: { type: "number" },
                   text: { type: "string", description: `ouverture : l'accroche, ${MAX_OPENING_CHARS} caractères au plus.` },
                   highlight: { type: "string", description: "ouverture : le mot à faire ressortir (dans le texte)." },

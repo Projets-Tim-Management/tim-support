@@ -83,7 +83,7 @@ export const RETOUCH_SCHEMA = {
         partition_json: {
           type: "string",
           description:
-            'La partition complète en JSON, ou une chaîne vide pour garder la même. Format : {"shots":[{"kind":"ouverture","seconds":2,"text":"…","highlight":"…"},{"kind":"rush","seconds":4,"rush":1,"from":0,"to":4,"zoom":{"x":0,"y":0.3,"w":1,"h":0.4},"caption":"…"},{"kind":"preuve","seconds":1.8,"fact":5},{"kind":"scene","seconds":2.2,"scene":"liste","data":{"legende":"…","titre":"…","elements":[{"nom":"…","detail":"…"}],"action":"…"}},{"kind":"logo","seconds":1.5},{"kind":"fin","seconds":2.5,"line":"…"}]}. Scènes : liste, notification, planning, compteur, avant-apres, bouton, carte, texte (voir la matière vidéo).',
+            'La partition complète en JSON, ou une chaîne vide pour garder la même. Format : {"shots":[{"kind":"ouverture","seconds":2,"text":"…","highlight":"…"},{"kind":"rush","seconds":4,"rush":1,"from":0,"to":4,"zoom":{"x":0,"y":0.3,"w":1,"h":0.4},"caption":"…"},{"kind":"preuve","seconds":1.8,"fact":5},{"kind":"compo","seconds":2.4,"fond":{"type":"rush","rush":1,"from":0,"to":2.4,"flou":true,"voile":0.4},"elements":[{"type":"notification","data":{"app":"TIM","titre":"…","texte":"…"},"x":0.5,"y":0.3,"debut":0.3,"entree":"glisse-haut"},{"type":"tap","data":{},"x":0.5,"y":0.7,"debut":1.2}]},{"kind":"logo","seconds":1.5},{"kind":"fin","seconds":2.5,"line":"…"}]}. Éléments et fonds : voir « elements » dans la matière vidéo.',
         },
       },
     }),
@@ -179,7 +179,7 @@ export function retouchPrompt(input: {
     `Gabarit du visuel : ${visual}`,
     `Textes :\n${texts || "—"}`,
     `Vidéo : ${video}`,
-    input.material ? `\nMATIÈRE VIDÉO (styles, musiques, rushes, inspirations, logo, scènes de motion design) :\n${JSON.stringify(input.material)}` : "",
+    input.material ? `\nMATIÈRE VIDÉO (styles, musiques, rushes, inspirations, logo, éléments de motion design) :\n${JSON.stringify(input.material)}` : "",
     "",
     input.history.length ? `CONSIGNES PRÉCÉDENTES SUR CETTE CRÉA (toujours valables) :\n${input.history.map((h, i) => `${i + 1}. ${h}`).join("\n")}` : "",
     `CONSIGNE DE CHARLIE, MAINTENANT :\n${input.instruction}`,
@@ -422,4 +422,4 @@ export async function processNextRetouch(payload: Payload, deps: RetouchDeps = {
 
 /** La consigne du premier montage d'une créa générée : l'IA écrit la partition, en motion design, dans le style donné. Pure. */
 export const firstMontageInstruction = (style: { id: number; name: string }): string =>
-  `Premier montage (automatique) : écris la vidéo de cette créa dans le style « ${style.name} » (identifiant ${style.id}), 12 à 18 s. Ouvre sur l'accroche, montre le geste promis par l'angle surtout avec des SCÈNES de motion design (l'interface de TIM recréée, données de démo crédibles, inspirées des rushes), un vrai extrait de rush si le geste réel convainc mieux, une preuve sourcée si elle existe, le logo s'il est animable, puis la fin. Durées pensées en temps de la musique. Ne change ni les textes ni l'accroche.`;
+  `Premier montage (automatique) : écris la vidéo de cette créa dans le style « ${style.name} » (identifiant ${style.id}), 12 à 18 s. Ouvre sur l'accroche, montre le geste promis par l'angle surtout avec des plans COMPOSÉS de motion design (un fond — style, couleur, rush net ou flouté — et des éléments animés posés dessus : l'interface de TIM recréée, des gestes, du texte cinétique ; données de démo crédibles, inspirées des rushes), une preuve sourcée si elle existe, le logo s'il est animable, puis la fin. Durées pensées en temps de la musique. Ne change ni les textes ni l'accroche.`;

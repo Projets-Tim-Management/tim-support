@@ -1,7 +1,7 @@
 import { coverRect, FULL, type Framing, type Rect } from "@/modules/ads/lib/framing";
 import { fontFamily, paletteOf, type Palette } from "@/modules/ads/lib/style";
 import type { LogoParts } from "@/modules/ads/video/logo";
-import type { SceneCommon, SceneData, SceneType } from "@/modules/ads/video/scenes";
+import type { Element, Fond } from "@/modules/ads/video/elements";
 import { FORMAT_SIZES, FPS, MAX_SPEED, MIN_SPEED, type FormatKey, type Score } from "@/modules/ads/video/score";
 
 /**
@@ -51,9 +51,17 @@ export type RenderShot =
     }
   | { kind: "preuve"; frames: number; value: string; label: string; source: string }
   | { kind: "logo"; frames: number }
-  /** Une scène de motion design, données vérifiées ; pour un compteur, le chiffre et la source du fait. */
-  | { kind: "scene"; frames: number; scene: SceneType; data: SceneData[SceneType] & SceneCommon; figure: { value: string; label: string; source: string } | null }
+  /** Un plan composé : son fond résolu, et ses éléments minutés en images (un compteur reçoit le chiffre et la source de son fait). */
+  | { kind: "compo"; frames: number; fond: RenderFond; elements: RenderElement[] }
   | { kind: "fin"; frames: number; line: string | null };
+
+export type RenderFond =
+  | { type: "style" }
+  | { type: "couleur"; color: string }
+  | { type: "rush"; src: string; srcAspect: number; fromSec: number; playbackRate: number; crop: Rect; cover: Rect | null; zoom: Rect | null; flou: boolean; voile: number }
+  | { type: "image"; src: string; flou: boolean; voile: number };
+
+export type RenderElement = Element & { from: number; to: number | null; figure: { value: string; label: string; source: string } | null };
 
 export type RenderProps = {
   format: FormatKey;
@@ -123,7 +131,41 @@ export type ResolveContext = {
   /** La musique choisie pour cette vidéo (aucune : `null`). La partition est déjà calée sur son tempo. */
   music?: { url: string; startSec: number; bpm: number | null } | null;
   logoAnimated?: LogoParts | null;
+  /** Les images des Médias publicitaires qu'un fond peut montrer, par identifiant. */
+  media?: Map<number, string>;
 };
+
+/** Le fond d'un plan composé, résolu (adresse, cadrage, couleur). Un rush ou une image introuvable retombe sur le fond du style. Pure. */
+function fondOf(f: Fond, seconds: number, aspect: number, ctx: ResolveContext): RenderFond {
+  const pal = paletteOf(ctx.kit, ctx.appearance);
+  if (f.type === "couleur") return { type: "couleur", color: { principale: pal.primary, accent: pal.accent, sombre: pal.darkBg, clair: pal.lightBg }[f.couleur ?? "principale"] };
+  if (f.type === "rush") {
+    const r = ctx.rushes.get(Number(f.rush));
+    if (!r) return { type: "style" };
+    const framing = r.framing ?? { crop: null, protect: null };
+    const srcAspect = r.width / r.height;
+    const c = coverRect(srcAspect, framing, aspect);
+    const from = f.from ?? 0;
+    const to = f.to ?? from + seconds;
+    return {
+      type: "rush",
+      src: r.url,
+      srcAspect,
+      fromSec: from,
+      playbackRate: Math.min(MAX_SPEED, Math.max(MIN_SPEED, Math.round(((to - from) / seconds) * 1000) / 1000)),
+      crop: framing.crop ?? FULL,
+      cover: c.fits ? c.rect : null,
+      zoom: f.zoom ?? null,
+      flou: Boolean(f.flou),
+      voile: f.voile ?? 0,
+    };
+  }
+  if (f.type === "image") {
+    const src = f.media != null ? ctx.media?.get(f.media) : undefined;
+    return src ? { type: "image", src, flou: Boolean(f.flou), voile: f.voile ?? 0 } : { type: "style" };
+  }
+  return { type: "style" };
+}
 
 /** La partition résolue pour un format. Suppose une partition VÉRIFIÉE (scoreProblems vide). Pure. */
 export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps {
@@ -172,11 +214,21 @@ export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps
         }
         case "logo":
           return { kind: "logo", frames: frames(shot.seconds) };
-        case "scene": {
-          const fact = shot.scene === "compteur" ? ctx.facts.get((shot.data as SceneData["compteur"]).fact) : null;
-          const figure = fact ? { value: figureOf(fact.statement), label: (shot.data as SceneData["compteur"]).libelle || fact.statement, source: fact.source } : null;
-          return { kind: "scene", frames: frames(shot.seconds), scene: shot.scene, data: shot.data, figure };
-        }
+        case "compo":
+          return {
+            kind: "compo",
+            frames: frames(shot.seconds),
+            fond: fondOf(shot.fond, shot.seconds, aspect, ctx),
+            elements: shot.elements.map((e) => {
+              const fact = e.type === "compteur" ? ctx.facts.get(Number(e.data.fact)) : null;
+              return {
+                ...e,
+                from: Math.round(e.debut * FPS),
+                to: e.fin !== undefined ? Math.round(e.fin * FPS) : null,
+                figure: fact ? { value: figureOf(fact.statement), label: String(e.data.libelle ?? "") || fact.statement, source: fact.source } : null,
+              };
+            }),
+          };
         default:
           return { kind: "fin", frames: frames(shot.seconds), line: shot.line ?? null };
       }

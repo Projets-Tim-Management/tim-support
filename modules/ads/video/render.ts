@@ -148,7 +148,12 @@ export async function requestVideo(
 export function scoreContextOf(ctx: Awaited<ReturnType<typeof loadVideoContext>>) {
   const forbidden = [...((ctx.kit.forbidden as { term?: string }[] | undefined) ?? []).map((f) => f.term ?? "").filter(Boolean), ...ctx.gen.forbidden];
   return {
-    rushes: new Map(ctx.rushes.map((r) => [r.id, { id: r.id, ready: ctx.ready.includes(r), durationSec: r.working?.meta?.durationSec ?? null, framing: r.framing ?? null }])),
+    rushes: new Map(
+      ctx.rushes.map((r) => {
+        const m = r.working?.meta;
+        return [r.id, { id: r.id, ready: ctx.ready.includes(r), durationSec: m?.durationSec ?? null, framing: r.framing ?? null, srcAspect: m?.width && m?.height ? m.width / m.height : null }];
+      }),
+    ),
     facts: new Map(ctx.gen.brief.facts.map((f) => [Number(f.id), { id: Number(f.id), statement: f.statement, source: f.source }])),
     offer: ctx.gen.brief.offer ?? null,
     forbidden,

@@ -6,7 +6,7 @@ import { FinalError } from "@/modules/ads/lib/rush-process";
 import { isInspiration } from "@/modules/ads/lib/rushes";
 import { loadAnimatedLogo } from "@/modules/ads/video/logo-server";
 import { renderStyleOf } from "@/modules/ads/video/props";
-import { SCENE_GUIDE } from "@/modules/ads/video/scenes";
+import { ELEMENT_GUIDE } from "@/modules/ads/video/elements";
 import { requestVideo } from "@/modules/ads/video/render";
 
 /**
@@ -120,7 +120,7 @@ export function rushForAgent(r: RushDoc): RushForAgent {
 }
 
 /** Les rushes prêts et les styles actifs : ce qu'un montage peut employer ; les inspirations validées : ce qui guide le goût. */
-export type VideoMaterial = { rushes: RushForAgent[]; styles: StyleForAgent[]; inspirations: InspirationForAgent[]; musiques: MusicForAgent[]; logo: string; scenes: Record<string, string> };
+export type VideoMaterial = { rushes: RushForAgent[]; styles: StyleForAgent[]; inspirations: InspirationForAgent[]; musiques: MusicForAgent[]; logo: string; elements: Record<string, string> };
 
 export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
   const [rushes, styles, musics, inspirations, kit] = await Promise.all([
@@ -141,7 +141,7 @@ export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
   return {
     // Une ancienne fiche de rush marquée « inspiration » (avant la collection à part) n'est jamais de la matière.
     rushes: docs.filter((r) => !isInspiration(r)).map(rushForAgent),
-    scenes: SCENE_GUIDE,
+    elements: ELEMENT_GUIDE,
     logo: animated
       ? `Logo animable : symbole en ${animated.symbol.length} élément(s), nom en ${animated.name.length} lettre(s)${animated.baseline ? ", signature" : ""}. Un plan « logo » le fait arriver selon le style.`
       : "Pas de logo animable : un plan « logo » pose l'image du logo, en fondu.",

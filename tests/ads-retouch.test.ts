@@ -109,7 +109,7 @@ describe("le traitement", () => {
     return { payload: payload as never, writes, creaUpdates };
   }
   const usage = { input: 1000, output: 200, cacheRead: 0, cacheWrite: 0 };
-  const material = async () => ({ rushes: [], styles: [], inspirations: [], musiques: [], logo: "", scenes: {} });
+  const material = async () => ({ rushes: [], styles: [], inspirations: [], musiques: [], logo: "", elements: {} });
 
   it("rien en file : rien ne se passe", async () => {
     expect(await processNextRetouch(fake(CREA, false).payload)).toBeNull();
@@ -129,7 +129,7 @@ describe("le traitement", () => {
 
   it("un premier montage : une créa sans vidéo reçoit sa partition, dans le style donné, avec la musique du kit", async () => {
     const { payload } = fake({ ...CREA, video: null, style: null });
-    const partition = { shots: [{ kind: "scene", seconds: 3, scene: "liste", data: {} }, { kind: "fin", seconds: 2.5 }] };
+    const partition = { shots: [{ kind: "compo", seconds: 3, fond: { type: "style" }, elements: [] }, { kind: "fin", seconds: 2.5 }] };
     const call = async () => ({ result: { resume: "Premier montage.", textes: null, accroche: null, gabarit: null, video: { style: 2, musique: null, sans_musique: false, partition } }, usage });
     const video = vi.fn(async () => ({ score: { shots: [] }, music: null }));
     expect(await processNextRetouch(payload, { call, video, renderVisuals: vi.fn(), material })).toMatchObject({ outcome: "faite" });

@@ -4,7 +4,8 @@ import { AbsoluteFill, Audio, Easing, Img, interpolate, OffthreadVideo, Sequence
 import type { Rect } from "../modules/ads/lib/framing";
 import type { RenderProps, RenderShot, RenderStyle } from "../modules/ads/video/props";
 import { useFamily } from "./fonts";
-import { SceneView } from "./scenes";
+import { AnimatedLogo } from "./logo";
+import { Elements } from "./elements";
 
 /**
  * Une pub vidéo, dessinée à partir de sa partition résolue (plan Publicité,
@@ -268,49 +269,6 @@ function Proof({ shot, ctx }: { shot: Extract<RenderShot, { kind: "preuve" }>; c
   );
 }
 
-/**
- * Le logo animé (SVG à calques, Kit de marque › Logos) : en « construction »,
- * les éléments du symbole arrivent un à un (sur les demi-temps de la musique
- * quand le tempo est connu), puis les lettres du nom, puis la signature ; en
- * « fondu », tout ensemble. Sur un fond sombre, le nom et la signature passent
- * à la couleur du texte sur fond sombre ; le symbole garde ses couleurs.
- */
-function AnimatedLogo({ ctx, height, onDark, frames, still = false }: { ctx: Ctx; height: number; onDark: boolean; frames: number; still?: boolean }) {
-  const { p } = ctx;
-  // Sur une affiche, le logo est montré construit : comme si l'animation était finie.
-  const current = useCurrentFrame();
-  const frame = still ? 100_000 : current;
-  const logo = p.logoAnimated!;
-  const build = p.style.logoAnimation === "construction";
-  // La construction tient dans les 60 % du plan : sinon elle passe aux quarts, huitièmes de temps… (toujours sur la musique).
-  const units = logo.symbol.length + logo.name.length * 0.6;
-  let step = p.music?.beatFrames ? p.music.beatFrames / 2 : 4;
-  while (step > 1.5 && units * step + 16 > frames * 0.6) step /= 2;
-  const pop = (at: number) => interpolate(frame, [at, at + 8], [0, 1], { ...clamp, easing: Easing.out(Easing.back(2)) });
-  const fade = (at: number) => interpolate(frame, [at, at + 10], [0, 1], { ...clamp, easing: ease });
-  const nameStart = build ? logo.symbol.length * step : 0;
-  const baseStart = build ? nameStart + logo.name.length * step * 0.6 + 6 : 4;
-  const recolor = onDark ? p.palette.textOnDark : null;
-  const inner = (html: string) => ({ __html: html });
-  return (
-    <svg viewBox={logo.viewBox} style={{ height, width: "auto", overflow: "visible" }}>
-      {recolor && <style>{`.tl-recolor *{fill:${recolor} !important}`}</style>}
-      {/* Les <defs> et <style> du fichier tels quels : un <defs> est valide à l'intérieur d'un groupe. */}
-      {logo.defs && <g dangerouslySetInnerHTML={inner(logo.defs)} />}
-      {logo.rest && <g style={{ opacity: fade(0) }} dangerouslySetInnerHTML={inner(logo.rest)} />}
-      {logo.symbol.map((m, i) => {
-        const k = build ? pop(i * step) : fade(0);
-        return <g key={`s${i}`} style={{ opacity: Math.min(1, k * 1.5), transform: `scale(${build ? k : 1})`, transformBox: "fill-box", transformOrigin: "center" }} dangerouslySetInnerHTML={inner(m)} />;
-      })}
-      {logo.name.map((m, i) => {
-        const k = build ? fade(nameStart + i * step * 0.6) : fade(2);
-        return <g key={`n${i}`} className={recolor ? "tl-recolor" : undefined} style={{ opacity: k, transform: `translateY(${(1 - k) * 12}%)`, transformBox: "fill-box" }} dangerouslySetInnerHTML={inner(m)} />;
-      })}
-      {logo.baseline && <g className={recolor ? "tl-recolor" : undefined} style={{ opacity: fade(baseStart) }} dangerouslySetInnerHTML={inner(logo.baseline)} />}
-    </svg>
-  );
-}
-
 /** Le logo seul, au centre : une signature (en ouverture par exemple). Animé s'il est déposé en SVG à calques, sinon l'image. */
 function LogoShot({ ctx, frames }: { ctx: Ctx; frames: number }) {
   const { p, u } = ctx;
@@ -355,12 +313,68 @@ function End({ shot, ctx }: { shot: Extract<RenderShot, { kind: "fin" }>; ctx: C
   );
 }
 
+/**
+ * Un plan composé : son fond (le style, une couleur, un passage de rush net ou
+ * flouté, une image), un voile s'il en faut un, puis les éléments animés.
+ */
+function Compo({ shot, ctx }: { shot: Extract<RenderShot, { kind: "compo" }>; ctx: Ctx }) {
+  const { p } = ctx;
+  const { width, height } = p;
+  const f = shot.fond;
+  const lightStyle = p.style.background === "clair";
+  let ink = lightStyle ? p.palette.textOnLight : p.palette.textOnDark;
+  let layer: ReactNode = <AbsoluteFill style={{ background: lightStyle ? p.palette.lightBg : p.palette.darkBg }} />;
+  if (f.type === "couleur") {
+    ink = f.color === p.palette.lightBg ? p.palette.textOnLight : p.palette.textOnDark;
+    layer = <AbsoluteFill style={{ background: f.color }} />;
+  } else if (f.type === "rush") {
+    ink = p.palette.textOnDark;
+    const asShot = { kind: "rush" as const, frames: shot.frames, src: f.src, srcAspect: f.srcAspect, fromSec: f.fromSec, playbackRate: f.playbackRate, crop: f.crop, cover: f.cover, zoom: null, caption: null };
+    const blur: CSSProperties = f.flou ? { filter: `blur(${18 * ctx.u}px)`, transform: "scale(1.08)" } : {};
+    if (f.zoom || f.cover) {
+      layer = (
+        <AbsoluteFill style={{ background: p.palette.darkBg, ...blur }}>
+          <VideoView shot={asShot} base={f.zoom ?? f.cover!} bound={f.crop} w={width} h={height} zoomTo={null} progress={0} />
+        </AbsoluteFill>
+      );
+    } else {
+      // La zone utile entière, centrée sur le fond sombre : rien n'est rogné.
+      const ca = (f.crop.w * f.srcAspect) / f.crop.h;
+      const aspect = width / height;
+      const dw = ca > aspect ? width : height * ca;
+      const dh = ca > aspect ? width / ca : height;
+      layer = (
+        <AbsoluteFill style={{ background: p.palette.darkBg, ...blur }}>
+          <div style={{ position: "absolute", left: (width - dw) / 2, top: (height - dh) / 2, width: dw, height: dh, overflow: "hidden" }}>
+            <VideoView shot={asShot} base={f.crop} bound={f.crop} w={dw} h={dh} zoomTo={null} progress={0} />
+          </div>
+        </AbsoluteFill>
+      );
+    }
+  } else if (f.type === "image") {
+    ink = p.palette.textOnDark;
+    layer = (
+      <AbsoluteFill style={{ background: p.palette.darkBg }}>
+        <Img src={f.src} style={{ width: "100%", height: "100%", objectFit: "cover", ...(f.flou ? { filter: `blur(${18 * ctx.u}px)`, transform: "scale(1.08)" } : {}) }} />
+      </AbsoluteFill>
+    );
+  }
+  const veil = f.type === "rush" || f.type === "image" ? f.voile : 0;
+  return (
+    <AbsoluteFill style={{ overflow: "hidden" }}>
+      {layer}
+      {veil > 0 && <AbsoluteFill style={{ background: `rgba(0,0,0,${veil})` }} />}
+      <Elements elements={shot.elements} ctx={ctx} shotFrames={shot.frames} ink={ink} />
+    </AbsoluteFill>
+  );
+}
+
 function ShotView({ shot, ctx }: { shot: RenderShot; ctx: Ctx }): ReactNode {
   if (shot.kind === "ouverture") return <Opening shot={shot} ctx={ctx} />;
   if (shot.kind === "rush") return <Rush shot={shot} ctx={ctx} />;
   if (shot.kind === "preuve") return <Proof shot={shot} ctx={ctx} />;
   if (shot.kind === "logo") return <LogoShot ctx={ctx} frames={shot.frames} />;
-  if (shot.kind === "scene") return <SceneView shot={shot} ctx={ctx} />;
+  if (shot.kind === "compo") return <Compo shot={shot} ctx={ctx} />;
   return <End shot={shot} ctx={ctx} />;
 }
 

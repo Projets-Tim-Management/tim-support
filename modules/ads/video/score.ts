@@ -1,6 +1,6 @@
 import { allowedNumbers, checkForbidden, checkNumbers, checkTestimonial } from "@/modules/ads/lib/copy/guardrails";
 import { viewAllowed, type Framing, type Rect } from "@/modules/ads/lib/framing";
-import { isSceneType, parseSceneData, sceneProblems, type SceneCommon, type SceneData, type SceneType } from "@/modules/ads/video/scenes";
+import { elementProblems, parseElement, parseFond, type Element, type Fond } from "@/modules/ads/video/elements";
 
 /**
  * La partition d'une vidéo publicitaire (plan Publicité, §9 sexies, D3) : ce
@@ -41,8 +41,8 @@ export type Shot =
   | { kind: "rush"; seconds: number; rush: number; from: number; to: number; zoom?: Rect | null; caption?: string | null }
   /** Une preuve chiffrée : un fait sourcé (Paramètres › Faits sourcés), jamais un chiffre inventé. */
   | { kind: "preuve"; seconds: number; fact: number }
-  /** Une scène de motion design : l'interface de TIM recréée et animée (voir video/scenes.ts). */
-  | { kind: "scene"; seconds: number; scene: SceneType; data: SceneData[SceneType] & SceneCommon }
+  /** Un plan composé : un fond (style, couleur, rush, image) et des éléments animés posés dessus (voir video/elements.ts). */
+  | { kind: "compo"; seconds: number; fond: Fond; elements: Element[] }
   /** Le logo seul, animé s'il est déposé en SVG à calques (Kit de marque › Logos) : une signature, en ouverture par exemple. */
   | { kind: "logo"; seconds: number }
   /** La fin : logo, une phrase, le bouton et l'adresse du Kit de marque. */
@@ -50,7 +50,7 @@ export type Shot =
 
 export type Score = { shots: Shot[] };
 
-export type RushInfo = { id: number; ready: boolean; durationSec: number | null; framing: Framing | null };
+export type RushInfo = { id: number; ready: boolean; durationSec: number | null; framing: Framing | null; srcAspect?: number | null };
 export type FactInfo = { id: number; statement: string; source: string };
 export type ScoreContext = {
   rushes: Map<number, RushInfo>;
@@ -81,11 +81,8 @@ export function parseScore(raw: unknown): Score {
           return { kind: "preuve", seconds, fact: n(x.fact) };
         case "logo":
           return { kind: "logo", seconds };
-        case "scene": {
-          // Un type inconnu garde son nom : la vérification le refusera avec la raison.
-          const scene = (isSceneType(x.scene) ? x.scene : String(x.scene ?? "")) as SceneType;
-          return { kind: "scene", seconds, scene, data: isSceneType(x.scene) ? parseSceneData(x.scene, x.data) : ({} as never) };
-        }
+        case "compo":
+          return { kind: "compo", seconds, fond: parseFond(x.fond), elements: Array.isArray(x.elements) ? x.elements.map(parseElement) : [] };
         default:
           return { kind: "fin", seconds, line: s(x.line) || null };
       }
@@ -107,7 +104,9 @@ export function scoreProblems(score: Score, ctx: ScoreContext): string[] {
   if (shots.length < 2) out.push("Une vidéo a au moins deux plans, dont la fin.");
   if (shots.at(-1)?.kind !== "fin") out.push("Le dernier plan est la fin (logo, bouton, adresse).");
   if (shots.filter((x) => x.kind === "fin").length > 1) out.push("Une seule fin.");
-  if (!shots.some((x) => x.kind === "rush" || x.kind === "scene")) out.push("Au moins un plan montre le logiciel : un passage de rush ou une scène recréée.");
+  const showsSoftware = (x: Shot) =>
+    x.kind === "rush" || (x.kind === "compo" && (x.fond.type === "rush" || x.elements.some((e) => ["liste", "notification", "bouton", "planning", "fiche", "champ"].includes(e.type))));
+  if (!shots.some(showsSoftware)) out.push("Au moins un plan montre le logiciel : un passage de rush, ou un plan composé sur un rush ou avec un élément d'interface.");
   const total = shots.reduce((t, x) => t + (Number.isFinite(x.seconds) ? x.seconds : 0), 0);
   if (total < MIN_TOTAL || total > MAX_TOTAL) out.push(`Durée totale de ${Math.round(total * 10) / 10} s : entre ${MIN_TOTAL} et ${MAX_TOTAL} s.`);
 
@@ -140,9 +139,30 @@ export function scoreProblems(score: Score, ctx: ScoreContext): string[] {
       if ((shot.caption ?? "").length > MAX_CAPTION_CHARS) out.push(`${at} : sous-titre de ${(shot.caption ?? "").length} caractères, ${MAX_CAPTION_CHARS} au plus.`);
     }
     if (shot.kind === "preuve" && !ctx.facts.has(shot.fact)) out.push(`${at} : fait ${shot.fact} introuvable — une preuve est toujours un fait sourcé.`);
-    if (shot.kind === "scene") {
-      if (!isSceneType(shot.scene)) out.push(`${at} : scène « ${shot.scene} » inconnue.`);
-      else for (const p of sceneProblems(shot.scene, shot.data, { facts: new Set(ctx.facts.keys()), allowed, forbidden: ctx.forbidden ?? [] })) out.push(`${at} (${shot.scene}) : ${p}`);
+    if (shot.kind === "compo") {
+      let rush: { srcAspect: number; framing: Framing | null } | null = null;
+      if (shot.fond.type === "rush") {
+        const r = ctx.rushes.get(Number(shot.fond.rush));
+        const from = shot.fond.from ?? 0;
+        const to = shot.fond.to ?? from + shot.seconds;
+        if (!r) out.push(`${at} : fond — rush ${String(shot.fond.rush)} introuvable.`);
+        else if (!r.ready) out.push(`${at} : fond — rush ${String(shot.fond.rush)} pas encore converti.`);
+        else {
+          const d = r.durationSec ?? 0;
+          if (!(from >= 0 && to > from && to <= d + 0.05)) out.push(`${at} : fond — passage de ${from} à ${to} s hors du rush (${d} s).`);
+          else {
+            const speed = (to - from) / shot.seconds;
+            if (speed < MIN_SPEED || speed > MAX_SPEED) out.push(`${at} : fond — vitesse ×${Math.round(speed * 10) / 10}, entre ×${MIN_SPEED} et ×${MAX_SPEED}.`);
+          }
+          const z = shot.fond.zoom;
+          if (z) {
+            if (![z.x, z.y, z.w, z.h].every(Number.isFinite) || z.w < MIN_ZOOM || z.h < MIN_ZOOM) out.push(`${at} : fond — zoom trop serré (${MIN_ZOOM * 100} % de l'image au moins).`);
+            else if (!viewAllowed(z, r.framing ?? { crop: null, protect: null })) out.push(`${at} : fond — ce zoom sort de la zone utile ou coupe la zone à ne jamais couper.`);
+          }
+          rush = r.srcAspect ? { srcAspect: r.srcAspect, framing: r.framing } : null;
+        }
+      }
+      for (const p of elementProblems(shot.elements, shot.fond, { seconds: shot.seconds, facts: new Set(ctx.facts.keys()), allowed, forbidden: ctx.forbidden ?? [], rush })) out.push(`${at} : ${p}`);
     }
     for (const text of textsOf(shot).filter(Boolean)) {
       const problem = checkNumbers(text, allowed) ?? checkForbidden(text, ctx.forbidden ?? []) ?? checkTestimonial(text);
