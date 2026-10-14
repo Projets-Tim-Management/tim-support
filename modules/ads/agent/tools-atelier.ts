@@ -6,7 +6,7 @@ import { clip, type AgentTool, type ToolContext, type ToolOutcome } from "@/modu
 import type { Id } from "@/modules/ads/agent/types";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
 import { eur } from "@/modules/ads/lib/spend";
-import { MAX_STYLES } from "@/modules/ads/video/mount";
+import { MAX_VARIANTS } from "@/modules/ads/video/mount";
 import { MAX_CAPTION_CHARS, MAX_OPENING_CHARS, MAX_SHOT, MAX_TOTAL, MIN_SHOT, MIN_TOTAL, MIN_ZOOM } from "@/modules/ads/video/score";
 
 /**
@@ -190,12 +190,16 @@ const lireRushes: AgentTool = {
   definition: {
     name: "lire_rushes",
     description:
-      "La matière des vidéos : les rushes prêts (écrans de l'app, chantier…) avec ce qu'on y voit, la description détaillée validée et ses plans repérés, la durée et le recadrage (zone utile, zone à ne jamais couper) ; et les styles actifs, avec quand employer chacun.",
+      "La matière des vidéos : les rushes prêts (écrans de l'app, chantier…) avec ce qu'on y voit, la description détaillée validée et ses plans repérés, la durée et le recadrage (zone utile, zone à ne jamais couper) ; les styles actifs, avec quand employer chacun ; les musiques, avec quand les employer et leur tempo ; et les inspirations de Charlie — des pubs à imiter ou à éviter, réduites à leur fiche de style (elles ne se montent jamais).",
     input_schema: { type: "object", properties: {} },
   },
   async run(ctx) {
     const m = await ctx.deps.atelier.videoMaterial();
-    return { kind: "ok", output: m, line: `${who(ctx)} passe en revue ${m.rushes.length} rush(es) prêt(s) et ${m.styles.length} style(s).` };
+    return {
+      kind: "ok",
+      output: m,
+      line: `${who(ctx)} passe en revue ${m.rushes.length} rush(es) prêt(s), ${m.styles.length} style(s), ${m.musiques.length} musique(s)${m.inspirations.length ? ` et ${m.inspirations.length} inspiration(s)` : ""}.`,
+    };
   },
 };
 
@@ -205,8 +209,9 @@ const monterVideo: AgentTool = {
   definition: {
     name: "monter_video",
     description: [
-      `Monte la vidéo d'une créa : tu écris la partition (les plans, dans l'ordre), le moteur la rend aux trois formats Meta dans chacun des styles choisis (${MAX_STYLES} au plus).`,
-      "Le premier style va sur la créa ; chaque style suivant crée une copie étiquetée « test de style » (même angle, mêmes textes), comptée dans le quota de la semaine : c'est ainsi qu'on compare des styles.",
+      `Monte la vidéo d'une créa : tu écris la partition (les plans, dans l'ordre), le moteur la rend aux trois formats Meta. Tu peux tester plusieurs styles sur une musique, OU un style sur plusieurs musiques — jamais les deux à la fois —, ${MAX_VARIANTS} vidéos au plus.`,
+      "La première variante va sur la créa ; chaque suivante crée une copie étiquetée « test de style » ou « test de musique » (même angle, mêmes textes), comptée dans le quota de la semaine.",
+      "Sur une musique au tempo connu, le moteur cale chaque coupe sur le temps le plus proche et fait tomber les mots de l'ouverture sur les temps : écris des durées proches de multiples du temps (60 / BPM). Sans musique précisée, c'est celle du Kit de marque.",
       `Le code vérifie la partition avant tout rendu : ${MIN_TOTAL} à ${MAX_TOTAL} s au total, plans de ${MIN_SHOT} à ${MAX_SHOT} s, au moins un plan de rush, une seule fin et en dernier, des rushes prêts pris dans leur durée, aucun zoom plus serré que ${MIN_ZOOM * 100} % ni qui coupe la zone protégée, aucun chiffre absent des faits sourcés et de l'offre, aucune mention interdite. Un refus dit pourquoi : corrige et rappelle.`,
       "Le rendu prend quelques minutes, sans coût IA ; la vidéo apparaît sur la carte de la créa.",
     ].join(" "),
@@ -214,7 +219,8 @@ const monterVideo: AgentTool = {
       type: "object",
       properties: {
         crea: { type: ["number", "string"] },
-        styles: { type: "array", items: { type: "number" }, minItems: 1, maxItems: MAX_STYLES, description: "Les identifiants des styles (voir lire_rushes), le préféré d'abord." },
+        styles: { type: "array", items: { type: "number" }, minItems: 1, maxItems: MAX_VARIANTS, description: "Les identifiants des styles (voir lire_rushes), le préféré d'abord." },
+        musiques: { type: "array", items: { type: "number" }, minItems: 1, maxItems: MAX_VARIANTS, description: "Les identifiants des musiques (voir lire_rushes), la préférée d'abord. Omis : la musique du Kit de marque." },
         partition: {
           type: "object",
           properties: {
@@ -250,12 +256,14 @@ const monterVideo: AgentTool = {
   async run(ctx, input) {
     const styles = (Array.isArray(input.styles) ? input.styles : []).map(idOf);
     try {
-      const r = await ctx.deps.atelier.video(ctx.run.campaign, idOf(input.crea), { styles, score: input.partition });
+      const musics = Array.isArray(input.musiques) ? input.musiques.map(idOf) : undefined;
+      const r = await ctx.deps.atelier.video(ctx.run.campaign, idOf(input.crea), { styles, musics, score: input.partition });
       const tests = r.creas.filter((c) => c.test).length;
+      const label = (c: (typeof r.creas)[number]) => `« ${clip(c.styleNom, 30)} »${c.musiqueNom ? ` sur « ${clip(c.musiqueNom, 30)} »` : ", sans musique"}`;
       return {
         kind: "ok",
         output: r,
-        line: `${who(ctx)} monte la vidéo de la créa ${String(input.crea)} en ${r.creas.map((c) => `« ${clip(c.styleNom, 30)} »`).join(", ")}${tests ? ` (${tests} test(s) de style)` : ""}${r.ecartes.length ? ` — ${r.ecartes.length} style(s) écarté(s) : quota` : ""}.`,
+        line: `${who(ctx)} monte la vidéo de la créa ${String(input.crea)} : ${r.creas.map(label).join(" ; ")}${tests ? ` (${tests} test(s))` : ""}${r.ecartes.length ? ` — ${r.ecartes.length} variante(s) écartée(s) : quota` : ""}.`,
       };
     } catch (e) {
       return errorOf(ctx, e, "le montage vidéo");

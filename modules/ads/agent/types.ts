@@ -8,7 +8,7 @@ import type { SitePage } from "@/modules/ads/agent/sources/site";
 import type { RunStatus } from "@/modules/ads/collections/AdAgentRuns";
 import type { AgentRole, AgentStatus } from "@/modules/ads/collections/AdAgents";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
-import type { MountResult, RushForAgent, StyleForAgent } from "@/modules/ads/video/mount";
+import type { MountResult, VideoMaterial } from "@/modules/ads/video/mount";
 
 /**
  * Les formes que manipule le moteur d'agents (plan Publicité, §9 quater, point 5).
@@ -158,10 +158,10 @@ export interface AtelierPort {
   creatives(campaign: Id, ids: Id[]): Promise<CreativeView[]>;
   /** Passe des créas « À valider » ; celles qui ne sont pas publiables restent, avec la raison. */
   submit(campaign: Id, ids: Id[]): Promise<{ submitted: Id[]; skipped: { id: Id; reason: string }[] }>;
-  /** Les rushes prêts (description validée, recadrage) et les styles actifs : la matière d'un montage vidéo (D4). */
-  videoMaterial(): Promise<{ rushes: RushForAgent[]; styles: StyleForAgent[] }>;
-  /** Fait monter la vidéo d'une créa dans 1 à 3 styles (copies « test de style » au-delà du premier). Lève avec la raison d'un refus. */
-  video(campaign: Id, creative: Id, req: { styles: Id[]; score: unknown }): Promise<MountResult>;
+  /** Les rushes prêts (description validée, recadrage), les styles actifs, les musiques analysées et les fiches de style des inspirations validées (D4, I1, M). */
+  videoMaterial(): Promise<VideoMaterial>;
+  /** Fait monter la vidéo d'une créa dans 1 à 3 styles OU sur 1 à 3 musiques (copies de test au-delà de la première). Lève avec la raison d'un refus. */
+  video(campaign: Id, creative: Id, req: { styles: Id[]; musics?: Id[]; score: unknown }): Promise<MountResult>;
   campaignBudget(campaign: Id): Promise<CampaignBudget | null>;
   setSplit(campaign: Id, split: Split, decision: Id, at: Date): Promise<void>;
 }

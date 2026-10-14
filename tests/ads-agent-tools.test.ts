@@ -37,9 +37,9 @@ function fakeAtelier(over: Partial<AtelierPort> = {}) {
     submit: vi.fn(async (_campaign: Id, ids: Id[]) => ({ submitted: ids.filter((i) => i !== 999), skipped: ids.includes(999) ? [{ id: 999, reason: "Pas de titre passé." }] : [] })),
     campaignBudget: vi.fn(async () => ({ totalDailyEur: 30, maxAiSharePct: 15, metaFloorEur: 5 })),
     setSplit: vi.fn(async () => {}),
-    videoMaterial: vi.fn(async () => ({ rushes: [], styles: [{ id: 1, nom: "A · Le geste en gros plan", quandLEmployer: "Un geste dans l'app" }] })),
-    video: vi.fn(async (_c: Id, crea: Id, req: { styles: Id[] }) => ({
-      creas: req.styles.map((st, i) => ({ crea: i ? 200 + i : Number(crea), style: Number(st), styleNom: `Style ${String(st)}`, test: i > 0 })),
+    videoMaterial: vi.fn(async () => ({ rushes: [], inspirations: [], musiques: [], styles: [{ id: 1, nom: "A · Le geste en gros plan", quandLEmployer: "Un geste dans l'app" }] })),
+    video: vi.fn(async (_c: Id, crea: Id, req: { styles: Id[]; musics?: Id[] }) => ({
+      creas: req.styles.map((st, i) => ({ crea: i ? 200 + i : Number(crea), style: Number(st), styleNom: `Style ${String(st)}`, musique: 8, musiqueNom: "Énergique", test: i > 0 })),
       ecartes: [],
     })),
     ...over,
@@ -232,15 +232,15 @@ describe("la vidéo — le directeur artistique monte, le code vérifie (D4)", (
     const atelier = fakeAtelier();
     const { ctx } = await setup("directeur-artistique", atelier);
     const r = await use(ctx, "lire_rushes", {});
-    expect(r).toMatchObject({ kind: "ok", output: { styles: [{ id: 1 }] }, line: expect.stringMatching(/0 rush\(es\) prêt\(s\) et 1 style/) });
+    expect(r).toMatchObject({ kind: "ok", output: { styles: [{ id: 1 }] }, line: expect.stringMatching(/0 rush\(es\) prêt\(s\), 1 style\(s\), 0 musique/) });
   });
 
   it("monter_video transmet la partition et les styles ; les tests de style sont comptés", async () => {
     const atelier = fakeAtelier();
     const { ctx, run } = await setup("directeur-artistique", atelier);
     const r = await use(ctx, "monter_video", { crea: 12, styles: [1, 3], partition: PARTITION, justification: "Deux styles se défendent." });
-    expect(atelier.video).toHaveBeenCalledWith(run.campaign, 12, { styles: [1, 3], score: PARTITION });
-    expect(r).toMatchObject({ kind: "ok", line: expect.stringMatching(/monte la vidéo de la créa 12 en « Style 1 », « Style 3 » \(1 test\(s\) de style\)/) });
+    expect(atelier.video).toHaveBeenCalledWith(run.campaign, 12, { styles: [1, 3], musics: undefined, score: PARTITION });
+    expect(r).toMatchObject({ kind: "ok", line: expect.stringMatching(/monte la vidéo de la créa 12 : « Style 1 » sur « Énergique » ; « Style 3 » sur « Énergique » \(1 test\(s\)\)/) });
   });
 
   it("une partition refusée revient au modèle avec la raison, sans rien casser", async () => {

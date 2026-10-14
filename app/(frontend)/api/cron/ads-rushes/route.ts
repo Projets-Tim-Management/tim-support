@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 
 import { payloadClient } from "@/core/payload-client";
+import { processNextMusic } from "@/modules/ads/lib/music";
 import { processNextRush } from "@/modules/ads/lib/rush-process";
 
 /**
  * Chaque minute : convertit les rushes importés (plan Publicité, §9 sexies,
  * D1b), le plus ancien d'abord, tant qu'il reste du temps pour en finir un.
  * Une vidéo se convertit en une à trois minutes dans une Sandbox Vercel.
+ * Puis analyse le rythme des musiques déposées (M), une minute environ chacune.
  *
  * Déclenché par Vercel Cron : « Authorization: Bearer <CRON_SECRET> ».
  */
@@ -25,10 +27,11 @@ export async function GET(req: Request) {
   const payload = await payloadClient();
   const done = [];
   while (Date.now() - start < maxDuration * 1000 - MARGIN_MS) {
-    const r = await processNextRush(payload);
+    const rush = await processNextRush(payload);
+    const r = rush ? { ...rush, quoi: "rush" } : await processNextMusic(payload).then((m) => (m ? { ...m, quoi: "musique" } : null));
     if (!r) break;
     done.push(r);
-    payload.logger.info(`[cron] rush ${r.id} → ${r.outcome}${r.error ? ` (${r.error})` : ""}`);
+    payload.logger.info(`[cron] ${r.quoi} ${r.id} → ${r.outcome}${r.error ? ` (${r.error})` : ""}`);
   }
   return NextResponse.json({ ok: true, done });
 }

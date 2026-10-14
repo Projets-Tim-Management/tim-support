@@ -1,6 +1,7 @@
-import type { CollectionBeforeValidateHook, CollectionConfig } from "payload";
+import type { CollectionBeforeChangeHook, CollectionBeforeValidateHook, CollectionConfig } from "payload";
 
 import { isAdmin } from "@/core/access";
+import { BEAT_STATUSES } from "@/modules/ads/video/beat";
 
 /**
  * Médias publicitaires (plan Publicité, §9 ter) — la matière des créas et les
@@ -41,6 +42,15 @@ const checkFontFormat: CollectionBeforeValidateHook = ({ data, req }) => {
   return data;
 };
 
+/** Une musique déposée, ou dont le fichier change, part à l'analyse du rythme (M) ; l'ancienne analyse est caduque. */
+const queueBeat: CollectionBeforeChangeHook = ({ data, originalDoc, operation, req }) => {
+  if (!data || (data.kind ?? originalDoc?.kind) !== "musique") return data;
+  const fileChanged = operation === "create" || Boolean(req.file) || (data.filename && data.filename !== originalDoc?.filename);
+  const neverAnalysed = !originalDoc?.beat?.status;
+  if (!fileChanged && !neverAnalysed) return data;
+  return { ...data, beat: { status: "en-attente", error: null, attempts: 0, leaseUntil: null, bpm: null, firstBeatSec: null, bestStartSec: null, durationSec: null, confidence: null } };
+};
+
 const required = (message: string) => (value: unknown, { siblingData }: { siblingData: Record<string, unknown> }) =>
   value || !siblingData ? true : message;
 
@@ -54,7 +64,7 @@ export const AdMedia: CollectionConfig = {
     description: "Logos, polices, captures de l'app, photos : la matière des créas. Et les créas rendues. Réservé à TIM.",
   },
   access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
-  hooks: { beforeValidate: [checkFontFormat] },
+  hooks: { beforeValidate: [checkFontFormat], beforeChange: [queueBeat] },
   upload: {
     focalPoint: false,
     crop: false,
@@ -120,6 +130,53 @@ export const AdMedia: CollectionConfig = {
         description: "Origine, auteur, date, licence ; pour une photo, l'accord des personnes visibles.",
         condition: (d) => d?.kind === "photo" || d?.kind === "musique",
       },
+    },
+    // Une musique : ce que l'agent lit pour la choisir, et son rythme, pour caler les coupes dessus (M).
+    {
+      type: "row",
+      admin: { condition: (d) => d?.kind === "musique" },
+      fields: [
+        { name: "active", type: "checkbox", label: "Active : l'agent peut l'employer", defaultValue: true, index: true, admin: { width: "40%" } },
+      ],
+    },
+    {
+      name: "whenToUse",
+      type: "textarea",
+      label: "Quand l'employer",
+      admin: {
+        condition: (d) => d?.kind === "musique",
+        placeholder: "Énergique, percussions : pour un geste rapide dans l'app. Ou : posé, piano, pour un message de confiance.",
+        description: "Ce que l'agent lit pour choisir cette musique (ambiance, énergie, pour quel genre d'angle).",
+      },
+    },
+    {
+      name: "beat",
+      type: "group",
+      label: "Rythme (analysé à l'import)",
+      admin: { condition: (d) => d?.kind === "musique" },
+      fields: [
+        {
+          type: "row",
+          fields: [
+            { name: "status", type: "select", label: "Analyse", options: [...BEAT_STATUSES], index: true, admin: { width: "30%", readOnly: true } },
+            {
+              name: "bpm",
+              type: "number",
+              label: "Tempo (BPM)",
+              min: 40,
+              max: 220,
+              admin: { width: "20%", description: "Corrigeable s'il est faux (souvent du simple au double)." },
+            },
+            { name: "bestStartSec", type: "number", label: "Passage retenu (s)", admin: { width: "25%", description: "Là où la vidéo prend la musique." } },
+            { name: "durationSec", type: "number", label: "Durée (s)", admin: { width: "25%", readOnly: true } },
+          ],
+        },
+        { name: "error", type: "text", label: "Motif de l'échec", admin: { readOnly: true, condition: (_, s) => s?.status === "echec" } },
+        { name: "firstBeatSec", type: "number", admin: { hidden: true } },
+        { name: "confidence", type: "number", admin: { hidden: true } },
+        { name: "attempts", type: "number", defaultValue: 0, admin: { hidden: true } },
+        { name: "leaseUntil", type: "date", index: true, admin: { hidden: true } },
+      ],
     },
     {
       name: "license",

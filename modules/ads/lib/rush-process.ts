@@ -21,9 +21,9 @@ import { durationRefusal, keyframeTimes, orientationOf, parseProbe, stillArgs, t
 
 export const LEASE_MS = 15 * 60_000;
 export const MAX_ATTEMPTS = 3;
-const FFMPEG = "node_modules/@ffmpeg-installer/linux-x64/ffmpeg";
+export const FFMPEG = "node_modules/@ffmpeg-installer/linux-x64/ffmpeg";
 const FFPROBE = "node_modules/@ffprobe-installer/linux-x64/ffprobe";
-const FFMPEG_PACKAGES = ["@ffmpeg-installer/linux-x64@4.1.0", "@ffprobe-installer/linux-x64@5.2.0"];
+export const FFMPEG_PACKAGES = ["@ffmpeg-installer/linux-x64@4.1.0", "@ffprobe-installer/linux-x64@5.2.0"];
 
 export type Still = { atSec: number; data: Buffer };
 export type Outputs = {

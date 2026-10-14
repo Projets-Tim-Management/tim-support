@@ -2,7 +2,8 @@ import type { CollectionAfterDeleteHook, CollectionBeforeChangeHook, CollectionC
 
 import { isAdmin } from "@/core/access";
 import { validateFraming } from "@/modules/ads/lib/framing";
-import { isAppSource, isRushBlobUrl, mediaTypeOf, RUSH_FEATURES, RUSH_SOURCES, RUSH_STATUSES } from "@/modules/ads/lib/rushes";
+import { isAppSource, isInspiration, isRushBlobUrl, mediaTypeOf, RUSH_FEATURES, RUSH_SOURCES, RUSH_STATUSES, RUSH_USES } from "@/modules/ads/lib/rushes";
+import { INSPIRATION_VERDICTS } from "@/modules/ads/lib/style";
 
 /**
  * Rushes (plan Publicité, §9 sexies) : les vidéos et images que Charlie
@@ -62,13 +63,13 @@ const readOnly = { readOnly: true } as const;
 
 export const AdRushes: CollectionConfig = {
   slug: "ad-rushes",
-  labels: { singular: "Rush", plural: "Rushes" },
+  labels: { singular: "Rush ou inspiration", plural: "Rushes et inspirations" },
   admin: {
     useAsTitle: "title",
-    defaultColumns: ["title", "etat", "source", "mediaType", "updatedAt"],
+    defaultColumns: ["title", "use", "etat", "source", "mediaType", "updatedAt"],
     group: "Publicité",
     description:
-      "La matière première des vidéos : écrans de l'app, chantier, bureau. Le fichier d'origine est conservé tel quel ; les agents en tirent leurs montages.",
+      "La matière première des vidéos (écrans de l'app, chantier, bureau), et les inspirations : des pubs dont l'IA tire le style. Le fichier d'origine est conservé tel quel.",
   },
   access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
   defaultSort: "-createdAt",
@@ -89,11 +90,47 @@ export const AdRushes: CollectionConfig = {
         { name: "size", type: "number" },
       ],
     },
+    {
+      name: "use",
+      type: "radio",
+      label: "Usage",
+      options: [...RUSH_USES],
+      defaultValue: "matiere",
+      required: true,
+      index: true,
+      admin: {
+        layout: "horizontal",
+        description: "Matière : les agents la montent dans les vidéos. Inspiration : une pub, de TIM ou d'ailleurs, dont l'IA tire le style — jamais montrée.",
+      },
+    },
     { name: "title", type: "text", label: "Nom", required: true, admin: { placeholder: "Pointage du matin, équipe gros œuvre" } },
+    // Une inspiration : le verdict, le lien d'où elle vient, et ce qui plaît ou pas — ce que l'IA lit avec les images.
     {
       type: "row",
+      admin: { condition: (d) => isInspiration(d) },
       fields: [
-        { name: "source", type: "select", label: "Source", options: [...RUSH_SOURCES], required: true, index: true, admin: { width: "50%" } },
+        { name: "verdict", type: "select", label: "Verdict", options: [...INSPIRATION_VERDICTS], defaultValue: "aimer", required: true, admin: { width: "30%" } },
+        { name: "link", type: "text", label: "Lien (facultatif)", admin: { width: "70%", placeholder: "Bibliothèque publicitaire Meta, Instagram…" } },
+      ],
+    },
+    {
+      name: "why",
+      type: "textarea",
+      label: "Ce qui plaît, ou pas",
+      required: true,
+      maxLength: 600,
+      admin: {
+        condition: (d) => isInspiration(d),
+        placeholder: "Le téléphone en très gros plan, les mots qui apparaissent un à un, les couleurs franches…",
+        description: "Ce qui vous fait l'aimer (ou la rejeter) : l'IA regarde les images avec cette phrase pour en tirer une fiche de style.",
+      },
+    },
+    {
+      type: "row",
+      admin: { condition: (d) => !isInspiration(d) },
+      fields: [
+        // La condition est AUSSI sur le champ : posée sur la seule rangée, la colonne resterait obligatoire en base.
+        { name: "source", type: "select", label: "Source", options: [...RUSH_SOURCES], required: true, index: true, admin: { width: "50%", condition: (d) => !isInspiration(d) } },
         { name: "features", type: "select", hasMany: true, label: "Fonctionnalités montrées", options: [...RUSH_FEATURES], admin: { width: "50%" } },
       ],
     },
@@ -104,12 +141,13 @@ export const AdRushes: CollectionConfig = {
       required: true,
       maxLength: 600,
       admin: {
+        condition: (d) => !isInspiration(d),
         placeholder: "Un chef d'équipe pointe l'arrivée de 3 compagnons, puis envoie la journée au bureau.",
         description: "Quelques phrases : c'est ce qui permet aux agents de choisir ce rush et d'en tirer le bon passage.",
       },
     },
-    // Le recadrage : zone utile et zone à ne jamais couper, tracées sur l'image (D1d).
-    { name: "framingTool", type: "ui", admin: { components: { Field: "/modules/ads/admin/RushFramingField#RushFramingField" } } },
+    // Le recadrage : zone utile et zone à ne jamais couper, tracées sur l'image (D1d). Sans objet pour une inspiration.
+    { name: "framingTool", type: "ui", admin: { condition: (d) => !isInspiration(d), components: { Field: "/modules/ads/admin/RushFramingField#RushFramingField" } } },
     { name: "framing", type: "json", label: "Recadrage", admin: { hidden: true } },
     // Ce que l'IA voit du rush converti : images clés, plans, description à valider (D1c).
     { name: "insight", type: "ui", admin: { components: { Field: "/modules/ads/admin/RushInsightPanel#RushInsightPanel" } } },
@@ -120,17 +158,18 @@ export const AdRushes: CollectionConfig = {
           name: "origin",
           type: "text",
           label: "Origine et droits",
-          validate: (v: unknown, { siblingData }: { siblingData: { source?: string } }) =>
-            isAppSource(siblingData?.source) || (typeof v === "string" && v.trim()) ? true : "Origine et droits d'usage publicitaire obligatoires (banque d'images, tournage TIM…).",
-          admin: { width: "60%", placeholder: "Tournage TIM, Pexels (licence libre)…" },
+          // Une inspiration n'est jamais diffusée : ses droits ne sont pas en jeu.
+          validate: (v: unknown, { data, siblingData }: { data: { use?: string }; siblingData: { source?: string } }) =>
+            isInspiration(data) || isAppSource(siblingData?.source) || (typeof v === "string" && v.trim()) ? true : "Origine et droits d'usage publicitaire obligatoires (banque d'images, tournage TIM…).",
+          admin: { width: "60%", placeholder: "Tournage TIM, Pexels (licence libre)…", condition: (d) => !isInspiration(d) },
         },
         {
           name: "noRealData",
           type: "checkbox",
           label: "Aucune donnée réelle visible",
-          validate: (v: unknown, { siblingData }: { siblingData: { source?: string } }) =>
-            !isAppSource(siblingData?.source) || v === true ? true : "À vérifier avant d'importer un écran de l'app : aucun nom, chiffre ou client réel.",
-          admin: { width: "40%", condition: (_, s) => isAppSource(s?.source) },
+          validate: (v: unknown, { data, siblingData }: { data: { use?: string }; siblingData: { source?: string } }) =>
+            isInspiration(data) || !isAppSource(siblingData?.source) || v === true ? true : "À vérifier avant d'importer un écran de l'app : aucun nom, chiffre ou client réel.",
+          admin: { width: "40%", condition: (d, s) => !isInspiration(d) && isAppSource(s?.source) },
         },
       ],
     },

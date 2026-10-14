@@ -143,6 +143,8 @@ import * as migration_20261014_092754_charte_pubs from './20261014_092754_charte
 import * as migration_20261014_095314_recadrage_rushes from './20261014_095314_recadrage_rushes';
 import * as migration_20261014_095747_styles_pubs from './20261014_095747_styles_pubs';
 import * as migration_20261014_102048_video_creas from './20261014_102048_video_creas';
+import * as migration_20261014_112149_inspirations_musiques from './20261014_112149_inspirations_musiques';
+import * as migration_20261014_112244_inspirations_source from './20261014_112244_inspirations_source';
 
 export const migrations = [
   {
@@ -868,6 +870,16 @@ export const migrations = [
   {
     up: migration_20261014_102048_video_creas.up,
     down: migration_20261014_102048_video_creas.down,
-    name: '20261014_102048_video_creas'
+    name: '20261014_102048_video_creas',
+  },
+  {
+    up: migration_20261014_112149_inspirations_musiques.up,
+    down: migration_20261014_112149_inspirations_musiques.down,
+    name: '20261014_112149_inspirations_musiques',
+  },
+  {
+    up: migration_20261014_112244_inspirations_source.up,
+    down: migration_20261014_112244_inspirations_source.down,
+    name: '20261014_112244_inspirations_source'
   },
 ];

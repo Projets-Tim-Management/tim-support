@@ -34,10 +34,11 @@ describe("le cycle de rendu", () => {
   const GOOD = { shots: [{ kind: "ouverture", seconds: 2, text: "Fini la ressaisie." }, { kind: "rush", seconds: 4, rush: 1, from: 0, to: 4 }, { kind: "fin", seconds: 2.5 }] };
 
   /** Une base minimale : une créa réclamée, son style, le kit, un rush prêt, la campagne et son brief. */
-  function fake(score: unknown = GOOD, claimed = true) {
+  function fake(score: unknown = GOOD, claimed = true, music: number | null = null) {
     const updates: Record<string, unknown>[] = [];
     const docs: Record<string, Record<string, unknown>> = {
-      "ad-creatives": { id: 9, campaign: 4, style: 2, cta: "en-savoir-plus", video: { status: "en-cours", score } },
+      "ad-creatives": { id: 9, campaign: 4, style: 2, cta: "en-savoir-plus", video: { status: "en-cours", score, music } },
+      "ad-media": { id: 20, kind: "musique", url: "https://cdn/e.mp3", beat: { bpm: 120, bestStartSec: 12 } },
       "ad-styles": { id: 2, name: "A · Le geste en gros plan", opening: "titre-mot-a-mot", phoneFrame: "maquette", pace: "dynamique", subtitles: "mot-a-mot", titleFont: "archivo-black", bodyFont: "archivo" },
       "ad-campaigns": { id: 4, name: "Démos", status: "brouillon", brief: { audience: "BTP", pain: "Papier", offer: "essai gratuit de 30 jours", proofs: [], angles: [] } },
     };
@@ -66,6 +67,27 @@ describe("le cycle de rendu", () => {
     expect(render.mock.calls[0][0].map((p) => p.format)).toEqual(["9x16", "4x5", "1x1"]);
     expect(store.mock.calls.map((c) => c[0])).toEqual(["ads/creas/videos/9/a-le-geste-en-gros-plan-9x16.mp4", "ads/creas/videos/9/a-le-geste-en-gros-plan-4x5.mp4", "ads/creas/videos/9/a-le-geste-en-gros-plan-1x1.mp4"]);
     expect(updates[0]).toMatchObject({ video: { status: "prete", error: null, renders: [{ format: "9x16", url: expect.stringContaining("9x16.mp4"), seconds: 8.5 }, {}, {}] } });
+  });
+
+  it("sur une musique : coupes calées sur les temps, musique prise à son passage", async () => {
+    const { payload } = fake({ shots: [{ kind: "ouverture", seconds: 2.2, text: "Fini la ressaisie." }, { kind: "rush", seconds: 4.1, rush: 1, from: 0, to: 4 }, { kind: "fin", seconds: 2.4 }] }, true, 20);
+    const render = vi.fn(async (list: { format: string }[]) => list.map((p) => ({ format: p.format as "9x16", data: Buffer.from("mp4") })));
+    await processNextRender(payload, { render, store });
+    const props = render.mock.calls[0][0][0] as unknown as { music: unknown; shots: { frames: number }[] };
+    expect(props.music).toEqual({ src: "https://cdn/e.mp3", startSec: 12, beatFrames: 15 });
+    // 120 BPM = un temps toutes les 15 images : chaque coupe tombe dessus.
+    let at = 0;
+    for (const sh of props.shots) {
+      at += sh.frames;
+      expect(at % 15).toBe(0);
+    }
+  });
+
+  it("sans musique : rien à caler, aucun son", async () => {
+    const { payload } = fake();
+    const render = vi.fn(async (list: { format: string }[]) => list.map((p) => ({ format: p.format as "9x16", data: Buffer.from("mp4") })));
+    await processNextRender(payload, { render, store });
+    expect((render.mock.calls[0][0][0] as unknown as { music: unknown }).music).toBeNull();
   });
 
   it("une partition refusée échoue tout de suite, avec la raison — rien n'est rendu", async () => {

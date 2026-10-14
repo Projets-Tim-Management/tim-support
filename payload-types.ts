@@ -2583,6 +2583,7 @@ export interface AdCreative {
       | number
       | boolean
       | null;
+    music?: (number | null) | AdMedia;
     renders?:
       | {
           [k: string]: unknown;
@@ -2613,7 +2614,7 @@ export interface AdCreative {
    */
   tests?:
     | {
-        dimension: 'ton' | 'angle' | 'accroche' | 'format' | 'visuel' | 'cta' | 'style';
+        dimension: 'ton' | 'angle' | 'accroche' | 'format' | 'visuel' | 'cta' | 'style' | 'musique';
         value: string;
         id?: string | null;
       }[]
@@ -2670,6 +2671,60 @@ export interface AdCreative {
     | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * Logos, polices, captures de l'app, photos : la matière des créas. Et les créas rendues. Réservé à TIM.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-media".
+ */
+export interface AdMedia {
+  id: number;
+  kind: 'logo' | 'police' | 'capture' | 'photo' | 'musique' | 'fond' | 'inspiration' | 'crea';
+  /**
+   * Ce que montre le fichier, en une phrase.
+   */
+  alt?: string | null;
+  platform?: ('web' | 'mobile') | null;
+  feature?: string | null;
+  noClientData?: boolean | null;
+  /**
+   * Origine, auteur, date, licence ; pour une photo, l'accord des personnes visibles.
+   */
+  rights?: string | null;
+  active?: boolean | null;
+  /**
+   * Ce que l'agent lit pour choisir cette musique (ambiance, énergie, pour quel genre d'angle).
+   */
+  whenToUse?: string | null;
+  beat?: {
+    status?: ('en-attente' | 'en-cours' | 'pret' | 'echec') | null;
+    /**
+     * Corrigeable s'il est faux (souvent du simple au double).
+     */
+    bpm?: number | null;
+    /**
+     * Là où la vidéo prend la musique.
+     */
+    bestStartSec?: number | null;
+    durationSec?: number | null;
+    error?: string | null;
+    firstBeatSec?: number | null;
+    confidence?: number | null;
+    attempts?: number | null;
+    leaseUntil?: string | null;
+  };
+  license?: string | null;
+  prefix?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
 }
 /**
  * Les styles visuels et vidéo que l'agent emploie et teste entre eux. Désactivez un style pour qu'il ne serve plus.
@@ -2729,38 +2784,6 @@ export interface AdStyle {
   subtitles: 'bandeau' | 'mot-a-mot' | 'aucun';
   updatedAt: string;
   createdAt: string;
-}
-/**
- * Logos, polices, captures de l'app, photos : la matière des créas. Et les créas rendues. Réservé à TIM.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-media".
- */
-export interface AdMedia {
-  id: number;
-  kind: 'logo' | 'police' | 'capture' | 'photo' | 'musique' | 'fond' | 'inspiration' | 'crea';
-  /**
-   * Ce que montre le fichier, en une phrase.
-   */
-  alt?: string | null;
-  platform?: ('web' | 'mobile') | null;
-  feature?: string | null;
-  noClientData?: boolean | null;
-  /**
-   * Origine, auteur, date, licence ; pour une photo, l'accord des personnes visibles.
-   */
-  rights?: string | null;
-  license?: string | null;
-  prefix?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
 }
 /**
  * Ce que les campagnes ont appris, une phrase par ligne. L'agent les lit au lancement et cite ceux qui ont pesé sur chaque décision.
@@ -2918,7 +2941,7 @@ export interface AdCompetitor {
   createdAt: string;
 }
 /**
- * La matière première des vidéos : écrans de l'app, chantier, bureau. Le fichier d'origine est conservé tel quel ; les agents en tirent leurs montages.
+ * La matière première des vidéos (écrans de l'app, chantier, bureau), et les inspirations : des pubs dont l'IA tire le style. Le fichier d'origine est conservé tel quel.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ad-rushes".
@@ -2932,8 +2955,18 @@ export interface AdRush {
     contentType?: string | null;
     size?: number | null;
   };
+  /**
+   * Matière : les agents la montent dans les vidéos. Inspiration : une pub, de TIM ou d'ailleurs, dont l'IA tire le style — jamais montrée.
+   */
+  use: 'matiere' | 'inspiration';
   title: string;
-  source: 'app-mobile' | 'app-web' | 'chantier' | 'bureau' | 'autre';
+  verdict: 'aimer' | 'eviter';
+  link?: string | null;
+  /**
+   * Ce qui vous fait l'aimer (ou la rejeter) : l'IA regarde les images avec cette phrase pour en tirer une fiche de style.
+   */
+  why?: string | null;
+  source?: ('app-mobile' | 'app-web' | 'chantier' | 'bureau' | 'autre') | null;
   features?:
     | (
         | 'pointage'
@@ -2950,7 +2983,7 @@ export interface AdRush {
   /**
    * Quelques phrases : c'est ce qui permet aux agents de choisir ce rush et d'en tirer le bon passage.
    */
-  description: string;
+  description?: string | null;
   framing?:
     | {
         [k: string]: unknown;
@@ -4897,6 +4930,7 @@ export interface AdCreativesSelect<T extends boolean = true> {
         status?: T;
         error?: T;
         score?: T;
+        music?: T;
         renders?: T;
         attempts?: T;
         renderedAt?: T;
@@ -5007,6 +5041,21 @@ export interface AdMediaSelect<T extends boolean = true> {
   feature?: T;
   noClientData?: T;
   rights?: T;
+  active?: T;
+  whenToUse?: T;
+  beat?:
+    | T
+    | {
+        status?: T;
+        bpm?: T;
+        bestStartSec?: T;
+        durationSec?: T;
+        error?: T;
+        firstBeatSec?: T;
+        confidence?: T;
+        attempts?: T;
+        leaseUntil?: T;
+      };
   license?: T;
   prefix?: T;
   updatedAt?: T;
@@ -5228,7 +5277,11 @@ export interface AdRushesSelect<T extends boolean = true> {
         contentType?: T;
         size?: T;
       };
+  use?: T;
   title?: T;
+  verdict?: T;
+  link?: T;
+  why?: T;
   source?: T;
   features?: T;
   description?: T;
@@ -6029,7 +6082,7 @@ export interface AdsBrandKit {
       }[]
     | null;
   /**
-   * Libre de droits. Sans musique, les vidéos sortent sans son.
+   * Celle qu'on prend quand personne n'en choisit. Toutes vos musiques se déposent dans Médias publicitaires (nature « Musique ») : l'agent choisit parmi elles et les teste.
    */
   music?: (number | null) | AdMedia;
   endCard?: {

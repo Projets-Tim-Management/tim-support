@@ -5,12 +5,13 @@ import { adminRequest } from "@/modules/ads/lib/route-auth";
 import { requestVideo } from "@/modules/ads/video/render";
 
 /**
- * POST /api/admin/ads/creatives/:id/video  { styleId }
+ * POST /api/admin/ads/creatives/:id/video  { styleId, music? }
  *
  * Met la vidéo d'une créa en file de rendu, dans le style choisi, avec la
  * partition par défaut (plan Publicité, §9 sexies, D3) : de quoi essayer les
  * styles sur une créa existante. La partition est vérifiée avant ; le rendu
  * part au prochain passage du cron (chaque minute, quelques minutes de calcul).
+ * `music` absent : la musique du Kit de marque ; `null` : sans musique.
  */
 export const dynamic = "force-dynamic";
 
@@ -21,10 +22,11 @@ export async function POST(req: Request, { params }: Params) {
   const auth = await adminRequest(req);
   if ("response" in auth) return auth.response;
   const { payload } = auth;
-  const body = (await req.json().catch(() => ({}))) as { styleId?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { styleId?: unknown; music?: unknown };
   if (body.styleId == null) return NextResponse.json({ error: "Choisissez un style." }, { status: 400 });
   try {
-    const { score } = await requestVideo(payload, id, { styleId: body.styleId as number });
+    const music = "music" in body ? (body.music === null ? null : Number(body.music)) : undefined;
+    const { score } = await requestVideo(payload, id, { styleId: body.styleId as number, music });
     return NextResponse.json({ status: "en-attente", shots: score.shots.length });
   } catch (e) {
     const known = e instanceof FinalError;

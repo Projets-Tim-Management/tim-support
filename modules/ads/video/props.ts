@@ -1,6 +1,6 @@
 import { coverRect, FULL, type Framing, type Rect } from "@/modules/ads/lib/framing";
 import { fontFamily, paletteOf, type Palette } from "@/modules/ads/lib/style";
-import { FORMAT_SIZES, FPS, type FormatKey, type Score } from "@/modules/ads/video/score";
+import { FORMAT_SIZES, FPS, MAX_SPEED, MIN_SPEED, type FormatKey, type Score } from "@/modules/ads/video/score";
 
 /**
  * Ce que le moteur vidéo reçoit (plan Publicité, §9 sexies, D3) : la
@@ -59,7 +59,8 @@ export type RenderProps = {
   cta: string;
   url: string;
   showLogo: boolean;
-  music: string | null;
+  /** La musique de cette vidéo : prise à son passage retenu ; `beatFrames` (un temps, en images) quand le tempo est connu. */
+  music: { src: string; startSec: number; beatFrames: number | null } | null;
   shots: RenderShot[];
 };
 
@@ -101,6 +102,8 @@ export type ResolveContext = {
   cta: string;
   rushes: Map<number, { url: string; width: number; height: number; framing: Framing | null }>;
   facts: Map<number, { statement: string; source: string }>;
+  /** La musique choisie pour cette vidéo (aucune : `null`). La partition est déjà calée sur son tempo. */
+  music?: { url: string; startSec: number; bpm: number | null } | null;
 };
 
 /** La partition résolue pour un format. Suppose une partition VÉRIFIÉE (scoreProblems vide). Pure. */
@@ -119,7 +122,7 @@ export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps
     cta: ctx.cta,
     url: ctx.kit.endCard?.url || "tim-management.co",
     showLogo: ctx.kit.endCard?.showLogo !== false,
-    music: urlOf(ctx.kit.music),
+    music: ctx.music ? { src: ctx.music.url, startSec: ctx.music.startSec, beatFrames: ctx.music.bpm ? Math.round((60 / ctx.music.bpm) * FPS * 100) / 100 : null } : null,
     shots: score.shots.map((shot): RenderShot => {
       switch (shot.kind) {
         case "ouverture":
@@ -135,7 +138,8 @@ export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps
             src: r.url,
             srcAspect,
             fromSec: shot.from,
-            playbackRate: Math.round(((shot.to - shot.from) / shot.seconds) * 1000) / 1000,
+            // Bornée : le calage sur la musique peut allonger ou raccourcir un plan d'un demi-temps.
+            playbackRate: Math.min(MAX_SPEED, Math.max(MIN_SPEED, Math.round(((shot.to - shot.from) / shot.seconds) * 1000) / 1000)),
             crop: framing.crop ?? FULL,
             cover: c.fits ? c.rect : null,
             zoom: shot.zoom ?? null,

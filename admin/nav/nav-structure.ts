@@ -29,6 +29,13 @@ export interface NavLink {
   href: string;
   /** Réservé aux admins : les autres rôles ne voient pas le lien. */
   adminOnly?: boolean;
+  /**
+   * La collection que ce lien affiche filtrée (« ?where[…] ») : elle ne réapparaît
+   * pas en plus dans le menu. Plusieurs liens peuvent montrer la même collection.
+   */
+  slug?: string;
+  /** La clé d'icône (`#nav-<clé>` dans nav.scss), quand le chemin ne peut pas en faire une (filtre). */
+  icon?: string;
 }
 
 /** Un item de groupe : un slug, un sous-groupe repliable, ou un lien libre. */
@@ -104,8 +111,10 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     { label: "À valider", href: "/admin/publicite/a-valider", adminOnly: true },
     "ad-campaigns",
     "ad-creatives",
-    // La matière première des vidéos : importée par Charlie, retravaillée par les agents.
-    "ad-rushes",
+    // Une seule collection, deux listes : la matière première des vidéos (montée par les agents), et les
+    // inspirations (des pubs dont l'IA tire le style, jamais montées).
+    { label: "Rushes", href: "/admin/collections/ad-rushes?where[use][equals]=matiere", adminOnly: true, slug: "ad-rushes", icon: "ad-rushes" },
+    { label: "Inspirations", href: "/admin/collections/ad-rushes?where[use][equals]=inspiration", adminOnly: true, slug: "ad-rushes", icon: "ad-inspirations" },
     // Ce que l'agent a fait, puis pourquoi.
     "ad-agent-runs",
     "ad-decisions",
@@ -185,15 +194,24 @@ export function isLink(item: NavItem): item is NavLink {
 const LINK_HREFS = Object.values(NAV_LAYOUT)
   .flat()
   .filter(isLink)
-  .map((l) => l.href);
+  .map((l) => l.href)
+  // Une liste filtrée ne départage rien : elle s'allume sur son seul filtre.
+  .filter((h) => !h.includes("?"));
 
 /**
  * Vrai si la page courante correspond à ce lien (règle de Payload : l'adresse,
  * ou une sous-page), SAUF si un lien plus précis du menu y correspond aussi :
  * sur « /admin/publicite/a-valider », « À valider » s'allume, pas « Tableau de
- * bord » (/admin/publicite) avec lui.
+ * bord » (/admin/publicite) avec lui. `search` : la chaîne de requête courante,
+ * pour les liens vers une liste filtrée.
  */
-export function isActiveHref(pathname: string, href: string, hrefs: readonly string[] = LINK_HREFS): boolean {
+export function isActiveHref(pathname: string, href: string, hrefs: readonly string[] = LINK_HREFS, search = ""): boolean {
+  // Une liste filtrée (« …/ad-rushes?where[use][equals]=inspiration ») : la liste elle-même, avec ce filtre.
+  const q = href.indexOf("?");
+  if (q >= 0) {
+    const current = new URLSearchParams(search);
+    return pathname === href.slice(0, q) && [...new URLSearchParams(href.slice(q + 1))].every(([k, v]) => current.get(k) === v);
+  }
   const matches = (h: string) => pathname.startsWith(h) && ["/", undefined].includes(pathname[h.length]);
   return matches(href) && !hrefs.some((other) => other.length > href.length && other.startsWith(href) && matches(other));
 }

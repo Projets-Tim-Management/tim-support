@@ -7,6 +7,8 @@ import { loadGenerationContext } from "@/modules/ads/lib/copy/generate";
 import { ctaLabel } from "@/modules/ads/lib/cta";
 import type { Framing } from "@/modules/ads/lib/framing";
 import { FinalError, storeOnBlob, type Store } from "@/modules/ads/lib/rush-process";
+import { isInspiration } from "@/modules/ads/lib/rushes";
+import { beatAlign } from "@/modules/ads/video/beat";
 import { defaultScore } from "@/modules/ads/video/default-score";
 import { buildRenderProps, type RenderProps } from "@/modules/ads/video/props";
 import { FORMAT_KEYS, parseScore, scoreProblems, type FormatKey, type Score } from "@/modules/ads/video/score";
@@ -48,7 +50,7 @@ export async function claimNextRender(payload: Payload, now: Date): Promise<{ id
   return r ? { id: Number(r.id), attempts: Number(r.video_attempts ?? 1) } : null;
 }
 
-type RushDoc = { id: number; processing?: { status?: string } | null; working?: { url?: string | null; meta?: { width?: number; height?: number; durationSec?: number | null } | null } | null; framing?: Framing | null; features?: string[] | null; ai?: { status?: string | null } | null; source?: string | null };
+type RushDoc = { id: number; use?: string | null; processing?: { status?: string } | null; working?: { url?: string | null; meta?: { width?: number; height?: number; durationSec?: number | null } | null } | null; framing?: Framing | null; features?: string[] | null; ai?: { status?: string | null } | null; source?: string | null };
 
 /** Ce qu'il faut pour vérifier et traduire une partition : rushes, faits du brief, offre, interdits, style, kit. */
 export async function loadVideoContext(payload: Payload, creative: Raw) {
@@ -63,8 +65,33 @@ export async function loadVideoContext(payload: Payload, creative: Raw) {
     payload.findGlobal({ slug: "appearance", depth: 0, overrideAccess: true }).catch(() => null) as unknown as Promise<Raw | null>,
     payload.find({ collection: "ad-rushes", pagination: false, depth: 0, overrideAccess: true }).then((r) => r.docs as unknown as RushDoc[]),
   ]);
-  const ready = rushes.filter((r) => r.processing?.status === "pret" && r.working?.url && r.working.meta?.width && r.working.meta?.height);
-  return { gen, style, kit, appearance, rushes, ready };
+  // Une inspiration (souvent la pub d'un autre) n'est jamais montée : elle n'est pas « prête » pour un montage.
+  const music = await musicOf(payload, idOf((creative.video as Raw | null | undefined)?.music));
+  const ready = rushes.filter((r) => !isInspiration(r) && r.processing?.status === "pret" && r.working?.url && r.working.meta?.width && r.working.meta?.height);
+  return { gen, style, kit, appearance, rushes, ready, music };
+}
+
+type MusicDoc = { id: number; kind?: string; active?: boolean | null; url?: string | null; filename?: string | null; beat?: { bpm?: number | null; bestStartSec?: number | null } | null };
+
+/** La musique d'une vidéo, telle que le rendu la lit ; `null` sans musique (ou si elle a disparu). */
+async function musicOf(payload: Payload, id: number | null): Promise<{ url: string; startSec: number; bpm: number | null } | null> {
+  if (id == null) return null;
+  const m = (await payload.findByID({ collection: "ad-media", id, depth: 0, overrideAccess: true }).catch(() => null)) as unknown as MusicDoc | null;
+  if (!m?.url || m.kind !== "musique") return null;
+  return { url: m.url, startSec: m.beat?.bestStartSec ?? 0, bpm: m.beat?.bpm && m.beat.bpm > 0 ? m.beat.bpm : null };
+}
+
+/**
+ * La musique demandée : celle du kit si rien n'est précisé, aucune pour `null`.
+ * Une musique choisie exprès doit être active ; celle du kit sert telle quelle.
+ */
+async function resolveMusic(payload: Payload, kit: Raw, asked: number | string | null | undefined): Promise<number | null> {
+  const id = asked === undefined ? idOf(kit.music) : asked === null ? null : Number(asked);
+  if (id == null || !Number.isFinite(id)) return null;
+  const m = (await payload.findByID({ collection: "ad-media", id, depth: 0, overrideAccess: true }).catch(() => null)) as unknown as MusicDoc | null;
+  if (!m || m.kind !== "musique") throw new FinalError(`Musique ${id} introuvable.`);
+  if (asked !== undefined && m.active === false) throw new FinalError(`La musique « ${m.filename ?? id} » est désactivée.`);
+  return id;
 }
 
 /**
@@ -72,7 +99,11 @@ export async function loadVideoContext(payload: Payload, creative: Raw) {
  * la partition par défaut), vérifiée, puis mise en file de rendu. Lève avec la
  * raison si la partition ne passe pas.
  */
-export async function requestVideo(payload: Payload, creativeId: number | string, input: { styleId: number | string; score?: unknown }): Promise<{ score: Score }> {
+export async function requestVideo(
+  payload: Payload,
+  creativeId: number | string,
+  input: { styleId: number | string; score?: unknown; music?: number | string | null },
+): Promise<{ score: Score; music: number | null }> {
   const creative = (await payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 0, overrideAccess: true })) as unknown as Raw & {
     hook?: string | null;
     angle?: string | null;
@@ -102,14 +133,15 @@ export async function requestVideo(payload: Payload, creativeId: number | string
   }
   const problems = scoreProblems(score, scoreContextOf(ctx));
   if (problems.length) throw new FinalError(`Partition refusée : ${problems.join(" ")}`);
+  const music = await resolveMusic(payload, ctx.kit, input.music);
   await payload.update({
     collection: "ad-creatives",
     id: creativeId,
-    data: { style: input.styleId, video: { status: "en-attente", error: null, score, renders: null, attempts: 0, renderedAt: null, leaseUntil: null } } as never,
+    data: { style: input.styleId, video: { status: "en-attente", error: null, score, music, renders: null, attempts: 0, renderedAt: null, leaseUntil: null } } as never,
     depth: 0,
     overrideAccess: true,
   });
-  return { score };
+  return { score, music };
 }
 
 export function scoreContextOf(ctx: Awaited<ReturnType<typeof loadVideoContext>>) {
@@ -162,13 +194,15 @@ export async function processNextRender(payload: Payload, deps: RenderDeps = {})
     if (problems.length) throw new FinalError(`Partition refusée : ${problems.join(" ")}`);
     const rushes = new Map(ctx.ready.map((r) => [r.id, { url: r.working!.url!, width: r.working!.meta!.width!, height: r.working!.meta!.height!, framing: r.framing ?? null }]));
     const facts = new Map(ctx.gen.brief.facts.map((f) => [Number(f.id), { statement: f.statement, source: f.source }]));
+    // Sur une musique au tempo connu, chaque coupe va sur un temps (durées bornées : la partition reste valide).
+    const timed = ctx.music?.bpm ? beatAlign(score, ctx.music.bpm) : score;
     const props = FORMAT_KEYS.map((format) =>
-      buildRenderProps(score, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts }),
+      buildRenderProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, music: ctx.music }),
     );
     const files = await (deps.render ?? renderInSandbox)(props);
     const store = deps.store ?? storeOnBlob;
     const slug = String(ctx.style.name ?? "style").normalize("NFD").replace(/[^\w]+/g, "-").toLowerCase().replace(/^-|-$/g, "");
-    const seconds = score.shots.reduce((t, s) => t + s.seconds, 0);
+    const seconds = Math.round(timed.shots.reduce((t, s) => t + s.seconds, 0) * 100) / 100;
     const renders = [];
     for (const f of files) renders.push({ format: f.format, url: await store(`ads/creas/videos/${claimed.id}/${slug}-${f.format}.mp4`, f.data, "video/mp4"), seconds, bytes: f.data.length });
     await write({ status: "prete", error: null, renders, attempts: claimed.attempts, renderedAt: now().toISOString(), leaseUntil: null });

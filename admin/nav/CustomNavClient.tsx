@@ -4,7 +4,7 @@ import { getTranslation } from "@payloadcms/translations";
 import { Link, useAuth, useConfig, useTranslation } from "@payloadcms/ui";
 import { EntityType } from "@payloadcms/ui/shared";
 import NextLink from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { formatAdminURL } from "payload/shared";
 import { Fragment, useState } from "react";
 
@@ -38,7 +38,8 @@ interface Props {
 /** Vrai si l'URL courante correspond à ce lien — le plus précis du menu seulement. */
 function useIsActive() {
   const pathname = usePathname();
-  return (href: string) => isActiveHref(pathname, href);
+  const search = useSearchParams();
+  return (href: string) => isActiveHref(pathname, href, undefined, search?.toString() ?? "");
 }
 
 /** Lien de menu — réplique fidèle du rendu de `DefaultNavClient` (id, classes,
@@ -186,6 +187,7 @@ export default function CustomNavClient({ groups }: Props) {
         layout.forEach((item) => {
           if (isSubGroup(item)) item.slugs.forEach((s) => placed.add(s));
           else if (typeof item === "string") placed.add(item);
+          else if (item.slug) placed.add(item.slug);
         });
         const leftovers = group.entities.filter((e) => !placed.has(e.slug));
 
@@ -200,7 +202,7 @@ export default function CustomNavClient({ groups }: Props) {
         const renderFreeLink = (item: NavLink) => {
           if (item.adminOnly && !hasAdminRole(user)) return null;
           const on = isActive(item.href);
-          const id = `nav-${item.href.split("/").filter((seg) => seg && seg !== "admin").join("-")}`;
+          const id = `nav-${item.icon ?? item.href.split("/").filter((seg) => seg && seg !== "admin").join("-")}`;
           const label = (
             <Fragment>
               {on && <div className={`${baseClass}__link-indicator`} />}

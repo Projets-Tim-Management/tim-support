@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { mountVideo, rushForAgent, styleCopyOf } from "@/modules/ads/video/mount";
+import { mountVideo, rushForAgent, variantCopyOf } from "@/modules/ads/video/mount";
 
 /**
  * La vidéo vue par l'agent (plan Publicité, §9 sexies, D4) : ce qu'il lit d'un
@@ -38,7 +38,7 @@ describe("la copie d'une créa pour un test de style", () => {
   };
 
   it("reprend textes et visuels, sans identité, décision, vidéo ni style ; repart en brouillon", () => {
-    const c = styleCopyOf(creative, "B · Le chantier d'abord");
+    const c = variantCopyOf(creative, "style", "B · Le chantier d'abord");
     expect(c).not.toHaveProperty("id");
     expect(c).not.toHaveProperty("decidedBy");
     expect(c).not.toHaveProperty("video");
@@ -48,7 +48,7 @@ describe("la copie d'une créa pour un test de style", () => {
   });
 
   it("étiquetée « test de style » (un seul), les autres tests gardés ; le coût des textes reste sur l'origine", () => {
-    const c = styleCopyOf(creative, "B · Le chantier d'abord");
+    const c = variantCopyOf(creative, "style", "B · Le chantier d'abord");
     expect(c.tests).toEqual([{ dimension: "ton", value: "tu" }, { dimension: "style", value: "B · Le chantier d'abord" }]);
     expect(c.generation).toEqual({ model: "opus", costEur: 0 });
   });
@@ -57,6 +57,12 @@ describe("la copie d'une créa pour un test de style", () => {
 describe("le montage dans 1 à 3 styles", () => {
   const SCORE = { shots: [{ kind: "ouverture", seconds: 2, text: "Fini la ressaisie." }, { kind: "rush", seconds: 4, rush: 1, from: 0, to: 4 }, { kind: "fin", seconds: 2.5 }] };
 
+  const MUSICS = [
+    { id: 20, kind: "musique", alt: "Énergique", active: true, url: "https://cdn/e.mp3", beat: { bpm: 120, bestStartSec: 12 } },
+    { id: 21, kind: "musique", filename: "pose.mp3", active: true, url: "https://cdn/p.mp3", beat: { bpm: 90 } },
+    { id: 22, kind: "musique", alt: "Vieille", active: false, url: "https://cdn/v.mp3" },
+    { id: 23, kind: "photo", url: "https://cdn/x.jpg" },
+  ];
   function fake({ used = 0, styles = [{ id: 1, name: "A", active: true }, { id: 2, name: "B", active: true }, { id: 3, name: "C", active: false }] } = {}) {
     const created: Record<string, unknown>[] = [];
     const updates: { id: unknown; data: Record<string, unknown> }[] = [];
@@ -65,14 +71,18 @@ describe("le montage dans 1 à 3 styles", () => {
       "ad-campaigns": { id: 4, name: "Démos", status: "brouillon", brief: { audience: "BTP", pain: "Papier", offer: "essai gratuit de 30 jours", proofs: [], angles: [] } },
     };
     const payload = {
-      findByID: vi.fn(async ({ collection, id }: { collection: string; id: unknown }) => (collection === "ad-styles" ? styles.find((s) => s.id === Number(id)) : docs[collection])),
+      findByID: vi.fn(async ({ collection, id }: { collection: string; id: unknown }) =>
+        collection === "ad-styles" ? styles.find((s) => s.id === Number(id)) : collection === "ad-media" ? MUSICS.find((m) => m.id === Number(id)) : docs[collection],
+      ),
       findGlobal: vi.fn(async ({ slug }: { slug: string }) => (slug === "ads-brand-kit" ? { forbidden: [] } : slug === "ads-settings" ? { creativesPerCampaignPerWeek: 6 } : {})),
       find: vi.fn(async ({ collection, where }: { collection: string; where?: { id?: { in: number[] } } }) =>
         collection === "ad-styles"
           ? { docs: styles.filter((s) => where?.id?.in.includes(s.id)) }
-          : collection === "ad-rushes"
-            ? { docs: [{ id: 1, processing: { status: "pret" }, working: { url: "u", meta: { width: 732, height: 1510, durationSec: 12 } } }] }
-            : { docs: [] },
+          : collection === "ad-media"
+            ? { docs: MUSICS.filter((m) => where?.id?.in.includes(m.id)) }
+            : collection === "ad-rushes"
+              ? { docs: [{ id: 1, processing: { status: "pret" }, working: { url: "u", meta: { width: 732, height: 1510, durationSec: 12 } } }] }
+              : { docs: [] },
       ),
       count: vi.fn(async () => ({ totalDocs: used })),
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
@@ -87,7 +97,7 @@ describe("le montage dans 1 à 3 styles", () => {
 
   it("un style : la vidéo de la créa elle-même, en file", async () => {
     const { payload, created, updates } = fake();
-    expect(await mountVideo(payload, 4, 9, { styles: [1], score: SCORE }, NOW)).toEqual({ creas: [{ crea: 9, style: 1, styleNom: "A", test: false }], ecartes: [] });
+    expect(await mountVideo(payload, 4, 9, { styles: [1], score: SCORE }, NOW)).toEqual({ creas: [{ crea: 9, style: 1, styleNom: "A", musique: null, musiqueNom: null, test: false }], ecartes: [] });
     expect(created).toHaveLength(0);
     expect(updates[0]).toMatchObject({ id: 9, data: { style: 1, video: { status: "en-attente", score: { shots: expect.any(Array) } } } });
   });
@@ -95,7 +105,10 @@ describe("le montage dans 1 à 3 styles", () => {
   it("deux styles : la créa, et une copie « test de style » en file dans le second", async () => {
     const { payload, created, updates } = fake();
     const r = await mountVideo(payload, 4, 9, { styles: [1, 2], score: SCORE }, NOW);
-    expect(r.creas).toEqual([{ crea: 9, style: 1, styleNom: "A", test: false }, { crea: 101, style: 2, styleNom: "B", test: true }]);
+    expect(r.creas).toEqual([
+      { crea: 9, style: 1, styleNom: "A", musique: null, musiqueNom: null, test: false },
+      { crea: 101, style: 2, styleNom: "B", musique: null, musiqueNom: null, test: true },
+    ]);
     expect(created[0]).toMatchObject({ tests: [{ dimension: "style", value: "B" }], status: "brouillon" });
     expect(updates.map((u) => u.id)).toEqual([9, 101]);
   });
@@ -104,7 +117,7 @@ describe("le montage dans 1 à 3 styles", () => {
     const { payload, created } = fake({ used: 6 });
     const r = await mountVideo(payload, 4, 9, { styles: [1, 2], score: SCORE }, NOW);
     expect(created).toHaveLength(0);
-    expect(r.ecartes).toEqual([{ style: 2, raison: expect.stringMatching(/Quota/) }]);
+    expect(r.ecartes).toEqual([{ variante: "B", raison: expect.stringMatching(/Quota/) }]);
   });
 
   it("un style désactivé ou inconnu, ou une partition refusée : rien ne s'écrit", async () => {
@@ -122,7 +135,44 @@ describe("le montage dans 1 à 3 styles", () => {
   it("au plus trois styles, au moins un, et une partition", async () => {
     const { payload } = fake();
     await expect(mountVideo(payload, 4, 9, { styles: [], score: SCORE }, NOW)).rejects.toThrow(/au moins un style/);
-    await expect(mountVideo(payload, 4, 9, { styles: [1, 2, 3, 4], score: SCORE }, NOW)).rejects.toThrow(/3 styles au plus/);
+    await expect(mountVideo(payload, 4, 9, { styles: [1, 2, 3, 4], score: SCORE }, NOW)).rejects.toThrow(/3 vidéos au plus/);
     await expect(mountVideo(payload, 4, 9, { styles: [1], score: null }, NOW)).rejects.toThrow(/partition/);
+  });
+
+  it("une musique : la vidéo de la créa porte cette musique", async () => {
+    const { payload, updates } = fake();
+    const r = await mountVideo(payload, 4, 9, { styles: [1], musics: [20], score: SCORE }, NOW);
+    expect(r.creas).toEqual([{ crea: 9, style: 1, styleNom: "A", musique: 20, musiqueNom: "Énergique", test: false }]);
+    expect(updates[0]).toMatchObject({ data: { video: { music: 20 } } });
+  });
+
+  it("un style sur deux musiques : une copie « test de musique »", async () => {
+    const { payload, created, updates } = fake();
+    const r = await mountVideo(payload, 4, 9, { styles: [1], musics: [20, 21], score: SCORE }, NOW);
+    expect(r.creas.map((c) => [c.crea, c.style, c.musique, c.musiqueNom, c.test])).toEqual([
+      [9, 1, 20, "Énergique", false],
+      [101, 1, 21, "pose", true],
+    ]);
+    expect(created[0]).toMatchObject({ tests: [{ dimension: "musique", value: "pose" }] });
+    expect(updates[1]).toMatchObject({ id: 101, data: { video: { music: 21 } } });
+  });
+
+  it("styles ET musiques à la fois : refusé, une seule chose à la fois", async () => {
+    const { payload, created, updates } = fake();
+    await expect(mountVideo(payload, 4, 9, { styles: [1, 2], musics: [20, 21], score: SCORE }, NOW)).rejects.toThrow(/qu'une chose à la fois/);
+    expect(created.length + updates.length).toBe(0);
+  });
+
+  it("une musique désactivée, absente ou qui n'en est pas une : rien ne s'écrit", async () => {
+    for (const [musics, why] of [[[20, 22], /désactivée/], [[99], /introuvable/], [[23], /introuvable/]] as const) {
+      const { payload, created, updates } = fake();
+      await expect(mountVideo(payload, 4, 9, { styles: [1], musics: [...musics], score: SCORE }, NOW)).rejects.toThrow(why);
+      expect(created.length + updates.length).toBe(0);
+    }
+  });
+
+  it("trois vidéos au plus, musiques comprises", async () => {
+    const { payload } = fake();
+    await expect(mountVideo(payload, 4, 9, { styles: [1], musics: [20, 21, 24, 25], score: SCORE }, NOW)).rejects.toThrow(/3 vidéos au plus/);
   });
 });

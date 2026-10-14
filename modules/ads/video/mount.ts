@@ -3,6 +3,7 @@ import type { Payload } from "payload";
 import { loadGenerationContext, weeklyUsed } from "@/modules/ads/lib/copy/generate";
 import type { Framing, Rect } from "@/modules/ads/lib/framing";
 import { FinalError } from "@/modules/ads/lib/rush-process";
+import { isInspiration } from "@/modules/ads/lib/rushes";
 import { requestVideo } from "@/modules/ads/video/render";
 
 /**
@@ -10,17 +11,19 @@ import { requestVideo } from "@/modules/ads/video/render";
  * peut monter (rushes prêts, styles actifs) et le montage lui-même.
  *
  * Le directeur artistique écrit UNE partition et la fait rendre dans 1 à 3
- * styles. Le premier style va sur la créa elle-même ; chacun des suivants sur
- * une copie de la créa (mêmes textes, mêmes visuels), étiquetée « test de
- * style » : c'est ainsi qu'on compare deux styles sur le même angle. Une copie
- * compte dans le quota de la semaine, comme toute créa.
+ * styles, ou sur 1 à 3 musiques. La première variante va sur la créa
+ * elle-même ; chacune des suivantes sur une copie de la créa (mêmes textes,
+ * mêmes visuels), étiquetée « test de style » ou « test de musique » : c'est
+ * ainsi qu'on compare sur le même angle. Une copie compte dans le quota de la
+ * semaine, comme toute créa.
  */
-
-export const MAX_STYLES = 3;
 
 type Raw = Record<string, unknown>;
 type RushDoc = {
   id: number;
+  use?: string | null;
+  verdict?: string | null;
+  why?: string | null;
   title?: string | null;
   source?: string | null;
   features?: string[] | null;
@@ -48,6 +51,16 @@ export type RushForAgent = {
   recadrage: { zoneUtile: Rect | null; zoneProtegee: Rect | null } | null;
 };
 export type StyleForAgent = { id: number; nom: string; quandLEmployer: string };
+/** Une musique active et analysée : l'agent la choisit d'après « Quand l'employer » et son tempo. */
+export type MusicForAgent = { id: number; nom: string; quandLEmployer: string; bpm: number | null; dureeSec: number | null };
+/** Une inspiration, telle que l'agent la lit : seulement sa fiche de style validée — jamais ses images. */
+export type InspirationForAgent = { id: number; nom: string; verdict: "aimer" | "eviter"; ceQuiPlait: string; ficheDeStyle: string };
+
+/** Une inspiration à fiche validée, ou `null`. Pure. */
+export function inspirationForAgent(r: RushDoc): InspirationForAgent | null {
+  if (r.ai?.status !== "validee" || !r.ai.proposal) return null;
+  return { id: r.id, nom: r.title ?? `Inspiration ${r.id}`, verdict: r.verdict === "eviter" ? "eviter" : "aimer", ceQuiPlait: r.why ?? "", ficheDeStyle: r.ai.proposal };
+}
 
 /** Un rush prêt, tel que l'agent le lit. Pure. */
 export function rushForAgent(r: RushDoc): RushForAgent {
@@ -68,15 +81,30 @@ export function rushForAgent(r: RushDoc): RushForAgent {
   };
 }
 
-/** Les rushes prêts et les styles actifs : ce qu'un montage peut employer. */
-export async function videoMaterial(payload: Payload): Promise<{ rushes: RushForAgent[]; styles: StyleForAgent[] }> {
-  const [rushes, styles] = await Promise.all([
+/** Les rushes prêts et les styles actifs : ce qu'un montage peut employer ; les inspirations validées : ce qui guide le goût. */
+export type VideoMaterial = { rushes: RushForAgent[]; styles: StyleForAgent[]; inspirations: InspirationForAgent[]; musiques: MusicForAgent[] };
+
+export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
+  const [rushes, styles, musics] = await Promise.all([
     payload.find({ collection: "ad-rushes", where: { "processing.status": { equals: "pret" } }, pagination: false, depth: 0, overrideAccess: true }),
     payload.find({ collection: "ad-styles", where: { active: { equals: true } }, pagination: false, depth: 0, sort: "name", overrideAccess: true }),
+    payload.find({
+      collection: "ad-media",
+      where: { and: [{ kind: { equals: "musique" } }, { active: { not_equals: false } }, { "beat.status": { equals: "pret" } }] },
+      pagination: false,
+      depth: 0,
+      overrideAccess: true,
+    }),
   ]);
+  const docs = rushes.docs as unknown as RushDoc[];
   return {
-    rushes: (rushes.docs as unknown as RushDoc[]).map(rushForAgent),
+    rushes: docs.filter((r) => !isInspiration(r)).map(rushForAgent),
+    inspirations: docs.filter(isInspiration).map(inspirationForAgent).filter((i): i is InspirationForAgent => i !== null),
     styles: (styles.docs as unknown as Raw[]).map((s) => ({ id: Number(s.id), nom: String(s.name ?? ""), quandLEmployer: String(s.intent ?? "") })),
+    musiques: (musics.docs as unknown as Raw[]).map((m) => {
+      const beat = (m.beat ?? {}) as { bpm?: number | null; durationSec?: number | null };
+      return { id: Number(m.id), nom: musicName(m), quandLEmployer: String(m.whenToUse ?? ""), bpm: beat.bpm ?? null, dureeSec: beat.durationSec ?? null };
+    }),
   };
 }
 
@@ -86,57 +114,107 @@ const NOT_COPIED = new Set(["id", "createdAt", "updatedAt", "status", "refusalRe
 const withoutRowIds = (v: unknown): unknown =>
   Array.isArray(v) ? v.map((row) => (row && typeof row === "object" ? Object.fromEntries(Object.entries(row as Raw).filter(([k]) => k !== "id").map(([k, x]) => [k, withoutRowIds(x)])) : row)) : v;
 
-/** La copie d'une créa pour un test de style. Pure. */
-export function styleCopyOf(creative: Raw, styleName: string): Raw {
+/** La copie d'une créa pour un test (de style, de musique) : une seule dimension testée à la fois. Pure. */
+export function variantCopyOf(creative: Raw, dimension: "style" | "musique", value: string): Raw {
   const data: Raw = {};
   for (const [k, v] of Object.entries(creative)) if (!NOT_COPIED.has(k)) data[k] = withoutRowIds(v);
   const tests = (withoutRowIds(creative.tests) as Raw[] | null | undefined) ?? [];
-  data.tests = [...tests.filter((t) => t.dimension !== "style"), { dimension: "style", value: styleName }];
+  data.tests = [...tests.filter((t) => t.dimension !== "style" && t.dimension !== "musique"), { dimension, value }];
   data.status = "brouillon";
   // Les textes et les visuels ne sont pas refaits : leur coût reste sur la créa d'origine.
   if (data.generation && typeof data.generation === "object") data.generation = { ...(data.generation as Raw), costEur: 0 };
   return data;
 }
 
-export type MountResult = { creas: { crea: number; style: number; styleNom: string; test: boolean }[]; ecartes: { style: number; raison: string }[] };
+/** Au plus trois vidéos par montage, copies de test comprises. */
+export const MAX_VARIANTS = 3;
+
+export type MountResult = {
+  creas: { crea: number; style: number; styleNom: string; musique: number | null; musiqueNom: string | null; test: boolean }[];
+  ecartes: { variante: string; raison: string }[];
+};
+
+const ids = (list: unknown[] | undefined): number[] => [...new Set((list ?? []).map((s) => Number(s)).filter((n) => Number.isInteger(n) && n > 0))];
 
 /**
- * Monte la vidéo d'une créa dans 1 à 3 styles. Tout est vérifié AVANT d'écrire :
- * les styles (existants, actifs), la partition (par requestVideo, sur la créa
- * d'origine) ; les copies ne se créent qu'ensuite, dans la limite du quota.
+ * Monte la vidéo d'une créa : dans 1 à 3 styles, OU sur 1 à 3 musiques — un
+ * test ne compare qu'une chose à la fois. Tout est vérifié AVANT d'écrire : les
+ * styles et les musiques (existants, actifs), la partition (par requestVideo,
+ * sur la créa d'origine) ; les copies ne se créent qu'ensuite, dans la limite
+ * du quota. Sans musique précisée, c'est celle du Kit de marque.
  */
-export async function mountVideo(payload: Payload, campaign: number | string, creativeId: number | string, input: { styles: (number | string)[]; score: unknown }, now: Date): Promise<MountResult> {
-  const ids = [...new Set(input.styles.map((s) => Number(s)).filter((n) => Number.isInteger(n) && n > 0))];
-  if (!ids.length) throw new FinalError("Choisis au moins un style (voir « lire_rushes »).");
-  if (ids.length > MAX_STYLES) throw new FinalError(`${MAX_STYLES} styles au plus par montage.`);
-  if (!input.score) throw new FinalError("Écris la partition du montage.");
-  const found = await payload.find({ collection: "ad-styles", where: { id: { in: ids } }, pagination: false, depth: 0, overrideAccess: true });
-  const styles = new Map((found.docs as unknown as Raw[]).map((s) => [Number(s.id), s]));
-  for (const id of ids) {
-    const s = styles.get(id);
-    if (!s) throw new FinalError(`Style ${id} introuvable.`);
-    if (s.active === false) throw new FinalError(`Le style « ${String(s.name)} » est désactivé.`);
+export async function mountVideo(
+  payload: Payload,
+  campaign: number | string,
+  creativeId: number | string,
+  input: { styles: (number | string)[]; musics?: (number | string)[]; score: unknown },
+  now: Date,
+): Promise<MountResult> {
+  const styleIds = ids(input.styles);
+  const musicIds = input.musics === undefined ? null : ids(input.musics);
+  if (!styleIds.length) throw new FinalError("Choisis au moins un style (voir « lire_rushes »).");
+  if (styleIds.length > 1 && musicIds && musicIds.length > 1) {
+    throw new FinalError("Un test ne compare qu'une chose à la fois : plusieurs styles sur une musique, ou un style sur plusieurs musiques.");
   }
+  const count = Math.max(styleIds.length, musicIds?.length || 1);
+  if (count > MAX_VARIANTS) throw new FinalError(`${MAX_VARIANTS} vidéos au plus par montage, tests compris.`);
+  if (!input.score) throw new FinalError("Écris la partition du montage.");
+
+  const found = await payload.find({ collection: "ad-styles", where: { id: { in: styleIds } }, pagination: false, depth: 0, overrideAccess: true });
+  const styles = new Map((found.docs as unknown as Raw[]).map((s) => [Number(s.id), s]));
+  for (const id of styleIds) {
+    const st = styles.get(id);
+    if (!st) throw new FinalError(`Style ${id} introuvable.`);
+    if (st.active === false) throw new FinalError(`Le style « ${String(st.name)} » est désactivé.`);
+  }
+  const musics = new Map<number, Raw>();
+  if (musicIds?.length) {
+    const m = await payload.find({ collection: "ad-media", where: { id: { in: musicIds } }, pagination: false, depth: 0, overrideAccess: true });
+    for (const d of m.docs as unknown as Raw[]) musics.set(Number(d.id), d);
+    for (const id of musicIds) {
+      const mu = musics.get(id);
+      if (!mu || mu.kind !== "musique") throw new FinalError(`Musique ${id} introuvable.`);
+      if (mu.active === false) throw new FinalError(`La musique « ${musicName(mu)} » est désactivée.`);
+    }
+  }
+
+  const variants = Array.from({ length: count }, (_, i) => ({
+    style: styleIds[Math.min(i, styleIds.length - 1)],
+    music: musicIds?.length ? musicIds[Math.min(i, musicIds.length - 1)] : undefined,
+  }));
+  const dimension: "style" | "musique" = styleIds.length > 1 ? "style" : "musique";
+  const styleName = (id: number) => String(styles.get(id)!.name ?? "");
+  const nameOf = (v: (typeof variants)[number]) => (dimension === "style" ? styleName(v.style) : v.music ? musicName(musics.get(v.music)!) : "musique du kit");
 
   const creative = (await payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 0, overrideAccess: true })) as unknown as Raw;
   // La partition est vérifiée ici, sur la créa d'origine : refusée, rien d'autre ne s'écrit.
-  const { score } = await requestVideo(payload, creativeId, { styleId: ids[0], score: input.score });
-  const name = (id: number) => String(styles.get(id)!.name ?? "");
-  const result: MountResult = { creas: [{ crea: Number(creativeId), style: ids[0], styleNom: name(ids[0]), test: false }], ecartes: [] };
+  const first = await requestVideo(payload, creativeId, { styleId: variants[0].style, score: input.score, music: variants[0].music });
+  const entry = (crea: number, v: (typeof variants)[number], music: number | null, test: boolean) => ({
+    crea,
+    style: v.style,
+    styleNom: styleName(v.style),
+    musique: music,
+    musiqueNom: music ? musicName(musics.get(music) ?? { id: music }) : null,
+    test,
+  });
+  const result: MountResult = { creas: [entry(Number(creativeId), variants[0], first.music, false)], ecartes: [] };
 
-  const rest = ids.slice(1);
+  const rest = variants.slice(1);
   if (!rest.length) return result;
   const ctx = await loadGenerationContext(payload, campaign);
   let room = Math.max(0, ctx.weeklyLimit - (await weeklyUsed(payload, campaign, now)));
-  for (const id of rest) {
+  for (const v of rest) {
     if (room <= 0) {
-      result.ecartes.push({ style: id, raison: "Quota de créas de la semaine atteint : pas de copie pour ce style." });
+      result.ecartes.push({ variante: nameOf(v), raison: "Quota de créas de la semaine atteint : pas de copie pour cette variante." });
       continue;
     }
-    const copy = await payload.create({ collection: "ad-creatives", data: styleCopyOf(creative, name(id)) as never, depth: 0, overrideAccess: true });
+    const copy = await payload.create({ collection: "ad-creatives", data: variantCopyOf(creative, dimension, nameOf(v)) as never, depth: 0, overrideAccess: true });
     room--;
-    await requestVideo(payload, copy.id, { styleId: id, score });
-    result.creas.push({ crea: Number(copy.id), style: id, styleNom: name(id), test: true });
+    const r = await requestVideo(payload, copy.id, { styleId: v.style, score: first.score, music: v.music });
+    result.creas.push(entry(Number(copy.id), v, r.music, true));
   }
   return result;
 }
+
+/** Le nom d'une musique : sa description, sinon son fichier sans extension. */
+export const musicName = (m: Raw): string => String(m.alt || String(m.filename ?? `Musique ${String(m.id)}`).replace(/\.[a-z0-9]+$/i, ""));

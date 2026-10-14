@@ -178,7 +178,7 @@ export const AdsBrandKit: GlobalConfig = {
           description: "La mise en scène et le rythme se règlent PAR STYLE, dans Publicité › Paramètres › Styles : l'agent choisit parmi les styles actifs et les fait tester entre eux. Ici, ce qui vaut pour tous les styles.",
           fields: [
             { name: "stylesLink", type: "ui", admin: { components: { Field: "/modules/ads/admin/BrandKitPreview#StylesLink" } } },
-            { name: "music", type: "upload", relationTo: "ad-media", label: "Musique par défaut", filterOptions: { kind: { equals: "musique" } }, admin: { description: "Libre de droits. Sans musique, les vidéos sortent sans son." } },
+            { name: "music", type: "upload", relationTo: "ad-media", label: "Musique par défaut", filterOptions: { kind: { equals: "musique" } }, admin: { description: "Celle qu'on prend quand personne n'en choisit. Toutes vos musiques se déposent dans Médias publicitaires (nature « Musique ») : l'agent choisit parmi elles et les teste." } },
             {
               name: "endCard",
               type: "group",
@@ -206,12 +206,15 @@ export const AdsBrandKit: GlobalConfig = {
         },
         {
           label: "Inspirations",
-          description: "Des pubs que vous aimez, et d'autres à éviter : l'IA les regarde pour proposer les styles et guider chaque montage.",
+          description:
+            "Les inspirations se déposent désormais dans Publicité › Inspirations : captures ET vidéos (MP4, MOV, jusqu'à 500 Mo). L'IA en tire une fiche de style que vous validez, et que le directeur artistique lit avant chaque montage.",
           fields: [
             {
+              // Remplacé par les inspirations de Publicité › Inspirations (I1) ; gardé en base, repris par scripts/ads-inspirations-reprise.ts.
               name: "inspirations",
               type: "array",
               label: false,
+              admin: { hidden: true },
               labels: { singular: "Inspiration", plural: "Inspirations" },
               fields: [
                 {

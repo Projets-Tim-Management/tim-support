@@ -58,14 +58,16 @@ function Dots({ color, u }: { color: string; u: number }) {
 }
 
 /** Des mots qui arrivent un à un, sur une part du plan. */
-function Words({ text, highlight, start, end, color, accent, underline, u, size }: { text: string; highlight: string | null; start: number; end: number; color: string; accent: string; underline: boolean; u: number; size: number }) {
+function Words({ text, highlight, start, end, color, accent, underline, u, size, beat }: { text: string; highlight: string | null; start: number; end: number; color: string; accent: string; underline: boolean; u: number; size: number; beat?: number | null }) {
   const frame = useCurrentFrame();
   const words = text.split(/\s+/).filter(Boolean);
   const hl = (highlight ?? "").toLowerCase();
   return (
     <span>
       {words.map((w, i) => {
-        const at = lerp(start, end, words.length > 1 ? i / (words.length - 1) : 0);
+        const even = lerp(start, end, words.length > 1 ? i / (words.length - 1) : 0);
+        // Sur une musique au tempo connu, chaque mot tombe sur un demi-temps (le plan commence sur un temps).
+        const at = beat ? Math.max(i, Math.round(even / (beat / 2))) * (beat / 2) : even;
         const t = interpolate(frame, [at, at + 6], [0, 1], { ...clamp, easing: ease });
         const marked = hl && w.toLowerCase().replace(/[.,!?;:]/g, "").includes(hl.split(/\s+/)[0]);
         return (
@@ -109,7 +111,7 @@ function Opening({ shot, ctx }: { shot: Extract<RenderShot, { kind: "ouverture" 
   return (
     <AbsoluteFill style={{ background: s.bg, color: s.fg, justifyContent: "center", padding: 80 * u, ...enter }}>
       <div style={{ fontFamily: title, fontSize: size, lineHeight: 1.0, textTransform: upper }}>
-        <Words text={shot.text} highlight={shot.highlight} start={4} end={shot.frames * 0.55 * PACE[p.style.pace]} color={s.fg} accent={s.accent} underline={underline} u={u} size={size} />
+        <Words text={shot.text} highlight={shot.highlight} start={4} end={shot.frames * 0.55 * PACE[p.style.pace]} color={s.fg} accent={s.accent} underline={underline} u={u} size={size} beat={p.music?.beatFrames} />
       </div>
       {shot.sub && <div style={{ fontFamily: body, fontWeight: 700, fontSize: 44 * u, marginTop: 30 * u, opacity: subIn }}>{shot.sub}</div>}
     </AbsoluteFill>
@@ -307,7 +309,13 @@ export const Pub: React.FC<RenderProps> = (p) => {
           <ShotView shot={shot} ctx={ctx} />
         </Sequence>
       ))}
-      {p.music && <Audio src={p.music} volume={(f) => interpolate(f, [0, 10, durationInFrames - 20, durationInFrames], [0, 0.55, 0.55, 0], clamp)} />}
+      {p.music && (
+        <Audio
+          src={p.music.src}
+          trimBefore={Math.round(p.music.startSec * p.fps)}
+          volume={(f) => interpolate(f, [0, 10, durationInFrames - 20, durationInFrames], [0, 0.55, 0.55, 0], clamp)}
+        />
+      )}
     </AbsoluteFill>
   );
 };

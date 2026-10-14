@@ -8,6 +8,18 @@
  * version de travail, une vignette et des images clés.
  */
 
+/**
+ * À quoi sert un fichier importé : de la matière que les agents montent, ou une
+ * inspiration — une pub (de TIM ou d'ailleurs) dont l'IA tire le style, jamais
+ * montrée dans une vidéo (§9 sexies, I1).
+ */
+export const RUSH_USES = [
+  { label: "Matière d'un montage", value: "matiere" },
+  { label: "Inspiration : une pub à imiter ou à éviter", value: "inspiration" },
+] as const;
+export type RushUse = (typeof RUSH_USES)[number]["value"];
+export const isInspiration = (d: { use?: unknown } | null | undefined): boolean => d?.use === "inspiration";
+
 export const RUSH_SOURCES = [
   { label: "Écran de l'app mobile", value: "app-mobile" },
   { label: "Écran de l'app web", value: "app-web" },

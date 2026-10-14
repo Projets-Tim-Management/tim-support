@@ -7,8 +7,10 @@ import { useState } from "react";
  * La vidéo d'une créa, sur sa carte (plan Publicité, §9 sexies, D3) : choisir
  * un style, lancer le montage, regarder le résultat aux trois formats. Le
  * montage part au prochain passage du cron (chaque minute) et prend quelques
- * minutes : la carte dit où il en est. Refaire dans un autre style remplace la
- * vidéo de cette créa ; c'est l'agent qui produit des variantes à comparer.
+ * minutes : la carte dit où il en est. Refaire dans un autre style (ou sur une
+ * autre musique) remplace la vidéo de cette créa ; c'est l'agent qui produit
+ * des variantes à comparer. Sur une musique analysée, les coupes tombent sur
+ * les temps.
  */
 
 export type CardVideo = {
@@ -16,8 +18,14 @@ export type CardVideo = {
   error: string | null;
   renders: { format: string; url: string }[];
   styleName: string | null;
+  musicName?: string | null;
 };
 export type StyleOption = { id: number | string; name: string };
+export type MusicOption = { id: number | string; name: string };
+
+/** Le choix de musique : celle du Kit de marque (par défaut), aucune, ou une musique précise. */
+const KIT = "";
+const NONE = "aucune";
 
 const FORMAT_LABEL: Record<string, string> = { "9x16": "9:16", "4x5": "4:5", "1x1": "1:1" };
 const STATUS: Record<string, { label: string; tone: string }> = {
@@ -27,8 +35,9 @@ const STATUS: Record<string, { label: string; tone: string }> = {
   echec: { label: "Échec du montage", tone: "rouge" },
 };
 
-export function CreativeVideo({ id, video, styles }: { id: number | string; video: CardVideo | null; styles: StyleOption[] }) {
+export function CreativeVideo({ id, video, styles, musics = [] }: { id: number | string; video: CardVideo | null; styles: StyleOption[]; musics?: MusicOption[] }) {
   const [style, setStyle] = useState<string>(String(styles[0]?.id ?? ""));
+  const [music, setMusic] = useState<string>(KIT);
   const [format, setFormat] = useState<string>("9x16");
   const [busy, setBusy] = useState(false);
   const status = video?.status ? STATUS[video.status] : null;
@@ -41,7 +50,7 @@ export function CreativeVideo({ id, video, styles }: { id: number | string; vide
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ styleId: Number(style) || style }),
+        body: JSON.stringify({ styleId: Number(style) || style, ...(music === KIT ? {} : { music: music === NONE ? null : Number(music) }) }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(data.error || String(res.status));
@@ -61,6 +70,7 @@ export function CreativeVideo({ id, video, styles }: { id: number | string; vide
         <strong>Vidéo</strong>
         {status && <span className={`tim-status-pill ads-rush-stage ads-rush-stage--${status.tone}`}>{status.label}</span>}
         {video?.styleName && <span className="ads-video__style">Style : {video.styleName}</span>}
+        {video?.status && <span className="ads-video__style">{video.musicName ? `Musique : ${video.musicName}` : "Sans musique"}</span>}
       </header>
       {video?.status === "echec" && video.error && <p className="ads-video__error">{video.error}</p>}
       {shown && (
@@ -84,8 +94,17 @@ export function CreativeVideo({ id, video, styles }: { id: number | string; vide
               </option>
             ))}
           </select>
+          <select value={music} onChange={(e) => setMusic(e.target.value)} aria-label="Musique de la vidéo" disabled={busy || running}>
+            <option value={KIT}>Musique du Kit de marque</option>
+            {musics.map((m) => (
+              <option key={String(m.id)} value={String(m.id)}>
+                {m.name}
+              </option>
+            ))}
+            <option value={NONE}>Sans musique</option>
+          </select>
           <button type="button" className="tim-btn" disabled={busy || running || !style} onClick={launch}>
-            {busy ? "…" : video?.renders.length ? "Refaire dans ce style" : "Monter en vidéo"}
+            {busy ? "…" : video?.renders.length ? "Refaire la vidéo" : "Monter en vidéo"}
           </button>
         </div>
       ) : (
