@@ -50,26 +50,12 @@ type CreativeDoc = Raw & {
 };
 
 const nullable = (schema: Raw) => ({ anyOf: [schema, { type: "null" }] });
-const SHOT = {
-  type: "object",
-  additionalProperties: false,
-  required: ["kind", "seconds", "text", "highlight", "sub", "rush", "from", "to", "zoom", "caption", "fact", "line"],
-  properties: {
-    kind: { type: "string", enum: ["ouverture", "rush", "preuve", "logo", "fin"] },
-    seconds: { type: "number" },
-    text: nullable({ type: "string" }),
-    highlight: nullable({ type: "string" }),
-    sub: nullable({ type: "string" }),
-    rush: nullable({ type: "number" }),
-    from: nullable({ type: "number" }),
-    to: nullable({ type: "number" }),
-    zoom: nullable({ type: "object", additionalProperties: false, required: ["x", "y", "w", "h"], properties: { x: { type: "number" }, y: { type: "number" }, w: { type: "number" }, h: { type: "number" } } }),
-    caption: nullable({ type: "string" }),
-    fact: nullable({ type: "number" }),
-    line: nullable({ type: "string" }),
-  },
-};
 
+/**
+ * Le format de réponse. L'API limite les champs « ou null » (16 au plus) : la
+ * partition voyage donc en texte JSON, et « inchangé » s'écrit vide (chaîne
+ * vide, 0) plutôt que null. Seuls `textes` et `video` sont facultatifs.
+ */
 export const RETOUCH_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -83,22 +69,35 @@ export const RETOUCH_SCHEMA = {
       description: "La liste COMPLÈTE des textes après retouche (ceux qu'on garde compris), ou null si les textes ne changent pas.",
       properties: { principal: { type: "array", items: { type: "string" } }, titre: { type: "array", items: { type: "string" } }, description: { type: "array", items: { type: "string" } } },
     }),
-    accroche: nullable({ type: "string", description: "La nouvelle accroche du visuel, ou null si elle ne change pas." }),
-    gabarit: nullable({ type: "string", enum: ["capture", "chiffre", "photo", "texte"], description: "Un autre gabarit de visuel, ou null." }),
+    accroche: { type: "string", description: "La nouvelle accroche du visuel, ou une chaîne vide si elle ne change pas." },
+    gabarit: { type: "string", enum: ["inchange", "capture", "chiffre", "photo", "texte"], description: "Un autre gabarit de visuel (seulement pour une créa sans vidéo), sinon « inchange »." },
     video: nullable({
       type: "object",
       additionalProperties: false,
-      required: ["style", "musique", "sans_musique", "partition"],
+      required: ["style", "musique", "sans_musique", "partition_json"],
       description: "Les changements de la vidéo, ou null si elle ne change pas.",
       properties: {
-        style: nullable({ type: "number" }),
-        musique: nullable({ type: "number" }),
+        style: { type: "number", description: "L'identifiant du style, ou 0 pour garder le même." },
+        musique: { type: "number", description: "L'identifiant de la musique, ou 0 pour garder la même." },
         sans_musique: { type: "boolean" },
-        partition: nullable({ type: "object", additionalProperties: false, required: ["shots"], properties: { shots: { type: "array", items: SHOT } } }),
+        partition_json: {
+          type: "string",
+          description:
+            'La partition complète en JSON, ou une chaîne vide pour garder la même. Format : {"shots":[{"kind":"ouverture","seconds":2,"text":"…","highlight":"…"},{"kind":"rush","seconds":4,"rush":1,"from":0,"to":4,"zoom":{"x":0,"y":0.3,"w":1,"h":0.4},"caption":"…"},{"kind":"preuve","seconds":1.8,"fact":5},{"kind":"scene","seconds":2.2,"scene":"liste","data":{"legende":"…","titre":"…","elements":[{"nom":"…","detail":"…"}],"action":"…"}},{"kind":"logo","seconds":1.5},{"kind":"fin","seconds":2.5,"line":"…"}]}. Scènes : liste, notification, planning, compteur, avant-apres, bouton, carte, texte (voir la matière vidéo).',
+        },
       },
     }),
   },
 } as const;
+
+/** La réponse du modèle, telle qu'il la rend. */
+type RawResult = {
+  resume: string;
+  textes: { principal: string[]; titre: string[]; description: string[] } | null;
+  accroche: string;
+  gabarit: string;
+  video: { style: number; musique: number; sans_musique: boolean; partition_json: string } | null;
+};
 
 export type RetouchResult = {
   resume: string;
@@ -107,6 +106,28 @@ export type RetouchResult = {
   gabarit: "capture" | "chiffre" | "photo" | "texte" | null;
   video: { style: number | null; musique: number | null; sans_musique: boolean; partition: { shots: Raw[] } | null } | null;
 };
+
+/** La réponse du modèle ramenée à des « null » pour ce qui ne change pas ; une partition illisible est ignorée. Pure. */
+export function normalizeResult(r: RawResult): RetouchResult {
+  let partition: { shots: Raw[] } | null = null;
+  if (r.video?.partition_json?.trim()) {
+    try {
+      const parsed = JSON.parse(r.video.partition_json) as { shots?: unknown };
+      if (Array.isArray(parsed.shots)) partition = { shots: parsed.shots as Raw[] };
+    } catch {
+      partition = null;
+    }
+  }
+  return {
+    resume: r.resume,
+    textes: r.textes,
+    accroche: r.accroche?.trim() ? r.accroche.trim() : null,
+    gabarit: ["capture", "chiffre", "photo", "texte"].includes(r.gabarit) ? (r.gabarit as RetouchResult["gabarit"]) : null,
+    video: r.video
+      ? { style: r.video.style > 0 ? r.video.style : null, musique: r.video.musique > 0 ? r.video.musique : null, sans_musique: Boolean(r.video.sans_musique), partition }
+      : null,
+  };
+}
 
 const idOf = (v: unknown): number | null => (v && typeof v === "object" ? Number((v as { id: unknown }).id) : v == null ? null : Number(v));
 
@@ -158,7 +179,7 @@ export function retouchPrompt(input: {
     `Gabarit du visuel : ${visual}`,
     `Textes :\n${texts || "—"}`,
     `Vidéo : ${video}`,
-    input.material ? `\nMATIÈRE VIDÉO (styles, musiques, rushes, inspirations, logo) :\n${JSON.stringify(input.material)}` : "",
+    input.material ? `\nMATIÈRE VIDÉO (styles, musiques, rushes, inspirations, logo, scènes de motion design) :\n${JSON.stringify(input.material)}` : "",
     "",
     input.history.length ? `CONSIGNES PRÉCÉDENTES SUR CETTE CRÉA (toujours valables) :\n${input.history.map((h, i) => `${i + 1}. ${h}`).join("\n")}` : "",
     `CONSIGNE DE CHARLIE, MAINTENANT :\n${input.instruction}`,
@@ -187,6 +208,13 @@ export const scoreFromModel = (p: { shots: Raw[] }): { shots: Raw[] } => ({
   shots: p.shots.map((s) => Object.fromEntries(Object.entries(s).filter(([, v]) => v !== null))),
 });
 
+/** La partition avec la nouvelle accroche à l'ouverture, quand l'ouverture reprenait l'ancienne. Pure. */
+export function withHook(score: unknown, oldHook: string | null, newHook: string | null): unknown {
+  const shots = (score as { shots?: Raw[] } | null)?.shots;
+  if (!newHook || !Array.isArray(shots)) return score;
+  return { ...(score as Raw), shots: shots.map((s) => (s.kind === "ouverture" && (!oldHook || String(s.text ?? "").trim() === oldHook.trim()) ? { ...s, text: newHook } : s)) };
+}
+
 export type RetouchCall = (input: { system: string; user: string }) => Promise<{ result: RetouchResult; usage: Usage }>;
 
 export const callRetouch: RetouchCall = async ({ system, user }) => {
@@ -200,7 +228,7 @@ export const callRetouch: RetouchCall = async ({ system, user }) => {
   });
   const usage: Usage = { input: res.usage.input_tokens, output: res.usage.output_tokens, cacheRead: res.usage.cache_read_input_tokens ?? 0, cacheWrite: res.usage.cache_creation_input_tokens ?? 0 };
   if (!res.parsed_output) throw Object.assign(new Error("Réponse illisible : rien n'a été changé."), { usage });
-  return { result: res.parsed_output as unknown as RetouchResult, usage };
+  return { result: normalizeResult(res.parsed_output as unknown as RawResult), usage };
 };
 
 /**
@@ -281,7 +309,8 @@ export async function processNextRetouch(payload: Payload, deps: RetouchDeps = {
       depth: 0,
       overrideAccess: true,
     });
-    const material = c.video?.status ? await (deps.material ?? videoMaterial)(payload) : null;
+    // La matière vidéo, toujours : une consigne peut demander un premier montage.
+    const material = await (deps.material ?? videoMaterial)(payload);
     const tone = (c.tone === "tu" ? "tu" : "vous") as "vous" | "tu";
     const prompt = retouchPrompt({
       brief: briefLines(ctx.brief),
@@ -314,12 +343,19 @@ export async function processNextRetouch(payload: Payload, deps: RetouchDeps = {
     let result = await ask(prompt.user);
     const notes: string[] = [];
     // 1. La vidéo d'abord : c'est elle qui peut être refusée en bloc. Refusée, rien d'autre n'est appliqué.
-    if (result.video && c.video?.status) {
-      const apply = (v: NonNullable<RetouchResult["video"]>) =>
+    const firstStyle = async () => {
+      const st = await payload.find({ collection: "ad-styles", where: { active: { equals: true } }, sort: "name", limit: 1, depth: 0, overrideAccess: true });
+      const id = (st.docs[0] as { id?: number } | undefined)?.id;
+      if (id == null) throw new FinalError("Aucun style actif : activez-en un dans Publicité › Paramètres › Styles.");
+      return Number(id);
+    };
+    if (result.video && (c.video?.status || result.video.partition)) {
+      const apply = async (v: NonNullable<RetouchResult["video"]>) =>
         (deps.video ?? requestVideo)(payload, creativeId, {
-          styleId: v.style ?? idOf(c.style)!,
-          score: v.partition ? scoreFromModel(v.partition) : c.video!.score,
-          music: v.sans_musique ? null : (v.musique ?? idOf(c.video!.music)),
+          styleId: v.style ?? idOf(c.style) ?? (await firstStyle()),
+          score: v.partition ? scoreFromModel(v.partition) : c.video?.score,
+          // Sans musique précisée : celle de la vidéo, ou celle du kit pour un premier montage.
+          music: v.sans_musique ? null : (v.musique ?? (c.video?.status ? idOf(c.video.music) : undefined)),
         });
       try {
         await apply(result.video);
@@ -349,9 +385,17 @@ export async function processNextRetouch(payload: Payload, deps: RetouchDeps = {
     }
     if (Object.keys(data).length) await payload.update({ collection: "ad-creatives", id: creativeId, data: data as never, depth: 0, overrideAccess: true });
 
-    // 3. Les visuels, s'ils dépendent de ce qui a changé.
-    if (data.hook || data.copy || result.gabarit) {
-      await (deps.renderVisuals ?? renderCreativeVisuals)(payload, creativeId, { template: result.gabarit ?? undefined, keepDraft: true });
+    // 3. Les visuels, s'ils dépendent de ce qui a changé. Une créa montée en vidéo a ses affiches dans le style :
+    // on remonte la vidéo (qui refait les affiches), avec la nouvelle accroche reprise à l'ouverture — jamais les
+    // anciens gabarits. Rien à relancer à la main.
+    const videoRedone = Boolean(result.video);
+    if ((data.hook || data.copy || result.gabarit) && !videoRedone) {
+      if (c.video?.status && idOf(c.style) != null) {
+        await (deps.video ?? requestVideo)(payload, creativeId, { styleId: idOf(c.style)!, score: withHook(c.video.score, c.hook ?? null, (data.hook as string | undefined) ?? null), music: idOf(c.video.music) });
+        notes.push("Vidéo et affiches remontées avec la nouvelle version (quelques minutes).");
+      } else {
+        await (deps.renderVisuals ?? renderCreativeVisuals)(payload, creativeId, { template: result.gabarit ?? undefined, keepDraft: true });
+      }
     }
 
     const after = snapshotOf(await load());
@@ -375,3 +419,7 @@ export async function processNextRetouch(payload: Payload, deps: RetouchDeps = {
     return { id: claimed.id, outcome: final ? "echec" : "reessai", error: message };
   }
 }
+
+/** La consigne du premier montage d'une créa générée : l'IA écrit la partition, en motion design, dans le style donné. Pure. */
+export const firstMontageInstruction = (style: { id: number; name: string }): string =>
+  `Premier montage (automatique) : écris la vidéo de cette créa dans le style « ${style.name} » (identifiant ${style.id}), 12 à 18 s. Ouvre sur l'accroche, montre le geste promis par l'angle surtout avec des SCÈNES de motion design (l'interface de TIM recréée, données de démo crédibles, inspirées des rushes), un vrai extrait de rush si le geste réel convainc mieux, une preuve sourcée si elle existe, le logo s'il est animable, puis la fin. Durées pensées en temps de la musique. Ne change ni les textes ni l'accroche.`;

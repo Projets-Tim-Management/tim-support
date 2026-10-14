@@ -39,7 +39,7 @@ describe("une partition vérifiée", () => {
 
   it("refuse une vidéo sans fin, sans rush, trop longue", () => {
     const p = scoreProblems(parseScore({ shots: [{ kind: "ouverture", seconds: 6, text: "Bonjour" }, { kind: "preuve", seconds: 6, fact: 5 }, { kind: "ouverture", seconds: 6, text: "x" }, { kind: "ouverture", seconds: 5, text: "y" }] }), ctx);
-    expect(p).toEqual(expect.arrayContaining([expect.stringMatching(/dernier plan est la fin/), expect.stringMatching(/montre un rush/), expect.stringMatching(/Durée totale de 23 s/)]));
+    expect(p).toEqual(expect.arrayContaining([expect.stringMatching(/dernier plan est la fin/), expect.stringMatching(/montre le logiciel/), expect.stringMatching(/Durée totale de 23 s/)]));
   });
 
   it("refuse un passage hors du rush, une vitesse illisible, un rush non converti", () => {

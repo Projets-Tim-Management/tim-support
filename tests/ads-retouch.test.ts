@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { FinalError } from "@/modules/ads/lib/rush-process";
-import { guardTexts, processNextRetouch, requestRetouch, retouchPrompt, scoreFromModel, snapshotOf, type RetouchResult } from "@/modules/ads/lib/retouch";
+import { guardTexts, normalizeResult, processNextRetouch, requestRetouch, retouchPrompt, scoreFromModel, snapshotOf, withHook, type RetouchResult } from "@/modules/ads/lib/retouch";
 
 /**
  * La retouche ciblée d'une créa (plan Publicité, 14/10/2026) : Charlie demande
@@ -53,6 +53,29 @@ describe("les morceaux purs", () => {
     expect(rows.some((r) => r.kind === "description")).toBe(false);
   });
 
+  it("la nouvelle accroche remplace l'ouverture qui reprenait l'ancienne, et seulement elle", () => {
+    const sc = { shots: [{ kind: "ouverture", text: "Ancienne" }, { kind: "ouverture", text: "Autre phrase" }] };
+    expect(withHook(sc, "Ancienne", "Nouvelle")).toEqual({ shots: [{ kind: "ouverture", text: "Nouvelle" }, { kind: "ouverture", text: "Autre phrase" }] });
+    expect(withHook(sc, "Ancienne", null)).toBe(sc);
+  });
+
+  it("la réponse du modèle : vide ou 0 = inchangé ; partition en JSON lue, illisible ignorée", () => {
+    expect(normalizeResult({ resume: "r", textes: null, accroche: " ", gabarit: "inchange", video: { style: 0, musique: 13, sans_musique: false, partition_json: '{"shots":[{"kind":"fin","seconds":2}]}' } })).toEqual({
+      resume: "r",
+      textes: null,
+      accroche: null,
+      gabarit: null,
+      video: { style: null, musique: 13, sans_musique: false, partition: { shots: [{ kind: "fin", seconds: 2 }] } },
+    });
+    expect(normalizeResult({ resume: "r", textes: null, accroche: "Nouvelle", gabarit: "photo", video: { style: 2, musique: 0, sans_musique: true, partition_json: "{oups" } })).toMatchObject({ accroche: "Nouvelle", gabarit: "photo", video: { style: 2, musique: null, partition: null } });
+  });
+
+  it("le format reste sous la limite de l'API (16 champs « ou null » au plus)", async () => {
+    const { RETOUCH_SCHEMA } = await import("@/modules/ads/lib/retouch");
+    const unions = (JSON.stringify(RETOUCH_SCHEMA).match(/"anyOf"|"type":\[/g) ?? []).length;
+    expect(unions).toBeLessThanOrEqual(16);
+  });
+
   it("la partition du modèle perd ses champs vides", () => {
     expect(scoreFromModel({ shots: [{ kind: "logo", seconds: 1.5, text: null, rush: null }] })).toEqual({ shots: [{ kind: "logo", seconds: 1.5 }] });
   });
@@ -86,21 +109,38 @@ describe("le traitement", () => {
     return { payload: payload as never, writes, creaUpdates };
   }
   const usage = { input: 1000, output: 200, cacheRead: 0, cacheWrite: 0 };
-  const material = async () => ({ rushes: [], styles: [], inspirations: [], musiques: [], logo: "" });
+  const material = async () => ({ rushes: [], styles: [], inspirations: [], musiques: [], logo: "", scenes: {} });
 
   it("rien en file : rien ne se passe", async () => {
     expect(await processNextRetouch(fake(CREA, false).payload)).toBeNull();
   });
 
-  it("une nouvelle accroche : appliquée, visuels rendus de nouveau, versions gardées", async () => {
-    const { payload, writes, creaUpdates } = fake();
-    const renderVisuals = vi.fn(async () => ({ template: "capture" as const, assets: 3, status: "a-valider" }));
-    const video = vi.fn();
+  it("une nouvelle accroche sur une créa montée : vidéo et affiches remontées toutes seules, avec l'accroche à l'ouverture", async () => {
+    const score = { shots: [{ kind: "ouverture", seconds: 2, text: "Fini la ressaisie" }, { kind: "fin", seconds: 2 }] };
+    const { payload, writes, creaUpdates } = fake({ ...CREA, video: { ...CREA.video, score } });
+    const renderVisuals = vi.fn();
+    const video = vi.fn(async () => ({ score: { shots: [] }, music: 13 }));
     expect(await processNextRetouch(payload, { call: async () => ({ result: RESULT, usage }), renderVisuals, video, material })).toEqual({ id: 3, outcome: "faite" });
     expect(creaUpdates[0]).toEqual({ hook: "Plus jamais de ressaisie" });
+    expect(renderVisuals).not.toHaveBeenCalled();
+    expect(video).toHaveBeenCalledWith(payload, 9, { styleId: 1, score: { shots: [{ kind: "ouverture", seconds: 2, text: "Plus jamais de ressaisie" }, { kind: "fin", seconds: 2 }] }, music: 13 });
+    expect(writes.at(-1)).toMatchObject({ status: "faite", summary: expect.stringMatching(/^Accroche plus directe\. Vidéo et affiches remontées/), before: { hook: "Fini la ressaisie" }, after: expect.any(Object), costEur: expect.any(Number) });
+  });
+
+  it("un premier montage : une créa sans vidéo reçoit sa partition, dans le style donné, avec la musique du kit", async () => {
+    const { payload } = fake({ ...CREA, video: null, style: null });
+    const partition = { shots: [{ kind: "scene", seconds: 3, scene: "liste", data: {} }, { kind: "fin", seconds: 2.5 }] };
+    const call = async () => ({ result: { resume: "Premier montage.", textes: null, accroche: null, gabarit: null, video: { style: 2, musique: null, sans_musique: false, partition } }, usage });
+    const video = vi.fn(async () => ({ score: { shots: [] }, music: null }));
+    expect(await processNextRetouch(payload, { call, video, renderVisuals: vi.fn(), material })).toMatchObject({ outcome: "faite" });
+    expect(video).toHaveBeenCalledWith(payload, 9, { styleId: 2, score: partition, music: undefined });
+  });
+
+  it("sans vidéo : les visuels sont rendus de nouveau", async () => {
+    const { payload } = fake({ ...CREA, video: null });
+    const renderVisuals = vi.fn(async () => ({ template: "capture" as const, assets: 3, status: "a-valider" }));
+    await processNextRetouch(payload, { call: async () => ({ result: RESULT, usage }), renderVisuals, video: vi.fn(), material });
     expect(renderVisuals).toHaveBeenCalledWith(payload, 9, { template: undefined, keepDraft: true });
-    expect(video).not.toHaveBeenCalled();
-    expect(writes.at(-1)).toMatchObject({ status: "faite", summary: "Accroche plus directe.", before: { hook: "Fini la ressaisie" }, after: expect.any(Object), costEur: expect.any(Number) });
   });
 
   it("un montage refusé revient une fois au modèle avec la raison, puis passe", async () => {

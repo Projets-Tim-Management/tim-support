@@ -37,7 +37,7 @@ function fakeAtelier(over: Partial<AtelierPort> = {}) {
     submit: vi.fn(async (_campaign: Id, ids: Id[]) => ({ submitted: ids.filter((i) => i !== 999), skipped: ids.includes(999) ? [{ id: 999, reason: "Pas de titre passé." }] : [] })),
     campaignBudget: vi.fn(async () => ({ totalDailyEur: 30, maxAiSharePct: 15, metaFloorEur: 5 })),
     setSplit: vi.fn(async () => {}),
-    videoMaterial: vi.fn(async () => ({ rushes: [], inspirations: [], musiques: [], logo: "Pas de logo animable", styles: [{ id: 1, nom: "A · Le geste en gros plan", quandLEmployer: "Un geste dans l'app", reglages: "Ouverture : titre" }] })),
+    videoMaterial: vi.fn(async () => ({ rushes: [], inspirations: [], musiques: [], logo: "Pas de logo animable", scenes: {}, styles: [{ id: 1, nom: "A · Le geste en gros plan", quandLEmployer: "Un geste dans l'app", reglages: "Ouverture : titre" }] })),
     video: vi.fn(async (_c: Id, crea: Id, req: { styles: Id[]; musics?: Id[] }) => ({
       creas: req.styles.map((st, i) => ({ crea: i ? 200 + i : Number(crea), style: Number(st), styleNom: `Style ${String(st)}`, musique: 8, musiqueNom: "Énergique", test: i > 0 })),
       ecartes: [],

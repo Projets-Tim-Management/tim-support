@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { buildZip } from "@/modules/ads/lib/download";
 import { defaultScore, pickRush } from "@/modules/ads/video/default-score";
-import { processNextRender } from "@/modules/ads/video/render";
+import { processNextRender, queueVideosFor } from "@/modules/ads/video/render";
 
 /**
  * Le rendu des vidéos (plan Publicité, §9 sexies, D3) : la partition par
@@ -90,6 +90,31 @@ describe("le cycle de rendu", () => {
     expect((render.mock.calls[0][0][0] as unknown as { music: unknown }).music).toBeNull();
   });
 
+  it("les affiches dans le style remplacent les visuels de la créa, une par format", async () => {
+    const { payload } = fake();
+    const created: Record<string, unknown>[] = [];
+    (payload as unknown as { create: unknown }).create = vi.fn(async (a: Record<string, unknown>) => (created.push(a), { id: 70 + created.length }));
+    const assetsUpdates: Record<string, unknown>[] = [];
+    const update = (payload as unknown as { update: ReturnType<typeof vi.fn> }).update;
+    update.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => assetsUpdates.push(data));
+    const render = vi.fn(async (list: { format: string }[], posters?: { format: string; poster?: { hook: string } | null }[]) => {
+      expect(posters?.map((p) => p.format)).toEqual(["9x16", "4x5", "1x1"]);
+      // Sans accroche sur la créa, l'affiche reprend le texte de l'ouverture.
+      expect(posters?.[0].poster?.hook).toBe("Fini la ressaisie.");
+      return list.map((p) => ({ format: p.format as "9x16", data: Buffer.from("mp4"), poster: Buffer.from("jpg") }));
+    });
+    await processNextRender(payload, { render, store });
+    expect(created.map((c) => (c.data as { kind: string }).kind)).toEqual(["crea", "crea", "crea"]);
+    expect(assetsUpdates.at(-1)).toEqual({ assets: [{ format: "9x16", type: "image", template: "affiche-a-le-geste-en-gros-plan", media: 71 }, expect.any(Object), expect.any(Object)] });
+  });
+
+  it("sans affiche pour un format, les visuels restent ceux d'avant", async () => {
+    const { payload, updates } = fake();
+    const render = vi.fn(async (list: { format: string }[]) => list.map((p, i) => ({ format: p.format as "9x16", data: Buffer.from("mp4"), poster: i ? Buffer.from("jpg") : null })));
+    await processNextRender(payload, { render, store });
+    expect(updates.some((u) => "assets" in u)).toBe(false);
+  });
+
   it("une partition refusée échoue tout de suite, avec la raison — rien n'est rendu", async () => {
     const { payload, updates } = fake({ shots: [{ kind: "ouverture", seconds: 2, text: "Gagnez 3 heures" }, { kind: "rush", seconds: 4, rush: 1, from: 0, to: 4 }, { kind: "fin", seconds: 2.5 }] });
     const render = vi.fn();
@@ -118,5 +143,24 @@ describe("le téléchargement", () => {
     );
     expect(load).toHaveBeenCalledWith("https://cdn/v.mp4");
     expect(Buffer.from(zip).toString("latin1")).toContain("tim_demos_pointage_9x16.mp4");
+  });
+});
+
+describe("après « Générer des créas »", () => {
+  it("chaque créa reçoit un premier montage IA, en alternant les styles actifs", async () => {
+    const created: { collection: string; data: Record<string, unknown> }[] = [];
+    const payload = {
+      find: vi.fn(async () => ({ docs: [{ id: 1, name: "A" }, { id: 2, name: "B" }] })),
+      findByID: vi.fn(async ({ id }: { id: unknown }) => ({ id, campaign: 4, status: "a-valider" })),
+      count: vi.fn(async () => ({ totalDocs: 0 })),
+      create: vi.fn(async (a: { collection: string; data: Record<string, unknown> }) => (created.push(a), { id: created.length })),
+    };
+    expect(await queueVideosFor(payload as never, [11, 12, 13])).toEqual({ queued: 3, skipped: null });
+    expect(created.map((c) => [c.collection, c.data.creative, String(c.data.instruction).match(/style « (\w) »/)?.[1]])).toEqual([
+      ["ad-retouches", 11, "A"],
+      ["ad-retouches", 12, "B"],
+      ["ad-retouches", 13, "A"],
+    ]);
+    expect(String(created[0].data.instruction)).toMatch(/SCÈNES de motion design/);
   });
 });

@@ -1,7 +1,7 @@
 import { Composition } from "remotion";
 
 import type { RenderProps } from "../modules/ads/video/props";
-import { Pub } from "./Pub";
+import { Affiche, Pub } from "./Pub";
 
 /**
  * Une seule composition, « Pub » : ses dimensions et sa durée viennent de ses
@@ -56,6 +56,7 @@ const EXAMPLE: RenderProps = {
 };
 
 export const RemotionRoot: React.FC = () => (
+  <>
   <Composition
     id="Pub"
     component={Pub}
@@ -71,4 +72,16 @@ export const RemotionRoot: React.FC = () => (
       durationInFrames: Math.max(1, props.shots.reduce((t, s) => t + s.frames, 0)),
     })}
   />
+  {/* L'affiche : une image fixe de la créa, aux formats Meta. */}
+  <Composition
+    id="Affiche"
+    component={Affiche}
+    defaultProps={{ ...EXAMPLE, shots: [], poster: { hook: "Fini la ressaisie du vendredi", highlight: "ressaisie", rush: EXAMPLE.shots.find((s) => s.kind === "rush") as never } }}
+    width={1080}
+    height={1920}
+    fps={30}
+    durationInFrames={1}
+    calculateMetadata={({ props }) => ({ width: props.width, height: props.height, fps: props.fps, durationInFrames: 1 })}
+  />
+  </>
 );

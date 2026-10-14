@@ -529,4 +529,5 @@
 .ads-retouch__thumbs img { height: 4.5rem; width: auto; border-radius: 0.3rem; border: 1px solid var(--tim-border); }
 .ads-retouch__form { display: flex; flex-direction: column; gap: 0.4rem; }
 .ads-retouch__form textarea { width: 100%; resize: vertical; font: inherit; padding: 0.5rem 0.6rem; border-radius: 0.4rem; border: 1px solid var(--tim-border); background: var(--tim-white); }
-.ads-retouch__send { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.8rem; }
+.ads-retouch__send { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 0.9rem; font-size: 0.8rem; }
+.ads-retouch__failed { display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; }

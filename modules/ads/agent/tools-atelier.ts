@@ -7,6 +7,7 @@ import type { Id } from "@/modules/ads/agent/types";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
 import { eur } from "@/modules/ads/lib/spend";
 import { MAX_VARIANTS } from "@/modules/ads/video/mount";
+import { SCENE_TYPES } from "@/modules/ads/video/scenes";
 import { MAX_CAPTION_CHARS, MAX_OPENING_CHARS, MAX_SHOT, MAX_TOTAL, MIN_SHOT, MIN_TOTAL, MIN_ZOOM } from "@/modules/ads/video/score";
 
 /**
@@ -190,7 +191,7 @@ const lireRushes: AgentTool = {
   definition: {
     name: "lire_rushes",
     description:
-      "La matière des vidéos : les rushes prêts (écrans de l'app, chantier…) avec ce qu'on y voit, la description détaillée validée et ses plans repérés, la durée et le recadrage (zone utile, zone à ne jamais couper) ; les styles actifs, avec quand employer chacun et ce que le moteur en fait (un zoom ou un sous-titre que le style ignore ne sert à rien) ; les musiques, avec quand les employer et leur tempo ; les inspirations de Charlie — des pubs à imiter ou à éviter, réduites à leur fiche de style (elles ne se montent jamais) ; et ce que permet le logo.",
+      "La matière des vidéos : les rushes prêts (écrans de l'app, chantier…) avec ce qu'on y voit, la description détaillée validée et ses plans repérés, la durée et le recadrage (zone utile, zone à ne jamais couper) ; les styles actifs, avec quand employer chacun et ce que le moteur en fait (un zoom ou un sous-titre que le style ignore ne sert à rien) ; les musiques, avec quand les employer et leur tempo ; les inspirations de Charlie — des pubs à imiter ou à éviter, réduites à leur fiche de style (elles ne se montent jamais) ; ce que permet le logo ; et les scènes de motion design disponibles, avec leurs données.",
     input_schema: { type: "object", properties: {} },
   },
   async run(ctx) {
@@ -212,7 +213,7 @@ const monterVideo: AgentTool = {
       `Monte la vidéo d'une créa : tu écris la partition (les plans, dans l'ordre), le moteur la rend aux trois formats Meta. Tu peux tester plusieurs styles sur une musique, OU un style sur plusieurs musiques — jamais les deux à la fois —, ${MAX_VARIANTS} vidéos au plus.`,
       "La première variante va sur la créa ; chaque suivante crée une copie étiquetée « test de style » ou « test de musique » (même angle, mêmes textes), comptée dans le quota de la semaine.",
       "Sur une musique au tempo connu, le moteur cale chaque coupe sur le temps le plus proche et fait tomber les mots de l'ouverture sur les temps : écris des durées proches de multiples du temps (60 / BPM). Sans musique précisée, c'est celle du Kit de marque.",
-      `Le code vérifie la partition avant tout rendu : ${MIN_TOTAL} à ${MAX_TOTAL} s au total, plans de ${MIN_SHOT} à ${MAX_SHOT} s, au moins un plan de rush, une seule fin et en dernier, des rushes prêts pris dans leur durée, aucun zoom plus serré que ${MIN_ZOOM * 100} % ni qui coupe la zone protégée, aucun chiffre absent des faits sourcés et de l'offre, aucune mention interdite. Un refus dit pourquoi : corrige et rappelle.`,
+      `Le code vérifie la partition avant tout rendu : ${MIN_TOTAL} à ${MAX_TOTAL} s au total, plans de ${MIN_SHOT} à ${MAX_SHOT} s, au moins un plan qui montre le logiciel (rush ou scène recréée), une seule fin et en dernier, des rushes prêts pris dans leur durée, aucun zoom plus serré que ${MIN_ZOOM * 100} % ni qui coupe la zone protégée, aucun chiffre absent des faits sourcés et de l'offre, aucune mention interdite. Un refus dit pourquoi : corrige et rappelle.`,
       "Le rendu prend quelques minutes, sans coût IA ; la vidéo apparaît sur la carte de la créa.",
     ].join(" "),
     input_schema: {
@@ -229,7 +230,13 @@ const monterVideo: AgentTool = {
               items: {
                 type: "object",
                 properties: {
-                  kind: { type: "string", enum: ["ouverture", "rush", "preuve", "logo", "fin"], description: "logo : le logo seul, animé (voir « logo » dans lire_rushes) — une signature, en ouverture par exemple." },
+                  kind: {
+                    type: "string",
+                    enum: ["ouverture", "rush", "preuve", "scene", "logo", "fin"],
+                    description: "scene : l'interface de TIM recréée en motion design (voir « scenes » dans lire_rushes). logo : le logo seul, animé — une signature, en ouverture par exemple.",
+                  },
+                  scene: { type: "string", enum: [...SCENE_TYPES], description: "scene : le type de scène." },
+                  data: { type: "object", description: "scene : les données de la scène (voir « scenes » dans lire_rushes), et « legende » facultative." },
                   seconds: { type: "number" },
                   text: { type: "string", description: `ouverture : l'accroche, ${MAX_OPENING_CHARS} caractères au plus.` },
                   highlight: { type: "string", description: "ouverture : le mot à faire ressortir (dans le texte)." },

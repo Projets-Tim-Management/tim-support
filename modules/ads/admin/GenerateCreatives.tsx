@@ -54,10 +54,14 @@ export function GenerateCreatives() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ angles, toneTest }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; created?: unknown[]; texts?: { rejected: number }; costEur?: number };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; created?: unknown[]; texts?: { rejected: number }; costEur?: number; videos?: { queued: number; skipped: string | null } };
       if (!res.ok) throw new Error(data.error || String(res.status));
       setDone({ created: data.created?.length ?? 0, rejected: data.texts?.rejected ?? 0, costEur: data.costEur ?? 0 });
-      toast.success(`${data.created?.length ?? 0} créa(s) générée(s).`);
+      const v = data.videos;
+      toast.success(
+        `${data.created?.length ?? 0} créa(s) générée(s).` +
+          (v?.queued ? ` Vidéos et affiches dans le style en cours de montage (2 à 3 minutes chacune) : elles remplacent les visuels provisoires dans « À valider ».` : v?.skipped ? ` Pas de vidéo : ${v.skipped}` : ""),
+      );
     } catch (e) {
       toast.error((e as Error).message || "Génération impossible.");
     } finally {

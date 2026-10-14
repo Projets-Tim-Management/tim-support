@@ -90,7 +90,14 @@ export function CreativeRetouches({ id, retouches }: { id: number | string; reto
                 </div>
                 <p className="ads-retouch__instruction">« {r.instruction} »</p>
                 {r.summary && <p className="ads-retouch__summary">{r.summary}</p>}
-                {r.status === "echec" && r.error && <p className="ads-video__error">{r.error}</p>}
+                {r.status === "echec" && (
+                  <div className="ads-retouch__failed">
+                    {r.error && <p className="ads-video__error">{r.error}</p>}
+                    <button type="button" className="tim-btn" disabled={busy || running} onClick={() => setText(r.instruction)}>
+                      Reprendre cette consigne
+                    </button>
+                  </div>
+                )}
                 {r.before && r.status === "faite" && (
                   <details className="ads-retouch__before">
                     <summary>Voir la version d&apos;avant</summary>
@@ -134,12 +141,12 @@ export function CreativeRetouches({ id, retouches }: { id: number | string; reto
           aria-label="Ce que vous voulez changer"
         />
         <div className="ads-retouch__send">
+          <button type="button" className="tim-btn tim-btn--primary" disabled={busy || running || text.trim().length < 3} onClick={send}>
+            {busy ? "…" : running ? "Retouche en cours…" : "Demander la retouche"}
+          </button>
           <label>
             <input type="checkbox" checked={generalize} onChange={(e) => setGeneralize(e.target.checked)} disabled={busy || running} /> Valable aussi pour les prochaines créas de la campagne
           </label>
-          <button type="button" className="tim-btn" disabled={busy || running || text.trim().length < 3} onClick={send}>
-            {busy ? "…" : running ? "Retouche en cours…" : "Demander la retouche"}
-          </button>
         </div>
       </div>
     </section>

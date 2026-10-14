@@ -4,6 +4,7 @@ import { AbsoluteFill, Audio, Easing, Img, interpolate, OffthreadVideo, Sequence
 import type { Rect } from "../modules/ads/lib/framing";
 import type { RenderProps, RenderShot, RenderStyle } from "../modules/ads/video/props";
 import { useFamily } from "./fonts";
+import { SceneView } from "./scenes";
 
 /**
  * Une pub vidéo, dessinée à partir de sa partition résolue (plan Publicité,
@@ -274,9 +275,11 @@ function Proof({ shot, ctx }: { shot: Extract<RenderShot, { kind: "preuve" }>; c
  * « fondu », tout ensemble. Sur un fond sombre, le nom et la signature passent
  * à la couleur du texte sur fond sombre ; le symbole garde ses couleurs.
  */
-function AnimatedLogo({ ctx, height, onDark, frames }: { ctx: Ctx; height: number; onDark: boolean; frames: number }) {
+function AnimatedLogo({ ctx, height, onDark, frames, still = false }: { ctx: Ctx; height: number; onDark: boolean; frames: number; still?: boolean }) {
   const { p } = ctx;
-  const frame = useCurrentFrame();
+  // Sur une affiche, le logo est montré construit : comme si l'animation était finie.
+  const current = useCurrentFrame();
+  const frame = still ? 100_000 : current;
   const logo = p.logoAnimated!;
   const build = p.style.logoAnimation === "construction";
   // La construction tient dans les 60 % du plan : sinon elle passe aux quarts, huitièmes de temps… (toujours sur la musique).
@@ -357,6 +360,7 @@ function ShotView({ shot, ctx }: { shot: RenderShot; ctx: Ctx }): ReactNode {
   if (shot.kind === "rush") return <Rush shot={shot} ctx={ctx} />;
   if (shot.kind === "preuve") return <Proof shot={shot} ctx={ctx} />;
   if (shot.kind === "logo") return <LogoShot ctx={ctx} frames={shot.frames} />;
+  if (shot.kind === "scene") return <SceneView shot={shot} ctx={ctx} />;
   return <End shot={shot} ctx={ctx} />;
 }
 
@@ -381,6 +385,83 @@ export const Pub: React.FC<RenderProps> = (p) => {
           volume={(f) => interpolate(f, [0, 10, durationInFrames - 20, durationInFrames], [0, 0.55, 0.55, 0], clamp)}
         />
       )}
+    </AbsoluteFill>
+  );
+};
+
+/**
+ * L'affiche (image fixe) d'une créa, dans le style : l'accroche en haut, mot
+ * fort en couleur ; l'écran de l'app au milieu (zone utile entière, jamais
+ * rognée) ; le logo, le bouton et l'adresse en bas. Elle remplace les anciens
+ * gabarits dès qu'une créa a un rush.
+ */
+export const Affiche: React.FC<RenderProps> = (p) => {
+  const title = useFamily(p.style.titleFont);
+  const body = useFamily(p.style.bodyFont);
+  const ctx: Ctx = { p, title, body, u: p.width / 1080 };
+  const { width, height } = p;
+  const u = ctx.u;
+  const poster = p.poster!;
+  const light = p.style.background === "clair";
+  const bg = light ? p.palette.lightBg : p.palette.darkBg;
+  const fg = light ? p.palette.textOnLight : p.palette.textOnDark;
+  const upper = p.style.titleUpper ? "uppercase" : "none";
+  const tall = height / width;
+  const rush = poster.rush;
+  // Les trois bandes : accroche, écran, signature. Sans rush, l'accroche prend la place.
+  const textH = rush ? height * (tall > 1.4 ? 0.26 : 0.3) : height * 0.55;
+  const footH = height * (tall > 1.4 ? 0.17 : 0.2);
+  const phoneH = height - textH - footH;
+  const size = Math.min(rush ? 104 : 140, (tall > 1.4 ? 104 : tall > 1.1 ? 88 : 76) * (rush ? 1 : 1.35)) * u;
+  let ph = phoneH * 0.92;
+  let pw = 0;
+  if (rush) {
+    const aspect = (rush.crop.w * rush.srcAspect) / rush.crop.h;
+    pw = ph * aspect;
+    if (pw > width * 0.8) {
+      pw = width * 0.8;
+      ph = pw / aspect;
+    }
+  }
+  const bezel = rush && p.style.phoneFrame !== "ecran-seul" ? 16 * u : 0;
+  const img = light ? p.logos.light : (p.logos.dark ?? p.logos.light);
+  const animated = p.logoAnimated && p.style.logoAnimation !== "aucune";
+  const pill: CSSProperties = { background: p.palette.accent, color: p.palette.textOnDark, fontFamily: body, fontWeight: 800, fontSize: 40 * u, padding: `${22 * u}px ${46 * u}px`, borderRadius: radius(p.style, u) };
+  return (
+    <AbsoluteFill style={{ background: bg, color: fg }}>
+      {p.style.graphics.includes("pastilles") && <Dots color={p.palette.accent} u={u} />}
+      <div style={{ position: "absolute", left: 80 * u, right: 80 * u, top: 0, height: textH, display: "flex", alignItems: rush ? "flex-end" : "center", paddingBottom: rush ? 30 * u : 0 }}>
+        <div style={{ fontFamily: title, fontWeight: 800, fontSize: size, lineHeight: 1.02, letterSpacing: "-0.02em", textTransform: upper }}>
+          <Words text={poster.hook} highlight={poster.highlight} start={-100} end={-50} color={fg} accent={p.palette.accent} underline={p.style.graphics.includes("soulignements")} u={u} size={size} />
+        </div>
+      </div>
+      {rush && (
+        <div
+          style={{
+            position: "absolute",
+            left: (width - pw) / 2 - bezel,
+            top: textH + (phoneH - ph) / 2 - bezel,
+            width: pw + bezel * 2,
+            height: ph + bezel * 2,
+            padding: bezel,
+            borderRadius: bezel ? 56 * u : radius(p.style, u),
+            background: "#0b0d1c",
+            boxShadow: `0 ${36 * u}px ${80 * u}px -${30 * u}px rgba(0,0,0,0.5)`,
+            transform: p.style.phoneFrame === "incline" ? "rotate(-5deg)" : undefined,
+          }}
+        >
+          <div style={{ position: "relative", width: pw, height: ph, borderRadius: bezel ? 42 * u : radius(p.style, u), overflow: "hidden", background: "#000" }}>
+            <VideoView shot={rush} base={rush.crop} bound={rush.crop} w={pw} h={ph} zoomTo={null} progress={0} />
+          </div>
+        </div>
+      )}
+      <div style={{ position: "absolute", left: 70 * u, right: 70 * u, bottom: 0, height: footH, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 30 * u }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 * u }}>
+          {p.showLogo && animated ? <AnimatedLogo ctx={ctx} height={90 * u} onDark={!light} frames={1} still /> : p.showLogo && img ? <Img src={img} style={{ height: 80 * u, width: "auto" }} /> : null}
+          <div style={{ fontFamily: body, fontWeight: 600, fontSize: 28 * u, opacity: 0.75 }}>{p.url}</div>
+        </div>
+        <div style={pill}>{p.cta}</div>
+      </div>
     </AbsoluteFill>
   );
 };

@@ -1,6 +1,7 @@
 import { coverRect, FULL, type Framing, type Rect } from "@/modules/ads/lib/framing";
 import { fontFamily, paletteOf, type Palette } from "@/modules/ads/lib/style";
 import type { LogoParts } from "@/modules/ads/video/logo";
+import type { SceneCommon, SceneData, SceneType } from "@/modules/ads/video/scenes";
 import { FORMAT_SIZES, FPS, MAX_SPEED, MIN_SPEED, type FormatKey, type Score } from "@/modules/ads/video/score";
 
 /**
@@ -50,6 +51,8 @@ export type RenderShot =
     }
   | { kind: "preuve"; frames: number; value: string; label: string; source: string }
   | { kind: "logo"; frames: number }
+  /** Une scène de motion design, données vérifiées ; pour un compteur, le chiffre et la source du fait. */
+  | { kind: "scene"; frames: number; scene: SceneType; data: SceneData[SceneType] & SceneCommon; figure: { value: string; label: string; source: string } | null }
   | { kind: "fin"; frames: number; line: string | null };
 
 export type RenderProps = {
@@ -67,6 +70,11 @@ export type RenderProps = {
   music: { src: string; startSec: number; beatFrames: number | null } | null;
   /** Le logo animable (SVG à calques, découpé), ou `null` : on pose alors l'image du logo. */
   logoAnimated: LogoParts | null;
+  /**
+   * L'affiche (image fixe) de la créa, quand on la rend : l'accroche, l'image
+   * du rush dans son écran, le logo, le bouton. `null` pour la vidéo.
+   */
+  poster?: { hook: string; highlight: string | null; rush: Extract<RenderShot, { kind: "rush" }> | null } | null;
   shots: RenderShot[];
 };
 
@@ -164,9 +172,37 @@ export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps
         }
         case "logo":
           return { kind: "logo", frames: frames(shot.seconds) };
+        case "scene": {
+          const fact = shot.scene === "compteur" ? ctx.facts.get((shot.data as SceneData["compteur"]).fact) : null;
+          const figure = fact ? { value: figureOf(fact.statement), label: (shot.data as SceneData["compteur"]).libelle || fact.statement, source: fact.source } : null;
+          return { kind: "scene", frames: frames(shot.seconds), scene: shot.scene, data: shot.data, figure };
+        }
         default:
           return { kind: "fin", frames: frames(shot.seconds), line: shot.line ?? null };
       }
     }),
+  };
+}
+
+/**
+ * L'affiche d'une créa (image fixe, dans le style) pour un format : l'accroche,
+ * l'image du premier passage de rush (au milieu du passage, là où le geste se
+ * voit), le logo et le bouton. Suppose une partition VÉRIFIÉE. Pure.
+ */
+export function buildPosterProps(score: Score, ctx: ResolveContext, hook: string): RenderProps {
+  const props = buildRenderProps(score, ctx);
+  const opening = score.shots.find((s) => s.kind === "ouverture");
+  const rush = props.shots.find((s): s is Extract<RenderShot, { kind: "rush" }> => s.kind === "rush") ?? null;
+  const source = score.shots.find((s) => s.kind === "rush");
+  const mid = source && source.kind === "rush" ? Math.round(((source.from + source.to) / 2) * 100) / 100 : 0;
+  return {
+    ...props,
+    music: null,
+    shots: [],
+    poster: {
+      hook: hook.trim() || (opening && opening.kind === "ouverture" ? opening.text : ""),
+      highlight: opening && opening.kind === "ouverture" ? (opening.highlight ?? null) : null,
+      rush: rush ? { ...rush, fromSec: mid, playbackRate: 1 } : null,
+    },
   };
 }

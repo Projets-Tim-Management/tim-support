@@ -6,6 +6,7 @@ import { GenerateError, generateCreatives, loadGenerationContext, maxCostEur, mi
 import { userPrompt } from "@/modules/ads/lib/copy/prompt";
 import { renderCreativeVisuals } from "@/modules/ads/lib/render/visuals";
 import { AdsBudgetError, assertAdsBudget } from "@/modules/ads/lib/spend";
+import { queueVideosFor } from "@/modules/ads/video/render";
 
 /**
  * Générer les créas d'une campagne.
@@ -72,8 +73,10 @@ export async function POST(req: Request, { params }: Params) {
         payload.logger.warn(`[publicité] visuels de la créa ${creativeId} : ${(e as Error).message}`);
       }
     }
-    payload.logger.info(`[publicité] génération ${r.batch} : ${r.created.length} créa(s), ${toValidate} à valider, ${r.texts.rejected} texte(s) rejeté(s), ${r.costEur.toFixed(3)} €.`);
-    return NextResponse.json({ ...r, toValidate, visualErrors });
+    // La vidéo et les affiches dans le style suivent, au prochain passage du cron : elles remplacent les visuels de gabarit.
+    const videos = await queueVideosFor(payload, r.created);
+    payload.logger.info(`[publicité] génération ${r.batch} : ${r.created.length} créa(s), ${toValidate} à valider, ${r.texts.rejected} texte(s) rejeté(s), ${videos.queued} vidéo(s) en file, ${r.costEur.toFixed(3)} €.`);
+    return NextResponse.json({ ...r, toValidate, visualErrors, videos });
   } catch (e) {
     const known = e instanceof GenerateError || e instanceof AdsBudgetError || e instanceof CopyModelError;
     if (!known) payload.logger.error(`[publicité] génération échouée pour la campagne ${id} : ${(e as Error).message}`);

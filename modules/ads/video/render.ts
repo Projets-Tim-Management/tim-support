@@ -11,7 +11,7 @@ import { isInspiration } from "@/modules/ads/lib/rushes";
 import { beatAlign } from "@/modules/ads/video/beat";
 import { defaultScore } from "@/modules/ads/video/default-score";
 import { loadAnimatedLogo } from "@/modules/ads/video/logo-server";
-import { buildRenderProps, type RenderProps } from "@/modules/ads/video/props";
+import { buildPosterProps, buildRenderProps, type RenderProps } from "@/modules/ads/video/props";
 import { FORMAT_KEYS, parseScore, scoreProblems, type FormatKey, type Score } from "@/modules/ads/video/score";
 
 /**
@@ -155,22 +155,34 @@ export function scoreContextOf(ctx: Awaited<ReturnType<typeof loadVideoContext>>
   };
 }
 
-export type RenderOne = (props: RenderProps[]) => Promise<{ format: FormatKey; data: Buffer }[]>;
+/** Les vidéos de chaque format, et l'affiche (image fixe) de chaque format quand on en demande. */
+export type RenderOne = (props: RenderProps[], posters?: RenderProps[]) => Promise<{ format: FormatKey; data: Buffer; poster?: Buffer | null }[]>;
 
-/** Rend les formats dans UNE Sandbox (installation partagée), et l'arrête quoi qu'il arrive. */
-export const renderInSandbox: RenderOne = async (list) => {
-  const { createSandbox, addBundleToSandbox, renderMediaOnVercel } = await import("@remotion/vercel");
+/** Rend les formats (vidéos puis affiches) dans UNE Sandbox (installation partagée), et l'arrête quoi qu'il arrive. */
+export const renderInSandbox: RenderOne = async (list, posters = []) => {
+  const { createSandbox, addBundleToSandbox, renderMediaOnVercel, renderStillOnVercel } = await import("@remotion/vercel");
   const sandbox = await createSandbox({ resources: { vcpus: 4 } });
   try {
     // @remotion/vercel 4.0.530 crée les sous-dossiers du projet (public/…) mais pas sa racine : sans elle, le dépôt échoue.
     await sandbox.mkDir("remotion-bundle");
     await addBundleToSandbox({ sandbox, bundleDir: path.join(process.cwd(), "remotion-bundle") });
-    const out: { format: FormatKey; data: Buffer }[] = [];
+    const out: { format: FormatKey; data: Buffer; poster?: Buffer | null }[] = [];
     for (const props of list) {
       const r = await renderMediaOnVercel({ sandbox, compositionId: "Pub", inputProps: props as unknown as Record<string, unknown>, codec: "h264", outputFile: `/tmp/pub-${props.format}.mp4` });
       const data = await sandbox.readFileToBuffer({ path: r.sandboxFilePath });
       if (!data) throw new Error(`Vidéo ${props.format} introuvable dans la Sandbox.`);
-      out.push({ format: props.format, data });
+      out.push({ format: props.format, data, poster: null });
+    }
+    // Les affiches : une image n'empêche jamais la vidéo d'exister — une affiche ratée est simplement absente.
+    for (const props of posters) {
+      try {
+        const r = await renderStillOnVercel({ sandbox, compositionId: "Affiche", inputProps: props as unknown as Record<string, unknown>, imageFormat: "jpeg", jpegQuality: 90, outputFile: `/tmp/affiche-${props.format}.jpg` });
+        const data = await sandbox.readFileToBuffer({ path: r.sandboxFilePath });
+        const row = out.find((o) => o.format === props.format);
+        if (row && data) row.poster = data;
+      } catch {
+        /* sans affiche pour ce format */
+      }
     }
     return out;
   } finally {
@@ -201,13 +213,31 @@ export async function processNextRender(payload: Payload, deps: RenderDeps = {})
     const props = FORMAT_KEYS.map((format) =>
       buildRenderProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, music: ctx.music, logoAnimated }),
     );
-    const files = await (deps.render ?? renderInSandbox)(props);
+    const hook = String((creative as Raw).hook ?? "");
+    const posters = FORMAT_KEYS.map((format) =>
+      buildPosterProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, logoAnimated }, hook),
+    );
+    const files = await (deps.render ?? renderInSandbox)(props, posters);
     const store = deps.store ?? storeOnBlob;
     const slug = String(ctx.style.name ?? "style").normalize("NFD").replace(/[^\w]+/g, "-").toLowerCase().replace(/^-|-$/g, "");
     const seconds = Math.round(timed.shots.reduce((t, s) => t + s.seconds, 0) * 100) / 100;
     const renders = [];
     for (const f of files) renders.push({ format: f.format, url: await store(`ads/creas/videos/${claimed.id}/${slug}-${f.format}.mp4`, f.data, "video/mp4"), seconds, bytes: f.data.length });
     await write({ status: "prete", error: null, renders, attempts: claimed.attempts, renderedAt: now().toISOString(), leaseUntil: null });
+    // Les affiches, dans le style, remplacent les visuels de la créa (les anciens gabarits) quand les trois formats sont là.
+    if (files.length && files.every((f) => f.poster)) {
+      const assets = [];
+      for (const f of files) {
+        const media = await payload.create({
+          collection: "ad-media",
+          data: { kind: "crea", alt: `Affiche ${String(ctx.style.name ?? "")} — ${f.format}` } as never,
+          file: { data: f.poster!, mimetype: "image/jpeg", name: `affiche_${claimed.id}_${slug}_${f.format}.jpg`, size: f.poster!.length },
+          overrideAccess: true,
+        });
+        assets.push({ format: f.format, type: "image", template: `affiche-${slug}`, media: media.id });
+      }
+      await payload.update({ collection: "ad-creatives", id: claimed.id, data: { assets } as never, depth: 0, overrideAccess: true });
+    }
     return { id: claimed.id, outcome: "prete" };
   } catch (e) {
     const message = (e as Error).message.slice(0, 900);
@@ -217,4 +247,30 @@ export async function processNextRender(payload: Payload, deps: RenderDeps = {})
     );
     return { id: claimed.id, outcome: final ? "echec" : "reessai", error: message };
   }
+}
+
+/**
+ * Après « Générer des créas » : chaque nouvelle créa reçoit son PREMIER
+ * MONTAGE par l'IA — une retouche automatique, visible dans son historique,
+ * qui écrit la partition (scènes de motion design, rushes, logo, musique du
+ * kit) dans un style, en alternant les styles actifs. Le code la vérifie, puis
+ * vidéo et affiches sont rendues. Sans style actif, les créas gardent leurs
+ * visuels de gabarit. Ne lève pas.
+ */
+export async function queueVideosFor(payload: Payload, ids: (number | string)[]): Promise<{ queued: number; skipped: string | null }> {
+  const styles = (await payload.find({ collection: "ad-styles", where: { active: { equals: true } }, sort: "name", pagination: false, depth: 0, overrideAccess: true })).docs as unknown as Raw[];
+  if (!styles.length) return { queued: 0, skipped: "Aucun style actif." };
+  const { firstMontageInstruction, requestRetouch } = await import("@/modules/ads/lib/retouch");
+  let queued = 0;
+  let skipped: string | null = null;
+  for (const [i, id] of ids.entries()) {
+    const st = styles[i % styles.length];
+    try {
+      await requestRetouch(payload, id, { instruction: firstMontageInstruction({ id: Number(st.id), name: String(st.name ?? "") }), generalize: false, author: null });
+      queued++;
+    } catch (e) {
+      skipped = (e as Error).message;
+    }
+  }
+  return { queued, skipped };
 }

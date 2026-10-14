@@ -1,5 +1,6 @@
 import { allowedNumbers, checkForbidden, checkNumbers, checkTestimonial } from "@/modules/ads/lib/copy/guardrails";
 import { viewAllowed, type Framing, type Rect } from "@/modules/ads/lib/framing";
+import { isSceneType, parseSceneData, sceneProblems, type SceneCommon, type SceneData, type SceneType } from "@/modules/ads/video/scenes";
 
 /**
  * La partition d'une vidéo publicitaire (plan Publicité, §9 sexies, D3) : ce
@@ -40,6 +41,8 @@ export type Shot =
   | { kind: "rush"; seconds: number; rush: number; from: number; to: number; zoom?: Rect | null; caption?: string | null }
   /** Une preuve chiffrée : un fait sourcé (Paramètres › Faits sourcés), jamais un chiffre inventé. */
   | { kind: "preuve"; seconds: number; fact: number }
+  /** Une scène de motion design : l'interface de TIM recréée et animée (voir video/scenes.ts). */
+  | { kind: "scene"; seconds: number; scene: SceneType; data: SceneData[SceneType] & SceneCommon }
   /** Le logo seul, animé s'il est déposé en SVG à calques (Kit de marque › Logos) : une signature, en ouverture par exemple. */
   | { kind: "logo"; seconds: number }
   /** La fin : logo, une phrase, le bouton et l'adresse du Kit de marque. */
@@ -78,6 +81,11 @@ export function parseScore(raw: unknown): Score {
           return { kind: "preuve", seconds, fact: n(x.fact) };
         case "logo":
           return { kind: "logo", seconds };
+        case "scene": {
+          // Un type inconnu garde son nom : la vérification le refusera avec la raison.
+          const scene = (isSceneType(x.scene) ? x.scene : String(x.scene ?? "")) as SceneType;
+          return { kind: "scene", seconds, scene, data: isSceneType(x.scene) ? parseSceneData(x.scene, x.data) : ({} as never) };
+        }
         default:
           return { kind: "fin", seconds, line: s(x.line) || null };
       }
@@ -99,7 +107,7 @@ export function scoreProblems(score: Score, ctx: ScoreContext): string[] {
   if (shots.length < 2) out.push("Une vidéo a au moins deux plans, dont la fin.");
   if (shots.at(-1)?.kind !== "fin") out.push("Le dernier plan est la fin (logo, bouton, adresse).");
   if (shots.filter((x) => x.kind === "fin").length > 1) out.push("Une seule fin.");
-  if (!shots.some((x) => x.kind === "rush")) out.push("Au moins un plan montre un rush : c'est la matière de la vidéo.");
+  if (!shots.some((x) => x.kind === "rush" || x.kind === "scene")) out.push("Au moins un plan montre le logiciel : un passage de rush ou une scène recréée.");
   const total = shots.reduce((t, x) => t + (Number.isFinite(x.seconds) ? x.seconds : 0), 0);
   if (total < MIN_TOTAL || total > MAX_TOTAL) out.push(`Durée totale de ${Math.round(total * 10) / 10} s : entre ${MIN_TOTAL} et ${MAX_TOTAL} s.`);
 
@@ -132,6 +140,10 @@ export function scoreProblems(score: Score, ctx: ScoreContext): string[] {
       if ((shot.caption ?? "").length > MAX_CAPTION_CHARS) out.push(`${at} : sous-titre de ${(shot.caption ?? "").length} caractères, ${MAX_CAPTION_CHARS} au plus.`);
     }
     if (shot.kind === "preuve" && !ctx.facts.has(shot.fact)) out.push(`${at} : fait ${shot.fact} introuvable — une preuve est toujours un fait sourcé.`);
+    if (shot.kind === "scene") {
+      if (!isSceneType(shot.scene)) out.push(`${at} : scène « ${shot.scene} » inconnue.`);
+      else for (const p of sceneProblems(shot.scene, shot.data, { facts: new Set(ctx.facts.keys()), allowed, forbidden: ctx.forbidden ?? [] })) out.push(`${at} (${shot.scene}) : ${p}`);
+    }
     for (const text of textsOf(shot).filter(Boolean)) {
       const problem = checkNumbers(text, allowed) ?? checkForbidden(text, ctx.forbidden ?? []) ?? checkTestimonial(text);
       if (problem) out.push(`${at} : ${problem}`);
