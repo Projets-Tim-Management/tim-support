@@ -60,6 +60,8 @@ describe("la version de travail (ffmpeg)", () => {
 
   it("six images clés réparties, en 720 px sur le grand côté", () => {
     expect(keyframeTimes(12)).toEqual([1, 3, 5, 7, 9, 11]);
+    // Jamais dans la dernière demi-seconde : ffmpeg n'y trouve parfois aucune image, sans erreur (14/10/2026).
+    expect(keyframeTimes(1.5)).toEqual([0.13, 0.38, 0.63, 0.88, 1, 1]);
     expect(stillArgs("work.mp4", "kf.jpg", 3, m)).toEqual(expect.arrayContaining(["-ss", "3", "scale=-2:720"]));
   });
 });

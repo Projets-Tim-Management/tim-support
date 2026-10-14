@@ -94,11 +94,18 @@ export async function convertVideoInSandbox(url: string): Promise<Outputs> {
     const posterAt = Math.min(1, (meta.durationSec ?? 1) / 10);
     await run(FFMPEG, stillArgs("work.mp4", "poster.jpg", posterAt, meta));
     for (const [i, t] of times.entries()) await run(FFMPEG, stillArgs("work.mp4", `kf-${i + 1}.jpg`, t, meta));
+    // Une image clé manquante est ignorée : la vignette et les autres suffisent à décrire le rush.
+    const keyframes: Still[] = [];
+    for (const [i, t] of times.entries()) {
+      const data = await sandbox.readFileToBuffer({ path: `kf-${i + 1}.jpg` });
+      if (data?.length) keyframes.push({ atSec: t, data });
+    }
+    const poster = await read("poster.jpg");
     return {
       meta: { ...meta, kind: "video" },
       working: { data: await read("work.mp4"), contentType: "video/mp4", ext: "mp4" },
-      poster: await read("poster.jpg"),
-      keyframes: await Promise.all(times.map(async (t, i) => ({ atSec: t, data: await read(`kf-${i + 1}.jpg`) }))),
+      poster,
+      keyframes: keyframes.length ? keyframes : [{ atSec: posterAt, data: poster }],
     };
   } finally {
     await sandbox.stop().catch(() => undefined);
