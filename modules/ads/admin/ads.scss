@@ -290,6 +290,40 @@
   font-size: 0.82rem;
 }
 
+/* Rushes : le dépôt d'un fichier, en tête de sa fiche. */
+.ads-rush-upload { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
+.ads-rush-upload__drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 2rem 1rem;
+  border: 2px dashed var(--tim-border);
+  border-radius: 0.75rem;
+  background: var(--tim-surface);
+  color: var(--tim-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: center;
+  cursor: pointer;
+}
+.ads-rush-upload__drop strong { color: var(--tim-foreground); font-size: 0.95rem; }
+.ads-rush-upload__drop--over, .ads-rush-upload__drop:hover:not(:disabled) { border-color: var(--tim-indigo); background: var(--tim-indigo-bg); }
+.ads-rush-upload__drop:disabled { cursor: progress; }
+.ads-rush-upload__bar { display: block; width: min(24rem, 100%); height: 0.4rem; border-radius: 999px; background: var(--tim-gray-bg); overflow: hidden; }
+.ads-rush-upload__bar > span { display: block; height: 100%; background: var(--tim-indigo); transition: width 0.2s; }
+.ads-rush-upload__done { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+.ads-rush-upload__preview { width: min(18rem, 100%); max-height: 20rem; border-radius: 0.6rem; background: var(--tim-gray-bg); object-fit: contain; }
+.ads-rush-upload__info { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; color: var(--tim-muted); }
+.ads-rush-upload__info strong { color: var(--tim-foreground); word-break: break-all; }
+.ads-rush-upload__info .tim-btn { align-self: flex-start; }
+.ads-rush-upload__status { align-self: flex-start; padding: 0.1rem 0.5rem; border-radius: 999px; background: var(--tim-gray-bg); color: var(--tim-gray); font-weight: 600; }
+.ads-rush-upload__status--pret { background: var(--tim-green-bg); color: var(--tim-green); }
+.ads-rush-upload__status--echec { background: var(--tim-red-bg); color: var(--tim-red); }
+.ads-rush-upload__status--en-cours { background: var(--tim-indigo-bg); color: var(--tim-indigo); }
+.ads-rush-upload__error { margin: 0; color: var(--tim-red); font-size: 0.85rem; }
+
 /* Tableau de bord : la carte « Agents ». */
 .ads-dash__agents { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.9rem 1.1rem; border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); border-radius: 0.75rem; background: var(--tim-white); }
 .ads-dash__agents-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1rem; font-size: 0.875rem; color: var(--tim-muted); }

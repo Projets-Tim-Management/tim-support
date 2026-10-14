@@ -1604,6 +1604,55 @@ code. Défauts :
 
 ---
 
+## 9 sexies. Vidéo et motion design (D) — décidé le 14/10/2026
+
+> Constat du premier passage réel (13/10/2026) : des créas « pas du tout vendeuses ».
+> Charlie : le problème est le STYLE — il faut de la vidéo et du design. Il fournit
+> des vidéos libres de droits et des images du logiciel.
+
+### Principe (proposé par Charlie)
+
+La médiathèque reçoit des **rushes** : une base de matière première, décrite pour
+que les IA la comprennent, puis **100 % retravaillée par les IA** en motion design.
+Les rushes d'origine ne sont jamais modifiés.
+
+### Décisions
+
+- **Collection `ad-rushes`**, distincte de `ad-media` : le fichier d'origine va
+  DIRECT au stockage (Vercel Blob, envoi client, jusqu'à 500 Mo) et la fiche ne
+  garde que son adresse — l'envoi par Payload relirait tout le fichier en mémoire.
+- **Source** (liste fermée) : écran de l'app mobile · écran de l'app web · chantier
+  · bureau / équipe · autre. **Description** courte par Charlie, **fonctionnalités**
+  montrées, **origine et droits**, « aucune donnée réelle » pour l'app.
+- **Conversion dans Vercel Sandbox** (Vercel Pro actif, vérifié le 14/10/2026) :
+  ffmpeg et ffprobe épinglés depuis npm (`@ffmpeg-installer/linux-x64`,
+  `@ffprobe-installer/linux-x64`, binaires dans le paquet). Sorties : version de
+  travail MP4 H.264 ≤ 1080p, vignette, 6 images clés, fiche technique (durée,
+  dimensions, orientation, cadence, son). Déclenchée après l'import, reprise par
+  le cron ; état « en attente → en cours → prêt / échec ».
+- **Description proposée par l'IA** à partir des images clés (ce qu'on voit, à
+  quelle seconde, zones importantes) ; Charlie la corrige ou la valide. C'est
+  elle qui permet aux agents de « voir » un rush.
+- **Motion : Remotion** (licence gratuite, ≤ 3 personnes) rendu sur Vercel
+  Sandbox (`@remotion/vercel`, expérimental : versions épinglées). Le directeur
+  artistique écrit une **partition** (plans, découpes, recadrages, zooms,
+  vitesses, textes animés, sous-titres, transitions, fin logo + bouton) ; le
+  moteur la vérifie (zone sûre Meta, durées, lisibilité) puis la rend en 9:16,
+  4:5 et 1:1. Pas de code libre écrit par l'IA.
+- **Direction artistique validée AVANT les gabarits** : planche de 2-3 styles
+  sur les vrais rushes.
+
+### Découpage
+
+| # | Commit | Schéma |
+|---|---|---|
+| D1a | Collection `ad-rushes` + import direct au stockage + formulaire | migration |
+| D1b | Conversion en Sandbox (ffprobe, MP4 de travail, vignette, images clés), cron de reprise | — |
+| D1c | Description proposée par l'IA à partir des images clés, validation | — |
+| D2 | Planche de styles (artefact), choix de Charlie | — |
+| D3 | Moteur de motion : partition, vérifications, rendu Remotion en Sandbox | migration probable |
+| D4 | L'agent compose ses vidéos ; « À valider » et téléchargement en MP4 | — |
+
 ## 10. Questions ouvertes
 
 1. **Formulaires instantanés Meta ou page d'arrivée** sur le site ? Les deux sont prévus
