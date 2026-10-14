@@ -349,6 +349,42 @@
 .ads-rush-stage--vert { background: var(--tim-green-bg); color: var(--tim-green); }
 .ads-rush-stage--rouge { background: var(--tim-red-bg); color: var(--tim-red); }
 
+/* Rushes : le recadrage (zone utile, zone à ne jamais couper, aperçu par format). */
+.ads-frame { display: flex; flex-direction: column; gap: 0.75rem; margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); border-radius: 0.75rem; background: var(--tim-white); }
+.ads-frame__head { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; color: var(--tim-muted); }
+.ads-frame__head strong { color: var(--tim-foreground); font-size: 0.95rem; }
+.ads-frame__modes { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.ads-frame__work { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+.ads-frame__canvas { position: relative; width: min(20rem, 100%); max-width: 100%; border-radius: 0.5rem; overflow: hidden; background: var(--tim-gray-bg); user-select: none; }
+.ads-frame__canvas > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
+.ads-frame__area { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
+.ads-frame__shade { position: absolute; inset: 0; background: color-mix(in srgb, var(--tim-foreground) 55%, transparent); pointer-events: none; }
+.ads-frame__rect { position: absolute; pointer-events: none; border-radius: 2px; }
+.ads-frame__rect--crop { border: 2px solid var(--tim-white); box-shadow: 0 0 0 1px var(--tim-foreground); }
+.ads-frame__rect--protect { border: 2px dashed var(--tim-primary); background: color-mix(in srgb, var(--tim-primary) 14%, transparent); }
+.ads-frame__rect--draft { border: 2px dashed var(--tim-indigo); }
+.ads-frame__side { display: flex; flex-direction: column; gap: 0.6rem; flex: 1 1 14rem; min-width: 0; }
+.ads-frame__legend { display: flex; flex-direction: column; gap: 0.3rem; margin: 0; padding: 0; list-style: none; font-size: 0.85rem; }
+.ads-frame__legend li { display: flex; align-items: center; gap: 0.5rem; }
+.ads-frame__swatch { width: 1.1rem; height: 0.8rem; border-radius: 2px; }
+.ads-frame__swatch--crop { border: 2px solid var(--tim-foreground); }
+.ads-frame__swatch--protect { border: 2px dashed var(--tim-primary); }
+.ads-frame__error { margin: 0; color: var(--tim-red); font-size: 0.85rem; }
+.ads-frame__thumbs { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.ads-frame__thumb { width: 3rem; height: 3rem; padding: 0; border: 2px solid transparent; border-radius: 0.35rem; overflow: hidden; background: var(--tim-gray-bg); cursor: pointer; }
+.ads-frame__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ads-frame__thumb--on { border-color: var(--tim-indigo); }
+.ads-frame__previews { display: flex; flex-direction: column; gap: 0.5rem; }
+.ads-frame__title { margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--tim-foreground); }
+.ads-frame__grid { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; }
+.ads-frame-preview { display: flex; flex-direction: column; gap: 0.3rem; margin: 0; width: 9rem; font-size: 0.75rem; color: var(--tim-muted); }
+.ads-frame-preview__box { position: relative; width: 100%; max-width: 100%; border-radius: 0.5rem; overflow: hidden; background: var(--tim-gray-bg); }
+.ads-frame-preview__box--fit { background: var(--tim-foreground); }
+.ads-frame-preview__view { position: absolute; overflow: hidden; }
+.ads-frame-preview__view img { position: absolute; max-width: none; }
+.ads-frame-preview em { font-style: normal; color: var(--tim-amber); }
+.ads-frame__hint { margin: 0; font-size: 0.8rem; color: var(--tim-muted); }
+
 /* Rushes : ce que voient les agents (images clés, plans, description IA). */
 .ads-rush-insight { display: flex; flex-direction: column; gap: 0.6rem; margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); border-radius: 0.75rem; background: var(--tim-white); }
 .ads-rush-insight__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }

@@ -140,6 +140,7 @@ import * as migration_20261013_085023_naf_fiche_client from './20261013_085023_n
 import * as migration_20261013_091314_agent_consignes_carnet from './20261013_091314_agent_consignes_carnet';
 import * as migration_20261014_073832_ad_rushes from './20261014_073832_ad_rushes';
 import * as migration_20261014_092754_charte_pubs from './20261014_092754_charte_pubs';
+import * as migration_20261014_095314_recadrage_rushes from './20261014_095314_recadrage_rushes';
 
 export const migrations = [
   {
@@ -850,6 +851,11 @@ export const migrations = [
   {
     up: migration_20261014_092754_charte_pubs.up,
     down: migration_20261014_092754_charte_pubs.down,
-    name: '20261014_092754_charte_pubs'
+    name: '20261014_092754_charte_pubs',
+  },
+  {
+    up: migration_20261014_095314_recadrage_rushes.up,
+    down: migration_20261014_095314_recadrage_rushes.down,
+    name: '20261014_095314_recadrage_rushes'
   },
 ];

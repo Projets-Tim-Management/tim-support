@@ -125,6 +125,7 @@ import { ConnectMetaPanel as ConnectMetaPanel_0443b5b41d00975585a76653d22b342f }
 import { AdAccountActions as AdAccountActions_12a51012bbb4bca5fe46cd8a625e5627 } from '../../../modules/ads/admin/AdAccountActions'
 import { PurgeAccountModal as PurgeAccountModal_1a62dd382667ad7a0e23522c172e8254 } from '../../../modules/ads/admin/PurgeAccountModal'
 import { RushUploadField as RushUploadField_7f0ac0fc82e45c8450fea964cdbee83c } from '../../../modules/ads/admin/RushUploadField'
+import { RushFramingField as RushFramingField_48734d37136e267b22b93c06eec1c097 } from '../../../modules/ads/admin/RushFramingField'
 import { RushInsightPanel as RushInsightPanel_903b87dc6a6f018c59eba9e37fb1c267 } from '../../../modules/ads/admin/RushInsightPanel'
 import { RushStageCell as RushStageCell_8d40a7bdbdd9af962d392a1d7fb420c9 } from '../../../modules/ads/admin/RushStageCell'
 import { InsuranceCell as InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4 } from '../../../modules/marketing/admin/InsuranceCell'
@@ -290,6 +291,7 @@ export const importMap = {
   "/modules/ads/admin/AdAccountActions#AdAccountActions": AdAccountActions_12a51012bbb4bca5fe46cd8a625e5627,
   "/modules/ads/admin/PurgeAccountModal#PurgeAccountModal": PurgeAccountModal_1a62dd382667ad7a0e23522c172e8254,
   "/modules/ads/admin/RushUploadField#RushUploadField": RushUploadField_7f0ac0fc82e45c8450fea964cdbee83c,
+  "/modules/ads/admin/RushFramingField#RushFramingField": RushFramingField_48734d37136e267b22b93c06eec1c097,
   "/modules/ads/admin/RushInsightPanel#RushInsightPanel": RushInsightPanel_903b87dc6a6f018c59eba9e37fb1c267,
   "/modules/ads/admin/RushStageCell#RushStageCell": RushStageCell_8d40a7bdbdd9af962d392a1d7fb420c9,
   "/modules/marketing/admin/InsuranceCell#InsuranceCell": InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4,

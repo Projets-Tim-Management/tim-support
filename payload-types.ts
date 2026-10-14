@@ -2861,6 +2861,15 @@ export interface AdRush {
    * Quelques phrases : c'est ce qui permet aux agents de choisir ce rush et d'en tirer le bon passage.
    */
   description: string;
+  framing?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   origin?: string | null;
   noRealData?: boolean | null;
   mediaType?: ('video' | 'image') | null;
@@ -5117,6 +5126,7 @@ export interface AdRushesSelect<T extends boolean = true> {
   source?: T;
   features?: T;
   description?: T;
+  framing?: T;
   origin?: T;
   noRealData?: T;
   mediaType?: T;

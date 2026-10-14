@@ -1,6 +1,7 @@
 import type { CollectionAfterDeleteHook, CollectionBeforeChangeHook, CollectionConfig } from "payload";
 
 import { isAdmin } from "@/core/access";
+import { validateFraming } from "@/modules/ads/lib/framing";
 import { isAppSource, isRushBlobUrl, mediaTypeOf, RUSH_FEATURES, RUSH_SOURCES, RUSH_STATUSES } from "@/modules/ads/lib/rushes";
 
 /**
@@ -24,6 +25,12 @@ const prepare: CollectionBeforeChangeHook = ({ data, originalDoc, operation }) =
   const original = { ...(originalDoc?.original ?? {}), ...(data.original ?? {}) } as { url?: string; contentType?: string };
   if (!isRushBlobUrl(original.url)) throw new Error("Déposez d'abord le fichier : il n'a pas été envoyé au stockage.");
   const out: Record<string, unknown> = { ...data, mediaType: mediaTypeOf(original.contentType) };
+  // Le recadrage tracé sur la fiche : vérifié ici, pas seulement à l'écran (une API pourrait l'écrire).
+  if (data.framing !== undefined && data.framing !== null) {
+    const v = validateFraming(data.framing);
+    if (!v.ok) throw new Error(v.error);
+    out.framing = v.framing;
+  }
   const replaced = operation === "update" && originalDoc?.original?.url && original.url !== originalDoc.original.url;
   if (operation === "create" || replaced) {
     // Un nouveau fichier : tout ce qui venait de l'ancien est caduc.
@@ -101,6 +108,9 @@ export const AdRushes: CollectionConfig = {
         description: "Quelques phrases : c'est ce qui permet aux agents de choisir ce rush et d'en tirer le bon passage.",
       },
     },
+    // Le recadrage : zone utile et zone à ne jamais couper, tracées sur l'image (D1d).
+    { name: "framingTool", type: "ui", admin: { components: { Field: "/modules/ads/admin/RushFramingField#RushFramingField" } } },
+    { name: "framing", type: "json", label: "Recadrage", admin: { hidden: true } },
     // Ce que l'IA voit du rush converti : images clés, plans, description à valider (D1c).
     { name: "insight", type: "ui", admin: { components: { Field: "/modules/ads/admin/RushInsightPanel#RushInsightPanel" } } },
     {
