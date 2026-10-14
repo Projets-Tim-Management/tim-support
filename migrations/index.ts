@@ -139,6 +139,7 @@ import * as migration_20261012_093439_dev_announce_email from './20261012_093439
 import * as migration_20261013_085023_naf_fiche_client from './20261013_085023_naf_fiche_client';
 import * as migration_20261013_091314_agent_consignes_carnet from './20261013_091314_agent_consignes_carnet';
 import * as migration_20261014_073832_ad_rushes from './20261014_073832_ad_rushes';
+import * as migration_20261014_092754_charte_pubs from './20261014_092754_charte_pubs';
 
 export const migrations = [
   {
@@ -844,6 +845,11 @@ export const migrations = [
   {
     up: migration_20261014_073832_ad_rushes.up,
     down: migration_20261014_073832_ad_rushes.down,
-    name: '20261014_073832_ad_rushes'
+    name: '20261014_073832_ad_rushes',
+  },
+  {
+    up: migration_20261014_092754_charte_pubs.up,
+    down: migration_20261014_092754_charte_pubs.down,
+    name: '20261014_092754_charte_pubs'
   },
 ];

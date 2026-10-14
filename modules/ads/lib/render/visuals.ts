@@ -2,7 +2,7 @@ import { slugify } from "@/core/lib/slug";
 import type { Payload, Where } from "payload";
 import sharp from "sharp";
 
-import { brandColorsOf } from "@/core/lib/brand";
+import { paletteOf, templateColors } from "@/modules/ads/lib/style";
 import { publishable } from "@/modules/ads/lib/copy/generate";
 import { ctaLabel } from "@/modules/ads/lib/cta";
 import { FORMAT_KEYS } from "@/modules/ads/lib/render/formats";
@@ -119,7 +119,7 @@ export async function renderCreativeVisuals(
   const [creative, appearance, kit, capture, photo] = await Promise.all([
     payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 1, overrideAccess: true }) as Promise<Creative>,
     payload.findGlobal({ slug: "appearance", depth: 1, overrideAccess: true }).catch(() => null) as Promise<Record<string, unknown> | null>,
-    payload.findGlobal({ slug: "ads-brand-kit", depth: 1, overrideAccess: true }) as Promise<{ logoOnDark?: Media | null }>,
+    payload.findGlobal({ slug: "ads-brand-kit", depth: 1, overrideAccess: true }) as Promise<{ logoOnDark?: Media | null; logoOnLight?: Media | null; palette?: Record<string, unknown> | null }>,
     latest(payload, "capture"),
     latest(payload, "photo"),
   ]);
@@ -133,8 +133,9 @@ export async function renderCreativeVisuals(
   const input: VisualInput = {
     hook,
     cta: ctaLabel(creative.cta) ?? "En savoir plus",
-    colors: brandColorsOf(appearance),
-    logo: await dataUri(appearance?.companyLogo as Media | null, load),
+    // La palette des pubs (Kit de marque), avec repli sur Système › Apparence.
+    colors: templateColors(paletteOf(kit, appearance)),
+    logo: await dataUri(kit.logoOnLight ?? (appearance?.companyLogo as Media | null), load),
     logoOnDark: await dataUri(kit.logoOnDark, load),
     ...(template === "capture" ? await imageOf(capture, load) : template === "photo" ? await imageOf(photo, load) : { image: null, imageSize: null }),
     fact: template === "chiffre" ? fact : null,
