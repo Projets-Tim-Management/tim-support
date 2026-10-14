@@ -274,12 +274,15 @@ function Proof({ shot, ctx }: { shot: Extract<RenderShot, { kind: "preuve" }>; c
  * « fondu », tout ensemble. Sur un fond sombre, le nom et la signature passent
  * à la couleur du texte sur fond sombre ; le symbole garde ses couleurs.
  */
-function AnimatedLogo({ ctx, height, onDark }: { ctx: Ctx; height: number; onDark: boolean }) {
+function AnimatedLogo({ ctx, height, onDark, frames }: { ctx: Ctx; height: number; onDark: boolean; frames: number }) {
   const { p } = ctx;
   const frame = useCurrentFrame();
   const logo = p.logoAnimated!;
   const build = p.style.logoAnimation === "construction";
-  const step = p.music?.beatFrames ? p.music.beatFrames / 2 : 4;
+  // La construction tient dans les 60 % du plan : sinon elle passe aux quarts, huitièmes de temps… (toujours sur la musique).
+  const units = logo.symbol.length + logo.name.length * 0.6;
+  let step = p.music?.beatFrames ? p.music.beatFrames / 2 : 4;
+  while (step > 1.5 && units * step + 16 > frames * 0.6) step /= 2;
   const pop = (at: number) => interpolate(frame, [at, at + 8], [0, 1], { ...clamp, easing: Easing.out(Easing.back(2)) });
   const fade = (at: number) => interpolate(frame, [at, at + 10], [0, 1], { ...clamp, easing: ease });
   const nameStart = build ? logo.symbol.length * step : 0;
@@ -306,7 +309,7 @@ function AnimatedLogo({ ctx, height, onDark }: { ctx: Ctx; height: number; onDar
 }
 
 /** Le logo seul, au centre : une signature (en ouverture par exemple). Animé s'il est déposé en SVG à calques, sinon l'image. */
-function LogoShot({ ctx }: { ctx: Ctx }) {
+function LogoShot({ ctx, frames }: { ctx: Ctx; frames: number }) {
   const { p, u } = ctx;
   const frame = useCurrentFrame();
   const light = p.style.background === "clair" && Boolean(p.logos.light || p.logoAnimated);
@@ -316,7 +319,7 @@ function LogoShot({ ctx }: { ctx: Ctx }) {
   return (
     <AbsoluteFill style={{ background: bg, justifyContent: "center", alignItems: "center" }}>
       {animated ? (
-        <AnimatedLogo ctx={ctx} height={260 * u} onDark={!light} />
+        <AnimatedLogo ctx={ctx} height={260 * u} onDark={!light} frames={frames} />
       ) : (
         img && <Img src={img} style={{ height: 220 * u, width: "auto", opacity: interpolate(frame, [0, 12], [0, 1], { ...clamp, easing: ease }) }} />
       )}
@@ -338,7 +341,7 @@ function End({ shot, ctx }: { shot: Extract<RenderShot, { kind: "fin" }>; ctx: C
   return (
     <AbsoluteFill style={{ background: bg, color: fg, justifyContent: "center", alignItems: "center", textAlign: "center", padding: 90 * u, gap: 44 * u }}>
       {p.showLogo && p.logoAnimated && p.style.logoAnimation !== "aucune" ? (
-        <AnimatedLogo ctx={ctx} height={130 * u} onDark={!light} />
+        <AnimatedLogo ctx={ctx} height={130 * u} onDark={!light} frames={shot.frames} />
       ) : (
         p.showLogo && logo && <Img src={logo} style={{ height: 120 * u, width: "auto", opacity: t(0) }} />
       )}
@@ -353,7 +356,7 @@ function ShotView({ shot, ctx }: { shot: RenderShot; ctx: Ctx }): ReactNode {
   if (shot.kind === "ouverture") return <Opening shot={shot} ctx={ctx} />;
   if (shot.kind === "rush") return <Rush shot={shot} ctx={ctx} />;
   if (shot.kind === "preuve") return <Proof shot={shot} ctx={ctx} />;
-  if (shot.kind === "logo") return <LogoShot ctx={ctx} />;
+  if (shot.kind === "logo") return <LogoShot ctx={ctx} frames={shot.frames} />;
   return <End shot={shot} ctx={ctx} />;
 }
 

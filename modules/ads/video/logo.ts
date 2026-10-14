@@ -89,6 +89,28 @@ const roleOf = (el: Element): keyof typeof ROLES | null => {
   return null;
 };
 
+/** Ce qui accompagne un élément sans en être un : masques, définitions. */
+const ATTACHMENTS = ["clippath", "mask", "defs", "lineargradient", "radialgradient", "pattern", "filter"];
+const isHead = (el: Element): boolean =>
+  !ATTACHMENTS.includes(el.tagName.toLowerCase()) && Boolean(el.getAttribute("serif:id") || el.getAttribute("inkscape:label") || el.getAttribute("id"));
+
+/**
+ * Les enfants d'un calque regroupés par élément. Affinity Designer met à plat
+ * un calque qui contient un sous-calque masqué : la forme nommée (« 1 »), puis
+ * son masque et son reflet, sans nom. Quand certains enfants sont nommés,
+ * chacun ouvre un élément et les suivants sans nom s'y rattachent ; sinon,
+ * chaque enfant est un élément. Pure.
+ */
+export function bundles(kids: Element[]): Element[][] {
+  if (!kids.some(isHead) || kids.every(isHead)) return kids.map((k) => [k]);
+  const out: Element[][] = [];
+  for (const k of kids) {
+    if (isHead(k) || !out.length) out.push([k]);
+    else out[out.length - 1].push(k);
+  }
+  return out;
+}
+
 /** Les éléments d'un calque : ses enfants, en descendant tant qu'il n'y a qu'un groupe (Affinity en ajoute). */
 function partsOf(group: Element, svg: Element): string[] {
   let g = group;
@@ -99,10 +121,8 @@ function partsOf(group: Element, svg: Element): string[] {
       continue;
     }
     // Chaque élément garde les groupes qui l'entourent (y compris le calque lui-même) : ses transformations et ses couleurs.
-    return kids.map((k) => {
-      const [open, close] = wrapper(g);
-      return withAncestors(g, open + k.outerHTML + close, svg);
-    });
+    const [open, close] = wrapper(g);
+    return bundles(kids).map((b) => withAncestors(g, open + b.map((k) => k.outerHTML).join("") + close, svg));
   }
 }
 

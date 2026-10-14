@@ -1,4 +1,4 @@
-import type { CollectionBeforeChangeHook, CollectionBeforeValidateHook, CollectionConfig } from "payload";
+import type { CollectionBeforeChangeHook, CollectionBeforeOperationHook, CollectionBeforeValidateHook, CollectionConfig } from "payload";
 
 import { isAdmin } from "@/core/access";
 import { BEAT_STATUSES } from "@/modules/ads/video/beat";
@@ -42,6 +42,30 @@ const checkFontFormat: CollectionBeforeValidateHook = ({ data, req }) => {
   return data;
 };
 
+/**
+ * Un SVG d'Affinity Designer commence par `<!DOCTYPE svg …>` : le contrôle de
+ * Payload, qui n'attend qu'une déclaration XML ou des commentaires avant
+ * `<svg>`, le prend alors pour du XML et le refuse (« Invalid MIME type:
+ * application/xml », 14/10/2026). La ligne ne sert à rien : on la retire
+ * avant le contrôle, sur le fichier reçu.
+ */
+export const stripSvgDoctype = (data: Buffer): Buffer => {
+  const head = data.toString("utf8", 0, Math.min(data.length, 4096));
+  const m = head.match(/<!DOCTYPE\s+svg[^>]*>\s*/i);
+  if (!m || m.index === undefined) return data;
+  const start = Buffer.byteLength(head.slice(0, m.index), "utf8");
+  return Buffer.concat([data.subarray(0, start), data.subarray(start + Buffer.byteLength(m[0], "utf8"))]);
+};
+
+const cleanSvg: CollectionBeforeOperationHook = ({ args, req }) => {
+  const file = req.file;
+  if (file?.name?.toLowerCase().endsWith(".svg") && file.data?.length) {
+    file.data = stripSvgDoctype(file.data);
+    file.size = file.data.length;
+  }
+  return args;
+};
+
 /** Une musique déposée, ou dont le fichier change, part à l'analyse du rythme (M) ; l'ancienne analyse est caduque. */
 const queueBeat: CollectionBeforeChangeHook = ({ data, originalDoc, operation, req }) => {
   if (!data || (data.kind ?? originalDoc?.kind) !== "musique") return data;
@@ -64,7 +88,7 @@ export const AdMedia: CollectionConfig = {
     description: "Logos, polices, captures de l'app, photos : la matière des créas. Et les créas rendues. Réservé à TIM.",
   },
   access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
-  hooks: { beforeValidate: [checkFontFormat], beforeChange: [queueBeat] },
+  hooks: { beforeOperation: [cleanSvg], beforeValidate: [checkFontFormat], beforeChange: [queueBeat] },
   upload: {
     focalPoint: false,
     crop: false,

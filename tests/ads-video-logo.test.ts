@@ -102,3 +102,38 @@ describe("le logo et la police du kit dans le rendu", () => {
     expect(await loadAnimatedLogo(null)).toBeNull();
   });
 });
+
+describe("un vrai export d'Affinity Designer (14/10/2026)", () => {
+  // Chaque forme du symbole y est mise à plat : la forme nommée, puis son masque et son reflet, sans nom.
+  const REAL = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg" xmlns:serif="http://www.serif.com/">
+  <g id="nom"><path id="T" d="M1 1h2z"/><path id="I" d="M3 1h2z"/><path id="M" d="M5 1h2z"/></g>
+  <g id="symbole">
+    <path id="_1" serif:id="1" d="M0 0h1z" style="fill:#d93742;"/>
+    <clipPath id="_clip1"><path d="M0 0h1z"/></clipPath>
+    <g clip-path="url(#_clip1)"><path d="M0 0h1z" style="fill:#ef4b56;"/></g>
+    <path id="_2" serif:id="2" d="M2 0h1z" style="fill:#d93742;"/>
+    <clipPath id="_clip2"><path d="M2 0h1z"/></clipPath>
+    <g clip-path="url(#_clip2)"><path d="M2 0h1z" style="fill:#ef4b56;"/></g>
+  </g>
+</svg>`;
+
+  it("une forme = la forme, son masque et son reflet", () => {
+    const p = parse(REAL);
+    if (!p.ok) throw new Error(p.error);
+    expect(p.logo.symbol).toHaveLength(2);
+    expect(p.logo.symbol[0]).toMatch(/_1[\s\S]*_clip1[\s\S]*#ef4b56/);
+    expect(p.logo.symbol[0]).not.toContain("_2");
+    expect(p.logo.name).toHaveLength(3);
+  });
+
+  it("au dépôt, la ligne DOCTYPE est retirée (Payload refusait le fichier comme du XML)", async () => {
+    const { stripSvgDoctype } = await import("@/modules/ads/collections/AdMedia");
+    const out = stripSvgDoctype(Buffer.from(REAL)).toString("utf8");
+    expect(out).not.toContain("DOCTYPE");
+    expect(out.startsWith('<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<svg')).toBe(true);
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    expect(stripSvgDoctype(png)).toBe(png);
+  });
+});
