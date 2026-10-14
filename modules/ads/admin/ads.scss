@@ -342,6 +342,19 @@
 .ads-kit-font span { font-size: 1rem; line-height: 1.45; max-width: 36rem; }
 .ads-kit-font em { padding: 0.45rem 1rem; border-radius: 999px; font-style: normal; font-weight: 700; font-size: 0.9rem; }
 
+/* Créa : la vidéo (style, montage, lecture aux trois formats). */
+.ads-video { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); }
+.ads-video__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+.ads-video__style { color: var(--tim-muted); font-size: 0.8rem; }
+.ads-video__error { margin: 0; color: var(--tim-red); font-size: 0.8rem; white-space: pre-line; }
+.ads-video__player { display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-start; }
+.ads-video__media { max-width: 100%; border-radius: 0.5rem; background: var(--tim-foreground); }
+.ads-video__media--9x16 { width: 13rem; aspect-ratio: 9 / 16; }
+.ads-video__media--4x5 { width: 15rem; aspect-ratio: 4 / 5; }
+.ads-video__media--1x1 { width: 16rem; aspect-ratio: 1; }
+.ads-video__formats, .ads-video__launch { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.ads-video__launch select { padding: 0.4rem 0.5rem; border: 1px solid var(--tim-border); border-radius: 0.4rem; background: var(--tim-white); font: inherit; font-size: 0.82rem; max-width: 100%; }
+
 /* Rushes : l'étape, en pastille (liste et fiche). Une couleur = une situation (voir rushStage). */
 .ads-rush-stage--gris { background: var(--tim-gray-bg); color: var(--tim-gray); }
 .ads-rush-stage--bleu { background: var(--tim-indigo-bg); color: var(--tim-indigo); }

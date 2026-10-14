@@ -4,9 +4,10 @@
  * l'exécution par la fonction de rendu (modules/ads/video/render.ts) et déposé
  * dans la Sandbox Vercel. Lancé par `npm run build`, avant Next.
  *
- * Les cartes de source (.map) sont retirées : elles doublaient le poids du
- * paquet (27 Mo → 13 Mo), envoyé dans la Sandbox à chaque rendu, sans servir
- * en production.
+ * Les cartes de source (.map) des morceaux secondaires sont retirées : elles
+ * doublaient le poids du paquet, envoyé dans la Sandbox à chaque rendu. Celle
+ * du fichier principal reste : le moteur de rendu l'ouvre au démarrage (sans
+ * elle, « ENOENT bundle.js.map ») et s'en sert pour situer une erreur.
  */
 import { execFileSync } from "node:child_process";
 import { readdirSync, rmSync, statSync } from "node:fs";
@@ -23,7 +24,7 @@ const walk = (dir) => {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) walk(p);
-    else if (name.endsWith(".map")) {
+    else if (name.endsWith(".map") && name !== "bundle.js.map") {
       rmSync(p);
       removed++;
     }

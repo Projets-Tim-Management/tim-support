@@ -42,6 +42,8 @@ type Raw = {
   generation?: { costEur?: number | null } | null;
   decidedAt?: string | null;
   refusalReason?: string | null;
+  style?: { name?: string } | number | null;
+  video?: { status?: string | null; error?: string | null; renders?: { format: string; url: string }[] | null } | null;
 };
 
 type Named = { id: number | string; name: string } | number | null | undefined;
@@ -114,6 +116,14 @@ const toCard = (r: Raw): CardCreative => ({
   costEur: r.generation?.costEur ?? null,
   decidedAt: r.decidedAt ?? null,
   refusal: REFUSAL_REASONS.find((x) => x.value === r.refusalReason)?.label ?? null,
+  video: r.video?.status
+    ? {
+        status: r.video.status ?? null,
+        error: r.video.error ?? null,
+        renders: (r.video.renders ?? []).filter((x) => x?.url),
+        styleName: typeof r.style === "object" && r.style ? (r.style.name ?? null) : null,
+      }
+    : null,
 });
 
 export default async function ValidationQueueView(view: AdminViewServerProps) {
@@ -128,14 +138,16 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
   if (hasAdminRole(user)) {
     const status = tab === "validees" ? "validee" : "a-valider";
     const where: Where = { and: [{ status: { equals: status } }, ...(campaignFilter ? [{ campaign: { equals: campaignFilter } }] : [])] };
-    const [list, counts, campaigns, proposedInstructions, proposedLearnings, proposals] = await Promise.all([
+    const [list, counts, campaigns, proposedInstructions, proposedLearnings, proposals, styles] = await Promise.all([
       payload.find({ collection: "ad-creatives", where, sort: tab === "validees" ? "-decidedAt" : "createdAt", pagination: false, depth: 2, overrideAccess: true }),
       Promise.all(["a-valider", "validee"].map((s) => payload.count({ collection: "ad-creatives", where: { status: { equals: s } }, overrideAccess: true }))),
       payload.find({ collection: "ad-campaigns", pagination: false, depth: 0, overrideAccess: true, select: { name: true } as never }),
       payload.find({ collection: "ad-instructions", where: { status: { equals: "proposee" } }, sort: "createdAt", pagination: false, depth: 1, overrideAccess: true }),
       payload.find({ collection: "ad-learnings", where: { status: { equals: "global-propose" } }, sort: "createdAt", pagination: false, depth: 1, overrideAccess: true }),
       tab === "a-valider" ? pendingProposals(payload, campaignFilter) : Promise.resolve([]),
+      payload.find({ collection: "ad-styles", where: { active: { equals: true } }, sort: "name", pagination: false, depth: 0, overrideAccess: true, select: { name: true } as never }),
     ]);
+    const styleOptions = (styles.docs as unknown as { id: number; name: string }[]).map((x) => ({ id: x.id, name: x.name }));
     const cards = (list.docs as unknown as Raw[]).map(toCard);
     const href = (t: string, c: string | null) => `${BASE}?vue=${t}${c ? `&campagne=${c}` : ""}`;
     const byCampaign = new Map<string, CardCreative[]>();
@@ -199,7 +211,7 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
                 )}
               </header>
               {group.map((c) => (
-                <CreativeCard key={String(c.id)} c={c} />
+                <CreativeCard key={String(c.id)} c={c} styles={styleOptions} />
               ))}
             </section>
           ))
@@ -209,7 +221,7 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
               <ProposalCard key={String(p.run)} p={p} />
             ))}
             {cards.map((c) => (
-              <CreativeCard key={String(c.id)} c={c} />
+              <CreativeCard key={String(c.id)} c={c} styles={styleOptions} />
             ))}
           </>
         )}

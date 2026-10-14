@@ -28,6 +28,8 @@ export type DownloadCreative = {
   tests?: { dimension: TestDimension; value: string }[] | null;
   copy?: { kind: string; text: string; status: string; chars?: number | null }[] | null;
   assets?: { format: string; type: string; template?: string | null; media: Media }[] | null;
+  /** La vidéo rendue, aux trois formats (plan §9 sexies, D3). */
+  video?: { status?: string | null; renders?: { format: string; url: string }[] | null } | null;
 };
 export type DownloadCampaign = { id: number | string; name: string; brief?: { landingUrl?: string | null; cta?: string | null } | null };
 export type DownloadKit = { advertiser?: string | null; legalNotice?: string | null };
@@ -100,11 +102,17 @@ export async function buildZip(campaign: DownloadCampaign, creatives: DownloadCr
       if (!url || a.type !== "image") continue;
       folder[assetName(campaign, c, a.format)] = new Uint8Array((await load(url)).data);
     }
+    // Les vidéos, à côté des images, sous le même nom (en .mp4).
+    if (c.video?.status === "prete") {
+      for (const v of c.video.renders ?? []) {
+        if (v.url) folder[assetName(campaign, c, v.format).replace(/\.jpg$/, ".mp4")] = new Uint8Array((await load(v.url)).data);
+      }
+    }
     files[folderOf(c, i)] = folder;
   }
   files["textes.csv"] = strToU8(textsCsv(campaign, creatives));
   files["textes.txt"] = strToU8(textsTxt(campaign, creatives, kit));
-  // Les JPEG sont déjà compressés : on les range, on ne les recompresse pas.
+  // Les JPEG et les MP4 sont déjà compressés : on les range, on ne les recompresse pas.
   return zipSync(files, { level: 0 });
 }
 

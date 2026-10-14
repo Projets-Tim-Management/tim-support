@@ -59,6 +59,10 @@
     {
       "path": "/api/cron/ads-rushes",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/ads-renders",
+      "schedule": "* * * * *"
     }
   ]
 }

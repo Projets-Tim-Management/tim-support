@@ -2571,6 +2571,31 @@ export interface AdCreative {
   angle: string;
   requestedAngle?: string | null;
   run?: (number | null) | AdAgentRun;
+  video?: {
+    status?: ('en-attente' | 'en-cours' | 'prete' | 'echec') | null;
+    error?: string | null;
+    score?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    renders?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    attempts?: number | null;
+    renderedAt?: string | null;
+    leaseUntil?: string | null;
+  };
   /**
    * Le style qui a rendu les visuels et la vidéo de cette créa.
    */
@@ -4866,6 +4891,17 @@ export interface AdCreativesSelect<T extends boolean = true> {
   angle?: T;
   requestedAngle?: T;
   run?: T;
+  video?:
+    | T
+    | {
+        status?: T;
+        error?: T;
+        score?: T;
+        renders?: T;
+        attempts?: T;
+        renderedAt?: T;
+        leaseUntil?: T;
+      };
   style?: T;
   hook?: T;
   campaign?: T;

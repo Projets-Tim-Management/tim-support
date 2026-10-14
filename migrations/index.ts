@@ -142,6 +142,7 @@ import * as migration_20261014_073832_ad_rushes from './20261014_073832_ad_rushe
 import * as migration_20261014_092754_charte_pubs from './20261014_092754_charte_pubs';
 import * as migration_20261014_095314_recadrage_rushes from './20261014_095314_recadrage_rushes';
 import * as migration_20261014_095747_styles_pubs from './20261014_095747_styles_pubs';
+import * as migration_20261014_102048_video_creas from './20261014_102048_video_creas';
 
 export const migrations = [
   {
@@ -862,6 +863,11 @@ export const migrations = [
   {
     up: migration_20261014_095747_styles_pubs.up,
     down: migration_20261014_095747_styles_pubs.down,
-    name: '20261014_095747_styles_pubs'
+    name: '20261014_095747_styles_pubs',
+  },
+  {
+    up: migration_20261014_102048_video_creas.up,
+    down: migration_20261014_102048_video_creas.down,
+    name: '20261014_102048_video_creas'
   },
 ];

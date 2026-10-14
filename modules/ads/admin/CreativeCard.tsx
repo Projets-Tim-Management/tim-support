@@ -8,6 +8,8 @@ import { TEXT_LIMITS } from "@/modules/ads/lib/copy/guardrails";
 import { CREATIVE_FORMATS, REFUSAL_REASONS, labelOf } from "@/modules/ads/lib/creative-options";
 import { TEMPLATES } from "@/modules/ads/lib/render/templates";
 
+import { CreativeVideo, type CardVideo, type StyleOption } from "./CreativeVideo";
+
 export type CardCreative = {
   id: number | string;
   angle: string;
@@ -26,6 +28,7 @@ export type CardCreative = {
   costEur: number | null;
   decidedAt: string | null;
   refusal: string | null;
+  video: CardVideo | null;
 };
 
 const KIND: Record<string, string> = { principal: "Textes principaux", titre: "Titres", description: "Descriptions" };
@@ -44,7 +47,7 @@ const charTone = (kind: string, n: number) => {
  * cache ce qu'on refuse). Les textes rejetés par les garde-fous sont repliés
  * mais présents : on voit ce que le modèle a tenté.
  */
-export function CreativeCard({ c }: { c: CardCreative }) {
+export function CreativeCard({ c, styles = [] }: { c: CardCreative; styles?: StyleOption[] }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [refusing, setRefusing] = useState(false);
   const [reason, setReason] = useState("");
@@ -114,6 +117,7 @@ export function CreativeCard({ c }: { c: CardCreative }) {
               <input type="checkbox" checked={safe} onChange={(e) => setSafe(e.target.checked)} /> Zone sûre 9:16 (ce que l&apos;interface de Meta peut couvrir)
             </label>
           )}
+          {(c.status === "a-valider" || c.status === "brouillon" || c.video?.renders.length) && <CreativeVideo id={c.id} video={c.video} styles={styles} />}
         </div>
 
         <div className="ads-card__texts">

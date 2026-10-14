@@ -63,6 +63,39 @@ export const AdCreatives: CollectionConfig = {
       admin: { readOnly: true, condition: (d) => Boolean(d?.requestedAngle) },
     },
     { name: "run", type: "relationship", relationTo: "ad-agent-runs", label: "Passage d'agent", index: true, admin: { readOnly: true, position: "sidebar", condition: (d) => Boolean(d?.run) } },
+    /**
+     * La vidéo de la créa (plan Publicité, §9 sexies, D3) : sa partition, rendue
+     * dans le style de la créa aux trois formats par le cron ads-renders (Sandbox
+     * Vercel). Écrite par le serveur seul.
+     */
+    {
+      name: "video",
+      type: "group",
+      label: "Vidéo",
+      // Écrite seulement par « Monter en vidéo » et le rendu (requestVideo, processNextRender), jamais par l'API.
+      access: decision,
+      admin: { condition: (d) => Boolean(d?.video?.status), readOnly: true },
+      fields: [
+        {
+          name: "status",
+          type: "select",
+          label: "État",
+          options: [
+            { label: "En attente de rendu", value: "en-attente" },
+            { label: "Rendu en cours", value: "en-cours" },
+            { label: "Prête", value: "prete" },
+            { label: "Échec", value: "echec" },
+          ],
+          index: true,
+        },
+        { name: "error", type: "text", label: "Motif de l'échec" },
+        { name: "score", type: "json", label: "Partition" },
+        { name: "renders", type: "json", label: "Fichiers rendus" },
+        { name: "attempts", type: "number", label: "Essais", defaultValue: 0 },
+        { name: "renderedAt", type: "date", label: "Rendue le", admin: { date: { pickerAppearance: "dayAndTime" } } },
+        { name: "leaseUntil", type: "date", index: true, admin: { hidden: true } },
+      ],
+    },
     { name: "style", type: "relationship", relationTo: "ad-styles", label: "Style", index: true, admin: { position: "sidebar", description: "Le style qui a rendu les visuels et la vidéo de cette créa." } },
     { name: "hook", type: "text", label: "Accroche du visuel", admin: { description: "Le texte posé sur l'image." } },
     {
