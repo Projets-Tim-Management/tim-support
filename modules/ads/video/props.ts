@@ -1,6 +1,7 @@
 import { coverRect, FULL, type Framing, type Rect } from "@/modules/ads/lib/framing";
 import { fontFamily, paletteOf, type Palette } from "@/modules/ads/lib/style";
 import type { LogoParts } from "@/modules/ads/video/logo";
+import { checkParams } from "@/modules/ads/video/element-params";
 import type { Element, Fond } from "@/modules/ads/video/elements";
 import { FORMAT_SIZES, FPS, MAX_SPEED, MIN_SPEED, type FormatKey, type Score } from "@/modules/ads/video/score";
 
@@ -61,7 +62,8 @@ export type RenderFond =
   | { type: "rush"; src: string; srcAspect: number; fromSec: number; playbackRate: number; crop: Rect; cover: Rect | null; zoom: Rect | null; flou: boolean; voile: number }
   | { type: "image"; src: string; flou: boolean; voile: number };
 
-export type RenderElement = Element & { from: number; to: number | null; figure: { value: string; label: string; source: string } | null };
+/** Un élément prêt à dessiner : minuté en images, avec ses réglages (ceux de sa variante, complétés par les défauts). */
+export type RenderElement = Element & { from: number; to: number | null; figure: { value: string; label: string; source: string } | null; params: Record<string, string | number | boolean> };
 
 export type RenderProps = {
   format: FormatKey;
@@ -133,6 +135,8 @@ export type ResolveContext = {
   logoAnimated?: LogoParts | null;
   /** Les images des Médias publicitaires qu'un fond peut montrer, par identifiant. */
   media?: Map<number, string>;
+  /** Les variantes d'éléments (Publicité › Éléments) : leur type de base et leurs réglages, par identifiant. */
+  variants?: Map<number, { type: string; params: unknown }>;
 };
 
 /** Le fond d'un plan composé, résolu (adresse, cadrage, couleur). Un rush ou une image introuvable retombe sur le fond du style. Pure. */
@@ -221,8 +225,10 @@ export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps
             fond: fondOf(shot.fond, shot.seconds, aspect, ctx),
             elements: shot.elements.map((e) => {
               const fact = e.type === "compteur" ? ctx.facts.get(Number(e.data.fact)) : null;
+              const variant = e.variante != null ? ctx.variants?.get(e.variante) : undefined;
               return {
                 ...e,
+                params: checkParams(e.type, variant && variant.type === e.type ? variant.params : {}).params,
                 from: Math.round(e.debut * FPS),
                 to: e.fin !== undefined ? Math.round(e.fin * FPS) : null,
                 figure: fact ? { value: figureOf(fact.statement), label: String(e.data.libelle ?? "") || fact.statement, source: fact.source } : null,

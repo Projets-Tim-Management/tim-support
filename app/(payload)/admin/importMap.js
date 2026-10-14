@@ -18,6 +18,7 @@ import { Discussion as Discussion_97172b0463b6c4309cfc6a386e5d1743 } from '../..
 import { ChecklistRowLabel as ChecklistRowLabel_2fcda5c0d5297d32ad1f75d46f0a7756 } from '../../../modules/dev/admin/ChecklistRowLabel'
 import { ChecklistAutoCollapse as ChecklistAutoCollapse_d2dfe6020c139da8b2e0560d0a6e6a4b } from '../../../modules/dev/admin/ChecklistAutoCollapse'
 import { DevLinks as DevLinks_bb94574dbd75fe3b474718650b711418 } from '../../../modules/dev/admin/DevLinks'
+import { OpenInClaudeCode as OpenInClaudeCode_2eba21d8b1840db1f86b2d515e6fad0d } from '../../../modules/dev/admin/OpenInClaudeCode'
 import { DevStatusCell as DevStatusCell_5e03f36098db4cf88c65d19b2866a269 } from '../../../modules/dev/admin/DevStatusCell'
 import { DevStatusField as DevStatusField_819319c999294b546c0f69c780077993 } from '../../../modules/dev/admin/DevStatusField'
 import { AnnounceField as AnnounceField_fe4176c29c337c2b2c538bcba6a619f2 } from '../../../modules/dev/admin/AnnounceField'
@@ -128,6 +129,9 @@ import { RushUploadField as RushUploadField_7f0ac0fc82e45c8450fea964cdbee83c } f
 import { RushFramingField as RushFramingField_48734d37136e267b22b93c06eec1c097 } from '../../../modules/ads/admin/RushFramingField'
 import { RushInsightPanel as RushInsightPanel_903b87dc6a6f018c59eba9e37fb1c267 } from '../../../modules/ads/admin/RushInsightPanel'
 import { RushStageCell as RushStageCell_8d40a7bdbdd9af962d392a1d7fb420c9 } from '../../../modules/ads/admin/RushStageCell'
+import { ElementPreview as ElementPreview_0a19ab81f1cba9ff87f5a5307d3ef9fa } from '../../../modules/ads/admin/ElementPreview'
+import { ElementParamsEditor as ElementParamsEditor_e05d24e9a1dd6315c3ad4dbab5b36679 } from '../../../modules/ads/admin/ElementParamsEditor'
+import { ElementThread as ElementThread_45009aa13e8c9d148e73da1692810f85 } from '../../../modules/ads/admin/ElementThread'
 import { InsuranceCell as InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4 } from '../../../modules/marketing/admin/InsuranceCell'
 import { default as default_c08243cbb0e32dd70b45a5afb5f6cbd4 } from '../../../admin/components/SaveButton'
 import { default as default_72ee9fe55f81abe2c8ae550d52d0ab85 } from '../../../admin/fields/ColorField'
@@ -186,6 +190,7 @@ export const importMap = {
   "/modules/dev/admin/ChecklistRowLabel#ChecklistRowLabel": ChecklistRowLabel_2fcda5c0d5297d32ad1f75d46f0a7756,
   "/modules/dev/admin/ChecklistAutoCollapse#ChecklistAutoCollapse": ChecklistAutoCollapse_d2dfe6020c139da8b2e0560d0a6e6a4b,
   "/modules/dev/admin/DevLinks#DevLinks": DevLinks_bb94574dbd75fe3b474718650b711418,
+  "/modules/dev/admin/OpenInClaudeCode#OpenInClaudeCode": OpenInClaudeCode_2eba21d8b1840db1f86b2d515e6fad0d,
   "/modules/dev/admin/DevStatusCell#DevStatusCell": DevStatusCell_5e03f36098db4cf88c65d19b2866a269,
   "/modules/dev/admin/DevStatusField#DevStatusField": DevStatusField_819319c999294b546c0f69c780077993,
   "/modules/dev/admin/AnnounceField#AnnounceField": AnnounceField_fe4176c29c337c2b2c538bcba6a619f2,
@@ -296,6 +301,9 @@ export const importMap = {
   "/modules/ads/admin/RushFramingField#RushFramingField": RushFramingField_48734d37136e267b22b93c06eec1c097,
   "/modules/ads/admin/RushInsightPanel#RushInsightPanel": RushInsightPanel_903b87dc6a6f018c59eba9e37fb1c267,
   "/modules/ads/admin/RushStageCell#RushStageCell": RushStageCell_8d40a7bdbdd9af962d392a1d7fb420c9,
+  "/modules/ads/admin/ElementPreview#ElementPreview": ElementPreview_0a19ab81f1cba9ff87f5a5307d3ef9fa,
+  "/modules/ads/admin/ElementParamsEditor#ElementParamsEditor": ElementParamsEditor_e05d24e9a1dd6315c3ad4dbab5b36679,
+  "/modules/ads/admin/ElementThread#ElementThread": ElementThread_45009aa13e8c9d148e73da1692810f85,
   "/modules/marketing/admin/InsuranceCell#InsuranceCell": InsuranceCell_fdd1aa6b5359ded3d308c33b09e84ed4,
   "/admin/components/SaveButton#default": default_c08243cbb0e32dd70b45a5afb5f6cbd4,
   "/admin/fields/ColorField#default": default_72ee9fe55f81abe2c8ae550d52d0ab85,

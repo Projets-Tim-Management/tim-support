@@ -120,10 +120,10 @@ export function rushForAgent(r: RushDoc): RushForAgent {
 }
 
 /** Les rushes prêts et les styles actifs : ce qu'un montage peut employer ; les inspirations validées : ce qui guide le goût. */
-export type VideoMaterial = { rushes: RushForAgent[]; styles: StyleForAgent[]; inspirations: InspirationForAgent[]; musiques: MusicForAgent[]; logo: string; elements: Record<string, string> };
+export type VideoMaterial = { rushes: RushForAgent[]; styles: StyleForAgent[]; inspirations: InspirationForAgent[]; musiques: MusicForAgent[]; logo: string; elements: { guide: Record<string, string>; variantes: { id: number; nom: string; base: string; quandLEmployer: string }[] } };
 
 export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
-  const [rushes, styles, musics, inspirations, kit] = await Promise.all([
+  const [rushes, styles, musics, inspirations, kit, elements] = await Promise.all([
     payload.find({ collection: "ad-rushes", where: { "processing.status": { equals: "pret" } }, pagination: false, depth: 0, overrideAccess: true }),
     payload.find({ collection: "ad-styles", where: { active: { equals: true } }, pagination: false, depth: 0, sort: "name", overrideAccess: true }),
     payload.find({
@@ -135,13 +135,18 @@ export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
     }),
     payload.find({ collection: "ad-inspirations", where: { "ai.status": { equals: "validee" } }, pagination: false, depth: 0, sort: "-createdAt", overrideAccess: true }),
     payload.findGlobal({ slug: "ads-brand-kit", depth: 1, overrideAccess: true }) as unknown as Promise<Raw>,
+    payload.find({ collection: "ad-elements", where: { status: { equals: "actif" } }, sort: "base", pagination: false, depth: 0, overrideAccess: true }).catch(() => ({ docs: [] })),
   ]);
   const animated = await loadAnimatedLogo(kit.logoAnimated);
   const docs = rushes.docs as unknown as RushDoc[];
   return {
     // Une ancienne fiche de rush marquée « inspiration » (avant la collection à part) n'est jamais de la matière.
     rushes: docs.filter((r) => !isInspiration(r)).map(rushForAgent),
-    elements: ELEMENT_GUIDE,
+    // Le format des données de chaque élément de base, et les variantes actives de l'atelier (avec leur « quand l'employer »).
+    elements: {
+      guide: ELEMENT_GUIDE,
+      variantes: (elements.docs as unknown as Raw[]).map((e) => ({ id: Number(e.id), nom: String(e.name ?? ""), base: String(e.base ?? ""), quandLEmployer: String(e.whenToUse ?? "") })),
+    },
     logo: animated
       ? `Logo animable : symbole en ${animated.symbol.length} élément(s), nom en ${animated.name.length} lettre(s)${animated.baseline ? ", signature" : ""}. Un plan « logo » le fait arriver selon le style.`
       : "Pas de logo animable : un plan « logo » pose l'image du logo, en fondu.",

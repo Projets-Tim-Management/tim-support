@@ -109,6 +109,8 @@ export interface Config {
     'ad-rushes': AdRush;
     'ad-inspirations': AdInspiration;
     'ad-retouches': AdRetouch;
+    'ad-elements': AdElement;
+    'ad-element-notes': AdElementNote;
     'ad-styles': AdStyle;
     'ads-settings-history': AdsSettingsHistory;
     'email-suppressions': EmailSuppression;
@@ -194,6 +196,8 @@ export interface Config {
     'ad-rushes': AdRushesSelect<false> | AdRushesSelect<true>;
     'ad-inspirations': AdInspirationsSelect<false> | AdInspirationsSelect<true>;
     'ad-retouches': AdRetouchesSelect<false> | AdRetouchesSelect<true>;
+    'ad-elements': AdElementsSelect<false> | AdElementsSelect<true>;
+    'ad-element-notes': AdElementNotesSelect<false> | AdElementNotesSelect<true>;
     'ad-styles': AdStylesSelect<false> | AdStylesSelect<true>;
     'ads-settings-history': AdsSettingsHistorySelect<false> | AdsSettingsHistorySelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
@@ -3161,6 +3165,96 @@ export interface AdRetouch {
   createdAt: string;
 }
 /**
+ * Les éléments de motion design que l'agent pose dans les vidéos, et leurs variantes. Améliorez-les dans leur fil : vos idées, les propositions de l'IA, un aperçu rendu à chaque changement.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-elements".
+ */
+export interface AdElement {
+  id: number;
+  name: string;
+  base:
+    | 'liste'
+    | 'notification'
+    | 'bouton'
+    | 'planning'
+    | 'fiche'
+    | 'champ'
+    | 'badge'
+    | 'tap'
+    | 'surbrillance'
+    | 'fleche'
+    | 'soulignement'
+    | 'titre'
+    | 'etiquette'
+    | 'bulle'
+    | 'compteur'
+    | 'logo'
+    | 'cta'
+    | 'pastilles'
+    | 'confettis';
+  status: 'brouillon' | 'actif' | 'retire';
+  variantOf?: (number | null) | AdElement;
+  /**
+   * Ce que l'agent lit pour choisir cet élément : ce qu'il montre, sur quel fond il rend le mieux, pour quel message.
+   */
+  whenToUse: string;
+  params?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  versions?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  preview?: {
+    status?: ('en-attente' | 'en-cours' | 'pret' | 'echec') | null;
+    videoUrl?: string | null;
+    imageUrl?: string | null;
+    error?: string | null;
+    attempts?: number | null;
+    leaseUntil?: string | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-element-notes".
+ */
+export interface AdElementNote {
+  id: number;
+  element: number | AdElement;
+  kind: 'idee' | 'proposition' | 'decision';
+  author?: (number | null) | User;
+  body: string;
+  proposal?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  status?: ('a-decider' | 'appliquee' | 'variante' | 'ecartee' | 'hors-reglages' | 'developpement') | null;
+  variant?: (number | null) | AdElement;
+  development?: (number | null) | Development;
+  costEur?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Chaque changement des garde-fous : qui, quand, avant, après. Écrit par le serveur ; rien ne s'y modifie.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3916,6 +4010,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-retouches';
         value: number | AdRetouch;
+      } | null)
+    | ({
+        relationTo: 'ad-elements';
+        value: number | AdElement;
+      } | null)
+    | ({
+        relationTo: 'ad-element-notes';
+        value: number | AdElementNote;
       } | null)
     | ({
         relationTo: 'ad-styles';
@@ -5505,6 +5607,48 @@ export interface AdRetouchesSelect<T extends boolean = true> {
   after?: T;
   attempts?: T;
   leaseUntil?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-elements_select".
+ */
+export interface AdElementsSelect<T extends boolean = true> {
+  name?: T;
+  base?: T;
+  status?: T;
+  variantOf?: T;
+  whenToUse?: T;
+  params?: T;
+  versions?: T;
+  preview?:
+    | T
+    | {
+        status?: T;
+        videoUrl?: T;
+        imageUrl?: T;
+        error?: T;
+        attempts?: T;
+        leaseUntil?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-element-notes_select".
+ */
+export interface AdElementNotesSelect<T extends boolean = true> {
+  element?: T;
+  kind?: T;
+  author?: T;
+  body?: T;
+  proposal?: T;
+  status?: T;
+  variant?: T;
+  development?: T;
+  costEur?: T;
   updatedAt?: T;
   createdAt?: T;
 }

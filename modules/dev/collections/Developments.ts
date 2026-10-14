@@ -325,6 +325,8 @@ export const Developments: CollectionConfig = {
      * pas toujours. Les statuts sont du contenu (collection `dev-statuses`) :
      * cette liste se règle dans « Paramètres › Statuts ».
      */
+    // Ouvrir la demande dans Claude Code (VS Code), pour la faire coder.
+    { name: "claudeCode", type: "ui", admin: { position: "sidebar", components: { Field: "/modules/dev/admin/OpenInClaudeCode#OpenInClaudeCode" } } },
     {
       name: "status",
       type: "relationship",

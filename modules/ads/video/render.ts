@@ -69,7 +69,8 @@ export async function loadVideoContext(payload: Payload, creative: Raw) {
   // Une inspiration (souvent la pub d'un autre) n'est jamais montée : elle n'est pas « prête » pour un montage.
   const music = await musicOf(payload, idOf((creative.video as Raw | null | undefined)?.music));
   const ready = rushes.filter((r) => !isInspiration(r) && r.processing?.status === "pret" && r.working?.url && r.working.meta?.width && r.working.meta?.height);
-  return { gen, style, kit, appearance, rushes, ready, music };
+  const elements = (await payload.find({ collection: "ad-elements", pagination: false, depth: 0, overrideAccess: true }).catch(() => ({ docs: [] }))).docs as unknown as { id: number; base: string; status: string; params?: unknown }[];
+  return { gen, style, kit, appearance, rushes, ready, music, elements };
 }
 
 type MusicDoc = { id: number; kind?: string; active?: boolean | null; url?: string | null; filename?: string | null; beat?: { bpm?: number | null; bestStartSec?: number | null } | null };
@@ -157,6 +158,7 @@ export function scoreContextOf(ctx: Awaited<ReturnType<typeof loadVideoContext>>
     facts: new Map(ctx.gen.brief.facts.map((f) => [Number(f.id), { id: Number(f.id), statement: f.statement, source: f.source }])),
     offer: ctx.gen.brief.offer ?? null,
     forbidden,
+    variants: new Map(ctx.elements.map((e) => [Number(e.id), { type: e.base, status: e.status }])),
   };
 }
 
@@ -215,12 +217,13 @@ export async function processNextRender(payload: Payload, deps: RenderDeps = {})
     // Sur une musique au tempo connu, chaque coupe va sur un temps (durées bornées : la partition reste valide).
     const timed = ctx.music?.bpm ? beatAlign(score, ctx.music.bpm) : score;
     const logoAnimated = await loadAnimatedLogo(ctx.kit.logoAnimated);
+    const variants = new Map(ctx.elements.map((e) => [Number(e.id), { type: e.base, params: e.params ?? {} }]));
     const props = FORMAT_KEYS.map((format) =>
-      buildRenderProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, music: ctx.music, logoAnimated }),
+      buildRenderProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, music: ctx.music, logoAnimated, variants }),
     );
     const hook = String((creative as Raw).hook ?? "");
     const posters = FORMAT_KEYS.map((format) =>
-      buildPosterProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, logoAnimated }, hook),
+      buildPosterProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, logoAnimated, variants }, hook),
     );
     const files = await (deps.render ?? renderInSandbox)(props, posters);
     const store = deps.store ?? storeOnBlob;

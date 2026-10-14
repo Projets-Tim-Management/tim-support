@@ -107,6 +107,8 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     // La matière première des vidéos (montée par les agents), puis les pubs dont l'IA tire le style (jamais montées).
     "ad-rushes",
     "ad-inspirations",
+    // L'atelier des éléments de motion design : on les améliore et on en crée des variantes.
+    "ad-elements",
     // Ce que l'agent a fait, puis pourquoi.
     "ad-agent-runs",
     "ad-decisions",

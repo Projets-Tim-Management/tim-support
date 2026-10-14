@@ -67,6 +67,8 @@ export type Fond = {
 
 export type Element = {
   type: ElementType;
+  /** La variante de l'élément (Publicité › Éléments) ; sans elle, l'élément de base avec ses réglages par défaut. */
+  variante?: number;
   data: Record<string, unknown>;
   /** Le centre de l'élément, en fractions du cadre (0 à 1). */
   x: number;
@@ -167,6 +169,7 @@ export function parseElement(raw: unknown): Element {
   const type = (isElementType(d.type) ? d.type : String(d.type ?? "")) as ElementType;
   return {
     type,
+    ...(num(d.variante) !== undefined ? { variante: num(d.variante) } : {}),
     data: d.data && typeof d.data === "object" ? (d.data as Raw) : {},
     x: num(d.x) ?? 0.5,
     y: num(d.y) ?? 0.5,
@@ -270,6 +273,8 @@ export type CompoContext = {
   forbidden: string[];
   /** Le rush du fond, s'il y en a un : sa proportion (largeur / hauteur) et son cadrage. */
   rush: { srcAspect: number; framing: Framing | null } | null;
+  /** Les variantes de l'atelier (Publicité › Éléments), par identifiant : leur élément de base et leur état. */
+  variants?: Map<number, { type: string; status: string }>;
 };
 
 /** Les proportions des trois formats Meta (largeur / hauteur). */
@@ -307,6 +312,12 @@ export function elementProblems(elements: Element[], fond: Fond, ctx: CompoConte
       return;
     }
     const where = `${at} (${e.type})`;
+    if (e.variante !== undefined) {
+      const v = ctx.variants?.get(e.variante);
+      if (!v) out.push(`${where} : variante ${e.variante} introuvable.`);
+      else if (v.type !== e.type) out.push(`${where} : la variante ${e.variante} est un élément « ${v.type} », pas « ${e.type} ».`);
+      else if (v.status !== "actif") out.push(`${where} : la variante ${e.variante} n'est pas active (${v.status}).`);
+    }
     if (!(e.debut >= 0 && e.debut < ctx.seconds)) out.push(`${where} : début à ${e.debut} s, hors du plan (${ctx.seconds} s).`);
     if (e.fin !== undefined && !(e.fin > e.debut && e.fin <= ctx.seconds + 0.01)) out.push(`${where} : fin à ${e.fin} s, hors du plan.`);
     if (e.type === "compteur" && !ctx.facts.has(Number(e.data.fact))) out.push(`${where} : fait ${String(e.data.fact)} introuvable — un compteur montre toujours un fait sourcé.`);
@@ -353,3 +364,52 @@ export function vocabularyOf(shots: { kind: string; fond?: Fond; elements?: Elem
   }
   return [...used].sort();
 }
+
+/** Le nom de chaque élément de base, pour l'atelier. */
+export const ELEMENT_LABELS: Record<ElementType, string> = {
+  liste: "Liste qui se coche",
+  notification: "Notification",
+  bouton: "Bouton tapé",
+  planning: "Planning",
+  fiche: "Fiche chantier",
+  champ: "Champ qui se remplit",
+  badge: "Badge",
+  tap: "Doigt qui tape",
+  surbrillance: "Surbrillance",
+  fleche: "Flèche",
+  soulignement: "Soulignement",
+  titre: "Titre cinétique",
+  etiquette: "Étiquette",
+  bulle: "Bulle",
+  compteur: "Compteur sourcé",
+  logo: "Logo",
+  cta: "Bouton d'action",
+  pastilles: "Pastilles",
+  confettis: "Confettis",
+};
+
+/**
+ * Un exemple de chaque élément, avec des données de démonstration, pour son
+ * aperçu dans l'atelier (le compteur prend le premier fait sourcé du brief).
+ */
+export const ELEMENT_SAMPLES: Record<ElementType, Omit<Element, "type" | "debut">> = {
+  liste: { data: { titre: "Pointage du jour", elements: [{ nom: "Jules Girard", detail: "7 h 32" }, { nom: "Antoine Rizo", detail: "7 h 35" }, { nom: "Loïc Dubois", detail: "7 h 44" }], action: "Valider" }, x: 0.5, y: 0.5 },
+  notification: { data: { app: "TIM", titre: "Heures reçues au bureau", texte: "Prêtes pour la paie, sans ressaisie." }, x: 0.5, y: 0.4 },
+  bouton: { data: { bouton: "Pointer l'arrivée", confirmation: "Arrivée enregistrée" }, x: 0.5, y: 0.5 },
+  planning: { data: { titre: "Semaine du chantier", lignes: ["Gros œuvre", "Électricité", "Finitions"], jours: 5 }, x: 0.5, y: 0.5 },
+  fiche: { data: { lieu: "Chantier Les Terrasses", lignes: ["2 équipes sur place", "Planning à jour"] }, x: 0.5, y: 0.5 },
+  champ: { data: { libelle: "Heure d'arrivée", valeur: "7 h 32" }, x: 0.5, y: 0.5 },
+  badge: { data: { texte: "Validé" }, x: 0.5, y: 0.5 },
+  tap: { data: {}, x: 0.5, y: 0.55 },
+  surbrillance: { data: { forme: "rectangle" }, x: 0.5, y: 0.5, largeur: 0.7, hauteur: 0.12 },
+  fleche: { data: {}, x: 0.25, y: 0.3, x2: 0.65, y2: 0.6 },
+  soulignement: { data: {}, x: 0.5, y: 0.55, largeur: 0.6 },
+  titre: { data: { texte: "Fini la ressaisie du vendredi", mot_fort: "ressaisie", animation: "mot-a-mot" }, x: 0.5, y: 0.45 },
+  etiquette: { data: { texte: "Mis à jour pour tous" }, x: 0.5, y: 0.5 },
+  bulle: { data: { texte: "Tout le monde est là !" }, x: 0.5, y: 0.5 },
+  compteur: { data: { fact: 0, libelle: "" }, x: 0.5, y: 0.45 },
+  logo: { data: {}, x: 0.5, y: 0.5 },
+  cta: { data: {}, x: 0.5, y: 0.5 },
+  pastilles: { data: {}, x: 0.5, y: 0.5, largeur: 0.2 },
+  confettis: { data: {}, x: 0.5, y: 0.5 },
+};

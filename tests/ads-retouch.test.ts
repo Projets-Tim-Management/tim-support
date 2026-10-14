@@ -109,7 +109,7 @@ describe("le traitement", () => {
     return { payload: payload as never, writes, creaUpdates };
   }
   const usage = { input: 1000, output: 200, cacheRead: 0, cacheWrite: 0 };
-  const material = async () => ({ rushes: [], styles: [], inspirations: [], musiques: [], logo: "", elements: {} });
+  const material = async () => ({ rushes: [], styles: [], inspirations: [], musiques: [], logo: "", elements: { guide: {}, variantes: [] } });
 
   it("rien en file : rien ne se passe", async () => {
     expect(await processNextRetouch(fake(CREA, false).payload)).toBeNull();

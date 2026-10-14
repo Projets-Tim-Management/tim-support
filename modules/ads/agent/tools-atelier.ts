@@ -249,6 +249,7 @@ const monterVideo: AgentTool = {
                       type: "object",
                       properties: {
                         type: { type: "string", enum: [...ELEMENT_TYPES] },
+                        variante: { type: "number", description: "L'identifiant d'une variante active de l'atelier (voir « elements.variantes » dans lire_rushes), du même type ; omise, l'élément de base." },
                         data: { type: "object" },
                         x: { type: "number" },
                         y: { type: "number" },

@@ -531,3 +531,32 @@
 .ads-retouch__form textarea { width: 100%; resize: vertical; font: inherit; padding: 0.5rem 0.6rem; border-radius: 0.4rem; border: 1px solid var(--tim-border); background: var(--tim-white); }
 .ads-retouch__send { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 0.9rem; font-size: 0.8rem; }
 .ads-retouch__failed { display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+
+/* L'atelier des éléments : réglages, aperçu, fil d'amélioration. */
+.ads-elparams, .ads-elpreview, .ads-elthread { display: flex; flex-direction: column; gap: 0.6rem; margin: 1rem 0; padding: 1rem; border: 1px solid var(--tim-border); border-radius: 0.75rem; }
+.ads-elparams__title, .ads-elthread__head h4 { margin: 0; }
+.ads-elparams__hint, .ads-elthread__hint, .ads-elpreview__empty { margin: 0; font-size: 0.8rem; color: var(--tim-muted); }
+.ads-elparams__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.8rem; }
+.ads-elparams__item { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.6rem; border-radius: 0.5rem; background: var(--tim-gray-bg); font-size: 0.85rem; }
+.ads-elparams__item--custom { outline: 2px solid var(--tim-red); }
+.ads-elparams__item small { color: var(--tim-muted); }
+.ads-elparams__label { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+.ads-elparams__reset { border: none; background: none; color: var(--tim-red); cursor: pointer; font-size: 0.75rem; padding: 0; }
+.ads-elparams__range { display: flex; align-items: center; gap: 0.5rem; }
+.ads-elparams__range input { flex: 1; }
+.ads-elpreview__head, .ads-elthread__head, .ads-elthread__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; justify-content: space-between; }
+.ads-elpreview__video { max-height: 28rem; width: auto; align-self: flex-start; border-radius: 0.5rem; background: var(--tim-foreground); }
+.ads-elthread__list { display: flex; flex-direction: column; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+.ads-elthread__note { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.7rem 0.85rem; border-radius: 0.5rem; background: var(--tim-gray-bg); }
+.ads-elthread__note--proposition { border-left: 3px solid var(--tim-red); }
+.ads-elthread__note--decision { opacity: 0.8; font-size: 0.85rem; }
+.ads-elthread__meta { justify-content: flex-start; font-size: 0.8rem; color: var(--tim-muted); }
+.ads-elthread__body { margin: 0; white-space: pre-wrap; }
+.ads-elthread__params { margin: 0; padding-left: 1.2rem; font-size: 0.85rem; }
+.ads-elthread__outside { margin: 0; font-size: 0.85rem; font-style: italic; }
+.ads-elthread__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.ads-elthread__link { font-size: 0.85rem; }
+.ads-elthread__form { display: flex; flex-direction: column; gap: 0.4rem; }
+.ads-elthread__form textarea { width: 100%; resize: vertical; font: inherit; padding: 0.5rem 0.6rem; border-radius: 0.4rem; border: 1px solid var(--tim-border); background: var(--tim-white); }
+.ads-elthread__versions ol { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.5rem 0 0; padding: 0; list-style: none; font-size: 0.85rem; }
+.ads-elthread__versions li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }

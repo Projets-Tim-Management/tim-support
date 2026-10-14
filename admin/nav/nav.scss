@@ -137,6 +137,8 @@ $nav-icons: (
   "ad-styles":               "<path d='M12 3l9 5-9 5-9-5z'/><path d='M3 13l9 5 9-5'/><path d='M3 17.5l9 5 9-5'/>",
   /* Rushes : une pellicule — la matière première des montages. */
   "ad-rushes":               "<rect x='3' y='5' width='18' height='14' rx='2'/><path d='M7 5v14M17 5v14M3 9h4M3 15h4M17 9h4M17 15h4'/>",
+  /* Éléments : des calques empilés — les éléments animés posés sur les vidéos. */
+  "ad-elements":             "<rect x='4' y='4' width='12' height='9' rx='2'/><rect x='8' y='9' width='12' height='9' rx='2'/><circle cx='17' cy='6' r='2'/>",
   /* Inspirations : une ampoule — des pubs dont l'IA tire le style. */
   "ad-inspirations":         "<path d='M9 18h6M10 21h4'/><path d='M12 3a6 6 0 00-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0012 3z'/>",
   /* Consignes : une liste cochée — ce que l'agent doit respecter. */
