@@ -2648,7 +2648,7 @@ export interface AdCreative {
  */
 export interface AdMedia {
   id: number;
-  kind: 'logo' | 'police' | 'capture' | 'photo' | 'musique' | 'fond' | 'crea';
+  kind: 'logo' | 'police' | 'capture' | 'photo' | 'musique' | 'fond' | 'inspiration' | 'crea';
   /**
    * Ce que montre le fichier, en une phrase.
    */
@@ -5786,7 +5786,7 @@ export interface AdsSetting {
   createdAt?: string | null;
 }
 /**
- * Le ton, les interdits et les polices des publicités. Couleurs et logo principal : Système › Apparence. Captures, photos et polices : Médias publicitaires. Chiffres : Faits sourcés.
+ * La charte des publicités : ton, logos, couleurs, typographie, formes, mouvement et inspirations. Les agents la lisent à chaque génération et chaque montage.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ads-brand-kit".
@@ -5811,17 +5811,113 @@ export interface AdsBrandKit {
       }[]
     | null;
   /**
-   * Blanc ou monochrome. Le logo couleur est celui de Système › Apparence.
+   * Le logo complet, en couleurs.
+   */
+  logoOnLight?: (number | null) | AdMedia;
+  /**
+   * Blanc ou monochrome clair.
    */
   logoOnDark?: (number | null) | AdMedia;
   /**
-   * Sans police déposée, les gabarits utilisent Lato (celle du contrat).
+   * Carré, sans texte : coin d'une vidéo, petits espaces.
+   */
+  logoSymbol?: (number | null) | AdMedia;
+  palette?: {
+    /**
+     * La couleur de la marque.
+     */
+    primary?: string | null;
+    /**
+     * Boutons, mots mis en avant.
+     */
+    accent?: string | null;
+    /**
+     * Écrans de titre, fin de vidéo.
+     */
+    darkBg?: string | null;
+    /**
+     * Écrans aérés, cartes.
+     */
+    lightBg?: string | null;
+    /**
+     * En général blanc.
+     */
+    textOnDark?: string | null;
+    /**
+     * En général la principale ou un noir.
+     */
+    textOnLight?: string | null;
+  };
+  titleFont?:
+    | (
+        | 'montserrat'
+        | 'inter'
+        | 'poppins'
+        | 'archivo'
+        | 'archivo-black'
+        | 'bebas-neue'
+        | 'space-grotesk'
+        | 'dm-sans'
+        | 'manrope'
+        | 'lato'
+      )
+    | null;
+  bodyFont?:
+    | (
+        | 'montserrat'
+        | 'inter'
+        | 'poppins'
+        | 'archivo'
+        | 'archivo-black'
+        | 'bebas-neue'
+        | 'space-grotesk'
+        | 'dm-sans'
+        | 'manrope'
+        | 'lato'
+      )
+    | null;
+  titleCase?: ('normale' | 'majuscules') | null;
+  /**
+   * Facultatif : votre propre police (TTF ou OTF, licence autorisant la publicité), déposée dans Médias publicitaires.
    */
   fonts?:
     | {
         role: 'titre' | 'texte';
         weight?: number | null;
         file: number | AdMedia;
+        id?: string | null;
+      }[]
+    | null;
+  corners?: ('carres' | 'arrondis' | 'pilule') | null;
+  phoneFrame?: ('maquette' | 'ecran-seul' | 'incline') | null;
+  /**
+   * Aucun si vide.
+   */
+  graphics?: ('pastilles' | 'soulignements' | 'bandeaux')[] | null;
+  pace?: ('pose' | 'dynamique' | 'rapide') | null;
+  /**
+   * Coupe sèche si vide.
+   */
+  transitions?: ('coupe' | 'glisse' | 'zoom')[] | null;
+  /**
+   * La plupart des vidéos se regardent sans le son.
+   */
+  subtitles?: ('bandeau' | 'mot-a-mot' | 'aucun') | null;
+  /**
+   * Libre de droits. Sans musique, les vidéos sortent sans son.
+   */
+  music?: (number | null) | AdMedia;
+  endCard?: {
+    seconds?: number | null;
+    url?: string | null;
+    showLogo?: boolean | null;
+  };
+  inspirations?:
+    | {
+        verdict: 'aimer' | 'eviter';
+        image?: (number | null) | AdMedia;
+        link?: string | null;
+        why: string;
         id?: string | null;
       }[]
     | null;
@@ -6012,13 +6108,51 @@ export interface AdsBrandKitSelect<T extends boolean = true> {
         reason?: T;
         id?: T;
       };
+  logoOnLight?: T;
   logoOnDark?: T;
+  logoSymbol?: T;
+  palette?:
+    | T
+    | {
+        primary?: T;
+        accent?: T;
+        darkBg?: T;
+        lightBg?: T;
+        textOnDark?: T;
+        textOnLight?: T;
+      };
+  titleFont?: T;
+  bodyFont?: T;
+  titleCase?: T;
   fonts?:
     | T
     | {
         role?: T;
         weight?: T;
         file?: T;
+        id?: T;
+      };
+  corners?: T;
+  phoneFrame?: T;
+  graphics?: T;
+  pace?: T;
+  transitions?: T;
+  subtitles?: T;
+  music?: T;
+  endCard?:
+    | T
+    | {
+        seconds?: T;
+        url?: T;
+        showLogo?: T;
+      };
+  inspirations?:
+    | T
+    | {
+        verdict?: T;
+        image?: T;
+        link?: T;
+        why?: T;
         id?: T;
       };
   advertiser?: T;

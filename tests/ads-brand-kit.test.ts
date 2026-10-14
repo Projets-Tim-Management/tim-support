@@ -5,11 +5,12 @@ import { AdMedia } from "@/modules/ads/collections/AdMedia";
 import { AdsBrandKit } from "@/modules/ads/globals/AdsBrandKit";
 import { DEFAULT_TONE, testLabel } from "@/modules/ads/lib/dimensions";
 
-type AnyField = { name?: string; fields?: AnyField[]; validate?: (v: unknown, o: unknown) => unknown; defaultValue?: unknown; required?: boolean };
+type AnyField = { name?: string; fields?: AnyField[]; tabs?: { fields: AnyField[] }[]; validate?: (v: unknown, o: unknown) => unknown; defaultValue?: unknown; required?: boolean };
+/** Un champ par son nom, en descendant dans les lignes, groupes ET onglets (le Kit de marque est en onglets depuis le 14/10/2026). */
 const find = (fields: AnyField[], name: string): AnyField | undefined => {
   for (const f of fields) {
     if (f.name === name) return f;
-    const inner = f.fields && find(f.fields, name);
+    const inner = (f.fields && find(f.fields, name)) || (f.tabs && find(f.tabs.flatMap((t) => t.fields), name));
     if (inner) return inner;
   }
   return undefined;
@@ -61,8 +62,12 @@ describe("kit de marque", () => {
     expect(testLabel("ton")).toBe("test de ton");
   });
 
-  it("ne redemande ni les couleurs ni le logo principal (source unique : Apparence)", () => {
+  // Décision du 14/10/2026 (Charlie) : les couleurs des pubs vivent dans le kit, préremplies avec Apparence ;
+  // celles du contrat (brandPrimary…) et le logo du menu restent dans Apparence, sans doublon.
+  it("a sa propre palette, préremplie avec Apparence, sans redemander les couleurs du contrat", () => {
     const names = JSON.stringify(AdsBrandKit.fields);
-    expect(names).not.toMatch(/"name":"(colors|primary|brandPrimary|logo)"/);
+    expect(names).not.toMatch(/"name":"(brandPrimary|brandSecondary|brandRed|brandOther|companyLogo|logo)"/);
+    expect(find(AdsBrandKit.fields as AnyField[], "palette")).toBeDefined();
+    expect(find(AdsBrandKit.fields as AnyField[], "primary")?.defaultValue).toBe("#252B59");
   });
 });

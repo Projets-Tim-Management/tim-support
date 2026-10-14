@@ -132,6 +132,9 @@ import { default as default_c08243cbb0e32dd70b45a5afb5f6cbd4 } from '../../../ad
 import { default as default_72ee9fe55f81abe2c8ae550d52d0ab85 } from '../../../admin/fields/ColorField'
 import { EmailTemplatesBackLink as EmailTemplatesBackLink_7a3b3427a104dea3e6a7f18d27228e56 } from '../../../modules/dev/admin/EmailTemplatesBackLink'
 import { AnnounceEmailPreview as AnnounceEmailPreview_7677cf785fe8efda4b98a8d065538a81 } from '../../../modules/dev/admin/AnnounceEmailPreview'
+import { LogoPreview as LogoPreview_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
+import { PaletteCheck as PaletteCheck_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
+import { FontPreview as FontPreview_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
 import { default as default_5599fe28f2b3157f52fea861e6ba12e6 } from '../../../admin/graphics/Avatar'
 import { default as default_8224f9d0d872abe7f15fe4a0b0d49bd9 } from '../../../admin/nav/CustomNav'
 import { default as default_bd65fe58e0079c6c4581354ef4ec3555 } from '../../../admin/header/PartnerSwitcher'
@@ -294,6 +297,9 @@ export const importMap = {
   "/admin/fields/ColorField#default": default_72ee9fe55f81abe2c8ae550d52d0ab85,
   "/modules/dev/admin/EmailTemplatesBackLink#EmailTemplatesBackLink": EmailTemplatesBackLink_7a3b3427a104dea3e6a7f18d27228e56,
   "/modules/dev/admin/AnnounceEmailPreview#AnnounceEmailPreview": AnnounceEmailPreview_7677cf785fe8efda4b98a8d065538a81,
+  "/modules/ads/admin/BrandKitPreview#LogoPreview": LogoPreview_f97f8060092912987144671ff9edb2ae,
+  "/modules/ads/admin/BrandKitPreview#PaletteCheck": PaletteCheck_f97f8060092912987144671ff9edb2ae,
+  "/modules/ads/admin/BrandKitPreview#FontPreview": FontPreview_f97f8060092912987144671ff9edb2ae,
   "/admin/graphics/Avatar#default": default_5599fe28f2b3157f52fea861e6ba12e6,
   "/admin/nav/CustomNav#default": default_8224f9d0d872abe7f15fe4a0b0d49bd9,
   "/admin/header/PartnerSwitcher#default": default_bd65fe58e0079c6c4581354ef4ec3555,

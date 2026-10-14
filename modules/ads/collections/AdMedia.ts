@@ -23,6 +23,8 @@ export const AD_MEDIA_KINDS = [
   { label: "Photo", value: "photo" },
   { label: "Musique", value: "musique" },
   { label: "Fond généré", value: "fond" },
+  // Une pub qui plaît, ou à éviter : regardée par l'IA pour le style (Kit de marque › Inspirations).
+  { label: "Inspiration", value: "inspiration" },
   { label: "Créa rendue", value: "crea" },
 ] as const;
 

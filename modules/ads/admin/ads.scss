@@ -320,6 +320,28 @@
 .ads-rush-upload__info .tim-btn, .ads-rush-upload__info .tim-status-pill { align-self: flex-start; }
 .ads-rush-upload__error { margin: 0; color: var(--tim-red); font-size: 0.85rem; }
 
+/* Kit de marque : aperçus (logos sur leur fond, contrastes, polices). Les couleurs des
+   échantillons viennent de la palette saisie, en style inline : c'est ce qu'on vérifie. */
+.ads-kit-preview { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.5rem 0 1.5rem; }
+.ads-kit-preview__title { margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--tim-foreground); }
+.ads-kit-preview__hint { margin: 0; font-size: 0.8rem; color: var(--tim-muted); }
+.ads-kit-logos { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 0.75rem; }
+.ads-kit-logo { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; min-height: 9rem; margin: 0; padding: 1rem; border-radius: 0.75rem; border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); }
+.ads-kit-logo img { max-width: 80%; max-height: 4.5rem; object-fit: contain; }
+.ads-kit-logo figcaption { font-size: 0.75rem; opacity: 0.8; }
+.ads-kit-logo__empty { font-size: 0.8rem; opacity: 0.7; font-style: italic; }
+.ads-kit-contrast { display: flex; flex-direction: column; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+.ads-kit-contrast li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; font-size: 0.85rem; }
+.ads-kit-contrast__sample { display: inline-flex; align-items: center; justify-content: center; width: 3rem; height: 2rem; border-radius: 0.4rem; font-weight: 700; border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); }
+.ads-kit-contrast__label { flex: 1 1 12rem; }
+.ads-kit-contrast__verdict--ok { background: var(--tim-green-bg); color: var(--tim-green); }
+.ads-kit-contrast__verdict--titres { background: var(--tim-amber-bg); color: var(--tim-amber); }
+.ads-kit-contrast__verdict--illisible { background: var(--tim-red-bg); color: var(--tim-red); }
+.ads-kit-font { display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem; padding: 1.5rem; border-radius: 0.75rem; }
+.ads-kit-font strong { font-size: 1.9rem; line-height: 1.1; }
+.ads-kit-font span { font-size: 1rem; line-height: 1.45; max-width: 36rem; }
+.ads-kit-font em { padding: 0.45rem 1rem; border-radius: 999px; font-style: normal; font-weight: 700; font-size: 0.9rem; }
+
 /* Rushes : l'étape, en pastille (liste et fiche). Une couleur = une situation (voir rushStage). */
 .ads-rush-stage--gris { background: var(--tim-gray-bg); color: var(--tim-gray); }
 .ads-rush-stage--bleu { background: var(--tim-indigo-bg); color: var(--tim-indigo); }
