@@ -140,6 +140,16 @@ import * as migration_20261013_085023_naf_fiche_client from './20261013_085023_n
 import * as migration_20261013_091314_agent_consignes_carnet from './20261013_091314_agent_consignes_carnet';
 import * as migration_20261014_073832_ad_rushes from './20261014_073832_ad_rushes';
 import * as migration_20261014_092754_charte_pubs from './20261014_092754_charte_pubs';
+import * as migration_20261014_095314_recadrage_rushes from './20261014_095314_recadrage_rushes';
+import * as migration_20261014_095747_styles_pubs from './20261014_095747_styles_pubs';
+import * as migration_20261014_102048_video_creas from './20261014_102048_video_creas';
+import * as migration_20261014_112149_inspirations_musiques from './20261014_112149_inspirations_musiques';
+import * as migration_20261014_112244_inspirations_source from './20261014_112244_inspirations_source';
+import * as migration_20261014_114057_inspirations_collection from './20261014_114057_inspirations_collection';
+import * as migration_20261014_121705_logo_anime from './20261014_121705_logo_anime';
+import * as migration_20261014_124815_retouches from './20261014_124815_retouches';
+import * as migration_20261014_140652_atelier_elements from './20261014_140652_atelier_elements';
+import * as migration_20261014_145538_visage_elements_utilises from './20261014_145538_visage_elements_utilises';
 
 export const migrations = [
   {
@@ -850,6 +860,56 @@ export const migrations = [
   {
     up: migration_20261014_092754_charte_pubs.up,
     down: migration_20261014_092754_charte_pubs.down,
-    name: '20261014_092754_charte_pubs'
+    name: '20261014_092754_charte_pubs',
+  },
+  {
+    up: migration_20261014_095314_recadrage_rushes.up,
+    down: migration_20261014_095314_recadrage_rushes.down,
+    name: '20261014_095314_recadrage_rushes',
+  },
+  {
+    up: migration_20261014_095747_styles_pubs.up,
+    down: migration_20261014_095747_styles_pubs.down,
+    name: '20261014_095747_styles_pubs',
+  },
+  {
+    up: migration_20261014_102048_video_creas.up,
+    down: migration_20261014_102048_video_creas.down,
+    name: '20261014_102048_video_creas',
+  },
+  {
+    up: migration_20261014_112149_inspirations_musiques.up,
+    down: migration_20261014_112149_inspirations_musiques.down,
+    name: '20261014_112149_inspirations_musiques',
+  },
+  {
+    up: migration_20261014_112244_inspirations_source.up,
+    down: migration_20261014_112244_inspirations_source.down,
+    name: '20261014_112244_inspirations_source',
+  },
+  {
+    up: migration_20261014_114057_inspirations_collection.up,
+    down: migration_20261014_114057_inspirations_collection.down,
+    name: '20261014_114057_inspirations_collection',
+  },
+  {
+    up: migration_20261014_121705_logo_anime.up,
+    down: migration_20261014_121705_logo_anime.down,
+    name: '20261014_121705_logo_anime',
+  },
+  {
+    up: migration_20261014_124815_retouches.up,
+    down: migration_20261014_124815_retouches.down,
+    name: '20261014_124815_retouches',
+  },
+  {
+    up: migration_20261014_140652_atelier_elements.up,
+    down: migration_20261014_140652_atelier_elements.down,
+    name: '20261014_140652_atelier_elements',
+  },
+  {
+    up: migration_20261014_145538_visage_elements_utilises.up,
+    down: migration_20261014_145538_visage_elements_utilises.down,
+    name: '20261014_145538_visage_elements_utilises'
   },
 ];

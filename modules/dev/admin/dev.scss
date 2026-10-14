@@ -2110,3 +2110,7 @@ body.dev-gallery-mode {
   text-decoration: none;
   &:hover { color: var(--tim-primary); }
 }
+
+/* Ouvrir une demande dans Claude Code (VS Code). */
+.dev-claude-code { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
+.dev-claude-code small { font-size: 0.75rem; color: var(--tim-muted); }

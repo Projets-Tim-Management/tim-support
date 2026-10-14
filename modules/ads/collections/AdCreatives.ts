@@ -1,4 +1,4 @@
-import type { Access, CollectionBeforeChangeHook, CollectionConfig } from "payload";
+import type { Access, CollectionBeforeChangeHook, CollectionBeforeDeleteHook, CollectionConfig } from "payload";
 
 import { isAdmin } from "@/core/access";
 import { CTA_OPTIONS } from "@/modules/ads/lib/cta";
@@ -36,6 +36,11 @@ const derive: CollectionBeforeChangeHook = ({ data }) => {
   return { ...data, copy, ...(tests ? { isTest: tests.length > 0 } : {}) };
 };
 
+/** Une créa supprimée emporte l'historique de ses retouches (le lien est obligatoire). */
+const dropRetouches: CollectionBeforeDeleteHook = async ({ id, req }) => {
+  await req.payload.delete({ collection: "ad-retouches", where: { creative: { equals: id } }, overrideAccess: true, req });
+};
+
 const decision = { create: () => false, update: () => false };
 
 export const AdCreatives: CollectionConfig = {
@@ -51,7 +56,7 @@ export const AdCreatives: CollectionConfig = {
   access: { read: isAdmin, create: () => false, update: isAdmin, delete: deleteUndecided },
   disableDuplicate: true,
   defaultSort: "-createdAt",
-  hooks: { beforeChange: [derive] },
+  hooks: { beforeChange: [derive], beforeDelete: [dropRetouches] },
   fields: [
     { name: "angle", type: "text", label: "Angle", required: true, admin: { description: "L'idée en une ligne." } },
     {
@@ -63,6 +68,44 @@ export const AdCreatives: CollectionConfig = {
       admin: { readOnly: true, condition: (d) => Boolean(d?.requestedAngle) },
     },
     { name: "run", type: "relationship", relationTo: "ad-agent-runs", label: "Passage d'agent", index: true, admin: { readOnly: true, position: "sidebar", condition: (d) => Boolean(d?.run) } },
+    /**
+     * La vidéo de la créa (plan Publicité, §9 sexies, D3) : sa partition, rendue
+     * dans le style de la créa aux trois formats par le cron ads-renders (Sandbox
+     * Vercel). Écrite par le serveur seul.
+     */
+    {
+      name: "video",
+      type: "group",
+      label: "Vidéo",
+      // Écrite seulement par « Monter en vidéo » et le rendu (requestVideo, processNextRender), jamais par l'API.
+      access: decision,
+      admin: { condition: (d) => Boolean(d?.video?.status), readOnly: true },
+      fields: [
+        {
+          name: "status",
+          type: "select",
+          label: "État",
+          options: [
+            { label: "En attente de rendu", value: "en-attente" },
+            { label: "Rendu en cours", value: "en-cours" },
+            { label: "Prête", value: "prete" },
+            { label: "Échec", value: "echec" },
+          ],
+          index: true,
+        },
+        { name: "error", type: "text", label: "Motif de l'échec" },
+        { name: "score", type: "json", label: "Partition" },
+        // La musique de la vidéo, résolue au moment de la demander (celle du kit par défaut) ; vide : sans musique.
+        { name: "music", type: "relationship", relationTo: "ad-media", label: "Musique" },
+        { name: "renders", type: "json", label: "Fichiers rendus" },
+        // La photo des éléments du rendu : variante, nom, version et réglages du moment (pour l'analyse).
+        { name: "elements", type: "json", label: "Éléments utilisés" },
+        { name: "attempts", type: "number", label: "Essais", defaultValue: 0 },
+        { name: "renderedAt", type: "date", label: "Rendue le", admin: { date: { pickerAppearance: "dayAndTime" } } },
+        { name: "leaseUntil", type: "date", index: true, admin: { hidden: true } },
+      ],
+    },
+    { name: "style", type: "relationship", relationTo: "ad-styles", label: "Style", index: true, admin: { position: "sidebar", description: "Le style qui a rendu les visuels et la vidéo de cette créa." } },
     { name: "hook", type: "text", label: "Accroche du visuel", admin: { description: "Le texte posé sur l'image." } },
     {
       type: "row",

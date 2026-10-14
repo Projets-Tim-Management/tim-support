@@ -342,12 +342,61 @@
 .ads-kit-font span { font-size: 1rem; line-height: 1.45; max-width: 36rem; }
 .ads-kit-font em { padding: 0.45rem 1rem; border-radius: 999px; font-style: normal; font-weight: 700; font-size: 0.9rem; }
 
+/* Créa : la vidéo (style, montage, lecture aux trois formats). */
+.ads-video { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); }
+.ads-video__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+.ads-video__style { color: var(--tim-muted); font-size: 0.8rem; }
+.ads-video__error { margin: 0; color: var(--tim-red); font-size: 0.8rem; white-space: pre-line; }
+.ads-video__player { display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-start; }
+.ads-video__media { max-width: 100%; border-radius: 0.5rem; background: var(--tim-foreground); }
+.ads-video__media--9x16 { width: 13rem; aspect-ratio: 9 / 16; }
+.ads-video__media--4x5 { width: 15rem; aspect-ratio: 4 / 5; }
+.ads-video__media--1x1 { width: 16rem; aspect-ratio: 1; }
+.ads-video__formats, .ads-video__launch { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+.ads-video__launch select { padding: 0.4rem 0.5rem; border: 1px solid var(--tim-border); border-radius: 0.4rem; background: var(--tim-white); font: inherit; font-size: 0.82rem; max-width: 100%; }
+
 /* Rushes : l'étape, en pastille (liste et fiche). Une couleur = une situation (voir rushStage). */
 .ads-rush-stage--gris { background: var(--tim-gray-bg); color: var(--tim-gray); }
 .ads-rush-stage--bleu { background: var(--tim-indigo-bg); color: var(--tim-indigo); }
 .ads-rush-stage--orange { background: var(--tim-amber-bg); color: var(--tim-amber); }
 .ads-rush-stage--vert { background: var(--tim-green-bg); color: var(--tim-green); }
 .ads-rush-stage--rouge { background: var(--tim-red-bg); color: var(--tim-red); }
+
+/* Rushes : le recadrage (zone utile, zone à ne jamais couper, aperçu par format). */
+.ads-frame { display: flex; flex-direction: column; gap: 0.75rem; margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); border-radius: 0.75rem; background: var(--tim-white); }
+.ads-frame__head { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; color: var(--tim-muted); }
+.ads-frame__head strong { color: var(--tim-foreground); font-size: 0.95rem; }
+.ads-frame__modes { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.ads-frame__work { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+.ads-frame__canvas { position: relative; width: min(20rem, 100%); max-width: 100%; border-radius: 0.5rem; overflow: hidden; background: var(--tim-gray-bg); user-select: none; }
+.ads-frame__canvas > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
+.ads-frame__area { position: absolute; inset: 0; cursor: crosshair; touch-action: none; }
+.ads-frame__shade { position: absolute; inset: 0; background: color-mix(in srgb, var(--tim-foreground) 55%, transparent); pointer-events: none; }
+.ads-frame__rect { position: absolute; pointer-events: none; border-radius: 2px; }
+.ads-frame__rect--crop { border: 2px solid var(--tim-white); box-shadow: 0 0 0 1px var(--tim-foreground); }
+.ads-frame__rect--protect { border: 2px dashed var(--tim-primary); background: color-mix(in srgb, var(--tim-primary) 14%, transparent); }
+.ads-frame__rect--draft { border: 2px dashed var(--tim-indigo); }
+.ads-frame__side { display: flex; flex-direction: column; gap: 0.6rem; flex: 1 1 14rem; min-width: 0; }
+.ads-frame__legend { display: flex; flex-direction: column; gap: 0.3rem; margin: 0; padding: 0; list-style: none; font-size: 0.85rem; }
+.ads-frame__legend li { display: flex; align-items: center; gap: 0.5rem; }
+.ads-frame__swatch { width: 1.1rem; height: 0.8rem; border-radius: 2px; }
+.ads-frame__swatch--crop { border: 2px solid var(--tim-foreground); }
+.ads-frame__swatch--protect { border: 2px dashed var(--tim-primary); }
+.ads-frame__error { margin: 0; color: var(--tim-red); font-size: 0.85rem; }
+.ads-frame__thumbs { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.ads-frame__thumb { width: 3rem; height: 3rem; padding: 0; border: 2px solid transparent; border-radius: 0.35rem; overflow: hidden; background: var(--tim-gray-bg); cursor: pointer; }
+.ads-frame__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ads-frame__thumb--on { border-color: var(--tim-indigo); }
+.ads-frame__previews { display: flex; flex-direction: column; gap: 0.5rem; }
+.ads-frame__title { margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--tim-foreground); }
+.ads-frame__grid { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; }
+.ads-frame-preview { display: flex; flex-direction: column; gap: 0.3rem; margin: 0; width: 9rem; font-size: 0.75rem; color: var(--tim-muted); }
+.ads-frame-preview__box { position: relative; width: 100%; max-width: 100%; border-radius: 0.5rem; overflow: hidden; background: var(--tim-gray-bg); }
+.ads-frame-preview__box--fit { background: var(--tim-foreground); }
+.ads-frame-preview__view { position: absolute; overflow: hidden; }
+.ads-frame-preview__view img { position: absolute; max-width: none; }
+.ads-frame-preview em { font-style: normal; color: var(--tim-amber); }
+.ads-frame__hint { margin: 0; font-size: 0.8rem; color: var(--tim-muted); }
 
 /* Rushes : ce que voient les agents (images clés, plans, description IA). */
 .ads-rush-insight { display: flex; flex-direction: column; gap: 0.6rem; margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px solid color-mix(in srgb, var(--tim-border) 70%, transparent); border-radius: 0.75rem; background: var(--tim-white); }
@@ -459,3 +508,66 @@
 /* Colonne « 7 derniers jours » de la liste des campagnes. */
 .ads-kpis { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ads-kpis--empty { color: var(--tim-muted); }
+
+/* Le contrôle du logo animable (Kit de marque › Logos). */
+.ads-logo-check { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.25rem 0 1rem; }
+.ads-logo-check__notes { margin: 0; padding-left: 1.2rem; font-size: 0.85rem; color: var(--tim-muted); }
+
+/* Les retouches d'une créa (historique des consignes, version d'avant, demande suivante). */
+.ads-retouch { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.9rem 1rem; border-top: 1px solid var(--tim-border); }
+.ads-retouch__title { margin: 0; font-size: 0.9rem; }
+.ads-retouch__title small { color: var(--tim-muted); font-weight: 400; }
+.ads-retouch__list { display: flex; flex-direction: column; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+.ads-retouch__item { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.6rem 0.75rem; border-radius: 0.5rem; background: var(--tim-gray-bg); }
+.ads-retouch__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.ads-retouch__meta { font-size: 0.75rem; color: var(--tim-muted); }
+.ads-retouch__instruction { margin: 0; font-style: italic; }
+.ads-retouch__summary { margin: 0; font-size: 0.85rem; }
+.ads-retouch__before { font-size: 0.8rem; }
+.ads-retouch__before p { margin: 0.25rem 0; }
+.ads-retouch__thumbs { display: flex; gap: 0.4rem; margin: 0.4rem 0; }
+.ads-retouch__thumbs img { height: 4.5rem; width: auto; border-radius: 0.3rem; border: 1px solid var(--tim-border); }
+.ads-retouch__form { display: flex; flex-direction: column; gap: 0.4rem; }
+.ads-retouch__form textarea { width: 100%; resize: vertical; font: inherit; padding: 0.5rem 0.6rem; border-radius: 0.4rem; border: 1px solid var(--tim-border); background: var(--tim-white); }
+.ads-retouch__send { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 0.9rem; font-size: 0.8rem; }
+.ads-retouch__failed { display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+
+/* L'atelier des éléments : réglages, aperçu, fil d'amélioration. */
+.ads-elparams, .ads-elpreview, .ads-elthread { display: flex; flex-direction: column; gap: 0.6rem; margin: 1rem 0; padding: 1rem; border: 1px solid var(--tim-border); border-radius: 0.75rem; }
+.ads-elparams__title, .ads-elthread__head h4 { margin: 0; }
+.ads-elparams__hint, .ads-elthread__hint, .ads-elpreview__empty { margin: 0; font-size: 0.8rem; color: var(--tim-muted); }
+.ads-elparams__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.8rem; }
+.ads-elparams__item { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.6rem; border-radius: 0.5rem; background: var(--tim-gray-bg); font-size: 0.85rem; }
+.ads-elparams__item--custom { outline: 2px solid var(--tim-red); }
+.ads-elparams__item small { color: var(--tim-muted); }
+.ads-elparams__label { display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+.ads-elparams__reset { border: none; background: none; color: var(--tim-red); cursor: pointer; font-size: 0.75rem; padding: 0; }
+.ads-elparams__range { display: flex; align-items: center; gap: 0.5rem; }
+.ads-elparams__range input { flex: 1; }
+.ads-elpreview__head, .ads-elthread__head, .ads-elthread__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; justify-content: space-between; }
+.ads-elpreview__video { max-height: 28rem; width: auto; align-self: flex-start; border-radius: 0.5rem; background: var(--tim-foreground); }
+.ads-elthread__list { display: flex; flex-direction: column; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+.ads-elthread__note { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.7rem 0.85rem; border-radius: 0.5rem; background: var(--tim-gray-bg); }
+.ads-elthread__note--proposition { border-left: 3px solid var(--tim-red); }
+.ads-elthread__note--decision { opacity: 0.8; font-size: 0.85rem; }
+.ads-elthread__meta { justify-content: flex-start; font-size: 0.8rem; color: var(--tim-muted); }
+.ads-elthread__body { margin: 0; white-space: pre-wrap; }
+.ads-elthread__params { margin: 0; padding-left: 1.2rem; font-size: 0.85rem; }
+.ads-elthread__outside { margin: 0; font-size: 0.85rem; font-style: italic; }
+.ads-elthread__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.ads-elthread__link { font-size: 0.85rem; }
+.ads-elthread__form { display: flex; flex-direction: column; gap: 0.4rem; }
+.ads-elthread__form textarea { width: 100%; resize: vertical; font: inherit; padding: 0.5rem 0.6rem; border-radius: 0.4rem; border: 1px solid var(--tim-border); background: var(--tim-white); }
+.ads-elthread__versions ol { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.5rem 0 0; padding: 0; list-style: none; font-size: 0.85rem; }
+.ads-elthread__versions li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.ads-elpreview__panes { display: flex; flex-wrap: wrap; gap: 1.2rem; }
+.ads-elpreview__pane { display: flex; flex-direction: column; gap: 0.4rem; margin: 0; width: 270px; }
+.ads-elpreview__pane figcaption { font-size: 0.78rem; color: var(--tim-muted); }
+.ads-elpreview__pane .ads-elpreview__video { width: 270px; height: 480px; max-height: none; object-fit: cover; }
+.ads-elpreview__loading { width: 270px; height: 480px; display: flex; align-items: center; justify-content: center; border-radius: 0.5rem; background: var(--tim-gray-bg); color: var(--tim-muted); font-size: 0.85rem; text-align: center; padding: 1rem; }
+.ads-elparams__swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; }
+.ads-elparams__swatch { width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 1px solid var(--tim-border); cursor: pointer; padding: 0; font-size: 0.7rem; font-weight: 700; color: var(--tim-foreground); background: var(--tim-white); }
+.ads-elparams__swatch--on { outline: 3px solid var(--tim-foreground); outline-offset: 2px; }
+.ads-elparams__swatch-name { font-size: 0.75rem; color: var(--tim-muted); margin-left: 0.2rem; }
+.ads-elparams__swatch--custom { position: relative; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; background: conic-gradient(var(--tim-red), var(--tim-amber), var(--tim-green), var(--tim-teal), var(--tim-purple), var(--tim-red)); color: var(--tim-white); }
+.ads-elparams__swatch--custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }

@@ -6,6 +6,9 @@ import { clip, type AgentTool, type ToolContext, type ToolOutcome } from "@/modu
 import type { Id } from "@/modules/ads/agent/types";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
 import { eur } from "@/modules/ads/lib/spend";
+import { MAX_VARIANTS } from "@/modules/ads/video/mount";
+import { BACKGROUNDS, ELEMENT_TYPES, ENTRIES, EXITS, MOVES } from "@/modules/ads/video/elements";
+import { MAX_CAPTION_CHARS, MAX_OPENING_CHARS, MAX_SHOT, MAX_TOTAL, MIN_SHOT, MIN_TOTAL, MIN_ZOOM } from "@/modules/ads/video/score";
 
 /**
  * Les outils qui passent par l'atelier de créas (plan Publicité, §9 quater,
@@ -180,6 +183,126 @@ const rendreVisuels: AgentTool = {
       return { kind: "ok", output: r, line: `${who(ctx)} rend les visuels de la créa ${String(input.crea)} (gabarit « ${r.template} », ${r.visuals} format(s)).` };
     } catch (e) {
       return errorOf(ctx, e, "le rendu des visuels");
+    }
+  },
+};
+
+const lireRushes: AgentTool = {
+  definition: {
+    name: "lire_rushes",
+    description:
+      "La matière des vidéos : les rushes prêts (écrans de l'app, chantier…) avec ce qu'on y voit, la description détaillée validée et ses plans repérés, la durée et le recadrage (zone utile, zone à ne jamais couper) ; les styles actifs, avec quand employer chacun et ce que le moteur en fait (un zoom ou un sous-titre que le style ignore ne sert à rien) ; les musiques, avec quand les employer et leur tempo ; les inspirations de Charlie — des pubs à imiter ou à éviter, réduites à leur fiche de style (elles ne se montent jamais) ; ce que permet le logo ; et le vocabulaire des éléments animés (sans fond, à poser sur n'importe quel fond), avec leurs données.",
+    input_schema: { type: "object", properties: {} },
+  },
+  async run(ctx) {
+    const m = await ctx.deps.atelier.videoMaterial();
+    return {
+      kind: "ok",
+      output: m,
+      line: `${who(ctx)} passe en revue ${m.rushes.length} rush(es) prêt(s), ${m.styles.length} style(s), ${m.musiques.length} musique(s)${m.inspirations.length ? ` et ${m.inspirations.length} inspiration(s)` : ""}.`,
+    };
+  },
+};
+
+const RECT = { type: "object", properties: { x: { type: "number" }, y: { type: "number" }, w: { type: "number" }, h: { type: "number" } }, description: "En fractions de l'image (0 à 1)." } as const;
+
+const monterVideo: AgentTool = {
+  definition: {
+    name: "monter_video",
+    description: [
+      `Monte la vidéo d'une créa : tu écris la partition (les plans, dans l'ordre), le moteur la rend aux trois formats Meta. Tu peux tester plusieurs styles sur une musique, OU un style sur plusieurs musiques — jamais les deux à la fois —, ${MAX_VARIANTS} vidéos au plus.`,
+      "La première variante va sur la créa ; chaque suivante crée une copie étiquetée « test de style » ou « test de musique » (même angle, mêmes textes), comptée dans le quota de la semaine.",
+      "Sur une musique au tempo connu, le moteur cale chaque coupe sur le temps le plus proche et fait tomber les mots de l'ouverture sur les temps : écris des durées proches de multiples du temps (60 / BPM). Sans musique précisée, c'est celle du Kit de marque.",
+      `Le code vérifie la partition avant tout rendu : ${MIN_TOTAL} à ${MAX_TOTAL} s au total, plans de ${MIN_SHOT} à ${MAX_SHOT} s, au moins un plan qui montre le logiciel (rush, ou plan composé sur un rush ou avec un élément d'interface), aucun élément hors du cadre ni opaque sur la zone protégée d'un rush dans aucun format, une seule fin et en dernier, des rushes prêts pris dans leur durée, aucun zoom plus serré que ${MIN_ZOOM * 100} % ni qui coupe la zone protégée, aucun chiffre absent des faits sourcés et de l'offre, aucune mention interdite. Un refus dit pourquoi : corrige et rappelle.`,
+      "Le rendu prend quelques minutes, sans coût IA ; la vidéo apparaît sur la carte de la créa.",
+    ].join(" "),
+    input_schema: {
+      type: "object",
+      properties: {
+        crea: { type: ["number", "string"] },
+        styles: { type: "array", items: { type: "number" }, minItems: 1, maxItems: MAX_VARIANTS, description: "Les identifiants des styles (voir lire_rushes), le préféré d'abord." },
+        musiques: { type: "array", items: { type: "number" }, minItems: 1, maxItems: MAX_VARIANTS, description: "Les identifiants des musiques (voir lire_rushes), la préférée d'abord. Omis : la musique du Kit de marque." },
+        partition: {
+          type: "object",
+          properties: {
+            shots: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  kind: {
+                    type: "string",
+                    enum: ["ouverture", "rush", "preuve", "compo", "logo", "fin"],
+                    description:
+                      "compo : un plan composé — un fond et des éléments animés posés dessus (voir « elements » dans lire_rushes). logo : le logo seul, animé — une signature.",
+                  },
+                  fond: {
+                    type: "object",
+                    description: "compo : le fond. type : style (fond du style), couleur (couleur : principale, accent, sombre, clair), rush (rush, from, to, zoom, flou, voile 0 à 0,7), image (media, flou, voile).",
+                    properties: { type: { type: "string", enum: [...BACKGROUNDS] } },
+                  },
+                  elements: {
+                    type: "array",
+                    maxItems: 8,
+                    description: "compo : les éléments, chacun placé par son centre (x, y en fractions du cadre, 0 à 1), sa largeur (fraction du cadre), son début et sa fin (secondes dans le plan), son entrée, sa sortie et son mouvement.",
+                    items: {
+                      type: "object",
+                      properties: {
+                        type: { type: "string", enum: [...ELEMENT_TYPES] },
+                        variante: { type: "number", description: "L'identifiant d'une variante active de l'atelier (voir « elements.variantes » dans lire_rushes), du même type ; omise, l'élément de base." },
+                        data: { type: "object" },
+                        x: { type: "number" },
+                        y: { type: "number" },
+                        largeur: { type: "number" },
+                        hauteur: { type: "number", description: "surbrillance : la hauteur de la zone." },
+                        x2: { type: "number", description: "fleche : le point d'arrivée." },
+                        y2: { type: "number" },
+                        debut: { type: "number" },
+                        fin: { type: "number" },
+                        entree: { type: "string", enum: [...ENTRIES] },
+                        sortie: { type: "string", enum: [...EXITS] },
+                        mouvement: { type: "string", enum: [...MOVES] },
+                      },
+                      required: ["type", "x", "y", "debut"],
+                    },
+                  },
+                  seconds: { type: "number" },
+                  text: { type: "string", description: `ouverture : l'accroche, ${MAX_OPENING_CHARS} caractères au plus.` },
+                  highlight: { type: "string", description: "ouverture : le mot à faire ressortir (dans le texte)." },
+                  sub: { type: "string", description: "ouverture : une ligne sous l'accroche." },
+                  rush: { type: "number", description: "rush : l'identifiant du rush." },
+                  from: { type: "number", description: "rush : début du passage, en secondes." },
+                  to: { type: "number", description: "rush : fin du passage, en secondes." },
+                  zoom: { ...RECT, description: "rush : la zone à montrer de près, en fractions de l'image ; jamais hors de la zone utile ni coupant la zone protégée." },
+                  caption: { type: "string", description: `rush : le sous-titre, ${MAX_CAPTION_CHARS} caractères au plus.` },
+                  fact: { type: "number", description: "preuve : l'identifiant du fait sourcé (voir lire_brief)." },
+                  line: { type: "string", description: "fin : une phrase au-dessus du bouton." },
+                },
+                required: ["kind", "seconds"],
+              },
+            },
+          },
+          required: ["shots"],
+        },
+        justification: { type: "string", description: "Pourquoi ce montage et ces styles pour cet angle." },
+      },
+      required: ["crea", "styles", "partition", "justification"],
+    },
+  },
+  async run(ctx, input) {
+    const styles = (Array.isArray(input.styles) ? input.styles : []).map(idOf);
+    try {
+      const musics = Array.isArray(input.musiques) ? input.musiques.map(idOf) : undefined;
+      const r = await ctx.deps.atelier.video(ctx.run.campaign, idOf(input.crea), { styles, musics, score: input.partition });
+      const tests = r.creas.filter((c) => c.test).length;
+      const label = (c: (typeof r.creas)[number]) => `« ${clip(c.styleNom, 30)} »${c.musiqueNom ? ` sur « ${clip(c.musiqueNom, 30)} »` : ", sans musique"}`;
+      return {
+        kind: "ok",
+        output: r,
+        line: `${who(ctx)} monte la vidéo de la créa ${String(input.crea)} : ${r.creas.map(label).join(" ; ")}${tests ? ` (${tests} test(s))` : ""}${r.ecartes.length ? ` — ${r.ecartes.length} variante(s) écartée(s) : quota` : ""}.`,
+      };
+    } catch (e) {
+      return errorOf(ctx, e, "le montage vidéo");
     }
   },
 };
@@ -392,6 +515,8 @@ export const ATELIER_TOOLS: AgentTool[] = [
   lireBrief,
   genererTextes,
   rendreVisuels,
+  lireRushes,
+  monterVideo,
   verifierCrea,
   jugerCrea,
   proposerPositionnement,

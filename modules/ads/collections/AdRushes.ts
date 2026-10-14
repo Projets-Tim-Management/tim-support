@@ -1,7 +1,9 @@
 import type { CollectionAfterDeleteHook, CollectionBeforeChangeHook, CollectionConfig } from "payload";
 
 import { isAdmin } from "@/core/access";
-import { isAppSource, isRushBlobUrl, mediaTypeOf, RUSH_FEATURES, RUSH_SOURCES, RUSH_STATUSES } from "@/modules/ads/lib/rushes";
+import { validateFraming } from "@/modules/ads/lib/framing";
+import { isAppSource, isInspiration, isRushBlobUrl, mediaTypeOf, RUSH_FEATURES, RUSH_SOURCES, RUSH_STATUSES, RUSH_USES } from "@/modules/ads/lib/rushes";
+import { INSPIRATION_VERDICTS } from "@/modules/ads/lib/style";
 
 /**
  * Rushes (plan Publicité, §9 sexies) : les vidéos et images que Charlie
@@ -19,11 +21,17 @@ import { isAppSource, isRushBlobUrl, mediaTypeOf, RUSH_FEATURES, RUSH_SOURCES, R
  */
 
 /** Ce qu'on sait du fichier déposé, et le remise en file quand il change. */
-const prepare: CollectionBeforeChangeHook = ({ data, originalDoc, operation }) => {
+export const prepare: CollectionBeforeChangeHook = ({ data, originalDoc, operation }) => {
   if (!data) return data;
   const original = { ...(originalDoc?.original ?? {}), ...(data.original ?? {}) } as { url?: string; contentType?: string };
   if (!isRushBlobUrl(original.url)) throw new Error("Déposez d'abord le fichier : il n'a pas été envoyé au stockage.");
   const out: Record<string, unknown> = { ...data, mediaType: mediaTypeOf(original.contentType) };
+  // Le recadrage tracé sur la fiche : vérifié ici, pas seulement à l'écran (une API pourrait l'écrire).
+  if (data.framing !== undefined && data.framing !== null) {
+    const v = validateFraming(data.framing);
+    if (!v.ok) throw new Error(v.error);
+    out.framing = v.framing;
+  }
   const replaced = operation === "update" && originalDoc?.original?.url && original.url !== originalDoc.original.url;
   if (operation === "create" || replaced) {
     // Un nouveau fichier : tout ce qui venait de l'ancien est caduc.
@@ -33,8 +41,10 @@ const prepare: CollectionBeforeChangeHook = ({ data, originalDoc, operation }) =
   return out;
 };
 
-/** Supprimer une fiche supprime ses fichiers : un rush abandonné ne reste pas en ligne. */
-const deleteFiles: CollectionAfterDeleteHook = async ({ doc, req }) => {
+/** Supprimer une fiche supprime ses fichiers : un rush abandonné ne reste pas en ligne. Sert aussi aux inspirations. */
+export const deleteFiles: CollectionAfterDeleteHook = async ({ doc, req, context }) => {
+  // Une fiche déplacée vers une autre collection (scripts/ads-inspirations-separation.ts) garde ses fichiers.
+  if (context?.keepFiles) return doc;
   const urls = [
     doc?.original?.url,
     doc?.working?.url,
@@ -61,7 +71,7 @@ export const AdRushes: CollectionConfig = {
     defaultColumns: ["title", "etat", "source", "mediaType", "updatedAt"],
     group: "Publicité",
     description:
-      "La matière première des vidéos : écrans de l'app, chantier, bureau. Le fichier d'origine est conservé tel quel ; les agents en tirent leurs montages.",
+      "La matière première des vidéos : écrans de l'app, chantier, bureau. Le fichier d'origine est conservé tel quel ; les agents en tirent leurs montages. Les pubs qui vous inspirent vont dans Publicité › Inspirations.",
   },
   access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
   defaultSort: "-createdAt",
@@ -82,11 +92,41 @@ export const AdRushes: CollectionConfig = {
         { name: "size", type: "number" },
       ],
     },
+    {
+      name: "use",
+      type: "radio",
+      label: "Usage",
+      options: [...RUSH_USES],
+      defaultValue: "matiere",
+      required: true,
+      index: true,
+      // Les inspirations ont leur collection (ad-inspirations) : ce champ et les trois suivants ne servent plus, gardés en base
+      // jusqu'au nettoyage (migration destructive, avec l'accord de Charlie).
+      admin: { hidden: true },
+    },
     { name: "title", type: "text", label: "Nom", required: true, admin: { placeholder: "Pointage du matin, équipe gros œuvre" } },
     {
       type: "row",
+      admin: { condition: (d) => isInspiration(d), hidden: true },
       fields: [
-        { name: "source", type: "select", label: "Source", options: [...RUSH_SOURCES], required: true, index: true, admin: { width: "50%" } },
+        { name: "verdict", type: "select", label: "Verdict", options: [...INSPIRATION_VERDICTS], defaultValue: "aimer", required: true, admin: { width: "30%" } },
+        { name: "link", type: "text", label: "Lien (facultatif)", admin: { width: "70%", placeholder: "Bibliothèque publicitaire Meta, Instagram…" } },
+      ],
+    },
+    {
+      name: "why",
+      type: "textarea",
+      label: "Ce qui plaît, ou pas",
+      required: true,
+      maxLength: 600,
+      admin: { condition: (d) => isInspiration(d), hidden: true },
+    },
+    {
+      type: "row",
+      admin: { condition: (d) => !isInspiration(d) },
+      fields: [
+        // La condition est AUSSI sur le champ : posée sur la seule rangée, la colonne resterait obligatoire en base.
+        { name: "source", type: "select", label: "Source", options: [...RUSH_SOURCES], required: true, index: true, admin: { width: "50%", condition: (d) => !isInspiration(d) } },
         { name: "features", type: "select", hasMany: true, label: "Fonctionnalités montrées", options: [...RUSH_FEATURES], admin: { width: "50%" } },
       ],
     },
@@ -97,10 +137,14 @@ export const AdRushes: CollectionConfig = {
       required: true,
       maxLength: 600,
       admin: {
+        condition: (d) => !isInspiration(d),
         placeholder: "Un chef d'équipe pointe l'arrivée de 3 compagnons, puis envoie la journée au bureau.",
         description: "Quelques phrases : c'est ce qui permet aux agents de choisir ce rush et d'en tirer le bon passage.",
       },
     },
+    // Le recadrage : zone utile et zone à ne jamais couper, tracées sur l'image (D1d). Sans objet pour une inspiration.
+    { name: "framingTool", type: "ui", admin: { condition: (d) => !isInspiration(d), components: { Field: "/modules/ads/admin/RushFramingField#RushFramingField" } } },
+    { name: "framing", type: "json", label: "Recadrage", admin: { hidden: true } },
     // Ce que l'IA voit du rush converti : images clés, plans, description à valider (D1c).
     { name: "insight", type: "ui", admin: { components: { Field: "/modules/ads/admin/RushInsightPanel#RushInsightPanel" } } },
     {
@@ -110,17 +154,18 @@ export const AdRushes: CollectionConfig = {
           name: "origin",
           type: "text",
           label: "Origine et droits",
-          validate: (v: unknown, { siblingData }: { siblingData: { source?: string } }) =>
-            isAppSource(siblingData?.source) || (typeof v === "string" && v.trim()) ? true : "Origine et droits d'usage publicitaire obligatoires (banque d'images, tournage TIM…).",
-          admin: { width: "60%", placeholder: "Tournage TIM, Pexels (licence libre)…" },
+          // Une inspiration n'est jamais diffusée : ses droits ne sont pas en jeu.
+          validate: (v: unknown, { data, siblingData }: { data: { use?: string }; siblingData: { source?: string } }) =>
+            isInspiration(data) || isAppSource(siblingData?.source) || (typeof v === "string" && v.trim()) ? true : "Origine et droits d'usage publicitaire obligatoires (banque d'images, tournage TIM…).",
+          admin: { width: "60%", placeholder: "Tournage TIM, Pexels (licence libre)…", condition: (d) => !isInspiration(d) },
         },
         {
           name: "noRealData",
           type: "checkbox",
           label: "Aucune donnée réelle visible",
-          validate: (v: unknown, { siblingData }: { siblingData: { source?: string } }) =>
-            !isAppSource(siblingData?.source) || v === true ? true : "À vérifier avant d'importer un écran de l'app : aucun nom, chiffre ou client réel.",
-          admin: { width: "40%", condition: (_, s) => isAppSource(s?.source) },
+          validate: (v: unknown, { data, siblingData }: { data: { use?: string }; siblingData: { source?: string } }) =>
+            isInspiration(data) || !isAppSource(siblingData?.source) || v === true ? true : "À vérifier avant d'importer un écran de l'app : aucun nom, chiffre ou client réel.",
+          admin: { width: "40%", condition: (d, s) => !isInspiration(d) && isAppSource(s?.source) },
         },
       ],
     },

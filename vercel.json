@@ -59,6 +59,18 @@
     {
       "path": "/api/cron/ads-rushes",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/ads-renders",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/ads-retouches",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/ads-storage",
+      "schedule": "30 3 * * *"
     }
   ]
 }

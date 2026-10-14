@@ -61,10 +61,40 @@ export const TRANSITIONS = [
   { label: "Zoom", value: "zoom" },
 ] as const;
 
+/** Comment le logo arrive dans une vidéo, quand il est déposé en SVG à calques (Kit de marque › Logos). */
+export const LOGO_ANIMATIONS = [
+  { label: "Construction : élément par élément", value: "construction" },
+  { label: "Fondu", value: "fondu" },
+  { label: "Aucune (logo posé)", value: "aucune" },
+] as const;
+
+/** Pour un style : reprendre la police (ou la casse) du Kit de marque plutôt que d'en imposer une. */
+export const FROM_KIT = { label: "Celle du Kit de marque", value: "kit" } as const;
+
 export const SUBTITLE_STYLES = [
   { label: "En bandeau", value: "bandeau" },
   { label: "Mot à mot surligné", value: "mot-a-mot" },
   { label: "Aucun", value: "aucun" },
+] as const;
+
+/** Comment la pub s'ouvre : les deux premières secondes, celles qui arrêtent le pouce. */
+export const OPENINGS = [
+  { label: "Titre qui s'écrit mot à mot", value: "titre-mot-a-mot" },
+  { label: "Le problème, en grand sur un aplat", value: "aplat-probleme" },
+  { label: "Titre posé, avec une phrase d'appui", value: "titre-pose" },
+] as const;
+
+export const BACKGROUNDS = [
+  { label: "Fond sombre", value: "sombre" },
+  { label: "Fond clair", value: "clair" },
+  { label: "Aplats de couleur (accent et sombre)", value: "aplats" },
+] as const;
+
+/** Comment une preuve chiffrée (un fait sourcé) apparaît. */
+export const PROOF_STYLES = [
+  { label: "Une ligne discrète", value: "ligne" },
+  { label: "Le chiffre en géant", value: "chiffre-geant" },
+  { label: "Le chiffre et sa source", value: "chiffre-source" },
 ] as const;
 
 export const INSPIRATION_VERDICTS = [

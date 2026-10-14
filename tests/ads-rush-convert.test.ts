@@ -97,7 +97,7 @@ describe("le cycle d'un rush", () => {
     const r = await processNextRush(payload, { convertVideo: async () => outputs, store, describe });
     expect(r).toEqual({ id: 7, outcome: "pret" });
     expect(store.mock.calls.map((c) => c[0])).toEqual(["ads/rushes/travail/7/travail.mp4", "ads/rushes/travail/7/vignette.jpg", "ads/rushes/travail/7/image-1.jpg", "ads/rushes/travail/7/image-2.jpg"]);
-    expect(describe).toHaveBeenCalledWith(payload, 7);
+    expect(describe).toHaveBeenCalledWith(payload, 7, "ad-rushes");
     expect(updates[0]).toMatchObject({
       processing: { status: "pret", error: null, leaseUntil: null },
       working: { url: "https://cdn/ads/rushes/travail/7/travail.mp4", keyframes: [{ atSec: 1 }, { atSec: 3 }], meta: { orientation: "vertical" } },
@@ -130,5 +130,21 @@ describe("le cycle d'un rush", () => {
     };
     expect(await processNextRush(payload, { convertVideo: tooLong, store, describe })).toMatchObject({ outcome: "echec" });
     expect(updates[0]).toMatchObject({ processing: { status: "echec" } });
+  });
+});
+
+describe("une inspiration suit la même chaîne, dans sa collection", () => {
+  it("verrou sur sa table, sorties dans son dossier, description en fiche de style", async () => {
+    const execute = vi.fn(async () => ({ rows: [{ id: 3, original_url: "https://x.public.blob.vercel-storage.com/ads/rushes/a.png", original_content_type: "image/png", media_type: "image", processing_attempts: 1 }] }));
+    const update = vi.fn(async () => ({}));
+    const payload = { db: { drizzle: { execute } }, update, logger: { warn: vi.fn(), error: vi.fn() } } as never;
+    const describe = vi.fn(async () => ({}));
+    const store = vi.fn(async (p: string) => `https://cdn/${p}`);
+    const out = { meta: { kind: "image" as const, durationSec: null, width: 10, height: 10, orientation: "carre" as const, fps: null, hasAudio: false, videoCodec: null, hdr: false }, working: { data: Buffer.from("x"), contentType: "image/png", ext: "png" }, poster: Buffer.from("p"), keyframes: [{ atSec: 0, data: Buffer.from("p") }] };
+    expect(await processNextRush(payload, { convertImage: async () => out, store, describe }, "ad-inspirations")).toMatchObject({ id: 3, outcome: "pret" });
+    expect(JSON.stringify(execute.mock.calls[0])).toContain("ad_inspirations");
+    expect(store.mock.calls[0][0]).toMatch(/^ads\/inspirations\/travail\/3\//);
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ collection: "ad-inspirations", id: 3 }));
+    expect(describe).toHaveBeenCalledWith(payload, 3, "ad-inspirations");
   });
 });

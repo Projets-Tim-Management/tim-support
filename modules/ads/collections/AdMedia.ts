@@ -1,6 +1,7 @@
-import type { CollectionBeforeValidateHook, CollectionConfig } from "payload";
+import type { CollectionBeforeChangeHook, CollectionBeforeOperationHook, CollectionBeforeValidateHook, CollectionConfig } from "payload";
 
 import { isAdmin } from "@/core/access";
+import { BEAT_STATUSES } from "@/modules/ads/video/beat";
 
 /**
  * Médias publicitaires (plan Publicité, §9 ter) — la matière des créas et les
@@ -21,6 +22,8 @@ export const AD_MEDIA_KINDS = [
   { label: "Police", value: "police" },
   { label: "Capture de l'app", value: "capture" },
   { label: "Photo", value: "photo" },
+  // Un visage pour les avatars des éléments de motion design (liste qui se coche…) : photo libre de droits ou générée.
+  { label: "Visage (avatars des éléments)", value: "visage" },
   { label: "Musique", value: "musique" },
   { label: "Fond généré", value: "fond" },
   // Une pub qui plaît, ou à éviter : regardée par l'IA pour le style (Kit de marque › Inspirations).
@@ -41,6 +44,39 @@ const checkFontFormat: CollectionBeforeValidateHook = ({ data, req }) => {
   return data;
 };
 
+/**
+ * Un SVG d'Affinity Designer commence par `<!DOCTYPE svg …>` : le contrôle de
+ * Payload, qui n'attend qu'une déclaration XML ou des commentaires avant
+ * `<svg>`, le prend alors pour du XML et le refuse (« Invalid MIME type:
+ * application/xml », 14/10/2026). La ligne ne sert à rien : on la retire
+ * avant le contrôle, sur le fichier reçu.
+ */
+export const stripSvgDoctype = (data: Buffer): Buffer => {
+  const head = data.toString("utf8", 0, Math.min(data.length, 4096));
+  const m = head.match(/<!DOCTYPE\s+svg[^>]*>\s*/i);
+  if (!m || m.index === undefined) return data;
+  const start = Buffer.byteLength(head.slice(0, m.index), "utf8");
+  return Buffer.concat([data.subarray(0, start), data.subarray(start + Buffer.byteLength(m[0], "utf8"))]);
+};
+
+const cleanSvg: CollectionBeforeOperationHook = ({ args, req }) => {
+  const file = req.file;
+  if (file?.name?.toLowerCase().endsWith(".svg") && file.data?.length) {
+    file.data = stripSvgDoctype(file.data);
+    file.size = file.data.length;
+  }
+  return args;
+};
+
+/** Une musique déposée, ou dont le fichier change, part à l'analyse du rythme (M) ; l'ancienne analyse est caduque. */
+const queueBeat: CollectionBeforeChangeHook = ({ data, originalDoc, operation, req }) => {
+  if (!data || (data.kind ?? originalDoc?.kind) !== "musique") return data;
+  const fileChanged = operation === "create" || Boolean(req.file) || (data.filename && data.filename !== originalDoc?.filename);
+  const neverAnalysed = !originalDoc?.beat?.status;
+  if (!fileChanged && !neverAnalysed) return data;
+  return { ...data, beat: { status: "en-attente", error: null, attempts: 0, leaseUntil: null, bpm: null, firstBeatSec: null, bestStartSec: null, durationSec: null, confidence: null } };
+};
+
 const required = (message: string) => (value: unknown, { siblingData }: { siblingData: Record<string, unknown> }) =>
   value || !siblingData ? true : message;
 
@@ -54,7 +90,7 @@ export const AdMedia: CollectionConfig = {
     description: "Logos, polices, captures de l'app, photos : la matière des créas. Et les créas rendues. Réservé à TIM.",
   },
   access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
-  hooks: { beforeValidate: [checkFontFormat] },
+  hooks: { beforeOperation: [cleanSvg], beforeValidate: [checkFontFormat], beforeChange: [queueBeat] },
   upload: {
     focalPoint: false,
     crop: false,
@@ -115,11 +151,58 @@ export const AdMedia: CollectionConfig = {
       type: "textarea",
       label: "Droits d'usage",
       validate: (v: unknown, opts: { siblingData: Record<string, unknown> }) =>
-        ["photo", "musique"].includes(String(opts.siblingData?.kind)) ? required("Origine et droits d'usage publicitaire obligatoires.")(v, opts) : true,
+        ["photo", "musique", "visage"].includes(String(opts.siblingData?.kind)) ? required("Origine et droits d'usage publicitaire obligatoires.")(v, opts) : true,
       admin: {
-        description: "Origine, auteur, date, licence ; pour une photo, l'accord des personnes visibles.",
-        condition: (d) => d?.kind === "photo" || d?.kind === "musique",
+        description: "Origine, auteur, date, licence ; pour une photo ou un visage, l'accord des personnes visibles (ou « image générée »).",
+        condition: (d) => d?.kind === "photo" || d?.kind === "musique" || d?.kind === "visage",
       },
+    },
+    // Une musique : ce que l'agent lit pour la choisir, et son rythme, pour caler les coupes dessus (M).
+    {
+      type: "row",
+      admin: { condition: (d) => d?.kind === "musique" },
+      fields: [
+        { name: "active", type: "checkbox", label: "Active : l'agent peut l'employer", defaultValue: true, index: true, admin: { width: "40%" } },
+      ],
+    },
+    {
+      name: "whenToUse",
+      type: "textarea",
+      label: "Quand l'employer",
+      admin: {
+        condition: (d) => d?.kind === "musique",
+        placeholder: "Énergique, percussions : pour un geste rapide dans l'app. Ou : posé, piano, pour un message de confiance.",
+        description: "Ce que l'agent lit pour choisir cette musique (ambiance, énergie, pour quel genre d'angle).",
+      },
+    },
+    {
+      name: "beat",
+      type: "group",
+      label: "Rythme (analysé à l'import)",
+      admin: { condition: (d) => d?.kind === "musique" },
+      fields: [
+        {
+          type: "row",
+          fields: [
+            { name: "status", type: "select", label: "Analyse", options: [...BEAT_STATUSES], index: true, admin: { width: "30%", readOnly: true } },
+            {
+              name: "bpm",
+              type: "number",
+              label: "Tempo (BPM)",
+              min: 40,
+              max: 220,
+              admin: { width: "20%", description: "Corrigeable s'il est faux (souvent du simple au double)." },
+            },
+            { name: "bestStartSec", type: "number", label: "Passage retenu (s)", admin: { width: "25%", description: "Là où la vidéo prend la musique." } },
+            { name: "durationSec", type: "number", label: "Durée (s)", admin: { width: "25%", readOnly: true } },
+          ],
+        },
+        { name: "error", type: "text", label: "Motif de l'échec", admin: { readOnly: true, condition: (_, s) => s?.status === "echec" } },
+        { name: "firstBeatSec", type: "number", admin: { hidden: true } },
+        { name: "confidence", type: "number", admin: { hidden: true } },
+        { name: "attempts", type: "number", defaultValue: 0, admin: { hidden: true } },
+        { name: "leaseUntil", type: "date", index: true, admin: { hidden: true } },
+      ],
     },
     {
       name: "license",

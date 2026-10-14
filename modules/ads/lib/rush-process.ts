@@ -3,6 +3,7 @@ import type { Payload } from "payload";
 
 import { execSql, rowsOf } from "@/core/lib/raw-sql";
 import { describeRush } from "@/modules/ads/lib/rush-describe";
+import type { ImportCollection } from "@/modules/ads/lib/rushes";
 import { durationRefusal, keyframeTimes, orientationOf, parseProbe, stillArgs, transcodeArgs, type RushMeta } from "@/modules/ads/lib/rush-convert";
 
 /**
@@ -21,9 +22,9 @@ import { durationRefusal, keyframeTimes, orientationOf, parseProbe, stillArgs, t
 
 export const LEASE_MS = 15 * 60_000;
 export const MAX_ATTEMPTS = 3;
-const FFMPEG = "node_modules/@ffmpeg-installer/linux-x64/ffmpeg";
+export const FFMPEG = "node_modules/@ffmpeg-installer/linux-x64/ffmpeg";
 const FFPROBE = "node_modules/@ffprobe-installer/linux-x64/ffprobe";
-const FFMPEG_PACKAGES = ["@ffmpeg-installer/linux-x64@4.1.0", "@ffprobe-installer/linux-x64@5.2.0"];
+export const FFMPEG_PACKAGES = ["@ffmpeg-installer/linux-x64@4.1.0", "@ffprobe-installer/linux-x64@5.2.0"];
 
 export type Still = { atSec: number; data: Buffer };
 export type Outputs = {
@@ -35,16 +36,20 @@ export type Outputs = {
 export type Claimed = { id: number; url: string; contentType: string; mediaType: "video" | "image" | null; attempts: number };
 export type Store = (pathname: string, data: Buffer, contentType: string) => Promise<string>;
 
-/** Prend le plus ancien rush à convertir (en attente, ou dont le verrou a expiré). Atomique. */
-export async function claimNextRush(payload: Payload, now: Date): Promise<Claimed | null> {
+/** La table de chaque collection importée : des constantes, jamais une valeur reçue. */
+const TABLES: Record<ImportCollection, string> = { "ad-rushes": '"ad_rushes"', "ad-inspirations": '"ad_inspirations"' };
+
+/** Prend le plus ancien fichier à convertir (en attente, ou dont le verrou a expiré) d'une collection. Atomique. */
+export async function claimNextRush(payload: Payload, now: Date, collection: ImportCollection = "ad-rushes"): Promise<Claimed | null> {
   const until = new Date(now.getTime() + LEASE_MS).toISOString();
+  const table = sql.raw(TABLES[collection]);
   const rows = rowsOf(
     await execSql(
       payload,
-      sql`UPDATE "ad_rushes" SET "processing_status" = 'en-cours', "processing_lease_until" = ${until}::timestamptz,
+      sql`UPDATE ${table} SET "processing_status" = 'en-cours', "processing_lease_until" = ${until}::timestamptz,
             "processing_attempts" = COALESCE("processing_attempts", 0) + 1
           WHERE "id" = (
-            SELECT "id" FROM "ad_rushes"
+            SELECT "id" FROM ${table}
             WHERE "processing_status" = 'en-attente'
                OR ("processing_status" = 'en-cours' AND ("processing_lease_until" IS NULL OR "processing_lease_until" < ${now.toISOString()}::timestamptz))
             ORDER BY "created_at" LIMIT 1 FOR UPDATE SKIP LOCKED)
@@ -150,23 +155,27 @@ export type ProcessDeps = {
   convertImage?: (url: string) => Promise<Outputs>;
   store?: Store;
   /** La description proposée par l'IA après la conversion (D1c). */
-  describe?: (payload: Payload, id: number) => Promise<unknown>;
+  describe?: (payload: Payload, id: number, collection: ImportCollection) => Promise<unknown>;
 };
 
 /**
  * Convertit le prochain rush, s'il y en a un. Renvoie ce qui s'est passé, pour
  * le journal du cron. Ne lève pas : une conversion ratée s'écrit sur la fiche.
  */
-export async function processNextRush(payload: Payload, deps: ProcessDeps = {}): Promise<{ id: number; outcome: "pret" | "reessai" | "echec"; error?: string } | null> {
+export async function processNextRush(
+  payload: Payload,
+  deps: ProcessDeps = {},
+  collection: ImportCollection = "ad-rushes",
+): Promise<{ id: number; outcome: "pret" | "reessai" | "echec"; error?: string } | null> {
   const now = deps.now ?? (() => new Date());
-  const claimed = await claimNextRush(payload, now());
+  const claimed = await claimNextRush(payload, now(), collection);
   if (!claimed) return null;
-  const update = (data: Record<string, unknown>) => payload.update({ collection: "ad-rushes", id: claimed.id, data: data as never, depth: 0, overrideAccess: true });
+  const update = (data: Record<string, unknown>) => payload.update({ collection, id: claimed.id, data: data as never, depth: 0, overrideAccess: true });
   try {
     const kind = claimed.mediaType ?? (claimed.contentType.startsWith("image/") ? "image" : "video");
     const out = kind === "image" ? await (deps.convertImage ?? convertImage)(claimed.url) : await (deps.convertVideo ?? convertVideoInSandbox)(claimed.url);
     const store = deps.store ?? storeOnBlob;
-    const dir = `ads/rushes/travail/${claimed.id}`;
+    const dir = `ads/${collection === "ad-rushes" ? "rushes" : "inspirations"}/travail/${claimed.id}`;
     const workingUrl = await store(`${dir}/travail.${out.working.ext}`, out.working.data, out.working.contentType);
     const posterUrl = await store(`${dir}/vignette.jpg`, out.poster, "image/jpeg");
     const keyframes = [];
@@ -177,13 +186,15 @@ export async function processNextRush(payload: Payload, deps: ProcessDeps = {}):
     });
     // La description proposée par l'IA : un plus, jamais une condition. En cas d'échec, le rush reste prêt
     // et la proposition se relance depuis sa fiche.
-    await (deps.describe ?? describeRush)(payload, claimed.id).catch((e) => payload.logger.warn(`[publicité] rush ${claimed.id} : description IA non proposée (${(e as Error).message})`));
+    await (deps.describe ?? describeRush)(payload, claimed.id, collection).catch((e) =>
+      payload.logger.warn(`[publicité] ${collection} ${claimed.id} : description IA non proposée (${(e as Error).message})`),
+    );
     return { id: claimed.id, outcome: "pret" };
   } catch (e) {
     const message = (e as Error).message.slice(0, 500);
     const final = e instanceof FinalError || claimed.attempts >= MAX_ATTEMPTS;
     await update({ processing: { status: final ? "echec" : "en-attente", error: message, attempts: claimed.attempts, processedAt: null, leaseUntil: null } }).catch((err) =>
-      payload.logger.error(`[publicité] rush ${claimed.id} : état d'échec non écrit (${(err as Error).message})`),
+      payload.logger.error(`[publicité] ${collection} ${claimed.id} : état d'échec non écrit (${(err as Error).message})`),
     );
     return { id: claimed.id, outcome: final ? "echec" : "reessai", error: message };
   }

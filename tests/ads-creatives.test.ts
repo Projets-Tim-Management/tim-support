@@ -30,10 +30,16 @@ describe("créas", () => {
 
   it("le statut et la décision ne s'écrivent pas par l'API : ce sont les gestes de validation", () => {
     for (const name of ["status", "refusalReason", "refusalDetail", "decidedBy", "decidedAt"]) {
-      const f = find(AdCreatives.fields as AnyField[], name)!;
+      const f = find((AdCreatives.fields as AnyField[]).filter((x) => x.name !== "video"), name)!;
       expect(f.access!.create(), name).toBe(false);
       expect(f.access!.update(), name).toBe(false);
     }
+  });
+
+  it("l'état de la vidéo ne s'écrit pas par l'API : seulement par « Monter en vidéo » et le rendu", () => {
+    const video = find(AdCreatives.fields as AnyField[], "video")!;
+    expect(video.access!.create()).toBe(false);
+    expect(video.access!.update()).toBe(false);
   });
 
   it("ne se créent pas à la main ; seuls brouillons et refusées se suppriment", () => {

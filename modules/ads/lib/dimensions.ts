@@ -31,6 +31,10 @@ export const TEST_DIMENSIONS = [
   { label: "Format", value: "format" },
   { label: "Visuel", value: "visuel" },
   { label: "Bouton d'action", value: "cta" },
+  // Le style visuel et vidéo (Publicité › Paramètres › Styles) : l'agent fait tester les styles entre eux (14/10/2026).
+  { label: "Style", value: "style" },
+  // La musique d'une vidéo (Médias publicitaires, nature « Musique ») : l'agent en compare plusieurs sur un angle.
+  { label: "Musique", value: "musique" },
 ] as const;
 
 export type TestDimension = (typeof TEST_DIMENSIONS)[number]["value"];
@@ -44,6 +48,8 @@ export const testLabel = (d: TestDimension): string =>
     format: "test de format",
     visuel: "test de visuel",
     cta: "test de bouton d'action",
+    style: "test de style",
+    musique: "test de musique",
   })[d];
 
 export const toneLabel = (t?: string | null): string => TONES.find((x) => x.value === t)?.label ?? "—";

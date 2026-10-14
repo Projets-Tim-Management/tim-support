@@ -16,7 +16,7 @@ type Plan = { a_sec: number; ce_qu_on_voit: string; zones_importantes: string };
 const STATUS: Record<string, string> = { proposee: "Proposée — à valider", validee: "Validée : les agents la lisent", ecartee: "Écartée" };
 
 export function RushInsightPanel() {
-  const { id } = useDocumentInfo();
+  const { id, collectionSlug } = useDocumentInfo();
   const ready = useFormFields(([f]) => f?.["processing.status"]?.value === "pret");
   const keyframes = useFormFields(([f]) => (f?.["working.keyframes"]?.value as Keyframe[] | undefined) ?? []);
   const proposal = useFormFields(([f]) => f?.["ai.proposal"]?.value as string | undefined);
@@ -29,7 +29,7 @@ export function RushInsightPanel() {
   const act = async (action: string, done: string) => {
     setBusy(action);
     try {
-      const res = await fetch(`/api/admin/ads/rushes/${encodeURIComponent(String(id))}/description`, {
+      const res = await fetch(`/api/admin/ads/rushes/${encodeURIComponent(String(id))}/description?collection=${encodeURIComponent(String(collectionSlug))}`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

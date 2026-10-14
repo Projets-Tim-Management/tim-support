@@ -98,7 +98,7 @@ export const AdsBrandKit: GlobalConfig = {
         },
         {
           label: "Logos",
-          description: "Trois variantes, chacune pour sa place. Déposez-les dans Médias publicitaires, nature « Logo » (PNG transparent, WebP ou SVG).",
+          description: "Trois variantes, chacune pour sa place, et un logo animable. Déposez-les dans Médias publicitaires, nature « Logo » (PNG transparent, WebP ou SVG).",
           fields: [
             {
               type: "row",
@@ -109,6 +109,18 @@ export const AdsBrandKit: GlobalConfig = {
               ],
             },
             { name: "logoPreview", type: "ui", admin: { components: { Field: "/modules/ads/admin/BrandKitPreview#LogoPreview" } } },
+            {
+              name: "logoAnimated",
+              type: "upload",
+              relationTo: "ad-media",
+              label: "Logo animable (SVG à calques)",
+              filterOptions: { kind: { equals: "logo" } },
+              admin: {
+                description:
+                  "Facultatif. Un SVG vectoriel dont les calques sont nommés « symbole » (un sous-calque par élément), « nom » (une lettre par sous-calque) et « baseline » : les vidéos font alors arriver le logo élément par élément.",
+              },
+            },
+            { name: "logoAnimatedCheck", type: "ui", admin: { components: { Field: "/modules/ads/admin/LogoAnimatedCheck#LogoAnimatedCheck" } } },
           ],
         },
         {
@@ -174,32 +186,11 @@ export const AdsBrandKit: GlobalConfig = {
           ],
         },
         {
-          label: "Formes",
-          description: "La mise en scène des visuels et des vidéos.",
+          label: "Formes et mouvement",
+          description: "La mise en scène et le rythme se règlent PAR STYLE, dans Publicité › Paramètres › Styles : l'agent choisit parmi les styles actifs et les fait tester entre eux. Ici, ce qui vaut pour tous les styles.",
           fields: [
-            {
-              type: "row",
-              fields: [
-                { name: "corners", type: "select", label: "Coins", options: [...CORNERS], defaultValue: "arrondis", admin: { width: "33%" } },
-                { name: "phoneFrame", type: "select", label: "L'écran de l'app", options: [...PHONE_FRAMES], defaultValue: "maquette", admin: { width: "33%" } },
-                { name: "graphics", type: "select", hasMany: true, label: "Éléments graphiques", options: [...GRAPHICS], admin: { width: "34%", description: "Aucun si vide." } },
-              ],
-            },
-          ],
-        },
-        {
-          label: "Mouvement",
-          description: "Le rythme et l'habillage des vidéos.",
-          fields: [
-            {
-              type: "row",
-              fields: [
-                { name: "pace", type: "select", label: "Rythme", options: [...PACES], defaultValue: "dynamique", admin: { width: "33%" } },
-                { name: "transitions", type: "select", hasMany: true, label: "Transitions", options: [...TRANSITIONS], admin: { width: "33%", description: "Coupe sèche si vide." } },
-                { name: "subtitles", type: "select", label: "Sous-titres", options: [...SUBTITLE_STYLES], defaultValue: "mot-a-mot", admin: { width: "34%", description: "La plupart des vidéos se regardent sans le son." } },
-              ],
-            },
-            { name: "music", type: "upload", relationTo: "ad-media", label: "Musique par défaut", filterOptions: { kind: { equals: "musique" } }, admin: { description: "Libre de droits. Sans musique, les vidéos sortent sans son." } },
+            { name: "stylesLink", type: "ui", admin: { components: { Field: "/modules/ads/admin/BrandKitPreview#StylesLink" } } },
+            { name: "music", type: "upload", relationTo: "ad-media", label: "Musique par défaut", filterOptions: { kind: { equals: "musique" } }, admin: { description: "Celle qu'on prend quand personne n'en choisit. Toutes vos musiques se déposent dans Médias publicitaires (nature « Musique ») : l'agent choisit parmi elles et les teste." } },
             {
               name: "endCard",
               type: "group",
@@ -215,16 +206,27 @@ export const AdsBrandKit: GlobalConfig = {
                 },
               ],
             },
+            // Remplacés par les styles (14/10/2026) : colonnes conservées en base, champs masqués et ignorés
+            // — les retirer demanderait une migration destructive, à décider avec Charlie.
+            { name: "corners", type: "select", options: [...CORNERS], defaultValue: "arrondis", admin: { hidden: true } },
+            { name: "phoneFrame", type: "select", options: [...PHONE_FRAMES], defaultValue: "maquette", admin: { hidden: true } },
+            { name: "graphics", type: "select", hasMany: true, options: [...GRAPHICS], admin: { hidden: true } },
+            { name: "pace", type: "select", options: [...PACES], defaultValue: "dynamique", admin: { hidden: true } },
+            { name: "transitions", type: "select", hasMany: true, options: [...TRANSITIONS], admin: { hidden: true } },
+            { name: "subtitles", type: "select", options: [...SUBTITLE_STYLES], defaultValue: "mot-a-mot", admin: { hidden: true } },
           ],
         },
         {
           label: "Inspirations",
-          description: "Des pubs que vous aimez, et d'autres à éviter : l'IA les regarde pour proposer les styles et guider chaque montage.",
+          description:
+            "Les inspirations se déposent désormais dans Publicité › Inspirations : captures ET vidéos (MP4, MOV, jusqu'à 500 Mo). L'IA en tire une fiche de style que vous validez, et que le directeur artistique lit avant chaque montage.",
           fields: [
             {
+              // Remplacé par les inspirations de Publicité › Inspirations (I1) ; gardé en base, repris par scripts/ads-inspirations-reprise.ts.
               name: "inspirations",
               type: "array",
               label: false,
+              admin: { hidden: true },
               labels: { singular: "Inspiration", plural: "Inspirations" },
               fields: [
                 {
