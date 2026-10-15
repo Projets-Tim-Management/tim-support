@@ -118,6 +118,31 @@ describe("attribution", () => {
     expect(a.lpVariant).toBe("v2");
   });
 
+  it("garde les identifiants GA4 valides, en tirets bas comme en camelCase", () => {
+    const a = parseAttribution({ ga_client_id: "1234567890.1700000000", ga_session_id: "1760345678" });
+    expect(a.gaClientId).toBe("1234567890.1700000000");
+    expect(a.gaSessionId).toBe("1760345678");
+    expect(parseAttribution({ gaClientId: " 42.7 ", gaSessionId: "9" })).toMatchObject({ gaClientId: "42.7", gaSessionId: "9" });
+  });
+
+  it("sans consentement, pas d'identifiant GA4 : rien n'est inventé", () => {
+    const a = parseAttribution({ source_page_path: "/produits/pointage" });
+    expect(a.gaClientId).toBeUndefined();
+    expect(a.gaSessionId).toBeUndefined();
+  });
+
+  it("écarte un identifiant GA4 malformé ou trop long, sans refuser la soumission ni le tronquer", () => {
+    // Tronqué, un identifiant en désignerait un autre : il est pris tel quel ou pas du tout.
+    for (const bad of ["GA1.1.123.456", "123", "123.", ".456", "12.34.56", "abc.def", "1".repeat(40) + "." + "2".repeat(30), 1234.5, null]) {
+      expect(parseAttribution({ ga_client_id: bad }).gaClientId).toBeUndefined();
+    }
+    for (const bad of ["12a", "1760345678.1", "-5", "1".repeat(33), 1760345678]) {
+      expect(parseAttribution({ ga_session_id: bad }).gaSessionId).toBeUndefined();
+    }
+    expect(parseAttribution({ ga_client_id: "1".repeat(32) + "." + "2".repeat(31) }).gaClientId).toHaveLength(64);
+    expect(parseAttribution({ ga_session_id: "1".repeat(32) }).gaSessionId).toHaveLength(32);
+  });
+
   it("écarte un emplacement inconnu au lieu de refuser la soumission", () => {
     // Le site doit pouvoir introduire un emplacement sans attendre un
     // déploiement de notre côté : on perd la précision, jamais le lead.

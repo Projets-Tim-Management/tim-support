@@ -73,6 +73,21 @@ const cap = (value: unknown, max: number): string | undefined => {
   return trimmed ? trimmed.slice(0, max) : undefined;
 };
 
+/**
+ * Un identifiant pris tel quel ou pas du tout : le tronquer en ferait un autre
+ * identifiant, rattaché à un autre visiteur. Trop long ou hors motif → écarté.
+ */
+const exact = (value: unknown, max: number, pattern: RegExp): string | undefined => {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed && trimmed.length <= max && pattern.test(trimmed) ? trimmed : undefined;
+};
+
+/** Cookie `_ga` : « 1234567890.1700000000 ». */
+const GA_CLIENT_ID = /^\d+\.\d+$/;
+/** Cookie `_ga_<flux>` : l'horodatage de la session, en chiffres. */
+const GA_SESSION_ID = /^\d+$/;
+
 const PLACEMENT_VALUES = new Set<string>(PLACEMENTS.map((p) => p.value));
 
 export interface Attribution {
@@ -105,6 +120,14 @@ export interface Attribution {
    * Conversions API (phase 1), jamais lu pour décider du canal.
    */
   fbclid?: string;
+  /**
+   * Identifiants Google Analytics du visiteur (cookies `_ga` et `_ga_<flux>`),
+   * envoyés par la vitrine SEULEMENT si le visiteur a accepté la mesure
+   * d'audience. Ils servent à rattacher dans GA4 les étapes commerciales
+   * (démo programmée, signature) à la visite d'origine — jamais à autre chose.
+   */
+  gaClientId?: string;
+  gaSessionId?: string;
 }
 
 /**
@@ -137,5 +160,7 @@ export function parseAttribution(raw: unknown): Attribution {
     msclkid: cap(a.msclkid, 500),
     oaiclid: cap(a.oaiclid, 500),
     fbclid: cap(a.fbclid, 500),
+    gaClientId: exact(a.ga_client_id ?? a.gaClientId, 64, GA_CLIENT_ID),
+    gaSessionId: exact(a.ga_session_id ?? a.gaSessionId, 32, GA_SESSION_ID),
   };
 }
