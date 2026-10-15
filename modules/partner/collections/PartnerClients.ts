@@ -56,6 +56,7 @@ import { peekPennylane } from "@/modules/partner/lib/pennylane";
 import { isBillableClient, LICENCE_BASE_PRICES, PROFILS } from "@/modules/partner/lib/pricing";
 import { geocodeClient } from "@/core/hooks/geocodeClient";
 import { setPhoneDigits } from "@/core/hooks/phoneDigits";
+import { sendGa4Steps } from "@/modules/analytics/lib/ga4-hook";
 
 /**
  * Opportunités — les entreprises BTP qu'un partenaire a amenées à Tim, du
@@ -705,6 +706,7 @@ export const PartnerClients: CollectionConfig = {
       notifyDocumentAvailable,
       linkSignedContract,
       enrollSequence,
+      sendGa4Steps,
     ],
     // Vide ce qui n'existe que par ce client avant de le supprimer, sans quoi
     // Postgres refuse la suppression (cf. deleteClientChildren).
@@ -985,6 +987,31 @@ export const PartnerClients: CollectionConfig = {
         readOnly: true,
         condition: (data) => Boolean(data?.formSubmission),
       },
+    },
+    {
+      // Ce que GA4 a reçu de cette opportunité (plan de mesure, phase 2.2 — voir
+      // modules/analytics/lib/ga4-mp.ts). Écrit par l'envoi seul, en SQL : personne
+      // ne peut le modifier (`update: false`), pas même un formulaire ouvert avant
+      // l'envoi, qui sinon remettrait une date vide et ferait renvoyer l'étape.
+      name: "ga4",
+      type: "group",
+      label: "Mesure GA4",
+      admin: {
+        position: "sidebar",
+        condition: (data) => Boolean(data?.ga4?.qualifySentAt || data?.ga4?.closeSentAt || data?.ga4?.closeWaitSince || data?.ga4?.error),
+      },
+      fields: [
+        { name: "qualifySentAt", type: "date", label: "Démo programmée envoyée le", access: { update: () => false }, admin: { readOnly: true, date: { pickerAppearance: "dayAndTime" } } },
+        { name: "closeSentAt", type: "date", label: "Signature envoyée le", access: { update: () => false }, admin: { readOnly: true, date: { pickerAppearance: "dayAndTime" } } },
+        {
+          name: "closeWaitSince",
+          type: "date",
+          label: "Signature en attente du CA payé depuis",
+          access: { update: () => false },
+          admin: { readOnly: true, description: "Sans CA payé, la signature n'est pas envoyée (pas de conversion à 0 €) ; au-delà de 14 jours, elle part sans montant." },
+        },
+        { name: "error", type: "text", label: "Dernier incident", access: { update: () => false }, admin: { readOnly: true } },
+      ],
     },
     {
       // Identifiant de l'opportunité Brevo dont vient ce lead. C'est la CLÉ

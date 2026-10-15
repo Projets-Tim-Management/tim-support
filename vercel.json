@@ -71,6 +71,10 @@
     {
       "path": "/api/cron/ads-storage",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/ga4-steps",
+      "schedule": "20 * * * *"
     }
   ]
 }

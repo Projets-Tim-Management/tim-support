@@ -654,6 +654,15 @@ export interface PartnerClient {
    */
   collaborateurs?: string | null;
   formSubmission?: (number | null) | FormSubmission;
+  ga4?: {
+    qualifySentAt?: string | null;
+    closeSentAt?: string | null;
+    /**
+     * Sans CA payé, la signature n'est pas envoyée (pas de conversion à 0 €) ; au-delà de 14 jours, elle part sans montant.
+     */
+    closeWaitSince?: string | null;
+    error?: string | null;
+  };
   brevoDealId?: string | null;
   /**
    * Repris du formulaire du site vitrine.
@@ -885,6 +894,14 @@ export interface FormSubmission {
    * Identifiant de clic Meta. Présent aussi sur les clics organiques : il ne dit pas qu'un lead vient d'une annonce.
    */
   fbclid?: string | null;
+  /**
+   * Cookie _ga. Vide : visiteur sans consentement, lead manuel ou importé — rien n'est envoyé à GA4.
+   */
+  gaClientId?: string | null;
+  /**
+   * La session d'origine, pour que GA4 rattache la conversion à sa source.
+   */
+  gaSessionId?: string | null;
   client?: (number | null) | PartnerClient;
   /**
    * « Brouillon » signale une soumission sans e-mail exploitable : la fiche existe mais n'est pas publiée.
@@ -4527,6 +4544,14 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   source?: T;
   collaborateurs?: T;
   formSubmission?: T;
+  ga4?:
+    | T
+    | {
+        qualifySentAt?: T;
+        closeSentAt?: T;
+        closeWaitSince?: T;
+        error?: T;
+      };
   brevoDealId?: T;
   leadNotes?: T;
   developments?: T;
@@ -5090,6 +5115,8 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
   msclkid?: T;
   oaiclid?: T;
   fbclid?: T;
+  gaClientId?: T;
+  gaSessionId?: T;
   client?: T;
   processingStatus?: T;
   processingError?: T;
