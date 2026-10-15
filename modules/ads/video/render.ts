@@ -9,7 +9,7 @@ import type { Framing } from "@/modules/ads/lib/framing";
 import { FinalError, storeOnBlob, type Store } from "@/modules/ads/lib/rush-process";
 import { isInspiration } from "@/modules/ads/lib/rushes";
 import { beatAlign } from "@/modules/ads/video/beat";
-import { defaultScore } from "@/modules/ads/video/default-score";
+import { defaultScore, featuresOf } from "@/modules/ads/video/default-score";
 import { loadAnimatedLogo } from "@/modules/ads/video/logo-server";
 import { buildPosterProps, buildRenderProps, type RenderProps } from "@/modules/ads/video/props";
 import { FORMAT_KEYS, parseScore, scoreProblems, type FormatKey, type Score } from "@/modules/ads/video/score";
@@ -137,7 +137,7 @@ async function resolveMusic(payload: Payload, kit: Raw, asked: number | string |
 export async function requestVideo(
   payload: Payload,
   creativeId: number | string,
-  input: { styleId: number | string; score?: unknown; music?: number | string | null; requireActiveElements?: boolean },
+  input: { styleId: number | string; score?: unknown; music?: number | string | null; requireActiveElements?: boolean; requireBase?: boolean },
 ): Promise<{ score: Score; music: number | null }> {
   const creative = (await payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 0, overrideAccess: true })) as unknown as Raw & {
     hook?: string | null;
@@ -166,7 +166,7 @@ export async function requestVideo(
     if (!d.ok) throw new FinalError(d.error);
     score = d.score;
   }
-  const problems = scoreProblems(score, scoreContextOf(ctx, { requireActive: input.requireActiveElements }));
+  const problems = scoreProblems(score, scoreContextOf(ctx, { requireActive: input.requireActiveElements, requireBase: input.requireBase, angle: `${creative.angle ?? ""} ${creative.hook ?? ""}` }));
   if (problems.length) throw new FinalError(`Partition refusée : ${problems.join(" ")}`);
   const music = await resolveMusic(payload, ctx.kit, input.music);
   await payload.update({
@@ -179,7 +179,7 @@ export async function requestVideo(
   return { score, music };
 }
 
-export function scoreContextOf(ctx: Awaited<ReturnType<typeof loadVideoContext>>, opts: { requireActive?: boolean } = {}) {
+export function scoreContextOf(ctx: Awaited<ReturnType<typeof loadVideoContext>>, opts: { requireActive?: boolean; requireBase?: boolean; angle?: string } = {}) {
   const forbidden = [...((ctx.kit.forbidden as { term?: string }[] | undefined) ?? []).map((f) => f.term ?? "").filter(Boolean), ...ctx.gen.forbidden];
   return {
     rushes: new Map(
@@ -193,6 +193,9 @@ export function scoreContextOf(ctx: Awaited<ReturnType<typeof loadVideoContext>>
     forbidden,
     variants: new Map(ctx.elements.map((e) => [Number(e.id), { type: e.base, status: e.status }])),
     requireActive: opts.requireActive ?? false,
+    requireBase: opts.requireBase ?? false,
+    // La Base V1 relie le rush du geste à la fonctionnalité de l'angle.
+    base: { angleFeatures: featuresOf(opts.angle ?? ""), rushFeatures: new Map(ctx.rushes.map((r) => [r.id, (r.features ?? []) as string[]])) },
   };
 }
 
@@ -244,7 +247,7 @@ export async function processNextRender(payload: Payload, deps: RenderDeps = {})
   try {
     const ctx = await loadVideoContext(payload, creative);
     const score = parseScore(creative.video?.score);
-    const problems = scoreProblems(score, scoreContextOf(ctx));
+    const problems = scoreProblems(score, scoreContextOf(ctx, { angle: `${String(creative.angle ?? "")} ${String(creative.hook ?? "")}` }));
     if (problems.length) throw new FinalError(`Partition refusée : ${problems.join(" ")}`);
     const rushes = new Map(ctx.ready.map((r) => [r.id, { url: r.working!.url!, width: r.working!.meta!.width!, height: r.working!.meta!.height!, framing: r.framing ?? null }]));
     const facts = new Map(ctx.gen.brief.facts.map((f) => [Number(f.id), { statement: f.statement, source: f.source }]));

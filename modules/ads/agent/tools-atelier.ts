@@ -214,6 +214,7 @@ const monterVideo: AgentTool = {
       "La première variante va sur la créa ; chaque suivante crée une copie étiquetée « test de style » ou « test de musique » (même angle, mêmes textes), comptée dans le quota de la semaine.",
       "Sur une musique au tempo connu, le moteur cale chaque coupe sur le temps le plus proche et fait tomber les mots de l'ouverture sur les temps : écris des durées proches de multiples du temps (60 / BPM). Sans musique précisée, c'est celle du Kit de marque.",
       `Le code vérifie la partition avant tout rendu : ${MIN_TOTAL} à ${MAX_TOTAL} s au total, plans de ${MIN_SHOT} à ${MAX_SHOT} s, au moins un plan qui montre le logiciel (rush, ou plan composé sur un rush ou avec un élément d'interface), aucun élément hors du cadre ni opaque sur la zone protégée d'un rush dans aucun format, une seule fin et en dernier, des rushes prêts pris dans leur durée, aucun zoom plus serré que ${MIN_ZOOM * 100} % ni qui coupe la zone protégée, aucun chiffre absent des faits sourcés et de l'offre, aucune mention interdite. Un refus dit pourquoi : corrige et rappelle.`,
+      "BASE V1 OBLIGATOIRE : écris base « v1 » et le role de chaque plan, dans l'ordre accroche → retournement → geste → consequence → (preuve) → fin ; suis « base » de lire_rushes (ce qui est gardé, ce qui est libre, le vocabulaire : transitions, caméra, fonds, téléphone) et inspire-toi de ses deux exemples sans les recopier.",
       "Le rendu prend quelques minutes, sans coût IA ; la vidéo apparaît sur la carte de la créa.",
     ].join(" "),
     input_schema: {
@@ -225,11 +226,15 @@ const monterVideo: AgentTool = {
         partition: {
           type: "object",
           properties: {
+            base: { type: "string", enum: ["v1"], description: "La base de montage suivie : toujours « v1 »." },
             shots: {
               type: "array",
               items: {
                 type: "object",
                 properties: {
+                  role: { type: "string", enum: ["accroche", "retournement", "geste", "consequence", "preuve", "fin"], description: "Le temps de la Base V1 que joue ce plan." },
+                  transition: { type: "object", description: "Comment ce plan entre : type (voir base.vocabulaire.transitions), seconds, x/y pour « cercle »." },
+                  camera: { type: "object", description: "Plan composé : le mouvement de caméra (voir base.vocabulaire.camera)." },
                   kind: {
                     type: "string",
                     enum: ["ouverture", "rush", "preuve", "compo", "logo", "fin"],
@@ -238,7 +243,7 @@ const monterVideo: AgentTool = {
                   },
                   fond: {
                     type: "object",
-                    description: "compo : le fond. type : style (fond du style), couleur (couleur : principale, accent, sombre, clair), rush (rush, from, to, zoom, flou, voile 0 à 0,7), image (media, flou, voile).",
+                    description: "compo : le fond (voir base.vocabulaire.fonds). type : couleur (couleur, halo), telephone (rush, from, to, couleur, halo, telephone {…}), rush (rush, from, to, zoom, flou, voile 0 à 0,7), image (media, flou, voile), style.",
                     properties: { type: { type: "string", enum: [...BACKGROUNDS] } },
                   },
                   elements: {

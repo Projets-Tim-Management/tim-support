@@ -25,7 +25,7 @@ export type DefaultInput = {
 const clip = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, n - 1).trimEnd()}…`);
 
 /** Les mots d'un angle qui désignent une fonctionnalité, pour choisir le bon rush. */
-const FEATURE_WORDS: Record<string, RegExp> = {
+export const FEATURE_WORDS: Record<string, RegExp> = {
   pointage: /point|heure|arriv|présen/i,
   planning: /planning|plann|semaine|affect/i,
   "feuilles-heures": /feuille|ressais|vendredi|paie/i,
@@ -34,6 +34,9 @@ const FEATURE_WORDS: Record<string, RegExp> = {
   documents: /document|photo|fichier/i,
   paie: /paie|export|salaire/i,
 };
+
+/** Les fonctionnalités qu'un texte (un angle, une accroche) évoque. Pure. */
+export const featuresOf = (text: string): string[] => Object.entries(FEATURE_WORDS).filter(([, re]) => re.test(text)).map(([k]) => k);
 
 /** Le rush le plus pertinent : la fonctionnalité de l'angle, puis la description validée, puis le plus long. Pure. */
 export function pickRush(angle: string, rushes: DefaultRush[]): DefaultRush | null {

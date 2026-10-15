@@ -45,11 +45,17 @@ export const ELEMENT_TYPES = [
 ] as const;
 export type ElementType = (typeof ELEMENT_TYPES)[number];
 
-export const ENTRIES = ["pop", "fondu", "glisse-haut", "glisse-bas", "glisse-gauche", "glisse-droite", "aucune"] as const;
+export const ENTRIES = ["pop", "impact", "fondu", "glisse-haut", "glisse-bas", "glisse-gauche", "glisse-droite", "aucune"] as const;
 export const EXITS = ["fondu", "glisse-haut", "glisse-bas", "aucune"] as const;
 export const MOVES = ["aucun", "derive", "pulsation", "flottement"] as const;
-export const BACKGROUNDS = ["style", "couleur", "rush", "image"] as const;
-export const BG_COLORS = ["principale", "accent", "sombre", "clair"] as const;
+export const BACKGROUNDS = ["style", "couleur", "rush", "image", "telephone"] as const;
+export const PHONE_ENTRIES = ["monte", "bascule", "aucune"] as const;
+/**
+ * Les couleurs d'un fond plein : celles du kit, et leurs nuances calculées
+ * (décision du 15/10/2026 : « plus de changement de couleur de fond, d'autres
+ * couleurs du même type, plus claires ») — toujours dans la charte.
+ */
+export const BG_COLORS = ["principale", "accent", "sombre", "clair", "accent-pale", "principale-pale", "sombre-doux"] as const;
 
 export type Fond = {
   type: (typeof BACKGROUNDS)[number];
@@ -58,11 +64,33 @@ export type Fond = {
   from?: number;
   to?: number;
   zoom?: Rect | null;
+  /** Un mouvement de caméra pendant le plan : de la vue de départ vers ce cadre (fractions du rush), entre `debut` et `fin` (secondes du plan). */
+  camera?: { vers: Rect; debut?: number; fin?: number } | null;
   flou?: boolean;
   /** 0 à 0,7 : un voile sombre sur le rush ou l'image, pour que les éléments ressortent. */
   voile?: number;
   /** Une image des Médias publicitaires (photo, capture). */
   media?: number;
+  /**
+   * Fond « telephone » : le passage de rush joué DANS un téléphone, posé sur
+   * une couleur du kit (ou le fond du style), qui entre en 3D et peut plonger
+   * vers un point de l'écran (`focus`, en fractions de l'écran filmé).
+   */
+  telephone?: Phone;
+  /** Sur un fond plein (couleur, style, téléphone) : des halos doux aux couleurs du kit, qui dérivent — un fond vivant plutôt qu'un aplat. */
+  halo?: boolean;
+};
+
+export type Phone = {
+  /** Le centre du téléphone et sa hauteur, en fractions du cadre. */
+  x?: number;
+  y?: number;
+  hauteur?: number;
+  entree?: (typeof PHONE_ENTRIES)[number];
+  /** L'inclinaison de repos, en degrés (-25 à 25) : 0 de face. */
+  inclinaison?: number;
+  /** La plongée : on grossit (×1 à ×3) autour d'un point de l'écran filmé, entre `debut` et `fin`. */
+  focus?: { x: number; y: number; echelle: number; debut?: number; fin?: number } | null;
 };
 
 export type Element = {
@@ -86,6 +114,10 @@ export type Element = {
   entree?: (typeof ENTRIES)[number];
   sortie?: (typeof EXITS)[number];
   mouvement?: (typeof MOVES)[number];
+  /** Sur un fond « telephone » : l'élément passe DERRIÈRE le téléphone (un mot géant, une forme). */
+  derriere?: boolean;
+  /** L'élément pivote jusqu'à cet angle (degrés, -45 à 45), à partir de `debut` (secondes du plan) : un texte qui se penche, lui seul. */
+  inclinaison?: { angle: number; debut?: number };
 };
 
 /** Ce que chaque élément montre et ses données — c'est ce que l'agent lit. */
@@ -131,7 +163,7 @@ const SIZE: Record<ElementType, { w: number; ratio: (d: Record<string, unknown>)
   titre: { w: 0.86, ratio: () => 0.3, opaque: false },
   etiquette: { w: 0.42, ratio: () => 0.2, opaque: true },
   bulle: { w: 0.66, ratio: () => 0.3, opaque: true },
-  compteur: { w: 0.8, ratio: () => 0.45, opaque: false },
+  compteur: { w: 0.8, ratio: () => 0.7, opaque: false },
   logo: { w: 0.42, ratio: () => 0.45, opaque: false },
   cta: { w: 0.5, ratio: () => 0.22, opaque: true },
   pastilles: { w: 0.2, ratio: () => 0.9, opaque: false },
@@ -161,10 +193,51 @@ export function parseFond(raw: unknown): Fond {
   return {
     type,
     ...(type === "couleur" ? { couleur: oneOf(d.couleur, BG_COLORS, "principale") } : {}),
-    ...(type === "rush" ? { rush: num(d.rush), from: num(d.from) ?? 0, to: num(d.to), zoom: z && typeof z === "object" ? { x: Number(z.x), y: Number(z.y), w: Number(z.w), h: Number(z.h) } : null } : {}),
+    ...(type === "rush" ? { rush: num(d.rush), from: num(d.from) ?? 0, to: num(d.to), zoom: z && typeof z === "object" ? { x: Number(z.x), y: Number(z.y), w: Number(z.w), h: Number(z.h) } : null, ...(parseCamera(d.camera) ? { camera: parseCamera(d.camera) } : {}) } : {}),
     ...(type === "image" ? { media: num(d.media) } : {}),
+    ...(d.halo === true && type !== "rush" && type !== "image" ? { halo: true } : {}),
+    ...(type === "telephone" ? { rush: num(d.rush), from: num(d.from) ?? 0, to: num(d.to), ...(BG_COLORS.includes(d.couleur as never) ? { couleur: d.couleur as Fond["couleur"] } : {}), telephone: parsePhone(d.telephone) } : {}),
     ...(type === "rush" || type === "image" ? { flou: d.flou === true, voile: Math.max(0, Math.min(0.7, num(d.voile) ?? 0)) } : {}),
   };
+}
+
+function parsePhone(raw: unknown): Phone {
+  const d = raw && typeof raw === "object" ? (raw as Raw) : {};
+  const f = d.focus && typeof d.focus === "object" ? (d.focus as Raw) : null;
+  return {
+    x: num(d.x) ?? 0.5,
+    y: num(d.y) ?? 0.52,
+    hauteur: num(d.hauteur) ?? 0.72,
+    entree: oneOf(d.entree, PHONE_ENTRIES, "monte"),
+    inclinaison: num(d.inclinaison) ?? 0,
+    focus: f ? { x: Number(f.x), y: Number(f.y), echelle: Number(f.echelle), ...(num(f.debut) !== undefined ? { debut: num(f.debut) } : {}), ...(num(f.fin) !== undefined ? { fin: num(f.fin) } : {}) } : null,
+  };
+}
+
+/** Les problèmes d'un téléphone (position, taille, plongée), sachant la durée du plan. Pure. */
+export function phoneProblems(t: Phone | undefined, seconds: number): string[] {
+  if (!t) return [];
+  const out: string[] = [];
+  const inside = (v: unknown) => typeof v === "number" && v >= 0 && v <= 1;
+  if (!inside(t.x) || !inside(t.y)) out.push("téléphone : centre x et y entre 0 et 1.");
+  if (!(typeof t.hauteur === "number" && t.hauteur >= 0.3 && t.hauteur <= 1.2)) out.push("téléphone : hauteur de 0,3 à 1,2 du cadre.");
+  if (!(typeof t.inclinaison === "number" && Math.abs(t.inclinaison) <= 25)) out.push("téléphone : inclinaison de -25 à 25 degrés.");
+  const f = t.focus;
+  if (f) {
+    if (!inside(f.x) || !inside(f.y)) out.push("téléphone : point de plongée x et y entre 0 et 1 (fractions de l'écran filmé).");
+    if (!(f.echelle >= 1 && f.echelle <= 3)) out.push("téléphone : plongée de ×1 à ×3.");
+    const a = f.debut ?? 0;
+    const b = f.fin ?? seconds;
+    if (!(a >= 0 && b > a && b <= seconds + 1e-9)) out.push(`téléphone : plongée de ${a} à ${b} s, dans la durée du plan (${seconds} s).`);
+  }
+  return out;
+}
+
+function parseCamera(raw: unknown): Fond["camera"] {
+  const c = raw && typeof raw === "object" ? (raw as Raw) : null;
+  const v = c?.vers && typeof c.vers === "object" ? (c.vers as Raw) : null;
+  if (!c || !v) return null;
+  return { vers: { x: Number(v.x), y: Number(v.y), w: Number(v.w), h: Number(v.h) }, ...(num(c.debut) !== undefined ? { debut: num(c.debut) } : {}), ...(num(c.fin) !== undefined ? { fin: num(c.fin) } : {}) };
 }
 
 /** Un élément reçu d'un modèle, remis en forme (champs inconnus ignorés). Pure. */
@@ -180,6 +253,8 @@ export function parseElement(raw: unknown): Element {
     ...(num(d.largeur) !== undefined ? { largeur: num(d.largeur) } : {}),
     ...(num(d.hauteur) !== undefined ? { hauteur: num(d.hauteur) } : {}),
     ...(num(d.x2) !== undefined ? { x2: num(d.x2), y2: num(d.y2) ?? num(d.y) ?? 0.5 } : {}),
+    ...(d.derriere === true ? { derriere: true } : {}),
+    ...(d.inclinaison && typeof d.inclinaison === "object" ? { inclinaison: { angle: Number((d.inclinaison as Raw).angle), ...(num((d.inclinaison as Raw).debut) !== undefined ? { debut: num((d.inclinaison as Raw).debut) } : {}) } } : {}),
     debut: num(d.debut) ?? 0,
     ...(num(d.fin) !== undefined ? { fin: num(d.fin) } : {}),
     entree: oneOf(d.entree, ENTRIES, "pop"),
@@ -275,7 +350,9 @@ function textsOf(e: Element): { pub: string[]; ui: string[]; problems: string[] 
     case "titre":
       len("Texte", str(d.texte), MAX.grand);
       len("Remplacement", str(d.remplacement), MAX.grand, d.animation === "barre-remplace");
-      if (str(d.mot_fort) && !str(d.texte).toLowerCase().includes(str(d.mot_fort).toLowerCase())) problems.push("Le mot fort doit être dans le texte.");
+      // En barré-remplacé, le mot fort est celui du texte qui remplace.
+      const strongIn = d.animation === "barre-remplace" ? str(d.remplacement) : str(d.texte);
+      if (str(d.mot_fort) && !strongIn.toLowerCase().includes(str(d.mot_fort).toLowerCase())) problems.push(d.animation === "barre-remplace" ? "Le mot fort doit être dans le remplacement." : "Le mot fort doit être dans le texte.");
       pub.push(str(d.texte), str(d.remplacement));
       break;
     case "compteur":
@@ -340,6 +417,7 @@ export function elementProblems(elements: Element[], fond: Fond, ctx: CompoConte
       return;
     }
     const where = `${at} (${e.type})`;
+    if (e.inclinaison && !(Math.abs(e.inclinaison.angle) <= 45)) out.push(`${where} : inclinaison de -45 à 45 degrés.`);
     if (e.variante !== undefined) {
       const v = ctx.variants?.get(e.variante);
       if (!v) out.push(`${where} : variante ${e.variante} introuvable.`);
