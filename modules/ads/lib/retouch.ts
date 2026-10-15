@@ -83,7 +83,7 @@ export const RETOUCH_SCHEMA = {
         partition_json: {
           type: "string",
           description:
-            'La partition complète en JSON, ou une chaîne vide pour garder la même. Format : {"shots":[{"kind":"ouverture","seconds":2,"text":"…","highlight":"…"},{"kind":"rush","seconds":4,"rush":1,"from":0,"to":4,"zoom":{"x":0,"y":0.3,"w":1,"h":0.4},"caption":"…"},{"kind":"preuve","seconds":1.8,"fact":5},{"kind":"compo","seconds":2.4,"fond":{"type":"rush","rush":1,"from":0,"to":2.4,"flou":true,"voile":0.4},"elements":[{"type":"notification","data":{"app":"TIM","titre":"…","texte":"…"},"x":0.5,"y":0.3,"debut":0.3,"entree":"glisse-haut"},{"type":"tap","data":{},"x":0.5,"y":0.7,"debut":1.2}]},{"kind":"logo","seconds":1.5},{"kind":"fin","seconds":2.5,"line":"…"}]}. Éléments et fonds : voir « elements » dans la matière vidéo.',
+            'La partition complète en JSON, ou une chaîne vide pour garder la même. Toujours en Base V1 : {"base":"v1","shots":[{"role":"accroche","kind":"compo",…},{"role":"retournement",…},{"role":"geste",…},{"role":"consequence",…},{"role":"preuve",…},{"role":"fin","kind":"fin",…}]} — pars de la partition actuelle de la créa et ne change que ce que la consigne vise ; format, règles et exemples : « base » dans la matière vidéo.',
         },
       },
     }),
@@ -104,16 +104,17 @@ export type RetouchResult = {
   textes: { principal: string[]; titre: string[]; description: string[] } | null;
   accroche: string | null;
   gabarit: "capture" | "chiffre" | "photo" | "texte" | null;
-  video: { style: number | null; musique: number | null; sans_musique: boolean; partition: { shots: Raw[] } | null } | null;
+  video: { style: number | null; musique: number | null; sans_musique: boolean; partition: { shots: Raw[]; base?: "v1" } | null } | null;
 };
 
 /** La réponse du modèle ramenée à des « null » pour ce qui ne change pas ; une partition illisible est ignorée. Pure. */
 export function normalizeResult(r: RawResult): RetouchResult {
-  let partition: { shots: Raw[] } | null = null;
+  let partition: { shots: Raw[]; base?: "v1" } | null = null;
   if (r.video?.partition_json?.trim()) {
     try {
-      const parsed = JSON.parse(r.video.partition_json) as { shots?: unknown };
-      if (Array.isArray(parsed.shots)) partition = { shots: parsed.shots as Raw[] };
+      const parsed = JSON.parse(r.video.partition_json) as { shots?: unknown; base?: unknown };
+      // La base suivie fait partie de la partition : la perdre ferait refuser un montage pourtant conforme (bug du 15/10/2026).
+      if (Array.isArray(parsed.shots)) partition = { shots: parsed.shots as Raw[], ...(parsed.base === "v1" ? { base: "v1" as const } : {}) };
     } catch {
       partition = null;
     }
@@ -205,9 +206,15 @@ export function guardTexts(t: NonNullable<RetouchResult["textes"]>, ctx: { tone:
 }
 
 /** Une partition rendue par le modèle, remise au format du moteur (les champs vides retirés). Pure. */
-export const scoreFromModel = (p: { shots: Raw[] }): { shots: Raw[] } => ({
-  shots: p.shots.map((s) => Object.fromEntries(Object.entries(s).filter(([, v]) => v !== null))),
-});
+/**
+ * La partition du modèle, sans ses champs vides. Elle garde la base suivie ;
+ * une vidéo déjà en Base V1 le reste même si le modèle a omis de le redire
+ * (une retouche change des textes, pas la base).
+ */
+export const scoreFromModel = (p: { shots: Raw[]; base?: "v1" }, previous?: unknown): { shots: Raw[]; base?: "v1" } => {
+  const base = p.base ?? ((previous as { base?: unknown } | null | undefined)?.base === "v1" ? "v1" : undefined);
+  return { shots: p.shots.map((s) => Object.fromEntries(Object.entries(s).filter(([, v]) => v !== null))), ...(base ? { base } : {}) };
+};
 
 /** La partition avec la nouvelle accroche à l'ouverture, quand l'ouverture reprenait l'ancienne. Pure. */
 export function withHook(score: unknown, oldHook: string | null, newHook: string | null): unknown {
@@ -354,7 +361,7 @@ export async function processNextRetouch(payload: Payload, deps: RetouchDeps = {
       const apply = async (v: NonNullable<RetouchResult["video"]>) =>
         (deps.video ?? requestVideo)(payload, creativeId, {
           styleId: v.style ?? idOf(c.style) ?? (await firstStyle()),
-          score: v.partition ? scoreFromModel(v.partition) : c.video?.score,
+          score: v.partition ? scoreFromModel(v.partition, c.video?.score) : c.video?.score,
           // Une partition réécrite par l'IA part de la Base V1 ; refaire la vidéo telle quelle ne l'exige pas (une ancienne créa ne casse pas).
           requireBase: Boolean(v.partition),
           // Sans musique précisée : celle de la vidéo, ou celle du kit pour un premier montage.
