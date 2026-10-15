@@ -1,5 +1,6 @@
 import type { Payload } from "payload";
 
+import { baseV1Guide } from "@/modules/ads/video/base-v1";
 import { loadGenerationContext, weeklyUsed } from "@/modules/ads/lib/copy/generate";
 import type { Framing, Rect } from "@/modules/ads/lib/framing";
 import { FinalError } from "@/modules/ads/lib/rush-process";
@@ -120,7 +121,7 @@ export function rushForAgent(r: RushDoc): RushForAgent {
 }
 
 /** Les rushes prêts et les styles actifs : ce qu'un montage peut employer ; les inspirations validées : ce qui guide le goût. */
-export type VideoMaterial = { rushes: RushForAgent[]; styles: StyleForAgent[]; inspirations: InspirationForAgent[]; musiques: MusicForAgent[]; logo: string; elements: { guide: Record<string, string>; variantes: { id: number; nom: string; base: string; quandLEmployer: string }[] } };
+export type VideoMaterial = { base: Record<string, unknown>; rushes: RushForAgent[]; styles: StyleForAgent[]; inspirations: InspirationForAgent[]; musiques: MusicForAgent[]; logo: string; elements: { guide: Record<string, string>; variantes: { id: number; nom: string; base: string; quandLEmployer: string }[] } };
 
 export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
   const [rushes, styles, musics, inspirations, kit, elements] = await Promise.all([
@@ -140,6 +141,8 @@ export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
   const animated = await loadAnimatedLogo(kit.logoAnimated);
   const docs = rushes.docs as unknown as RushDoc[];
   return {
+    // La Base V1 : la structure, les règles, ce qui est libre ; tout nouveau montage d'IA en part.
+    base: baseV1Guide(),
     // Une ancienne fiche de rush marquée « inspiration » (avant la collection à part) n'est jamais de la matière.
     rushes: docs.filter((r) => !isInspiration(r)).map(rushForAgent),
     // Le format des données de chaque élément de base, et les variantes actives de l'atelier (avec leur « quand l'employer »).
@@ -240,7 +243,8 @@ export async function mountVideo(
   const creative = (await payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 0, overrideAccess: true })) as unknown as Raw;
   // La partition est vérifiée ici, sur la créa d'origine : refusée, rien d'autre ne s'écrit.
   // Un nouveau montage de l'agent : seules les variantes d'éléments actives.
-  const first = await requestVideo(payload, creativeId, { styleId: variants[0].style, score: input.score, music: variants[0].music, requireActiveElements: true });
+  // …et la Base V1 : l'agent en part, il ne repart pas de zéro.
+  const first = await requestVideo(payload, creativeId, { styleId: variants[0].style, score: input.score, music: variants[0].music, requireActiveElements: true, requireBase: true });
   const entry = (crea: number, v: (typeof variants)[number], music: number | null, test: boolean) => ({
     crea,
     style: v.style,

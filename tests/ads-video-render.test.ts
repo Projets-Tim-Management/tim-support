@@ -161,6 +161,6 @@ describe("après « Générer des créas »", () => {
       ["ad-retouches", 12, "B"],
       ["ad-retouches", 13, "A"],
     ]);
-    expect(String(created[0].data.instruction)).toMatch(/plans COMPOSÉS de motion design/);
+    expect(String(created[0].data.instruction)).toMatch(/BASE V1/);
   });
 });

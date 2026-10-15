@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { BASE_V1_EXAMPLES } from "@/modules/ads/video/base-v1";
 import { mountVideo, rushForAgent, styleSettings, variantCopyOf } from "@/modules/ads/video/mount";
 
 /**
@@ -55,7 +56,13 @@ describe("la copie d'une créa pour un test de style", () => {
 });
 
 describe("le montage dans 1 à 3 styles", () => {
-  const SCORE = { shots: [{ kind: "ouverture", seconds: 2, text: "Fini la ressaisie." }, { kind: "rush", seconds: 4, rush: 1, from: 0, to: 4 }, { kind: "fin", seconds: 2.5 }] };
+  // L'exemple « pointage » de la Base V1, sans preuve (pas de fait dans ce brief) ni variante (pas d'atelier ici).
+  const SCORE = (() => {
+    const raw = JSON.parse(JSON.stringify(BASE_V1_EXAMPLES[1].partition)) as { base: "v1"; shots: Record<string, unknown>[] };
+    raw.shots = raw.shots.filter((x) => x.role !== "preuve");
+    for (const x of raw.shots) for (const e of (x.elements as Record<string, unknown>[] | undefined) ?? []) delete e.variante;
+    return raw;
+  })();
 
   const MUSICS = [
     { id: 20, kind: "musique", alt: "Énergique", active: true, url: "https://cdn/e.mp3", beat: { bpm: 120, bestStartSec: 12 } },
@@ -81,7 +88,7 @@ describe("le montage dans 1 à 3 styles", () => {
           : collection === "ad-media"
             ? { docs: MUSICS.filter((m) => where?.id?.in.includes(m.id)) }
             : collection === "ad-rushes"
-              ? { docs: [{ id: 1, processing: { status: "pret" }, working: { url: "u", meta: { width: 732, height: 1510, durationSec: 12 } } }] }
+              ? { docs: [{ id: 1, features: ["pointage"], processing: { status: "pret" }, working: { url: "u", meta: { width: 732, height: 1510, durationSec: 12 } } }] }
               : { docs: [] },
       ),
       count: vi.fn(async () => ({ totalDocs: used })),
@@ -127,7 +134,8 @@ describe("le montage dans 1 à 3 styles", () => {
       expect(created.length + updates.length).toBe(0);
     }
     const { payload, created, updates } = fake();
-    const bad = { shots: [{ kind: "ouverture", seconds: 2, text: "Gagnez 3 heures" }, ...SCORE.shots.slice(1)] };
+    const bad = JSON.parse(JSON.stringify(SCORE)) as typeof SCORE;
+    ((bad.shots[0].elements as Record<string, unknown>[])[0].data as Record<string, unknown>).texte = "Gagnez 3 heures";
     await expect(mountVideo(payload, 4, 9, { styles: [1, 2], score: bad }, NOW)).rejects.toThrow(/Chiffre non sourcé : 3/);
     expect(created.length + updates.length).toBe(0);
   });

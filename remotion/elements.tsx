@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode }
 import { AbsoluteFill, continueRender, delayRender, Easing, interpolate, Sequence, useCurrentFrame } from "remotion";
 
 import type { RenderElement, RenderProps } from "../modules/ads/video/props";
+import { VALIDATION_GREEN } from "../modules/ads/video/element-params";
 import { AnimatedLogo } from "./logo";
 
 /**
@@ -17,7 +18,8 @@ import { AnimatedLogo } from "./logo";
  * partition, déjà vérifiée (modules/ads/video/elements.ts).
  */
 
-type Ctx = { p: RenderProps; title: string; body: string; u: number };
+/** `bg` : la couleur pleine du fond du plan, quand il en a une (une couleur portée par l'élément ne doit pas s'y fondre). */
+type Ctx = { p: RenderProps; title: string; body: string; u: number; bg?: string };
 type Params = Record<string, string | number | boolean>;
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
@@ -45,6 +47,7 @@ function colorOf(p: RenderProps, role: string): string {
   // Une couleur personnalisée (#RRGGBB) passe telle quelle.
   if (/^#[0-9a-f]{6}$/i.test(role)) return role;
   const c = p.palette;
+  if (role === "validation") return VALIDATION_GREEN;
   return role === "principale" ? c.primary : role === "clair" ? c.lightBg : role === "sombre" ? c.darkBg : role === "texte-clair" ? c.textOnDark : role === "texte-sombre" ? c.textOnLight : c.accent;
 }
 /** La couleur d'une partie : celle de son réglage, ou `fallback` quand le réglage dit « auto » (ou n'existe pas). */
@@ -63,24 +66,32 @@ const onColor = (p: RenderProps, role: string) => {
 };
 
 /** Les coins : ceux du style, ou ceux du réglage. */
+/**
+ * Règle de la marque (Charlie, 15/10/2026) : un LÉGER arrondi partout — jamais
+ * d'angle vif, jamais de pilule ni de rond. Le réglage « coins » ne fait plus
+ * que doser cet arrondi léger.
+ */
 function radiusOf(p: RenderProps, prm: Params, s: number, base = 34): number {
   const corners = opt(prm, "coins", "style");
   const kind = corners === "style" ? p.style.corners : corners;
-  return kind === "carres" ? 0 : kind === "pilule" ? base * 2.4 * s : base * s;
+  const r = base * s;
+  return kind === "carres" ? r * 0.6 : r;
 }
 
 const SHADOW = { aucune: () => "none", douce: (s: number) => `0 ${16 * s}px ${44 * s}px -${18 * s}px rgba(0,0,0,0.35)`, forte: (s: number) => `0 ${36 * s}px ${90 * s}px -${36 * s}px rgba(0,0,0,0.55)` } as const;
 const shadowOf = (prm: Params, s: number) => SHADOW[opt(prm, "ombre", "forte") as keyof typeof SHADOW]?.(s) ?? SHADOW.forte(s);
 
 /** L'allure d'une surface (carte, bulle, étiquette) : couleur, coins, ombre, bordure — ou verre dépoli. */
-function surface(p: RenderProps, prm: Params, s: number, base = 34): { style: CSSProperties; fg: string; line: string } {
+function surface(p: RenderProps, prm: Params, s: number, base = 34, plain?: string): { style: CSSProperties; fg: string; line: string } {
   const c = p.palette;
   const kind = opt(prm, "surface", "clair");
   // Le verre est teinté du fond sombre du kit : translucide et flouté, mais le texte clair reste lisible sur un rush clair.
   const glass = /^#[0-9a-f]{6}$/i.test(c.darkBg) ? `${c.darkBg}8c` : "rgba(15,20,40,0.55)";
   const bg = kind === "sombre" ? c.darkBg : kind === "accent" ? c.accent : kind === "verre" ? glass : c.lightBg;
   const fg = pick(p, prm, "couleur_texte", kind === "clair" ? c.textOnLight : c.textOnDark);
-  const border = opt(prm, "bordure", kind === "verre" ? "fine" : "aucune");
+  // Une carte de la couleur du fond s'y perdrait : un trait fin et une ombre plus marquée la détachent (règle du 15/10/2026).
+  const blends = plain != null && plain.toLowerCase() === bg.toLowerCase();
+  const border = blends ? "fine" : opt(prm, "bordure", kind === "verre" ? "fine" : "aucune");
   return {
     fg,
     line: `${fg}1f`,
@@ -88,7 +99,7 @@ function surface(p: RenderProps, prm: Params, s: number, base = 34): { style: CS
       background: bg,
       color: fg,
       borderRadius: radiusOf(p, prm, s, base),
-      boxShadow: shadowOf(prm, s),
+      boxShadow: blends ? `0 ${24 * s}px ${60 * s}px -${20 * s}px rgba(15,20,50,0.35), 0 ${4 * s}px ${12 * s}px rgba(15,20,50,0.08)` : shadowOf(prm, s),
       border: border === "fine" ? `${Math.max(1, 2 * s)}px solid ${fg}33` : border === "accent" ? `${4 * s}px solid ${c.accent}` : "none",
       ...(kind === "verre" ? { backdropFilter: `blur(${24 * s}px)`, WebkitBackdropFilter: `blur(${24 * s}px)` } : {}),
     },
@@ -96,13 +107,13 @@ function surface(p: RenderProps, prm: Params, s: number, base = 34): { style: CS
 }
 
 function Check({ k, color, size, shape = "rond" }: { k: number; color: string; size: number; shape?: string }) {
-  if (shape === "trait") return <div style={{ width: size, height: size * 0.16, borderRadius: size, background: color, opacity: 0.25 + 0.75 * k, transform: `scaleX(${0.3 + 0.7 * k})`, flex: "none" }} />;
+  if (shape === "trait") return <div style={{ width: size, height: size * 0.16, borderRadius: size * 0.05, background: color, opacity: 0.25 + 0.75 * k, transform: `scaleX(${0.3 + 0.7 * k})`, flex: "none" }} />;
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={{ overflow: "visible", flex: "none" }}>
       {shape === "carre" ? (
         <rect x="1" y="1" width="22" height="22" rx="5" fill={k > 0 ? color : "none"} stroke={color} strokeWidth={2} opacity={0.35 + 0.65 * k} />
       ) : (
-        <circle cx="12" cy="12" r="11" fill={k > 0 ? color : "none"} stroke={color} strokeWidth={2} opacity={0.35 + 0.65 * k} />
+        <rect x="1" y="1" width="22" height="22" rx="5.5" fill={k > 0 ? color : "none"} stroke={color} strokeWidth={2} opacity={0.35 + 0.65 * k} />
       )}
       <path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={16} strokeDashoffset={16 * (1 - k)} />
     </svg>
@@ -121,13 +132,13 @@ type Props = { e: RenderElement; ctx: Ctx; s: number; w: number; frames: number;
 
 /** Une carte de l'app : la surface réglée, et un en-tête discret (si le réglage le veut). */
 function Card({ e, ctx, s, title, children }: { e: RenderElement; ctx: Ctx; s: number; title?: string; children: ReactNode }) {
-  const sf = surface(ctx.p, e.params, s, 38);
+  const sf = surface(ctx.p, e.params, s, 38, ctx.bg);
   const header = title && yes(e.params, "en_tete", true);
   return (
     <div style={{ ...sf.style, overflow: "hidden" }}>
       {header && (
         <div style={{ display: "flex", alignItems: "center", gap: 16 * s, padding: `${30 * s}px ${38 * s}px`, borderBottom: `${2 * s}px solid ${sf.line}` }}>
-          <div style={{ width: 16 * s, height: 16 * s, borderRadius: "50%", background: pick(ctx.p, e.params, "couleur_point", ctx.p.palette.accent) }} />
+          <div style={{ width: 16 * s, height: 16 * s, borderRadius: "24%", background: pick(ctx.p, e.params, "couleur_point", ctx.p.palette.accent) }} />
           <div style={{ fontFamily: ctx.title, fontWeight: 800, fontSize: 38 * s }}>{title}</div>
         </div>
       )}
@@ -139,7 +150,7 @@ function Card({ e, ctx, s, title, children }: { e: RenderElement; ctx: Ctx; s: n
 /** L'avatar d'une ligne : initiales, silhouette, photo (Médias publicitaires, nature « Visage ») ou rien. */
 function Avatar({ mode, name, color, face, size, font }: { mode: string; name: string; color: string; face: string | null; size: number; font: string }) {
   if (mode === "aucun") return null;
-  const ring: CSSProperties = { width: size, height: size, flex: "none", borderRadius: "50%", overflow: "hidden", background: `${color}26`, display: "flex", alignItems: "center", justifyContent: "center" };
+  const ring: CSSProperties = { width: size, height: size, flex: "none", borderRadius: "24%", overflow: "hidden", background: `${color}26`, display: "flex", alignItems: "center", justifyContent: "center" };
   if (mode === "photos" && face) {
     // eslint-disable-next-line @next/next/no-img-element -- rendu vidéo (Remotion), pas une page Next.
     return <img src={face} alt="" style={{ ...ring, objectFit: "cover" }} />;
@@ -161,7 +172,7 @@ function Liste({ e, ctx, s }: Props) {
   const frame = useFrame(e);
   const p = ctx.p;
   const prm = e.params;
-  const sf = surface(p, prm, s);
+  const sf = surface(p, prm, s, 34, ctx.bg);
   const step = stepOf(p) * num(prm, "cadence", 1);
   const items = (Array.isArray(e.data.elements) ? e.data.elements : []) as { nom?: string; detail?: string }[];
   const done = 6 + items.length * step + step * 0.6;
@@ -195,12 +206,49 @@ function Notification({ e, ctx, s }: Props) {
   const frame = useFrame(e);
   const p = ctx.p;
   const prm = e.params;
-  const sf = surface(p, prm, s);
+  const sf = surface(p, prm, s, 46, ctx.bg);
   const app = str(e.data.app) || "TIM";
-  const icon = opt(prm, "icone", "app");
+  // Un visage (Médias publicitaires) plutôt que « TIM » : la notification vient de quelqu'un ; l'app à défaut de visage déposé.
+  const faces = p.faces ?? [];
+  const wanted = opt(prm, "icone", "visage");
+  const icon = wanted === "visage" && !faces.length ? "app" : wanted;
+  const face = faces.length ? faces[Math.abs(Math.round(num(e.data as Params, "visage", 0))) % faces.length] : null;
   const logo = p.logos.symbol ?? p.logos.light;
+  if (opt(prm, "format", "banniere") === "grande") {
+    // La confirmation en grand : ce qui vient de se passer doit sauter aux yeux (un pointage validé, une demande envoyée).
+    const ok = t(frame, 4, 12, popOf(e));
+    return (
+      <div style={{ ...sf.style, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 22 * s, padding: `${56 * s}px ${48 * s}px` }}>
+        {yes(prm, "coche", true) && (
+          <div style={{ transform: `scale(${0.4 + 0.6 * ok})` }}>
+            <Check k={ok} color={pick(p, prm, "couleur_coche", p.palette.accent)} size={150 * s} />
+          </div>
+        )}
+        <div style={{ fontFamily: ctx.title, fontWeight: 900, fontSize: 70 * s, lineHeight: 1.05 }}>{str(e.data.titre)}</div>
+        {str(e.data.texte) && <div style={{ fontFamily: ctx.body, fontSize: 34 * s, lineHeight: 1.3, opacity: 0.8 }}>{str(e.data.texte)}</div>}
+      </div>
+    );
+  }
+  // La validation : la coche se remplit, une onde en part, un liseré s'allume autour de la carte et elle rebondit (15/10/2026).
+  const checkAt = stepOf(p) * 3;
+  const ok = t(frame, checkAt, 8, popOf(e));
+  const wave = t(frame, checkAt + 2, 16);
+  const okColor = pick(p, prm, "couleur_coche", VALIDATION_GREEN);
+  const lit = Math.sin(Math.PI * Math.min(1, wave * 1.4));
   return (
-    <div style={{ ...sf.style, display: "flex", gap: 26 * s, alignItems: "flex-start", padding: 34 * s }}>
+    <div
+      style={{
+        ...sf.style,
+        display: "flex",
+        gap: 26 * s,
+        alignItems: "flex-start",
+        padding: 34 * s,
+        transform: `scale(${1 + 0.035 * lit})`,
+        boxShadow: [sf.style.boxShadow, yes(prm, "coche", true) && wave > 0 && wave < 1 ? `0 0 0 ${5 * s}px ${okColor}${Math.round(lit * 160).toString(16).padStart(2, "0")}` : null].filter(Boolean).join(", "),
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- rendu vidéo (Remotion), pas une page Next. */}
+      {icon === "visage" && face && <img src={face} alt="" style={{ width: 84 * s, height: 84 * s, flex: "none", objectFit: "cover", borderRadius: 24 * s }} />}
       {icon === "app" && <div style={{ width: 84 * s, height: 84 * s, flex: "none", borderRadius: 22 * s, background: pick(p, prm, "couleur_icone", p.palette.primary), color: p.palette.textOnDark, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: ctx.title, fontWeight: 900, fontSize: 28 * s }}>{app.slice(0, 3).toUpperCase()}</div>}
       {/* eslint-disable-next-line @next/next/no-img-element -- rendu vidéo (Remotion), pas une page Next. */}
       {icon === "logo" && logo && <img src={logo} alt="" style={{ width: 84 * s, height: 84 * s, flex: "none", objectFit: "contain", borderRadius: 22 * s, background: p.palette.lightBg }} />}
@@ -212,7 +260,12 @@ function Notification({ e, ctx, s }: Props) {
         <div style={{ fontFamily: ctx.body, fontWeight: 800, fontSize: 36 * s, lineHeight: 1.15 }}>{str(e.data.titre)}</div>
         <div style={{ fontFamily: ctx.body, fontSize: 28 * s, lineHeight: 1.3, opacity: 0.8, marginTop: 6 * s }}>{str(e.data.texte)}</div>
       </div>
-      {yes(prm, "coche", true) && <Check k={t(frame, stepOf(p) * 3, 8, popOf(e))} color={pick(p, prm, "couleur_coche", p.palette.accent)} size={52 * s} />}
+      {yes(prm, "coche", true) && (
+        <div style={{ position: "relative", flex: "none" }}>
+          <div style={{ position: "absolute", inset: 0, borderRadius: "24%", border: `${4 * s}px solid ${okColor}`, transform: `scale(${1 + wave * 1.3})`, opacity: wave > 0 ? 1 - wave : 0 }} />
+          <Check k={ok} color={okColor} size={52 * s} />
+        </div>
+      )}
     </div>
   );
 }
@@ -227,7 +280,7 @@ function Bouton({ e, ctx, s, frames }: Props) {
   const ripple = t(frame, tap, 14);
   const ok = t(frame, tap + 6, 12, popOf(e));
   const conf = str(e.data.confirmation);
-  const sf = surface(p, { ...prm, surface: "clair", couleur_texte: "auto" }, s);
+  const sf = surface(p, { ...prm, surface: "clair", couleur_texte: "auto" }, s, 34, ctx.bg);
   const okColor = pick(p, prm, "couleur_coche", p.palette.accent);
   return (
     <div style={{ position: "relative" }}>
@@ -235,7 +288,7 @@ function Bouton({ e, ctx, s, frames }: Props) {
         {str(e.data.bouton)}
       </div>
       {yes(prm, "onde", true) && (
-        <div style={{ position: "absolute", left: "50%", top: 54 * s, width: 40 * s, height: 40 * s, marginLeft: -20 * s, marginTop: -20 * s, borderRadius: "50%", border: `${4 * s}px solid ${pick(p, prm, "couleur_onde", p.palette.lightBg)}`, transform: `scale(${1 + ripple * 6})`, opacity: (1 - ripple) * (frame >= tap ? 1 : 0) }} />
+        <div style={{ position: "absolute", left: "50%", top: 54 * s, width: 40 * s, height: 40 * s, marginLeft: -20 * s, marginTop: -20 * s, borderRadius: "24%", border: `${4 * s}px solid ${pick(p, prm, "couleur_onde", p.palette.lightBg)}`, transform: `scale(${1 + ripple * 6})`, opacity: (1 - ripple) * (frame >= tap ? 1 : 0) }} />
       )}
       {conf && opt(prm, "confirmation", "carte") === "carte" && (
         <div style={{ ...sf.style, marginTop: 26 * s, display: "flex", alignItems: "center", gap: 18 * s, padding: `${22 * s}px ${28 * s}px`, opacity: ok, transform: `translateY(${(1 - ok) * 40 * s}px)` }}>
@@ -245,7 +298,7 @@ function Bouton({ e, ctx, s, frames }: Props) {
       )}
       {conf && opt(prm, "confirmation", "carte") === "badge" && (
         <div style={{ display: "flex", justifyContent: "center", marginTop: 22 * s, opacity: ok, transform: `scale(${0.7 + 0.3 * ok})` }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 12 * s, background: okColor, color: p.palette.textOnDark, borderRadius: 999, padding: `${12 * s}px ${26 * s}px`, fontFamily: ctx.body, fontWeight: 800, fontSize: 28 * s }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 12 * s, background: okColor, color: p.palette.textOnDark, borderRadius: 14 * s, padding: `${12 * s}px ${26 * s}px`, fontFamily: ctx.body, fontWeight: 800, fontSize: 28 * s }}>
             <Check k={ok} color={p.palette.textOnDark} size={34 * s} />
             {conf}
           </div>
@@ -261,7 +314,7 @@ function Planning({ e, ctx, s, w }: Props) {
   const frame = useFrame(e);
   const p = ctx.p;
   const prm = e.params;
-  const sf = surface(p, prm, s);
+  const sf = surface(p, prm, s, 34, ctx.bg);
   const step = stepOf(p) * num(prm, "cadence", 1);
   const days = DAYS.slice(0, Math.min(7, Math.max(5, Number(e.data.jours) || 5)));
   const lignes = strs(e.data.lignes);
@@ -283,8 +336,8 @@ function Planning({ e, ctx, s, w }: Props) {
         <div key={r} style={{ display: "flex", alignItems: "center", gap: 8 * s, marginBottom: 10 * s }}>
           <div style={{ width: labelW - 8 * s, fontFamily: ctx.body, fontWeight: 700, fontSize: 26 * s, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l}</div>
           {bars ? (
-            <div style={{ flex: 1, height: cell * 0.5, borderRadius: cell, background: sf.line, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${t(frame, 6 + r * step, 14) * (55 + ((r * 23) % 40))}%`, background: tones[r % tones.length], borderRadius: cell }} />
+            <div style={{ flex: 1, height: cell * 0.5, borderRadius: cell * 0.12, background: sf.line, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${t(frame, 6 + r * step, 14) * (55 + ((r * 23) % 40))}%`, background: tones[r % tones.length], borderRadius: cell * 0.12 }} />
             </div>
           ) : (
             days.map((_, i) => {
@@ -328,7 +381,7 @@ function Fiche({ e, ctx, s, w }: Props) {
   const p = ctx.p;
   const prm = e.params;
   const d = e.data;
-  const sf = surface(p, prm, s, 40);
+  const sf = surface(p, prm, s, 40, ctx.bg);
   const accent = pick(p, prm, "couleur_accent", p.palette.accent);
   const bar = pick(p, prm, "couleur_barre", p.palette.primary);
   const dot = pick(p, prm, "couleur_puce", p.palette.accent);
@@ -358,14 +411,14 @@ function Fiche({ e, ctx, s, w }: Props) {
       {yes(prm, "onglets", true) && onglets.length > 0 && (
         <div style={{ display: "flex", gap: 8 * s, marginTop: 18 * s, fontFamily: ctx.body, fontSize: 26 * s }}>
           {onglets.map((o, i) => (
-            <div key={i} style={{ padding: `${12 * s}px ${20 * s}px`, borderRadius: 16 * s, background: i === 0 ? `${sf.fg}12` : "transparent", color: i === 0 ? accent : sf.fg, fontWeight: i === 0 ? 800 : 500, opacity: i === 0 ? 1 : 0.8 }}>
+            <div key={i} style={{ padding: `${12 * s}px ${20 * s}px`, borderRadius: 12 * s, background: i === 0 ? `${sf.fg}12` : "transparent", color: i === 0 ? accent : sf.fg, fontWeight: i === 0 ? 800 : 500, opacity: i === 0 ? 1 : 0.8 }}>
               {o}
             </div>
           ))}
         </div>
       )}
       {yes(prm, "carte", true) && (
-        <div style={{ marginTop: 18 * s, borderRadius: 26 * s, overflow: "hidden", boxShadow: `0 ${8 * s}px ${24 * s}px -${10 * s}px rgba(0,0,0,0.25)` }}>
+        <div style={{ marginTop: 18 * s, borderRadius: 16 * s, overflow: "hidden", boxShadow: `0 ${8 * s}px ${24 * s}px -${10 * s}px rgba(0,0,0,0.25)` }}>
           <MiniMap w={w - pad * 2} h={(w - pad * 2) * 0.36} pin={accent} drop={t(frame, 6, 14, Easing.out(Easing.bounce))} />
           <div style={{ display: "flex", alignItems: "center", gap: 16 * s, padding: `${20 * s}px ${24 * s}px`, background: `${sf.fg}08` }}>
             <div style={{ flex: 1 }}>
@@ -373,7 +426,7 @@ function Fiche({ e, ctx, s, w }: Props) {
               {str(d.adresse) && <div style={{ fontFamily: ctx.body, fontSize: 24 * s, opacity: 0.6 }}>{str(d.adresse)}</div>}
             </div>
             {yes(prm, "itineraire", true) && (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 * s, background: `${accent}1f`, color: accent, borderRadius: 999, padding: `${12 * s}px ${22 * s}px`, fontFamily: ctx.body, fontWeight: 800, fontSize: 24 * s, transform: `scale(${0.9 + 0.1 * t(frame, 14, 10, pop)})` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 * s, background: `${accent}1f`, color: accent, borderRadius: 14 * s, padding: `${12 * s}px ${22 * s}px`, fontFamily: ctx.body, fontWeight: 800, fontSize: 24 * s, transform: `scale(${0.9 + 0.1 * t(frame, 14, 10, pop)})` }}>
                 <svg width={22 * s} height={22 * s} viewBox="0 0 24 24">
                   <path d="M3 11l18-8-8 18-2-8z" fill={accent} />
                 </svg>
@@ -400,8 +453,8 @@ function Fiche({ e, ctx, s, w }: Props) {
                     Du {str(d.debut)} au {str(d.fin)}
                   </div>
                   {avancement !== null && (
-                    <div style={{ marginTop: 10 * s, height: 10 * s, borderRadius: 10 * s, background: `${sf.fg}1a`, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${avancement * t(frame, step * 2.5, 18, Easing.out(Easing.cubic))}%`, background: bar, borderRadius: 10 * s }} />
+                    <div style={{ marginTop: 10 * s, height: 10 * s, borderRadius: 3 * s, background: `${sf.fg}1a`, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${avancement * t(frame, step * 2.5, 18, Easing.out(Easing.cubic))}%`, background: bar, borderRadius: 3 * s }} />
                     </div>
                   )}
                 </div>
@@ -466,7 +519,7 @@ function Champ({ e, ctx, s }: Props) {
   const frame = useFrame(e);
   const p = ctx.p;
   const prm = e.params;
-  const sf = surface(p, prm, s, 28);
+  const sf = surface(p, prm, s, 28, ctx.bg);
   const value = str(e.data.valeur);
   const speed = num(prm, "frappe", 1);
   const typed = Math.round(interpolate(frame, [6, 6 + (value.length * 1.6) / speed], [0, value.length], clamp));
@@ -492,7 +545,7 @@ function Badge({ e, ctx, s }: Props) {
   const k = t(frame, 4, 8, popOf(e));
   const fg = pick(p, prm, "couleur_texte", onColor(p, role));
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 14 * s, background: colorOf(p, role), color: fg, borderRadius: 999, padding: `${16 * s}px ${30 * s}px ${16 * s}px ${icon === "aucune" ? 30 * s : 18 * s}px`, fontFamily: ctx.body, fontWeight: 800, fontSize: 32 * s, boxShadow: shadowOf(prm, s) }}>
+    <div style={{ display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", gap: 14 * s, background: colorOf(p, role), color: fg, borderRadius: 14 * s, padding: `${16 * s}px ${30 * s}px ${16 * s}px ${icon === "aucune" ? 30 * s : 18 * s}px`, fontFamily: ctx.body, fontWeight: 800, fontSize: 32 * s, boxShadow: shadowOf(prm, s) }}>
       {icon === "coche" && <Check k={k} color={fg} size={40 * s} />}
       {icon === "etoile" && (
         <svg width={38 * s} height={38 * s} viewBox="0 0 24 24" style={{ transform: `scale(${k}) rotate(${(1 - k) * 90}deg)` }}>
@@ -515,12 +568,12 @@ function Tap({ e, ctx, s, w }: Props) {
   const finger = pick(p, prm, "couleur_doigt", p.palette.textOnDark);
   return (
     <div style={{ position: "relative", width: w, height: w }}>
-      <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: `${5 * s}px solid ${colorOf(p, opt(prm, "onde_couleur", "accent"))}`, transform: `scale(${0.4 + ripple * 1.6})`, opacity: (1 - ripple) * (frame >= 9 ? 1 : 0) }} />
+      <div style={{ position: "absolute", inset: 0, borderRadius: "24%", border: `${5 * s}px solid ${colorOf(p, opt(prm, "onde_couleur", "accent"))}`, transform: `scale(${0.4 + ripple * 1.6})`, opacity: (1 - ripple) * (frame >= 9 ? 1 : 0) }} />
       <div
         style={{
           position: "absolute",
           inset: "18%",
-          borderRadius: "50%",
+          borderRadius: "24%",
           background: ring ? "transparent" : finger,
           border: ring ? `${8 * s}px solid ${finger}` : "none",
           opacity: 0.9 * inK,
@@ -543,7 +596,7 @@ function Surbrillance({ e, ctx, s, w }: Props) {
       style={{
         width: "100%",
         height: "100%",
-        borderRadius: round ? "50%" : radiusOf(p, prm, s, 22),
+        borderRadius: round ? "24%" : radiusOf(p, prm, s, 22),
         border: `${num(prm, "epaisseur", 6) * s}px solid ${colorOf(p, opt(prm, "couleur", "accent"))}`,
         boxShadow: `0 0 0 ${3000 * s}px rgba(0,0,0,${num(prm, "assombrir", 0.45) * k})`,
         transform: `scale(${1.25 - 0.25 * k})`,
@@ -567,10 +620,23 @@ function Soulignement({ e, ctx, s }: Props) {
       </svg>
     );
   }
-  return <div style={{ height: h, borderRadius: h / 2, background: color, width: `${k * 100}%` }} />;
+  return <div style={{ height: h, borderRadius: h * 0.3, background: color, width: `${k * 100}%` }} />;
 }
 
-function Titre({ e, ctx, s, ink: plan }: Props) {
+/** Une couleur qui se fondrait dans le fond plein du plan est remplacée par celle qui y ressort. */
+function visible(ctx: Ctx, color: string): string {
+  if (!ctx.bg || color.toLowerCase() !== ctx.bg.toLowerCase()) return color;
+  return ctx.bg.toLowerCase() === ctx.p.palette.darkBg.toLowerCase() ? ctx.p.palette.textOnDark : ctx.p.palette.darkBg;
+}
+
+/** La taille « affiche » : le mot le plus long tient dans la largeur, et le titre en trois lignes au plus. */
+function posterSize(texts: string[], w: number): number {
+  const longest = Math.max(1, ...texts.flatMap((x) => x.split(/\s+/)).map((x) => x.length));
+  const total = Math.max(1, ...texts.map((x) => x.length));
+  return Math.min(w / (longest * 0.62), (w * 3) / (total * 0.62));
+}
+
+function Titre({ e, ctx, s, w, ink: plan }: Props) {
   const frame = useFrame(e);
   const p = ctx.p;
   const prm = e.params;
@@ -581,40 +647,90 @@ function Titre({ e, ctx, s, ink: plan }: Props) {
   const casse = opt(prm, "casse", "style");
   const upper = (casse === "style" ? p.style.titleUpper : casse === "majuscules") ? "uppercase" : "none";
   const step = stepOf(p);
-  const hotColor = colorOf(p, opt(prm, "mot_fort_couleur", "accent"));
+  const hotColor = visible(ctx, colorOf(p, opt(prm, "mot_fort_couleur", "accent")));
+  const poster = opt(prm, "taille", "affiche") === "affiche";
   const base: CSSProperties = {
     fontFamily: ctx.title,
     fontWeight: num(prm, "graisse", 900),
-    fontSize: 100 * s,
-    lineHeight: 1.02,
-    letterSpacing: "-0.02em",
+    fontSize: poster ? Math.min(posterSize([text, str(e.data.remplacement)].filter(Boolean), w) * num(prm, "taille_texte", 1), 220 * ctx.u) : 100 * s,
+    // Une police d'affiche étroite (Bebas…) se lit mal serrée : un souffle entre les lettres et les lignes (15/10/2026).
+    lineHeight: poster ? 1.0 : 1.05,
+    letterSpacing: "0.015em",
     textTransform: upper,
     color: ink,
-    textAlign: opt(prm, "alignement", "gauche") === "centre" ? "center" : "left",
+    textAlign: opt(prm, "alignement", "centre") === "centre" ? "center" : "left",
     ...(yes(prm, "contour", false) ? { WebkitTextStroke: `${3 * s}px ${ink}`, color: "transparent" } : {}),
     ...(yes(prm, "ombre_texte", false) ? { textShadow: `0 ${6 * s}px ${24 * s}px rgba(0,0,0,0.55)` } : {}),
   };
   if (anim === "frappe") {
-    const n = Math.round(interpolate(frame, [2, 2 + text.length * 1.2], [0, text.length], clamp));
-    return <div style={base}>{text.slice(0, n)}</div>;
+    // Comme tapé au clavier : la police des textes, en casse normale, lettre après lettre, avec le curseur qui clignote.
+    const n = Math.round(interpolate(frame, [2, 2 + text.length * 1.6], [0, text.length], clamp));
+    const caret = Math.floor(frame / 12) % 2 === 0 || n < text.length;
+    const size = Math.min(64 * s, (w * 2) / Math.max(1, text.length * 0.5));
+    return (
+      <div style={{ ...base, fontFamily: ctx.body, fontWeight: 600, textTransform: "none", letterSpacing: "0", fontSize: size, lineHeight: 1.3 }}>
+        {text.slice(0, n)}
+        <span style={{ display: "inline-block", width: size * 0.08, height: size * 1.05, marginLeft: size * 0.06, verticalAlign: "text-bottom", background: hotColor, opacity: caret ? 1 : 0, borderRadius: size * 0.03 }} />
+      </div>
+    );
   }
   if (anim === "bloc") {
     const k = t(frame, 0, 12, popOf(e));
-    return <div style={{ ...base, opacity: k, transform: `scale(${0.88 + 0.12 * k})` }}>{text}</div>;
+    return (
+      <div style={{ ...base, opacity: k, transform: `scale(${0.88 + 0.12 * k})` }}>
+        {strong
+          ? text.split(/(\s+)/).map((w, i) => (
+              <span key={i} style={w.toLowerCase().replace(/[.,!?;:]/g, "").includes(strong.split(/\s+/)[0]) ? { color: hotColor } : undefined}>
+                {w}
+              </span>
+            ))
+          : text}
+      </div>
+    );
   }
   if (anim === "barre-remplace") {
-    const strike = t(frame, step * 2, 10);
-    const out = t(frame, step * 3.4, 8);
-    const inn = t(frame, step * 3.6, 12, popOf(e));
+    // On lit d'abord l'ancienne façon (≈ 1 s), puis chaque mot est barré à son tour ; l'ancienne recule, la nouvelle s'écrase dessus.
+    const words = text.split(/\s+/).filter(Boolean);
+    const read = Math.round(28 * PACE[p.style.pace]);
+    const per = 5;
+    const struck = read + words.length * per;
+    const out = t(frame, struck + 10, 8);
+    // Une secousse quand le dernier mot est barré : « non ».
+    const jolt = frame >= struck && frame < struck + 8 ? Math.sin((frame - struck) * 2.4) * (1 - (frame - struck) / 8) * 10 * s : 0;
+    const bar = visible(ctx, pick(p, prm, "couleur_barre", p.palette.accent));
+    const repl = str(e.data.remplacement);
+    const parts = repl.split(/(\s+)/);
+    const key = strong ? strong.split(/\s+/)[0] : (parts.filter((x) => x.trim()).at(-1) ?? "").toLowerCase().replace(/[.,!?;:]/g, "");
+    let wi = 0;
     return (
       <div style={{ position: "relative" }}>
-        <div style={{ ...base, opacity: 1 - out }}>
-          <span style={{ position: "relative" }}>
-            {text}
-            <span style={{ position: "absolute", left: 0, top: "52%", height: 12 * s, width: `${strike * 100}%`, background: pick(p, prm, "couleur_barre", p.palette.accent), borderRadius: 6 * s }} />
-          </span>
+        {/* L'ancienne façon : chaque mot se ternit quand le trait le barre, puis tout s'efface (rien ne reste derrière la nouvelle). */}
+        <div style={{ ...base, opacity: 1 - out, transform: `translateX(${jolt}px) scale(${1 - out * 0.15})` }}>
+          {words.map((w, i) => {
+            const k = t(frame, read + i * per, per + 2);
+            return (
+              <span key={i} style={{ position: "relative", display: "inline-block", marginRight: "0.25em" }}>
+                <span style={{ opacity: 1 - 0.55 * k }}>{w}</span>
+                <span style={{ position: "absolute", left: "-3%", top: "50%", height: Math.max(8, 0.1 * Number(base.fontSize)), width: `${k * 106}%`, background: bar, borderRadius: 4 * s, transform: "translateY(-50%) rotate(-2deg)" }} />
+              </span>
+            );
+          })}
         </div>
-        <div style={{ ...base, position: "absolute", inset: 0, color: hotColor, WebkitTextStroke: undefined, opacity: inn, transform: `translateY(${(1 - inn) * 60 * s}px)` }}>{str(e.data.remplacement)}</div>
+        {/* La nouvelle : mot par mot, chacun s'écrase à sa place. */}
+        <div style={{ ...base, position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", WebkitTextStroke: undefined }}>
+          <div>
+            {parts.map((w, i) => {
+              if (!w.trim()) return <span key={i}>{w}</span>;
+              const k = t(frame, struck + 14 + wi++ * 4, 10, Easing.out(Easing.back(2.2)));
+              const hot = w.toLowerCase().replace(/[.,!?;:]/g, "").includes(key);
+              return (
+                <span key={i} style={{ display: "inline-block", opacity: Math.min(1, k * 3), transform: `scale(${1.7 - 0.7 * k})`, ...(hot ? { color: hotColor } : {}) }}>
+                  {w}
+                </span>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   }
@@ -635,17 +751,17 @@ function Titre({ e, ctx, s, ink: plan }: Props) {
 }
 
 function Etiquette({ e, ctx, s }: Props) {
-  const sf = surface(ctx.p, e.params, s);
+  const sf = surface(ctx.p, e.params, s, 34, ctx.bg);
   return (
-    <div style={{ ...sf.style, display: "inline-flex", alignItems: "center", gap: 14 * s, borderRadius: 999, padding: `${14 * s}px ${28 * s}px`, fontFamily: ctx.body, fontWeight: 700, fontSize: 30 * s }}>
-      <div style={{ width: 16 * s, height: 16 * s, borderRadius: "50%", background: pick(ctx.p, e.params, "couleur_pastille", ctx.p.palette.accent) }} />
+    <div style={{ ...sf.style, display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", gap: 14 * s, borderRadius: 14 * s, padding: `${14 * s}px ${28 * s}px`, fontFamily: ctx.body, fontWeight: 700, fontSize: 30 * s }}>
+      <div style={{ width: 16 * s, height: 16 * s, borderRadius: "24%", background: pick(ctx.p, e.params, "couleur_pastille", ctx.p.palette.accent) }} />
       {str(e.data.texte)}
     </div>
   );
 }
 
 function Bulle({ e, ctx, s }: Props) {
-  const sf = surface(ctx.p, e.params, s);
+  const sf = surface(ctx.p, e.params, s, 34, ctx.bg);
   const tip = opt(e.params, "pointe", "bas-gauche");
   return (
     <div style={{ ...sf.style, position: "relative", padding: `${28 * s}px ${34 * s}px`, fontFamily: ctx.body, fontWeight: 600, fontSize: 34 * s, lineHeight: 1.3 }}>
@@ -666,11 +782,65 @@ function Compteur({ e, ctx, s, frames, ink: plan }: Props) {
   const current = Math.round(target * k).toLocaleString("fr-FR").replace(/ /g, " ");
   const shown = target ? f.value.replace(/\d[\d\s.,]*\d|\d/, current) : f.value;
   const color = opt(prm, "couleur", "accent") === "accent" ? ctx.p.palette.accent : opt(prm, "couleur", "accent") === "principale" ? ctx.p.palette.primary : ink;
+  const size = 190 * s;
+  const rolls = opt(prm, "style", "rouleaux") === "rouleaux" && target > 0;
+  const crowd = yes(prm, "foule", true);
+  const doneAt = rolls ? 2 + f.value.length * 3 + 22 : 2 + Math.min(frames * 0.55, 40);
   return (
     <div style={{ textAlign: "center", color: ink }}>
-      <div style={{ fontFamily: ctx.title, fontWeight: 900, fontSize: 190 * s, lineHeight: 1, color, letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" }}>{shown}</div>
-      <div style={{ fontFamily: ctx.body, fontWeight: 700, fontSize: 46 * s, marginTop: 14 * s, opacity: t(frame, 10, 10) }}>{f.label}</div>
+      <div style={{ fontFamily: ctx.title, fontWeight: 900, fontSize: size, lineHeight: 1, color, letterSpacing: "0.01em", fontVariantNumeric: "tabular-nums", display: "flex", justifyContent: "center" }}>
+        {rolls
+          ? // Chaque chiffre tourne comme un rouleau de compteur, de gauche à droite, et se pose sur sa valeur.
+            f.value.split("").map((ch, i) => {
+              if (!/\d/.test(ch)) return <span key={i}>{ch === " " ? "\u00a0" : ch}</span>;
+              const k = t(frame, 2 + i * 3, 22, Easing.out(Easing.cubic));
+              const turns = (2 + i) * 10 + Number(ch);
+              const pos = (turns * k) % 10;
+              return (
+                <span key={i} style={{ display: "inline-block", height: size, overflow: "hidden", position: "relative" }}>
+                  <span style={{ display: "flex", flexDirection: "column", transform: `translateY(${-pos * size}px)` }}>
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((d, j) => (
+                      <span key={j} style={{ height: size, lineHeight: 1 }}>
+                        {d}
+                      </span>
+                    ))}
+                  </span>
+                </span>
+              );
+            })
+          : shown}
+      </div>
+      <div style={{ fontFamily: ctx.body, fontWeight: 700, fontSize: 46 * s, marginTop: 14 * s, opacity: t(frame, doneAt - 14, 10) }}>{f.label}</div>
+      {crowd && <Crowd frame={frame - doneAt} s={s} ink={ink} accent={ctx.p.palette.accent} font={ctx.body} />}
       {yes(prm, "source", true) && <div style={{ fontFamily: ctx.body, fontSize: 24 * s, marginTop: 8 * s, opacity: 0.6 * t(frame, 16, 10) }}>Source : {f.source}</div>}
+    </div>
+  );
+}
+
+/**
+ * La foule derrière le chiffre : des silhouettes (coins légèrement arrondis,
+ * jamais de rond) qui se remplissent en vague ; la dernière, en couleur, c'est
+ * « vous ». Abstraites : aucun visage, aucun témoignage.
+ */
+function Crowd({ frame, s, ink, accent, font }: { frame: number; s: number; ink: string; accent: string; font: string }) {
+  const cols = 9;
+  const rows = 2;
+  const n = cols * rows;
+  const w = 78 * s;
+  return (
+    <div style={{ marginTop: 34 * s, display: "inline-grid", gridTemplateColumns: `repeat(${cols}, ${w}px)`, gap: `${18 * s}px ${14 * s}px`, justifyContent: "center" }}>
+      {Array.from({ length: n }, (_, i) => {
+        const last = i === n - 1;
+        const k = t(frame, (i % cols) * 1.2 + Math.floor(i / cols) * 4 + (last ? 10 : 0), 8, Easing.out(Easing.back(2)));
+        const c = last ? accent : `${ink}55`;
+        return (
+          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 * s, opacity: Math.min(1, k * 2), transform: `translateY(${(1 - k) * 20 * s}px) scale(${last ? 1 + 0.25 * Math.sin(Math.PI * k) : 1})` }}>
+            <div style={{ width: w * 0.42, height: w * 0.42, borderRadius: w * 0.12, background: c }} />
+            <div style={{ width: w * 0.78, height: w * 0.42, borderRadius: `${w * 0.16}px ${w * 0.16}px ${w * 0.06}px ${w * 0.06}px`, background: c }} />
+            {last && <div style={{ position: "absolute", marginTop: w * 1.05, fontFamily: font, fontWeight: 800, fontSize: 26 * s, color: accent, opacity: k }}>vous</div>}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -843,8 +1013,8 @@ const RENDER: Record<string, (p: Props) => ReactNode> = {
 
 const DEFAULT_W: Record<string, number> = {
   liste: 0.8,
-  notification: 0.86,
-  bouton: 0.6,
+  notification: 0.92,
+  bouton: 0.7,
   planning: 0.82,
   fiche: 0.86,
   champ: 0.7,
@@ -865,6 +1035,13 @@ const DEFAULT_W: Record<string, number> = {
 
 const INLINE = new Set(["badge", "etiquette", "tap", "pastilles"]);
 
+/**
+ * Le grossissement du contenu, par élément (décision du 15/10/2026 : « les
+ * éléments sont trop discrets et petits ») : une pub se regarde sur un
+ * téléphone, en passant — le texte d'une carte doit se lire d'un coup d'œil.
+ */
+const BOOST: Record<string, number> = { notification: 1.3, bouton: 1.3, champ: 1.3, bulle: 1.3, badge: 1.5, etiquette: 1.35, cta: 1.25, compteur: 1.15, liste: 1.15, planning: 1.05, fiche: 1.05, titre: 1.2, tap: 1.25 };
+
 /** L'entrée, la sortie et le mouvement d'un élément, communs à tous ; la vitesse et le rebond viennent de ses réglages. */
 function useMotion(e: RenderElement, life: number, p: RenderProps): CSSProperties {
   const frame = useCurrentFrame();
@@ -874,11 +1051,17 @@ function useMotion(e: RenderElement, life: number, p: RenderProps): CSSPropertie
   const out = e.sortie && e.sortie !== "aucune" ? interpolate(frame, [life - 8, life], [0, 1], clamp) : 0;
   const d = 70;
   const tr: string[] = [];
-  const opacity = Math.min(1, k * 1.4) * (1 - out);
+  const opacity = (e.entree === "impact" ? Math.min(1, frame / 3) : Math.min(1, k * 1.4)) * (1 - out);
   switch (e.entree) {
     case "pop":
       tr.push(`scale(${0.6 + 0.4 * k})`);
       break;
+    case "impact": {
+      // L'élément s'écrase sur l'écran : il arrive grand et retombe à sa taille avec un léger rebond.
+      const hit = t(frame, 0, 9 / speed, Easing.out(Easing.back(2.2)));
+      tr.push(`scale(${1.9 - 0.9 * hit}) rotate(${(1 - hit) * -4}deg)`);
+      break;
+    }
     case "glisse-haut":
       tr.push(`translateY(${(1 - k) * -d}%)`);
       break;
@@ -904,12 +1087,13 @@ function useMotion(e: RenderElement, life: number, p: RenderProps): CSSPropertie
 
 function Placed({ e, ctx, shotFrames, ink }: { e: RenderElement; ctx: Ctx; shotFrames: number; ink: string }) {
   const { p } = ctx;
+  const frame = useCurrentFrame();
   const life = Math.max(1, (e.to ?? shotFrames) - e.from);
   const motion = useMotion(e, life, p);
   const w = (e.largeur ?? DEFAULT_W[e.type] ?? 0.5) * p.width;
   const scale = num(e.params, "taille_texte", 1);
   // Une carte se dessine à sa largeur ; une pastille de texte, à l'échelle du cadre (agrandie si on lui donne plus de largeur).
-  const s = (INLINE.has(e.type) ? (p.width / 1080) * Math.max(0.6, (e.largeur ?? DEFAULT_W[e.type]) / DEFAULT_W[e.type]) : w / 1000) * scale;
+  const s = (INLINE.has(e.type) ? (p.width / 1080) * Math.max(0.6, (e.largeur ?? DEFAULT_W[e.type]) / DEFAULT_W[e.type]) : w / 1000) * scale * (BOOST[e.type] ?? 1);
   const cx = e.x * p.width;
   const cy = e.y * p.height;
   if (e.type === "surbrillance") {
@@ -923,8 +1107,11 @@ function Placed({ e, ctx, shotFrames, ink }: { e: RenderElement; ctx: Ctx; shotF
   if (e.type === "fleche") return <Fleche e={e} ctx={ctx} />;
   const Comp = RENDER[e.type];
   if (!Comp) return null;
+  // L'élément qui se penche, lui seul : jusqu'à son angle, en 0,4 s, à partir de son heure.
+  const tiltAt = e.inclinaison ? Math.round((e.inclinaison.debut ?? e.debut) * 30) - e.from : 0;
+  const tilt = e.inclinaison ? e.inclinaison.angle * interpolate(frame, [tiltAt, tiltAt + 12], [0, 1], { ...clamp, easing: Easing.out(Easing.back(1.4)) }) : 0;
   return (
-    <div style={{ position: "absolute", left: cx, top: cy, width: w, transform: "translate(-50%, -50%)" }}>
+    <div style={{ position: "absolute", left: cx, top: cy, width: w, transform: `translate(-50%, -50%) rotate(${tilt}deg)` }}>
       <div style={{ ...motion, transformOrigin: "center", display: "flex", justifyContent: "center" }}>
         {/* Les pastilles de texte (badge, étiquette) gardent leur taille, centrées ; les cartes prennent toute la largeur. */}
         <div style={INLINE.has(e.type) ? { display: "flex", justifyContent: "center" } : { width: "100%" }}>

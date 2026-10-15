@@ -3,7 +3,7 @@
 import { useField, useFormFields } from "@payloadcms/ui";
 
 import type { Palette } from "@/modules/ads/lib/style";
-import { HEX_COLOR, isColorSpec, paramSpecs, type ParamSpec } from "@/modules/ads/video/element-params";
+import { HEX_COLOR, isColorSpec, paramSpecs, VALIDATION_GREEN, type ParamSpec } from "@/modules/ads/video/element-params";
 import { isElementType } from "@/modules/ads/video/elements";
 
 import { useAtelierContext } from "./useAtelierContext";
@@ -44,8 +44,8 @@ export function ElementParamsEditor() {
 
 /** La vraie couleur du kit derrière un rôle (« accent », « texte clair »…), pour la pastille. */
 const swatch = (p: Palette, role: string): string | null =>
-  ({ accent: p.accent, principale: p.primary, clair: p.lightBg, sombre: p.darkBg, "texte-clair": p.textOnDark, "texte-sombre": p.textOnLight })[role] ?? null;
-const ROLE_LABEL: Record<string, string> = { auto: "Auto", accent: "Accent", principale: "Principale", clair: "Fond clair", sombre: "Fond sombre", "texte-clair": "Texte clair", "texte-sombre": "Texte sombre" };
+  ({ accent: p.accent, principale: p.primary, clair: p.lightBg, sombre: p.darkBg, "texte-clair": p.textOnDark, "texte-sombre": p.textOnLight, validation: VALIDATION_GREEN })[role] ?? null;
+const ROLE_LABEL: Record<string, string> = { auto: "Auto", accent: "Accent", principale: "Principale", clair: "Fond clair", sombre: "Fond sombre", "texte-clair": "Texte clair", "texte-sombre": "Texte sombre", validation: "Vert de validation" };
 
 function Control({ spec, value, onChange, palette }: { spec: ParamSpec; value: string | number | boolean | undefined; onChange: (v: string | number | boolean | undefined) => void; palette: Palette | null }) {
   const custom = value !== undefined && value !== spec.defaut;

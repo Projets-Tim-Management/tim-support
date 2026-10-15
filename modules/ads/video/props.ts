@@ -1,9 +1,10 @@
 import { coverRect, FULL, type Framing, type Rect } from "@/modules/ads/lib/framing";
-import { fontFamily, paletteOf, type Palette } from "@/modules/ads/lib/style";
+import { fontFamily, mixColor, paletteOf, type Palette } from "@/modules/ads/lib/style";
 import type { LogoParts } from "@/modules/ads/video/logo";
 import { checkParams } from "@/modules/ads/video/element-params";
 import type { Element, Fond } from "@/modules/ads/video/elements";
 import { FORMAT_SIZES, FPS, MAX_SPEED, MIN_SPEED, type FormatKey, type Score } from "@/modules/ads/video/score";
+import { resolveCuts, styleTransition, type RenderCut } from "@/modules/ads/video/transitions";
 
 /**
  * Ce que le moteur vidéo reçoit (plan Publicité, §9 sexies, D3) : la
@@ -53,14 +54,34 @@ export type RenderShot =
   | { kind: "preuve"; frames: number; value: string; label: string; source: string }
   | { kind: "logo"; frames: number }
   /** Un plan composé : son fond résolu, et ses éléments minutés en images (un compteur reçoit le chiffre et la source de son fait). */
-  | { kind: "compo"; frames: number; fond: RenderFond; elements: RenderElement[] }
+  | { kind: "compo"; frames: number; fond: RenderFond; elements: RenderElement[]; camera?: { move: string; amplitude: number; points?: { x: number; y: number; at: number; scale: number; rotate: number }[] } | null }
   | { kind: "fin"; frames: number; line: string | null };
 
-export type RenderFond =
+export type RenderFond = (
+
   | { type: "style" }
   | { type: "couleur"; color: string }
-  | { type: "rush"; src: string; srcAspect: number; fromSec: number; playbackRate: number; crop: Rect; cover: Rect | null; zoom: Rect | null; flou: boolean; voile: number }
-  | { type: "image"; src: string; flou: boolean; voile: number };
+  | { type: "rush"; src: string; srcAspect: number; fromSec: number; playbackRate: number; crop: Rect; cover: Rect | null; zoom: Rect | null; camera?: { to: Rect; from: number; until: number } | null; flou: boolean; voile: number }
+  | { type: "image"; src: string; flou: boolean; voile: number }
+  | RenderPhone
+) & { halo?: boolean };
+/** Le téléphone : l'écran filmé (zone utile entière), sa place, son entrée en 3D, sa plongée minutée en images. */
+export type RenderPhone = {
+  type: "telephone";
+  src: string;
+  srcAspect: number;
+  fromSec: number;
+  playbackRate: number;
+  crop: Rect;
+  /** La couleur derrière le téléphone, ou `null` : le fond du style. */
+  color: string | null;
+  x: number;
+  y: number;
+  height: number;
+  entry: "monte" | "bascule" | "aucune";
+  tilt: number;
+  focus: { x: number; y: number; scale: number; from: number; until: number } | null;
+};
 
 /** Un élément prêt à dessiner : minuté en images, avec ses réglages (ceux de sa variante, complétés par les défauts). */
 export type RenderElement = Element & { from: number; to: number | null; figure: { value: string; label: string; source: string } | null; params: Record<string, string | number | boolean> };
@@ -88,6 +109,8 @@ export type RenderProps = {
    */
   poster?: { hook: string; highlight: string | null; rush: Extract<RenderShot, { kind: "rush" }> | null } | null;
   shots: RenderShot[];
+  /** Comment chaque plan entre (une par plan ; la première est toujours sèche). Absent : coupes sèches. */
+  cuts?: RenderCut[];
 };
 
 type StyleDoc = Record<string, unknown>;
@@ -144,9 +167,23 @@ export type ResolveContext = {
 };
 
 /** Le fond d'un plan composé, résolu (adresse, cadrage, couleur). Un rush ou une image introuvable retombe sur le fond du style. Pure. */
+/** La couleur d'un fond plein : une couleur du kit, ou une de ses nuances. Pure. */
+export function backgroundColor(pal: Palette, c: NonNullable<Fond["couleur"]>): string {
+  const white = "#ffffff";
+  return {
+    principale: pal.primary,
+    accent: pal.accent,
+    sombre: pal.darkBg,
+    clair: pal.lightBg,
+    "accent-pale": mixColor(pal.accent, white, 0.88),
+    "principale-pale": mixColor(pal.primary, white, 0.9),
+    "sombre-doux": mixColor(pal.darkBg, white, 0.16),
+  }[c];
+}
+
 function fondOf(f: Fond, seconds: number, aspect: number, ctx: ResolveContext): RenderFond {
   const pal = paletteOf(ctx.kit, ctx.appearance);
-  if (f.type === "couleur") return { type: "couleur", color: { principale: pal.primary, accent: pal.accent, sombre: pal.darkBg, clair: pal.lightBg }[f.couleur ?? "principale"] };
+  if (f.type === "couleur") return { type: "couleur", color: backgroundColor(pal, f.couleur ?? "principale") };
   if (f.type === "rush") {
     const r = ctx.rushes.get(Number(f.rush));
     if (!r) return { type: "style" };
@@ -164,8 +201,31 @@ function fondOf(f: Fond, seconds: number, aspect: number, ctx: ResolveContext): 
       crop: framing.crop ?? FULL,
       cover: c.fits ? c.rect : null,
       zoom: f.zoom ?? null,
+      camera: f.camera ? { to: f.camera.vers, from: Math.round((f.camera.debut ?? 0) * FPS), until: Math.round((f.camera.fin ?? seconds) * FPS) } : null,
       flou: Boolean(f.flou),
       voile: f.voile ?? 0,
+    };
+  }
+  if (f.type === "telephone") {
+    const r = ctx.rushes.get(Number(f.rush));
+    if (!r) return { type: "style" };
+    const from = f.from ?? 0;
+    const to = f.to ?? from + seconds;
+    const t = f.telephone ?? {};
+    return {
+      type: "telephone",
+      src: r.url,
+      srcAspect: r.width / r.height,
+      fromSec: from,
+      playbackRate: Math.min(MAX_SPEED, Math.max(MIN_SPEED, Math.round(((to - from) / seconds) * 1000) / 1000)),
+      crop: r.framing?.crop ?? FULL,
+      color: f.couleur ? backgroundColor(pal, f.couleur) : null,
+      x: t.x ?? 0.5,
+      y: t.y ?? 0.52,
+      height: t.hauteur ?? 0.72,
+      entry: t.entree ?? "monte",
+      tilt: t.inclinaison ?? 0,
+      focus: t.focus ? { x: t.focus.x, y: t.focus.y, scale: t.focus.echelle, from: Math.round((t.focus.debut ?? 0) * FPS), until: Math.round((t.focus.fin ?? seconds) * FPS) } : null,
     };
   }
   if (f.type === "image") {
@@ -176,16 +236,20 @@ function fondOf(f: Fond, seconds: number, aspect: number, ctx: ResolveContext): 
 }
 
 /** La partition résolue pour un format. Suppose une partition VÉRIFIÉE (scoreProblems vide). Pure. */
+/** Le halo d'un fond plein (voir Fond.halo), reporté tel quel. */
+const withHalo = <T extends RenderFond>(fond: T, f: Fond): T => (f.halo ? { ...fond, halo: true } : fond);
+
 export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps {
   const { width, height } = FORMAT_SIZES[ctx.format];
   const aspect = width / height;
   const frames = (seconds: number) => Math.max(1, Math.round(seconds * FPS));
-  return {
+  const style = renderStyleOf(ctx.style, ctx.kit);
+  const props: RenderProps = {
     format: ctx.format,
     width,
     height,
     fps: FPS,
-    style: renderStyleOf(ctx.style, ctx.kit),
+    style,
     palette: paletteOf(ctx.kit, ctx.appearance),
     logos: { light: urlOf(ctx.kit.logoOnLight), dark: urlOf(ctx.kit.logoOnDark), symbol: urlOf(ctx.kit.logoSymbol) },
     cta: ctx.cta,
@@ -227,7 +291,15 @@ export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps
           return {
             kind: "compo",
             frames: frames(shot.seconds),
-            fond: fondOf(shot.fond, shot.seconds, aspect, ctx),
+            fond: withHalo(fondOf(shot.fond, shot.seconds, aspect, ctx), shot.fond),
+            camera:
+              shot.camera && shot.camera.mouvement !== "aucun"
+                ? {
+                    move: shot.camera.mouvement,
+                    amplitude: shot.camera.amplitude ?? 1,
+                    ...(shot.camera.points ? { points: shot.camera.points.map((q) => ({ x: q.x, y: q.y, at: Math.round(q.debut * FPS), scale: q.echelle ?? 1.6, rotate: q.rotation ?? 0 })) } : {}),
+                  }
+                : null,
             elements: shot.elements.map((e) => {
               const fact = e.type === "compteur" ? ctx.facts.get(Number(e.data.fact)) : null;
               const variant = e.variante != null ? ctx.variants?.get(e.variante) : undefined;
@@ -245,6 +317,13 @@ export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps
       }
     }),
   };
+  props.cuts = resolveCuts(
+    score.shots.map((x) => x.transition),
+    props.shots.map((x) => x.frames),
+    styleTransition(style.transitions, style.pace),
+    FPS,
+  );
+  return props;
 }
 
 /**

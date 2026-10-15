@@ -109,7 +109,7 @@ describe("le traitement", () => {
     return { payload: payload as never, writes, creaUpdates };
   }
   const usage = { input: 1000, output: 200, cacheRead: 0, cacheWrite: 0 };
-  const material = async () => ({ rushes: [], styles: [], inspirations: [], musiques: [], logo: "", elements: { guide: {}, variantes: [] } });
+  const material = async () => ({ base: {}, rushes: [], styles: [], inspirations: [], musiques: [], logo: "", elements: { guide: {}, variantes: [] } });
 
   it("rien en file : rien ne se passe", async () => {
     expect(await processNextRetouch(fake(CREA, false).payload)).toBeNull();
@@ -133,7 +133,7 @@ describe("le traitement", () => {
     const call = async () => ({ result: { resume: "Premier montage.", textes: null, accroche: null, gabarit: null, video: { style: 2, musique: null, sans_musique: false, partition } }, usage });
     const video = vi.fn(async () => ({ score: { shots: [] }, music: null }));
     expect(await processNextRetouch(payload, { call, video, renderVisuals: vi.fn(), material })).toMatchObject({ outcome: "faite" });
-    expect(video).toHaveBeenCalledWith(payload, 9, { styleId: 2, score: partition, music: undefined });
+    expect(video).toHaveBeenCalledWith(payload, 9, { styleId: 2, score: partition, music: undefined, requireBase: true });
   });
 
   it("sans vidéo : les visuels sont rendus de nouveau", async () => {
@@ -151,7 +151,7 @@ describe("le traitement", () => {
     await processNextRetouch(payload, { call, video, renderVisuals: vi.fn(), material });
     expect(call).toHaveBeenCalledTimes(2);
     expect((call.mock.calls[1] as unknown as [{ user: string }])[0].user).toMatch(/REFUSÉE PAR LE CODE : Partition refusée : Chiffre non sourcé : 3/);
-    expect(video).toHaveBeenLastCalledWith(payload, 9, { styleId: 2, score: CREA.video.score, music: null });
+    expect(video).toHaveBeenLastCalledWith(payload, 9, { styleId: 2, score: CREA.video.score, music: null, requireBase: false });
     expect(writes.at(-1)).toMatchObject({ status: "faite", summary: expect.stringMatching(/remontée/) });
   });
 

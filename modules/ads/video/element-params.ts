@@ -35,7 +35,9 @@ const COMMON: ParamSpec[] = [
 ];
 
 /** Les couleurs possibles d'une partie d'élément : celles du Kit de marque, jamais une couleur libre (la charte tient). */
-export const COLOR = ["accent", "principale", "clair", "sombre", "texte-clair", "texte-sombre"] as const;
+export const COLOR = ["accent", "principale", "clair", "sombre", "texte-clair", "texte-sombre", "validation"] as const;
+/** Le vert de la validation (une coche, « validé ») : la seule couleur hors kit, réservée à ce sens-là (décision du 15/10/2026). */
+export const VALIDATION_GREEN = "#22B573";
 /** Pareil, avec « auto » : la couleur suit la surface (texte sombre sur surface claire, et l'inverse). */
 const AUTO = ["auto", ...COLOR] as const;
 const color = (key: string, label: string, defaut: string, auto = false): ParamSpec => ({ key, label, kind: "choix", options: auto ? AUTO : COLOR, defaut });
@@ -57,11 +59,12 @@ const OWN: Record<ElementType, ParamSpec[]> = {
   ],
   notification: [
     ...SURFACE,
-    { key: "icone", label: "Icône", kind: "choix", options: ["app", "logo", "aucune"], defaut: "app" },
+    { key: "format", label: "Format", kind: "choix", options: ["banniere", "grande"], defaut: "banniere" },
+    { key: "icone", label: "Icône", kind: "choix", options: ["visage", "app", "logo", "aucune"], defaut: "visage", aide: "Visage : une photo des Médias publicitaires (nature « Visage ») — l'app à défaut." },
     { key: "heure", label: "« maintenant »", kind: "oui-non", defaut: true },
     { key: "coche", label: "Coche de confirmation", kind: "oui-non", defaut: true },
     color("couleur_icone", "Couleur de l'icône", "principale"),
-    color("couleur_coche", "Couleur de la coche", "accent"),
+    color("couleur_coche", "Couleur de la coche", "validation"),
     TEXT,
   ],
   bouton: [
@@ -132,13 +135,16 @@ const OWN: Record<ElementType, ParamSpec[]> = {
     color("couleur_barre", "Couleur de la barre (barré-remplacé)", "accent"),
     { key: "contour", label: "Contour des lettres", kind: "oui-non", defaut: false },
     { key: "ombre_texte", label: "Ombre du texte", kind: "oui-non", defaut: false, aide: "Utile sur un rush." },
-    { key: "alignement", label: "Alignement", kind: "choix", options: ["gauche", "centre"], defaut: "gauche" },
+    { key: "alignement", label: "Alignement", kind: "choix", options: ["gauche", "centre"], defaut: "centre" },
+    { key: "taille", label: "Taille", kind: "choix", options: ["affiche", "normale"], defaut: "affiche", aide: "Affiche : le titre remplit sa largeur, en très grand, comme sur une affiche." },
   ],
   etiquette: [...SURFACE, color("couleur_pastille", "Couleur de la pastille", "accent"), TEXT],
   bulle: [...SURFACE, { key: "pointe", label: "Pointe", kind: "choix", options: ["bas-gauche", "bas-droite", "aucune"], defaut: "bas-gauche" }, TEXT],
   compteur: [
     { key: "couleur", label: "Couleur du chiffre", kind: "choix", options: COLOR, defaut: "accent" },
-    { key: "source", label: "Afficher la source", kind: "oui-non", defaut: true },
+    { key: "source", label: "Afficher la source", kind: "oui-non", defaut: false },
+    { key: "style", label: "Animation du chiffre", kind: "choix", options: ["rouleaux", "defile"], defaut: "rouleaux", aide: "Rouleaux : chaque chiffre tourne comme un compteur mécanique." },
+    { key: "foule", label: "Foule de silhouettes", kind: "oui-non", defaut: true, aide: "Après le chiffre, des silhouettes se remplissent en vague ; la dernière, en couleur, c'est « vous »." },
     color("couleur_libelle", "Couleur du libellé et de la source", "auto", true),
   ],
   logo: [],

@@ -121,6 +121,17 @@ export function luminance(hex: string): number {
   return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 }
 
+/** Une couleur du kit mêlée à une autre (#RRGGBB), dans la proportion `t` (0 : la première, 1 : la seconde). Pure. */
+export function mixColor(a: string, b: string, t: number): string {
+  const rgb = (h: string) => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(h.trim());
+    const v = m ? parseInt(m[1], 16) : 0;
+    return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+  };
+  const [x, y] = [rgb(a), rgb(b)];
+  return `#${x.map((c, i) => Math.round(c + (y[i] - c) * t).toString(16).padStart(2, "0")).join("")}`;
+}
+
 /** Le rapport de contraste WCAG entre deux couleurs (de 1 à 21), arrondi au dixième. Pure. */
 export function contrastRatio(a: string, b: string): number {
   if (!HEX.test(a) || !HEX.test(b)) return 0;
