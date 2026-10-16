@@ -53,7 +53,7 @@ import { pennylaneStampFor } from "@/modules/partner/lib/billing-check";
 import { BILLING_PERIOD_OPTIONS } from "@/modules/partner/lib/billing-period";
 import { buildHistoryEntry, nextHistory, type HistoryEntry } from "@/modules/partner/lib/history";
 import { peekPennylane } from "@/modules/partner/lib/pennylane";
-import { isBillableClient, LICENCE_BASE_PRICES, PROFILS } from "@/modules/partner/lib/pricing";
+import { isBillableClient, LICENCE_BASE_PRICES, PRESTATIONS, PROFILS } from "@/modules/partner/lib/pricing";
 import { geocodeClient } from "@/core/hooks/geocodeClient";
 import { setPhoneDigits } from "@/core/hooks/phoneDigits";
 import { sendGa4Steps } from "@/modules/analytics/lib/ga4-hook";
@@ -1104,7 +1104,7 @@ export const PartnerClients: CollectionConfig = {
           ],
         },
         {
-          label: "Licences par profil",
+          label: "Licences et prestations",
           fields: [
             {
               name: "licences",
@@ -1129,11 +1129,30 @@ export const PartnerClients: CollectionConfig = {
                 hiddenNum("chefEquipePrice", LICENCE_BASE_PRICES.chefEquipe),
                 hiddenNum("compagnonQty", 0),
                 hiddenNum("compagnonPrice", LICENCE_BASE_PRICES.compagnon),
+                hiddenNum("bureauQty", 0),
+                hiddenNum("bureauPrice", LICENCE_BASE_PRICES.bureau),
                 hiddenNum("visuelQty", 0),
                 hiddenNum("visuelPrice", LICENCE_BASE_PRICES.visuel),
                 // Remise facultative par ligne, en % OU en € par licence (deux
                 // nombres plutôt qu'un type + une valeur : pas d'enum en base).
                 ...PROFILS.flatMap((p) => [hiddenNum(`${p.key}DiscountPct`, 0), hiddenNum(`${p.key}DiscountAmount`, 0)]),
+              ],
+            },
+            {
+              // Le MÉMO des prestations ponctuelles évoquées avec le prospect (formation, développement, mise en
+              // place) : un rappel interne, sous le tableau des licences, pour composer l'offre pendant l'appel.
+              // Il ne compte ni dans le CA mensuel, ni dans l'e-mail d'offre, ni dans le contrat (Charlie, 16/10/2026).
+              name: "prestations",
+              type: "group",
+              label: false,
+              fields: [
+                {
+                  name: "table",
+                  type: "ui",
+                  admin: { components: { Field: "/modules/partner/admin/PrestationsMemo#PrestationsMemo" } },
+                },
+                ...PRESTATIONS.flatMap((x) => [hiddenNum(`${x.key}Qty`, 0), hiddenNum(`${x.key}Price`, x.price)]),
+                { name: "note", type: "textarea", label: "Mémo de l'appel", admin: { rows: 3, placeholder: "Ce qui a été dit : besoin, délai, objections, prochaine étape…" } },
               ],
             },
             // Ce que Pennylane facture, face à ce qui est saisi juste au-dessus.

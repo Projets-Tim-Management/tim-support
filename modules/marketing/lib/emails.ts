@@ -1280,7 +1280,7 @@ const TIM_IOS_URL = "https://apps.apple.com/fr/app/tim-management/id1565369001";
  * d'un compte de direction créé hors nomenclature, et le priver du lien serait
  * plus gênant que l'inverse.
  */
-const WEB_PROFILES = new Set(["admin", "conducteur", "chefChantier"]);
+const WEB_PROFILES = new Set(["admin", "conducteur", "chefChantier", "bureau"]);
 const MOBILE_PROFILES = new Set(["chefChantier", "chefEquipe", "compagnon", "visuel"]);
 
 /** Les portes ouvertes à un profil. Une seule table, deux messages. */

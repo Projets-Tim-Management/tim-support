@@ -37,8 +37,8 @@ const PENNYLANE_PRODUCT_REFS: Record<ProfilKey, string | null> = {
   chefChantier: "LCC-Tim",
   chefEquipe: "LCE-Tim",
   compagnon: "LC-Tim",
-  // Référence du produit Pennylane « Licence TIM — Visuel » à renseigner ; en attendant, le libellé le reconnaît.
-  visuel: null,
+  bureau: "LB-Tim",
+  visuel: "LV-Tim",
 };
 
 /**
@@ -51,6 +51,7 @@ const LABEL_HINTS: Record<ProfilKey, RegExp> = {
   chefChantier: /chef\s*de\s*chantier/i,
   chefEquipe: /chef\s*d['’]\s*[ée]quipe/i,
   compagnon: /compagnon/i,
+  bureau: /bureau/i,
   visuel: /visuel/i,
 };
 

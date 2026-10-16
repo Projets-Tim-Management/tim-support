@@ -57,8 +57,6 @@ export const SESSION_STATUSES = [
   { value: "annulee", label: "Annulée" },
 ] as const;
 
-/** Profils formés : ceux de la grille tarifaire, dans l'ordre hiérarchique. */
-export const TRAINING_PROFILE_OPTIONS = PROFILS.map(({ key, label }) => ({ label, value: key }));
 
 /**
  * Profil de licence → profil du parcours d'apprentissage éditorial (site
@@ -67,15 +65,23 @@ export const TRAINING_PROFILE_OPTIONS = PROFILS.map(({ key, label }) => ({ label
  * Le chef d'équipe n'a pas de parcours éditorial : il prend celui du chef de
  * chantier, le plus proche de son quotidien (à confirmer avec l'équipe).
  */
-export const PROFILE_TO_PARCOURS: Record<ProfilKey, string> = {
+export const PROFILE_TO_PARCOURS: Record<ProfilKey, string | null> = {
   admin: "admin",
   conducteur: "conducteur",
   chefChantier: "chef-chantier",
   chefEquipe: "chef-chantier",
   compagnon: "compagnon",
+  // Pas formé (Charlie, 16/10/2026).
+  bureau: null,
   // Formé comme un compagnon (Charlie, 16/10/2026).
   visuel: "compagnon",
 };
+
+/** Les profils formés : ceux qui ont un parcours, dans l'ordre hiérarchique. */
+export const TRAINED_PROFILS = PROFILS.filter((p) => PROFILE_TO_PARCOURS[p.key] != null);
+
+/** Profils formés, en options de liste (sessions, programme type). */
+export const TRAINING_PROFILE_OPTIONS = TRAINED_PROFILS.map(({ key, label }) => ({ label, value: key }));
 
 /**
  * L'adresse PUBLIQUE du guide, pour les liens qui partent sur papier ou par
@@ -114,7 +120,7 @@ type ProgrammeModule = { title: string; minutes: number; parcours: number | stri
  */
 export function programmesFromParcours(parcours: ParcoursDoc[]): { profile: ProfilKey; modules: ProgrammeModule[] }[] {
   const sorted = [...parcours].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  return PROFILS.map(({ key }) => ({
+  return TRAINED_PROFILS.map(({ key }) => ({
     profile: key,
     modules: sorted
       .filter((p) => p.profil === PROFILE_TO_PARCOURS[key] && p.title)

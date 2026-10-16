@@ -77,6 +77,7 @@ import { SequenceState as SequenceState_76fc64c304fa617805830e30067a8b3b } from 
 import { ClientHistory as ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1 } from '../../../modules/partner/admin/ClientHistory'
 import { NeedFromOpportunity as NeedFromOpportunity_706b11bee372d49b265857d9536df99c } from '../../../modules/dev/admin/CreateDevelopment'
 import { LicencesTable as LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338 } from '../../../modules/partner/admin/LicencesTable'
+import { PrestationsMemo as PrestationsMemo_ea3de1057e93d0a5100f15554d34ebf5 } from '../../../modules/partner/admin/PrestationsMemo'
 import { PennylaneCompare as PennylaneCompare_15129f9dfdba74a12c4653c08d159168 } from '../../../modules/partner/admin/PennylaneCompare'
 import { PartnerClientHistory as PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2 } from '../../../modules/partner/admin/PartnerClientHistory'
 import { SigningChecklist as SigningChecklist_400eec951102b3f782c7a6407a3dac35 } from '../../../modules/partner/admin/SigningChecklist'
@@ -249,6 +250,7 @@ export const importMap = {
   "/modules/partner/admin/ClientHistory#ClientHistory": ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1,
   "/modules/dev/admin/CreateDevelopment#NeedFromOpportunity": NeedFromOpportunity_706b11bee372d49b265857d9536df99c,
   "/modules/partner/admin/LicencesTable#LicencesTable": LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338,
+  "/modules/partner/admin/PrestationsMemo#PrestationsMemo": PrestationsMemo_ea3de1057e93d0a5100f15554d34ebf5,
   "/modules/partner/admin/PennylaneCompare#PennylaneCompare": PennylaneCompare_15129f9dfdba74a12c4653c08d159168,
   "/modules/partner/admin/PartnerClientHistory#PartnerClientHistory": PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2,
   "/modules/partner/admin/SigningChecklist#SigningChecklist": SigningChecklist_400eec951102b3f782c7a6407a3dac35,

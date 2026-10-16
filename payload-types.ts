@@ -689,6 +689,8 @@ export interface PartnerClient {
     chefEquipePrice?: number | null;
     compagnonQty?: number | null;
     compagnonPrice?: number | null;
+    bureauQty?: number | null;
+    bureauPrice?: number | null;
     visuelQty?: number | null;
     visuelPrice?: number | null;
     adminDiscountPct?: number | null;
@@ -701,8 +703,23 @@ export interface PartnerClient {
     chefEquipeDiscountAmount?: number | null;
     compagnonDiscountPct?: number | null;
     compagnonDiscountAmount?: number | null;
+    bureauDiscountPct?: number | null;
+    bureauDiscountAmount?: number | null;
     visuelDiscountPct?: number | null;
     visuelDiscountAmount?: number | null;
+  };
+  prestations?: {
+    miseEnPlaceQty?: number | null;
+    miseEnPlacePrice?: number | null;
+    formationPlaceQty?: number | null;
+    formationPlacePrice?: number | null;
+    formationDistanceQty?: number | null;
+    formationDistancePrice?: number | null;
+    devQty?: number | null;
+    devPrice?: number | null;
+    devApiQty?: number | null;
+    devApiPrice?: number | null;
+    note?: string | null;
   };
   engagementMonths?: ('1' | '3' | '6' | '12' | '24' | '36') | null;
   preferentialYears?: number | null;
@@ -1489,7 +1506,7 @@ export interface ClientContact {
   /**
    * Décide du compte TIM créé pour cette personne.
    */
-  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'visuel') | null;
+  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'bureau' | 'visuel') | null;
   /**
    * Généré une fois puis FIGÉ : le client l'a distribué à ses équipes, le changer casserait des connexions.
    */
@@ -3379,7 +3396,7 @@ export interface ClientEmployee {
   /**
    * Profil de licence — détermine le prix dans le devis.
    */
-  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'visuel') | null;
+  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'bureau' | 'visuel') | null;
   /**
    * Requise pour les utilisateurs ; facultative pour les autres salariés.
    */
@@ -4590,6 +4607,8 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         chefEquipePrice?: T;
         compagnonQty?: T;
         compagnonPrice?: T;
+        bureauQty?: T;
+        bureauPrice?: T;
         visuelQty?: T;
         visuelPrice?: T;
         adminDiscountPct?: T;
@@ -4602,8 +4621,25 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         chefEquipeDiscountAmount?: T;
         compagnonDiscountPct?: T;
         compagnonDiscountAmount?: T;
+        bureauDiscountPct?: T;
+        bureauDiscountAmount?: T;
         visuelDiscountPct?: T;
         visuelDiscountAmount?: T;
+      };
+  prestations?:
+    | T
+    | {
+        miseEnPlaceQty?: T;
+        miseEnPlacePrice?: T;
+        formationPlaceQty?: T;
+        formationPlacePrice?: T;
+        formationDistanceQty?: T;
+        formationDistancePrice?: T;
+        devQty?: T;
+        devPrice?: T;
+        devApiQty?: T;
+        devApiPrice?: T;
+        note?: T;
       };
   engagementMonths?: T;
   preferentialYears?: T;

@@ -7,6 +7,7 @@
  */
 
 import { PROFILS, profileRank, type ProfilKey } from "@/modules/partner/lib/pricing";
+import { TRAINED_PROFILS } from "@/modules/training/lib/training";
 
 export type PlanDay = {
   id: number | string;
@@ -243,7 +244,8 @@ export const FORMULAS: Formula[] = [
     key: "par-profil",
     label: "Un groupe par profil",
     detail: "Chaque profil a sa séance, de l'admin aux compagnons — deux séances par journée.",
-    groups: PROFILS.map((p) => [p.key]),
+    // Les profils formés seulement : Bureau n'a pas de séance (Charlie, 16/10/2026).
+    groups: TRAINED_PROFILS.map((p) => [p.key]),
   },
 ];
 

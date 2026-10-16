@@ -9,18 +9,30 @@ import { computeClientCA, LICENCE_BASE_PRICES, licenceLinesOf, profileRank, PROF
  * qui n'en ont pas.
  */
 
+describe("les licences Bureau et Visuel", () => {
+  it("Bureau compte dans le volume de remise, comme les profils d'origine", () => {
+    const r = computeClientCA(licenceLinesOf({ bureauQty: 6 } as never));
+    expect(r.suggestedDiscountPct).toBe(volumeDiscountPct(6));
+  });
+
+});
+
 describe("la licence Visuel", () => {
-  it("2,20 € de base, en dernier dans la grille et dans la hiérarchie", () => {
-    expect(LICENCE_BASE_PRICES.visuel).toBe(2.2);
-    expect(PROFILS.at(-1)).toEqual({ key: "visuel", label: "Visuel" });
-    expect(profileRank("visuel")).toBe(5);
+  it("1,90 € de base (catalogue Pennylane), en dernier dans la grille et dans la hiérarchie, après Bureau à 8 €", () => {
+    expect(LICENCE_BASE_PRICES.visuel).toBe(1.9);
+    expect(LICENCE_BASE_PRICES.bureau).toBe(8);
+    expect(PROFILS.slice(-2)).toEqual([
+      { key: "bureau", label: "Bureau" },
+      { key: "visuel", label: "Visuel" },
+    ]);
+    expect(profileRank("visuel")).toBe(6);
   });
 
   it("compte dans le total et le CA, mais pas dans le volume de la remise", () => {
     const lines = licenceLinesOf({ adminQty: 2, visuelQty: 50 } as never);
     const r = computeClientCA(lines);
     expect(r.totalLicences).toBe(52);
-    expect(r.caHT).toBe(2 * 39 + 50 * 2.2);
+    expect(r.caHT).toBe(2 * 39 + 50 * 1.9);
     // 2 licences seulement comptent : pas de palier, malgré les 50 Visuels.
     expect(r.suggestedDiscountPct).toBe(volumeDiscountPct(2));
   });
@@ -30,7 +42,8 @@ describe("la licence Visuel", () => {
       { key: "admin", qty: 1, price: 39 },
       { key: "compagnon", qty: 0, price: 8 },
     ];
-    expect(detailSignature([...before, { key: "visuel", qty: 0, price: 2.2 }])).toBe(detailSignature(before));
-    expect(detailSignature([...before, { key: "visuel", qty: 3, price: 2.2 }])).not.toBe(detailSignature(before));
+    expect(detailSignature([...before, { key: "bureau", qty: 0, price: 8 }, { key: "visuel", qty: 0, price: 1.9 }])).toBe(detailSignature(before));
+    expect(detailSignature([...before, { key: "visuel", qty: 3, price: 1.9 }])).not.toBe(detailSignature(before));
+    expect(detailSignature([...before, { key: "bureau", qty: 1, price: 8 }])).not.toBe(detailSignature(before));
   });
 });
