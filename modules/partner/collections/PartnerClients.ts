@@ -266,6 +266,8 @@ const CLIENT_CHILDREN = [
   "client-machines",
   "client-portal-accounts",
   "journey-runs",
+  // Ce que GA4 a reçu de cette opportunité : sans elle, plus rien à envoyer.
+  "ga4-sends",
   "client-contacts",
   "client-contracts",
   "electronic-signatures",
@@ -989,29 +991,19 @@ export const PartnerClients: CollectionConfig = {
       },
     },
     {
-      // Ce que GA4 a reçu de cette opportunité (plan de mesure, phase 2.2 — voir
-      // modules/analytics/lib/ga4-mp.ts). Écrit par l'envoi seul, en SQL : personne
-      // ne peut le modifier (`update: false`), pas même un formulaire ouvert avant
-      // l'envoi, qui sinon remettrait une date vide et ferait renvoyer l'étape.
-      name: "ga4",
-      type: "group",
-      label: "Mesure GA4",
+      // Ce que GA4 a reçu de cette opportunité (plan de mesure, phase 2.2) : une
+      // ligne par étape franchie, tenue à part (voir modules/analytics/collections/Ga4Sends.ts).
+      name: "ga4Sends",
+      type: "join",
+      collection: "ga4-sends",
+      on: "client",
+      label: "Envois GA4",
       admin: {
         position: "sidebar",
-        condition: (data) => Boolean(data?.ga4?.qualifySentAt || data?.ga4?.closeSentAt || data?.ga4?.closeWaitSince || data?.ga4?.error),
+        allowCreate: false,
+        defaultColumns: ["step", "reachedAt", "sentAt", "value", "error"],
+        description: "Démo programmée et signature renvoyées à GA4, si la demande d'origine porte un identifiant GA4.",
       },
-      fields: [
-        { name: "qualifySentAt", type: "date", label: "Démo programmée envoyée le", access: { update: () => false }, admin: { readOnly: true, date: { pickerAppearance: "dayAndTime" } } },
-        { name: "closeSentAt", type: "date", label: "Signature envoyée le", access: { update: () => false }, admin: { readOnly: true, date: { pickerAppearance: "dayAndTime" } } },
-        {
-          name: "closeWaitSince",
-          type: "date",
-          label: "Signature en attente du CA payé depuis",
-          access: { update: () => false },
-          admin: { readOnly: true, description: "Sans CA payé, la signature n'est pas envoyée (pas de conversion à 0 €) ; au-delà de 14 jours, elle part sans montant." },
-        },
-        { name: "error", type: "text", label: "Dernier incident", access: { update: () => false }, admin: { readOnly: true } },
-      ],
     },
     {
       // Identifiant de l'opportunité Brevo dont vient ce lead. C'est la CLÉ

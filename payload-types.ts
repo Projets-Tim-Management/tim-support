@@ -92,6 +92,7 @@ export interface Config {
     sequences: Sequence;
     forms: Form;
     'form-submissions': FormSubmission;
+    'ga4-sends': Ga4Send;
     'ad-campaigns': AdCampaign;
     'ad-creatives': AdCreative;
     'ad-accounts': AdAccount;
@@ -144,6 +145,7 @@ export interface Config {
       ledger: 'point-transactions';
     };
     'partner-clients': {
+      ga4Sends: 'ga4-sends';
       developments: 'developments';
       electronicSignatures: 'electronic-signatures';
       portalAccounts: 'client-portal-accounts';
@@ -179,6 +181,7 @@ export interface Config {
     sequences: SequencesSelect<false> | SequencesSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
+    'ga4-sends': Ga4SendsSelect<false> | Ga4SendsSelect<true>;
     'ad-campaigns': AdCampaignsSelect<false> | AdCampaignsSelect<true>;
     'ad-creatives': AdCreativesSelect<false> | AdCreativesSelect<true>;
     'ad-accounts': AdAccountsSelect<false> | AdAccountsSelect<true>;
@@ -654,14 +657,13 @@ export interface PartnerClient {
    */
   collaborateurs?: string | null;
   formSubmission?: (number | null) | FormSubmission;
-  ga4?: {
-    qualifySentAt?: string | null;
-    closeSentAt?: string | null;
-    /**
-     * Sans CA payé, la signature n'est pas envoyée (pas de conversion à 0 €) ; au-delà de 14 jours, elle part sans montant.
-     */
-    closeWaitSince?: string | null;
-    error?: string | null;
+  /**
+   * Démo programmée et signature renvoyées à GA4, si la demande d'origine porte un identifiant GA4.
+   */
+  ga4Sends?: {
+    docs?: (number | Ga4Send)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
   };
   brevoDealId?: string | null;
   /**
@@ -991,6 +993,25 @@ export interface Form {
    */
   active?: boolean | null;
   seedVersion?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ga4-sends".
+ */
+export interface Ga4Send {
+  id: number;
+  client: number | PartnerClient;
+  step: 'qualify' | 'close';
+  reachedAt: string;
+  sentAt?: string | null;
+  value?: number | null;
+  note?: string | null;
+  error?: string | null;
+  claimedAt?: string | null;
+  attempts?: number | null;
+  nextTryAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3970,6 +3991,10 @@ export interface PayloadLockedDocument {
         value: number | FormSubmission;
       } | null)
     | ({
+        relationTo: 'ga4-sends';
+        value: number | Ga4Send;
+      } | null)
+    | ({
         relationTo: 'ad-campaigns';
         value: number | AdCampaign;
       } | null)
@@ -4544,14 +4569,7 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   source?: T;
   collaborateurs?: T;
   formSubmission?: T;
-  ga4?:
-    | T
-    | {
-        qualifySentAt?: T;
-        closeSentAt?: T;
-        closeWaitSince?: T;
-        error?: T;
-      };
+  ga4Sends?: T;
   brevoDealId?: T;
   leadNotes?: T;
   developments?: T;
@@ -5123,6 +5141,24 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
   ip?: T;
   sessionId?: T;
   userAgent?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ga4-sends_select".
+ */
+export interface Ga4SendsSelect<T extends boolean = true> {
+  client?: T;
+  step?: T;
+  reachedAt?: T;
+  sentAt?: T;
+  value?: T;
+  note?: T;
+  error?: T;
+  claimedAt?: T;
+  attempts?: T;
+  nextTryAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

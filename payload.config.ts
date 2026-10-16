@@ -57,6 +57,7 @@ import { AdCreatives } from "./modules/ads/collections/AdCreatives";
 import { SupportConnectionsGlobal } from "./core/globals/SupportConnections";
 import { Forms } from "./modules/forms/collections/Forms";
 import { FormSubmissions } from "./modules/forms/collections/FormSubmissions";
+import { Ga4Sends } from "./modules/analytics/collections/Ga4Sends";
 import { MarketingJourneys } from "./modules/marketing/collections/MarketingJourneys";
 import { JourneyRuns } from "./modules/marketing/collections/JourneyRuns";
 import { SequenceRuns } from "./modules/marketing/collections/SequenceRuns";
@@ -367,6 +368,8 @@ export default buildConfig({
       // Formulaires du site vitrine : la définition servie au site, et ce qu'il renvoie
       Forms,
       FormSubmissions,
+      // Les étapes commerciales renvoyées à GA4 (plan de mesure) : une ligne par opportunité et par étape
+      Ga4Sends,
       // Publicité : comptes connectés, campagnes lues chez les régies, chiffres du jour
       AdCampaigns,
       AdCreatives,
