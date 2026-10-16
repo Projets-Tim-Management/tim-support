@@ -30,7 +30,8 @@ describe("tarifs du client", () => {
 
   it("déroule toute la grille tant qu'aucune quantité n'est décidée", () => {
     const md = tarifsMarkdown({});
-    expect(md.split("\n")).toHaveLength(5);
+    expect(md.split("\n")).toHaveLength(6);
+    expect(md).toContain("- Visuel : 2,20 €");
     expect(md).toContain("- Admin : 39 €");
     expect(md).toContain("- Compagnon : 8 €");
     // Aucune quantité affichée : rien n'a encore été négocié.

@@ -5,10 +5,9 @@ import { loadGenerationContext, weeklyUsed } from "@/modules/ads/lib/copy/genera
 import type { Framing, Rect } from "@/modules/ads/lib/framing";
 import { FinalError } from "@/modules/ads/lib/rush-process";
 import { isInspiration } from "@/modules/ads/lib/rushes";
-import { loadAnimatedLogo } from "@/modules/ads/video/logo-server";
 import { renderStyleOf } from "@/modules/ads/video/props";
 import { ELEMENT_GUIDE } from "@/modules/ads/video/elements";
-import { requestVideo } from "@/modules/ads/video/render";
+import { loadVideoContext, requestVideo, type VideoCreative } from "@/modules/ads/video/render";
 
 /**
  * La vidéo vue par l'agent (plan Publicité, §9 sexies, D4) : la matière qu'il
@@ -82,7 +81,8 @@ export function styleSettings(doc: Raw): string {
     `Ouverture : ${label[st.opening]}`,
     `fonds ${st.background}`,
     label[st.phoneFrame],
-    st.zoomOnGesture ? "zoom sur le geste appliqué (le « zoom » d'un plan est suivi)" : "PAS de zoom (le « zoom » d'un plan est ignoré)",
+    // zoomOnGesture ne concerne que les plans « rush » : un fond rush garde son zoom quel que soit le style.
+    st.zoomOnGesture ? "zoom sur le geste appliqué (le « zoom » d'un plan rush est suivi)" : "PAS de zoom sur les plans rush (leur « zoom » est ignoré ; celui d'un fond rush reste suivi)",
     label[st.subtitles],
     label[st.pace],
     `preuve « ${st.proof} »`,
@@ -138,7 +138,6 @@ export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
     payload.findGlobal({ slug: "ads-brand-kit", depth: 1, overrideAccess: true }) as unknown as Promise<Raw>,
     payload.find({ collection: "ad-elements", where: { status: { equals: "actif" } }, sort: "base", pagination: false, depth: 0, overrideAccess: true }).catch(() => ({ docs: [] })),
   ]);
-  const animated = await loadAnimatedLogo(kit.logoAnimated);
   const docs = rushes.docs as unknown as RushDoc[];
   return {
     // La Base V1 : la structure, les règles, ce qui est libre ; tout nouveau montage d'IA en part.
@@ -150,9 +149,10 @@ export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
       guide: ELEMENT_GUIDE,
       variantes: (elements.docs as unknown as Raw[]).map((e) => ({ id: Number(e.id), nom: String(e.name ?? ""), base: String(e.base ?? ""), quandLEmployer: String(e.whenToUse ?? "") })),
     },
-    logo: animated
-      ? `Logo animable : symbole en ${animated.symbol.length} élément(s), nom en ${animated.name.length} lettre(s)${animated.baseline ? ", signature" : ""}. Un plan « logo » le fait arriver selon le style.`
-      : "Pas de logo animable : un plan « logo » pose l'image du logo, en fondu.",
+    // Le logo signe la fin, dans le moteur : rien à télécharger ni à analyser pour le dire (revue du 16/10/2026).
+    logo: kit.logoAnimated
+      ? "Logo animable déposé : la fin le construit en grand, puis descend vers l'offre et le bouton."
+      : "Pas de logo animable : la fin pose l'image du logo, en grand, puis descend vers l'offre et le bouton.",
     inspirations: (inspirations.docs as unknown as RushDoc[]).map(inspirationForAgent).filter((i): i is InspirationForAgent => i !== null),
     styles: (styles.docs as unknown as Raw[]).map((s) => ({ id: Number(s.id), nom: String(s.name ?? ""), quandLEmployer: String(s.intent ?? ""), reglages: styleSettings(s) })),
     musiques: (musics.docs as unknown as Raw[]).map((m) => {
@@ -240,11 +240,19 @@ export async function mountVideo(
   const styleName = (id: number) => String(styles.get(id)!.name ?? "");
   const nameOf = (v: (typeof variants)[number]) => (dimension === "style" ? styleName(v.style) : v.music ? musicName(musics.get(v.music)!) : "musique du kit");
 
-  const creative = (await payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 0, overrideAccess: true })) as unknown as Raw;
+  const creative = (await payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 0, overrideAccess: true })) as unknown as VideoCreative;
+  // Lu UNE fois pour toutes les variantes (rushes, faits, kit, éléments…) : seul le style change, et il est déjà lu plus haut.
+  const loaded = await loadVideoContext(payload, { ...creative, style: variants[0].style });
+  const preloaded = (v: (typeof variants)[number]) => ({ creative, ctx: { ...loaded, style: styles.get(v.style)! } });
   // La partition est vérifiée ici, sur la créa d'origine : refusée, rien d'autre ne s'écrit.
   // Un nouveau montage de l'agent : seules les variantes d'éléments actives.
   // …et la Base V1 : l'agent en part, il ne repart pas de zéro.
-  const first = await requestVideo(payload, creativeId, { styleId: variants[0].style, score: input.score, music: variants[0].music, requireActiveElements: true, requireBase: true });
+  const first = await requestVideo(
+    payload,
+    creativeId,
+    { styleId: variants[0].style, score: input.score, music: variants[0].music, requireActiveElements: true, requireBase: true },
+    preloaded(variants[0]),
+  );
   const entry = (crea: number, v: (typeof variants)[number], music: number | null, test: boolean) => ({
     crea,
     style: v.style,
@@ -257,7 +265,8 @@ export async function mountVideo(
 
   const rest = variants.slice(1);
   if (!rest.length) return result;
-  const ctx = await loadGenerationContext(payload, campaign);
+  // Le contexte de la campagne est déjà lu avec la vidéo quand c'est la même (toujours, en pratique).
+  const ctx = Number(campaign) === Number((loaded.gen.campaign as { id?: unknown }).id) ? loaded.gen : await loadGenerationContext(payload, campaign);
   let room = Math.max(0, ctx.weeklyLimit - (await weeklyUsed(payload, campaign, now)));
   for (const v of rest) {
     if (room <= 0) {
@@ -266,7 +275,8 @@ export async function mountVideo(
     }
     const copy = await payload.create({ collection: "ad-creatives", data: variantCopyOf(creative, dimension, nameOf(v)) as never, depth: 0, overrideAccess: true });
     room--;
-    const r = await requestVideo(payload, copy.id, { styleId: v.style, score: first.score, music: v.music });
+    // La copie reprend les textes et la campagne de l'origine : même créa lue, même contexte, seul le style change.
+    const r = await requestVideo(payload, copy.id, { styleId: v.style, score: first.score, music: v.music }, preloaded(v));
     result.creas.push(entry(Number(copy.id), v, r.music, true));
   }
   return result;

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { relId } from "@/core/lib/relations";
 import {
@@ -28,11 +29,8 @@ export const maxDuration = 60;
 const BATCH = 50; // nb de tickets purgés par exécution (les suivants au prochain run)
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization");
-  if (!secret || auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = cronGuard(req);
+  if (denied) return denied;
 
   const payload = await payloadClient();
   const cutoff = new Date(Date.now() - TICKET_RETENTION_DAYS * 86_400_000).toISOString();

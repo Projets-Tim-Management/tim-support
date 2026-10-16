@@ -92,24 +92,48 @@ export function textsTxt(campaign: DownloadCampaign, creatives: DownloadCreative
 
 export type Loader = (url: string) => Promise<{ data: Buffer }>;
 
+/** Téléchargements simultanés au plus : assez pour ne pas attendre fichier après fichier, sans saturer le stockage. */
+export const ZIP_CONCURRENCY = 5;
+
+/** `fn` sur chaque élément, `limit` à la fois ; les résultats dans l'ordre des éléments. */
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
 /** Le ZIP : un dossier par créa (ses images), et les deux fichiers de textes à la racine. */
 export async function buildZip(campaign: DownloadCampaign, creatives: DownloadCreative[], kit: DownloadKit, load: Loader): Promise<Uint8Array> {
-  const files: Zippable = {};
+  // D'abord la liste des fichiers, dans l'ordre du ZIP ; puis les téléchargements, en parallèle.
+  const wanted: { folder: string; name: string; url: string }[] = [];
   for (const [i, c] of creatives.entries()) {
-    const folder: Zippable = {};
+    const folder = folderOf(c, i);
     for (const a of c.assets ?? []) {
       const url = typeof a.media === "object" && a.media ? a.media.url : null;
       if (!url || a.type !== "image") continue;
-      folder[assetName(campaign, c, a.format)] = new Uint8Array((await load(url)).data);
+      wanted.push({ folder, name: assetName(campaign, c, a.format), url });
     }
     // Les vidéos, à côté des images, sous le même nom (en .mp4).
     if (c.video?.status === "prete") {
       for (const v of c.video.renders ?? []) {
-        if (v.url) folder[assetName(campaign, c, v.format).replace(/\.jpg$/, ".mp4")] = new Uint8Array((await load(v.url)).data);
+        if (v.url) wanted.push({ folder, name: assetName(campaign, c, v.format).replace(/\.jpg$/, ".mp4"), url: v.url });
       }
     }
-    files[folderOf(c, i)] = folder;
   }
+  const data = await mapLimit(wanted, ZIP_CONCURRENCY, async (w) => new Uint8Array((await load(w.url)).data));
+
+  const files: Zippable = {};
+  for (const [i, c] of creatives.entries()) files[folderOf(c, i)] = {};
+  wanted.forEach((w, n) => {
+    (files[w.folder] as Zippable)[w.name] = data[n];
+  });
   files["textes.csv"] = strToU8(textsCsv(campaign, creatives));
   files["textes.txt"] = strToU8(textsTxt(campaign, creatives, kit));
   // Les JPEG et les MP4 sont déjà compressés : on les range, on ne les recompresse pas.

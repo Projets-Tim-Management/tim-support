@@ -102,6 +102,7 @@ const CONTRACT_PROFILES: { key: (typeof PROFILS)[number]["key"]; label: string }
   { key: "chefEquipe", label: "Chef d'équipe" },
   { key: "chefChantier", label: "Chef de chantier" },
   { key: "compagnon", label: "Compagnon" },
+  { key: "visuel", label: "Visuel" },
 ];
 
 export function contractPriceRows(client: Record<string, unknown>): PriceRow[] {

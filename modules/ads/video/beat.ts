@@ -82,11 +82,11 @@ function autocorr(onset: Float64Array, lag: number): number {
 }
 
 /** Le tempo, le premier temps et le meilleur passage d'un morceau décodé. Pure. */
-export function analyseBeat(pcm: Int16Array, sampleRate = ANALYSIS_RATE): Beat {
-  if (sampleRate !== ANALYSIS_RATE) throw new Error(`Échantillon attendu à ${ANALYSIS_RATE} Hz.`);
-  const durationSec = Math.round((pcm.length / sampleRate) * 100) / 100;
+export function analyseBeat(pcm: Int16Array): Beat {
+  // Toujours échantillonné à ANALYSIS_RATE (le décodage de lib/music.ts le garantit) : les fenêtres d'analyse sont calées dessus.
+  const durationSec = Math.round((pcm.length / ANALYSIS_RATE) * 100) / 100;
   const { rms, onset } = envelopes(pcm);
-  const fps = sampleRate / HOP;
+  const fps = ANALYSIS_RATE / HOP;
   if (onset.length < fps * 4) throw new Error("Morceau trop court pour en tirer un tempo (4 s au moins).");
 
   // Le tempo : la période où la montée d'énergie se répète le mieux, en préférant les tempos courants (~120).
@@ -144,7 +144,9 @@ export function analyseBeat(pcm: Int16Array, sampleRate = ANALYSIS_RATE): Beat {
 
 /**
  * Cale les coupes d'une partition sur les temps d'une musique qui démarre sur
- * un temps (bestStartSec) : chaque fin de plan va sur le temps le plus proche,
+ * un temps (bestStartSec) : chaque fin de plan va sur le temps SUIVANT (jamais
+ * avant : un plan raccourci n'aurait plus le temps d'être lu — revue du
+ * 16/10/2026),
  * sans qu'aucun plan ne passe sous MIN_SHOT ni au-dessus de MAX_SHOT, et sans
  * sortir de MIN_TOTAL–MAX_TOTAL. Un plan de rush garde son passage : sa vitesse
  * s'ajuste d'autant (le moteur la borne). Pure.
@@ -153,13 +155,14 @@ export function beatAlign(score: Score, bpm: number): Score {
   const period = 60 / bpm;
   // Sous 0,4 s (tempo très rapide), on cale sur un temps sur deux : une coupe à chaque temps serait illisible.
   const grid = period < 0.4 ? period * 2 : period;
-  const out: Score = { shots: [] };
+  // La partition garde tout ce qu'elle porte (sa base, notamment) ; seules les durées changent.
+  const out: Score = { ...score, shots: [] };
   let cursor = 0;
   let planned = 0;
   score.shots.forEach((shot, i) => {
     planned += shot.seconds;
     const last = i === score.shots.length - 1;
-    let end = Math.round(planned / grid) * grid;
+    let end = Math.ceil(planned / grid - 1e-9) * grid;
     const min = cursor + MIN_SHOT;
     const max = cursor + MAX_SHOT;
     while (end < min - 1e-9) end += grid;

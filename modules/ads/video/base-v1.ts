@@ -1,5 +1,7 @@
 import { BG_COLORS, PHONE_ENTRIES, type Element, type Fond } from "@/modules/ads/video/elements";
-import { CAMERA_MOVES, type Score } from "@/modules/ads/video/score";
+import { clip, str } from "@/modules/ads/video/parse";
+// Import circulaire avec score.ts : ces constantes ne sont lues qu'à l'appel des fonctions, jamais au chargement.
+import { CAMERA_MOVES, FPS, MAX_TOTAL, type Score } from "@/modules/ads/video/score";
 import { TRANSITION_GUIDE } from "@/modules/ads/video/transitions";
 
 /**
@@ -18,7 +20,7 @@ import { TRANSITION_GUIDE } from "@/modules/ads/video/transitions";
  * exception.
  */
 
-export const BASE_VERSION = "v1" as const;
+const BASE_VERSION = "v1" as const;
 
 export const BEAT_ROLES = ["accroche", "retournement", "geste", "consequence", "preuve", "fin"] as const;
 export type BeatRole = (typeof BEAT_ROLES)[number];
@@ -39,7 +41,7 @@ type Beat = {
   optional?: boolean;
 };
 
-export const BEATS: Beat[] = [
+const BEATS: Beat[] = [
   {
     role: "accroche",
     but: "Le problème du chantier, en deux coups : un moment (« Vendredi. », « Lundi. ») puis la tension (« Soir. », « Tout change. »), et une phrase tapée qui nomme la douleur.",
@@ -110,7 +112,7 @@ export const BEATS: Beat[] = [
 ];
 
 /** Les règles qui valent pour tout le montage. */
-export const GLOBAL_RULES = [
+const GLOBAL_RULES = [
   "Durée totale de 15 à 20 s : chaque texte doit avoir le temps d'être lu (règle de lecture vérifiée par le code).",
   "Les fonds alternent : jamais deux plans de suite sur le même fond, au moins 4 fonds différents, jamais l'accent (rouge) en aplat ; chaque fond plein a son halo.",
   "Le rouge est une TOUCHE : le mot fort (un mot par titre), la barre, le curseur, le bouton. Le vert ne sert qu'à « validé ».",
@@ -123,17 +125,23 @@ export const GLOBAL_RULES = [
 const fondKey = (f: Fond): string => (f.type === "couleur" || f.type === "telephone" ? `${f.type === "telephone" ? "tel:" : ""}${f.couleur ?? "style"}` : f.type === "rush" ? `rush:${f.rush}` : f.type);
 const colorOfFond = (f: Fond): string | null => (f.type === "couleur" || f.type === "telephone" ? (f.couleur ?? null) : null);
 const titles = (els: Element[]) => els.filter((e) => e.type === "titre");
-const text = (e: Element, k: string) => (typeof e.data[k] === "string" ? (e.data[k] as string).trim() : "");
+const text = (e: Element, k: string) => str(e.data[k]);
 const words = (t: string) => t.split(/\s+/).filter(Boolean);
-const FPS = 30;
 
-/** Le temps de lecture d'un titre une fois apparu, selon son animation (mêmes durées que le moteur). Pure. */
-export function readingNeed(e: Element): number {
+/**
+ * Le temps de lecture d'un titre une fois apparu, selon son animation — avec les
+ * MÊMES durées que le moteur : la vitesse réglée sur la variante (qui accélère
+ * ou ralentit l'animation) et le rythme du style (qui allonge la lecture de
+ * l'ancienne façon, dans un barré-remplacé). Pure.
+ */
+export function readingNeed(e: Element, opts: { speed?: number; pace?: number } = {}): number {
   const t = text(e, "texte");
   const anim = text(e, "animation") || "mot-a-mot";
+  const speed = opts.speed && opts.speed > 0 ? opts.speed : 1;
+  const pace = opts.pace ?? 1;
   // Calé sur les rendus validés par Charlie le 15/10/2026 : la phrase tapée reste 1 s finie ; le remplacement, le temps d'arriver puis d'être lu.
-  if (anim === "frappe") return (2 + t.length * 1.6) / FPS + 1.0;
-  if (anim === "barre-remplace") return (28 + words(t).length * 5 + 14 + words(text(e, "remplacement")).length * 4 + 10) / FPS + 0.3;
+  if (anim === "frappe") return (2 + t.length * 1.6) / speed / FPS + 1.0;
+  if (anim === "barre-remplace") return (Math.round(28 * pace) + words(t).length * 5 + 14 + words(text(e, "remplacement")).length * 4 + 10) / speed / FPS + 0.3;
   return 0.5 + 0.04 * t.length;
 }
 
@@ -143,7 +151,9 @@ export type BaseContext = {
   /** Les fonctionnalités déclarées de chaque rush. */
   rushFeatures: Map<number, string[]>;
   facts: Set<number>;
-  maxTotal: number;
+  /** Le rythme du style (voir pace.ts) et la vitesse réglée sur chaque variante d'élément : le temps de lecture en dépend. */
+  pace?: number;
+  speeds?: Map<number, number>;
 };
 
 /** Tout ce qui écarte une partition de la Base V1 ; vide si elle la suit. Pure. */
@@ -156,7 +166,7 @@ export function baseV1Problems(score: Score, ctx: BaseContext): string[] {
   const expected = BEATS.filter((b) => !b.optional || roles.includes(b.role)).map((b) => b.role);
   if (roles.join(",") !== expected.join(",")) out.push(`Base V1 : les plans suivent l'ordre ${BEATS.map((b) => (b.optional ? `(${b.role})` : b.role)).join(" → ")} — reçu : ${roles.map((r) => r ?? "?").join(" → ")}.`);
   const total = shots.reduce((t, s) => t + (Number.isFinite(s.seconds) ? s.seconds : 0), 0);
-  if (total < 15 || total > ctx.maxTotal) out.push(`Base V1 : durée totale de ${Math.round(total * 10) / 10} s, de 15 à ${ctx.maxTotal} s.`);
+  if (total < 15 || total > MAX_TOTAL) out.push(`Base V1 : durée totale de ${Math.round(total * 10) / 10} s, de 15 à ${MAX_TOTAL} s.`);
 
   // Les fonds : alternés, au moins 4 différents, jamais l'accent en aplat, un halo sur chaque fond plein.
   const fonds = shots.map((s) => (s.kind === "compo" ? s.fond : null));
@@ -191,7 +201,7 @@ export function baseV1Problems(score: Score, ctx: BaseContext): string[] {
       const strong = text(e, "mot_fort");
       if (strong && words(strong).length > 1) out.push(`${at(i)}, élément ${k + 1} : un seul mot fort (le rouge est une touche).`);
       const shown = (e.fin ?? s.seconds) - e.debut;
-      const need = readingNeed(e);
+      const need = readingNeed(e, { pace: ctx.pace, speed: e.variante != null ? ctx.speeds?.get(e.variante) : undefined });
       if (shown + 1e-9 < need) out.push(`${at(i)}, élément ${k + 1} : « ${clip(text(e, "texte"), 30)} » reste ${round(shown)} s, il en faut ${round(need)} pour le lire — avance-le ou allonge le plan.`);
     });
   });
@@ -243,7 +253,9 @@ export function baseV1Problems(score: Score, ctx: BaseContext): string[] {
     if (beat.role === "consequence") {
       if (f.type !== "couleur" || !PALE.includes(color as (typeof PALE)[number])) out.push(`${at(i)} : un fond pâle (${PALE.join(", ")}).`);
       const notes = els.filter((e) => e.type === "notification");
-      if (notes.length < 1 || notes.length > 3) out.push(`${at(i)} : la confirmation en grand, ou 2 à 3 notifications qui se valident.`);
+      // Une seule notification : seulement la confirmation en grand (une variante) ; sinon une cascade de 2 à 3.
+      const single = notes.length === 1 && notes[0].variante != null;
+      if (!single && (notes.length < 2 || notes.length > 3)) out.push(`${at(i)} : la confirmation en grand (variante), ou 2 à 3 notifications qui se valident.`);
       if (els.filter((e) => e.type === "etiquette").length > 1) out.push(`${at(i)} : au plus une pastille de résultat.`);
     }
     if (beat.role === "preuve") {
@@ -257,10 +269,15 @@ export function baseV1Problems(score: Score, ctx: BaseContext): string[] {
 }
 
 const round = (n: number) => Math.round(n * 10) / 10;
-const clip = (t: string, n: number) => (t.length <= n ? t : `${t.slice(0, n - 1)}…`);
 
-/** Ce que l'IA lit de la base : les temps, ce qu'elle garde, ce qu'elle peut changer, les règles, et deux montages de référence. */
+let guide: Record<string, unknown> | null = null;
+
+/** Ce que l'IA lit de la base : les temps, ce qu'elle garde, ce qu'elle peut changer, les règles, et deux montages de référence. Construit une fois. */
 export function baseV1Guide(): Record<string, unknown> {
+  return (guide ??= buildGuide());
+}
+
+function buildGuide(): Record<string, unknown> {
   return {
     version: BASE_VERSION,
     consigne:

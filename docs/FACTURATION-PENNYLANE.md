@@ -141,6 +141,7 @@ libellé :
 | Chef de chantier | Licence TIM — Chef de chantier | `LCC-Tim` |
 | Chef d'équipe | Licence TIM — Chef d'équipe | `LCE-Tim` |
 | Compagnon | Licence TIM — Compagnon | `LC-Tim` |
+| Visuel | Licence TIM — Visuel | à créer (reconnue au libellé « Visuel » en attendant) |
 
 Si un produit est renommé ou recréé dans Pennylane, garder ces références (ou
 mettre à jour `PENNYLANE_PRODUCT_REFS` dans `modules/partner/lib/billing-check.ts`).

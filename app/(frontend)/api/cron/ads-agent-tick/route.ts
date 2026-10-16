@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { tickDueRuns } from "@/modules/ads/agent/run";
 
@@ -15,10 +16,8 @@ export const maxDuration = 300;
 
 export async function GET(req: Request) {
   const start = Date.now();
-  const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = cronGuard(req);
+  if (denied) return denied;
   const payload = await payloadClient();
   const done = await tickDueRuns(payload, new Date(start + (maxDuration - 20) * 1000));
   if (done.length) payload.logger.info(`[cron] agents de campagne : ${done.map((d) => `${d.run} → ${typeof d.result === "string" ? d.result : d.result.outcome}`).join(", ")}`);

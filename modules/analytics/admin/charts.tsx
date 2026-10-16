@@ -37,7 +37,7 @@ import type { ProfilKey } from "@/modules/partner/lib/pricing";
 export type Colors = { series: string[]; violet: string; muted: string; grid: string; text: string; textMuted: string; surface: string };
 
 const FALLBACK: Colors = {
-  series: ["#fe5464", "#2a78d6", "#1baf7a", "#eda100", "#4a3aa7"],
+  series: ["#fe5464", "#2a78d6", "#1baf7a", "#eda100", "#4a3aa7", "#0e9fb3"],
   violet: "#5b5bd6",
   muted: "#c9ccd3",
   grid: "#eef0f3",
@@ -53,7 +53,7 @@ export function useChartColors(): Colors {
     const css = getComputedStyle(document.documentElement);
     const read = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
     setColors({
-      series: [1, 2, 3, 4, 5].map((i) => read(`--tim-chart-${i}`, FALLBACK.series[i - 1])),
+      series: [1, 2, 3, 4, 5, 6].map((i) => read(`--tim-chart-${i}`, FALLBACK.series[i - 1])),
       violet: read("--tim-chart-violet", FALLBACK.violet),
       muted: read("--tim-chart-muted", FALLBACK.muted),
       grid: read("--tim-chart-grid", FALLBACK.grid),
@@ -65,8 +65,8 @@ export function useChartColors(): Colors {
   return colors;
 }
 
-/** Ordre FIXE des profils dans la palette : Admin = 1 … Compagnon = 5. */
-const PROFILE_SLOT: Record<ProfilKey, number> = { admin: 0, conducteur: 1, chefChantier: 2, chefEquipe: 3, compagnon: 4 };
+/** Ordre FIXE des profils dans la palette : Admin = 1 … Compagnon = 5, Visuel = 6. */
+const PROFILE_SLOT: Record<ProfilKey, number> = { admin: 0, conducteur: 1, chefChantier: 2, chefEquipe: 3, compagnon: 4, visuel: 5 };
 
 export const monthLabel = (iso: string, long = false) =>
   new Date(iso).toLocaleDateString("fr-FR", { month: long ? "long" : "short", year: long ? "numeric" : "2-digit", timeZone: "UTC" });

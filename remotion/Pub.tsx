@@ -2,11 +2,15 @@ import type { CSSProperties, ReactNode } from "react";
 import { AbsoluteFill, Audio, Easing, Img, interpolate, OffthreadVideo, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 
 import type { Rect } from "../modules/ads/lib/framing";
-import type { RenderPhone, RenderProps, RenderShot, RenderStyle } from "../modules/ads/video/props";
+import type { RenderPhone, RenderProps, RenderShot } from "../modules/ads/video/props";
+import { PACE } from "../modules/ads/video/pace";
 import { layoutShots } from "../modules/ads/video/transitions";
+import { cornerRadius, LogoDots } from "./brand";
+import { luminance, textOn, withAlpha } from "./color";
 import { useFamily } from "./fonts";
 import { AnimatedLogo } from "./logo";
 import { Elements } from "./elements";
+import { blurFilter, clamp, ease } from "./motion";
 import { Transitioned } from "./transitions";
 
 /**
@@ -28,16 +32,17 @@ type Ctx = { p: RenderProps; title: string; body: string; u: number };
  */
 const BASE_TEXT: CSSProperties = { lineHeight: 1.25, letterSpacing: "normal", textAlign: "left", fontWeight: 400, whiteSpace: "normal", wordSpacing: "normal" };
 
-const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
-const ease = Easing.bezier(0.2, 0.7, 0.2, 1);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
-/** Le rythme du style : à quelle vitesse les mots et les entrées arrivent. */
-const PACE = { pose: 1.4, dynamique: 1, rapide: 0.7 } as const;
+/** L'arrondi des boutons et cadres d'un plan : la règle de la marque (brand.tsx), à l'échelle u. */
+const radius = (p: RenderProps, u: number) => cornerRadius(p.style.corners, 18 * u, 11 * u);
 
-/** Règle de la marque : un léger arrondi partout, jamais d'angle vif ni de pilule (voir elements.tsx). */
-function radius(style: RenderStyle, u: number): number {
-  return (style.corners === "carres" ? 11 : 18) * u;
+/** La proportion (largeur / hauteur) de la zone utile d'un rush, à l'écran. */
+const cropAspect = (crop: Rect, srcAspect: number) => (crop.w * srcAspect) / crop.h;
+
+/** La plus grande boîte de proportion `aspect` qui tient dans maxW × maxH (cadrage « contain » : rien n'est rogné). */
+function fitRect(aspect: number, maxW: number, maxH: number): { w: number; h: number } {
+  return maxH * aspect > maxW ? { w: maxW, h: maxW / aspect } : { w: maxH * aspect, h: maxH };
 }
 
 /** Les couleurs d'un plan sans vidéo, selon les fonds du style. */
@@ -48,33 +53,9 @@ function surface(p: RenderProps, role: "ouverture" | "preuve" | "fin"): { bg: st
   return { bg: c.darkBg, fg: c.textOnDark, accent: c.accent };
 }
 
-/** La clarté d'une couleur (#RRGGBB), de 0 (noir) à 1 (blanc) : au-delà de 0,4, on écrit en sombre dessus. */
-function luminance(hex: string): number {
-  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return 0;
-  const v = parseInt(m[1], 16);
-  const lin = (c: number) => (c / 255 <= 0.03928 ? c / 255 / 12.92 : ((c / 255 + 0.055) / 1.055) ** 2.4);
-  return 0.2126 * lin((v >> 16) & 255) + 0.7152 * lin((v >> 8) & 255) + 0.0722 * lin(v & 255);
-}
-
-/** Une couleur du kit (#RRGGBB) rendue transparente : le voile d'un fond prend la teinte de la marque, pas un gris. */
-function tint(hex: string, alpha: number): string {
-  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return `rgba(0,0,0,${alpha})`;
-  const v = parseInt(m[1], 16);
-  return `rgba(${(v >> 16) & 255},${(v >> 8) & 255},${v & 255},${alpha})`;
-}
-
 /** Les pastilles du logo TIM, en motif discret dans un coin. */
 function Dots({ color, u }: { color: string; u: number }) {
-  const d = 22 * u;
-  return (
-    <div style={{ position: "absolute", top: 70 * u, left: 70 * u, display: "grid", gridTemplateColumns: `repeat(2, ${d}px)`, gap: 11 * u }}>
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} style={{ width: d, height: d, borderRadius: i === 1 ? "50% 50% 50% 0" : "50%", background: color }} />
-      ))}
-    </div>
-  );
+  return <LogoDots size={22 * u} gap={11 * u} color={color} style={{ position: "absolute", top: 70 * u, left: 70 * u }} />;
 }
 
 /** Des mots qui arrivent un à un, sur une part du plan. */
@@ -142,7 +123,7 @@ function Opening({ shot, ctx }: { shot: Extract<RenderShot, { kind: "ouverture" 
  * l'image). `base` a la proportion du cadre ; le zoom resserre la vue vers
  * `zoom` sans jamais sortir de `bound`.
  */
-function VideoView({ shot, base, bound, w, h, zoomTo, progress }: { shot: Extract<RenderShot, { kind: "rush" }>; base: Rect; bound: Rect; w: number; h: number; zoomTo: Rect | null; progress: number }) {
+function VideoView({ video, base, bound, w, h, zoomTo, progress }: { video: { src: string; fromSec: number; playbackRate: number }; base: Rect; bound: Rect; w: number; h: number; zoomTo: Rect | null; progress: number }) {
   const { fps } = useVideoConfig();
   let view = base;
   if (zoomTo && progress > 0) {
@@ -163,10 +144,10 @@ function VideoView({ shot, base, bound, w, h, zoomTo, progress }: { shot: Extrac
   return (
     <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
       <OffthreadVideo
-        src={shot.src}
+        src={video.src}
         muted
-        trimBefore={Math.round(shot.fromSec * fps)}
-        playbackRate={shot.playbackRate}
+        trimBefore={Math.round(video.fromSec * fps)}
+        playbackRate={video.playbackRate}
         style={{ position: "absolute", width: imgW, height: imgH, left: -view.x * imgW, top: -view.y * imgH, maxWidth: "none" }}
       />
     </div>
@@ -195,7 +176,7 @@ function Caption({ shot, ctx }: { shot: Extract<RenderShot, { kind: "rush" }>; c
   }
   const t = interpolate(frame, [4, 12], [0, 1], clamp);
   const band = p.style.graphics.includes("bandeaux") ? p.palette.darkBg : p.style.background === "clair" ? p.palette.lightBg : p.palette.darkBg;
-  const fg = band === "#FFFFFF" ? p.palette.textOnLight : p.palette.textOnDark;
+  const fg = textOn(p, band);
   return (
     <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: `${36 * u}px ${60 * u}px ${54 * u}px`, background: band, color: fg, fontFamily: body, fontWeight: 800, fontSize: 48 * u, lineHeight: 1.2, opacity: t, transform: `translateY(${(1 - t) * 30 * u}px)` }}>
       {shot.caption}
@@ -216,22 +197,14 @@ function Rush({ shot, ctx }: { shot: Extract<RenderShot, { kind: "rush" }>; ctx:
     if (shot.cover) {
       return (
         <AbsoluteFill style={{ background: bg }}>
-          <VideoView shot={shot} base={shot.cover} bound={shot.crop} w={width} h={height} zoomTo={zoomTo} progress={progress} />
+          <VideoView video={shot} base={shot.cover} bound={shot.crop} w={width} h={height} zoomTo={zoomTo} progress={progress} />
           <Caption shot={shot} ctx={ctx} />
         </AbsoluteFill>
       );
     }
   }
   // Dans un téléphone (ou zone utile entière) : la proportion de la zone utile, rien n'est rogné.
-  const cropAspect = (shot.crop.w * shot.srcAspect) / shot.crop.h;
-  const maxH = height * (height > width * 1.4 ? 0.72 : 0.8);
-  const maxW = width * 0.78;
-  let ph = maxH;
-  let pw = ph * cropAspect;
-  if (pw > maxW) {
-    pw = maxW;
-    ph = pw / cropAspect;
-  }
+  const { w: pw, h: ph } = fitRect(cropAspect(shot.crop, shot.srcAspect), width * 0.78, height * (height > width * 1.4 ? 0.72 : 0.8));
   const bezel = p.style.phoneFrame === "ecran-seul" ? 0 : 18 * u;
   const tilt = p.style.phoneFrame === "incline" ? -6 : 0;
   const float = p.style.phoneFrame === "incline" ? Math.sin(frame / 18) * 10 * u : 0;
@@ -254,7 +227,7 @@ function Rush({ shot, ctx }: { shot: Extract<RenderShot, { kind: "rush" }>; ctx:
         }}
       >
         <div style={{ position: "relative", width: pw, height: ph, borderRadius: bezel ? 48 * u : 18 * u, overflow: "hidden", background: "#000" }}>
-          <VideoView shot={shot} base={shot.crop} bound={shot.crop} w={pw} h={ph} zoomTo={zoomTo} progress={progress} />
+          <VideoView video={shot} base={shot.crop} bound={shot.crop} w={pw} h={ph} zoomTo={zoomTo} progress={progress} />
         </div>
       </div>
       <Caption shot={shot} ctx={ctx} />
@@ -313,7 +286,7 @@ function End({ shot, ctx }: { shot: Extract<RenderShot, { kind: "fin" }>; ctx: C
   const frame = useCurrentFrame();
   const t = (d: number) => interpolate(frame, [d, d + 10], [0, 1], { ...clamp, easing: ease });
   const upper = p.style.titleUpper ? "uppercase" : "none";
-  const pill: CSSProperties = { background: p.palette.accent, color: p.palette.textOnDark, fontFamily: body, fontWeight: 800, fontSize: 46 * u, padding: `${26 * u}px ${54 * u}px`, borderRadius: radius(p.style, u) };
+  const pill: CSSProperties = { background: p.palette.accent, color: p.palette.textOnDark, fontFamily: body, fontWeight: 800, fontSize: 46 * u, padding: `${26 * u}px ${54 * u}px`, borderRadius: radius(p, u) };
   // En deux temps (15/10/2026) : le logo en grand, qui s'approche ; puis la caméra descend vers l'offre et le bouton.
   const { height } = p;
   const zoom = interpolate(frame, [0, shot.frames * 0.5], [0.9, 1.08], { ...clamp, easing: Easing.out(Easing.cubic) });
@@ -344,20 +317,22 @@ function End({ shot, ctx }: { shot: Extract<RenderShot, { kind: "fin" }>; ctx: C
  * Un plan composé : son fond (le style, une couleur, un passage de rush net ou
  * flouté, une image), un voile s'il en faut un, puis les éléments animés.
  */
-function Compo({ shot, ctx }: { shot: Extract<RenderShot, { kind: "compo" }>; ctx: Ctx }) {
+function Compo({ shot, ctx, lead = 0 }: { shot: Extract<RenderShot, { kind: "compo" }>; ctx: Ctx; lead?: number }) {
   const { p } = ctx;
-  const frame = useCurrentFrame();
+  // Le temps du plan part de sa COUPE : le plan se dessine `lead` images plus tôt, le temps de sa transition d'entrée.
+  const frame = useCurrentFrame() - lead;
+  // Les éléments sont minutés depuis la coupe : décalés d'autant (l'inclinaison est relative à leur entrée, elle suit).
+  const timed = lead ? shot.elements.map((e) => ({ ...e, from: e.from + lead, to: e.to != null ? e.to + lead : null })) : shot.elements;
   const { width, height } = p;
   const f = shot.fond;
   const lightStyle = p.style.background === "clair";
   let ink = lightStyle ? p.palette.textOnLight : p.palette.textOnDark;
   let layer: ReactNode = <AbsoluteFill style={{ background: lightStyle ? p.palette.lightBg : p.palette.darkBg }} />;
   if (f.type === "couleur") {
-    ink = luminance(f.color) > 0.4 ? p.palette.textOnLight : p.palette.textOnDark;
+    ink = textOn(p, f.color);
     layer = <AbsoluteFill style={{ background: f.color }} />;
   } else if (f.type === "rush") {
     ink = p.palette.textOnDark;
-    const asShot = { kind: "rush" as const, frames: shot.frames, src: f.src, srcAspect: f.srcAspect, fromSec: f.fromSec, playbackRate: f.playbackRate, crop: f.crop, cover: f.cover, zoom: null, caption: null };
     // Un fond flouté n'est pas figé : il avance lentement vers nous pendant le plan.
     // La caméra : de la vue de départ vers son cadre, en douceur (une poussée de cinéma, pas un saut).
     const cam = f.camera ? interpolate(frame, [f.camera.from, Math.max(f.camera.from + 1, f.camera.until)], [0, 1], { ...clamp, easing: Easing.inOut(Easing.cubic) }) : 0;
@@ -365,19 +340,16 @@ function Compo({ shot, ctx }: { shot: Extract<RenderShot, { kind: "compo" }>; ct
     if (f.zoom || f.cover) {
       layer = (
         <AbsoluteFill style={{ background: p.palette.darkBg, ...blur }}>
-          <VideoView shot={asShot} base={f.zoom ?? f.cover!} bound={f.crop} w={width} h={height} zoomTo={f.camera?.to ?? null} progress={cam} />
+          <VideoView video={f} base={f.zoom ?? f.cover!} bound={f.crop} w={width} h={height} zoomTo={f.camera?.to ?? null} progress={cam} />
         </AbsoluteFill>
       );
     } else {
       // La zone utile entière, centrée sur le fond sombre : rien n'est rogné.
-      const ca = (f.crop.w * f.srcAspect) / f.crop.h;
-      const aspect = width / height;
-      const dw = ca > aspect ? width : height * ca;
-      const dh = ca > aspect ? width / ca : height;
+      const { w: dw, h: dh } = fitRect(cropAspect(f.crop, f.srcAspect), width, height);
       layer = (
         <AbsoluteFill style={{ background: p.palette.darkBg, ...blur }}>
           <div style={{ position: "absolute", left: (width - dw) / 2, top: (height - dh) / 2, width: dw, height: dh, overflow: "hidden" }}>
-            <VideoView shot={asShot} base={f.crop} bound={f.crop} w={dw} h={dh} zoomTo={f.camera?.to ?? null} progress={cam} />
+            <VideoView video={f} base={f.crop} bound={f.crop} w={dw} h={dh} zoomTo={f.camera?.to ?? null} progress={cam} />
           </div>
         </AbsoluteFill>
       );
@@ -392,7 +364,7 @@ function Compo({ shot, ctx }: { shot: Extract<RenderShot, { kind: "compo" }>; ct
   }
   if (f.type === "telephone") {
     const bg = f.color ?? (lightStyle ? p.palette.lightBg : p.palette.darkBg);
-    ink = luminance(bg) > 0.4 ? p.palette.textOnLight : p.palette.textOnDark;
+    ink = textOn(p, bg);
     layer = <AbsoluteFill style={{ background: bg }} />;
   }
   const veil = f.type === "rush" || f.type === "image" ? f.voile : 0;
@@ -408,36 +380,37 @@ function Compo({ shot, ctx }: { shot: Extract<RenderShot, { kind: "compo" }>; ct
     }, 0);
   // La caméra : le fond bouge pleinement, le téléphone aux trois quarts, les éléments à moitié (la profondeur).
   const cam = cameraAt(shot.camera ?? null, frame, shot.frames, width, height);
+  const camBlur = cam?.blur ? blurFilter(cam.blur * ctx.u) : undefined;
   // En suivi, toute la scène bouge d'un bloc (on va VERS un élément) ; le fond et le téléphone se floutent pendant le trajet.
   const at = (depth: number, blurred = false): CSSProperties | undefined => {
     if (!cam) return undefined;
     const d = cam.follow ? 1 : depth;
-    return { transform: `translate(${cam.x * d}px, ${cam.y * d}px) scale(${1 + (cam.scale - 1) * d}) rotate(${(cam.rotate ?? 0) * d}deg)`, ...(blurred && cam.blur ? { filter: `blur(${cam.blur * ctx.u}px)` } : {}) };
+    return { transform: `translate(${cam.x * d}px, ${cam.y * d}px) scale(${1 + (cam.scale - 1) * d}) rotate(${(cam.rotate ?? 0) * d}deg)`, ...(blurred && camBlur ? { filter: camBlur } : {}) };
   };
   const bgMove = cam ? `translate(${cam.x}px, ${cam.y}px) scale(${cam.follow ? cam.scale * 1.15 : cam.scale * 1.1}) rotate(${cam.rotate ?? 0}deg)` : "";
   const bgShake = shake ? `translate(${shake}px, ${shake * -0.6}px) scale(1.02)` : "";
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
-      <AbsoluteFill style={bgMove || bgShake ? { transform: `${bgMove} ${bgShake}`, ...(cam?.blur ? { filter: `blur(${cam.blur * ctx.u}px)` } : {}) } : undefined}>
+      <AbsoluteFill style={bgMove || bgShake ? { transform: `${bgMove} ${bgShake}`, ...(camBlur ? { filter: camBlur } : {}) } : undefined}>
         {layer}
         {f.halo && <Halo ctx={ctx} frame={frame} dark={plain != null && luminance(plain) <= 0.4} />}
       </AbsoluteFill>
-      {veil > 0 && <AbsoluteFill style={{ background: tint(p.palette.darkBg, veil) }} />}
+      {veil > 0 && <AbsoluteFill style={{ background: withAlpha(p.palette.darkBg, veil) }} />}
       {f.type === "telephone" ? (
         <>
           <AbsoluteFill style={at(0.9, true)}>
-            <Elements elements={shot.elements.filter((e) => e.derriere)} ctx={ectx} shotFrames={shot.frames} ink={ink} />
+            <Elements elements={timed.filter((e) => e.derriere)} ctx={ectx} shotFrames={shot.frames} ink={ink} />
           </AbsoluteFill>
           <AbsoluteFill style={at(0.7, true)}>
-            <PhoneLayer f={f} ctx={ctx} frames={shot.frames} shake={shake} />
+            <PhoneLayer f={f} ctx={ctx} shake={shake} lead={lead} />
           </AbsoluteFill>
           <AbsoluteFill style={at(0.45)}>
-            <Elements elements={shot.elements.filter((e) => !e.derriere)} ctx={ectx} shotFrames={shot.frames} ink={ink} />
+            <Elements elements={timed.filter((e) => !e.derriere)} ctx={ectx} shotFrames={shot.frames} ink={ink} />
           </AbsoluteFill>
         </>
       ) : (
         <AbsoluteFill style={at(0.45)}>
-          <Elements elements={shot.elements} ctx={ectx} shotFrames={shot.frames} ink={ink} />
+          <Elements elements={timed} ctx={ectx} shotFrames={shot.frames} ink={ink} />
         </AbsoluteFill>
       )}
     </AbsoluteFill>
@@ -447,10 +420,9 @@ function Compo({ shot, ctx }: { shot: Extract<RenderShot, { kind: "compo" }>; ct
 /** Des halos doux aux couleurs du kit, qui dérivent lentement : un fond plein qui vit, sans motif ni trait. */
 function Halo({ ctx, frame, dark }: { ctx: Ctx; frame: number; dark: boolean }) {
   const { p } = ctx;
-  const a = (n: number) => Math.round(n * 255).toString(16).padStart(2, "0");
   const drift = (k: number) => Math.sin(frame / 45 + k) * 6;
-  const accent = `${p.palette.accent}${a(dark ? 0.28 : 0.16)}`;
-  const second = `${dark ? p.palette.lightBg : p.palette.primary}${a(dark ? 0.1 : 0.12)}`;
+  const accent = withAlpha(p.palette.accent, dark ? 0.28 : 0.16);
+  const second = withAlpha(dark ? p.palette.lightBg : p.palette.primary, dark ? 0.1 : 0.12);
   return (
     <AbsoluteFill
       style={{
@@ -465,7 +437,7 @@ function Halo({ ctx, frame, dark }: { ctx: Ctx; frame: number; dark: boolean }) 
 
 /** Où en est la caméra d'un plan : un décalage (px) et un grossissement, du début à la fin du plan, en douceur. */
 type CameraState = { x: number; y: number; scale: number; blur?: number; follow?: boolean; rotate?: number };
-type ShotCamera = { move: string; amplitude: number; points?: { x: number; y: number; at: number; scale: number; rotate: number }[] };
+type ShotCamera = NonNullable<Extract<RenderShot, { kind: "compo" }>["camera"]>;
 
 /** La caméra en suivi : elle fonce vers chaque point à son heure (≈ 0,3 s), le garde, puis repart ; le fond se floute pendant le trajet. */
 function followAt(points: NonNullable<ShotCamera["points"]>, frame: number, width: number, height: number): CameraState {
@@ -487,7 +459,7 @@ function followAt(points: NonNullable<ShotCamera["points"]>, frame: number, widt
   return { ...state, blur: Math.max(blur, hold), follow: true };
 }
 
-function cameraAt(camera: ShotCamera | null, frame: number, frames: number, width: number, height = width): CameraState | null {
+function cameraAt(camera: ShotCamera | null, frame: number, frames: number, width: number, height: number): CameraState | null {
   if (!camera) return null;
   if (camera.move === "suivi") return camera.points?.length ? followAt(camera.points, frame, width, height) : null;
   const k = interpolate(frame, [0, Math.max(1, frames)], [-1, 1], { ...clamp, easing: Easing.inOut(Easing.sin) });
@@ -516,12 +488,12 @@ function cameraAt(camera: ShotCamera | null, frame: number, frames: number, widt
  * et peut plonger vers un point de l'écran — le point reste immobile, l'écran
  * grossit autour : un doigt posé dessus tombe juste.
  */
-function PhoneLayer({ f, ctx, frames, shake }: { f: RenderPhone; ctx: Ctx; frames: number; shake: number }) {
+function PhoneLayer({ f, ctx, shake, lead = 0 }: { f: RenderPhone; ctx: Ctx; shake: number; lead?: number }) {
   const { p, u } = ctx;
-  const frame = useCurrentFrame();
+  const frame = useCurrentFrame() - lead;
   const { width, height } = p;
   const ph = f.height * height;
-  const pw = ph * ((f.crop.w * f.srcAspect) / f.crop.h);
+  const pw = ph * cropAspect(f.crop, f.srcAspect);
   const bezel = 16 * u;
   const left = f.x * width - pw / 2;
   const top = f.y * height - ph / 2;
@@ -541,7 +513,6 @@ function PhoneLayer({ f, ctx, frames, shake }: { f: RenderPhone; ctx: Ctx; frame
   const oy = top + (f.focus?.y ?? 0.5) * ph;
   // En plongée, le téléphone se remet de face (on lit l'écran) et cesse de flotter.
   const tilt = f.tilt * (1 - z);
-  const asShot = { kind: "rush" as const, frames, src: f.src, srcAspect: f.srcAspect, fromSec: f.fromSec, playbackRate: f.playbackRate, crop: f.crop, cover: null, zoom: null, caption: null };
   return (
     <AbsoluteFill style={{ transform: `translate(${shake * 0.5}px, 0) scale(${scale})`, transformOrigin: `${ox}px ${oy}px` }}>
       <AbsoluteFill style={{ perspective: 2200 * u }}>
@@ -561,7 +532,7 @@ function PhoneLayer({ f, ctx, frames, shake }: { f: RenderPhone; ctx: Ctx; frame
           }}
         >
           <div style={{ position: "relative", width: pw, height: ph, borderRadius: 54 * u, overflow: "hidden", background: "#000" }}>
-            <VideoView shot={asShot} base={f.crop} bound={f.crop} w={pw} h={ph} zoomTo={null} progress={0} />
+            <VideoView video={f} base={f.crop} bound={f.crop} w={pw} h={ph} zoomTo={null} progress={0} />
           </div>
         </div>
       </AbsoluteFill>
@@ -569,19 +540,22 @@ function PhoneLayer({ f, ctx, frames, shake }: { f: RenderPhone; ctx: Ctx; frame
   );
 }
 
-function ShotView({ shot, ctx }: { shot: RenderShot; ctx: Ctx }): ReactNode {
+function ShotView({ shot, ctx, lead = 0 }: { shot: RenderShot; ctx: Ctx; lead?: number }): ReactNode {
   if (shot.kind === "ouverture") return <Opening shot={shot} ctx={ctx} />;
   if (shot.kind === "rush") return <Rush shot={shot} ctx={ctx} />;
   if (shot.kind === "preuve") return <Proof shot={shot} ctx={ctx} />;
   if (shot.kind === "logo") return <LogoShot ctx={ctx} frames={shot.frames} />;
-  if (shot.kind === "compo") return <Compo shot={shot} ctx={ctx} />;
+  if (shot.kind === "compo") return <Compo shot={shot} ctx={ctx} lead={lead} />;
   return <End shot={shot} ctx={ctx} />;
 }
 
 export const Pub: React.FC<RenderProps> = (p) => {
   const title = useFamily(p.style.titleFont);
   const body = useFamily(p.style.bodyFont);
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames: d } = useVideoConfig();
+  // Le fondu de la musique (10 images à l'entrée, 20 à la sortie), resserré sur une vidéo très courte : interpolate veut des points strictement croissants.
+  const fadeIn = Math.min(10, d / 3);
+  const fadeOut = d - 20 > fadeIn ? d - 20 : (fadeIn + d) / 2;
   const ctx: Ctx = { p, title, body, u: p.width / 1080 };
   // Où chaque plan se dessine : sa place, élargie de la moitié de ses transitions (les plans se chevauchent sur la coupe).
   const cuts = p.cuts ?? p.shots.map(() => ({ type: "coupe" as const, frames: 0 }));
@@ -592,7 +566,7 @@ export const Pub: React.FC<RenderProps> = (p) => {
         <Sequence key={i} from={slots[i].from} durationInFrames={slots[i].duration} premountFor={15} name={`${i + 1}. ${shot.kind}`}>
           <Transitioned cut={cuts[i]} outCut={slots[i].outCut} duration={slots[i].duration} accent={p.palette.accent} u={ctx.u}>
             {/* Le plan se dessine sur toute sa place, transitions comprises : ses éléments restent là pendant qu'il sort. */}
-            <ShotView shot={{ ...shot, frames: slots[i].duration }} ctx={ctx} />
+            <ShotView shot={{ ...shot, frames: slots[i].duration }} ctx={ctx} lead={Math.floor(slots[i].inFrames / 2)} />
           </Transitioned>
         </Sequence>
       ))}
@@ -600,7 +574,7 @@ export const Pub: React.FC<RenderProps> = (p) => {
         <Audio
           src={p.music.src}
           trimBefore={Math.round(p.music.startSec * p.fps)}
-          volume={(f) => interpolate(f, [0, 10, durationInFrames - 20, durationInFrames], [0, 0.55, 0.55, 0], clamp)}
+          volume={(f) => interpolate(f, [0, fadeIn, fadeOut, d], [0, 0.55, 0.55, 0], clamp)}
         />
       )}
     </AbsoluteFill>
@@ -631,20 +605,11 @@ export const Affiche: React.FC<RenderProps> = (p) => {
   const footH = height * (tall > 1.4 ? 0.17 : 0.2);
   const phoneH = height - textH - footH;
   const size = Math.min(rush ? 104 : 140, (tall > 1.4 ? 104 : tall > 1.1 ? 88 : 76) * (rush ? 1 : 1.35)) * u;
-  let ph = phoneH * 0.92;
-  let pw = 0;
-  if (rush) {
-    const aspect = (rush.crop.w * rush.srcAspect) / rush.crop.h;
-    pw = ph * aspect;
-    if (pw > width * 0.8) {
-      pw = width * 0.8;
-      ph = pw / aspect;
-    }
-  }
+  const { w: pw, h: ph } = rush ? fitRect(cropAspect(rush.crop, rush.srcAspect), width * 0.8, phoneH * 0.92) : { w: 0, h: phoneH * 0.92 };
   const bezel = rush && p.style.phoneFrame !== "ecran-seul" ? 16 * u : 0;
   const img = light ? p.logos.light : (p.logos.dark ?? p.logos.light);
   const animated = p.logoAnimated && p.style.logoAnimation !== "aucune";
-  const pill: CSSProperties = { background: p.palette.accent, color: p.palette.textOnDark, fontFamily: body, fontWeight: 800, fontSize: 40 * u, padding: `${22 * u}px ${46 * u}px`, borderRadius: radius(p.style, u) };
+  const pill: CSSProperties = { background: p.palette.accent, color: p.palette.textOnDark, fontFamily: body, fontWeight: 800, fontSize: 40 * u, padding: `${22 * u}px ${46 * u}px`, borderRadius: radius(p, u) };
   return (
     <AbsoluteFill style={{ background: bg, color: fg, ...BASE_TEXT }}>
       {p.style.graphics.includes("pastilles") && <Dots color={p.palette.accent} u={u} />}
@@ -662,14 +627,14 @@ export const Affiche: React.FC<RenderProps> = (p) => {
             width: pw + bezel * 2,
             height: ph + bezel * 2,
             padding: bezel,
-            borderRadius: bezel ? 56 * u : radius(p.style, u),
+            borderRadius: bezel ? 56 * u : radius(p, u),
             background: "#0b0d1c",
             boxShadow: `0 ${36 * u}px ${80 * u}px -${30 * u}px rgba(0,0,0,0.5)`,
             transform: p.style.phoneFrame === "incline" ? "rotate(-5deg)" : undefined,
           }}
         >
-          <div style={{ position: "relative", width: pw, height: ph, borderRadius: bezel ? 42 * u : radius(p.style, u), overflow: "hidden", background: "#000" }}>
-            <VideoView shot={rush} base={rush.crop} bound={rush.crop} w={pw} h={ph} zoomTo={null} progress={0} />
+          <div style={{ position: "relative", width: pw, height: ph, borderRadius: bezel ? 42 * u : radius(p, u), overflow: "hidden", background: "#000" }}>
+            <VideoView video={rush} base={rush.crop} bound={rush.crop} w={pw} h={ph} zoomTo={null} progress={0} />
           </div>
         </div>
       )}

@@ -3,6 +3,8 @@
 import { toast } from "@payloadcms/ui";
 import { useState } from "react";
 
+import { postAdmin } from "./post-admin";
+
 /**
  * La vidéo d'une créa, sur sa carte (plan Publicité, §9 sexies, D3) : choisir
  * un style, lancer le montage, regarder le résultat aux trois formats. Le
@@ -46,14 +48,7 @@ export function CreativeVideo({ id, video, styles, musics = [] }: { id: number |
   const launch = async () => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/admin/ads/creatives/${encodeURIComponent(String(id))}/video`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ styleId: Number(style) || style, ...(music === KIT ? {} : { music: music === NONE ? null : Number(music) }) }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error || String(res.status));
+      await postAdmin(`/api/admin/ads/creatives/${encodeURIComponent(String(id))}/video`, { styleId: Number(style) || style, ...(music === KIT ? {} : { music: music === NONE ? null : Number(music) }) });
       toast.success("Montage lancé : la vidéo arrive dans quelques minutes. Rechargez la page pour la voir.");
       window.location.reload();
     } catch (e) {

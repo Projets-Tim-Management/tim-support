@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 
 import type { RenderCut } from "@/modules/ads/video/transitions";
+import { blurFilter, clamp } from "./motion";
 
 /**
  * Le dessin des transitions (voir modules/ads/video/transitions.ts) : un plan
@@ -9,7 +10,6 @@ import type { RenderCut } from "@/modules/ads/video/transitions";
  * transition. Le plan qui entre est dessiné PAR-DESSUS celui qui sort.
  */
 
-const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const inOut = Easing.inOut(Easing.cubic);
 
 /** L'avancement (0 → 1) d'une transition qui dure `frames` à partir de `start`. */
@@ -25,7 +25,7 @@ function enterStyle(cut: RenderCut, t: number, u: number): CSSProperties {
     case "poussee":
       return { transform: `translateY(${(1 - t) * 100}%)` };
     case "glisse":
-      return { transform: `translateX(${(1 - t) * 100}%)`, filter: `blur(${Math.sin(Math.PI * t) * 26 * u}px)` };
+      return { transform: `translateX(${(1 - t) * 100}%)`, filter: blurFilter(Math.sin(Math.PI * t) * 26 * u) };
     case "zoom":
       return { opacity: interpolate(t, [0.3, 0.8], [0, 1], clamp), transform: `scale(${0.82 + 0.18 * t})` };
     case "volet": {
@@ -47,14 +47,12 @@ function exitStyle(type: RenderCut["type"], t: number, u: number): CSSProperties
     case "poussee":
       return { transform: `translateY(${-t * 100}%)` };
     case "glisse":
-      return { transform: `translateX(${-t * 100}%)`, filter: `blur(${Math.sin(Math.PI * t) * 26 * u}px)` };
+      return { transform: `translateX(${-t * 100}%)`, filter: blurFilter(Math.sin(Math.PI * t) * 26 * u) };
     case "zoom":
       // On plonge : le plan grossit et se brouille pendant que le suivant apparaît par-dessus.
-      return { transform: `scale(${1 + 0.6 * t})`, filter: `blur(${t * 18 * u}px)` };
-    case "fondu":
-      // Le plan suivant passe par-dessus : celui-ci reste plein, sinon on verrait le fond à mi-chemin.
-      return {};
+      return { transform: `scale(${1 + 0.6 * t})`, filter: blurFilter(t * 18 * u) };
     default:
+      // Fondu compris : le plan suivant passe par-dessus ; celui-ci reste plein, sinon on verrait le fond à mi-chemin.
       return {};
   }
 }

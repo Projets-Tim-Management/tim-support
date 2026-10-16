@@ -73,6 +73,8 @@ export const PROFILE_TO_PARCOURS: Record<ProfilKey, string> = {
   chefChantier: "chef-chantier",
   chefEquipe: "chef-chantier",
   compagnon: "compagnon",
+  // Formé comme un compagnon (Charlie, 16/10/2026).
+  visuel: "compagnon",
 };
 
 /**

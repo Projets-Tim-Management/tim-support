@@ -1,5 +1,6 @@
 import type { Score, Shot } from "@/modules/ads/video/score";
 import { MAX_CAPTION_CHARS, MAX_OPENING_CHARS } from "@/modules/ads/video/score";
+import { clip as clipAll } from "@/modules/ads/video/parse";
 
 /**
  * Une partition PAR DÉFAUT pour une créa (plan Publicité, §9 sexies, D3) :
@@ -22,7 +23,8 @@ export type DefaultInput = {
   factIds: number[];
 };
 
-const clip = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, n - 1).trimEnd()}…`);
+/** Un texte affiché : coupé proprement, sans espace avant le « … ». */
+const clip = (s: string, n: number) => clipAll(s, n, { trimEnd: true });
 
 /** Les mots d'un angle qui désignent une fonctionnalité, pour choisir le bon rush. */
 export const FEATURE_WORDS: Record<string, RegExp> = {
@@ -41,7 +43,7 @@ export const featuresOf = (text: string): string[] => Object.entries(FEATURE_WOR
 /** Le rush le plus pertinent : la fonctionnalité de l'angle, puis la description validée, puis le plus long. Pure. */
 export function pickRush(angle: string, rushes: DefaultRush[]): DefaultRush | null {
   if (!rushes.length) return null;
-  const wanted = Object.entries(FEATURE_WORDS).filter(([, re]) => re.test(angle)).map(([k]) => k);
+  const wanted = featuresOf(angle);
   const score = (r: DefaultRush) => (r.features.some((f) => wanted.includes(f)) ? 4 : 0) + (r.validated ? 2 : 0) + Math.min(1, r.durationSec / 10);
   return [...rushes].sort((a, b) => score(b) - score(a))[0];
 }

@@ -2,6 +2,7 @@ import { allowedNumbers, checkForbidden, checkNumbers, checkTestimonial } from "
 import { viewAllowed, type Framing, type Rect } from "@/modules/ads/lib/framing";
 import { elementProblems, parseElement, parseFond, phoneProblems, type Element, type Fond } from "@/modules/ads/video/elements";
 import { baseV1Problems, parseRole, type BaseContext, type BeatRole } from "@/modules/ads/video/base-v1";
+import { str as s, strictNumber as n } from "@/modules/ads/video/parse";
 import { parseTransition, transitionProblems, type Transition } from "@/modules/ads/video/transitions";
 
 /**
@@ -61,7 +62,7 @@ export type CameraPoint = { x: number; y: number; debut: number; echelle?: numbe
 export type Camera = { mouvement: (typeof CAMERA_MOVES)[number]; amplitude?: number; points?: CameraPoint[] };
 
 /** Un plan, et comment il entre depuis le précédent (voir video/transitions.ts ; sans choix : la transition du style). */
-export type Shot = ShotBody & { transition?: Transition | null; role?: BeatRole };
+export type Shot = ShotBody & { transition?: Transition | null; role?: BeatRole; /** Un type de plan inconnu, gardé pour le dire (il n'est jamais rendu). */ unknownKind?: string };
 
 /** `base` : la base de montage suivie (voir video/base-v1.ts). */
 export type Score = { shots: Shot[]; base?: "v1" };
@@ -81,11 +82,8 @@ export type ScoreContext = {
   /** Un montage écrit par une IA : la Base V1 est obligatoire (voir base-v1.ts). */
   requireBase?: boolean;
   /** De quoi vérifier la Base V1 : l'angle et les fonctionnalités des rushes. */
-  base?: Omit<BaseContext, "facts" | "maxTotal">;
+  base?: Omit<BaseContext, "facts">;
 };
-
-const n = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : NaN);
-const s = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 
 /** La partition reçue (d'un modèle) remise en forme ; les champs inconnus sont ignorés. Pure. */
 export function parseScore(raw: unknown): Score {
@@ -94,11 +92,14 @@ export function parseScore(raw: unknown): Score {
     shots: shots.map((x): Shot => {
       const transition = parseTransition(x.transition);
       const role = parseRole(x.role);
-      return { ...parseShotBody(x), ...(transition ? { transition } : {}), ...(role ? { role } : {}) };
+      const unknown = !KINDS.includes(x.kind as (typeof KINDS)[number]);
+      return { ...parseShotBody(x), ...(transition ? { transition } : {}), ...(role ? { role } : {}), ...(unknown ? { unknownKind: String(x.kind ?? "") } : {}) };
     }),
     ...((raw as { base?: unknown })?.base === "v1" ? { base: "v1" as const } : {}),
   };
 }
+
+const KINDS = ["ouverture", "rush", "preuve", "logo", "compo", "fin"] as const;
 
 function parseShotBody(x: Record<string, unknown>): ShotBody {
   const seconds = n(x.seconds);
@@ -140,6 +141,9 @@ const textsOf = (shot: Shot): string[] =>
 export function scoreProblems(score: Score, ctx: ScoreContext): string[] {
   const out: string[] = [];
   const shots = score.shots;
+  shots.forEach((x, i) => {
+    if (x.unknownKind !== undefined) out.push(`Plan ${i + 1} : type « ${x.unknownKind} » inconnu (${KINDS.join(", ")}).`);
+  });
   if (shots.length < 2) out.push("Une vidéo a au moins deux plans, dont la fin.");
   if (shots.at(-1)?.kind !== "fin") out.push("Le dernier plan est la fin (logo, bouton, adresse).");
   if (shots.filter((x) => x.kind === "fin").length > 1) out.push("Une seule fin.");
@@ -149,6 +153,8 @@ export function scoreProblems(score: Score, ctx: ScoreContext): string[] {
   const total = shots.reduce((t, x) => t + (Number.isFinite(x.seconds) ? x.seconds : 0), 0);
   if (total < MIN_TOTAL || total > MAX_TOTAL) out.push(`Durée totale de ${Math.round(total * 10) / 10} s : entre ${MIN_TOTAL} et ${MAX_TOTAL} s.`);
 
+  // Les faits cités (preuves, compteurs, Base V1) : un seul ensemble pour toute la partition.
+  const factIds = new Set(ctx.facts.keys());
   const allowed = allowedNumbers([...[...ctx.facts.values()].map((f) => f.statement), ctx.offer ?? ""]);
   shots.forEach((shot, i) => {
     const at = `Plan ${i + 1} (${shot.kind})`;
@@ -160,22 +166,7 @@ export function scoreProblems(score: Score, ctx: ScoreContext): string[] {
       if (shot.highlight && !shot.text.toLowerCase().includes(shot.highlight.toLowerCase())) out.push(`${at} : le mot mis en avant doit être dans le texte.`);
     }
     if (shot.kind === "rush") {
-      const r = ctx.rushes.get(shot.rush);
-      if (!r) out.push(`${at} : rush ${shot.rush} introuvable.`);
-      else if (!r.ready) out.push(`${at} : rush ${shot.rush} pas encore converti.`);
-      else {
-        const d = r.durationSec ?? 0;
-        if (!(shot.from >= 0 && shot.to > shot.from && shot.to <= d + 0.05)) out.push(`${at} : passage de ${shot.from} à ${shot.to} s hors du rush (${d} s).`);
-        else {
-          const speed = (shot.to - shot.from) / shot.seconds;
-          if (speed < MIN_SPEED || speed > MAX_SPEED) out.push(`${at} : vitesse ×${Math.round(speed * 10) / 10}, entre ×${MIN_SPEED} et ×${MAX_SPEED}.`);
-        }
-        if (shot.zoom) {
-          const z = shot.zoom;
-          if (![z.x, z.y, z.w, z.h].every(Number.isFinite) || z.w < MIN_ZOOM || z.h < MIN_ZOOM) out.push(`${at} : zoom trop serré (${MIN_ZOOM * 100} % de l'image au moins).`);
-          else if (!viewAllowed(z, r.framing ?? { crop: null, protect: null })) out.push(`${at} : ce zoom sort de la zone utile ou coupe la zone à ne jamais couper.`);
-        }
-      }
+      for (const p of passageProblems(ctx.rushes.get(shot.rush), shot.rush, { from: shot.from, to: shot.to, seconds: shot.seconds, zoom: shot.zoom })) out.push(`${at} : ${p}`);
       if ((shot.caption ?? "").length > MAX_CAPTION_CHARS) out.push(`${at} : sous-titre de ${(shot.caption ?? "").length} caractères, ${MAX_CAPTION_CHARS} au plus.`);
     }
     if (shot.kind === "preuve" && !ctx.facts.has(shot.fact)) out.push(`${at} : fait ${shot.fact} introuvable — une preuve est toujours un fait sourcé.`);
@@ -199,34 +190,19 @@ export function scoreProblems(score: Score, ctx: ScoreContext): string[] {
         const r = ctx.rushes.get(Number(shot.fond.rush));
         const from = shot.fond.from ?? 0;
         const to = shot.fond.to ?? from + shot.seconds;
-        if (!r) out.push(`${at} : fond — rush ${String(shot.fond.rush)} introuvable.`);
-        else if (!r.ready) out.push(`${at} : fond — rush ${String(shot.fond.rush)} pas encore converti.`);
-        else {
-          const d = r.durationSec ?? 0;
-          if (!(from >= 0 && to > from && to <= d + 0.05)) out.push(`${at} : fond — passage de ${from} à ${to} s hors du rush (${d} s).`);
-          else {
-            const speed = (to - from) / shot.seconds;
-            if (speed < MIN_SPEED || speed > MAX_SPEED) out.push(`${at} : fond — vitesse ×${Math.round(speed * 10) / 10}, entre ×${MIN_SPEED} et ×${MAX_SPEED}.`);
-          }
-          const z = shot.fond.zoom;
-          if (z) {
-            if (![z.x, z.y, z.w, z.h].every(Number.isFinite) || z.w < MIN_ZOOM || z.h < MIN_ZOOM) out.push(`${at} : fond — zoom trop serré (${MIN_ZOOM * 100} % de l'image au moins).`);
-            else if (!viewAllowed(z, r.framing ?? { crop: null, protect: null })) out.push(`${at} : fond — ce zoom sort de la zone utile ou coupe la zone à ne jamais couper.`);
-          }
-          const cam = shot.fond.camera;
-          if (cam) {
-            const v = cam.vers;
-            const a = cam.debut ?? 0;
-            const b = cam.fin ?? shot.seconds;
-            if (![v.x, v.y, v.w, v.h].every(Number.isFinite) || v.w < MIN_ZOOM || v.h < MIN_ZOOM) out.push(`${at} : fond — caméra trop serrée (${MIN_ZOOM * 100} % de l'image au moins).`);
-            else if (!viewAllowed(v, r.framing ?? { crop: null, protect: null })) out.push(`${at} : fond — la caméra sort de la zone utile ou coupe la zone à ne jamais couper.`);
-            if (!(a >= 0 && b > a && b <= shot.seconds + 1e-9)) out.push(`${at} : fond — caméra de ${a} à ${b} s, dans la durée du plan (${shot.seconds} s).`);
-          }
-          // Dans un téléphone, l'écran filmé est montré entier : pas de zone protégée à recouvrir.
-          rush = r.srcAspect && shot.fond.type === "rush" ? { srcAspect: r.srcAspect, framing: r.framing } : null;
+        for (const p of passageProblems(r, shot.fond.rush, { from, to, seconds: shot.seconds, zoom: shot.fond.zoom })) out.push(`${at} : fond — ${p}`);
+        const cam = shot.fond.camera;
+        if (r?.ready && cam) {
+          const a = cam.debut ?? 0;
+          const b = cam.fin ?? shot.seconds;
+          const v = viewProblem(cam.vers, r.framing, { tight: "caméra trop serrée", outside: "la caméra" });
+          if (v) out.push(`${at} : fond — ${v}`);
+          if (!(a >= 0 && b > a && b <= shot.seconds + 1e-9)) out.push(`${at} : fond — caméra de ${a} à ${b} s, dans la durée du plan (${shot.seconds} s).`);
         }
+        // Dans un téléphone, l'écran filmé est montré entier : pas de zone protégée à recouvrir.
+        rush = r?.ready && r.srcAspect && shot.fond.type === "rush" ? { srcAspect: r.srcAspect, framing: r.framing } : null;
       }
-      for (const p of elementProblems(shot.elements, shot.fond, { seconds: shot.seconds, facts: new Set(ctx.facts.keys()), allowed, forbidden: ctx.forbidden ?? [], rush, variants: ctx.variants, requireActive: ctx.requireActive })) out.push(`${at} : ${p}`);
+      for (const p of elementProblems(shot.elements, shot.fond, { seconds: shot.seconds, facts: factIds, allowed, forbidden: ctx.forbidden ?? [], rush, variants: ctx.variants, requireActive: ctx.requireActive })) out.push(`${at} : ${p}`);
     }
     for (const text of textsOf(shot).filter(Boolean)) {
       const problem = checkNumbers(text, allowed) ?? checkForbidden(text, ctx.forbidden ?? []) ?? checkTestimonial(text);
@@ -235,9 +211,37 @@ export function scoreProblems(score: Score, ctx: ScoreContext): string[] {
   });
   if (ctx.requireBase && score.base !== "v1") out.push("Un montage d'IA part de la Base V1 : écris base « v1 » et le rôle de chaque plan (voir la base dans lire_rushes).");
   if (score.base === "v1" || ctx.requireBase)
-    out.push(...baseV1Problems(score, { angleFeatures: ctx.base?.angleFeatures ?? [], rushFeatures: ctx.base?.rushFeatures ?? new Map(), facts: new Set(ctx.facts.keys()), maxTotal: MAX_TOTAL }));
+    out.push(...baseV1Problems(score, { angleFeatures: ctx.base?.angleFeatures ?? [], rushFeatures: ctx.base?.rushFeatures ?? new Map(), facts: factIds, pace: ctx.base?.pace, speeds: ctx.base?.speeds }));
   return out;
 }
 
-/** La durée de la vidéo, en images. Pure. */
-export const totalFrames = (score: Score): number => Math.max(1, Math.round(score.shots.reduce((t, x) => t + x.seconds, 0) * FPS));
+/**
+ * Un passage de rush (plan « rush », ou fond rush / téléphone d'un plan
+ * composé) : rush prêt, passage dans sa durée, vitesse lisible, zoom permis.
+ * Les messages sont sans préfixe : l'appelant dit où (plan, fond). Pure.
+ */
+function passageProblems(r: RushInfo | undefined, id: unknown, p: { from: number; to: number; seconds: number; zoom?: Rect | null }): string[] {
+  if (!r) return [`rush ${String(id)} introuvable.`];
+  if (!r.ready) return [`rush ${String(id)} pas encore converti.`];
+  const out: string[] = [];
+  const d = r.durationSec ?? 0;
+  if (!(p.from >= 0 && p.to > p.from && p.to <= d + 0.05)) out.push(`passage de ${p.from} à ${p.to} s hors du rush (${d} s).`);
+  else {
+    const speed = (p.to - p.from) / p.seconds;
+    if (speed < MIN_SPEED || speed > MAX_SPEED) out.push(`vitesse ×${Math.round(speed * 10) / 10}, entre ×${MIN_SPEED} et ×${MAX_SPEED}.`);
+  }
+  const z = p.zoom ? viewProblem(p.zoom, r.framing, { tight: "zoom trop serré", outside: "ce zoom" }) : null;
+  if (z) out.push(z);
+  return out;
+}
+
+/**
+ * Un cadre dans un rush (zoom, caméra) : pas plus serré que MIN_ZOOM, dans la
+ * zone utile, sans couper la zone protégée ; `null` s'il va. `say` nomme le
+ * cadre dans le message. Pure.
+ */
+function viewProblem(v: Rect, framing: Framing | null, say: { tight: string; outside: string }): string | null {
+  if (![v.x, v.y, v.w, v.h].every(Number.isFinite) || v.w < MIN_ZOOM || v.h < MIN_ZOOM) return `${say.tight} (${MIN_ZOOM * 100} % de l'image au moins).`;
+  if (!viewAllowed(v, framing ?? { crop: null, protect: null })) return `${say.outside} sort de la zone utile ou coupe la zone à ne jamais couper.`;
+  return null;
+}

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { PLANCHE_STYLES } from "@/modules/ads/collections/AdStyles";
 import { buildRenderProps, figureOf, renderStyleOf } from "@/modules/ads/video/props";
-import { parseScore, scoreProblems, totalFrames, type ScoreContext } from "@/modules/ads/video/score";
+import { parseScore, scoreProblems, type ScoreContext } from "@/modules/ads/video/score";
 
 /**
  * La partition d'une vidéo (plan Publicité, §9 sexies, D3) : ce que le code
@@ -34,7 +34,6 @@ const GOOD = {
 describe("une partition vérifiée", () => {
   it("bonne partition : rien à redire", () => {
     expect(scoreProblems(parseScore(GOOD), ctx)).toEqual([]);
-    expect(totalFrames(parseScore(GOOD))).toBe(300);
   });
 
   it("refuse une vidéo sans fin, sans rush, trop longue", () => {

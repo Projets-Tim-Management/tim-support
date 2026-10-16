@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import {
   ACCESS_EMAIL_KEY,
@@ -171,11 +172,8 @@ async function gatherFacts(
 const SESSION_EMAIL_KEYS = new Set(["rappel-creneau"]);
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization");
-  if (!secret || auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = cronGuard(req);
+  if (denied) return denied;
 
   // `dry=1` : liste ce qui partirait, sans rien envoyer. Indispensable pour
   // vérifier une séquence avant de la lâcher sur de vrais prospects.

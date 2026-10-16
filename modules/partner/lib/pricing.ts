@@ -46,6 +46,8 @@ export const LICENCE_BASE_PRICES = {
   chefChantier: 18,
   chefEquipe: 16,
   compagnon: 8,
+  // Consultation sur mobile, au plus bas prix (Charlie, 16/10/2026).
+  visuel: 2.2,
 } as const;
 
 export type ProfilKey = keyof typeof LICENCE_BASE_PRICES;
@@ -57,11 +59,24 @@ export const PROFILS: { key: ProfilKey; label: string }[] = [
   { key: "chefChantier", label: "Chef de chantier" },
   { key: "chefEquipe", label: "Chef d'équipe" },
   { key: "compagnon", label: "Compagnon" },
+  { key: "visuel", label: "Visuel" },
 ];
 
 /**
+ * Les profils qui ne comptent PAS dans le volume de la remise dégressive : 50
+ * licences Visuel à 2,20 € ne doivent pas faire baisser le prix conseillé des
+ * licences Admin ou Conducteur (Charlie, 16/10/2026). Elles comptent quand
+ * même dans le total de licences affiché.
+ */
+export const OUT_OF_VOLUME: ReadonlySet<ProfilKey> = new Set<ProfilKey>(["visuel"]);
+
+/** Le nombre de licences qui compte pour le palier de remise. Pure. */
+export const volumeQty = (lines: { key?: string; qty: number }[]): number =>
+  lines.reduce((s, l) => s + (l.key && OUT_OF_VOLUME.has(l.key as ProfilKey) ? 0 : Number(l.qty) || 0), 0);
+
+/**
  * Le RANG d'un profil dans la hiérarchie — admin 1, conducteur 2, chef de
- * chantier 3, chef d'équipe 4, compagnon 5.
+ * chantier 3, chef d'équipe 4, compagnon 5, visuel 6.
  *
  * `PROFILS` porte déjà cet ordre : la grille tarifaire se lit du plus cher au
  * moins cher, qui est aussi l'ordre hiérarchique. On en fait une fonction pour
@@ -89,6 +104,10 @@ export const profileRank = (key?: string | null): number => {
  * annoncer cinq lignes à un client qui n'en veut que deux noie l'offre. Sans
  * aucune quantité (le cas d'un premier contact), on liste toute la grille.
  */
+/** Un prix unitaire à la française : « 39 », mais « 2,20 » (jamais « 2.2 », vu dans un e-mail le 16/10/2026). */
+const CENTS = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const unitPrice = (n: number): string => (Number.isInteger(n) ? String(n) : CENTS.format(n));
+
 export function tarifsMarkdown(licences?: Record<string, number | undefined> | null): string {
   const lignes = licenceLinesOf(licences).map((l) => ({
     label: l.label,
@@ -103,7 +122,7 @@ export function tarifsMarkdown(licences?: Record<string, number | undefined> | n
     .map((l) =>
       // La quantité n'apparaît que si elle a été décidée : « 3 × » sur une offre
       // encore ouverte engagerait un volume dont personne n'a parlé.
-      chosen.length ? `- ${l.label} : ${l.qty} × ${l.price} €` : `- ${l.label} : ${l.price} €`,
+      chosen.length ? `- ${l.label} : ${l.qty} × ${unitPrice(l.price)} €` : `- ${l.label} : ${unitPrice(l.price)} €`,
     )
     .join("\n");
 }
@@ -169,9 +188,10 @@ export function licenceLinesOf(
  *   La remise VOLUME du barème, elle, n'est jamais appliquée d'office.
  * - `suggestedDiscountPct` = remise volume du barème, purement INDICATIVE.
  */
-export function computeClientCA(lines: LicenceLine[]) {
+export function computeClientCA(lines: (LicenceLine & { key?: string })[]) {
   const totalLicences = lines.reduce((s, l) => s + (Number(l.qty) || 0), 0);
   const caHT = lines.reduce((s, l) => s + (Number(l.qty) || 0) * effectiveUnitPrice(l), 0);
-  const suggestedDiscountPct = volumeDiscountPct(totalLicences);
+  // Le palier de remise se compte hors licences Visuel (voir OUT_OF_VOLUME).
+  const suggestedDiscountPct = volumeDiscountPct(volumeQty(lines));
   return { totalLicences, caHT: round2(caHT), suggestedDiscountPct };
 }

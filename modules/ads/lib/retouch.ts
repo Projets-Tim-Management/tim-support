@@ -8,6 +8,7 @@ import { execSql, rowsOf } from "@/core/lib/raw-sql";
 import { loadGenerationContext, publishable } from "@/modules/ads/lib/copy/generate";
 import { allowedNumbers, guard, type TextKind } from "@/modules/ads/lib/copy/guardrails";
 import { briefLines } from "@/modules/ads/lib/copy/prompt";
+import { idOf } from "@/modules/ads/lib/ids";
 import { ADS_TEXT_MODEL } from "@/modules/ads/lib/models";
 import { renderCreativeVisuals } from "@/modules/ads/lib/render/visuals";
 import { FinalError } from "@/modules/ads/lib/rush-process";
@@ -83,7 +84,7 @@ export const RETOUCH_SCHEMA = {
         partition_json: {
           type: "string",
           description:
-            'La partition complète en JSON, ou une chaîne vide pour garder la même. Format : {"shots":[{"kind":"ouverture","seconds":2,"text":"…","highlight":"…"},{"kind":"rush","seconds":4,"rush":1,"from":0,"to":4,"zoom":{"x":0,"y":0.3,"w":1,"h":0.4},"caption":"…"},{"kind":"preuve","seconds":1.8,"fact":5},{"kind":"compo","seconds":2.4,"fond":{"type":"rush","rush":1,"from":0,"to":2.4,"flou":true,"voile":0.4},"elements":[{"type":"notification","data":{"app":"TIM","titre":"…","texte":"…"},"x":0.5,"y":0.3,"debut":0.3,"entree":"glisse-haut"},{"type":"tap","data":{},"x":0.5,"y":0.7,"debut":1.2}]},{"kind":"logo","seconds":1.5},{"kind":"fin","seconds":2.5,"line":"…"}]}. Éléments et fonds : voir « elements » dans la matière vidéo.',
+            'La partition complète en JSON, ou une chaîne vide pour garder la même. Toujours en Base V1 : {"base":"v1","shots":[{"role":"accroche","kind":"compo",…},{"role":"retournement",…},{"role":"geste",…},{"role":"consequence",…},{"role":"preuve",…},{"role":"fin","kind":"fin",…}]} — pars de la partition actuelle de la créa et ne change que ce que la consigne vise ; format, règles et exemples : « base » dans la matière vidéo.',
         },
       },
     }),
@@ -104,16 +105,17 @@ export type RetouchResult = {
   textes: { principal: string[]; titre: string[]; description: string[] } | null;
   accroche: string | null;
   gabarit: "capture" | "chiffre" | "photo" | "texte" | null;
-  video: { style: number | null; musique: number | null; sans_musique: boolean; partition: { shots: Raw[] } | null } | null;
+  video: { style: number | null; musique: number | null; sans_musique: boolean; partition: { shots: Raw[]; base?: "v1" } | null } | null;
 };
 
 /** La réponse du modèle ramenée à des « null » pour ce qui ne change pas ; une partition illisible est ignorée. Pure. */
 export function normalizeResult(r: RawResult): RetouchResult {
-  let partition: { shots: Raw[] } | null = null;
+  let partition: { shots: Raw[]; base?: "v1" } | null = null;
   if (r.video?.partition_json?.trim()) {
     try {
-      const parsed = JSON.parse(r.video.partition_json) as { shots?: unknown };
-      if (Array.isArray(parsed.shots)) partition = { shots: parsed.shots as Raw[] };
+      const parsed = JSON.parse(r.video.partition_json) as { shots?: unknown; base?: unknown };
+      // La base suivie fait partie de la partition : la perdre ferait refuser un montage pourtant conforme (bug du 15/10/2026).
+      if (Array.isArray(parsed.shots)) partition = { shots: parsed.shots as Raw[], ...(parsed.base === "v1" ? { base: "v1" as const } : {}) };
     } catch {
       partition = null;
     }
@@ -128,8 +130,6 @@ export function normalizeResult(r: RawResult): RetouchResult {
       : null,
   };
 }
-
-const idOf = (v: unknown): number | null => (v && typeof v === "object" ? Number((v as { id: unknown }).id) : v == null ? null : Number(v));
 
 /** Ce qu'on garde d'une version de la créa, pour comparer. Pure. */
 export function snapshotOf(c: CreativeDoc): Raw {
@@ -205,9 +205,15 @@ export function guardTexts(t: NonNullable<RetouchResult["textes"]>, ctx: { tone:
 }
 
 /** Une partition rendue par le modèle, remise au format du moteur (les champs vides retirés). Pure. */
-export const scoreFromModel = (p: { shots: Raw[] }): { shots: Raw[] } => ({
-  shots: p.shots.map((s) => Object.fromEntries(Object.entries(s).filter(([, v]) => v !== null))),
-});
+/**
+ * La partition du modèle, sans ses champs vides. Elle garde la base suivie ;
+ * une vidéo déjà en Base V1 le reste même si le modèle a omis de le redire
+ * (une retouche change des textes, pas la base).
+ */
+export const scoreFromModel = (p: { shots: Raw[]; base?: "v1" }, previous?: unknown): { shots: Raw[]; base?: "v1" } => {
+  const base = p.base ?? ((previous as { base?: unknown } | null | undefined)?.base === "v1" ? "v1" : undefined);
+  return { shots: p.shots.map((s) => Object.fromEntries(Object.entries(s).filter(([, v]) => v !== null))), ...(base ? { base } : {}) };
+};
 
 /** La partition avec la nouvelle accroche à l'ouverture, quand l'ouverture reprenait l'ancienne. Pure. */
 export function withHook(score: unknown, oldHook: string | null, newHook: string | null): unknown {
@@ -295,11 +301,19 @@ export async function processNextRetouch(payload: Payload, deps: RetouchDeps = {
   if (!claimed) return null;
   const write = (data: Raw) => payload.update({ collection: "ad-retouches", id: claimed.id, data: data as never, depth: 0, overrideAccess: true });
   let costEur = 0;
+  let priorCost = 0;
+  // Dès qu'une chose est appliquée (vidéo relancée, textes écrits), un incident ne relance plus la retouche
+  // entière : elle repaierait l'IA et réappliquerait (revue du 16/10/2026).
+  let applied = false;
   try {
-    const r = (await payload.findByID({ collection: "ad-retouches", id: claimed.id, depth: 0, overrideAccess: true })) as unknown as { creative: unknown; instruction: string; createdAt: string };
+    const r = (await payload.findByID({ collection: "ad-retouches", id: claimed.id, depth: 0, overrideAccess: true })) as unknown as { creative: unknown; instruction: string; createdAt: string; costEur?: number | null };
+    // Un essai précédent a pu coûter : il s'ajoute, il n'est pas écrasé.
+    priorCost = Number(r.costEur ?? 0) || 0;
     const creativeId = idOf(r.creative)!;
     const load = async () => (await payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 1, overrideAccess: true })) as unknown as CreativeDoc;
     const c = await load();
+    // Décidée entre-temps (validée, refusée) : la retouche ne la change plus.
+    if (c.status !== "a-valider") throw new FinalError("La créa a été décidée entre-temps : la retouche n'est pas appliquée.");
     const before = snapshotOf(c);
     const ctx = await loadGenerationContext(payload, idOf(c.campaign)!);
     const previous = await payload.find({
@@ -343,7 +357,29 @@ export async function processNextRetouch(payload: Payload, deps: RetouchDeps = {
 
     let result = await ask(prompt.user);
     const notes: string[] = [];
-    // 1. La vidéo d'abord : c'est elle qui peut être refusée en bloc. Refusée, rien d'autre n'est appliqué.
+    // 1. Les textes et l'accroche, aux garde-fous, AVANT de toucher à quoi que ce soit : une retouche qui laisserait
+    // la créa sans texte valable échoue sans avoir rien changé (ni relancé la vidéo).
+    const g = { tone, forbidden: ctx.forbidden, allowed: allowedNumbers([...ctx.brief.facts.map((f) => f.statement), ctx.brief.offer ?? ""]) };
+    const textsOf = (res: RetouchResult): { data: Raw; notes: string[] } => {
+      const data: Raw = {};
+      const out: string[] = [];
+      if (res.textes) {
+        const copy = guardTexts(res.textes, g);
+        if (!publishable(copy)) throw new FinalError("La retouche laisserait la créa sans texte principal ni titre passé aux garde-fous : rien n'a été changé. Reformulez la consigne.");
+        data.copy = copy;
+        const rejected = copy.filter((t) => t.status !== "ok").length;
+        if (rejected) out.push(`${rejected} texte(s) écarté(s) par les garde-fous.`);
+      }
+      if (res.accroche) {
+        const h = guard("accroche", res.accroche.trim(), g);
+        if (h.ok) data.hook = res.accroche.trim();
+        else out.push(`Accroche refusée par les garde-fous (${h.reason}) : l'ancienne est gardée.`);
+      }
+      return { data, notes: out };
+    };
+    let texts = textsOf(result);
+
+    // 2. La vidéo : c'est elle qui peut être refusée en bloc. Refusée deux fois, rien n'est appliqué.
     const firstStyle = async () => {
       const st = await payload.find({ collection: "ad-styles", where: { active: { equals: true } }, sort: "name", limit: 1, depth: 0, overrideAccess: true });
       const id = (st.docs[0] as { id?: number } | undefined)?.id;
@@ -354,7 +390,7 @@ export async function processNextRetouch(payload: Payload, deps: RetouchDeps = {
       const apply = async (v: NonNullable<RetouchResult["video"]>) =>
         (deps.video ?? requestVideo)(payload, creativeId, {
           styleId: v.style ?? idOf(c.style) ?? (await firstStyle()),
-          score: v.partition ? scoreFromModel(v.partition) : c.video?.score,
+          score: v.partition ? scoreFromModel(v.partition, c.video?.score) : c.video?.score,
           // Une partition réécrite par l'IA part de la Base V1 ; refaire la vidéo telle quelle ne l'exige pas (une ancienne créa ne casse pas).
           requireBase: Boolean(v.partition),
           // Sans musique précisée : celle de la vidéo, ou celle du kit pour un premier montage.
@@ -364,29 +400,24 @@ export async function processNextRetouch(payload: Payload, deps: RetouchDeps = {
         await apply(result.video);
       } catch (e) {
         if (!(e instanceof FinalError)) throw e;
-        // Une seconde chance, avec la raison du refus.
+        // Une seconde chance, avec la raison du refus — et ses textes, contrôlés à nouveau avant d'appliquer.
         result = await ask(`${prompt.user}\n\nTA PROPOSITION PRÉCÉDENTE A ÉTÉ REFUSÉE PAR LE CODE : ${e.message}\nCorrige-la.`);
+        texts = textsOf(result);
         if (result.video) await apply(result.video);
       }
-      if (result.video) notes.push("La vidéo est remontée (quelques minutes).");
+      if (result.video) {
+        applied = true;
+        notes.push("La vidéo est remontée (quelques minutes).");
+      }
     }
 
-    // 2. Les textes et l'accroche, aux garde-fous.
-    const g = { tone, forbidden: ctx.forbidden, allowed: allowedNumbers([...ctx.brief.facts.map((f) => f.statement), ctx.brief.offer ?? ""]) };
-    const data: Raw = {};
-    if (result.textes) {
-      const copy = guardTexts(result.textes, g);
-      if (!publishable(copy)) throw new FinalError("La retouche laisserait la créa sans texte principal ni titre passé aux garde-fous : rien n'a été changé. Reformulez la consigne.");
-      data.copy = copy;
-      const rejected = copy.filter((t) => t.status !== "ok").length;
-      if (rejected) notes.push(`${rejected} texte(s) écarté(s) par les garde-fous.`);
+    // Les textes contrôlés plus haut, écrits maintenant.
+    const data = texts.data;
+    notes.push(...texts.notes);
+    if (Object.keys(data).length) {
+      await payload.update({ collection: "ad-creatives", id: creativeId, data: data as never, depth: 0, overrideAccess: true });
+      applied = true;
     }
-    if (result.accroche) {
-      const h = guard("accroche", result.accroche.trim(), g);
-      if (h.ok) data.hook = result.accroche.trim();
-      else notes.push(`Accroche refusée par les garde-fous (${h.reason}) : l'ancienne est gardée.`);
-    }
-    if (Object.keys(data).length) await payload.update({ collection: "ad-creatives", id: creativeId, data: data as never, depth: 0, overrideAccess: true });
 
     // 3. Les visuels, s'ils dépendent de ce qui a changé. Une créa montée en vidéo a ses affiches dans le style :
     // on remonte la vidéo (qui refait les affiches), avec la nouvelle accroche reprise à l'ouverture — jamais les
@@ -408,15 +439,15 @@ export async function processNextRetouch(payload: Payload, deps: RetouchDeps = {
       error: null,
       before,
       after,
-      costEur: Math.round(costEur * 10_000) / 10_000,
+      costEur: Math.round((priorCost + costEur) * 10_000) / 10_000,
       doneAt: now().toISOString(),
       leaseUntil: null,
     });
     return { id: claimed.id, outcome: "faite" };
   } catch (e) {
     const message = (e as Error).message.slice(0, 600);
-    const final = e instanceof FinalError || claimed.attempts >= MAX_ATTEMPTS;
-    await write({ status: final ? "echec" : "en-attente", error: message, costEur: Math.round(costEur * 10_000) / 10_000, leaseUntil: null }).catch((err) =>
+    const final = e instanceof FinalError || claimed.attempts >= MAX_ATTEMPTS || applied;
+    await write({ status: final ? "echec" : "en-attente", error: applied ? `${message} (une partie de la retouche a déjà été appliquée)` : message, costEur: Math.round((priorCost + costEur) * 10_000) / 10_000, leaseUntil: null }).catch((err) =>
       payload.logger.error(`[publicité] retouche ${claimed.id} : état d'échec non écrit (${(err as Error).message})`),
     );
     return { id: claimed.id, outcome: final ? "echec" : "reessai", error: message };

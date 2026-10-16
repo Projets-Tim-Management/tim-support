@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { processNextRetouch } from "@/modules/ads/lib/retouch";
 
@@ -14,10 +15,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 600;
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = cronGuard(req);
+  if (denied) return denied;
   const payload = await payloadClient();
   const r = await processNextRetouch(payload);
   if (r) payload.logger.info(`[cron] retouche ${r.id} → ${r.outcome}${r.error ? ` (${r.error})` : ""}`);

@@ -78,6 +78,11 @@ describe("les morceaux purs", () => {
 
   it("la partition du modèle perd ses champs vides", () => {
     expect(scoreFromModel({ shots: [{ kind: "logo", seconds: 1.5, text: null, rush: null }] })).toEqual({ shots: [{ kind: "logo", seconds: 1.5 }] });
+    // La base suivie n'est jamais perdue : dite par le modèle, ou reprise de la vidéo en Base V1 qu'il retouche.
+    expect(scoreFromModel({ base: "v1", shots: [] })).toEqual({ base: "v1", shots: [] });
+    expect(scoreFromModel({ shots: [] }, { base: "v1", shots: [] })).toEqual({ base: "v1", shots: [] });
+    expect(scoreFromModel({ shots: [] }, { shots: [] })).toEqual({ shots: [] });
+    expect(normalizeResult({ resume: "r", textes: null, accroche: "", gabarit: "", video: { style: 0, musique: 0, sans_musique: false, partition_json: '{"base":"v1","shots":[]}' } }).video?.partition).toEqual({ base: "v1", shots: [] });
   });
 
   it("la version gardée : accroche, textes, visuels, vidéo", () => {

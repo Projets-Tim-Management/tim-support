@@ -39,6 +39,9 @@ export type Store = (pathname: string, data: Buffer, contentType: string) => Pro
 /** La table de chaque collection importée : des constantes, jamais une valeur reçue. */
 const TABLES: Record<ImportCollection, string> = { "ad-rushes": '"ad_rushes"', "ad-inspirations": '"ad_inspirations"' };
 
+/** L'attente avant de réessayer une conversion en échec passager, multipliée par le nombre d'essais. */
+export const RETRY_MS = 2 * 60_000;
+
 /** Prend le plus ancien fichier à convertir (en attente, ou dont le verrou a expiré) d'une collection. Atomique. */
 export async function claimNextRush(payload: Payload, now: Date, collection: ImportCollection = "ad-rushes"): Promise<Claimed | null> {
   const until = new Date(now.getTime() + LEASE_MS).toISOString();
@@ -166,11 +169,17 @@ export async function processNextRush(
   payload: Payload,
   deps: ProcessDeps = {},
   collection: ImportCollection = "ad-rushes",
-): Promise<{ id: number; outcome: "pret" | "reessai" | "echec"; error?: string } | null> {
+): Promise<{ id: number; outcome: "pret" | "reessai" | "echec" | "remplace"; error?: string } | null> {
   const now = deps.now ?? (() => new Date());
   const claimed = await claimNextRush(payload, now(), collection);
   if (!claimed) return null;
   const update = (data: Record<string, unknown>) => payload.update({ collection, id: claimed.id, data: data as never, depth: 0, overrideAccess: true });
+  // Le fichier a-t-il été remplacé (ou la conversion relancée) pendant le travail ? Alors le résultat ne s'écrit pas :
+  // il écraserait la nouvelle demande, qui ne serait jamais convertie (revue du 16/10/2026).
+  const stillOurs = async () => {
+    const [r] = rowsOf(await execSql(payload, sql`SELECT "processing_status", "processing_attempts" FROM ${sql.raw(TABLES[collection])} WHERE "id" = ${claimed.id}`)) as Record<string, unknown>[];
+    return r?.processing_status === "en-cours" && Number(r.processing_attempts) === claimed.attempts;
+  };
   try {
     const kind = claimed.mediaType ?? (claimed.contentType.startsWith("image/") ? "image" : "video");
     const out = kind === "image" ? await (deps.convertImage ?? convertImage)(claimed.url) : await (deps.convertVideo ?? convertVideoInSandbox)(claimed.url);
@@ -180,6 +189,7 @@ export async function processNextRush(
     const posterUrl = await store(`${dir}/vignette.jpg`, out.poster, "image/jpeg");
     const keyframes = [];
     for (const [i, k] of out.keyframes.entries()) keyframes.push({ atSec: k.atSec, url: kind === "image" ? posterUrl : await store(`${dir}/image-${i + 1}.jpg`, k.data, "image/jpeg") });
+    if (!(await stillOurs())) return { id: claimed.id, outcome: "remplace" };
     await update({
       processing: { status: "pret", error: null, attempts: claimed.attempts, processedAt: now().toISOString(), leaseUntil: null },
       working: { url: workingUrl, posterUrl, keyframes, meta: out.meta },
@@ -193,7 +203,10 @@ export async function processNextRush(
   } catch (e) {
     const message = (e as Error).message.slice(0, 500);
     const final = e instanceof FinalError || claimed.attempts >= MAX_ATTEMPTS;
-    await update({ processing: { status: final ? "echec" : "en-attente", error: message, attempts: claimed.attempts, processedAt: null, leaseUntil: null } }).catch((err) =>
+    if (!(await stillOurs().catch(() => true))) return { id: claimed.id, outcome: "remplace" };
+    // Un échec passager attend avant l'essai suivant (2 min, puis 4…) : relancé aussitôt, il brûlerait ses essais en quelques secondes.
+    const retryAt = new Date(now().getTime() + RETRY_MS * claimed.attempts).toISOString();
+    await update({ processing: { status: final ? "echec" : "en-cours", error: message, attempts: claimed.attempts, processedAt: null, leaseUntil: final ? null : retryAt } }).catch((err) =>
       payload.logger.error(`[publicité] ${collection} ${claimed.id} : état d'échec non écrit (${(err as Error).message})`),
     );
     return { id: claimed.id, outcome: final ? "echec" : "reessai", error: message };

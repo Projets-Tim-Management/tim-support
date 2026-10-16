@@ -152,6 +152,7 @@ import * as migration_20261014_140652_atelier_elements from './20261014_140652_a
 import * as migration_20261014_145538_visage_elements_utilises from './20261014_145538_visage_elements_utilises';
 import * as migration_20261015_144532_mesure_ga4 from './20261015_144532_mesure_ga4';
 import * as migration_20261016_064745_mesure_ga4_envois from './20261016_064745_mesure_ga4_envois';
+import * as migration_20261016_094649_licence_visuel from './20261016_094649_licence_visuel';
 
 export const migrations = [
   {
@@ -922,6 +923,11 @@ export const migrations = [
   {
     up: migration_20261016_064745_mesure_ga4_envois.up,
     down: migration_20261016_064745_mesure_ga4_envois.down,
-    name: '20261016_064745_mesure_ga4_envois'
+    name: '20261016_064745_mesure_ga4_envois',
+  },
+  {
+    up: migration_20261016_094649_licence_visuel.up,
+    down: migration_20261016_094649_licence_visuel.down,
+    name: '20261016_094649_licence_visuel'
   },
 ];

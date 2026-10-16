@@ -689,6 +689,8 @@ export interface PartnerClient {
     chefEquipePrice?: number | null;
     compagnonQty?: number | null;
     compagnonPrice?: number | null;
+    visuelQty?: number | null;
+    visuelPrice?: number | null;
     adminDiscountPct?: number | null;
     adminDiscountAmount?: number | null;
     conducteurDiscountPct?: number | null;
@@ -699,6 +701,8 @@ export interface PartnerClient {
     chefEquipeDiscountAmount?: number | null;
     compagnonDiscountPct?: number | null;
     compagnonDiscountAmount?: number | null;
+    visuelDiscountPct?: number | null;
+    visuelDiscountAmount?: number | null;
   };
   engagementMonths?: ('1' | '3' | '6' | '12' | '24' | '36') | null;
   preferentialYears?: number | null;
@@ -1485,7 +1489,7 @@ export interface ClientContact {
   /**
    * Décide du compte TIM créé pour cette personne.
    */
-  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon') | null;
+  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'visuel') | null;
   /**
    * Généré une fois puis FIGÉ : le client l'a distribué à ses équipes, le changer casserait des connexions.
    */
@@ -3375,7 +3379,7 @@ export interface ClientEmployee {
   /**
    * Profil de licence — détermine le prix dans le devis.
    */
-  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon') | null;
+  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'visuel') | null;
   /**
    * Requise pour les utilisateurs ; facultative pour les autres salariés.
    */
@@ -3828,7 +3832,7 @@ export interface TrainingSession {
   startTime?: string | null;
   endTime?: string | null;
   status: 'planifiee' | 'realisee' | 'annulee';
-  profiles: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon')[];
+  profiles: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'visuel')[];
   participants?: (number | ClientContact)[] | null;
   /**
    * Laisser vide pour reprendre le réglage de la formation.
@@ -4586,6 +4590,8 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         chefEquipePrice?: T;
         compagnonQty?: T;
         compagnonPrice?: T;
+        visuelQty?: T;
+        visuelPrice?: T;
         adminDiscountPct?: T;
         adminDiscountAmount?: T;
         conducteurDiscountPct?: T;
@@ -4596,6 +4602,8 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         chefEquipeDiscountAmount?: T;
         compagnonDiscountPct?: T;
         compagnonDiscountAmount?: T;
+        visuelDiscountPct?: T;
+        visuelDiscountAmount?: T;
       };
   engagementMonths?: T;
   preferentialYears?: T;
@@ -6285,7 +6293,7 @@ export interface TrainingSetting {
     | null;
   programmes?:
     | {
-        profile: 'admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon';
+        profile: 'admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'visuel';
         modules?:
           | {
               title: string;

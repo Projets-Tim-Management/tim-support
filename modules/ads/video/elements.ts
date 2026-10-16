@@ -1,5 +1,6 @@
 import { checkForbidden, checkNumbers, checkTestimonial } from "@/modules/ads/lib/copy/guardrails";
 import { coverRect, FULL, type Framing, type Rect } from "@/modules/ads/lib/framing";
+import { looseNumber as num, oneOf, str } from "@/modules/ads/video/parse";
 
 /**
  * Les calques d'un plan (plan Publicité, §9 sexies, M2) : un FOND, et des
@@ -174,10 +175,7 @@ export const MAX_ELEMENTS = 8;
 const MAX = { titre: 40, texte: 80, court: 28, nom: 28, detail: 24, ligne: 32, grand: 70, libelle: 50 } as const;
 
 type Raw = Record<string, unknown>;
-const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 const strs = (v: unknown): string[] => (Array.isArray(v) ? v.map(str).filter(Boolean) : []);
-const num = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined);
-const oneOf = <T extends string>(v: unknown, list: readonly T[], fallback: T): T => (list.includes(v as T) ? (v as T) : fallback);
 
 export const isElementType = (v: unknown): v is ElementType => (ELEMENT_TYPES as readonly unknown[]).includes(v);
 export const widthOf = (e: Pick<Element, "type" | "largeur">): number => e.largeur ?? SIZE[e.type].w;
@@ -458,17 +456,6 @@ export function elementProblems(elements: Element[], fond: Fond, ctx: CompoConte
     }
   });
   return out;
-}
-
-/** Les types d'éléments et de fond d'une partition, pour relier plus tard les résultats aux choix de montage. Pure. */
-export function vocabularyOf(shots: { kind: string; fond?: Fond; elements?: Element[] }[]): string[] {
-  const used = new Set<string>();
-  for (const s of shots) {
-    used.add(`plan:${s.kind}`);
-    if (s.fond) used.add(`fond:${s.fond.type}${s.fond.flou ? "-flou" : ""}`);
-    for (const e of s.elements ?? []) used.add(`element:${e.type}`);
-  }
-  return [...used].sort();
 }
 
 /** Le nom de chaque élément de base, pour l'atelier. */

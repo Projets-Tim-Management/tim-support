@@ -1129,6 +1129,8 @@ export const PartnerClients: CollectionConfig = {
                 hiddenNum("chefEquipePrice", LICENCE_BASE_PRICES.chefEquipe),
                 hiddenNum("compagnonQty", 0),
                 hiddenNum("compagnonPrice", LICENCE_BASE_PRICES.compagnon),
+                hiddenNum("visuelQty", 0),
+                hiddenNum("visuelPrice", LICENCE_BASE_PRICES.visuel),
                 // Remise facultative par ligne, en % OU en € par licence (deux
                 // nombres plutôt qu'un type + une valeur : pas d'enum en base).
                 ...PROFILS.flatMap((p) => [hiddenNum(`${p.key}DiscountPct`, 0), hiddenNum(`${p.key}DiscountAmount`, 0)]),
