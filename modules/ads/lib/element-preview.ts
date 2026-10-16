@@ -42,11 +42,17 @@ export async function claimNextPreview(payload: Payload, now: Date): Promise<{ i
 export type PreviewDeps = { now?: () => Date; render?: RenderOne; store?: Store };
 
 /** Rend le prochain aperçu en attente. Ne lève pas : l'échec s'écrit sur l'élément. */
-export async function processNextPreview(payload: Payload, deps: PreviewDeps = {}): Promise<{ id: number; outcome: "pret" | "reessai" | "echec"; error?: string } | null> {
+export async function processNextPreview(payload: Payload, deps: PreviewDeps = {}): Promise<{ id: number; outcome: "pret" | "reessai" | "echec" | "remplace"; error?: string } | null> {
   const now = deps.now ?? (() => new Date());
   const claimed = await claimNextPreview(payload, now());
   if (!claimed) return null;
   const write = (preview: Raw) => payload.update({ collection: "ad-elements", id: claimed.id, data: { preview } as never, depth: 0, overrideAccess: true, context: { previewOnly: true } });
+  // Des réglages enregistrés pendant le rendu ont remis l'aperçu en attente : notre résultat (des anciens réglages)
+  // ne doit pas l'écraser, sans quoi la nouvelle version ne serait jamais rendue (revue du 16/10/2026).
+  const stillOurs = async () => {
+    const [r] = rowsOf(await execSql(payload, sql`SELECT "preview_status", "preview_attempts" FROM "ad_elements" WHERE "id" = ${claimed.id}`)) as Raw[];
+    return r?.preview_status === "en-cours" && Number(r.preview_attempts) === claimed.attempts;
+  };
   try {
     const el = (await payload.findByID({ collection: "ad-elements", id: claimed.id, depth: 0, overrideAccess: true })) as unknown as { id: number; base: string; params?: Raw | null };
     if (!isElementType(el.base)) throw new FinalError(`Élément de base « ${el.base} » inconnu.`);
@@ -75,12 +81,16 @@ export async function processNextPreview(payload: Payload, deps: PreviewDeps = {
     });
     const [file] = await (deps.render ?? renderInSandbox)([props]);
     const url = await (deps.store ?? storeOnBlob)(`ads/elements/${el.id}/apercu.mp4`, file.data, "video/mp4");
+    if (!(await stillOurs())) return { id: claimed.id, outcome: "remplace" };
     await write({ status: "pret", videoUrl: url, error: null, attempts: claimed.attempts, leaseUntil: null });
     return { id: claimed.id, outcome: "pret" };
   } catch (e) {
     const message = (e as Error).message.slice(0, 500);
     const final = e instanceof FinalError || claimed.attempts >= MAX_ATTEMPTS;
-    await write({ status: final ? "echec" : "en-attente", error: message, attempts: claimed.attempts, leaseUntil: null }).catch((err) =>
+    if (!(await stillOurs().catch(() => true))) return { id: claimed.id, outcome: "remplace" };
+    // Un échec passager attend (2 min, puis 4…) avant l'essai suivant, au lieu de les brûler d'un coup.
+    const retryAt = new Date((deps.now ?? (() => new Date()))().getTime() + 2 * 60_000 * claimed.attempts).toISOString();
+    await write({ status: final ? "echec" : "en-cours", error: message, attempts: claimed.attempts, leaseUntil: final ? null : retryAt }).catch((err) =>
       payload.logger.error(`[publicité] aperçu de l'élément ${claimed.id} : état d'échec non écrit (${(err as Error).message})`),
     );
     return { id: claimed.id, outcome: final ? "echec" : "reessai", error: message };

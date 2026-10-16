@@ -127,13 +127,20 @@ const text = (e: Element, k: string) => (typeof e.data[k] === "string" ? (e.data
 const words = (t: string) => t.split(/\s+/).filter(Boolean);
 const FPS = 30;
 
-/** Le temps de lecture d'un titre une fois apparu, selon son animation (mêmes durées que le moteur). Pure. */
-export function readingNeed(e: Element): number {
+/**
+ * Le temps de lecture d'un titre une fois apparu, selon son animation — avec les
+ * MÊMES durées que le moteur : la vitesse réglée sur la variante (qui accélère
+ * ou ralentit l'animation) et le rythme du style (qui allonge la lecture de
+ * l'ancienne façon, dans un barré-remplacé). Pure.
+ */
+export function readingNeed(e: Element, opts: { speed?: number; pace?: number } = {}): number {
   const t = text(e, "texte");
   const anim = text(e, "animation") || "mot-a-mot";
+  const speed = opts.speed && opts.speed > 0 ? opts.speed : 1;
+  const pace = opts.pace ?? 1;
   // Calé sur les rendus validés par Charlie le 15/10/2026 : la phrase tapée reste 1 s finie ; le remplacement, le temps d'arriver puis d'être lu.
-  if (anim === "frappe") return (2 + t.length * 1.6) / FPS + 1.0;
-  if (anim === "barre-remplace") return (28 + words(t).length * 5 + 14 + words(text(e, "remplacement")).length * 4 + 10) / FPS + 0.3;
+  if (anim === "frappe") return (2 + t.length * 1.6) / speed / FPS + 1.0;
+  if (anim === "barre-remplace") return (Math.round(28 * pace) + words(t).length * 5 + 14 + words(text(e, "remplacement")).length * 4 + 10) / speed / FPS + 0.3;
   return 0.5 + 0.04 * t.length;
 }
 
@@ -144,6 +151,9 @@ export type BaseContext = {
   rushFeatures: Map<number, string[]>;
   facts: Set<number>;
   maxTotal: number;
+  /** Le rythme du style (voir pace.ts) et la vitesse réglée sur chaque variante d'élément : le temps de lecture en dépend. */
+  pace?: number;
+  speeds?: Map<number, number>;
 };
 
 /** Tout ce qui écarte une partition de la Base V1 ; vide si elle la suit. Pure. */
@@ -191,7 +201,7 @@ export function baseV1Problems(score: Score, ctx: BaseContext): string[] {
       const strong = text(e, "mot_fort");
       if (strong && words(strong).length > 1) out.push(`${at(i)}, élément ${k + 1} : un seul mot fort (le rouge est une touche).`);
       const shown = (e.fin ?? s.seconds) - e.debut;
-      const need = readingNeed(e);
+      const need = readingNeed(e, { pace: ctx.pace, speed: e.variante != null ? ctx.speeds?.get(e.variante) : undefined });
       if (shown + 1e-9 < need) out.push(`${at(i)}, élément ${k + 1} : « ${clip(text(e, "texte"), 30)} » reste ${round(shown)} s, il en faut ${round(need)} pour le lire — avance-le ou allonge le plan.`);
     });
   });
@@ -243,7 +253,9 @@ export function baseV1Problems(score: Score, ctx: BaseContext): string[] {
     if (beat.role === "consequence") {
       if (f.type !== "couleur" || !PALE.includes(color as (typeof PALE)[number])) out.push(`${at(i)} : un fond pâle (${PALE.join(", ")}).`);
       const notes = els.filter((e) => e.type === "notification");
-      if (notes.length < 1 || notes.length > 3) out.push(`${at(i)} : la confirmation en grand, ou 2 à 3 notifications qui se valident.`);
+      // Une seule notification : seulement la confirmation en grand (une variante) ; sinon une cascade de 2 à 3.
+      const single = notes.length === 1 && notes[0].variante != null;
+      if (!single && (notes.length < 2 || notes.length > 3)) out.push(`${at(i)} : la confirmation en grand (variante), ou 2 à 3 notifications qui se valident.`);
       if (els.filter((e) => e.type === "etiquette").length > 1) out.push(`${at(i)} : au plus une pastille de résultat.`);
     }
     if (beat.role === "preuve") {
@@ -259,8 +271,14 @@ export function baseV1Problems(score: Score, ctx: BaseContext): string[] {
 const round = (n: number) => Math.round(n * 10) / 10;
 const clip = (t: string, n: number) => (t.length <= n ? t : `${t.slice(0, n - 1)}…`);
 
-/** Ce que l'IA lit de la base : les temps, ce qu'elle garde, ce qu'elle peut changer, les règles, et deux montages de référence. */
+let guide: Record<string, unknown> | null = null;
+
+/** Ce que l'IA lit de la base : les temps, ce qu'elle garde, ce qu'elle peut changer, les règles, et deux montages de référence. Construit une fois. */
 export function baseV1Guide(): Record<string, unknown> {
+  return (guide ??= buildGuide());
+}
+
+function buildGuide(): Record<string, unknown> {
   return {
     version: BASE_VERSION,
     consigne:

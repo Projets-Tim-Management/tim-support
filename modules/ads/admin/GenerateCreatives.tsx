@@ -31,10 +31,15 @@ export function GenerateCreatives() {
 
   useEffect(() => {
     if (!id) return;
-    fetch(`/api/admin/ads/campaigns/${encodeURIComponent(String(id))}/generate?angles=${angles}&toneTest=${toneTest ? 1 : 0}`, { credentials: "include" })
+    // Une réponse arrivée après un nouveau choix (angles, test de ton) est ignorée : elle ne doit pas réactiver « Générer » à tort.
+    const ctrl = new AbortController();
+    fetch(`/api/admin/ads/campaigns/${encodeURIComponent(String(id))}/generate?angles=${angles}&toneTest=${toneTest ? 1 : 0}`, { credentials: "include", signal: ctrl.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then(setEst)
-      .catch(() => setEst(null));
+      .catch(() => {
+        if (!ctrl.signal.aborted) setEst(null);
+      });
+    return () => ctrl.abort();
   }, [id, angles, toneTest, done]);
 
   if (!id) {

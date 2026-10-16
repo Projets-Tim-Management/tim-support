@@ -57,7 +57,8 @@ export function ElementThread() {
     void load();
   }, [load]);
 
-  const act = async (what: string, body: Record<string, unknown>, done: string, reload = false) => {
+  /** Le geste ; `true` s'il a réussi (le champ de l'idée ne se vide qu'alors). */
+  const act = async (what: string, body: Record<string, unknown>, done: string, reload = false): Promise<boolean> => {
     setBusy(what);
     try {
       const res = await fetch(`/api/admin/ads/elements/${encodeURIComponent(String(id))}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -68,8 +69,10 @@ export function ElementThread() {
       else if (body.decision === "variante" && data.variant) router.push(`/admin/collections/ad-elements/${data.variant}`);
       else if (reload) window.location.reload();
       else await load();
+      return true;
     } catch (e) {
       toast.error((e as Error).message);
+      return false;
     } finally {
       setBusy(null);
     }
@@ -157,8 +160,7 @@ export function ElementThread() {
             className="tim-btn"
             disabled={busy != null || text.trim().length < 3}
             onClick={async () => {
-              await act("idee", { action: "idee", texte: text }, "Idée ajoutée au fil.");
-              setText("");
+              if (await act("idee", { action: "idee", texte: text }, "Idée ajoutée au fil.")) setText("");
             }}
           >
             Ajouter l&apos;idée

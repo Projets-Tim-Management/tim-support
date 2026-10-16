@@ -5,7 +5,6 @@ import { loadGenerationContext, weeklyUsed } from "@/modules/ads/lib/copy/genera
 import type { Framing, Rect } from "@/modules/ads/lib/framing";
 import { FinalError } from "@/modules/ads/lib/rush-process";
 import { isInspiration } from "@/modules/ads/lib/rushes";
-import { loadAnimatedLogo } from "@/modules/ads/video/logo-server";
 import { renderStyleOf } from "@/modules/ads/video/props";
 import { ELEMENT_GUIDE } from "@/modules/ads/video/elements";
 import { requestVideo } from "@/modules/ads/video/render";
@@ -138,7 +137,6 @@ export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
     payload.findGlobal({ slug: "ads-brand-kit", depth: 1, overrideAccess: true }) as unknown as Promise<Raw>,
     payload.find({ collection: "ad-elements", where: { status: { equals: "actif" } }, sort: "base", pagination: false, depth: 0, overrideAccess: true }).catch(() => ({ docs: [] })),
   ]);
-  const animated = await loadAnimatedLogo(kit.logoAnimated);
   const docs = rushes.docs as unknown as RushDoc[];
   return {
     // La Base V1 : la structure, les règles, ce qui est libre ; tout nouveau montage d'IA en part.
@@ -150,9 +148,10 @@ export async function videoMaterial(payload: Payload): Promise<VideoMaterial> {
       guide: ELEMENT_GUIDE,
       variantes: (elements.docs as unknown as Raw[]).map((e) => ({ id: Number(e.id), nom: String(e.name ?? ""), base: String(e.base ?? ""), quandLEmployer: String(e.whenToUse ?? "") })),
     },
-    logo: animated
-      ? `Logo animable : symbole en ${animated.symbol.length} élément(s), nom en ${animated.name.length} lettre(s)${animated.baseline ? ", signature" : ""}. Un plan « logo » le fait arriver selon le style.`
-      : "Pas de logo animable : un plan « logo » pose l'image du logo, en fondu.",
+    // Le logo signe la fin, dans le moteur : rien à télécharger ni à analyser pour le dire (revue du 16/10/2026).
+    logo: kit.logoAnimated
+      ? "Logo animable déposé : la fin le construit en grand, puis descend vers l'offre et le bouton."
+      : "Pas de logo animable : la fin pose l'image du logo, en grand, puis descend vers l'offre et le bouton.",
     inspirations: (inspirations.docs as unknown as RushDoc[]).map(inspirationForAgent).filter((i): i is InspirationForAgent => i !== null),
     styles: (styles.docs as unknown as Raw[]).map((s) => ({ id: Number(s.id), nom: String(s.name ?? ""), quandLEmployer: String(s.intent ?? ""), reglages: styleSettings(s) })),
     musiques: (musics.docs as unknown as Raw[]).map((m) => {

@@ -3,6 +3,7 @@ import { AbsoluteFill, Audio, Easing, Img, interpolate, OffthreadVideo, Sequence
 
 import type { Rect } from "../modules/ads/lib/framing";
 import type { RenderPhone, RenderProps, RenderShot, RenderStyle } from "../modules/ads/video/props";
+import { PACE } from "../modules/ads/video/pace";
 import { layoutShots } from "../modules/ads/video/transitions";
 import { useFamily } from "./fonts";
 import { AnimatedLogo } from "./logo";
@@ -33,7 +34,6 @@ const ease = Easing.bezier(0.2, 0.7, 0.2, 1);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 /** Le rythme du style : à quelle vitesse les mots et les entrées arrivent. */
-const PACE = { pose: 1.4, dynamique: 1, rapide: 0.7 } as const;
 
 /** Règle de la marque : un léger arrondi partout, jamais d'angle vif ni de pilule (voir elements.tsx). */
 function radius(style: RenderStyle, u: number): number {
@@ -195,7 +195,7 @@ function Caption({ shot, ctx }: { shot: Extract<RenderShot, { kind: "rush" }>; c
   }
   const t = interpolate(frame, [4, 12], [0, 1], clamp);
   const band = p.style.graphics.includes("bandeaux") ? p.palette.darkBg : p.style.background === "clair" ? p.palette.lightBg : p.palette.darkBg;
-  const fg = band === "#FFFFFF" ? p.palette.textOnLight : p.palette.textOnDark;
+  const fg = luminance(band) > 0.4 ? p.palette.textOnLight : p.palette.textOnDark;
   return (
     <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: `${36 * u}px ${60 * u}px ${54 * u}px`, background: band, color: fg, fontFamily: body, fontWeight: 800, fontSize: 48 * u, lineHeight: 1.2, opacity: t, transform: `translateY(${(1 - t) * 30 * u}px)` }}>
       {shot.caption}
@@ -344,9 +344,11 @@ function End({ shot, ctx }: { shot: Extract<RenderShot, { kind: "fin" }>; ctx: C
  * Un plan composé : son fond (le style, une couleur, un passage de rush net ou
  * flouté, une image), un voile s'il en faut un, puis les éléments animés.
  */
-function Compo({ shot, ctx }: { shot: Extract<RenderShot, { kind: "compo" }>; ctx: Ctx }) {
+function Compo({ shot, ctx, lead = 0 }: { shot: Extract<RenderShot, { kind: "compo" }>; ctx: Ctx; lead?: number }) {
   const { p } = ctx;
-  const frame = useCurrentFrame();
+  // Le temps du plan part de sa COUPE : le plan se dessine `lead` images plus tôt, le temps de sa transition d'entrée.
+  const frame = useCurrentFrame() - lead;
+  const timed = lead ? shot.elements.map((e) => ({ ...e, from: e.from + lead, to: e.to != null ? e.to + lead : null, debut: e.debut + lead / p.fps, ...(e.inclinaison ? { inclinaison: { ...e.inclinaison, debut: (e.inclinaison.debut ?? e.debut) + lead / p.fps } } : {}) })) : shot.elements;
   const { width, height } = p;
   const f = shot.fond;
   const lightStyle = p.style.background === "clair";
@@ -426,18 +428,18 @@ function Compo({ shot, ctx }: { shot: Extract<RenderShot, { kind: "compo" }>; ct
       {f.type === "telephone" ? (
         <>
           <AbsoluteFill style={at(0.9, true)}>
-            <Elements elements={shot.elements.filter((e) => e.derriere)} ctx={ectx} shotFrames={shot.frames} ink={ink} />
+            <Elements elements={timed.filter((e) => e.derriere)} ctx={ectx} shotFrames={shot.frames} ink={ink} />
           </AbsoluteFill>
           <AbsoluteFill style={at(0.7, true)}>
-            <PhoneLayer f={f} ctx={ctx} frames={shot.frames} shake={shake} />
+            <PhoneLayer f={f} ctx={ctx} frames={shot.frames} shake={shake} lead={lead} />
           </AbsoluteFill>
           <AbsoluteFill style={at(0.45)}>
-            <Elements elements={shot.elements.filter((e) => !e.derriere)} ctx={ectx} shotFrames={shot.frames} ink={ink} />
+            <Elements elements={timed.filter((e) => !e.derriere)} ctx={ectx} shotFrames={shot.frames} ink={ink} />
           </AbsoluteFill>
         </>
       ) : (
         <AbsoluteFill style={at(0.45)}>
-          <Elements elements={shot.elements} ctx={ectx} shotFrames={shot.frames} ink={ink} />
+          <Elements elements={timed} ctx={ectx} shotFrames={shot.frames} ink={ink} />
         </AbsoluteFill>
       )}
     </AbsoluteFill>
@@ -516,9 +518,9 @@ function cameraAt(camera: ShotCamera | null, frame: number, frames: number, widt
  * et peut plonger vers un point de l'écran — le point reste immobile, l'écran
  * grossit autour : un doigt posé dessus tombe juste.
  */
-function PhoneLayer({ f, ctx, frames, shake }: { f: RenderPhone; ctx: Ctx; frames: number; shake: number }) {
+function PhoneLayer({ f, ctx, frames, shake, lead = 0 }: { f: RenderPhone; ctx: Ctx; frames: number; shake: number; lead?: number }) {
   const { p, u } = ctx;
-  const frame = useCurrentFrame();
+  const frame = useCurrentFrame() - lead;
   const { width, height } = p;
   const ph = f.height * height;
   const pw = ph * ((f.crop.w * f.srcAspect) / f.crop.h);
@@ -569,12 +571,12 @@ function PhoneLayer({ f, ctx, frames, shake }: { f: RenderPhone; ctx: Ctx; frame
   );
 }
 
-function ShotView({ shot, ctx }: { shot: RenderShot; ctx: Ctx }): ReactNode {
+function ShotView({ shot, ctx, lead = 0 }: { shot: RenderShot; ctx: Ctx; lead?: number }): ReactNode {
   if (shot.kind === "ouverture") return <Opening shot={shot} ctx={ctx} />;
   if (shot.kind === "rush") return <Rush shot={shot} ctx={ctx} />;
   if (shot.kind === "preuve") return <Proof shot={shot} ctx={ctx} />;
   if (shot.kind === "logo") return <LogoShot ctx={ctx} frames={shot.frames} />;
-  if (shot.kind === "compo") return <Compo shot={shot} ctx={ctx} />;
+  if (shot.kind === "compo") return <Compo shot={shot} ctx={ctx} lead={lead} />;
   return <End shot={shot} ctx={ctx} />;
 }
 
@@ -592,7 +594,7 @@ export const Pub: React.FC<RenderProps> = (p) => {
         <Sequence key={i} from={slots[i].from} durationInFrames={slots[i].duration} premountFor={15} name={`${i + 1}. ${shot.kind}`}>
           <Transitioned cut={cuts[i]} outCut={slots[i].outCut} duration={slots[i].duration} accent={p.palette.accent} u={ctx.u}>
             {/* Le plan se dessine sur toute sa place, transitions comprises : ses éléments restent là pendant qu'il sort. */}
-            <ShotView shot={{ ...shot, frames: slots[i].duration }} ctx={ctx} />
+            <ShotView shot={{ ...shot, frames: slots[i].duration }} ctx={ctx} lead={Math.floor(slots[i].inFrames / 2)} />
           </Transitioned>
         </Sequence>
       ))}

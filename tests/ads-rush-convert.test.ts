@@ -84,7 +84,8 @@ describe("le cycle d'un rush", () => {
     };
     return { payload: payload as never, updates };
   }
-  const row = (attempts = 1) => ({ id: 7, original_url: "https://x.public.blob.vercel-storage.com/ads/rushes/a.mov", original_content_type: "video/quicktime", media_type: "video", processing_attempts: attempts });
+  // La ligne réclamée, telle que la base la relit ensuite : toujours « en cours », avec le même essai (rien n'est venu la remplacer).
+  const row = (attempts = 1) => ({ id: 7, original_url: "https://x.public.blob.vercel-storage.com/ads/rushes/a.mov", original_content_type: "video/quicktime", media_type: "video", processing_attempts: attempts, processing_status: "en-cours" });
   const store = vi.fn(async (p: string) => `https://cdn/${p}`);
   const describe = vi.fn(async () => undefined);
 
@@ -117,10 +118,21 @@ describe("le cycle d'un rush", () => {
       throw new Error("sandbox indisponible");
     };
     const first = fake(row(1));
-    expect(await processNextRush(first.payload, { convertVideo: boom, store, describe })).toMatchObject({ outcome: "reessai" });
-    expect(first.updates[0]).toMatchObject({ processing: { status: "en-attente", error: "sandbox indisponible" } });
+    expect(await processNextRush(first.payload, { convertVideo: boom, store, describe, now: () => new Date("2026-10-16T10:00:00Z") })).toMatchObject({ outcome: "reessai" });
+    // L'essai suivant attend : la fiche reste « en cours » avec un verrou qui expire dans 2 minutes.
+    expect(first.updates[0]).toMatchObject({ processing: { status: "en-cours", error: "sandbox indisponible", leaseUntil: "2026-10-16T10:02:00.000Z" } });
     const last = fake(row(MAX_ATTEMPTS));
     expect(await processNextRush(last.payload, { convertVideo: boom, store, describe })).toMatchObject({ outcome: "echec" });
+  });
+
+  it("un fichier remplacé pendant la conversion : le résultat ne l'écrase pas (la nouvelle demande sera convertie)", async () => {
+    const { payload, updates } = fake({ ...row(1), processing_status: "en-attente", processing_attempts: 0 });
+    // La réclamation rend la ligne, mais la relecture la trouve remise en attente par le remplacement du fichier.
+    (payload as unknown as { db: { drizzle: { execute: ReturnType<typeof vi.fn> } } }).db.drizzle.execute
+      .mockResolvedValueOnce({ rows: [row(1)] })
+      .mockResolvedValue({ rows: [{ processing_status: "en-attente", processing_attempts: 0 }] });
+    expect(await processNextRush(payload, { convertVideo: async () => outputs, store, describe })).toEqual({ id: 7, outcome: "remplace" });
+    expect(updates).toEqual([]);
   });
 
   it("une vidéo trop longue échoue tout de suite : réessayer n'y changerait rien", async () => {
@@ -135,7 +147,7 @@ describe("le cycle d'un rush", () => {
 
 describe("une inspiration suit la même chaîne, dans sa collection", () => {
   it("verrou sur sa table, sorties dans son dossier, description en fiche de style", async () => {
-    const execute = vi.fn(async () => ({ rows: [{ id: 3, original_url: "https://x.public.blob.vercel-storage.com/ads/rushes/a.png", original_content_type: "image/png", media_type: "image", processing_attempts: 1 }] }));
+    const execute = vi.fn(async () => ({ rows: [{ id: 3, original_url: "https://x.public.blob.vercel-storage.com/ads/rushes/a.png", original_content_type: "image/png", media_type: "image", processing_attempts: 1, processing_status: "en-cours" }] }));
     const update = vi.fn(async () => ({}));
     const payload = { db: { drizzle: { execute } }, update, logger: { warn: vi.fn(), error: vi.fn() } } as never;
     const describe = vi.fn(async () => ({}));

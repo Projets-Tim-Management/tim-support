@@ -61,7 +61,7 @@ export type CameraPoint = { x: number; y: number; debut: number; echelle?: numbe
 export type Camera = { mouvement: (typeof CAMERA_MOVES)[number]; amplitude?: number; points?: CameraPoint[] };
 
 /** Un plan, et comment il entre depuis le précédent (voir video/transitions.ts ; sans choix : la transition du style). */
-export type Shot = ShotBody & { transition?: Transition | null; role?: BeatRole };
+export type Shot = ShotBody & { transition?: Transition | null; role?: BeatRole; /** Un type de plan inconnu, gardé pour le dire (il n'est jamais rendu). */ unknownKind?: string };
 
 /** `base` : la base de montage suivie (voir video/base-v1.ts). */
 export type Score = { shots: Shot[]; base?: "v1" };
@@ -94,11 +94,14 @@ export function parseScore(raw: unknown): Score {
     shots: shots.map((x): Shot => {
       const transition = parseTransition(x.transition);
       const role = parseRole(x.role);
-      return { ...parseShotBody(x), ...(transition ? { transition } : {}), ...(role ? { role } : {}) };
+      const unknown = !KINDS.includes(x.kind as (typeof KINDS)[number]);
+      return { ...parseShotBody(x), ...(transition ? { transition } : {}), ...(role ? { role } : {}), ...(unknown ? { unknownKind: String(x.kind ?? "") } : {}) };
     }),
     ...((raw as { base?: unknown })?.base === "v1" ? { base: "v1" as const } : {}),
   };
 }
+
+const KINDS = ["ouverture", "rush", "preuve", "logo", "compo", "fin"] as const;
 
 function parseShotBody(x: Record<string, unknown>): ShotBody {
   const seconds = n(x.seconds);
@@ -140,6 +143,9 @@ const textsOf = (shot: Shot): string[] =>
 export function scoreProblems(score: Score, ctx: ScoreContext): string[] {
   const out: string[] = [];
   const shots = score.shots;
+  shots.forEach((x, i) => {
+    if (x.unknownKind !== undefined) out.push(`Plan ${i + 1} : type « ${x.unknownKind} » inconnu (${KINDS.join(", ")}).`);
+  });
   if (shots.length < 2) out.push("Une vidéo a au moins deux plans, dont la fin.");
   if (shots.at(-1)?.kind !== "fin") out.push("Le dernier plan est la fin (logo, bouton, adresse).");
   if (shots.filter((x) => x.kind === "fin").length > 1) out.push("Une seule fin.");

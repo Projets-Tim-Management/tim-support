@@ -61,6 +61,10 @@ describe("le montage dans 1 à 3 styles", () => {
     const raw = JSON.parse(JSON.stringify(BASE_V1_EXAMPLES[1].partition)) as { base: "v1"; shots: Record<string, unknown>[] };
     raw.shots = raw.shots.filter((x) => x.role !== "preuve");
     for (const x of raw.shots) for (const e of (x.elements as Record<string, unknown>[] | undefined) ?? []) delete e.variante;
+    // Sans la variante « Confirmation en grand », la conséquence se fait en cascade de notifications.
+    const consequence = raw.shots.find((x) => x.role === "consequence")!;
+    const els = consequence.elements as Record<string, unknown>[];
+    els.push({ ...els[0], y: 0.62, debut: 0.6 });
     return raw;
   })();
 

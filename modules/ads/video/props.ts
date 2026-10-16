@@ -326,6 +326,22 @@ export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps
   return props;
 }
 
+/** L'image de l'app que montre l'affiche : au milieu du premier passage qui montre le logiciel. Pure. */
+function posterScreen(score: Score, props: RenderProps): Extract<RenderShot, { kind: "rush" }> | null {
+  const mid = (from: number, to: number) => Math.round(((from + to) / 2) * 100) / 100;
+  for (const [i, source] of score.shots.entries()) {
+    const shot = props.shots[i];
+    if (source.kind === "rush" && shot?.kind === "rush") return { ...shot, fromSec: mid(source.from, source.to), playbackRate: 1 };
+    if (source.kind === "compo" && shot?.kind === "compo" && (shot.fond.type === "telephone" || shot.fond.type === "rush")) {
+      const f = shot.fond;
+      const from = source.fond.from ?? 0;
+      const to = source.fond.to ?? from + source.seconds;
+      return { kind: "rush", frames: shot.frames, src: f.src, srcAspect: f.srcAspect, fromSec: mid(from, to), playbackRate: 1, crop: f.crop, cover: f.type === "rush" ? f.cover : null, zoom: null, caption: null };
+    }
+  }
+  return null;
+}
+
 /**
  * L'affiche d'une créa (image fixe, dans le style) pour un format : l'accroche,
  * l'image du premier passage de rush (au milieu du passage, là où le geste se
@@ -334,9 +350,9 @@ export function buildRenderProps(score: Score, ctx: ResolveContext): RenderProps
 export function buildPosterProps(score: Score, ctx: ResolveContext, hook: string): RenderProps {
   const props = buildRenderProps(score, ctx);
   const opening = score.shots.find((s) => s.kind === "ouverture");
-  const rush = props.shots.find((s): s is Extract<RenderShot, { kind: "rush" }> => s.kind === "rush") ?? null;
-  const source = score.shots.find((s) => s.kind === "rush");
-  const mid = source && source.kind === "rush" ? Math.round(((source.from + source.to) / 2) * 100) / 100 : 0;
+  // L'écran de l'app : le premier passage de rush, ou — en Base V1, faite de plans composés — le premier fond qui
+  // montre le logiciel (le téléphone du geste, un rush). Sans lui, l'affiche n'aurait que l'accroche (revue du 16/10/2026).
+  const screen = posterScreen(score, props);
   return {
     ...props,
     music: null,
@@ -344,7 +360,7 @@ export function buildPosterProps(score: Score, ctx: ResolveContext, hook: string
     poster: {
       hook: hook.trim() || (opening && opening.kind === "ouverture" ? opening.text : ""),
       highlight: opening && opening.kind === "ouverture" ? (opening.highlight ?? null) : null,
-      rush: rush ? { ...rush, fromSec: mid, playbackRate: 1 } : null,
+      rush: screen,
     },
   };
 }

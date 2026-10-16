@@ -33,6 +33,9 @@ export function ElementPreview() {
     error: f?.["preview.error"]?.value as string | undefined,
   }));
   const [live, setLive] = useState<Preview | null>(null);
+  // Un nouvel enregistrement remet l'aperçu « en attente » dans le formulaire : on repart de lui (et le suivi reprend),
+  // au lieu de garder l'état lu la fois précédente.
+  useEffect(() => setLive(null), [initial.status, initial.videoUrl]);
   const pv: Preview = live ?? initial;
   const pending = pv.status === "en-attente" || pv.status === "en-cours";
 

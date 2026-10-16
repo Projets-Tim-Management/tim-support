@@ -10,6 +10,7 @@ import { FinalError, storeOnBlob, type Store } from "@/modules/ads/lib/rush-proc
 import { isInspiration } from "@/modules/ads/lib/rushes";
 import { beatAlign } from "@/modules/ads/video/beat";
 import { defaultScore, featuresOf } from "@/modules/ads/video/default-score";
+import { paceOf } from "@/modules/ads/video/pace";
 import { loadAnimatedLogo } from "@/modules/ads/video/logo-server";
 import { buildPosterProps, buildRenderProps, type RenderProps } from "@/modules/ads/video/props";
 import { FORMAT_KEYS, parseScore, scoreProblems, type FormatKey, type Score } from "@/modules/ads/video/score";
@@ -195,7 +196,13 @@ export function scoreContextOf(ctx: Awaited<ReturnType<typeof loadVideoContext>>
     requireActive: opts.requireActive ?? false,
     requireBase: opts.requireBase ?? false,
     // La Base V1 relie le rush du geste à la fonctionnalité de l'angle.
-    base: { angleFeatures: featuresOf(opts.angle ?? ""), rushFeatures: new Map(ctx.rushes.map((r) => [r.id, (r.features ?? []) as string[]])) },
+    base: {
+      angleFeatures: featuresOf(opts.angle ?? ""),
+      rushFeatures: new Map(ctx.rushes.map((r) => [r.id, (r.features ?? []) as string[]])),
+      // Le temps de lecture se compte comme le moteur l'anime : rythme du style, vitesse de chaque variante.
+      pace: paceOf((ctx.style as { pace?: unknown }).pace),
+      speeds: new Map(ctx.elements.map((e) => [Number(e.id), Number((e.params as { vitesse?: unknown } | null)?.vitesse ?? 1) || 1])),
+    },
   };
 }
 
@@ -251,8 +258,10 @@ export async function processNextRender(payload: Payload, deps: RenderDeps = {})
     if (problems.length) throw new FinalError(`Partition refusée : ${problems.join(" ")}`);
     const rushes = new Map(ctx.ready.map((r) => [r.id, { url: r.working!.url!, width: r.working!.meta!.width!, height: r.working!.meta!.height!, framing: r.framing ?? null }]));
     const facts = new Map(ctx.gen.brief.facts.map((f) => [Number(f.id), { statement: f.statement, source: f.source }]));
-    // Sur une musique au tempo connu, chaque coupe va sur un temps (durées bornées : la partition reste valide).
-    const timed = ctx.music?.bpm ? beatAlign(score, ctx.music.bpm) : score;
+    // Sur une musique au tempo connu, chaque coupe va sur un temps. La partition calée est revérifiée : si le
+    // calage la fait sortir des règles (Base V1, temps de lecture), on garde la sienne, et la musique joue quand même.
+    const aligned = ctx.music?.bpm ? beatAlign(score, ctx.music.bpm) : score;
+    const timed = aligned !== score && scoreProblems(aligned, scoreContextOf(ctx, { angle: `${String(creative.angle ?? "")} ${String(creative.hook ?? "")}` })).length ? score : aligned;
     const logoAnimated = await loadAnimatedLogo(ctx.kit.logoAnimated);
     const variants = new Map(ctx.elements.map((e) => [Number(e.id), { type: e.base, params: e.params ?? {} }]));
     const props = FORMAT_KEYS.map((format) =>

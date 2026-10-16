@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { AbsoluteFill, continueRender, delayRender, Easing, interpolate, Sequence, useCurrentFrame } from "remotion";
+import { AbsoluteFill, continueRender, delayRender, Easing, Img, interpolate, Sequence, useCurrentFrame } from "remotion";
 
 import type { RenderElement, RenderProps } from "../modules/ads/video/props";
+import { PACE } from "../modules/ads/video/pace";
 import { VALIDATION_GREEN } from "../modules/ads/video/element-params";
 import { AnimatedLogo } from "./logo";
 
@@ -24,7 +25,6 @@ type Params = Record<string, string | number | boolean>;
 
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 const ease = Easing.bezier(0.2, 0.7, 0.2, 1);
-const PACE = { pose: 1.4, dynamique: 1, rapide: 0.7 } as const;
 const t = (frame: number, at: number, len = 10, easing = ease) => interpolate(frame, [at, at + len], [0, 1], { ...clamp, easing });
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 const strs = (v: unknown): string[] => (Array.isArray(v) ? v.map(str).filter(Boolean) : []);
@@ -152,8 +152,7 @@ function Avatar({ mode, name, color, face, size, font }: { mode: string; name: s
   if (mode === "aucun") return null;
   const ring: CSSProperties = { width: size, height: size, flex: "none", borderRadius: "24%", overflow: "hidden", background: `${color}26`, display: "flex", alignItems: "center", justifyContent: "center" };
   if (mode === "photos" && face) {
-    // eslint-disable-next-line @next/next/no-img-element -- rendu vidéo (Remotion), pas une page Next.
-    return <img src={face} alt="" style={{ ...ring, objectFit: "cover" }} />;
+    return <Img src={face} alt="" style={{ ...ring, objectFit: "cover" }} />;
   }
   if (mode === "silhouette" || mode === "photos") {
     return (
@@ -244,14 +243,12 @@ function Notification({ e, ctx, s }: Props) {
         alignItems: "flex-start",
         padding: 34 * s,
         transform: `scale(${1 + 0.035 * lit})`,
-        boxShadow: [sf.style.boxShadow, yes(prm, "coche", true) && wave > 0 && wave < 1 ? `0 0 0 ${5 * s}px ${okColor}${Math.round(lit * 160).toString(16).padStart(2, "0")}` : null].filter(Boolean).join(", "),
+        boxShadow: [sf.style.boxShadow === "none" ? null : sf.style.boxShadow, yes(prm, "coche", true) && wave > 0 && wave < 1 ? `0 0 0 ${5 * s}px ${okColor}${Math.round(lit * 160).toString(16).padStart(2, "0")}` : null].filter(Boolean).join(", ") || "none",
       }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- rendu vidéo (Remotion), pas une page Next. */}
-      {icon === "visage" && face && <img src={face} alt="" style={{ width: 84 * s, height: 84 * s, flex: "none", objectFit: "cover", borderRadius: 24 * s }} />}
+      {icon === "visage" && face && <Img src={face} alt="" style={{ width: 84 * s, height: 84 * s, flex: "none", objectFit: "cover", borderRadius: 24 * s }} />}
       {icon === "app" && <div style={{ width: 84 * s, height: 84 * s, flex: "none", borderRadius: 22 * s, background: pick(p, prm, "couleur_icone", p.palette.primary), color: p.palette.textOnDark, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: ctx.title, fontWeight: 900, fontSize: 28 * s }}>{app.slice(0, 3).toUpperCase()}</div>}
-      {/* eslint-disable-next-line @next/next/no-img-element -- rendu vidéo (Remotion), pas une page Next. */}
-      {icon === "logo" && logo && <img src={logo} alt="" style={{ width: 84 * s, height: 84 * s, flex: "none", objectFit: "contain", borderRadius: 22 * s, background: p.palette.lightBg }} />}
+      {icon === "logo" && logo && <Img src={logo} alt="" style={{ width: 84 * s, height: 84 * s, flex: "none", objectFit: "contain", borderRadius: 22 * s, background: p.palette.lightBg }} />}
       <div style={{ flex: 1 }}>
         <div style={{ display: "flex", justifyContent: "space-between", fontFamily: ctx.body, fontSize: 22 * s, opacity: 0.55, marginBottom: 6 * s }}>
           <span>{app}</span>
@@ -777,11 +774,13 @@ function Compteur({ e, ctx, s, frames, ink: plan }: Props) {
   if (!f) return null;
   const prm = e.params;
   const ink = pick(ctx.p, prm, "couleur_libelle", plan);
-  const target = Number(f.value.replace(/[^\d]/g, "")) || 0;
+  // Seul un entier se compte (« 5 000 ») : « 4,9 » ou « 24/7 » s'affichent tels quels, jamais transformés en 49 ou 247.
+  const integer = /^\d[\d\s\u00a0\u202f]*$/.test(f.value.trim());
+  const target = integer ? Number(f.value.replace(/[^\d]/g, "")) || 0 : 0;
   const k = t(frame, 2, Math.min(frames * 0.55, 40), Easing.out(Easing.cubic));
   const current = Math.round(target * k).toLocaleString("fr-FR").replace(/ /g, " ");
   const shown = target ? f.value.replace(/\d[\d\s.,]*\d|\d/, current) : f.value;
-  const color = opt(prm, "couleur", "accent") === "accent" ? ctx.p.palette.accent : opt(prm, "couleur", "accent") === "principale" ? ctx.p.palette.primary : ink;
+  const color = colorOf(ctx.p, opt(prm, "couleur", "accent"));
   const size = 190 * s;
   const rolls = opt(prm, "style", "rouleaux") === "rouleaux" && target > 0;
   const crowd = yes(prm, "foule", true);
@@ -850,8 +849,7 @@ function Logo({ ctx, w, frames, ink }: Props) {
   const onDark = ink === p.palette.textOnDark;
   if (p.logoAnimated && p.style.logoAnimation !== "aucune") return <AnimatedLogo ctx={ctx} height={w * 0.45} onDark={onDark} frames={frames} />;
   const img = onDark ? (p.logos.dark ?? p.logos.light) : (p.logos.light ?? p.logos.dark);
-  // eslint-disable-next-line @next/next/no-img-element -- rendu vidéo (Remotion), pas une page Next.
-  return img ? <img src={img} alt="" style={{ width: "100%", height: "auto" }} /> : null;
+  return img ? <Img src={img} alt="" style={{ width: "100%", height: "auto" }} /> : null;
 }
 
 function Cta({ e, ctx, s }: Props) {
@@ -884,8 +882,7 @@ function Pastilles({ e, ctx, w }: Props) {
   if (logo && logo.symbol.length) return <Symbol e={e} logo={logo} color={color} mode={mode} step={step} frame={frame} w={w} />;
   const k = mode === "aucune" ? 1 : t(frame, 0, 12);
   if (p.logos.symbol) {
-    // eslint-disable-next-line @next/next/no-img-element -- rendu vidéo (Remotion), pas une page Next.
-    return <img src={p.logos.symbol} alt="" style={{ width: "100%", height: "auto", opacity: k }} />;
+    return <Img src={p.logos.symbol} alt="" style={{ width: "100%", height: "auto", opacity: k }} />;
   }
   const d = w * 0.42;
   return (
@@ -1104,7 +1101,13 @@ function Placed({ e, ctx, shotFrames, ink }: { e: RenderElement; ctx: Ctx; shotF
       </div>
     );
   }
-  if (e.type === "fleche") return <Fleche e={e} ctx={ctx} />;
+  // La flèche se dessine dans tout le cadre : l'entrée, la sortie et le mouvement s'appliquent à ce calque.
+  if (e.type === "fleche")
+    return (
+      <AbsoluteFill style={motion}>
+        <Fleche e={e} ctx={ctx} />
+      </AbsoluteFill>
+    );
   const Comp = RENDER[e.type];
   if (!Comp) return null;
   // L'élément qui se penche, lui seul : jusqu'à son angle, en 0,4 s, à partir de son heure.
