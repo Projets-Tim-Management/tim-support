@@ -153,6 +153,7 @@ import * as migration_20261014_145538_visage_elements_utilises from './20261014_
 import * as migration_20261015_144532_mesure_ga4 from './20261015_144532_mesure_ga4';
 import * as migration_20261016_064745_mesure_ga4_envois from './20261016_064745_mesure_ga4_envois';
 import * as migration_20261016_094649_licence_visuel from './20261016_094649_licence_visuel';
+import * as migration_20261016_134706_licence_bureau_prestations from './20261016_134706_licence_bureau_prestations';
 
 export const migrations = [
   {
@@ -928,6 +929,11 @@ export const migrations = [
   {
     up: migration_20261016_094649_licence_visuel.up,
     down: migration_20261016_094649_licence_visuel.down,
-    name: '20261016_094649_licence_visuel'
+    name: '20261016_094649_licence_visuel',
+  },
+  {
+    up: migration_20261016_134706_licence_bureau_prestations.up,
+    down: migration_20261016_134706_licence_bureau_prestations.down,
+    name: '20261016_134706_licence_bureau_prestations'
   },
 ];

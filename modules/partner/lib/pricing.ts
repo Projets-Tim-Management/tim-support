@@ -46,8 +46,10 @@ export const LICENCE_BASE_PRICES = {
   chefChantier: 18,
   chefEquipe: 16,
   compagnon: 8,
-  // Consultation sur mobile, au plus bas prix (Charlie, 16/10/2026).
-  visuel: 2.2,
+  // Le personnel de bureau, sur le web (catalogue Pennylane LB-Tim, 16/10/2026).
+  bureau: 8,
+  // Consultation sur mobile, au plus bas prix (catalogue Pennylane LV-Tim, 16/10/2026).
+  visuel: 1.9,
 } as const;
 
 export type ProfilKey = keyof typeof LICENCE_BASE_PRICES;
@@ -59,8 +61,32 @@ export const PROFILS: { key: ProfilKey; label: string }[] = [
   { key: "chefChantier", label: "Chef de chantier" },
   { key: "chefEquipe", label: "Chef d'équipe" },
   { key: "compagnon", label: "Compagnon" },
+  { key: "bureau", label: "Bureau" },
   { key: "visuel", label: "Visuel" },
 ];
+
+/**
+ * Les profils arrivés après la grille d'origine (16/10/2026). Une ligne à 0
+ * de ces profils n'entre pas dans la signature d'une fiche (voir
+ * history.detailSignature) : leur arrivée ne doit ni écrire une ligne
+ * d'historique sur toutes les fiches, ni repasser les mois validés « à revalider ».
+ */
+export const LATE_PROFILES: ReadonlySet<string> = new Set(["bureau", "visuel"]);
+
+/**
+ * Les prestations ponctuelles du catalogue (Pennylane), pour le MÉMO de la
+ * fiche prospect : ce qu'on a évoqué pendant l'appel. Elles ne comptent ni
+ * dans le CA mensuel, ni dans l'e-mail d'offre, ni dans le contrat (Charlie,
+ * 16/10/2026).
+ */
+export const PRESTATIONS = [
+  { key: "miseEnPlace", label: "Mise en place & Formation (forfait unique)", unit: "forfait", price: 2000, ref: "M-Tim" },
+  { key: "formationPlace", label: "Formation sur place", unit: "unité", price: 800, ref: "FP-Tim" },
+  { key: "formationDistance", label: "Formation à distance", unit: "unité", price: 400, ref: "FD-Tim" },
+  { key: "dev", label: "Développement sur mesure", unit: "jour", price: 250, ref: "DS-Tim" },
+  { key: "devApi", label: "Développement sur mesure — API", unit: "jour", price: 400, ref: "DA-Tim" },
+] as const;
+export type PrestationKey = (typeof PRESTATIONS)[number]["key"];
 
 /**
  * Les profils qui ne comptent PAS dans le volume de la remise dégressive : 50
@@ -76,7 +102,7 @@ export const volumeQty = (lines: { key?: string; qty: number }[]): number =>
 
 /**
  * Le RANG d'un profil dans la hiérarchie — admin 1, conducteur 2, chef de
- * chantier 3, chef d'équipe 4, compagnon 5, visuel 6.
+ * chantier 3, chef d'équipe 4, compagnon 5, bureau 6, visuel 7.
  *
  * `PROFILS` porte déjà cet ordre : la grille tarifaire se lit du plus cher au
  * moins cher, qui est aussi l'ordre hiérarchique. On en fait une fonction pour

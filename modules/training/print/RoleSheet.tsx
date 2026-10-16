@@ -38,6 +38,7 @@ const LOOK: Record<string, { icon: string; tagline: string; accent: string; ring
   chefChantier: { icon: "🦺", tagline: "Pilotage opérationnel sur le terrain", accent: "bg-processing-bg", ring: "border-processing" },
   chefEquipe: { icon: "🦺", tagline: "Organisation de l'équipe sur le terrain", accent: "bg-processing-bg", ring: "border-processing" },
   compagnon: { icon: "🛠️", tagline: "Pointage et consultation au quotidien", accent: "bg-success-bg", ring: "border-success" },
+  bureau: { icon: "🗂️", tagline: "Suivi administratif depuis le bureau", accent: "bg-primary-light", ring: "border-primary" },
   visuel: { icon: "👀", tagline: "Consultation du planning et des chantiers sur mobile", accent: "bg-success-bg", ring: "border-success" },
 };
 

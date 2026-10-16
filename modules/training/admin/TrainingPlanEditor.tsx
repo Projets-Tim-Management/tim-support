@@ -4,7 +4,6 @@ import { toast } from "@payloadcms/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { PROFILS } from "@/modules/partner/lib/pricing";
 import {
   DayCard,
   FormulaPicker,
@@ -32,7 +31,7 @@ import {
   type PlanContact,
   type PlanSession,
 } from "@/modules/training/lib/plan";
-import { ACCESS_DELIVERY } from "@/modules/training/lib/training";
+import { ACCESS_DELIVERY, TRAINED_PROFILS } from "@/modules/training/lib/training";
 
 /**
  * Le plan de formation d'un client, en plein écran (ouvert depuis l'encart
@@ -275,7 +274,8 @@ export function TrainingPlanEditor({
     const slot = DAY_SLOTS[inDay.length] ?? { startTime: "", endTime: "" };
     // Le premier profil du client qui n'a pas encore de séance — sinon l'admin.
     const covered = new Set(sessions.filter((s) => s.status !== "annulee").flatMap((s) => s.profiles ?? []));
-    const present = PROFILS.map((p) => p.key).filter((k) => contacts.some((c) => c.licenceProfile === k));
+    // Les profils formés présents chez le client (un utilisateur Bureau n'a pas de séance).
+    const present = TRAINED_PROFILS.map((p) => p.key).filter((k) => contacts.some((c) => c.licenceProfile === k));
     const profile = present.find((k) => !covered.has(k)) ?? present[0] ?? "admin";
     await createSession(dayId, {
       ...slot,

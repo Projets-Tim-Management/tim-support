@@ -102,6 +102,7 @@ const CONTRACT_PROFILES: { key: (typeof PROFILS)[number]["key"]; label: string }
   { key: "chefEquipe", label: "Chef d'équipe" },
   { key: "chefChantier", label: "Chef de chantier" },
   { key: "compagnon", label: "Compagnon" },
+  { key: "bureau", label: "Bureau" },
   { key: "visuel", label: "Visuel" },
 ];
 
