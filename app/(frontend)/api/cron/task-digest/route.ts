@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { CLOSED_STATUSES } from "@/modules/marketing/lib/due-emails";
 import { partnerStepsOnAgenda, type PartnerStep } from "@/modules/marketing/lib/partner-steps";
@@ -56,11 +57,8 @@ type Run = {
 };
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization");
-  if (!secret || auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = cronGuard(req);
+  if (denied) return denied;
   const dry = new URL(req.url).searchParams.get("dry") === "1";
 
   const payload = await payloadClient();

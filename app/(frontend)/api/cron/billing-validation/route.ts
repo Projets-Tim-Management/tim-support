@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { adminEmails } from "@/modules/marketing/lib/notify";
 import { buildValidationReminder, parisDay, reminderDue, type ReminderItem } from "@/modules/partner/lib/billing-reminder";
@@ -30,11 +31,8 @@ export const maxDuration = 60;
 const TEAM_EMAIL = () => (process.env.BILLING_REMINDER_TEAM_EMAIL ?? "team@tim-management.co").trim();
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization");
-  if (!secret || auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = cronGuard(req);
+  if (denied) return denied;
   const dry = new URL(req.url).searchParams.get("dry") === "1";
   const payload = await payloadClient();
 

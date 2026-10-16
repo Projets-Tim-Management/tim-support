@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { processNextMusic } from "@/modules/ads/lib/music";
 import { processNextRush } from "@/modules/ads/lib/rush-process";
@@ -20,10 +21,8 @@ const MARGIN_MS = 6 * 60_000;
 
 export async function GET(req: Request) {
   const start = Date.now();
-  const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = cronGuard(req);
+  if (denied) return denied;
   const payload = await payloadClient();
   const done = [];
   while (Date.now() - start < maxDuration * 1000 - MARGIN_MS) {

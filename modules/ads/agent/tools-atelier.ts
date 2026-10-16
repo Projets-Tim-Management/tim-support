@@ -7,7 +7,8 @@ import type { Id } from "@/modules/ads/agent/types";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
 import { eur } from "@/modules/ads/lib/spend";
 import { MAX_VARIANTS } from "@/modules/ads/video/mount";
-import { BACKGROUNDS, ELEMENT_TYPES, ENTRIES, EXITS, MOVES } from "@/modules/ads/video/elements";
+import { BEAT_ROLES } from "@/modules/ads/video/base-v1";
+import { BACKGROUNDS, ELEMENT_TYPES, ENTRIES, EXITS, MAX_ELEMENTS, MOVES } from "@/modules/ads/video/elements";
 import { MAX_SHOT, MAX_TOTAL, MIN_SHOT, MIN_TOTAL, MIN_ZOOM } from "@/modules/ads/video/score";
 
 /**
@@ -232,7 +233,7 @@ const monterVideo: AgentTool = {
               items: {
                 type: "object",
                 properties: {
-                  role: { type: "string", enum: ["accroche", "retournement", "geste", "consequence", "preuve", "fin"], description: "Le temps de la Base V1 que joue ce plan." },
+                  role: { type: "string", enum: [...BEAT_ROLES], description: "Le temps de la Base V1 que joue ce plan." },
                   transition: { type: "object", description: "Comment ce plan entre : type (voir base.vocabulaire.transitions), seconds, x/y pour « cercle »." },
                   camera: { type: "object", description: "Plan composé : le mouvement de caméra (voir base.vocabulaire.camera)." },
                   kind: {
@@ -248,7 +249,7 @@ const monterVideo: AgentTool = {
                   },
                   elements: {
                     type: "array",
-                    maxItems: 8,
+                    maxItems: MAX_ELEMENTS,
                     description: "compo : les éléments, chacun placé par son centre (x, y en fractions du cadre, 0 à 1), sa largeur (fraction du cadre), son début et sa fin (secondes dans le plan), son entrée, sa sortie et son mouvement.",
                     items: {
                       type: "object",

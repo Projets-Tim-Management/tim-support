@@ -10,6 +10,7 @@ import { TEMPLATES } from "@/modules/ads/lib/render/templates";
 
 import { CreativeRetouches, type CardRetouch } from "./CreativeRetouches";
 import { CreativeVideo, type CardVideo, type MusicOption, type StyleOption } from "./CreativeVideo";
+import { postAdmin } from "./post-admin";
 
 export type CardCreative = {
   id: number | string;
@@ -61,9 +62,7 @@ export function CreativeCard({ c, styles = [], musics = [] }: { c: CardCreative;
   const call = async (what: string, url: string, body: unknown, done: string) => {
     setBusy(what);
     try {
-      const res = await fetch(url, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error || String(res.status));
+      await postAdmin(url, body);
       toast.success(done);
       window.location.reload();
     } catch (e) {

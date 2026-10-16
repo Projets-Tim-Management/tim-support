@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { cleanupAdsStorage } from "@/modules/ads/lib/storage-cleanup";
 
@@ -14,10 +15,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = cronGuard(req);
+  if (denied) return denied;
   const payload = await payloadClient();
   const dryRun = new URL(req.url).searchParams.get("a-blanc") === "1";
   const r = await cleanupAdsStorage(payload, { dryRun });

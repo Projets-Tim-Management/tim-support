@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { TRAINING_EMAILS } from "@/modules/training/lib/email-schedule";
 import { loadDay, sendDayEmail, type SendResult } from "@/modules/training/lib/send";
@@ -17,10 +18,8 @@ import { loadDay, sendDayEmail, type SendResult } from "@/modules/training/lib/s
  * `?dry=1` : liste ce qui partirait, sans rien envoyer.
  */
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = cronGuard(req);
+  if (denied) return denied;
   const dry = new URL(req.url).searchParams.get("dry") === "1";
   const payload = await payloadClient();
   const now = Date.now();

@@ -4,7 +4,7 @@ import { BASE_V1_EXAMPLES, baseV1Problems, readingNeed } from "@/modules/ads/vid
 import { beatAlign } from "@/modules/ads/video/beat";
 import { featuresOf } from "@/modules/ads/video/default-score";
 import { buildPosterProps } from "@/modules/ads/video/props";
-import { parseScore, scoreProblems } from "@/modules/ads/video/score";
+import { parseScore, scoreProblems, type ScoreContext } from "@/modules/ads/video/score";
 
 /**
  * Les corrections de la revue du 16/10/2026 sur les vidéos : chacune verrouillée
@@ -12,7 +12,7 @@ import { parseScore, scoreProblems } from "@/modules/ads/video/score";
  */
 
 const example = (i: number) => parseScore(BASE_V1_EXAMPLES[i].partition);
-const ctx = (i: number) => ({ angleFeatures: featuresOf(BASE_V1_EXAMPLES[i].angle), rushFeatures: new Map([[1, ["pointage"]], [2, ["planning"]]]), facts: new Set([1]), maxTotal: 20 });
+const ctx = (i: number) => ({ angleFeatures: featuresOf(BASE_V1_EXAMPLES[i].angle), rushFeatures: new Map([[1, ["pointage"]], [2, ["planning"]]]), facts: new Set([1]) });
 
 describe("le calage sur la musique", () => {
   it("garde la base de la partition et ne raccourcit jamais un plan", () => {
@@ -47,6 +47,25 @@ describe("le temps de lecture compte comme le moteur", () => {
     const slow = parseScore(JSON.parse(JSON.stringify(BASE_V1_EXAMPLES[0].partition)));
     ((slow.shots[0] as { elements: { variante?: number }[] }).elements[2]).variante = 99;
     expect(baseV1Problems(slow, { ...ctx(0), speeds: new Map([[99, 0.5]]) }).join(" ")).toMatch(/pour le lire/);
+  });
+});
+
+describe("le temps de lecture va jusqu'au contrôle complet", () => {
+  it("scoreProblems transmet le rythme et la vitesse des variantes à la Base V1", () => {
+    const slow = parseScore(JSON.parse(JSON.stringify(BASE_V1_EXAMPLES[0].partition)));
+    ((slow.shots[0] as { elements: { variante?: number }[] }).elements[2]).variante = 99;
+    const base: ScoreContext = {
+      rushes: new Map([
+        [1, { id: 1, ready: true, durationSec: 12.5, framing: null, srcAspect: 0.48 }],
+        [2, { id: 2, ready: true, durationSec: 6.4, framing: null, srcAspect: 0.48 }],
+      ]),
+      facts: new Map([[1, { id: 1, statement: "plus de 5 000 utilisateurs dans le BTP", source: "site" }]]),
+      offer: "essai gratuit de 30 jours",
+      variants: new Map([[99, { type: "titre", status: "actif" }]]),
+      base: { angleFeatures: featuresOf(BASE_V1_EXAMPLES[0].angle), rushFeatures: new Map([[2, ["planning"]]]) },
+    };
+    expect(scoreProblems(slow, base).join(" ")).not.toMatch(/pour le lire/);
+    expect(scoreProblems(slow, { ...base, base: { ...base.base!, speeds: new Map([[99, 0.5]]) } }).join(" ")).toMatch(/pour le lire/);
   });
 });
 

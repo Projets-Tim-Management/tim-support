@@ -40,8 +40,8 @@ export async function POST(req: Request) {
             cacheControlMaxAge: 60 * 60 * 24 * 365,
           };
         },
-        // La fiche est créée par le formulaire, une fois le fichier déposé.
-        onUploadCompleted: async () => {},
+        // Pas de `onUploadCompleted` : la fiche est créée par le formulaire, une fois le fichier déposé. Sans lui, le
+        // stockage ne rappelle pas cette route (il l'aurait fait sans cookie, donc pour un 401 inutile).
       }),
     );
   } catch (err) {

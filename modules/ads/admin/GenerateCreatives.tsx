@@ -3,6 +3,8 @@
 import { toast, useDocumentInfo } from "@payloadcms/ui";
 import { useEffect, useState } from "react";
 
+import { postAdmin } from "./post-admin";
+
 type Estimate = {
   missing: string[];
   facts: number;
@@ -53,14 +55,10 @@ export function GenerateCreatives() {
     setBusy(true);
     setDone(null);
     try {
-      const res = await fetch(`/api/admin/ads/campaigns/${encodeURIComponent(String(id))}/generate`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ angles, toneTest }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; created?: unknown[]; texts?: { rejected: number }; costEur?: number; videos?: { queued: number; skipped: string | null } };
-      if (!res.ok) throw new Error(data.error || String(res.status));
+      const data = await postAdmin<{ created?: unknown[]; texts?: { rejected: number }; costEur?: number; videos?: { queued: number; skipped: string | null } }>(
+        `/api/admin/ads/campaigns/${encodeURIComponent(String(id))}/generate`,
+        { angles, toneTest },
+      );
       setDone({ created: data.created?.length ?? 0, rejected: data.texts?.rejected ?? 0, costEur: data.costEur ?? 0 });
       const v = data.videos;
       toast.success(

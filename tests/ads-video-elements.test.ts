@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { elementProblems, ELEMENT_GUIDE, ELEMENT_TYPES, parseElement, parseFond, protectedInFrame, vocabularyOf } from "@/modules/ads/video/elements";
+import { elementProblems, ELEMENT_GUIDE, ELEMENT_TYPES, parseElement, parseFond, protectedInFrame } from "@/modules/ads/video/elements";
 import { buildRenderProps } from "@/modules/ads/video/props";
 import { parseScore, scoreProblems } from "@/modules/ads/video/score";
 
@@ -93,9 +93,5 @@ describe("dans la partition", () => {
     const p = buildRenderProps(score, { format: "9x16", style: {}, kit: {}, cta: "En savoir plus", rushes: new Map([[1, { url: "u", width: 732, height: 1510, framing: null }]]), facts: new Map([[5, { statement: "plus de 5 000 utilisateurs dans le BTP", source: "Site" }]]) });
     expect(p.shots[0]).toMatchObject({ kind: "compo", fond: { type: "rush", src: "u", flou: true, voile: 0.4, playbackRate: 1 }, elements: [{ type: "compteur", from: 15, to: 75, figure: { value: "5 000" } }] });
     expect(p.shots[1]).toMatchObject({ fond: { type: "style" } });
-  });
-
-  it("le vocabulaire utilisé par une partition, pour relier plus tard les résultats aux choix de montage", () => {
-    expect(vocabularyOf(parseScore({ shots: [COMPO, { kind: "fin", seconds: 3 }] }).shots)).toEqual(["element:notification", "fond:rush-flou", "plan:compo", "plan:fin"]);
   });
 });

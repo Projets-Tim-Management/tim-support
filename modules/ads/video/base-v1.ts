@@ -1,5 +1,7 @@
 import { BG_COLORS, PHONE_ENTRIES, type Element, type Fond } from "@/modules/ads/video/elements";
-import { CAMERA_MOVES, type Score } from "@/modules/ads/video/score";
+import { clip, str } from "@/modules/ads/video/parse";
+// Import circulaire avec score.ts : ces constantes ne sont lues qu'à l'appel des fonctions, jamais au chargement.
+import { CAMERA_MOVES, FPS, MAX_TOTAL, type Score } from "@/modules/ads/video/score";
 import { TRANSITION_GUIDE } from "@/modules/ads/video/transitions";
 
 /**
@@ -18,7 +20,7 @@ import { TRANSITION_GUIDE } from "@/modules/ads/video/transitions";
  * exception.
  */
 
-export const BASE_VERSION = "v1" as const;
+const BASE_VERSION = "v1" as const;
 
 export const BEAT_ROLES = ["accroche", "retournement", "geste", "consequence", "preuve", "fin"] as const;
 export type BeatRole = (typeof BEAT_ROLES)[number];
@@ -39,7 +41,7 @@ type Beat = {
   optional?: boolean;
 };
 
-export const BEATS: Beat[] = [
+const BEATS: Beat[] = [
   {
     role: "accroche",
     but: "Le problème du chantier, en deux coups : un moment (« Vendredi. », « Lundi. ») puis la tension (« Soir. », « Tout change. »), et une phrase tapée qui nomme la douleur.",
@@ -110,7 +112,7 @@ export const BEATS: Beat[] = [
 ];
 
 /** Les règles qui valent pour tout le montage. */
-export const GLOBAL_RULES = [
+const GLOBAL_RULES = [
   "Durée totale de 15 à 20 s : chaque texte doit avoir le temps d'être lu (règle de lecture vérifiée par le code).",
   "Les fonds alternent : jamais deux plans de suite sur le même fond, au moins 4 fonds différents, jamais l'accent (rouge) en aplat ; chaque fond plein a son halo.",
   "Le rouge est une TOUCHE : le mot fort (un mot par titre), la barre, le curseur, le bouton. Le vert ne sert qu'à « validé ».",
@@ -123,9 +125,8 @@ export const GLOBAL_RULES = [
 const fondKey = (f: Fond): string => (f.type === "couleur" || f.type === "telephone" ? `${f.type === "telephone" ? "tel:" : ""}${f.couleur ?? "style"}` : f.type === "rush" ? `rush:${f.rush}` : f.type);
 const colorOfFond = (f: Fond): string | null => (f.type === "couleur" || f.type === "telephone" ? (f.couleur ?? null) : null);
 const titles = (els: Element[]) => els.filter((e) => e.type === "titre");
-const text = (e: Element, k: string) => (typeof e.data[k] === "string" ? (e.data[k] as string).trim() : "");
+const text = (e: Element, k: string) => str(e.data[k]);
 const words = (t: string) => t.split(/\s+/).filter(Boolean);
-const FPS = 30;
 
 /**
  * Le temps de lecture d'un titre une fois apparu, selon son animation — avec les
@@ -150,7 +151,6 @@ export type BaseContext = {
   /** Les fonctionnalités déclarées de chaque rush. */
   rushFeatures: Map<number, string[]>;
   facts: Set<number>;
-  maxTotal: number;
   /** Le rythme du style (voir pace.ts) et la vitesse réglée sur chaque variante d'élément : le temps de lecture en dépend. */
   pace?: number;
   speeds?: Map<number, number>;
@@ -166,7 +166,7 @@ export function baseV1Problems(score: Score, ctx: BaseContext): string[] {
   const expected = BEATS.filter((b) => !b.optional || roles.includes(b.role)).map((b) => b.role);
   if (roles.join(",") !== expected.join(",")) out.push(`Base V1 : les plans suivent l'ordre ${BEATS.map((b) => (b.optional ? `(${b.role})` : b.role)).join(" → ")} — reçu : ${roles.map((r) => r ?? "?").join(" → ")}.`);
   const total = shots.reduce((t, s) => t + (Number.isFinite(s.seconds) ? s.seconds : 0), 0);
-  if (total < 15 || total > ctx.maxTotal) out.push(`Base V1 : durée totale de ${Math.round(total * 10) / 10} s, de 15 à ${ctx.maxTotal} s.`);
+  if (total < 15 || total > MAX_TOTAL) out.push(`Base V1 : durée totale de ${Math.round(total * 10) / 10} s, de 15 à ${MAX_TOTAL} s.`);
 
   // Les fonds : alternés, au moins 4 différents, jamais l'accent en aplat, un halo sur chaque fond plein.
   const fonds = shots.map((s) => (s.kind === "compo" ? s.fond : null));
@@ -269,7 +269,6 @@ export function baseV1Problems(score: Score, ctx: BaseContext): string[] {
 }
 
 const round = (n: number) => Math.round(n * 10) / 10;
-const clip = (t: string, n: number) => (t.length <= n ? t : `${t.slice(0, n - 1)}…`);
 
 let guide: Record<string, unknown> | null = null;
 

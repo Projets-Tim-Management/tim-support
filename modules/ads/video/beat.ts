@@ -82,11 +82,11 @@ function autocorr(onset: Float64Array, lag: number): number {
 }
 
 /** Le tempo, le premier temps et le meilleur passage d'un morceau décodé. Pure. */
-export function analyseBeat(pcm: Int16Array, sampleRate = ANALYSIS_RATE): Beat {
-  if (sampleRate !== ANALYSIS_RATE) throw new Error(`Échantillon attendu à ${ANALYSIS_RATE} Hz.`);
-  const durationSec = Math.round((pcm.length / sampleRate) * 100) / 100;
+export function analyseBeat(pcm: Int16Array): Beat {
+  // Toujours échantillonné à ANALYSIS_RATE (le décodage de lib/music.ts le garantit) : les fenêtres d'analyse sont calées dessus.
+  const durationSec = Math.round((pcm.length / ANALYSIS_RATE) * 100) / 100;
   const { rms, onset } = envelopes(pcm);
-  const fps = sampleRate / HOP;
+  const fps = ANALYSIS_RATE / HOP;
   if (onset.length < fps * 4) throw new Error("Morceau trop court pour en tirer un tempo (4 s au moins).");
 
   // Le tempo : la période où la montée d'énergie se répète le mieux, en préférant les tempos courants (~120).

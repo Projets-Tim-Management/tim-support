@@ -60,27 +60,27 @@ export async function loadVideoContext(payload: Payload, creative: Raw) {
   if (campaignId == null) throw new FinalError("Créa sans campagne.");
   const styleId = idOf(creative.style);
   if (styleId == null) throw new FinalError("Choisissez d'abord le style de la vidéo.");
-  const [gen, style, kit, appearance, rushes] = await Promise.all([
+  // Tout part en même temps : rien ici ne dépend d'une autre lecture (musique, éléments et visages ne lèvent pas).
+  const [gen, style, kit, appearance, rushes, music, elements, faces] = await Promise.all([
     loadGenerationContext(payload, campaignId),
     payload.findByID({ collection: "ad-styles", id: styleId, depth: 0, overrideAccess: true }) as unknown as Promise<Raw>,
     payload.findGlobal({ slug: "ads-brand-kit", depth: 1, overrideAccess: true }) as unknown as Promise<Raw>,
     payload.findGlobal({ slug: "appearance", depth: 0, overrideAccess: true }).catch(() => null) as unknown as Promise<Raw | null>,
     payload.find({ collection: "ad-rushes", pagination: false, depth: 0, overrideAccess: true }).then((r) => r.docs as unknown as RushDoc[]),
+    musicOf(payload, idOf((creative.video as Raw | null | undefined)?.music)),
+    payload
+      .find({ collection: "ad-elements", pagination: false, depth: 0, overrideAccess: true })
+      .catch(() => ({ docs: [] }))
+      .then((r) => r.docs as unknown as ElementDoc[]),
+    facesOf(payload),
   ]);
   // Une inspiration (souvent la pub d'un autre) n'est jamais montée : elle n'est pas « prête » pour un montage.
-  const music = await musicOf(payload, idOf((creative.video as Raw | null | undefined)?.music));
   const ready = rushes.filter((r) => !isInspiration(r) && r.processing?.status === "pret" && r.working?.url && r.working.meta?.width && r.working.meta?.height);
-  const elements = (await payload.find({ collection: "ad-elements", pagination: false, depth: 0, overrideAccess: true }).catch(() => ({ docs: [] }))).docs as unknown as {
-    id: number;
-    name?: string;
-    base: string;
-    status: string;
-    params?: unknown;
-    versions?: { n: number }[] | null;
-  }[];
-  const faces = await facesOf(payload);
   return { gen, style, kit, appearance, rushes, ready, music, elements, faces };
 }
+
+type ElementDoc = { id: number; name?: string; base: string; status: string; params?: unknown; versions?: { n: number }[] | null };
+export type VideoContext = Awaited<ReturnType<typeof loadVideoContext>>;
 
 /**
  * La photo des éléments d'un rendu : pour chaque élément posé, sa variante, son
@@ -130,26 +130,40 @@ async function resolveMusic(payload: Payload, kit: Raw, asked: number | string |
   return id;
 }
 
+export type VideoCreative = Raw & {
+  hook?: string | null;
+  angle?: string | null;
+  copy?: { kind: string; text: string; status: string }[] | null;
+  facts?: unknown[] | null;
+};
+
 /**
  * Prépare la vidéo d'une créa dans un style : sa partition (celle fournie, ou
  * la partition par défaut), vérifiée, puis mise en file de rendu. Lève avec la
  * raison si la partition ne passe pas.
+ *
+ * `preloaded` : la créa (ou celle dont elle est la copie : mêmes textes, même
+ * campagne) et son contexte, déjà lus — dont le style `input.styleId`, déjà
+ * trouvé. Plusieurs variantes d'un montage ne relisent ainsi pas tout à chaque fois.
  */
 export async function requestVideo(
   payload: Payload,
   creativeId: number | string,
   input: { styleId: number | string; score?: unknown; music?: number | string | null; requireActiveElements?: boolean; requireBase?: boolean },
+  preloaded?: { creative: VideoCreative; ctx: VideoContext },
 ): Promise<{ score: Score; music: number | null }> {
-  const creative = (await payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 0, overrideAccess: true })) as unknown as Raw & {
-    hook?: string | null;
-    angle?: string | null;
-    copy?: { kind: string; text: string; status: string }[] | null;
-    facts?: unknown[] | null;
-  };
-  const style = (await payload.findByID({ collection: "ad-styles", id: input.styleId, depth: 0, overrideAccess: true }).catch(() => null)) as unknown as Raw | null;
-  if (!style) throw new FinalError("Style introuvable.");
-  if (style.active === false) throw new FinalError(`Le style « ${String(style.name)} » est désactivé.`);
-  const ctx = await loadVideoContext(payload, { ...creative, style: input.styleId });
+  let creative: VideoCreative;
+  let ctx: VideoContext;
+  if (preloaded) {
+    ({ creative, ctx } = preloaded);
+    if (ctx.style.active === false) throw new FinalError(`Le style « ${String(ctx.style.name)} » est désactivé.`);
+  } else {
+    creative = (await payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 0, overrideAccess: true })) as unknown as VideoCreative;
+    const style = (await payload.findByID({ collection: "ad-styles", id: input.styleId, depth: 0, overrideAccess: true }).catch(() => null)) as unknown as Raw | null;
+    if (!style) throw new FinalError("Style introuvable.");
+    if (style.active === false) throw new FinalError(`Le style « ${String(style.name)} » est désactivé.`);
+    ctx = await loadVideoContext(payload, { ...creative, style: input.styleId });
+  }
 
   let score: Score;
   if (input.score) score = parseScore(input.score);
@@ -180,7 +194,7 @@ export async function requestVideo(
   return { score, music };
 }
 
-export function scoreContextOf(ctx: Awaited<ReturnType<typeof loadVideoContext>>, opts: { requireActive?: boolean; requireBase?: boolean; angle?: string } = {}) {
+export function scoreContextOf(ctx: VideoContext, opts: { requireActive?: boolean; requireBase?: boolean; angle?: string } = {}) {
   const forbidden = [...((ctx.kit.forbidden as { term?: string }[] | undefined) ?? []).map((f) => f.term ?? "").filter(Boolean), ...ctx.gen.forbidden];
   return {
     rushes: new Map(
@@ -254,42 +268,47 @@ export async function processNextRender(payload: Payload, deps: RenderDeps = {})
   try {
     const ctx = await loadVideoContext(payload, creative);
     const score = parseScore(creative.video?.score);
-    const problems = scoreProblems(score, scoreContextOf(ctx, { angle: `${String(creative.angle ?? "")} ${String(creative.hook ?? "")}` }));
+    const scoreCtx = scoreContextOf(ctx, { angle: `${String(creative.angle ?? "")} ${String(creative.hook ?? "")}` });
+    const problems = scoreProblems(score, scoreCtx);
     if (problems.length) throw new FinalError(`Partition refusée : ${problems.join(" ")}`);
     const rushes = new Map(ctx.ready.map((r) => [r.id, { url: r.working!.url!, width: r.working!.meta!.width!, height: r.working!.meta!.height!, framing: r.framing ?? null }]));
     const facts = new Map(ctx.gen.brief.facts.map((f) => [Number(f.id), { statement: f.statement, source: f.source }]));
     // Sur une musique au tempo connu, chaque coupe va sur un temps. La partition calée est revérifiée : si le
     // calage la fait sortir des règles (Base V1, temps de lecture), on garde la sienne, et la musique joue quand même.
     const aligned = ctx.music?.bpm ? beatAlign(score, ctx.music.bpm) : score;
-    const timed = aligned !== score && scoreProblems(aligned, scoreContextOf(ctx, { angle: `${String(creative.angle ?? "")} ${String(creative.hook ?? "")}` })).length ? score : aligned;
+    const timed = aligned !== score && scoreProblems(aligned, scoreCtx).length ? score : aligned;
     const logoAnimated = await loadAnimatedLogo(ctx.kit.logoAnimated);
     const variants = new Map(ctx.elements.map((e) => [Number(e.id), { type: e.base, params: e.params ?? {} }]));
+    const cta = ctaLabel(creative.cta) ?? "En savoir plus";
     const props = FORMAT_KEYS.map((format) =>
-      buildRenderProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, music: ctx.music, logoAnimated, variants, faces: ctx.faces }),
+      buildRenderProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta, rushes, facts, music: ctx.music, logoAnimated, variants, faces: ctx.faces }),
     );
     const hook = String((creative as Raw).hook ?? "");
     const posters = FORMAT_KEYS.map((format) =>
-      buildPosterProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta: ctaLabel(creative.cta) ?? "En savoir plus", rushes, facts, logoAnimated, variants, faces: ctx.faces }, hook),
+      buildPosterProps(timed, { format, style: ctx.style, kit: ctx.kit, appearance: ctx.appearance, cta, rushes, facts, logoAnimated, variants, faces: ctx.faces }, hook),
     );
     const files = await (deps.render ?? renderInSandbox)(props, posters);
     const store = deps.store ?? storeOnBlob;
     const slug = String(ctx.style.name ?? "style").normalize("NFD").replace(/[^\w]+/g, "-").toLowerCase().replace(/^-|-$/g, "");
     const seconds = Math.round(timed.shots.reduce((t, s) => t + s.seconds, 0) * 100) / 100;
-    const renders = [];
-    for (const f of files) renders.push({ format: f.format, url: await store(`ads/creas/videos/${claimed.id}/${slug}-${f.format}.mp4`, f.data, "video/mp4"), seconds, bytes: f.data.length });
+    // Les envois partent ensemble ; Promise.all garde l'ordre des formats.
+    const renders = await Promise.all(
+      files.map(async (f) => ({ format: f.format, url: await store(`ads/creas/videos/${claimed.id}/${slug}-${f.format}.mp4`, f.data, "video/mp4"), seconds, bytes: f.data.length })),
+    );
     await write({ status: "prete", error: null, renders, elements: elementsUsed(timed, ctx.elements), attempts: claimed.attempts, renderedAt: now().toISOString(), leaseUntil: null });
     // Les affiches, dans le style, remplacent les visuels de la créa (les anciens gabarits) quand les trois formats sont là.
     if (files.length && files.every((f) => f.poster)) {
-      const assets = [];
-      for (const f of files) {
-        const media = await payload.create({
-          collection: "ad-media",
-          data: { kind: "crea", alt: `Affiche ${String(ctx.style.name ?? "")} — ${f.format}` } as never,
-          file: { data: f.poster!, mimetype: "image/jpeg", name: `affiche_${claimed.id}_${slug}_${f.format}.jpg`, size: f.poster!.length },
-          overrideAccess: true,
-        });
-        assets.push({ format: f.format, type: "image", template: `affiche-${slug}`, media: media.id });
-      }
+      const assets = await Promise.all(
+        files.map(async (f) => {
+          const media = await payload.create({
+            collection: "ad-media",
+            data: { kind: "crea", alt: `Affiche ${String(ctx.style.name ?? "")} — ${f.format}` } as never,
+            file: { data: f.poster!, mimetype: "image/jpeg", name: `affiche_${claimed.id}_${slug}_${f.format}.jpg`, size: f.poster!.length },
+            overrideAccess: true,
+          });
+          return { format: f.format, type: "image", template: `affiche-${slug}`, media: media.id };
+        }),
+      );
       await payload.update({ collection: "ad-creatives", id: claimed.id, data: { assets } as never, depth: 0, overrideAccess: true });
     }
     return { id: claimed.id, outcome: "prete" };

@@ -27,6 +27,8 @@ import type { CardRetouch } from "./CreativeRetouches";
  */
 
 const BASE = "/admin/publicite/a-valider";
+/** « Validées » grossit sans fin : on n'en montre que les plus récentes (les ZIP par campagne, eux, prennent tout). */
+const VALIDATED_LIMIT = 60;
 
 type Raw = {
   id: number | string;
@@ -136,7 +138,17 @@ type RetouchDoc = { id: number; creative: number | { id: number }; instruction: 
 async function retouchesOf(payload: Payload, ids: (number | string)[]): Promise<Map<string, CardRetouch[]>> {
   const by = new Map<string, CardRetouch[]>();
   if (!ids.length) return by;
-  const r = await payload.find({ collection: "ad-retouches", where: { creative: { in: ids } }, sort: "createdAt", pagination: false, depth: 1, overrideAccess: true });
+  // Seulement ce que la carte affiche : `before` est un JSON (adresses), l'auteur se réduit à son nom.
+  const r = await payload.find({
+    collection: "ad-retouches",
+    where: { creative: { in: ids } },
+    sort: "createdAt",
+    pagination: false,
+    depth: 1,
+    overrideAccess: true,
+    select: { creative: true, instruction: true, status: true, summary: true, error: true, author: true, createdAt: true, generalize: true, before: true } as never,
+    populate: { "ad-creatives": { id: true }, users: { name: true, email: true } } as never,
+  });
   for (const d of r.docs as unknown as RetouchDoc[]) {
     const key = String(typeof d.creative === "object" ? d.creative.id : d.creative);
     const author = d.author && typeof d.author === "object" ? (d.author.name ?? d.author.email ?? null) : null;
@@ -159,7 +171,10 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
     const status = tab === "validees" ? "validee" : "a-valider";
     const where: Where = { and: [{ status: { equals: status } }, ...(campaignFilter ? [{ campaign: { equals: campaignFilter } }] : [])] };
     const [list, counts, campaigns, proposedInstructions, proposedLearnings, proposals, styles, musics] = await Promise.all([
-      payload.find({ collection: "ad-creatives", where, sort: tab === "validees" ? "-decidedAt" : "createdAt", pagination: false, depth: 2, overrideAccess: true }),
+      // Profondeur 1 : campagne, médias des visuels, faits, style et musique — tout ce que la carte lit.
+      tab === "validees"
+        ? payload.find({ collection: "ad-creatives", where, sort: "-decidedAt", limit: VALIDATED_LIMIT, depth: 1, overrideAccess: true })
+        : payload.find({ collection: "ad-creatives", where, sort: "createdAt", pagination: false, depth: 1, overrideAccess: true }),
       Promise.all(["a-valider", "validee"].map((s) => payload.count({ collection: "ad-creatives", where: { status: { equals: s } }, overrideAccess: true }))),
       payload.find({ collection: "ad-campaigns", pagination: false, depth: 0, overrideAccess: true, select: { name: true } as never }),
       payload.find({ collection: "ad-instructions", where: { status: { equals: "proposee" } }, sort: "createdAt", pagination: false, depth: 1, overrideAccess: true }),
@@ -231,21 +246,28 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
             )}
           </p>
         ) : tab === "validees" ? (
-          [...byCampaign.entries()].map(([id, group]) => (
-            <section key={id} className="ads-queue__group">
-              <header className="ads-queue__group-head">
-                <h2>{group[0].campaign?.name ?? "Sans campagne"}</h2>
-                {id && (
-                  <a className="tim-btn tim-btn--primary" href={`/api/admin/ads/campaigns/${id}/download`}>
-                    Télécharger la campagne (ZIP)
-                  </a>
-                )}
-              </header>
-              {group.map((c) => (
-                <CreativeCard key={String(c.id)} c={c} styles={styleOptions} musics={musicOptions} />
-              ))}
-            </section>
-          ))
+          <>
+            {list.totalDocs > cards.length && (
+              <p className="ads-queue__limit">
+                Les {VALIDATED_LIMIT} plus récentes sur {list.totalDocs}.
+              </p>
+            )}
+            {[...byCampaign.entries()].map(([id, group]) => (
+              <section key={id} className="ads-queue__group">
+                <header className="ads-queue__group-head">
+                  <h2>{group[0].campaign?.name ?? "Sans campagne"}</h2>
+                  {id && (
+                    <a className="tim-btn tim-btn--primary" href={`/api/admin/ads/campaigns/${id}/download`}>
+                      Télécharger la campagne (ZIP)
+                    </a>
+                  )}
+                </header>
+                {group.map((c) => (
+                  <CreativeCard key={String(c.id)} c={c} styles={styleOptions} musics={musicOptions} />
+                ))}
+              </section>
+            ))}
+          </>
         ) : (
           <>
             {proposals.map((p) => (

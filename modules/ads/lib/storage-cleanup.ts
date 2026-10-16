@@ -39,14 +39,23 @@ export const normUrl = (u: string): string => {
 /** Les adresses de fichiers contenues dans un texte (une ligne de base en JSON). Pure. */
 export const urlsIn = (text: string): string[] => (text.match(BLOB_URL) ?? []).map(normUrl);
 
-/** Toutes les adresses de fichiers vers lesquelles la base pointe encore. */
-export async function referencedUrls(payload: Payload): Promise<Set<string>> {
-  const out = new Set<string>();
+/**
+ * Les adresses vers lesquelles la base pointe encore, lues en UNE passe :
+ * toutes (`all`), et celles que citent les retouches (`cited`, la « version
+ * d'avant » qui garde une affiche remplacée).
+ */
+export async function referencedUrls(payload: Payload): Promise<{ all: Set<string>; cited: Set<string> }> {
+  const all = new Set<string>();
+  const cited = new Set<string>();
   for (const table of TABLES) {
     const rows = rowsOf(await execSql(payload, sql`SELECT row_to_json(t)::text AS j FROM ${sql.raw(`"${table}"`)} t`)) as { j: string }[];
-    for (const r of rows) for (const u of urlsIn(r.j)) out.add(u);
+    for (const r of rows)
+      for (const u of urlsIn(r.j)) {
+        all.add(u);
+        if (table === "ad_retouches") cited.add(u);
+      }
   }
-  return out;
+  return { all, cited };
 }
 
 export type Blob = { url: string; pathname: string; size: number; uploadedAt: Date };
@@ -91,7 +100,7 @@ export async function cleanupAdsStorage(payload: Payload, deps: CleanupDeps = {}
   const now = (deps.now ?? (() => new Date()))();
   const report: CleanupReport = { affiches: 0, zips: 0, orphelins: 0, octets: 0, arrete: null };
 
-  // 1. Les affiches remplacées : des médias « Créa rendue » qu'aucune créa n'emploie, ni aucune retouche ne cite.
+  // Tout est lu et planifié AVANT de supprimer quoi que ce soit, pour que le garde-fou couvre les deux étapes.
   const keepLimit = new Date(now.getTime() - KEEP_DAYS * 86_400_000).toISOString();
   const old = rowsOf(
     await execSql(
@@ -101,22 +110,25 @@ export async function cleanupAdsStorage(payload: Payload, deps: CleanupDeps = {}
             AND NOT EXISTS (SELECT 1 FROM "ad_creatives_assets" a WHERE a."media_id" = m."id")`,
     ),
   ) as { id: number; url: string | null }[];
-  const cited = new Set<string>();
-  for (const r of rowsOf(await execSql(payload, sql`SELECT row_to_json(t)::text AS j FROM "ad_retouches" t`)) as { j: string }[]) for (const u of urlsIn(r.j)) cited.add(u);
-  for (const m of old) {
-    if (m.url && cited.has(normUrl(m.url))) continue;
-    if (!deps.dryRun) await payload.delete({ collection: "ad-media", id: m.id, overrideAccess: true });
-    report.affiches++;
+  const blobs = await (deps.list ?? listAll)();
+  const { all: referenced, cited } = await referencedUrls(payload);
+
+  // 1. Les affiches remplacées : des médias « Créa rendue » qu'aucune créa n'emploie, ni aucune retouche ne cite.
+  // Leur fiche pointe sur leur fichier : il n'est donc pas compté parmi les orphelins, il part avec la fiche.
+  const affiches = old.filter((m) => !(m.url && cited.has(normUrl(m.url))));
+  // 2. Les fichiers : ZIP périmés, et ce vers quoi plus rien ne pointe.
+  const { zips, orphans } = plan(blobs, referenced, now);
+
+  const pool = blobs.filter((b) => !b.pathname.startsWith("ads/zips/")).length;
+  const removed = affiches.length + orphans.length;
+  if (pool > 0 && removed > pool * MAX_SHARE) {
+    report.arrete = `Ménage arrêté : ${removed} fichiers sur ${pool} seraient retirés (plus de la moitié). Rien n'a été supprimé — à vérifier.`;
+    return report;
   }
 
-  // 2. Les fichiers : ZIP périmés, et ce vers quoi plus rien ne pointe.
-  const blobs = await (deps.list ?? listAll)();
-  const referenced = await referencedUrls(payload);
-  const { zips, orphans } = plan(blobs, referenced, now);
-  const pool = blobs.filter((b) => !b.pathname.startsWith("ads/zips/")).length;
-  if (pool > 0 && orphans.length > pool * MAX_SHARE) {
-    report.arrete = `Ménage arrêté : ${orphans.length} fichiers sur ${pool} seraient retirés (plus de la moitié). Rien n'a été supprimé — à vérifier.`;
-    return report;
+  for (const m of affiches) {
+    if (!deps.dryRun) await payload.delete({ collection: "ad-media", id: m.id, overrideAccess: true });
+    report.affiches++;
   }
   const doomed = [...zips, ...orphans];
   if (!deps.dryRun && doomed.length) await (deps.del ?? delAll)(doomed.map((b) => b.url));

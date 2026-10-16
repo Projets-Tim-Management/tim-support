@@ -5,6 +5,8 @@ import { useRef, useState } from "react";
 
 import { rushPathname, rushRefusal, rushStage, RUSH_CONTENT_TYPES } from "@/modules/ads/lib/rushes";
 
+import { postAdmin } from "./post-admin";
+
 /**
  * Le dépôt d'un rush, en tête de sa fiche (plan Publicité, §9 sexies).
  *
@@ -41,9 +43,7 @@ export function RushUploadField() {
   const relaunch = async () => {
     setRelaunching(true);
     try {
-      const res = await fetch(`/api/admin/ads/rushes/${encodeURIComponent(String(id))}/reconvertir?collection=${encodeURIComponent(String(collectionSlug))}`, { method: "POST", credentials: "include" });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error || String(res.status));
+      await postAdmin(`/api/admin/ads/rushes/${encodeURIComponent(String(id))}/reconvertir?collection=${encodeURIComponent(String(collectionSlug))}`);
       toast.success("Rush remis en conversion : comptez une à deux minutes.");
       window.location.reload();
     } catch (e) {

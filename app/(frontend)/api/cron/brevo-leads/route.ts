@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { syncBrevoLeads } from "@/modules/partner/lib/brevo-import";
 import { auditBrevoLeads, importLostDeals } from "@/modules/partner/lib/brevo-history";
@@ -48,11 +49,8 @@ export const maxDuration = 60;
 const WINDOW_DAYS = 7;
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.get("authorization");
-  if (!secret || auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = cronGuard(req);
+  if (denied) return denied;
 
   const params = new URL(req.url).searchParams;
   const dry = params.get("dry") === "1";

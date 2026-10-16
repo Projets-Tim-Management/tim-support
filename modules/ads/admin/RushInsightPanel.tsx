@@ -3,6 +3,8 @@
 import { toast, useDocumentInfo, useFormFields } from "@payloadcms/ui";
 import { useState } from "react";
 
+import { postAdmin } from "./post-admin";
+
 /**
  * Ce que l'IA voit d'un rush converti (plan Publicité, §9 sexies, D1c) : les
  * images clés, avec pour chacune ce qu'on y voit et où regarder, puis la
@@ -29,14 +31,7 @@ export function RushInsightPanel() {
   const act = async (action: string, done: string) => {
     setBusy(action);
     try {
-      const res = await fetch(`/api/admin/ads/rushes/${encodeURIComponent(String(id))}/description?collection=${encodeURIComponent(String(collectionSlug))}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error || String(res.status));
+      await postAdmin(`/api/admin/ads/rushes/${encodeURIComponent(String(id))}/description?collection=${encodeURIComponent(String(collectionSlug))}`, { action });
       toast.success(done);
       window.location.reload();
     } catch (e) {

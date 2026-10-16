@@ -5,6 +5,10 @@ import { toast } from "@payloadcms/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { when } from "./format";
+import { postAdmin } from "./post-admin";
+import { subscribeRefresh } from "./shared-refresh";
+
 /**
  * Les retouches d'une créa, sur sa carte (plan Publicité, retouche ciblée) :
  * l'historique des consignes de Charlie sur CETTE créa — ce qu'il a demandé,
@@ -33,7 +37,6 @@ const STATUS: Record<string, { label: string; tone: string }> = {
   echec: { label: "Échec", tone: "rouge" },
 };
 const KIND: Record<string, string> = { principal: "Texte principal", titre: "Titre", description: "Description" };
-const when = (iso: string) => new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export function CreativeRetouches({ id, retouches }: { id: number | string; retouches: CardRetouch[] }) {
   const router = useRouter();
@@ -42,24 +45,16 @@ export function CreativeRetouches({ id, retouches }: { id: number | string; reto
   const [busy, setBusy] = useState(false);
   const running = retouches.some((r) => r.status === "en-attente" || r.status === "en-cours");
 
-  // Tant qu'une retouche tourne, la carte se met à jour toute seule.
+  // Tant qu'une retouche tourne, la carte se met à jour toute seule (un seul rafraîchissement pour toutes les cartes).
   useEffect(() => {
     if (!running) return;
-    const t = setInterval(() => router.refresh(), 15_000);
-    return () => clearInterval(t);
+    return subscribeRefresh(() => router.refresh());
   }, [running, router]);
 
   const send = async () => {
     setBusy(true);
     try {
-      const res = await fetch(`/api/admin/ads/creatives/${encodeURIComponent(String(id))}/retouche`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instruction: text, generalize }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error || String(res.status));
+      await postAdmin(`/api/admin/ads/creatives/${encodeURIComponent(String(id))}/retouche`, { instruction: text, generalize });
       toast.success(generalize ? "Retouche demandée, et consigne ajoutée pour les prochaines créas." : "Retouche demandée : elle arrive dans une à deux minutes.");
       setText("");
       setGeneralize(false);

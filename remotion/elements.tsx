@@ -1,10 +1,13 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { AbsoluteFill, continueRender, delayRender, Easing, Img, interpolate, Sequence, useCurrentFrame } from "remotion";
 
 import type { RenderElement, RenderProps } from "../modules/ads/video/props";
 import { PACE } from "../modules/ads/video/pace";
 import { VALIDATION_GREEN } from "../modules/ads/video/element-params";
+import { cornerRadius, LogoDots } from "./brand";
+import { isHex, textOn, withAlpha } from "./color";
 import { AnimatedLogo } from "./logo";
+import { clamp, ease } from "./motion";
 
 /**
  * Les éléments animés d'un plan composé (plan Publicité, §9 sexies, M2) :
@@ -23,8 +26,6 @@ import { AnimatedLogo } from "./logo";
 type Ctx = { p: RenderProps; title: string; body: string; u: number; bg?: string };
 type Params = Record<string, string | number | boolean>;
 
-const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
-const ease = Easing.bezier(0.2, 0.7, 0.2, 1);
 const t = (frame: number, at: number, len = 10, easing = ease) => interpolate(frame, [at, at + len], [0, 1], { ...clamp, easing });
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 const strs = (v: unknown): string[] => (Array.isArray(v) ? v.map(str).filter(Boolean) : []);
@@ -45,7 +46,7 @@ const stepOf = (p: RenderProps): number => (p.music?.beatFrames ? p.music.beatFr
 /** Une couleur du kit, par son rôle. */
 function colorOf(p: RenderProps, role: string): string {
   // Une couleur personnalisée (#RRGGBB) passe telle quelle.
-  if (/^#[0-9a-f]{6}$/i.test(role)) return role;
+  if (isHex(role)) return role;
   const c = p.palette;
   if (role === "validation") return VALIDATION_GREEN;
   return role === "principale" ? c.primary : role === "clair" ? c.lightBg : role === "sombre" ? c.darkBg : role === "texte-clair" ? c.textOnDark : role === "texte-sombre" ? c.textOnLight : c.accent;
@@ -57,25 +58,15 @@ const pick = (p: RenderProps, prm: Params, key: string, fallback: string) => {
 };
 /** Le texte lisible sur une couleur du kit. */
 const onColor = (p: RenderProps, role: string) => {
-  if (/^#[0-9a-f]{6}$/i.test(role)) {
-    // Sur une couleur personnalisée : le texte sombre du kit si elle est claire, le clair sinon.
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(role.slice(i, i + 2), 16) / 255);
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.6 ? p.palette.textOnLight : p.palette.textOnDark;
-  }
+  // Sur une couleur personnalisée : la même règle que les plans (color.ts), pour qu'une couleur reçoive le même texte partout.
+  if (isHex(role)) return textOn(p, role);
   return role === "clair" ? p.palette.textOnLight : p.palette.textOnDark;
 };
 
-/** Les coins : ceux du style, ou ceux du réglage. */
-/**
- * Règle de la marque (Charlie, 15/10/2026) : un LÉGER arrondi partout — jamais
- * d'angle vif, jamais de pilule ni de rond. Le réglage « coins » ne fait plus
- * que doser cet arrondi léger.
- */
+/** Les coins : ceux du style, ou ceux du réglage, qui ne fait que doser l'arrondi léger de la marque (brand.tsx). */
 function radiusOf(p: RenderProps, prm: Params, s: number, base = 34): number {
   const corners = opt(prm, "coins", "style");
-  const kind = corners === "style" ? p.style.corners : corners;
-  const r = base * s;
-  return kind === "carres" ? r * 0.6 : r;
+  return cornerRadius(corners === "style" ? p.style.corners : corners, base * s);
 }
 
 const SHADOW = { aucune: () => "none", douce: (s: number) => `0 ${16 * s}px ${44 * s}px -${18 * s}px rgba(0,0,0,0.35)`, forte: (s: number) => `0 ${36 * s}px ${90 * s}px -${36 * s}px rgba(0,0,0,0.55)` } as const;
@@ -86,7 +77,7 @@ function surface(p: RenderProps, prm: Params, s: number, base = 34, plain?: stri
   const c = p.palette;
   const kind = opt(prm, "surface", "clair");
   // Le verre est teinté du fond sombre du kit : translucide et flouté, mais le texte clair reste lisible sur un rush clair.
-  const glass = /^#[0-9a-f]{6}$/i.test(c.darkBg) ? `${c.darkBg}8c` : "rgba(15,20,40,0.55)";
+  const glass = isHex(c.darkBg) ? withAlpha(c.darkBg, 0.55) : "rgba(15,20,40,0.55)";
   const bg = kind === "sombre" ? c.darkBg : kind === "accent" ? c.accent : kind === "verre" ? glass : c.lightBg;
   const fg = pick(p, prm, "couleur_texte", kind === "clair" ? c.textOnLight : c.textOnDark);
   // Une carte de la couleur du fond s'y perdrait : un trait fin et une ombre plus marquée la détachent (règle du 15/10/2026).
@@ -94,13 +85,13 @@ function surface(p: RenderProps, prm: Params, s: number, base = 34, plain?: stri
   const border = blends ? "fine" : opt(prm, "bordure", kind === "verre" ? "fine" : "aucune");
   return {
     fg,
-    line: `${fg}1f`,
+    line: withAlpha(fg, 0.12),
     style: {
       background: bg,
       color: fg,
       borderRadius: radiusOf(p, prm, s, base),
       boxShadow: blends ? `0 ${24 * s}px ${60 * s}px -${20 * s}px rgba(15,20,50,0.35), 0 ${4 * s}px ${12 * s}px rgba(15,20,50,0.08)` : shadowOf(prm, s),
-      border: border === "fine" ? `${Math.max(1, 2 * s)}px solid ${fg}33` : border === "accent" ? `${4 * s}px solid ${c.accent}` : "none",
+      border: border === "fine" ? `${Math.max(1, 2 * s)}px solid ${withAlpha(fg, 0.2)}` : border === "accent" ? `${4 * s}px solid ${c.accent}` : "none",
       ...(kind === "verre" ? { backdropFilter: `blur(${24 * s}px)`, WebkitBackdropFilter: `blur(${24 * s}px)` } : {}),
     },
   };
@@ -110,11 +101,7 @@ function Check({ k, color, size, shape = "rond" }: { k: number; color: string; s
   if (shape === "trait") return <div style={{ width: size, height: size * 0.16, borderRadius: size * 0.05, background: color, opacity: 0.25 + 0.75 * k, transform: `scaleX(${0.3 + 0.7 * k})`, flex: "none" }} />;
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" style={{ overflow: "visible", flex: "none" }}>
-      {shape === "carre" ? (
-        <rect x="1" y="1" width="22" height="22" rx="5" fill={k > 0 ? color : "none"} stroke={color} strokeWidth={2} opacity={0.35 + 0.65 * k} />
-      ) : (
-        <rect x="1" y="1" width="22" height="22" rx="5.5" fill={k > 0 ? color : "none"} stroke={color} strokeWidth={2} opacity={0.35 + 0.65 * k} />
-      )}
+      <rect x="1" y="1" width="22" height="22" rx={shape === "carre" ? 5 : 5.5} fill={k > 0 ? color : "none"} stroke={color} strokeWidth={2} opacity={0.35 + 0.65 * k} />
       <path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={16} strokeDashoffset={16 * (1 - k)} />
     </svg>
   );
@@ -150,7 +137,7 @@ function Card({ e, ctx, s, title, children }: { e: RenderElement; ctx: Ctx; s: n
 /** L'avatar d'une ligne : initiales, silhouette, photo (Médias publicitaires, nature « Visage ») ou rien. */
 function Avatar({ mode, name, color, face, size, font }: { mode: string; name: string; color: string; face: string | null; size: number; font: string }) {
   if (mode === "aucun") return null;
-  const ring: CSSProperties = { width: size, height: size, flex: "none", borderRadius: "24%", overflow: "hidden", background: `${color}26`, display: "flex", alignItems: "center", justifyContent: "center" };
+  const ring: CSSProperties = { width: size, height: size, flex: "none", borderRadius: "24%", overflow: "hidden", background: withAlpha(color, 0.15), display: "flex", alignItems: "center", justifyContent: "center" };
   if (mode === "photos" && face) {
     return <Img src={face} alt="" style={{ ...ring, objectFit: "cover" }} />;
   }
@@ -243,7 +230,7 @@ function Notification({ e, ctx, s }: Props) {
         alignItems: "flex-start",
         padding: 34 * s,
         transform: `scale(${1 + 0.035 * lit})`,
-        boxShadow: [sf.style.boxShadow === "none" ? null : sf.style.boxShadow, yes(prm, "coche", true) && wave > 0 && wave < 1 ? `0 0 0 ${5 * s}px ${okColor}${Math.round(lit * 160).toString(16).padStart(2, "0")}` : null].filter(Boolean).join(", ") || "none",
+        boxShadow: [sf.style.boxShadow === "none" ? null : sf.style.boxShadow, yes(prm, "coche", true) && wave > 0 && wave < 1 ? `0 0 0 ${5 * s}px ${withAlpha(okColor, (lit * 160) / 255)}` : null].filter(Boolean).join(", ") || "none",
       }}
     >
       {icon === "visage" && face && <Img src={face} alt="" style={{ width: 84 * s, height: 84 * s, flex: "none", objectFit: "cover", borderRadius: 24 * s }} />}
@@ -390,7 +377,7 @@ function Fiche({ e, ctx, s, w }: Props) {
   const avancement = typeof d.avancement === "number" ? d.avancement : null;
   const ouvriers = typeof d.ouvriers === "number" ? d.ouvriers : null;
   const pad = 34 * s;
-  const tile: CSSProperties = { background: `${sf.fg}0d`, borderRadius: 24 * s, padding: `${22 * s}px ${26 * s}px` };
+  const tile: CSSProperties = { background: withAlpha(sf.fg, 0.05), borderRadius: 24 * s, padding: `${22 * s}px ${26 * s}px` };
   const label: CSSProperties = { fontFamily: ctx.title, fontWeight: 800, fontSize: 32 * s, margin: `${26 * s}px 0 ${12 * s}px` };
   const show = (at: number) => ({ opacity: t(frame, at, 9), transform: `translateY(${(1 - t(frame, at, 9)) * 24 * s}px)` });
   return (
@@ -408,7 +395,7 @@ function Fiche({ e, ctx, s, w }: Props) {
       {yes(prm, "onglets", true) && onglets.length > 0 && (
         <div style={{ display: "flex", gap: 8 * s, marginTop: 18 * s, fontFamily: ctx.body, fontSize: 26 * s }}>
           {onglets.map((o, i) => (
-            <div key={i} style={{ padding: `${12 * s}px ${20 * s}px`, borderRadius: 12 * s, background: i === 0 ? `${sf.fg}12` : "transparent", color: i === 0 ? accent : sf.fg, fontWeight: i === 0 ? 800 : 500, opacity: i === 0 ? 1 : 0.8 }}>
+            <div key={i} style={{ padding: `${12 * s}px ${20 * s}px`, borderRadius: 12 * s, background: i === 0 ? withAlpha(sf.fg, 0.07) : "transparent", color: i === 0 ? accent : sf.fg, fontWeight: i === 0 ? 800 : 500, opacity: i === 0 ? 1 : 0.8 }}>
               {o}
             </div>
           ))}
@@ -417,13 +404,13 @@ function Fiche({ e, ctx, s, w }: Props) {
       {yes(prm, "carte", true) && (
         <div style={{ marginTop: 18 * s, borderRadius: 16 * s, overflow: "hidden", boxShadow: `0 ${8 * s}px ${24 * s}px -${10 * s}px rgba(0,0,0,0.25)` }}>
           <MiniMap w={w - pad * 2} h={(w - pad * 2) * 0.36} pin={accent} drop={t(frame, 6, 14, Easing.out(Easing.bounce))} />
-          <div style={{ display: "flex", alignItems: "center", gap: 16 * s, padding: `${20 * s}px ${24 * s}px`, background: `${sf.fg}08` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 * s, padding: `${20 * s}px ${24 * s}px`, background: withAlpha(sf.fg, 0.03) }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontFamily: ctx.title, fontWeight: 800, fontSize: 30 * s }}>{str(d.lieu)}</div>
               {str(d.adresse) && <div style={{ fontFamily: ctx.body, fontSize: 24 * s, opacity: 0.6 }}>{str(d.adresse)}</div>}
             </div>
             {yes(prm, "itineraire", true) && (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 * s, background: `${accent}1f`, color: accent, borderRadius: 14 * s, padding: `${12 * s}px ${22 * s}px`, fontFamily: ctx.body, fontWeight: 800, fontSize: 24 * s, transform: `scale(${0.9 + 0.1 * t(frame, 14, 10, pop)})` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 * s, background: withAlpha(accent, 0.12), color: accent, borderRadius: 14 * s, padding: `${12 * s}px ${22 * s}px`, fontFamily: ctx.body, fontWeight: 800, fontSize: 24 * s, transform: `scale(${0.9 + 0.1 * t(frame, 14, 10, pop)})` }}>
                 <svg width={22 * s} height={22 * s} viewBox="0 0 24 24">
                   <path d="M3 11l18-8-8 18-2-8z" fill={accent} />
                 </svg>
@@ -439,7 +426,7 @@ function Fiche({ e, ctx, s, w }: Props) {
           <div style={tile}>
             {(str(d.debut) || str(d.fin)) && (
               <div style={{ display: "flex", alignItems: "center", gap: 18 * s }}>
-                <div style={{ width: 52 * s, height: 52 * s, borderRadius: 14 * s, background: `${sf.fg}12`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 * s }}>
+                <div style={{ width: 52 * s, height: 52 * s, borderRadius: 14 * s, background: withAlpha(sf.fg, 0.07), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 * s }}>
                   <svg width={28 * s} height={28 * s} viewBox="0 0 24 24">
                     <rect x="3" y="5" width="18" height="16" rx="3" fill="none" stroke={sf.fg} strokeOpacity="0.7" strokeWidth="2" />
                     <path d="M3 10h18M8 3v4M16 3v4" stroke={sf.fg} strokeOpacity="0.7" strokeWidth="2" />
@@ -450,7 +437,7 @@ function Fiche({ e, ctx, s, w }: Props) {
                     Du {str(d.debut)} au {str(d.fin)}
                   </div>
                   {avancement !== null && (
-                    <div style={{ marginTop: 10 * s, height: 10 * s, borderRadius: 3 * s, background: `${sf.fg}1a`, overflow: "hidden" }}>
+                    <div style={{ marginTop: 10 * s, height: 10 * s, borderRadius: 3 * s, background: withAlpha(sf.fg, 0.1), overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${avancement * t(frame, step * 2.5, 18, Easing.out(Easing.cubic))}%`, background: bar, borderRadius: 3 * s }} />
                     </div>
                   )}
@@ -459,7 +446,7 @@ function Fiche({ e, ctx, s, w }: Props) {
             )}
             {ouvriers !== null && (
               <div style={{ display: "flex", alignItems: "center", gap: 18 * s, marginTop: 16 * s, paddingTop: 16 * s, borderTop: `1px solid ${sf.line}` }}>
-                <div style={{ width: 52 * s, height: 52 * s, borderRadius: 14 * s, background: `${sf.fg}12`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 * s }}>
+                <div style={{ width: 52 * s, height: 52 * s, borderRadius: 14 * s, background: withAlpha(sf.fg, 0.07), display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 * s }}>
                   <svg width={30 * s} height={30 * s} viewBox="0 0 24 24">
                     <circle cx="9" cy="9" r="3.2" fill={sf.fg} fillOpacity="0.7" />
                     <circle cx="16.5" cy="10" r="2.6" fill={sf.fg} fillOpacity="0.5" />
@@ -497,7 +484,7 @@ function Fiche({ e, ctx, s, w }: Props) {
                   <div style={{ fontFamily: ctx.body, fontWeight: 800, fontSize: 28 * s }}>{str(r.nom)}</div>
                   {str(r.role) && <div style={{ fontFamily: ctx.body, fontSize: 22 * s, opacity: 0.6 }}>{str(r.role)}</div>}
                 </div>
-                <div style={{ width: 52 * s, height: 52 * s, borderRadius: 14 * s, background: `${accent}1f`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 52 * s, height: 52 * s, borderRadius: 14 * s, background: withAlpha(accent, 0.12), display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <svg width={26 * s} height={26 * s} viewBox="0 0 24 24">
                     <path d="M3 6h18v12H3z" fill={accent} />
                     <path d="M3 6l9 7 9-7" fill="none" stroke="#ffffff" strokeWidth="1.8" />
@@ -588,6 +575,7 @@ function Surbrillance({ e, ctx, s, w }: Props) {
   const prm = e.params;
   const k = t(frame, 0, 12);
   const round = e.data.forme === "cercle";
+  const dim = num(prm, "assombrir", 0.45) * k;
   return (
     <div
       style={{
@@ -595,7 +583,8 @@ function Surbrillance({ e, ctx, s, w }: Props) {
         height: "100%",
         borderRadius: round ? "24%" : radiusOf(p, prm, s, 22),
         border: `${num(prm, "epaisseur", 6) * s}px solid ${colorOf(p, opt(prm, "couleur", "accent"))}`,
-        boxShadow: `0 0 0 ${3000 * s}px rgba(0,0,0,${num(prm, "assombrir", 0.45) * k})`,
+        // L'ombre d'étalement géante assombrit tout le cadre : rien à dessiner quand elle n'assombrit pas.
+        boxShadow: dim > 0 ? `0 0 0 ${3000 * s}px rgba(0,0,0,${dim})` : undefined,
         transform: `scale(${1.25 - 0.25 * k})`,
         opacity: k,
         minWidth: w * 0.1,
@@ -748,9 +737,10 @@ function Titre({ e, ctx, s, w, ink: plan }: Props) {
 }
 
 function Etiquette({ e, ctx, s }: Props) {
-  const sf = surface(ctx.p, e.params, s, 34, ctx.bg);
+  // Un arrondi de base plus petit (14) qu'une carte, mais toujours dosé par le réglage « coins ».
+  const sf = surface(ctx.p, e.params, s, 14, ctx.bg);
   return (
-    <div style={{ ...sf.style, display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", gap: 14 * s, borderRadius: 14 * s, padding: `${14 * s}px ${28 * s}px`, fontFamily: ctx.body, fontWeight: 700, fontSize: 30 * s }}>
+    <div style={{ ...sf.style, display: "inline-flex", alignItems: "center", whiteSpace: "nowrap", gap: 14 * s, padding: `${14 * s}px ${28 * s}px`, fontFamily: ctx.body, fontWeight: 700, fontSize: 30 * s }}>
       <div style={{ width: 16 * s, height: 16 * s, borderRadius: "24%", background: pick(ctx.p, e.params, "couleur_pastille", ctx.p.palette.accent) }} />
       {str(e.data.texte)}
     </div>
@@ -831,7 +821,7 @@ function Crowd({ frame, s, ink, accent, font }: { frame: number; s: number; ink:
       {Array.from({ length: n }, (_, i) => {
         const last = i === n - 1;
         const k = t(frame, (i % cols) * 1.2 + Math.floor(i / cols) * 4 + (last ? 10 : 0), 8, Easing.out(Easing.back(2)));
-        const c = last ? accent : `${ink}55`;
+        const c = last ? accent : withAlpha(ink, 1 / 3);
         return (
           <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 * s, opacity: Math.min(1, k * 2), transform: `translateY(${(1 - k) * 20 * s}px) scale(${last ? 1 + 0.25 * Math.sin(Math.PI * k) : 1})` }}>
             <div style={{ width: w * 0.42, height: w * 0.42, borderRadius: w * 0.12, background: c }} />
@@ -857,7 +847,7 @@ function Cta({ e, ctx, s }: Props) {
   const p = ctx.p;
   const prm = e.params;
   const role = opt(prm, "couleur", "accent");
-  const beat = p.music?.beatFrames ?? 15;
+  const beat = p.music?.beatFrames ?? p.fps / 2;
   const pulse = yes(prm, "pulsation", false) ? 1 + Math.max(0, Math.sin((frame / beat) * Math.PI * 2)) * 0.05 : 1;
   return (
     <div style={{ background: colorOf(p, role), color: pick(p, prm, "couleur_texte", onColor(p, role)), borderRadius: radiusOf(p, prm, s, 26), padding: `${28 * s}px ${50 * s}px`, textAlign: "center", fontFamily: ctx.body, fontWeight: 800, fontSize: 44 * s, boxShadow: shadowOf(prm, s), transform: `scale(${pulse})` }}>{p.cta}</div>
@@ -879,19 +869,12 @@ function Pastilles({ e, ctx, w }: Props) {
   const mode = opt(prm, "animation", "construction");
   const step = p.music?.beatFrames ? p.music.beatFrames / 2 : 5;
   const logo = p.logoAnimated;
-  if (logo && logo.symbol.length) return <Symbol e={e} logo={logo} color={color} mode={mode} step={step} frame={frame} w={w} />;
+  if (logo && logo.symbol.length) return <Symbol e={e} logo={logo} color={color} mode={mode} step={step} frame={frame} />;
   const k = mode === "aucune" ? 1 : t(frame, 0, 12);
   if (p.logos.symbol) {
     return <Img src={p.logos.symbol} alt="" style={{ width: "100%", height: "auto", opacity: k }} />;
   }
-  const d = w * 0.42;
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(2, ${d}px)`, gap: w * 0.16, opacity: k }}>
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} style={{ width: d, height: d, borderRadius: i === 1 ? "50% 50% 50% 0" : "50%", background: color ?? p.palette.accent }} />
-      ))}
-    </div>
-  );
+  return <LogoDots size={w * 0.42} gap={w * 0.16} color={color ?? p.palette.accent} style={{ opacity: k }} />;
 }
 
 /**
@@ -900,23 +883,27 @@ function Pastilles({ e, ctx, w }: Props) {
  * et non animée ; le rendu attend la mesure, pour que la vidéo soit juste dès
  * la première image.
  */
-function Symbol({ e, logo, color, mode, step, frame, w }: { e: RenderElement; logo: NonNullable<RenderProps["logoAnimated"]>; color: string | null; mode: string; step: number; frame: number; w: number }) {
+function Symbol({ e, logo, color, mode, step, frame }: { e: RenderElement; logo: NonNullable<RenderProps["logoAnimated"]>; color: string | null; mode: string; step: number; frame: number }) {
   const measure = useRef<SVGGElement>(null);
-  const [box, setBox] = useState<string | null>(null);
+  // La mesure vaut pour SON logo : un autre logo (aperçu en direct) se remesure.
+  const [measured, setMeasured] = useState<{ logo: typeof logo; box: string } | null>(null);
+  const box = measured?.logo === logo ? measured.box : null;
   const [handle] = useState(() => delayRender("Mesure du symbole du logo"));
   useLayoutEffect(() => {
     const b = measure.current?.getBBox();
     const pad = b ? Math.max(b.width, b.height) * 0.04 : 0;
-    setBox(b && b.width > 0 ? `${b.x - pad} ${b.y - pad} ${b.width + pad * 2} ${b.height + pad * 2}` : logo.viewBox);
+    setMeasured({ logo, box: b && b.width > 0 ? `${b.x - pad} ${b.y - pad} ${b.width + pad * 2} ${b.height + pad * 2}` : logo.viewBox });
     continueRender(handle);
   }, [logo, handle]);
   const pop = popOf(e);
-  const cls = `sym-${Math.round(w)}`;
+  // Un nom propre à CET élément : deux symboles de même largeur mais de couleurs différentes ne se recolorent pas l'un l'autre.
+  const cls = `sym-${useId().replace(/[^\w-]/g, "")}`;
   return (
     <svg viewBox={box ?? logo.viewBox} style={{ width: "100%", height: "auto", overflow: "visible" }}>
       {color && <style>{`.${cls} *{fill:${color} !important}`}</style>}
       {logo.defs && <g dangerouslySetInnerHTML={{ __html: logo.defs }} />}
-      <g ref={measure} style={{ visibility: "hidden" }} dangerouslySetInnerHTML={{ __html: logo.symbol.join("") }} />
+      {/* La copie de mesure, seulement tant que la boîte n'est pas connue : ensuite elle ne ferait que doubler le dessin. */}
+      {!box && <g ref={measure} style={{ visibility: "hidden" }} dangerouslySetInnerHTML={{ __html: logo.symbol.join("") }} />}
       {box && (
         <g className={color ? cls : undefined}>
           {logo.symbol.map((m, i) => {
@@ -941,6 +928,9 @@ function Confettis({ e, ctx, w }: Props) {
   const prm = e.params;
   const n = Math.round(num(prm, "quantite", 18));
   const k = t(frame, 0, 22, Easing.out(Easing.cubic));
+  const fade = 1 - t(frame, 16, 10);
+  // L'explosion finie et le fondu terminé : plus rien à dessiner.
+  if (k >= 1 && fade <= 0) return null;
   const colors = opt(prm, "couleurs", "marque") === "accent" ? [p.palette.accent] : [p.palette.accent, p.palette.primary, "#ffffff"];
   return (
     <div style={{ position: "relative", width: w, height: w }}>
@@ -948,7 +938,7 @@ function Confettis({ e, ctx, w }: Props) {
         const a = (i / n) * Math.PI * 2;
         const r = (0.25 + ((i * 37) % 10) / 20) * w * k;
         return (
-          <div key={i} style={{ position: "absolute", left: w / 2 + Math.cos(a) * r, top: w / 2 + Math.sin(a) * r + k * k * w * 0.15, width: w * 0.035, height: w * 0.06, background: colors[i % colors.length], borderRadius: 3, transform: `rotate(${i * 40 + frame * 8}deg)`, opacity: 1 - t(frame, 16, 10) }} />
+          <div key={i} style={{ position: "absolute", left: w / 2 + Math.cos(a) * r, top: w / 2 + Math.sin(a) * r + k * k * w * 0.15, width: w * 0.035, height: w * 0.06, background: colors[i % colors.length], borderRadius: 3, transform: `rotate(${i * 40 + frame * 8}deg)`, opacity: fade }} />
         );
       })}
     </div>
@@ -1078,7 +1068,7 @@ function useMotion(e: RenderElement, life: number, p: RenderProps): CSSPropertie
   if (e.sortie === "glisse-bas") tr.push(`translateY(${out * d}%)`);
   if (e.mouvement === "derive") tr.push(`translate(${Math.sin(frame / 40) * 1.2}%, ${frame * 0.04}%)`);
   if (e.mouvement === "flottement") tr.push(`translateY(${Math.sin(frame / 14) * 2}%)`);
-  if (e.mouvement === "pulsation") tr.push(`scale(${1 + Math.max(0, Math.sin((frame / (p.music?.beatFrames ?? 15)) * Math.PI * 2 - Math.PI / 2)) * 0.04})`);
+  if (e.mouvement === "pulsation") tr.push(`scale(${1 + Math.max(0, Math.sin((frame / (p.music?.beatFrames ?? p.fps / 2)) * Math.PI * 2 - Math.PI / 2)) * 0.04})`);
   return { opacity, transform: tr.join(" ") || undefined };
 }
 
@@ -1111,7 +1101,7 @@ function Placed({ e, ctx, shotFrames, ink }: { e: RenderElement; ctx: Ctx; shotF
   const Comp = RENDER[e.type];
   if (!Comp) return null;
   // L'élément qui se penche, lui seul : jusqu'à son angle, en 0,4 s, à partir de son heure.
-  const tiltAt = e.inclinaison ? Math.round((e.inclinaison.debut ?? e.debut) * 30) - e.from : 0;
+  const tiltAt = e.tiltAt ?? 0;
   const tilt = e.inclinaison ? e.inclinaison.angle * interpolate(frame, [tiltAt, tiltAt + 12], [0, 1], { ...clamp, easing: Easing.out(Easing.back(1.4)) }) : 0;
   return (
     <div style={{ position: "absolute", left: cx, top: cy, width: w, transform: `translate(-50%, -50%) rotate(${tilt}deg)` }}>

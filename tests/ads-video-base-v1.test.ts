@@ -10,7 +10,7 @@ import { parseScore, scoreProblems, type ScoreContext } from "@/modules/ads/vide
  * refusé avec sa raison.
  */
 
-const CTX: BaseContext = { angleFeatures: [], rushFeatures: new Map([[1, ["pointage"]], [2, ["planning"]]]), facts: new Set([1]), maxTotal: 20 };
+const CTX: BaseContext = { angleFeatures: [], rushFeatures: new Map([[1, ["pointage"]], [2, ["planning"]]]), facts: new Set([1]) };
 const example = (i: number) => parseScore(BASE_V1_EXAMPLES[i].partition);
 const ctxFor = (i: number): BaseContext => ({ ...CTX, angleFeatures: featuresOf(BASE_V1_EXAMPLES[i].angle) });
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;

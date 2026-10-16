@@ -7,6 +7,7 @@ import {
   conditionReferencee,
   type Reference,
 } from "@/core/lib/media-orphans";
+import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 
 /**
@@ -43,10 +44,8 @@ const RETENTION_DAYS = 30;
 const BATCH = 50;
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = cronGuard(req);
+  if (denied) return denied;
   const dry = new URL(req.url).searchParams.get("dry") === "1";
 
   const payload = await payloadClient();

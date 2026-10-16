@@ -8,6 +8,9 @@ import { CopyForClaudeCode } from "@/modules/dev/admin/CopyForClaudeCode";
 import { paramSpecs } from "@/modules/ads/video/element-params";
 import { isElementType } from "@/modules/ads/video/elements";
 
+import { when } from "./format";
+import { postAdmin } from "./post-admin";
+
 /**
  * Le fil d'amélioration d'un élément (atelier des éléments) : les idées de
  * Charlie, les propositions de l'IA (réglages et explication) et ce qui en a
@@ -29,7 +32,15 @@ type Note = {
 };
 type Version = { n: number; at: string; by: string | null; note: string };
 
-const when = (iso: string) => new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+/** Les champs lus d'une note, et des relations peuplées (syntaxe REST de Payload 3 : `select` et `populate`). */
+const NOTE_FIELDS = [
+  ...["kind", "body", "status", "proposal", "author", "variant", "development", "createdAt"].map((k) => `select[${k}]=true`),
+  "populate[ad-elements][name]=true",
+  "populate[developments][title]=true",
+  "populate[users][name]=true",
+  "populate[users][email]=true",
+].join("&");
+
 const STATUS: Record<string, { label: string; tone: string }> = {
   "a-decider": { label: "À décider", tone: "orange" },
   appliquee: { label: "Appliquée", tone: "vert" },
@@ -50,7 +61,8 @@ export function ElementThread() {
 
   const load = useCallback(async () => {
     if (!id) return;
-    const r = await fetch(`/payload-api/ad-element-notes?where[element][equals]=${encodeURIComponent(String(id))}&sort=createdAt&depth=1&limit=200`, { credentials: "include" });
+    // Seulement ce que le fil affiche : sans `select`, chaque note ramenait l'élément entier (avec ses versions).
+    const r = await fetch(`/payload-api/ad-element-notes?where[element][equals]=${encodeURIComponent(String(id))}&sort=createdAt&depth=1&limit=200&${NOTE_FIELDS}`, { credentials: "include" });
     if (r.ok) setNotes(((await r.json()) as { docs: Note[] }).docs);
   }, [id]);
   useEffect(() => {
@@ -61,9 +73,7 @@ export function ElementThread() {
   const act = async (what: string, body: Record<string, unknown>, done: string, reload = false): Promise<boolean> => {
     setBusy(what);
     try {
-      const res = await fetch(`/api/admin/ads/elements/${encodeURIComponent(String(id))}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; variant?: number; id?: number };
-      if (!res.ok) throw new Error(data.error || String(res.status));
+      const data = await postAdmin<{ variant?: number; id?: number }>(`/api/admin/ads/elements/${encodeURIComponent(String(id))}`, body);
       toast.success(done);
       if (body.action === "dupliquer" && data.id) router.push(`/admin/collections/ad-elements/${data.id}`);
       else if (body.decision === "variante" && data.variant) router.push(`/admin/collections/ad-elements/${data.variant}`);

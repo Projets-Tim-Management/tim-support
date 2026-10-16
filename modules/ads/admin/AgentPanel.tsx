@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { ControlRoom as Room } from "@/modules/ads/agent/control-room";
 
 import { ControlRoom, RUN_STATUS } from "./ControlRoom";
+import { postAdmin } from "./post-admin";
 
 type Preview = {
   lancable: boolean;
@@ -87,9 +88,7 @@ export function AgentPanel() {
   const post = async (url: string, body: unknown, ok: string) => {
     setBusy(true);
     try {
-      const res = await fetch(url, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error || String(res.status));
+      await postAdmin(url, body);
       toast.success(ok);
       load();
     } catch (e) {

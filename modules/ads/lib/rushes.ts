@@ -17,7 +17,6 @@ export const RUSH_USES = [
   { label: "Matière d'un montage", value: "matiere" },
   { label: "Inspiration : une pub à imiter ou à éviter", value: "inspiration" },
 ] as const;
-export type RushUse = (typeof RUSH_USES)[number]["value"];
 export const isInspiration = (d: { use?: unknown } | null | undefined): boolean => d?.use === "inspiration";
 
 /**
@@ -41,7 +40,6 @@ export const RUSH_SOURCES = [
   { label: "Bureau / équipe", value: "bureau" },
   { label: "Autre", value: "autre" },
 ] as const;
-export type RushSource = (typeof RUSH_SOURCES)[number]["value"];
 
 /** Ce qu'un rush montre du logiciel : la clé par laquelle un agent le retrouve. */
 export const RUSH_FEATURES = [
@@ -62,7 +60,6 @@ export const RUSH_STATUSES = [
   { label: "Prêt", value: "pret" },
   { label: "Échec", value: "echec" },
 ] as const;
-export type RushStatus = (typeof RUSH_STATUSES)[number]["value"];
 
 /**
  * Ce qui s'importe. Les MOV de l'iPhone (HEVC compris) entrent tels quels : la

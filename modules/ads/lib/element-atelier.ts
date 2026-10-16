@@ -4,6 +4,7 @@ import type { Payload } from "payload";
 
 import { claudeCostUsd, claudeMaxCostUsd, estimateTokens, usdToEur, type Usage } from "@/core/lib/ai-pricing";
 import type { ElementVersion } from "@/modules/ads/collections/AdElements";
+import { idOf } from "@/modules/ads/lib/ids";
 import { ADS_TEXT_MODEL } from "@/modules/ads/lib/models";
 import { FinalError } from "@/modules/ads/lib/rush-process";
 import { assertAdsBudget, recordAdsUsage } from "@/modules/ads/lib/spend";
@@ -24,7 +25,6 @@ type Raw = Record<string, unknown>;
 type ElementDoc = { id: number; name: string; base: ElementType; status: string; whenToUse: string; params?: Raw | null; versions?: ElementVersion[] | null; variantOf?: unknown };
 type NoteDoc = { id: number; element: unknown; kind: string; body: string; proposal?: Raw | null; status?: string | null; createdAt: string; author?: unknown };
 
-const idOf = (v: unknown): number | null => (v && typeof v === "object" ? Number((v as { id: unknown }).id) : v == null ? null : Number(v));
 const MAX_TOKENS = 6_000;
 
 export const PROPOSAL_SCHEMA = {

@@ -1,12 +1,10 @@
 import { Easing, interpolate, useCurrentFrame } from "remotion";
 
 import type { RenderProps } from "../modules/ads/video/props";
+import { clamp, ease } from "./motion";
 
 /** Ce que le logo animé lit du contexte de rendu. */
 type LogoCtx = { p: RenderProps };
-
-const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
-const ease = Easing.bezier(0.2, 0.7, 0.2, 1);
 
 /**
  * Le logo animé (SVG à calques, Kit de marque › Logos) : en « construction »,

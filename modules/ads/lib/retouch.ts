@@ -8,6 +8,7 @@ import { execSql, rowsOf } from "@/core/lib/raw-sql";
 import { loadGenerationContext, publishable } from "@/modules/ads/lib/copy/generate";
 import { allowedNumbers, guard, type TextKind } from "@/modules/ads/lib/copy/guardrails";
 import { briefLines } from "@/modules/ads/lib/copy/prompt";
+import { idOf } from "@/modules/ads/lib/ids";
 import { ADS_TEXT_MODEL } from "@/modules/ads/lib/models";
 import { renderCreativeVisuals } from "@/modules/ads/lib/render/visuals";
 import { FinalError } from "@/modules/ads/lib/rush-process";
@@ -129,8 +130,6 @@ export function normalizeResult(r: RawResult): RetouchResult {
       : null,
   };
 }
-
-const idOf = (v: unknown): number | null => (v && typeof v === "object" ? Number((v as { id: unknown }).id) : v == null ? null : Number(v));
 
 /** Ce qu'on garde d'une version de la créa, pour comparer. Pure. */
 export function snapshotOf(c: CreativeDoc): Raw {

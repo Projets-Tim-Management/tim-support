@@ -3,6 +3,8 @@
 import { toast } from "@payloadcms/ui";
 import { useState } from "react";
 
+import { postAdmin } from "./post-admin";
+
 /**
  * En tête de « À valider » : ce que l'agent lira au prochain passage, si on le
  * confirme. Une consigne proposée naît d'un refus de créa ; un apprentissage
@@ -17,9 +19,7 @@ export type ProposedLearning = { id: number | string; statement: string; confide
 
 async function post(url: string, body: unknown, done: string): Promise<boolean> {
   try {
-    const res = await fetch(url, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const data = (await res.json().catch(() => ({}))) as { error?: string };
-    if (!res.ok) throw new Error(data.error || String(res.status));
+    await postAdmin(url, body);
     toast.success(done);
     window.location.reload();
     return true;
