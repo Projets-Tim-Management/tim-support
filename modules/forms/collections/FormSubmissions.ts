@@ -235,9 +235,11 @@ export const FormSubmissions: CollectionConfig = {
                       name: "gaClientId",
                       type: "text",
                       label: "ID client GA4",
+                      // Clé d'envoi à GA4 : posée à la réception, jamais modifiée ensuite (pas même par l'API).
+                      access: { update: () => false },
                       admin: { width: "50%", readOnly: true, description: "Cookie _ga. Vide : visiteur sans consentement, lead manuel ou importé — rien n'est envoyé à GA4." },
                     },
-                    { name: "gaSessionId", type: "text", label: "ID session GA4", admin: { width: "50%", readOnly: true, description: "La session d'origine, pour que GA4 rattache la conversion à sa source." } },
+                    { name: "gaSessionId", type: "text", label: "ID session GA4", access: { update: () => false }, admin: { width: "50%", readOnly: true, description: "La session d'origine, pour que GA4 rattache la conversion à sa source." } },
                   ],
                 },
               ],
