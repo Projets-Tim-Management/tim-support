@@ -114,9 +114,15 @@ export function rebaseHistory(entries: HistoryEntry[], billingStart: string): Hi
   return kept;
 }
 
-/** Signature stable d'un détail (qté × prix par profil) : la même config ne crée pas de ligne. */
+/**
+ * Signature stable d'un détail (qté × prix par profil) : la même config ne crée pas de ligne.
+ * Une ligne Visuel à 0 n'y entre pas : sans quoi l'arrivée de ce profil (16/10/2026) aurait changé
+ * la signature de TOUTES les fiches — une ligne d'historique de plus partout, et chaque mois validé
+ * repassé « à revalider ». Les profils d'avant gardent leur forme, zéros compris.
+ */
 export const detailSignature = (detail: unknown): string =>
   (Array.isArray(detail) ? (detail as { key?: string; qty?: number; price?: number }[]) : [])
+    .filter((d) => !(d.key === "visuel" && !Number(d.qty)))
     .map((d) => `${d.key}:${d.qty}x${d.price}`)
     .join("|");
 

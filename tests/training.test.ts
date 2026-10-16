@@ -28,6 +28,7 @@ describe("programmesFromParcours — brouillon du programme type", () => {
       "chefChantier",
       "chefEquipe",
       "compagnon",
+      "visuel",
     ]);
   });
 

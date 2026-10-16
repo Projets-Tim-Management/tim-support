@@ -98,7 +98,7 @@ describe("variables du contrat", () => {
     expect(empty["engagement.duree"]).toBeNull();
   });
 
-  it("tarifs : les cinq profils, prix négocié remise déduite, sinon prix de base", () => {
+  it("tarifs : les six profils, prix négocié remise déduite, sinon prix de base", () => {
     const rows = contractPriceRows(CLIENT);
     expect(rows.map((r) => r.profile)).toEqual([
       "Administrateur",
@@ -106,7 +106,9 @@ describe("variables du contrat", () => {
       "Chef d'équipe",
       "Chef de chantier",
       "Compagnon",
+      "Visuel",
     ]);
+    expect(rows[5].unitPrice).toBe("2,20 € HT par mois et par utilisateur");
     expect(rows[0].unitPrice).toBe("27 € HT par mois et par utilisateur");
     expect(rows[4].unitPrice).toBe("5,60 € HT par mois et par utilisateur");
   });

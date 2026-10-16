@@ -31,12 +31,14 @@ export type SupportClientFacts = {
 };
 
 /** Référence produit Pennylane de chaque profil (catalogue TIM). */
-const PENNYLANE_PRODUCT_REFS: Record<ProfilKey, string> = {
+const PENNYLANE_PRODUCT_REFS: Record<ProfilKey, string | null> = {
   admin: "LA-Tim",
   conducteur: "LCT-Tim",
   chefChantier: "LCC-Tim",
   chefEquipe: "LCE-Tim",
   compagnon: "LC-Tim",
+  // Référence du produit Pennylane « Licence TIM — Visuel » à renseigner ; en attendant, le libellé le reconnaît.
+  visuel: null,
 };
 
 /**
@@ -49,6 +51,7 @@ const LABEL_HINTS: Record<ProfilKey, RegExp> = {
   chefChantier: /chef\s*de\s*chantier/i,
   chefEquipe: /chef\s*d['’]\s*[ée]quipe/i,
   compagnon: /compagnon/i,
+  visuel: /visuel/i,
 };
 
 export type IssueCode =
@@ -356,7 +359,7 @@ function profileOfLine(line: PlInvoiceLine, products: Map<number, PlProduct>): P
   const ref = product?.reference?.trim();
   if (ref) {
     const byRef = (Object.keys(PENNYLANE_PRODUCT_REFS) as ProfilKey[]).find(
-      (k) => PENNYLANE_PRODUCT_REFS[k].toLowerCase() === ref.toLowerCase(),
+      (k) => PENNYLANE_PRODUCT_REFS[k]?.toLowerCase() === ref.toLowerCase(),
     );
     if (byRef) return byRef;
   }

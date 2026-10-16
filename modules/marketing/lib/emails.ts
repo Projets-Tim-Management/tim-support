@@ -1281,7 +1281,7 @@ const TIM_IOS_URL = "https://apps.apple.com/fr/app/tim-management/id1565369001";
  * plus gênant que l'inverse.
  */
 const WEB_PROFILES = new Set(["admin", "conducteur", "chefChantier"]);
-const MOBILE_PROFILES = new Set(["chefChantier", "chefEquipe", "compagnon"]);
+const MOBILE_PROFILES = new Set(["chefChantier", "chefEquipe", "compagnon", "visuel"]);
 
 /** Les portes ouvertes à un profil. Une seule table, deux messages. */
 const channelsOf = (profileKey?: string | null) => ({

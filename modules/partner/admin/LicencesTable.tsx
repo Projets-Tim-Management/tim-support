@@ -9,6 +9,7 @@ import {
   LICENCE_BASE_PRICES,
   PROFILS,
   suggestedUnitPrice,
+  OUT_OF_VOLUME,
   volumeDiscountPct,
   type ProfilKey,
 } from "@/modules/partner/lib/pricing";
@@ -96,8 +97,9 @@ function LicenceRow({ pKey, label, discount }: { pKey: ProfilKey; label: string;
 }
 
 export function LicencesTable() {
-  const { totalQty, caHT } = useFormFields(([fields]) => {
+  const { totalQty, volume, caHT } = useFormFields(([fields]) => {
     let tQty = 0;
+    let vQty = 0;
     let brut = 0;
     for (const pr of PROFILS) {
       const q = Number(fields[`licences.${pr.key}Qty`]?.value ?? 0);
@@ -107,13 +109,15 @@ export function LicencesTable() {
         discountAmount: Number(fields[`licences.${pr.key}DiscountAmount`]?.value ?? 0),
       });
       tQty += q;
+      if (!OUT_OF_VOLUME.has(pr.key)) vQty += q;
       brut += q * net;
     }
-    return { totalQty: tQty, caHT: brut };
+    return { totalQty: tQty, volume: vQty, caHT: brut };
   });
 
   // Pilote uniquement le prix conseillé par ligne (aucune remise affichée).
-  const discount = volumeDiscountPct(totalQty);
+  // Le palier se compte hors licences Visuel (voir OUT_OF_VOLUME).
+  const discount = volumeDiscountPct(volume);
 
   return (
     <div className="lic-wrap">
