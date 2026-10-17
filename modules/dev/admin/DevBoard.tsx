@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AnnounceDrawer, type AnnounceTarget } from "@/modules/dev/admin/AnnounceDrawer";
-import { initialsOf } from "@/modules/dev/admin/team";
+import { initialsOf, personStyle, useTeam } from "@/modules/dev/admin/team";
 import { devMeta, paletteColor } from "@/modules/dev/lib/devMeta";
 import { platformKind } from "@/modules/dev/lib/platforms";
 import { DEV_PHASES, statusHasRole, type DevStatusDoc } from "@/modules/dev/lib/devStatus";
@@ -100,6 +100,8 @@ const refId = (ref: unknown): string | null => {
 };
 
 export function DevBoard() {
+  // Les couleurs des personnes : celles de leur place dans l'équipe (voir team.ts).
+  const team = useTeam();
   const router = useRouter();
   const [statuses, setStatuses] = useState<DevStatusDoc[] | null>(null);
   const [docs, setDocs] = useState<DevDoc[] | null>(null);
@@ -451,7 +453,9 @@ export function DevBoard() {
                                   l'apporteur sur une carte d'opportunité. */}
                               {people.length > 0 ? (
                                 <div className="tim-kanban__chip" title={people.join(", ")}>
-                                  <span className="tim-kanban__avatar">{initialsOf(people[0])}</span>
+                                  <span className="tim-kanban__avatar dev-person" style={personStyle(team, people[0])}>
+                                    {initialsOf(people[0])}
+                                  </span>
                                   <span className="tim-kanban__chip-name">
                                     {people[0]}
                                     {people.length > 1 ? ` +${people.length - 1}` : ""}

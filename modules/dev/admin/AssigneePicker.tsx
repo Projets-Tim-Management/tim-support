@@ -2,7 +2,7 @@
 
 import { useField } from "@payloadcms/ui";
 
-import { initialsOf, useTeam } from "@/modules/dev/admin/team";
+import { initialsOf, personStyle, useTeam } from "@/modules/dev/admin/team";
 
 /**
  * « Assigné à » présenté comme une rangée de VISAGES.
@@ -46,6 +46,7 @@ export const AssigneePicker = (props: Props) => {
             const on = chosen.includes(member.id);
             return (
               <button
+                style={personStyle(team, member.id)}
                 key={member.id}
                 type="button"
                 className={`dev-people__btn${on ? " dev-people__btn--on" : ""}`}

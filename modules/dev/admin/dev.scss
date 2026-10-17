@@ -935,8 +935,9 @@ body.tim-dev-kanban .collection-list__list-selection {
   overflow: visible;
   border: 2px solid transparent;
   border-radius: 50%;
-  background: var(--tim-elevation-150);
-  color: var(--tim-muted);
+  /* Chaque personne a sa couleur (team.ts, `--person`) : grisée tant qu'elle n'est pas choisie. */
+  background: var(--person, var(--tim-elevation-150));
+  color: var(--tim-white);
   cursor: pointer;
   /* Les non-choisis s'effacent : la personne assignée doit sauter aux yeux. */
   opacity: 0.55;
@@ -950,9 +951,21 @@ body.tim-dev-kanban .collection-list__list-selection {
 .dev-people__btn--on {
   opacity: 1;
   filter: none;
-  border-color: var(--tim-primary);
-  color: var(--tim-foreground);
-  background: var(--tim-primary-light);
+  /* Choisie : sa couleur pleine, cerclée de blanc puis d'elle-même — reconnaissable même avec une photo. */
+  border-color: var(--tim-white);
+  box-shadow: 0 0 0 2px var(--person, var(--tim-primary));
+  color: var(--tim-white);
+  background: var(--person, var(--tim-primary-light));
+}
+
+/* Une pastille de personne en couleur (checklist, cartes du Kanban) : la couleur de la personne, initiales en blanc. */
+.dev-check__who.dev-person,
+.tim-kanban__avatar.dev-person {
+  background: var(--person, var(--tim-elevation-150));
+  color: var(--tim-white);
+}
+.dev-msg__who[style] {
+  color: var(--person, var(--tim-foreground));
 }
 .dev-people__btn:disabled {
   cursor: default;

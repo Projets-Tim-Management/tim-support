@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 
 /**
  * Les noms de l'équipe TIM, chargés UNE FOIS pour tout l'écran.
@@ -62,6 +62,27 @@ export const initialsOf = (name: string): string =>
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
+
+const PERSON_COLORS = 10;
+
+/**
+ * La couleur d'une personne (par nom ou identifiant) : celle de sa place dans
+ * l'équipe, pour que deux personnes n'aient jamais la même (jusqu'à 10) et
+ * qu'on reconnaisse d'un coup d'œil qui fait quoi, partout dans Développements.
+ * Hors de l'équipe (ou avant son chargement), une couleur tirée de son nom.
+ */
+export function personColor(team: Team, key: string): string {
+  const i = team.list.findIndex((m) => m.id === key || m.name === key);
+  let n = i;
+  if (n < 0) {
+    n = 0;
+    for (const c of key) n = (n * 31 + c.charCodeAt(0)) >>> 0;
+  }
+  return `var(--tim-person-${(n % PERSON_COLORS) + 1})`;
+}
+
+/** Le style d'une pastille de personne : sa couleur en fond, initiales en blanc (voir dev.scss, `--person`). */
+export const personStyle = (team: Team, key: string): CSSProperties => ({ "--person": personColor(team, key) }) as CSSProperties;
 
 const EMPTY: Team = { list: [], map: {} };
 
