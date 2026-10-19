@@ -58,6 +58,7 @@ import { SupportConnectionsGlobal } from "./core/globals/SupportConnections";
 import { Forms } from "./modules/forms/collections/Forms";
 import { FormSubmissions } from "./modules/forms/collections/FormSubmissions";
 import { Ga4Sends } from "./modules/analytics/collections/Ga4Sends";
+import { VideoViews } from "./modules/analytics/collections/VideoViews";
 import { MarketingJourneys } from "./modules/marketing/collections/MarketingJourneys";
 import { JourneyRuns } from "./modules/marketing/collections/JourneyRuns";
 import { SequenceRuns } from "./modules/marketing/collections/SequenceRuns";
@@ -303,6 +304,12 @@ export default buildConfig({
           exact: true,
           meta: { title: "Analyses · Acquisition" },
         },
+        analysesVideos: {
+          Component: "/modules/analytics/admin/VideosView#default",
+          path: "/analyses/videos",
+          exact: true,
+          meta: { title: "Analyses · Vidéos" },
+        },
         analysesSupport: {
           Component: "/modules/analytics/admin/SupportView#default",
           path: "/analyses/support",
@@ -370,6 +377,7 @@ export default buildConfig({
       FormSubmissions,
       // Les étapes commerciales renvoyées à GA4 (plan de mesure) : une ligne par opportunité et par étape
       Ga4Sends,
+      VideoViews,
       // Publicité : comptes connectés, campagnes lues chez les régies, chiffres du jour
       AdCampaigns,
       AdCreatives,

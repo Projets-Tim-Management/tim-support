@@ -12,6 +12,7 @@ const ANALYTICS_PAGES = [
   { key: "facturation", label: "Facturation", href: "/admin/analyses/facturation" },
   { key: "pipeline", label: "Clients & pipeline", href: "/admin/analyses/pipeline" },
   { key: "acquisition", label: "Acquisition", href: "/admin/analyses/acquisition" },
+  { key: "videos", label: "Vidéos", href: "/admin/analyses/videos" },
   { key: "support", label: "Support", href: "/admin/analyses/support" },
   { key: "developpements", label: "Développements", href: "/admin/analyses/developpements" },
   { key: "partenaires", label: "Partenaires", href: "/admin/analyses/partenaires" },
