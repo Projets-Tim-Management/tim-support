@@ -86,3 +86,13 @@ describe("potentiel d'un développement", () => {
     expect([relId(4), relId("5"), relId({ id: 6 }), relId(null), relId("")]).toEqual([4, 5, 6, null, null]);
   });
 });
+
+describe("infobulle du potentiel", () => {
+  it("liste les demandeurs avec leur statut et leur %", async () => {
+    const { requestersTip } = await import("@/modules/dev/lib/potential-shared");
+    expect(requestersTip({ requesters: [{ id: 1, company: "ACME", status: "en-test", score: 75, explanation: "" }] })).toBe(
+      "Demandé par\nACME · En phase de test · 75 %",
+    );
+    expect(requestersTip(null)).toBe("");
+  });
+});

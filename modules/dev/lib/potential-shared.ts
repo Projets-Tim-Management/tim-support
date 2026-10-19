@@ -1,3 +1,4 @@
+import { clientStatusMeta } from "@/modules/partner/lib/clientStatus";
 import { STATUS_BASE } from "@/modules/partner/lib/signature-score";
 
 /**
@@ -23,6 +24,13 @@ export function potentialOf(requesters: Requester[]): { potential: number | null
   if (!requesters.length) return { potential: null, potentialDetail: null };
   const ranked = rankRequesters(requesters);
   return { potential: ranked[0].score, potentialDetail: { requesters: ranked } };
+}
+
+/** L'infobulle du % : chaque demandeur, son statut et son %, le plus chaud d'abord. Pure. */
+export function requestersTip(detail: PotentialDetail | null | undefined): string {
+  const list = detail?.requesters ?? [];
+  if (!list.length) return "";
+  return ["Demandé par", ...list.map((r) => `${r.company} · ${clientStatusMeta(r.status)?.label ?? r.status} · ${r.score} %`)].join("\n");
 }
 
 /** Id d'une relation, qu'elle arrive peuplée ou réduite à son identifiant. */

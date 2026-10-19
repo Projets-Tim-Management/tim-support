@@ -8,7 +8,7 @@ import { initialsOf, personStyle, useTeam } from "@/modules/dev/admin/team";
 import { devMeta, paletteColor } from "@/modules/dev/lib/devMeta";
 import { platformKind } from "@/modules/dev/lib/platforms";
 import { DEV_PHASES, statusHasRole, type DevStatusDoc } from "@/modules/dev/lib/devStatus";
-import type { PotentialDetail } from "@/modules/dev/lib/potential-shared";
+import { requestersTip, type PotentialDetail } from "@/modules/dev/lib/potential-shared";
 import { PotentialBadge } from "@/modules/partner/admin/PotentialBadge";
 
 /**
@@ -537,8 +537,7 @@ export function DevBoard() {
                                   <PotentialBadge
                                     score={doc.potential}
                                     status={doc.potentialDetail?.requesters?.[0]?.status}
-                                    company={doc.potentialDetail?.requesters?.[0]?.company}
-                                    more={Math.max(0, (doc.potentialDetail?.requesters?.length ?? 1) - 1)}
+                                    tip={requestersTip(doc.potentialDetail)}
                                   />
                                 </div>
                               ) : null}
@@ -625,16 +624,23 @@ export function DevBoard() {
                                     ))}
                                     {/* QUI s'en occupe : ses initiales seules, dans
                                         le pied — aucune ligne de la carte n'y est
-                                        consacrée. Le nom vient au survol. */}
+                                        consacrée. Le nom vient en infobulle. */}
                                     {people.length > 0 ? (
-                                      <span className="dev-card__people" title={people.join(", ")}>
+                                      <span className="dev-card__people">
                                         {people.slice(0, 2).map((name) => (
-                                          <span key={name} className="tim-kanban__avatar dev-person" style={personStyle(team, name)}>
+                                          <span
+                                            key={name}
+                                            className="tim-kanban__avatar dev-person dev-tip"
+                                            data-tip={name}
+                                            style={personStyle(team, name)}
+                                          >
                                             {initialsOf(name)}
                                           </span>
                                         ))}
                                         {people.length > 2 ? (
-                                          <span className="tim-kanban__avatar dev-card__people-more">+{people.length - 2}</span>
+                                          <span className="tim-kanban__avatar dev-card__people-more dev-tip" data-tip={people.slice(2).join("\n")}>
+                                            +{people.length - 2}
+                                          </span>
                                         ) : null}
                                       </span>
                                     ) : null}

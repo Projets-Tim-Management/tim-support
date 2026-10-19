@@ -113,7 +113,7 @@ export function signatureScore(
 
 /**
  * La chaleur d'un % pour l'affichage, sur cinq crans : plus c'est haut, plus il
- * est important de s'en occuper (du gris au rouge plein). Pure.
+ * est important de s'en occuper (du gris au rouge). Pure.
  */
 export type ScoreTone = "froid" | "frais" | "tiede" | "chaud" | "brulant";
 export const scoreTone = (score: number | null | undefined): ScoreTone => {

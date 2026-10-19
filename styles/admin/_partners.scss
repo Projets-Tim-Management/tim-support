@@ -2454,7 +2454,7 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
 /* ── % de signature et potentiel (signature-score.ts, Charlie 19/10/2026) ────
    Cinq crans de chaleur (tokens --tim-heat-*) : plus le % est haut, plus il
    faut s'en occuper — gris < 20, jaune < 40, ambre < 60, orange < 85, rouge
-   plein au-delà. Même pastille sur la fiche prospect, la fiche développement,
+   au-delà — en teinte claire comme les autres, pour ne pas écraser la carte. Même pastille sur la fiche prospect, la fiche développement,
    la carte du Kanban et le tableau. */
 .tim-potential {
   display: inline-flex;
@@ -2523,7 +2523,7 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
 .tim-score__fill--frais { background: var(--tim-heat-2); }
 .tim-score__fill--tiede { background: var(--tim-heat-3); }
 .tim-score__fill--chaud { background: var(--tim-heat-4); }
-.tim-score__fill--brulant { background: var(--tim-heat-5-bg); }
+.tim-score__fill--brulant { background: var(--tim-heat-5); }
 .tim-score__why {
   margin: 0.4rem 0 0;
   font-size: 0.75rem;

@@ -2152,3 +2152,23 @@ body.dev-gallery-mode {
 .dev-card__people-more {
   font-size: 0.55rem;
 }
+
+/* Liste des développements : les infobulles flottent au-dessus de la page
+   (FloatingTips) — la version CSS, coupée par les colonnes, s'efface. */
+.tim-tips-floating .dev-tip[data-tip]:hover::after {
+  content: none;
+}
+.tim-float-tip {
+  position: fixed;
+  z-index: 1000;
+  max-width: min(22rem, calc(100vw - 16px));
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-tooltip-bg);
+  color: var(--tim-tooltip-text);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: pre-line;
+  pointer-events: none;
+}
