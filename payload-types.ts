@@ -904,6 +904,12 @@ export interface FormSubmission {
   lpSlug?: string | null;
   lpVariant?: string | null;
   referrer?: string | null;
+  videoId?: string | null;
+  videoPourcentage?: ('0' | '25' | '50' | '75' | '100') | null;
+  /**
+   * Vide : demande ouverte hors de la vidéo.
+   */
+  videoCta?: ('fin' | 'pause') | null;
   utmSource?: string | null;
   utmMedium?: string | null;
   utmCampaign?: string | null;
@@ -2283,8 +2289,10 @@ export interface VideoView {
   id: number;
   videoId: string;
   page: string;
-  etape: 'lecture' | '25' | '50' | '75' | 'fin';
+  etape: 'affichage' | 'lecture' | '25' | '50' | '75' | 'fin' | 'cta';
   jour: string;
+  appareil: string;
+  canal: string;
   nombre: number;
   updatedAt: string;
   createdAt: string;
@@ -5200,6 +5208,9 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
   lpSlug?: T;
   lpVariant?: T;
   referrer?: T;
+  videoId?: T;
+  videoPourcentage?: T;
+  videoCta?: T;
   utmSource?: T;
   utmMedium?: T;
   utmCampaign?: T;
@@ -5247,6 +5258,8 @@ export interface VideoViewsSelect<T extends boolean = true> {
   page?: T;
   etape?: T;
   jour?: T;
+  appareil?: T;
+  canal?: T;
   nombre?: T;
   updatedAt?: T;
   createdAt?: T;

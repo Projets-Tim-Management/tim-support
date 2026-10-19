@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "crypto";
 
 import { PLACEMENTS, type Placement } from "@/modules/forms/lib/form-schema";
+import { parseVideoLead, type VideoCta, type VideoPourcentage } from "@/modules/forms/lib/video-lead";
 
 /**
  * Ce qui entoure une soumission : le droit de l'envoyer, l'adresse du visiteur,
@@ -128,6 +129,10 @@ export interface Attribution {
    */
   gaClientId?: string;
   gaSessionId?: string;
+  /** La vidéo regardée pendant la visite, jusqu'où, et le bouton qui a ouvert la demande (voir video-lead.ts). */
+  videoId?: string;
+  videoPourcentage?: VideoPourcentage;
+  videoCta?: VideoCta;
 }
 
 /**
@@ -162,5 +167,6 @@ export function parseAttribution(raw: unknown): Attribution {
     fbclid: cap(a.fbclid, 500),
     gaClientId: exact(a.ga_client_id ?? a.gaClientId, 64, GA_CLIENT_ID),
     gaSessionId: exact(a.ga_session_id ?? a.gaSessionId, 32, GA_SESSION_ID),
+    ...parseVideoLead(a),
   };
 }
