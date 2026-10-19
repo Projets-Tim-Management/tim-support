@@ -3,6 +3,7 @@ import type { CollectionBeforeChangeHook, CollectionConfig } from "payload";
 import { isAdmin } from "@/core/access";
 import { CHANNEL_SOURCES } from "@/modules/forms/lib/channel";
 import { CHANNELS, PLACEMENTS } from "@/modules/forms/lib/form-schema";
+import { VIDEO_CTA_LABELS, VIDEO_CTAS, VIDEO_POURCENTAGE_LABELS, VIDEO_POURCENTAGES } from "@/modules/forms/lib/video-lead";
 
 /**
  * Ce qu'un visiteur a envoyé depuis le site vitrine — la trace BRUTE.
@@ -178,6 +179,27 @@ export const FormSubmissions: CollectionConfig = {
               ],
             },
             { name: "referrer", type: "text", label: "Référent", admin: { readOnly: true } },
+            {
+              // La vidéo regardée pendant la visite (voir lib/video-lead.ts) : absente = pas de vidéo.
+              type: "row",
+              fields: [
+                { name: "videoId", type: "text", label: "Vidéo regardée", index: true, admin: { width: "34%", readOnly: true } },
+                {
+                  name: "videoPourcentage",
+                  type: "select",
+                  label: "Jusqu'où",
+                  options: VIDEO_POURCENTAGES.map((value) => ({ value, label: VIDEO_POURCENTAGE_LABELS[value] })),
+                  admin: { width: "33%", readOnly: true },
+                },
+                {
+                  name: "videoCta",
+                  type: "select",
+                  label: "Demande ouverte",
+                  options: VIDEO_CTAS.map((value) => ({ value, label: VIDEO_CTA_LABELS[value] })),
+                  admin: { width: "33%", readOnly: true, description: "Vide : demande ouverte hors de la vidéo." },
+                },
+              ],
+            },
             {
               type: "collapsible",
               label: "Campagne",

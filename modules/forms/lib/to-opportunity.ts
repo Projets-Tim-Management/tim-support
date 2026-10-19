@@ -5,6 +5,7 @@ import type { PublicForm } from "@/modules/forms/lib/public-schema";
 import type { AnswerValue } from "@/modules/forms/lib/validate";
 import { channelLabel } from "@/modules/forms/lib/form-schema";
 import { SOURCE_BY_CHANNEL } from "@/core/lib/channels";
+import { videoLeadLine } from "@/modules/forms/lib/video-lead";
 
 /**
  * Traduction d'une soumission en opportunité — partie PURE, donc testable sans
@@ -162,6 +163,9 @@ export function buildOpportunity(args: {
     attribution.utmCampaign ? `campagne ${attribution.utmCampaign}` : "",
   ].filter(Boolean);
   lines.push(`Origine : ${origin.join(" · ")}.`);
+  // La vidéo regardée avant la demande : ce qu'il a déjà vu, avant d'appeler.
+  const video = videoLeadLine(attribution);
+  if (video) lines.push(`Vidéo : ${video.charAt(0).toLowerCase()}${video.slice(1)}.`);
 
   return {
     companyName,

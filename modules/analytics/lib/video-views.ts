@@ -264,3 +264,45 @@ export function buildVideosAnalytics(rows: VueRow[], n: number, now: Date): Vide
   });
   return { days, videos, daily };
 }
+
+/* ─── Les demandes de démo après une vidéo ───────────────────────────────── */
+
+/** Une demande du site portant une vidéo (form-submissions, voir forms/lib/video-lead.ts). */
+export type VideoLeadRow = { id: number | string; videoId?: string | null; videoPourcentage?: string | null; videoCta?: string | null; createdAt?: string };
+/** L'opportunité née d'une demande : son statut, son CA mensuel payé. */
+export type VideoLeadClientRow = { formSubmission?: number | string | { id?: number | string } | null; clientStatus?: string | null; caPaye?: number | null };
+
+export type VideoLeads = {
+  videoId: string;
+  demandes: number;
+  /** Ouvertes depuis un bouton de la vidéo. */
+  depuisFin: number;
+  depuisPause: number;
+  /** Par point le plus loin atteint : « 0 » … « 100 ». */
+  parPourcentage: Record<string, number>;
+  /** Devenues clientes (Gagnée) et leur CA mensuel payé HT. */
+  clientes: number;
+  caPaye: number;
+};
+
+/** Par vidéo : les demandes de démo de la période et ce qu'elles sont devenues. Pure. */
+export function buildVideoLeads(subs: VideoLeadRow[], clients: VideoLeadClientRow[], sinceIso: string): Map<string, VideoLeads> {
+  const subId = (ref: VideoLeadClientRow["formSubmission"]) => String(ref != null && typeof ref === "object" ? ref.id : ref);
+  const byLead = new Map(clients.map((c) => [subId(c.formSubmission), c]));
+  const out = new Map<string, VideoLeads>();
+  for (const s of subs) {
+    if (!s.videoId || (s.createdAt ?? "") < sinceIso) continue;
+    const v = out.get(s.videoId) ?? { videoId: s.videoId, demandes: 0, depuisFin: 0, depuisPause: 0, parPourcentage: {}, clientes: 0, caPaye: 0 };
+    v.demandes += 1;
+    if (s.videoCta === "fin") v.depuisFin += 1;
+    if (s.videoCta === "pause") v.depuisPause += 1;
+    if (s.videoPourcentage) v.parPourcentage[s.videoPourcentage] = (v.parPourcentage[s.videoPourcentage] ?? 0) + 1;
+    const client = byLead.get(String(s.id));
+    if (client?.clientStatus === "actif") {
+      v.clientes += 1;
+      v.caPaye += Number(client.caPaye ?? 0);
+    }
+    out.set(s.videoId, v);
+  }
+  return out;
+}
