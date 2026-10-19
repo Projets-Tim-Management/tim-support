@@ -2334,6 +2334,10 @@ export interface AdCampaign {
         }[]
       | null;
   };
+  /**
+   * Quel que soit le mode : une hausse de plus de 20 % ou la réactivation d'une campagne entière se valident à la main, et une pub refusée par Meta se met en pause d'office.
+   */
+  autonomy?: ('observer' | 'proposer' | 'autonome') | null;
   agentBudget?: {
     /**
      * IA et Meta ensemble.
@@ -2431,6 +2435,9 @@ export interface AdDecision {
     | 'rejet-controleur'
     | 'creation-sous-agent'
     | 'concurrent'
+    | 'budget'
+    | 'pause'
+    | 'activation'
     | 'attente';
   status: 'proposee' | 'executee' | 'bloquee';
   rationale: string;
@@ -2456,6 +2463,9 @@ export interface AdDecision {
     | boolean
     | null;
   guardrail?: string | null;
+  target?: string | null;
+  executedAt?: string | null;
+  reviewedBy?: (number | null) | User;
   instructions?: (number | AdInstruction)[] | null;
   learnings?: (number | AdLearning)[] | null;
   /**
@@ -4940,6 +4950,7 @@ export interface AdCampaignsSelect<T extends boolean = true> {
               id?: T;
             };
       };
+  autonomy?: T;
   agentBudget?:
     | T
     | {
@@ -5266,6 +5277,9 @@ export interface AdDecisionsSelect<T extends boolean = true> {
   before?: T;
   after?: T;
   guardrail?: T;
+  target?: T;
+  executedAt?: T;
+  reviewedBy?: T;
   instructions?: T;
   learnings?: T;
   citations?: T;
@@ -5981,6 +5995,14 @@ export interface AdsSetting {
    */
   agentMonthlyEur: number;
   /**
+   * Au-delà, la décision attend une validation à la main, même en mode autonome.
+   */
+  maxBudgetChangePct: number;
+  /**
+   * Pour ne pas relancer sans cesse la phase d'apprentissage de Meta. Une urgence passe outre.
+   */
+  minHoursBetweenChanges: number;
+  /**
    * 60 jours après sa création. Rappel à J-7 ; le renouvellement se fait à la main.
    */
   adLibraryTokenExpiresAt?: string | null;
@@ -6262,6 +6284,8 @@ export interface AdsSettingsSelect<T extends boolean = true> {
   agentPrepMaxEur?: T;
   agentDailyEur?: T;
   agentMonthlyEur?: T;
+  maxBudgetChangePct?: T;
+  minHoursBetweenChanges?: T;
   adLibraryTokenExpiresAt?: T;
   updatedAt?: T;
   createdAt?: T;

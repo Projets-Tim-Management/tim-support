@@ -188,6 +188,19 @@ export const AdCampaigns: CollectionConfig = {
               admin: { components: { Field: "/modules/ads/admin/AgentPanel#AgentPanel" } },
             },
             {
+              // D5 : ce que l'agent a le droit de faire seul sur la campagne en ligne (plan, §6).
+              name: "autonomy",
+              type: "select",
+              label: "Autonomie de l'agent",
+              defaultValue: "proposer",
+              options: [
+                { label: "Observer — il rapporte, il n'agit pas", value: "observer" },
+                { label: "Proposer — tout passe par « À valider »", value: "proposer" },
+                { label: "Autonome — il agit seul dans les garde-fous", value: "autonome" },
+              ],
+              admin: { description: "Quel que soit le mode : une hausse de plus de 20 % ou la réactivation d'une campagne entière se valident à la main, et une pub refusée par Meta se met en pause d'office." },
+            },
+            {
               name: "agentBudget",
               type: "group",
               label: false,

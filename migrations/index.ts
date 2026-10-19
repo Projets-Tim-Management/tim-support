@@ -162,6 +162,7 @@ import * as migration_20261019_105000_video_views_index_v1 from './20261019_1050
 import * as migration_20261019_142352_ads_brief_claude_design from './20261019_142352_ads_brief_claude_design';
 import * as migration_20261019_145810_ads_compte_diffusion from './20261019_145810_ads_compte_diffusion';
 import * as migration_20261019_152431_ads_publication from './20261019_152431_ads_publication';
+import * as migration_20261019_162421_ads_actions_phase2 from './20261019_162421_ads_actions_phase2';
 
 export const migrations = [
   {
@@ -982,6 +983,11 @@ export const migrations = [
   {
     up: migration_20261019_152431_ads_publication.up,
     down: migration_20261019_152431_ads_publication.down,
-    name: '20261019_152431_ads_publication'
+    name: '20261019_152431_ads_publication',
+  },
+  {
+    up: migration_20261019_162421_ads_actions_phase2.up,
+    down: migration_20261019_162421_ads_actions_phase2.down,
+    name: '20261019_162421_ads_actions_phase2'
   },
 ];

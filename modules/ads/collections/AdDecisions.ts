@@ -24,6 +24,10 @@ export const DECISION_KINDS = [
   { label: "Rejet du contrôleur", value: "rejet-controleur" },
   { label: "Création d'un sous-agent", value: "creation-sous-agent" },
   { label: "Concurrent proposé", value: "concurrent" },
+  // Phase 2 : ce qui s'applique chez Meta, sous les garde-fous (lib/actions.ts).
+  { label: "Budget", value: "budget" },
+  { label: "Pause", value: "pause" },
+  { label: "Réactivation", value: "activation" },
   // « Attendre » est une décision : on sait pourquoi rien n'a bougé (§9 quinquies, règle 6).
   { label: "Attente", value: "attente" },
 ] as const;
@@ -75,6 +79,16 @@ export const AdDecisions: CollectionConfig = {
     { name: "before", type: "json", label: "Avant" },
     { name: "after", type: "json", label: "Décidé", admin: { description: "Les valeurs structurées de la décision (montants, audience, angle…)." } },
     { name: "guardrail", type: "text", label: "Garde-fou déclenché" },
+    // L'objet chez Meta que vise une action (budget, pause, réactivation), et quand elle a été appliquée :
+    // c'est ce que lit la règle des 72 h entre deux modifications d'un même objet.
+    {
+      type: "row",
+      fields: [
+        { name: "target", type: "text", label: "Objet chez Meta", index: true, admin: { width: "50%" } },
+        { name: "executedAt", type: "date", label: "Appliquée le", index: true, admin: { width: "50%", date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" } } },
+      ],
+    },
+    { name: "reviewedBy", type: "relationship", relationTo: "users", label: "Validée ou refusée par", admin: { condition: (d) => Boolean(d?.reviewedBy) } },
     // Les appuis de la décision (§9 quinquies) : quelles consignes et quels
     // apprentissages ont pesé. Le texte est copié au moment de la citation —
     // la décision garde sa raison si la ligne est modifiée ou supprimée.

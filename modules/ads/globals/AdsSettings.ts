@@ -65,6 +65,31 @@ const fields: Field[] = [
         ],
       },
       {
+        // Phase 2 (plan, §6) : ce qu'une décision appliquée chez Meta n'a pas le droit de faire.
+        type: "row",
+        fields: [
+          {
+            name: "maxBudgetChangePct",
+            type: "number",
+            label: "Variation de budget max par décision (%)",
+            defaultValue: 20,
+            min: 1,
+            max: 100,
+            required: true,
+            admin: { width: "50%", description: "Au-delà, la décision attend une validation à la main, même en mode autonome." },
+          },
+          {
+            name: "minHoursBetweenChanges",
+            type: "number",
+            label: "Délai entre deux modifications d'un objet (h)",
+            defaultValue: 72,
+            min: 1,
+            required: true,
+            admin: { width: "50%", description: "Pour ne pas relancer sans cesse la phase d'apprentissage de Meta. Une urgence passe outre." },
+          },
+        ],
+      },
+      {
         name: "adLibraryTokenExpiresAt",
         type: "date",
         label: "Expiration du jeton de la bibliothèque publicitaire",

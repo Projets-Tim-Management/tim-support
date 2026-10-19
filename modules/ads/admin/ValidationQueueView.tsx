@@ -13,6 +13,7 @@ import { expectedFileNames } from "@/modules/ads/lib/design-brief/prompt";
 import { testLabel, toneLabel, type TestDimension } from "@/modules/ads/lib/dimensions";
 import type { FormatKey } from "@/modules/ads/lib/meta-specs";
 
+import { ActionProposals, type ProposedAction } from "./ActionProposals";
 import { CreativeCard, type CardCreative, type Attachment } from "./CreativeCard";
 import { NotebookProposals, type ProposedInstruction, type ProposedLearning } from "./NotebookProposals";
 
@@ -156,7 +157,7 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
   if (hasAdminRole(user)) {
     const status = tab === "validees" ? "validee" : "a-valider";
     const where: Where = { and: [{ status: { equals: status } }, ...(campaignFilter ? [{ campaign: { equals: campaignFilter } }] : [])] };
-    const [list, counts, campaigns, proposedInstructions, proposedLearnings, proposals, kit] = await Promise.all([
+    const [list, counts, campaigns, proposedInstructions, proposedLearnings, proposals, kit, actions] = await Promise.all([
       // Profondeur 1 : campagne, faits et rushes du brief — tout ce que la carte lit.
       tab === "validees"
         ? payload.find({ collection: "ad-creatives", where, sort: "-decidedAt", limit: VALIDATED_LIMIT, depth: 1, overrideAccess: true })
@@ -168,7 +169,26 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
       tab === "a-valider" ? pendingProposals(payload, campaignFilter) : Promise.resolve([]),
       // Les logos du kit : à joindre à chaque brief, avec les rushes.
       payload.findGlobal({ slug: "ads-brand-kit", depth: 1, overrideAccess: true }) as unknown as Promise<Record<string, { url?: string | null; filename?: string | null } | number | null>>,
+      // Les actions de l'agent sur les campagnes en ligne (phase 2) qui attendent Charlie.
+      tab === "a-valider"
+        ? payload.find({
+            collection: "ad-decisions",
+            where: { and: [{ kind: { in: ["budget", "pause", "activation"] } }, { status: { equals: "proposee" } }, ...(campaignFilter ? [{ campaign: { equals: campaignFilter } }] : [])] },
+            sort: "createdAt",
+            pagination: false,
+            depth: 1,
+            overrideAccess: true,
+          })
+        : Promise.resolve({ docs: [] }),
     ]);
+    const proposedActions: ProposedAction[] = (actions.docs as unknown as { id: number; campaign?: { name?: string } | number; after?: { summary?: string } | null; rationale: string; guardrail?: string | null; createdAt: string }[]).map((d) => ({
+      id: d.id,
+      campaign: typeof d.campaign === "object" && d.campaign ? (d.campaign.name ?? "") : "",
+      summary: d.after?.summary ?? "Action",
+      rationale: d.rationale,
+      why: d.guardrail ?? null,
+      createdAt: d.createdAt,
+    }));
     const logos: Attachment[] = (["logoOnLight", "logoOnDark", "logoSymbol"] as const)
       .map((k) => kit[k])
       .filter((m): m is { url?: string | null; filename?: string | null } => typeof m === "object" && m !== null && Boolean(m.url))
@@ -184,6 +204,7 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
 
     body = (
       <>
+        {tab === "a-valider" && <ActionProposals actions={proposedActions} />}
         {tab === "a-valider" && (
           <NotebookProposals instructions={(proposedInstructions.docs as never[]).map(toInstruction)} learnings={(proposedLearnings.docs as never[]).map(toLearning)} />
         )}

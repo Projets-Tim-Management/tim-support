@@ -453,3 +453,14 @@
 .ads-publish__previews figcaption { font-size: 0.75rem; color: var(--tim-muted); }
 .ads-publish__history { margin: 0; padding-left: 1.1rem; font-size: 0.8rem; color: var(--tim-foreground); }
 .ads-publish__history time { color: var(--tim-muted); margin-right: 0.35rem; }
+
+/* ─── À valider › actions de l'agent (phase 2) ─────────────────────────────── */
+.ads-actions-queue { margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px solid var(--tim-border); border-radius: 0.6rem; background: var(--tim-surface); }
+.ads-actions-queue h2 { margin: 0 0 0.75rem; font-size: 1rem; }
+.ads-actions-queue ul { display: flex; flex-direction: column; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+.ads-actions-queue__item { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; padding-bottom: 0.75rem; border-bottom: 1px solid var(--tim-border); }
+.ads-actions-queue__item:last-child { border-bottom: 0; padding-bottom: 0; }
+.ads-actions-queue__item > div:first-child { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; flex: 1 1 20rem; }
+.ads-actions-queue__item span, .ads-actions-queue__item small { font-size: 0.8rem; color: var(--tim-muted); }
+.ads-actions-queue__item p { margin: 0.2rem 0 0; font-size: 0.85rem; }
+.ads-actions-queue__buttons { display: flex; gap: 0.5rem; }
