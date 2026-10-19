@@ -1,5 +1,9 @@
 import type {
   AccessReport,
+  NewAdSet,
+  NewCampaign,
+  NewCreative,
+  VideoState,
   TargetingKind,
   TargetingOption,
   AccountContext,
@@ -53,6 +57,9 @@ function unit(key: string): number {
   return (h >>> 0) / 0x100000000;
 }
 
+/** Un identifiant simulé, stable pour une clé (« 1200… » comme chez Meta). */
+const mockId = (prefix: string, key: string) => `12${String(Math.floor(unit(`${prefix}:${key}`) * 1e13)).padStart(13, "0")}`;
+
 /** Jours inclus entre deux dates AAAA-MM-JJ. */
 export function daysBetween(range: DateRange): string[] {
   const out: string[] = [];
@@ -91,7 +98,19 @@ export function createMockMetaPlatform(): AdPlatform {
   return {
     key: "meta",
     label: "Meta",
-    capabilities: ["lecture"],
+    capabilities: ["lecture", "creation", "upload-crea", "statut", "budget"],
+
+    // Écritures simulées : des identifiants stables (même nom → même identifiant), rien n'est gardé.
+    createCampaign: async (_a: AccountContext, c: NewCampaign) => mockId("c", c.name),
+    createAdSet: async (_a: AccountContext, x: NewAdSet) => mockId("s", `${x.campaignId}:${x.name}`),
+    uploadImage: async (_a: AccountContext, url: string) => ({ hash: mockId("h", url) }),
+    uploadVideo: async (_a: AccountContext, url: string) => ({ id: mockId("v", url) }),
+    videoState: async (): Promise<VideoState> => ({ ready: true, error: null, thumbnailUrl: "https://example.test/vignette.jpg" }),
+    createCreative: async (_a: AccountContext, c: NewCreative) => mockId("k", c.name),
+    createAd: async (_a: AccountContext, x: { name: string; adSetId: string; creativeId: string }) => mockId("a", `${x.adSetId}:${x.creativeId}`),
+    adPreview: async (_a: AccountContext, adId: string, format: string) => `<p>${MOCK_PREFIX} Aperçu de la publicité ${adId} (${format})</p>`,
+    setStatus: async () => {},
+    setBudget: async () => {},
 
     async connect(): Promise<{ token: string; expiresAt: Date }> {
       return { token: MOCK_TOKEN, expiresAt: new Date(Date.now() + 60 * 86_400_000) };
