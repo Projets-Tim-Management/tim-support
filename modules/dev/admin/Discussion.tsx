@@ -3,7 +3,7 @@
 import { useAuth, useField, useForm } from "@payloadcms/ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { displayName, useTeam, type Person } from "@/modules/dev/admin/team";
+import { displayName, personStyle, useTeam, type Person } from "@/modules/dev/admin/team";
 import {
   pendingQuestions,
   refId,
@@ -162,7 +162,7 @@ export const Discussion = (props: Props) => {
                 return (
                   <article key={`${row}-${comment.at ?? ""}`} className="dev-msg">
                     <header className="dev-msg__head">
-                      <span className="dev-msg__who">
+                      <span className="dev-msg__who" style={author ? personStyle(team, author) : undefined}>
                         {(author && team.map[author]) || "Quelqu'un"}
                       </span>
                       <span className="dev-msg__when">{when(comment.at)}</span>

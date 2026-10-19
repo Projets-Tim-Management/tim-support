@@ -3,7 +3,7 @@
 import { toast, useDocumentInfo, useField, useForm, useRowLabel } from "@payloadcms/ui";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { initialsOf, useTeam } from "@/modules/dev/admin/team";
+import { initialsOf, personStyle, useTeam } from "@/modules/dev/admin/team";
 import { commentCount, pendingQuestions, refId } from "@/modules/dev/lib/discussion";
 
 /**
@@ -234,7 +234,7 @@ export function ChecklistRowLabel() {
         }}
       />
       {people.slice(0, 2).map((name) => (
-        <span key={name} className="dev-check__who" title={`Assigné à ${name}`}>
+        <span key={name} className="dev-check__who dev-person" style={personStyle(team, name)} title={`Assigné à ${name}`}>
           {initialsOf(name)}
         </span>
       ))}

@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AnnounceDrawer, type AnnounceTarget } from "@/modules/dev/admin/AnnounceDrawer";
-import { initialsOf } from "@/modules/dev/admin/team";
+import { initialsOf, personStyle, useTeam } from "@/modules/dev/admin/team";
 import { devMeta, paletteColor } from "@/modules/dev/lib/devMeta";
 import { platformKind } from "@/modules/dev/lib/platforms";
 import { DEV_PHASES, statusHasRole, type DevStatusDoc } from "@/modules/dev/lib/devStatus";
+import { requestersTip, type PotentialDetail } from "@/modules/dev/lib/potential-shared";
+import { PotentialBadge } from "@/modules/partner/admin/PotentialBadge";
 
 /**
  * Vue Kanban des développements : une colonne par statut, les colonnes
@@ -47,7 +49,18 @@ type DevDoc = {
   platforms?: Ref[] | Ref;
   /** Les demandeurs déjà prévenus que c'est livré (voir AnnounceDrawer). */
   announcedAt?: string | null;
+  /** Le % de signature du demandeur le plus chaud (voir lib/potential.ts). */
+  potential?: number | null;
+  potentialDetail?: PotentialDetail | null;
 };
+
+/**
+ * L'ordre des cartes dans une colonne : celui donné à la main (le rang), ou
+ * le potentiel — les développements attendus par les prospects les plus
+ * proches de signer d'abord. Retenu d'une visite à l'autre.
+ */
+type CardOrder = "rang" | "potentiel";
+const ORDER_KEY = "tim-dev-board-order";
 
 const nameOf = (ref: unknown): string => {
   if (!ref || typeof ref !== "object") return "";
@@ -100,6 +113,8 @@ const refId = (ref: unknown): string | null => {
 };
 
 export function DevBoard() {
+  // Les couleurs des personnes : celles de leur place dans l'équipe (voir team.ts).
+  const team = useTeam();
   const router = useRouter();
   const [statuses, setStatuses] = useState<DevStatusDoc[] | null>(null);
   const [docs, setDocs] = useState<DevDoc[] | null>(null);
@@ -118,6 +133,23 @@ export function DevBoard() {
    * tableau comme depuis la fiche — c'est ici qu'on termine un développement.
    */
   const [announcing, setAnnouncing] = useState<AnnounceTarget | null>(null);
+  const [order, setOrder] = useState<CardOrder>("rang");
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(ORDER_KEY) === "potentiel") setOrder("potentiel");
+    } catch {
+      // Stockage indisponible : l'ordre manuel par défaut.
+    }
+  }, []);
+  const chooseOrder = (next: CardOrder) => {
+    setOrder(next);
+    setOver(null);
+    try {
+      localStorage.setItem(ORDER_KEY, next);
+    } catch {
+      // Sans stockage, le choix vaut pour cette visite.
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -170,11 +202,15 @@ export function DevBoard() {
     // Le plus important en haut. Une carte sans rang passe en dernier plutôt
     // que devant : ne pas avoir été classée n'est pas une priorité.
     const LAST = Number.MAX_SAFE_INTEGER;
+    // Par potentiel : le plus chaud en haut, puis l'ordre manuel ; sans demandeur, en bas.
     for (const key of Object.keys(map)) {
-      map[key].sort((a, b) => (a.rank ?? LAST) - (b.rank ?? LAST));
+      map[key].sort(
+        (a, b) =>
+          (order === "potentiel" ? (b.potential ?? -1) - (a.potential ?? -1) : 0) || (a.rank ?? LAST) - (b.rank ?? LAST),
+      );
     }
     return map;
-  }, [docs, statuses]);
+  }, [docs, statuses, order]);
 
   /**
    * Les bandeaux du tableau : les cinq phases, dans leur ordre, chacune avec
@@ -200,44 +236,15 @@ export function DevBoard() {
     ].filter((g) => g.statuses.length > 0);
   }, [statuses]);
 
-  /**
-   * Poser la carte `id` dans la colonne `status`, à la position `index`.
-   *
-   * On renumérote la colonne d'arrivée de 1 à N et on n'écrit que les cartes
-   * dont le rang a réellement changé. Des rangs pleins plutôt que des demis
-   * (1,5 ; 1,75) : l'utilisateur raisonne en « première », « deuxième », et un
-   * rang qu'on peut lire est un rang qu'on peut corriger.
-   */
-  const move = useCallback(
-    async (id: number | string, status: DevStatusDoc, index: number) => {
-      const before = docs;
-      const statusId = String(status.id);
-      const moved = (docs ?? []).find((d) => String(d.id) === String(id));
-      if (!moved) return;
-
-      const shown = byStatus[statusId] ?? [];
-      const column = shown.filter((d) => String(d.id) !== String(id));
-      /**
-       * L'index visé est compté sur la colonne AFFICHÉE, carte tenue comprise ;
-       * il s'applique ici à la colonne PRIVÉE d'elle. Quand la carte descend
-       * dans sa propre colonne, tout ce qui la suivait a déjà reculé d'un cran :
-       * sans cette correction, elle sautait une place de trop.
-       */
-      const from = shown.findIndex((d) => String(d.id) === String(id));
-      const target = from >= 0 && from < index ? index - 1 : index;
-      const at = Math.max(0, Math.min(target, column.length));
-      const ordered = [...column.slice(0, at), moved, ...column.slice(at)];
-
-      const changed: { id: number | string; rank: number; status?: number | string }[] = [];
-      ordered.forEach((doc, i) => {
-        const rank = i + 1;
-        const isMoved = String(doc.id) === String(id);
-        const changedColumn = isMoved && refId(doc.status) !== statusId;
-        if (doc.rank !== rank || changedColumn) {
-          changed.push({ id: doc.id, rank, ...(changedColumn ? { status: status.id } : {}) });
-        }
-      });
-
+  /** Enregistre les rangs (et la colonne) changés, puis propose l'annonce si la carte arrive dans « Terminé ». */
+  const commit = useCallback(
+    async (
+      before: DevDoc[] | null,
+      moved: DevDoc,
+      status: DevStatusDoc,
+      changed: { id: number | string; rank: number; status?: number | string }[],
+      changedColumn: boolean,
+    ) => {
       // Optimiste : les cartes suivent le curseur tout de suite. En cas
       // d'échec on remet l'état d'avant — une carte qui revient en place dit
       // mieux qu'un message que le changement n'a pas pris.
@@ -276,7 +283,6 @@ export function DevBoard() {
       // Arrivée dans « Terminé » (un statut qui prévient les demandeurs), avec
       // des clients qui attendaient et pas encore prévenus : on propose
       // l'envoi tout de suite, statut déjà enregistré.
-      const changedColumn = changed.some((c) => String(c.id) === String(id) && c.status != null);
       const requesters = Array.isArray(moved.opportunities)
         ? moved.opportunities.length
         : moved.opportunities == null
@@ -286,7 +292,61 @@ export function DevBoard() {
         setAnnouncing({ id: moved.id, title: moved.title ?? "" });
       }
     },
-    [byStatus, docs],
+    [],
+  );
+
+  /**
+   * Poser la carte `id` dans la colonne `status`, à la position `index`.
+   *
+   * On renumérote la colonne d'arrivée de 1 à N et on n'écrit que les cartes
+   * dont le rang a réellement changé. Des rangs pleins plutôt que des demis
+   * (1,5 ; 1,75) : l'utilisateur raisonne en « première », « deuxième », et un
+   * rang qu'on peut lire est un rang qu'on peut corriger.
+   */
+  const move = useCallback(
+    async (id: number | string, status: DevStatusDoc, index: number) => {
+      const before = docs;
+      const statusId = String(status.id);
+      const moved = (docs ?? []).find((d) => String(d.id) === String(id));
+      if (!moved) return;
+
+      const shown = byStatus[statusId] ?? [];
+      /**
+       * Trié par potentiel, l'ordre affiché n'est pas celui de Mathieu :
+       * renuméroter la colonne l'écraserait. On change alors seulement de
+       * colonne, la carte prenant la dernière place de l'ordre manuel.
+       */
+      if (order === "potentiel") {
+        if (refId(moved.status) === statusId) return;
+        const last = shown.reduce((m, d) => Math.max(m, d.rank ?? 0), 0);
+        const changed = [{ id: moved.id, rank: last + 1, status: status.id }];
+        return commit(before, moved, status, changed, true);
+      }
+      const column = shown.filter((d) => String(d.id) !== String(id));
+      /**
+       * L'index visé est compté sur la colonne AFFICHÉE, carte tenue comprise ;
+       * il s'applique ici à la colonne PRIVÉE d'elle. Quand la carte descend
+       * dans sa propre colonne, tout ce qui la suivait a déjà reculé d'un cran :
+       * sans cette correction, elle sautait une place de trop.
+       */
+      const from = shown.findIndex((d) => String(d.id) === String(id));
+      const target = from >= 0 && from < index ? index - 1 : index;
+      const at = Math.max(0, Math.min(target, column.length));
+      const ordered = [...column.slice(0, at), moved, ...column.slice(at)];
+
+      const changed: { id: number | string; rank: number; status?: number | string }[] = [];
+      ordered.forEach((doc, i) => {
+        const rank = i + 1;
+        const isMoved = String(doc.id) === String(id);
+        const changedColumn = isMoved && refId(doc.status) !== statusId;
+        if (doc.rank !== rank || changedColumn) {
+          changed.push({ id: doc.id, rank, ...(changedColumn ? { status: status.id } : {}) });
+        }
+      });
+
+      return commit(before, moved, status, changed, changed.some((c) => String(c.id) === String(id) && c.status != null));
+    },
+    [byStatus, commit, docs, order],
   );
 
   if (error && !docs) {
@@ -321,6 +381,28 @@ export function DevBoard() {
           {error}
         </p>
       ) : null}
+      <div className="dev-board__tools">
+        <span className="dev-board__tools-label">Ordre des cartes</span>
+        <div className="tim-view-switch" role="group" aria-label="Ordre des cartes">
+          <button
+            type="button"
+            aria-pressed={order === "rang"}
+            className={`tim-view-switch__btn${order === "rang" ? " tim-view-switch__btn--active" : ""}`}
+            onClick={() => chooseOrder("rang")}
+          >
+            Manuel
+          </button>
+          <button
+            type="button"
+            aria-pressed={order === "potentiel"}
+            className={`tim-view-switch__btn${order === "potentiel" ? " tim-view-switch__btn--active" : ""}`}
+            onClick={() => chooseOrder("potentiel")}
+            title="Les développements attendus par les prospects les plus proches de signer d'abord"
+          >
+            Par potentiel
+          </button>
+        </div>
+      </div>
       <div className="dev-board">
         {groups.map((group) => {
           const total = group.statuses.reduce((n, s) => n + (byStatus[String(s.id)]?.length ?? 0), 0);
@@ -343,7 +425,8 @@ export function DevBoard() {
                       // de la pile. Les cartes, elles, affinent l'index.
                       onDragOver={(e) => {
                         e.preventDefault();
-                        setOver({ index: cards.length, status: String(s.id) });
+                        // Par potentiel, pas de place à viser : seule la colonne compte.
+                        setOver({ index: order === "potentiel" ? -1 : cards.length, status: String(s.id) });
                       }}
                       onDragLeave={() => setOver((c) => (c?.status === String(s.id) ? null : c))}
                       onDrop={(e) => {
@@ -420,7 +503,7 @@ export function DevBoard() {
                                 e.stopPropagation();
                                 const box = e.currentTarget.getBoundingClientRect();
                                 const after = e.clientY > box.top + box.height / 2;
-                                setOver({ index: cardIndex + (after ? 1 : 0), status: String(s.id) });
+                                setOver({ index: order === "potentiel" ? -1 : cardIndex + (after ? 1 : 0), status: String(s.id) });
                               }}
                               onClick={() => router.push(`/admin/collections/developments/${doc.id}`)}
                             >
@@ -447,15 +530,15 @@ export function DevBoard() {
                                 ) : null}
                               </div>
 
-                              {/* QUI s'en occupe, en pastille — l'équivalent de
-                                  l'apporteur sur une carte d'opportunité. */}
-                              {people.length > 0 ? (
-                                <div className="tim-kanban__chip" title={people.join(", ")}>
-                                  <span className="tim-kanban__avatar">{initialsOf(people[0])}</span>
-                                  <span className="tim-kanban__chip-name">
-                                    {people[0]}
-                                    {people.length > 1 ? ` +${people.length - 1}` : ""}
-                                  </span>
+                              {/* Ce que ça peut faire signer : le % du
+                                  demandeur le plus chaud, son statut, qui. */}
+                              {doc.potential != null ? (
+                                <div className="dev-card__potential">
+                                  <PotentialBadge
+                                    score={doc.potential}
+                                    status={doc.potentialDetail?.requesters?.[0]?.status}
+                                    tip={requestersTip(doc.potentialDetail)}
+                                  />
                                 </div>
                               ) : null}
 
@@ -539,6 +622,28 @@ export function DevBoard() {
                                         )}
                                       </span>
                                     ))}
+                                    {/* QUI s'en occupe : ses initiales seules, dans
+                                        le pied — aucune ligne de la carte n'y est
+                                        consacrée. Le nom vient en infobulle. */}
+                                    {people.length > 0 ? (
+                                      <span className="dev-card__people">
+                                        {people.slice(0, 2).map((name) => (
+                                          <span
+                                            key={name}
+                                            className="tim-kanban__avatar dev-person dev-tip"
+                                            data-tip={name}
+                                            style={personStyle(team, name)}
+                                          >
+                                            {initialsOf(name)}
+                                          </span>
+                                        ))}
+                                        {people.length > 2 ? (
+                                          <span className="tim-kanban__avatar dev-card__people-more dev-tip" data-tip={people.slice(2).join("\n")}>
+                                            +{people.length - 2}
+                                          </span>
+                                        ) : null}
+                                      </span>
+                                    ) : null}
                                   </span>
                               </footer>
                             </article>

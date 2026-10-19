@@ -15,6 +15,7 @@ import { LossReasonModal, type LossOutcome } from "@/modules/partner/admin/LossR
 import { taskKindLabel, taskKindMeta } from "@/modules/partner/lib/activity";
 import {
   CLIENT_STATUSES,
+  clientPhase,
   DEFAULT_CLIENT_STATUS,
   needsEndDate,
 } from "@/modules/partner/lib/clientStatus";
@@ -23,6 +24,7 @@ import { isStepDone } from "@/modules/marketing/lib/journey";
 import { isInviteMissing, readPortalLogins } from "@/modules/marketing/lib/invite-status";
 import { partnerStepsOnCard } from "@/modules/marketing/lib/partner-steps";
 import { eur } from "@/modules/partner/lib/format";
+import { scoreTone, signatureScore, WINDOW_DAYS, type ScoreActivity } from "@/modules/partner/lib/signature-score";
 
 /**
  * Vue Kanban des « Opportunités » : une colonne par statut, cartes
@@ -58,6 +60,7 @@ type ClientDoc = {
   lossReason?: string | null;
   lossReasonDetail?: string | null;
   updatedAt?: string;
+  createdAt?: string;
   _status?: string;
   intakeIssues?: { field?: string; message?: string }[] | null;
   partner?: PartnerRef;
@@ -354,6 +357,8 @@ export function PartnerClientsBoard() {
           "contractStartDate",
           "resiliationDate",
           "updatedAt",
+          // Le % de signature : un lead de moins de 30 jours n'est pas « silencieux ».
+          "createdAt",
           "partner",
           "_status",
           // La réserve d'entrée (e-mail mal formé…) : un mot sur la carte, pour
@@ -535,6 +540,41 @@ export function PartnerClientsBoard() {
         setTasksByClient(map);
       } catch {
         // Sans échéances, le Kanban reste utilisable : elles sont un plus.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
+   * Les échanges des 60 derniers jours (tâches faites, e-mails), en UNE requête
+   * pour tout le tableau : ce qu'il faut au % de signature de chaque carte
+   * (voir signature-score.ts), calculé ici comme sur la fiche.
+   */
+  const [exchangesByClient, setExchangesByClient] = useState<Record<string, ScoreActivity[]> | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const since = new Date(Date.now() - WINDOW_DAYS * 86_400_000).toISOString();
+        const qs =
+          `?where[type][in]=tache,email&where[or][0][occurredAt][greater_than_equal]=${since}` +
+          `&where[or][1][doneAt][greater_than_equal]=${since}&limit=5000&depth=0` +
+          "&select[client]=true&select[type]=true&select[taskKind]=true&select[done]=true" +
+          "&select[doneAt]=true&select[occurredAt]=true&select[emailDirection]=true";
+        const res = await fetch(`/payload-api/client-activities${qs}`, { credentials: "include" });
+        const json = res.ok ? await res.json() : { docs: [] };
+        if (cancelled) return;
+        const map: Record<string, ScoreActivity[]> = {};
+        for (const a of (json?.docs ?? []) as (ScoreActivity & { client?: number | string | { id?: number | string } })[]) {
+          const cid = a.client && typeof a.client === "object" ? a.client.id : a.client;
+          if (cid == null) continue;
+          (map[String(cid)] ??= []).push(a);
+        }
+        setExchangesByClient(map);
+      } catch {
+        // Sans échanges, pas de % sur les cartes : le Kanban reste utilisable.
       }
     })();
     return () => {
@@ -920,9 +960,29 @@ export function PartnerClientsBoard() {
                         </div>
                       )}
 
-                      <div className="tim-kanban__activity">
-                        Dernière activité : {relativeActivity(c.updatedAt)}
-                      </div>
+                      {/* Le % de signature au bout de la ligne d'activité : il
+                          n'ajoute pas de ligne à la carte ; son détail au survol.
+                          Rien pour une affaire gagnée ou terminée. */}
+                      {(() => {
+                        const score =
+                          exchangesByClient && !["client", "fin"].includes(clientPhase(c.clientStatus))
+                            ? signatureScore(c.clientStatus, exchangesByClient[String(c.id)] ?? [], new Date(), c.createdAt)
+                            : null;
+                        return (
+                          <div className="tim-kanban__activity tim-kanban__activity--score">
+                            <span>Dernière activité : {relativeActivity(c.updatedAt)}</span>
+                            {score ? (
+                              <span
+                                className={`tim-potential__pct tim-potential__pct--${scoreTone(score.score)}`}
+                                onMouseEnter={(e) => showTip(e, `% de signature : ${score.explanation}`)}
+                                onMouseLeave={() => setTip(null)}
+                              >
+                                {score.score} %
+                              </span>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
 
                       {/* Espace ouvert, invitation jamais partie : le client
                           n'a ni lien ni code, donc aucun moyen d'agir. Placé

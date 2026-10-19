@@ -154,6 +154,7 @@ import * as migration_20261015_144532_mesure_ga4 from './20261015_144532_mesure_
 import * as migration_20261016_064745_mesure_ga4_envois from './20261016_064745_mesure_ga4_envois';
 import * as migration_20261016_094649_licence_visuel from './20261016_094649_licence_visuel';
 import * as migration_20261016_134706_licence_bureau_prestations from './20261016_134706_licence_bureau_prestations';
+import * as migration_20261019_082224_dev_potential from './20261019_082224_dev_potential';
 
 export const migrations = [
   {
@@ -934,6 +935,11 @@ export const migrations = [
   {
     up: migration_20261016_134706_licence_bureau_prestations.up,
     down: migration_20261016_134706_licence_bureau_prestations.down,
-    name: '20261016_134706_licence_bureau_prestations'
+    name: '20261016_134706_licence_bureau_prestations',
+  },
+  {
+    up: migration_20261019_082224_dev_potential.up,
+    down: migration_20261019_082224_dev_potential.down,
+    name: '20261019_082224_dev_potential'
   },
 ];

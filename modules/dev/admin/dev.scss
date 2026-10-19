@@ -935,8 +935,9 @@ body.tim-dev-kanban .collection-list__list-selection {
   overflow: visible;
   border: 2px solid transparent;
   border-radius: 50%;
-  background: var(--tim-elevation-150);
-  color: var(--tim-muted);
+  /* Chaque personne a sa couleur (team.ts, `--person`) : grisée tant qu'elle n'est pas choisie. */
+  background: var(--person, var(--tim-elevation-150));
+  color: var(--tim-white);
   cursor: pointer;
   /* Les non-choisis s'effacent : la personne assignée doit sauter aux yeux. */
   opacity: 0.55;
@@ -950,9 +951,21 @@ body.tim-dev-kanban .collection-list__list-selection {
 .dev-people__btn--on {
   opacity: 1;
   filter: none;
-  border-color: var(--tim-primary);
-  color: var(--tim-foreground);
-  background: var(--tim-primary-light);
+  /* Choisie : sa couleur pleine, cerclée de blanc puis d'elle-même — reconnaissable même avec une photo. */
+  border-color: var(--tim-white);
+  box-shadow: 0 0 0 2px var(--person, var(--tim-primary));
+  color: var(--tim-white);
+  background: var(--person, var(--tim-primary-light));
+}
+
+/* Une pastille de personne en couleur (checklist, cartes du Kanban) : la couleur de la personne, initiales en blanc. */
+.dev-check__who.dev-person,
+.tim-kanban__avatar.dev-person {
+  background: var(--person, var(--tim-elevation-150));
+  color: var(--tim-white);
+}
+.dev-msg__who[style] {
+  color: var(--person, var(--tim-foreground));
 }
 .dev-people__btn:disabled {
   cursor: default;
@@ -1373,18 +1386,6 @@ body.tim-dev-kanban .collection-list__list-selection {
 .dev-board .dev-card__top {
   margin: 0.9rem 0 0;
 }
-/* QUI s'en occupe, collé à droite : les pastilles de qualification tiennent le
-   bord gauche, la personne tient le bord droit. Deux ancrages plutôt qu'une
-   colonne unique où tout se suit — on retrouve « qui » sans lire le reste.
-   `width: fit-content` + `margin-left: auto` : la pastille reste à sa taille et
-   se pousse à droite dans le flux du bloc. */
-.dev-board .tim-kanban__chip {
-  display: flex;
-  width: fit-content;
-  max-width: 100%;
-  margin-left: auto;
-}
-
 /* L'avancement se cale sur la ligne d'activité d'une opportunité. */
 .dev-board .dev-card__check {
   margin-top: 0.55rem;
@@ -2114,3 +2115,60 @@ body.dev-gallery-mode {
 /* Ouvrir une demande dans Claude Code (VS Code). */
 .dev-claude-code { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
 .dev-claude-code small { font-size: 0.75rem; color: var(--tim-muted); }
+
+/* Le potentiel sur la carte (le % du demandeur le plus chaud), et le choix de
+   l'ordre des cartes au-dessus du tableau. */
+.dev-board .dev-card__potential {
+  margin-top: 0.55rem;
+}
+.dev-board__tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.dev-board__tools .tim-view-switch {
+  margin-bottom: 0.75rem;
+}
+.dev-board__tools-label {
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+
+/* QUI s'en occupe : les initiales en bout de pied de carte, superposées
+   s'il y a plusieurs personnes — le nom n'occupe plus de ligne. */
+.dev-card__people {
+  display: inline-flex;
+  align-items: center;
+}
+.dev-card__people .tim-kanban__avatar {
+  box-shadow: 0 0 0 2px var(--tim-white);
+}
+.dev-card__people .tim-kanban__avatar + .tim-kanban__avatar {
+  margin-left: -0.3rem;
+}
+.dev-card__people-more {
+  font-size: 0.55rem;
+}
+
+/* Liste des développements : les infobulles flottent au-dessus de la page
+   (FloatingTips) — la version CSS, coupée par les colonnes, s'efface. */
+.tim-tips-floating .dev-tip[data-tip]:hover::after {
+  content: none;
+}
+.tim-float-tip {
+  position: fixed;
+  z-index: 1000;
+  max-width: min(22rem, calc(100vw - 16px));
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-tooltip-bg);
+  color: var(--tim-tooltip-text);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: pre-line;
+  pointer-events: none;
+}

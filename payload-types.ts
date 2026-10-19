@@ -1099,6 +1099,16 @@ export interface Development {
   integrations?: (number | Integration)[] | null;
   assignee?: (number | User)[] | null;
   opportunities?: (number | PartnerClient)[] | null;
+  potential?: number | null;
+  potentialDetail?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   tickets?: (number | Ticket)[] | null;
   /**
    * Seulement si une date a été ANNONCÉE à quelqu'un.
@@ -4297,6 +4307,8 @@ export interface DevelopmentsSelect<T extends boolean = true> {
   integrations?: T;
   assignee?: T;
   opportunities?: T;
+  potential?: T;
+  potentialDetail?: T;
   tickets?: T;
   dueDate?: T;
   demandCount?: T;

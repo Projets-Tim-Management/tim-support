@@ -24,6 +24,8 @@ import { DevStatusField as DevStatusField_819319c999294b546c0f69c780077993 } fro
 import { AnnounceField as AnnounceField_fe4176c29c337c2b2c538bcba6a619f2 } from '../../../modules/dev/admin/AnnounceField'
 import { DevCell as DevCell_ff22fda9c901dfff8262e74b909f96af } from '../../../modules/dev/admin/DevCell'
 import { DevSelectField as DevSelectField_7f5a2bfdf035052e7caaeb96cf6a1598 } from '../../../modules/dev/admin/DevSelectField'
+import { DevRequesters as DevRequesters_3b75a6d5b39d522f34afe91cda334d48 } from '../../../modules/dev/admin/DevRequesters'
+import { PotentialCell as PotentialCell_da38efcb6c78a32e69a24ad0e3229601 } from '../../../modules/dev/admin/PotentialCell'
 import { ChecklistCell as ChecklistCell_8af2bc43e2f51c59acdebf4eb772057c } from '../../../modules/dev/admin/ChecklistCell'
 import { DevViewSwitcher as DevViewSwitcher_e17c34097fb47fa6e17560f990543519 } from '../../../modules/dev/admin/DevViewSwitcher'
 import { SecretField as SecretField_aefc30d9068f7c5cbbee6b30a555ffd6 } from '../../../modules/dev/admin/SecretField'
@@ -73,6 +75,7 @@ import { InseeLookup as InseeLookup_408c5271613c1beb0676cb0c9b2b5bf9 } from '../
 import { IntakeAlert as IntakeAlert_92bcaf44d181e654ac91523931975e59 } from '../../../modules/partner/admin/IntakeAlert'
 import { ClientStatusCell as ClientStatusCell_358b486afee2c4532aca3d72ba0365eb } from '../../../modules/partner/admin/ClientStatusCell'
 import { ClientStatusField as ClientStatusField_4cf9c5082e5cc09e6363544e31423ee7 } from '../../../modules/marketing/admin/ClientStatusField'
+import { SignatureScoreBox as SignatureScoreBox_00b5edec9a2e72b87ac252d6980154f5 } from '../../../modules/partner/admin/SignatureScoreBox'
 import { SequenceState as SequenceState_76fc64c304fa617805830e30067a8b3b } from '../../../modules/marketing/admin/SequenceState'
 import { ClientHistory as ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1 } from '../../../modules/partner/admin/ClientHistory'
 import { NeedFromOpportunity as NeedFromOpportunity_706b11bee372d49b265857d9536df99c } from '../../../modules/dev/admin/CreateDevelopment'
@@ -197,6 +200,8 @@ export const importMap = {
   "/modules/dev/admin/AnnounceField#AnnounceField": AnnounceField_fe4176c29c337c2b2c538bcba6a619f2,
   "/modules/dev/admin/DevCell#DevCell": DevCell_ff22fda9c901dfff8262e74b909f96af,
   "/modules/dev/admin/DevSelectField#DevSelectField": DevSelectField_7f5a2bfdf035052e7caaeb96cf6a1598,
+  "/modules/dev/admin/DevRequesters#DevRequesters": DevRequesters_3b75a6d5b39d522f34afe91cda334d48,
+  "/modules/dev/admin/PotentialCell#PotentialCell": PotentialCell_da38efcb6c78a32e69a24ad0e3229601,
   "/modules/dev/admin/ChecklistCell#ChecklistCell": ChecklistCell_8af2bc43e2f51c59acdebf4eb772057c,
   "/modules/dev/admin/DevViewSwitcher#DevViewSwitcher": DevViewSwitcher_e17c34097fb47fa6e17560f990543519,
   "/modules/dev/admin/SecretField#SecretField": SecretField_aefc30d9068f7c5cbbee6b30a555ffd6,
@@ -246,6 +251,7 @@ export const importMap = {
   "/modules/partner/admin/IntakeAlert#IntakeAlert": IntakeAlert_92bcaf44d181e654ac91523931975e59,
   "/modules/partner/admin/ClientStatusCell#ClientStatusCell": ClientStatusCell_358b486afee2c4532aca3d72ba0365eb,
   "/modules/marketing/admin/ClientStatusField#ClientStatusField": ClientStatusField_4cf9c5082e5cc09e6363544e31423ee7,
+  "/modules/partner/admin/SignatureScoreBox#SignatureScoreBox": SignatureScoreBox_00b5edec9a2e72b87ac252d6980154f5,
   "/modules/marketing/admin/SequenceState#SequenceState": SequenceState_76fc64c304fa617805830e30067a8b3b,
   "/modules/partner/admin/ClientHistory#ClientHistory": ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1,
   "/modules/dev/admin/CreateDevelopment#NeedFromOpportunity": NeedFromOpportunity_706b11bee372d49b265857d9536df99c,

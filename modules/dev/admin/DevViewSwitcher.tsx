@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { DevBoard } from "./DevBoard";
 import { DevPhaseTabs } from "./DevPhaseTabs";
+import { FloatingTips } from "./FloatingTips";
 
 /**
  * En-tête de la liste « Développements » (slot `beforeListTable`) : bascule
@@ -44,6 +45,7 @@ export function DevViewSwitcher() {
 
   return (
     <div className="dev-header">
+      <FloatingTips />
       <div className="tim-view-switch" role="tablist" aria-label="Type de vue">
         <button
           type="button"
