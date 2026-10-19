@@ -4,17 +4,15 @@ import type { Payload } from "payload";
 import { execSql, rowsOf } from "@/core/lib/raw-sql";
 
 /**
- * Le ménage du stockage des pubs (plan Publicité) : chaque nouvel aperçu,
- * chaque vidéo refaite, chaque jeu d'affiches, chaque ZIP laisse l'ancien
- * fichier sur le stockage. Chaque nuit, on retire :
+ * Le ménage du stockage des pubs (plan Publicité) : chaque fichier importé
+ * puis remplacé, chaque ZIP laisse l'ancien fichier sur le stockage. Chaque
+ * nuit, on retire :
  *   - les ZIP de téléchargement de plus de 24 h (ils ne servent qu'au clic) ;
- *   - les affiches remplacées (médias « Créa rendue » qu'aucune créa n'emploie
- *     plus) de plus de 7 jours ;
+ *   - les médias « Créa rendue » qu'aucune créa n'emploie plus, de plus de 7 jours ;
  *   - tout fichier « ads/ » de plus de 7 jours vers lequel plus rien ne pointe
  *     en base.
- * Ce qui sert à « Voir la version d'avant » d'une retouche est gardé : c'est
- * une référence comme une autre. Les 7 jours évitent d'effacer un fichier
- * qu'on vient de déposer et pas encore enregistré.
+ * Les 7 jours évitent d'effacer un fichier qu'on vient de déposer et pas encore
+ * enregistré.
  *
  * Garde-fou : si le ménage voulait retirer plus de la moitié des fichiers, il
  * s'arrête sans rien supprimer (une base mal lue ne vide pas le stockage).
@@ -24,8 +22,13 @@ export const KEEP_DAYS = 7;
 export const ZIP_HOURS = 24;
 export const MAX_SHARE = 0.5;
 
-/** Les tables des pubs qui portent des adresses de fichiers (colonnes, JSON). */
-const TABLES = ["ad_rushes", "ad_inspirations", "ad_creatives", "ad_media", "ad_elements", "ad_retouches", "ad_element_notes", "ads_brand_kit"] as const;
+/**
+ * Les tables des pubs qui portent des adresses de fichiers (colonnes, JSON).
+ * Les quatre dernières sont celles du moteur vidéo retiré le 19/10/2026 : tant
+ * qu'elles existent en base, leurs fichiers comptent comme référencés (on ne
+ * les efface pas par surprise) ; une fois supprimées, elles sont ignorées.
+ */
+const TABLES = ["ad_rushes", "ad_creatives", "ad_media", "ads_brand_kit", "ad_inspirations", "ad_elements", "ad_retouches", "ad_element_notes"] as const;
 
 const BLOB_URL = /https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\/[^\s"'\\)<>]+/gi;
 /** Une adresse ramenée à une forme stable (encodage des accents et espaces). Pure. */
@@ -39,23 +42,24 @@ export const normUrl = (u: string): string => {
 /** Les adresses de fichiers contenues dans un texte (une ligne de base en JSON). Pure. */
 export const urlsIn = (text: string): string[] => (text.match(BLOB_URL) ?? []).map(normUrl);
 
-/**
- * Les adresses vers lesquelles la base pointe encore, lues en UNE passe :
- * toutes (`all`), et celles que citent les retouches (`cited`, la « version
- * d'avant » qui garde une affiche remplacée).
- */
-export async function referencedUrls(payload: Payload): Promise<{ all: Set<string>; cited: Set<string> }> {
+/** Les adresses vers lesquelles la base pointe encore, lues dans les tables qui existent. */
+export async function referencedUrls(payload: Payload): Promise<Set<string>> {
   const all = new Set<string>();
-  const cited = new Set<string>();
+  const existing = new Set(
+    (rowsOf(
+      await execSql(
+        payload,
+        sql`SELECT "table_name" AS t FROM "information_schema"."tables"
+            WHERE "table_schema" = 'public' AND "table_name" IN (${sql.join(TABLES.map((t) => sql`${t}`), sql`, `)})`,
+      ),
+    ) as { t: string }[]).map((r) => r.t),
+  );
   for (const table of TABLES) {
+    if (!existing.has(table)) continue;
     const rows = rowsOf(await execSql(payload, sql`SELECT row_to_json(t)::text AS j FROM ${sql.raw(`"${table}"`)} t`)) as { j: string }[];
-    for (const r of rows)
-      for (const u of urlsIn(r.j)) {
-        all.add(u);
-        if (table === "ad_retouches") cited.add(u);
-      }
+    for (const r of rows) for (const u of urlsIn(r.j)) all.add(u);
   }
-  return { all, cited };
+  return all;
 }
 
 export type Blob = { url: string; pathname: string; size: number; uploadedAt: Date };
@@ -111,11 +115,11 @@ export async function cleanupAdsStorage(payload: Payload, deps: CleanupDeps = {}
     ),
   ) as { id: number; url: string | null }[];
   const blobs = await (deps.list ?? listAll)();
-  const { all: referenced, cited } = await referencedUrls(payload);
+  const referenced = await referencedUrls(payload);
 
-  // 1. Les affiches remplacées : des médias « Créa rendue » qu'aucune créa n'emploie, ni aucune retouche ne cite.
-  // Leur fiche pointe sur leur fichier : il n'est donc pas compté parmi les orphelins, il part avec la fiche.
-  const affiches = old.filter((m) => !(m.url && cited.has(normUrl(m.url))));
+  // 1. Les médias « Créa rendue » qu'aucune créa n'emploie plus. Leur fiche pointe sur leur
+  // fichier : il n'est donc pas compté parmi les orphelins, il part avec la fiche.
+  const affiches = old;
   // 2. Les fichiers : ZIP périmés, et ce vers quoi plus rien ne pointe.
   const { zips, orphans } = plan(blobs, referenced, now);
 
