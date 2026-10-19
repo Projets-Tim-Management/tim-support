@@ -8,6 +8,7 @@ import type {
 import { metierOwnedAccess } from "@/core/access";
 import { enforcePartnerField } from "@/core/hooks/enforcePartner";
 import { setPartnerFromClient } from "@/modules/marketing/collections/clientOwned";
+import { refreshPotentialOnActivity } from "@/modules/dev/hooks/potential";
 import { syncStepFromTask } from "@/modules/marketing/lib/journey-tasks";
 import { ACTIVITY_OPTIONS, TASK_KIND_OPTIONS, activityKind } from "@/modules/partner/lib/activity";
 import {
@@ -155,7 +156,8 @@ export const ClientActivities: CollectionConfig = {
       // Rendez-vous de la phase de test : la coche de la tâche est celle de l'étape.
       syncStepFromTask,
     ],
-    afterChange: [syncTaskCalendar],
+    // Un échange noté fait bouger le % de signature, donc le potentiel des développements demandés.
+    afterChange: [syncTaskCalendar, refreshPotentialOnActivity],
     afterDelete: [removeTaskCalendar],
   },
   fields: [

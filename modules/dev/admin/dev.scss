@@ -2127,3 +2127,24 @@ body.dev-gallery-mode {
 /* Ouvrir une demande dans Claude Code (VS Code). */
 .dev-claude-code { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1rem; }
 .dev-claude-code small { font-size: 0.75rem; color: var(--tim-muted); }
+
+/* Le potentiel sur la carte (le % du demandeur le plus chaud), et le choix de
+   l'ordre des cartes au-dessus du tableau. */
+.dev-board .dev-card__potential {
+  margin-top: 0.55rem;
+}
+.dev-board__tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.dev-board__tools .tim-view-switch {
+  margin-bottom: 0.75rem;
+}
+.dev-board__tools-label {
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}

@@ -13,6 +13,7 @@ import { assigneeField } from "@/modules/dev/fields/assignee";
 import { computeChecklistProgress, stampChecklistComments } from "@/modules/dev/hooks/checklist";
 import { stampDocuments } from "@/core/hooks/documents";
 import { applyStatusEffects, setDefaultStatus, setDemandCount } from "@/modules/dev/hooks/stamps";
+import { setPotential } from "@/modules/dev/hooks/potential";
 
 /**
  * Développements — tout ce qui se développe, sur un seul tableau.
@@ -41,7 +42,7 @@ export const Developments: CollectionConfig = {
     useAsTitle: "title",
     // On lit d'abord l'urgence et la nature, puis de quoi il s'agit, puis
     // combien de clients l'attendent — l'ordre dans lequel on arbitre.
-    defaultColumns: ["number", "priority", "type", "title", "demandCount", "checklistProgress", "status"],
+    defaultColumns: ["number", "priority", "type", "title", "potential", "demandCount", "checklistProgress", "status"],
     listSearchableFields: ["title", "number"],
     group: "Développements",
     components: {
@@ -62,6 +63,7 @@ export const Developments: CollectionConfig = {
       stampDocuments,
       applyStatusEffects,
       setDemandCount,
+      setPotential,
       stampChecklistComments,
       computeChecklistProgress,
     ],
@@ -443,6 +445,36 @@ export const Developments: CollectionConfig = {
         position: "sidebar",
       },
     },
+    /**
+     * Où en sont ceux qui l'attendent : leur statut et leur % de signature, le
+     * plus chaud d'abord — recalculé en direct quand on ajoute un demandeur.
+     */
+    {
+      name: "requestersScore",
+      type: "ui",
+      admin: {
+        position: "sidebar",
+        components: { Field: "/modules/dev/admin/DevRequesters#DevRequesters" },
+      },
+    },
+    /**
+     * Le POTENTIEL : le % de signature du demandeur le plus avancé (voir
+     * lib/potential.ts). Stocké pour être TRIABLE — « ce qui peut faire signer
+     * d'abord » — et jamais saisi.
+     */
+    {
+      name: "potential",
+      type: "number",
+      label: "Potentiel",
+      index: true,
+      access: { create: () => false, update: () => false },
+      admin: {
+        readOnly: true,
+        condition: () => false,
+        components: { Cell: "/modules/dev/admin/PotentialCell#PotentialCell" },
+      },
+    },
+    { name: "potentialDetail", type: "json", access: { create: () => false, update: () => false }, admin: { hidden: true } },
     /**
      * D'OÙ ça vient. Un même développement peut naître de plusieurs
      * tickets — c'est même le signe qu'il faut le faire.

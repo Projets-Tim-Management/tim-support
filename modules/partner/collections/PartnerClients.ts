@@ -57,6 +57,7 @@ import { isBillableClient, LICENCE_BASE_PRICES, PRESTATIONS, PROFILS } from "@/m
 import { geocodeClient } from "@/core/hooks/geocodeClient";
 import { setPhoneDigits } from "@/core/hooks/phoneDigits";
 import { sendGa4Steps } from "@/modules/analytics/lib/ga4-hook";
+import { refreshPotentialOnStatus } from "@/modules/dev/hooks/potential";
 
 /**
  * Opportunités — les entreprises BTP qu'un partenaire a amenées à Tim, du
@@ -709,6 +710,8 @@ export const PartnerClients: CollectionConfig = {
       linkSignedContract,
       enrollSequence,
       sendGa4Steps,
+      // Le % de signature suit le statut : les développements demandés aussi.
+      refreshPotentialOnStatus,
     ],
     // Vide ce qui n'existe que par ce client avant de le supprimer, sans quoi
     // Postgres refuse la suppression (cf. deleteClientChildren).
@@ -851,6 +854,16 @@ export const PartnerClients: CollectionConfig = {
         },
       },
       options: CLIENT_STATUS_OPTIONS,
+    },
+    {
+      // Le % de signature, sous le statut qui le porte (voir lib/signature-score.ts) :
+      // calculé à l'affichage, jamais stocké sur la fiche — il suit le statut saisi.
+      name: "signatureScore",
+      type: "ui",
+      admin: {
+        position: "sidebar",
+        components: { Field: "/modules/partner/admin/SignatureScoreBox#SignatureScoreBox" },
+      },
     },
     {
       name: "partner",

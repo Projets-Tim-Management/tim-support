@@ -75,6 +75,10 @@
     {
       "path": "/api/cron/ga4-steps",
       "schedule": "20 * * * *"
+    },
+    {
+      "path": "/api/cron/dev-potential",
+      "schedule": "10 4 * * *"
     }
   ]
 }
