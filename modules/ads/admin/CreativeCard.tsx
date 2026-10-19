@@ -10,8 +10,7 @@ import { REFUSAL_REASONS } from "@/modules/ads/lib/creative-options";
 import { StepCreate, StepImport, type Attachment, type CardBrief, type CardFile, type ExpectedFile } from "./CreativeDesign";
 import { postAdmin } from "./post-admin";
 
-export type { Attachment, CardStage };
-export { stageOf };
+export type { Attachment };
 
 export type CardCreative = {
   id: number | string;

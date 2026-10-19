@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { hasAdminRole } from "@/core/access";
 import { pendingProposals, type AgentProposal } from "@/modules/ads/agent/overview";
+import { stageOf, type CardStage } from "@/modules/ads/lib/card-stage";
 import { missingFiles, type CreativeFile } from "@/modules/ads/lib/creative-files";
 import { REFUSAL_REASONS } from "@/modules/ads/lib/creative-options";
 import { ctaLabel } from "@/modules/ads/lib/cta";
@@ -14,7 +15,7 @@ import { testLabel, toneLabel, type TestDimension } from "@/modules/ads/lib/dime
 import type { FormatKey } from "@/modules/ads/lib/meta-specs";
 
 import { ActionProposals, type ProposedAction } from "./ActionProposals";
-import { CreativeCard, stageOf, type Attachment, type CardCreative, type CardStage } from "./CreativeCard";
+import { CreativeCard, type Attachment, type CardCreative } from "./CreativeCard";
 import type { ExpectedFile } from "./CreativeDesign";
 import { NotebookProposals, type ProposedInstruction, type ProposedLearning } from "./NotebookProposals";
 
