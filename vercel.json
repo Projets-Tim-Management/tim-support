@@ -65,6 +65,10 @@
       "schedule": "20 * * * *"
     },
     {
+      "path": "/api/cron/ads-publish",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/dev-potential",
       "schedule": "10 4 * * *"
     }

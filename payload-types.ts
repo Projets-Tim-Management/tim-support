@@ -2354,6 +2354,17 @@ export interface AdCampaign {
       decision?: (number | null) | AdDecision;
     };
   };
+  publicationStatus?: ('en-cours' | 'en-pause' | 'active' | 'echec') | null;
+  publication?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publicationLeaseUntil?: string | null;
   account?: (number | null) | AdAccount;
   externalId?: string | null;
   status?: ('brouillon' | 'active' | 'en-pause' | 'terminee') | null;
@@ -4944,6 +4955,9 @@ export interface AdCampaignsSelect<T extends boolean = true> {
               decision?: T;
             };
       };
+  publicationStatus?: T;
+  publication?: T;
+  publicationLeaseUntil?: T;
   account?: T;
   externalId?: T;
   status?: T;

@@ -437,3 +437,19 @@
 .ads-access__picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.75rem; }
 .ads-access__pick { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; }
 .ads-access__pick em { color: var(--tim-muted); font-size: 0.8rem; }
+
+/* ─── Campagne › Diffusion (3b) ────────────────────────────────────────────── */
+.ads-publish { display: flex; flex-direction: column; gap: 0.85rem; margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px solid var(--tim-border); border-radius: 0.6rem; background: var(--tim-surface); }
+.ads-publish__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.ads-publish__head > div:first-child { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.ads-publish__head span { font-size: 0.82rem; color: var(--tim-muted); }
+.ads-publish__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.ads-publish__problems { margin: 0; padding-left: 1.1rem; font-size: 0.85rem; color: var(--tim-warning-text); }
+.ads-publish__error { margin: 0; padding: 0.5rem 0.75rem; border-radius: 0.4rem; background: var(--tim-red-bg); color: var(--tim-danger-text); font-size: 0.85rem; }
+.ads-publish__creas { margin: 0; font-size: 0.82rem; color: var(--tim-muted); }
+.ads-publish__previews { display: flex; flex-wrap: wrap; gap: 1rem; }
+.ads-publish__previews figure { margin: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.ads-publish__previews iframe { width: 340px; max-width: 100%; height: 600px; border: 1px solid var(--tim-border); border-radius: 0.4rem; background: var(--tim-white); }
+.ads-publish__previews figcaption { font-size: 0.75rem; color: var(--tim-muted); }
+.ads-publish__history { margin: 0; padding-left: 1.1rem; font-size: 0.8rem; color: var(--tim-foreground); }
+.ads-publish__history time { color: var(--tim-muted); margin-right: 0.35rem; }

@@ -1674,6 +1674,15 @@ Moteur vidéo `modules/ads/video/` et projet `remotion/`, rendu Satori des visue
 - Temps 2 (après mise en prod) : migration destructive avec l'accord de Charlie — tables `ad_elements`, `ad_element_notes`, `ad_retouches`, `ad_styles*`, `ad_inspirations`, `ads_brand_kit_graphics/transitions/inspirations` ; colonnes `video_*`, `style_id`, `assets` des créas, champs vidéo du kit et des rushes, natures de médias retirées ; suppression des 15 créas de test (« on repart de zéro »).
 - Temps 3 : ménage ponctuel du stockage (vidéos, aperçus, inspirations, retouches), par script relu.
 
+## 9 octies. Publier chez Meta (3b) — 19/10/2026
+
+Décision de Charlie : « lancer n'importe quel type de campagne selon les besoins, selon la force des agents ».
+- **Compte** : « Vérifier les droits » (debug_token avec le jeton de l'application ; Pages, Instagram, pixels) — `lib/account-access.ts`.
+- **Plan de diffusion** (`lib/media-plan.ts`, outil `proposer_plan_diffusion` du stratège, qui remplace `proposer_audiences` ; ciblage par `chercher_ciblage`) : objectif trafic / prospects / notoriété / interaction, optimisation permise, 1 à 4 ensembles, ciblage Meta officiel, règles en code.
+- **Écritures Meta** (`platforms/meta.ts`) : campagne et ensembles EN PAUSE, budget sur l'ensemble, images par contenu, vidéos par adresse puis traitement, créa en asset_feed_spec avec règles de placement, pub, aperçu, statut, budget.
+- **Publication** (`lib/publish/`) : geste de Charlie seulement ; étapes idempotentes (identifiants gardés), bail en base, cron ads-publish chaque minute ; Activer / Mettre en pause ; créas « En ligne ».
+- Limites v1 : un texte principal, un titre et une description par créa (les variantes de texte passent par des créas étiquetées) ; formulaires instantanés Meta non gérés (il faudrait la récupération des prospects) ; les aperçus sont ceux que rend Meta.
+
 ## 10. Questions ouvertes
 
 1. **Formulaires instantanés Meta ou page d'arrivée** sur le site ? Les deux sont prévus

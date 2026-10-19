@@ -161,6 +161,7 @@ import * as migration_20261019_104020_form_video from './20261019_104020_form_vi
 import * as migration_20261019_105000_video_views_index_v1 from './20261019_105000_video_views_index_v1';
 import * as migration_20261019_142352_ads_brief_claude_design from './20261019_142352_ads_brief_claude_design';
 import * as migration_20261019_145810_ads_compte_diffusion from './20261019_145810_ads_compte_diffusion';
+import * as migration_20261019_152431_ads_publication from './20261019_152431_ads_publication';
 
 export const migrations = [
   {
@@ -976,6 +977,11 @@ export const migrations = [
   {
     up: migration_20261019_145810_ads_compte_diffusion.up,
     down: migration_20261019_145810_ads_compte_diffusion.down,
-    name: '20261019_145810_ads_compte_diffusion'
+    name: '20261019_145810_ads_compte_diffusion',
+  },
+  {
+    up: migration_20261019_152431_ads_publication.up,
+    down: migration_20261019_152431_ads_publication.down,
+    name: '20261019_152431_ads_publication'
   },
 ];

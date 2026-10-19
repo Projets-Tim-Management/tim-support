@@ -242,6 +242,31 @@ export const AdCampaigns: CollectionConfig = {
           ],
         },
         {
+          // Publier chez Meta (plan Publicité, 3b) : un geste de Charlie, jamais d'un agent. Voir lib/publish.
+          label: "Diffusion",
+          description: "Publier la campagne chez Meta selon le plan de diffusion de l'agent : tout naît en pause, la diffusion démarre à « Activer ».",
+          fields: [
+            { name: "publishPanel", type: "ui", admin: { components: { Field: "/modules/ads/admin/PublishPanel#PublishPanel" } } },
+            {
+              name: "publicationStatus",
+              type: "select",
+              label: "Publication",
+              options: [
+                { label: "En cours", value: "en-cours" },
+                { label: "Publiée, en pause", value: "en-pause" },
+                { label: "En diffusion", value: "active" },
+                { label: "Échec", value: "echec" },
+              ],
+              index: true,
+              access: mirror,
+              admin: { hidden: true },
+            },
+            // L'état de la publication : identifiants obtenus chez Meta, journal. Écrit par le serveur seul.
+            { name: "publication", type: "json", access: mirror, admin: { hidden: true } },
+            { name: "publicationLeaseUntil", type: "date", access: mirror, admin: { hidden: true } },
+          ],
+        },
+        {
           label: "Chez la régie",
           description: "Lu chez la régie par la synchro. Ne se modifie pas ici.",
           fields: [
