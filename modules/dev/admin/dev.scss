@@ -1386,18 +1386,6 @@ body.tim-dev-kanban .collection-list__list-selection {
 .dev-board .dev-card__top {
   margin: 0.9rem 0 0;
 }
-/* QUI s'en occupe, collé à droite : les pastilles de qualification tiennent le
-   bord gauche, la personne tient le bord droit. Deux ancrages plutôt qu'une
-   colonne unique où tout se suit — on retrouve « qui » sans lire le reste.
-   `width: fit-content` + `margin-left: auto` : la pastille reste à sa taille et
-   se pousse à droite dans le flux du bloc. */
-.dev-board .tim-kanban__chip {
-  display: flex;
-  width: fit-content;
-  max-width: 100%;
-  margin-left: auto;
-}
-
 /* L'avancement se cale sur la ligne d'activité d'une opportunité. */
 .dev-board .dev-card__check {
   margin-top: 0.55rem;
@@ -2147,4 +2135,20 @@ body.dev-gallery-mode {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--tim-muted);
+}
+
+/* QUI s'en occupe : les initiales en bout de pied de carte, superposées
+   s'il y a plusieurs personnes — le nom n'occupe plus de ligne. */
+.dev-card__people {
+  display: inline-flex;
+  align-items: center;
+}
+.dev-card__people .tim-kanban__avatar {
+  box-shadow: 0 0 0 2px var(--tim-white);
+}
+.dev-card__people .tim-kanban__avatar + .tim-kanban__avatar {
+  margin-left: -0.3rem;
+}
+.dev-card__people-more {
+  font-size: 0.55rem;
 }

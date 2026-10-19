@@ -2452,9 +2452,10 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
 }
 
 /* ── % de signature et potentiel (signature-score.ts, Charlie 19/10/2026) ────
-   Trois chaleurs, les couleurs des statuts : chaud (vert, ≥ 60 %), tiède
-   (ambre, ≥ 30 %), froid (ardoise). Même pastille sur la fiche prospect, la
-   fiche développement, la carte du Kanban et le tableau. */
+   Cinq crans de chaleur (tokens --tim-heat-*) : plus le % est haut, plus il
+   faut s'en occuper — gris < 20, jaune < 40, ambre < 60, orange < 85, rouge
+   plein au-delà. Même pastille sur la fiche prospect, la fiche développement,
+   la carte du Kanban et le tableau. */
 .tim-potential {
   display: inline-flex;
   align-items: center;
@@ -2471,9 +2472,11 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.tim-potential__pct--chaud { color: var(--tim-green); background: var(--tim-green-bg); }
-.tim-potential__pct--tiede { color: var(--tim-amber); background: var(--tim-amber-bg); }
-.tim-potential__pct--froid { color: var(--tim-slate); background: var(--tim-slate-bg); }
+.tim-potential__pct--froid { color: var(--tim-heat-1); background: var(--tim-heat-1-bg); }
+.tim-potential__pct--frais { color: var(--tim-heat-2); background: var(--tim-heat-2-bg); }
+.tim-potential__pct--tiede { color: var(--tim-heat-3); background: var(--tim-heat-3-bg); }
+.tim-potential__pct--chaud { color: var(--tim-heat-4); background: var(--tim-heat-4-bg); }
+.tim-potential__pct--brulant { color: var(--tim-heat-5); background: var(--tim-heat-5-bg); }
 .tim-potential__who {
   min-width: 0;
   overflow: hidden;
@@ -2516,9 +2519,11 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
   height: 100%;
   border-radius: inherit;
 }
-.tim-score__fill--chaud { background: var(--tim-green); }
-.tim-score__fill--tiede { background: var(--tim-amber); }
-.tim-score__fill--froid { background: var(--tim-slate); }
+.tim-score__fill--froid { background: var(--tim-heat-1); }
+.tim-score__fill--frais { background: var(--tim-heat-2); }
+.tim-score__fill--tiede { background: var(--tim-heat-3); }
+.tim-score__fill--chaud { background: var(--tim-heat-4); }
+.tim-score__fill--brulant { background: var(--tim-heat-5-bg); }
 .tim-score__why {
   margin: 0.4rem 0 0;
   font-size: 0.75rem;

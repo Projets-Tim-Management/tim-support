@@ -50,8 +50,8 @@ describe("signatureScore", () => {
     expect(signatureScore("nouvelle", [], NOW, daysAgo(40)).score).toBe(0);
   });
 
-  it("fige Gagnée à 100 et Perdue à 0", () => {
-    expect(signatureScore("actif", [], NOW).score).toBe(100);
+  it("fige Gagnée à 50 et Perdue à 0", () => {
+    expect(signatureScore("actif", [task("reunion", 1)], NOW).score).toBe(50);
     expect(signatureScore("perdue", [task("reunion", 1)], NOW).score).toBe(0);
   });
 
@@ -59,8 +59,13 @@ describe("signatureScore", () => {
     expect(signatureScore("en-test", [task("reunion", -3)], NOW).meetings).toBe(0);
   });
 
-  it("teinte le % : froid, tiède, chaud", () => {
-    expect([scoreTone(10), scoreTone(30), scoreTone(60)]).toEqual(["froid", "tiede", "chaud"]);
+  it("ne plafonne pas un statut du pipeline sur la base d'un client gagné", () => {
+    const many = Array.from({ length: 10 }, (_, i) => task("reunion", i + 1));
+    expect(signatureScore("attente-engagement", many, NOW).score).toBe(55);
+  });
+
+  it("teinte le % sur cinq crans", () => {
+    expect([10, 25, 45, 65, 90].map(scoreTone)).toEqual(["froid", "frais", "tiede", "chaud", "brulant"]);
   });
 });
 

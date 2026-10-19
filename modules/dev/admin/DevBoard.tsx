@@ -543,20 +543,6 @@ export function DevBoard() {
                                 </div>
                               ) : null}
 
-                              {/* QUI s'en occupe, en pastille — l'équivalent de
-                                  l'apporteur sur une carte d'opportunité. */}
-                              {people.length > 0 ? (
-                                <div className="tim-kanban__chip" title={people.join(", ")}>
-                                  <span className="tim-kanban__avatar dev-person" style={personStyle(team, people[0])}>
-                                    {initialsOf(people[0])}
-                                  </span>
-                                  <span className="tim-kanban__chip-name">
-                                    {people[0]}
-                                    {people.length > 1 ? ` +${people.length - 1}` : ""}
-                                  </span>
-                                </div>
-                              ) : null}
-
                               {/* L'avancement de la checklist là où on regarde
                                   les cartes : « 4/7 » dit en un coup d'œil ce
                                   qu'il reste, ce que le statut seul ne dit pas. */}
@@ -637,6 +623,21 @@ export function DevBoard() {
                                         )}
                                       </span>
                                     ))}
+                                    {/* QUI s'en occupe : ses initiales seules, dans
+                                        le pied — aucune ligne de la carte n'y est
+                                        consacrée. Le nom vient au survol. */}
+                                    {people.length > 0 ? (
+                                      <span className="dev-card__people" title={people.join(", ")}>
+                                        {people.slice(0, 2).map((name) => (
+                                          <span key={name} className="tim-kanban__avatar dev-person" style={personStyle(team, name)}>
+                                            {initialsOf(name)}
+                                          </span>
+                                        ))}
+                                        {people.length > 2 ? (
+                                          <span className="tim-kanban__avatar dev-card__people-more">+{people.length - 2}</span>
+                                        ) : null}
+                                      </span>
+                                    ) : null}
                                   </span>
                               </footer>
                             </article>

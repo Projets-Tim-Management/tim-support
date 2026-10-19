@@ -12,7 +12,12 @@
 
 import { clientStatusMeta } from "./clientStatus";
 
-/** La base de chaque statut. Gagnée et Perdue sont fixes : rien ne les fait bouger. */
+/**
+ * La base de chaque statut. Gagnée et Perdue sont fixes : rien ne les fait bouger.
+ * Un client déjà gagné vaut 50 % (Charlie, 19/10/2026) : ses demandes comptent,
+ * mais passent après celles d'un prospect en test ou en signature — le but est
+ * d'aider à signer.
+ */
 export const STATUS_BASE: Record<string, number> = {
   nouvelle: 5,
   "en-qualification": 10,
@@ -21,7 +26,7 @@ export const STATUS_BASE: Record<string, number> = {
   "attente-engagement": 40,
   "en-test": 60,
   "en-signature": 85,
-  actif: 100,
+  actif: 50,
   perdue: 0,
   resilie: 0,
   archive: 0,
@@ -57,9 +62,12 @@ export type SignatureScore = {
   explanation: string;
 };
 
-/** Le plafond d'un statut : juste sous la base du statut suivant (100 pour le plus haut). */
+/** Le plafond d'un statut du pipeline : juste sous la base du statut suivant (100 pour le plus haut). */
 function capOf(base: number): number {
-  const above = [...new Set(Object.values(STATUS_BASE))].filter((b) => b > base).sort((a, b) => a - b)[0];
+  const above = Object.entries(STATUS_BASE)
+    .filter(([s, b]) => !FIXED.has(s) && b > base)
+    .map(([, b]) => b)
+    .sort((a, b) => a - b)[0];
   return above == null ? 100 : above - 1;
 }
 
@@ -103,8 +111,12 @@ export function signatureScore(
   return { score, base, meetings, calls, replies, bonus, silent, explanation: `${parts.join(" ")} = ${score} %` };
 }
 
-/** La teinte d'un % pour l'affichage : froid, tiède, chaud. Pure. */
-export const scoreTone = (score: number | null | undefined): "froid" | "tiede" | "chaud" => {
+/**
+ * La chaleur d'un % pour l'affichage, sur cinq crans : plus c'est haut, plus il
+ * est important de s'en occuper (du gris au rouge plein). Pure.
+ */
+export type ScoreTone = "froid" | "frais" | "tiede" | "chaud" | "brulant";
+export const scoreTone = (score: number | null | undefined): ScoreTone => {
   const v = Number(score ?? 0);
-  return v >= 60 ? "chaud" : v >= 30 ? "tiede" : "froid";
+  return v >= 85 ? "brulant" : v >= 60 ? "chaud" : v >= 40 ? "tiede" : v >= 20 ? "frais" : "froid";
 };
