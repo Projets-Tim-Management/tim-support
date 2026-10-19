@@ -27,7 +27,7 @@ export function SignatureScoreBox() {
     <div className="tim-score">
       <span className="tim-score__label">% de signature</span>
       <div className="tim-score__row">
-        <strong className={`tim-score__value tim-potential__pct--${scoreTone(s.score)}`}>{sources ? `${s.score} %` : "…"}</strong>
+        <strong className={`tim-score__value tim-potential__pct tim-potential__pct--${scoreTone(s.score)}`}>{sources ? `${s.score} %` : "…"}</strong>
         <span className="tim-score__bar" aria-hidden>
           <span className={`tim-score__fill tim-score__fill--${scoreTone(s.score)}`} style={{ width: `${s.score}%` }} />
         </span>

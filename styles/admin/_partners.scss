@@ -2504,7 +2504,10 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
   align-items: center;
   gap: 0.6rem;
 }
+/* Sur la fiche, le % est encadré de sa couleur : c'est le chiffre qu'on vient lire. */
 .tim-score__value {
+  padding: 0.15rem 0.55rem;
+  border: 1px solid currentColor;
   font-size: 1rem;
 }
 .tim-score__bar {
