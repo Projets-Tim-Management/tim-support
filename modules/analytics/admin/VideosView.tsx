@@ -321,6 +321,12 @@ export default async function VideosView(view: AdminViewServerProps) {
                         rows={splitRows(v.canaux)}
                         sort={{ key: "lectures", dir: "desc" }}
                       />
+                      <p className="an-video__hint">
+                        Le canal de la page où la vidéo est vue : sans mémoire
+                        d&apos;une page à l&apos;autre, un visiteur venu
+                        d&apos;une annonce qui navigue ensuite compte en « SEO »
+                        ou « accès direct ».
+                      </p>
                     </Card>
                   </div>
                 </section>
