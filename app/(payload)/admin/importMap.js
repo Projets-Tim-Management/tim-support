@@ -125,6 +125,7 @@ import { FormOptionRowLabel as FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f
 import { FormFieldRowLabel as FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3 } from '../../../modules/forms/admin/FormFieldRowLabel'
 import { AgentPanel as AgentPanel_35a1e979f04c9e33500ed20b629a4bc2 } from '../../../modules/ads/admin/AgentPanel'
 import { CampaignKpisCell as CampaignKpisCell_17973b2b589d2f9fcdba067f516b0a98 } from '../../../modules/ads/admin/CampaignKpisCell'
+import { AccountAccess as AccountAccess_a9ac008dac897824fdd0000e805385e4 } from '../../../modules/ads/admin/AccountAccess'
 import { ConnectMetaPanel as ConnectMetaPanel_0443b5b41d00975585a76653d22b342f } from '../../../modules/ads/admin/ConnectMetaPanel'
 import { AdAccountActions as AdAccountActions_12a51012bbb4bca5fe46cd8a625e5627 } from '../../../modules/ads/admin/AdAccountActions'
 import { PurgeAccountModal as PurgeAccountModal_1a62dd382667ad7a0e23522c172e8254 } from '../../../modules/ads/admin/PurgeAccountModal'
@@ -293,6 +294,7 @@ export const importMap = {
   "/modules/forms/admin/FormFieldRowLabel#FormFieldRowLabel": FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3,
   "/modules/ads/admin/AgentPanel#AgentPanel": AgentPanel_35a1e979f04c9e33500ed20b629a4bc2,
   "/modules/ads/admin/CampaignKpisCell#CampaignKpisCell": CampaignKpisCell_17973b2b589d2f9fcdba067f516b0a98,
+  "/modules/ads/admin/AccountAccess#AccountAccess": AccountAccess_a9ac008dac897824fdd0000e805385e4,
   "/modules/ads/admin/ConnectMetaPanel#ConnectMetaPanel": ConnectMetaPanel_0443b5b41d00975585a76653d22b342f,
   "/modules/ads/admin/AdAccountActions#AdAccountActions": AdAccountActions_12a51012bbb4bca5fe46cd8a625e5627,
   "/modules/ads/admin/PurgeAccountModal#PurgeAccountModal": PurgeAccountModal_1a62dd382667ad7a0e23522c172e8254,

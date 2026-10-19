@@ -424,3 +424,16 @@
 .ads-files__warn { margin: 0; max-width: 14rem; font-size: 0.72rem; color: var(--tim-warning-text); }
 .ads-files__missing { margin: 0; font-size: 0.82rem; color: var(--tim-warning-text); }
 .ads-files__errors { margin: 0; padding-left: 1.1rem; font-size: 0.8rem; color: var(--tim-danger-text); }
+
+/* ─── Compte › Diffusion des pubs (3b) ─────────────────────────────────────── */
+.ads-access { display: flex; flex-direction: column; gap: 0.75rem; margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px solid var(--tim-border); border-radius: 0.6rem; background: var(--tim-surface); }
+.ads-access__head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.ads-access__head > div { display: flex; flex-direction: column; gap: 0.15rem; }
+.ads-access__head span { font-size: 0.8rem; color: var(--tim-muted); }
+.ads-access__verdict { margin: 0; padding: 0.5rem 0.75rem; border-radius: 0.4rem; font-size: 0.85rem; }
+.ads-access__verdict small { display: block; margin-top: 0.25rem; color: var(--tim-muted); }
+.ads-access__verdict--ok { background: var(--tim-green-bg); color: var(--tim-green); }
+.ads-access__verdict--ko { background: var(--tim-amber-bg); color: var(--tim-amber); }
+.ads-access__picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.75rem; }
+.ads-access__pick { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; }
+.ads-access__pick em { color: var(--tim-muted); font-size: 0.8rem; }

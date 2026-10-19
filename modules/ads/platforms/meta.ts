@@ -3,6 +3,7 @@ import { createHmac } from "node:crypto";
 import {
   AdTokenError,
   type AccountContext,
+  type AccessReport,
   type AccountSnapshot,
   type AccountToken,
   type AdPlatform,
@@ -111,7 +112,8 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
   const url = (path: string, params: Record<string, string>) => {
     const u = new URL(`${base}/${path.replace(/^\//, "")}`);
     for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
-    if (params.access_token && cfg.appSecret) {
+    // Pas de preuve avec le jeton de l'APPLICATION (« id|secret ») : elle n'a de sens que pour un jeton d'utilisateur.
+    if (params.access_token && cfg.appSecret && !params.access_token.includes("|")) {
       u.searchParams.set("appsecret_proof", createHmac("sha256", cfg.appSecret).update(params.access_token).digest("hex"));
     }
     return u.toString();
@@ -228,6 +230,35 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
         clicks: Number(r.clicks) || 0,
         leads: metaLeads(r.actions),
       }));
+    },
+
+    /**
+     * Les droits du jeton (debug_token, interrogé avec le jeton de l'application)
+     * et ce qu'il ouvre : Pages (avec leur compte Instagram professionnel),
+     * comptes Instagram liés au compte publicitaire, pixels. Une liste qui ne
+     * se lit pas (droit manquant) reste vide : le rapport dit ce qui manque.
+     */
+    async checkAccess(acc: AccountContext): Promise<AccessReport> {
+      type Debug = { data?: { scopes?: string[]; is_valid?: boolean } };
+      const debug = await get<Debug>(url("debug_token", { input_token: acc.token, access_token: `${cfg.appId}|${cfg.appSecret}` }));
+      if (debug.data?.is_valid === false) throw new AdTokenError("Meta : jeton invalide ou révoqué.");
+      const soft = async <T>(p: Promise<T[]>): Promise<T[]> => p.catch(() => []);
+      type RawPage = { id: string; name?: string; instagram_business_account?: { id: string; username?: string } };
+      type RawIg = { id: string; username?: string };
+      type RawPixel = { id: string; name?: string };
+      const [pages, ig, pixels] = await Promise.all([
+        soft(all<RawPage>(url("me/accounts", { access_token: acc.token, fields: "id,name,instagram_business_account{id,username}", limit: "100" }))),
+        soft(all<RawIg>(url(`${acc.externalId}/instagram_accounts`, { access_token: acc.token, fields: "id,username", limit: "100" }))),
+        soft(all<RawPixel>(url(`${acc.externalId}/adspixels`, { access_token: acc.token, fields: "id,name", limit: "100" }))),
+      ]);
+      const igOfPages = pages.flatMap((p) => (p.instagram_business_account ? [{ id: p.instagram_business_account.id, username: p.instagram_business_account.username ?? p.instagram_business_account.id }] : []));
+      const instagram = [...igOfPages, ...ig.map((i) => ({ id: i.id, username: i.username ?? i.id }))].filter((x, i, arr) => arr.findIndex((y) => y.id === x.id) === i);
+      return {
+        scopes: debug.data?.scopes ?? [],
+        pages: pages.map((p) => ({ id: p.id, name: p.name ?? p.id, instagram: p.instagram_business_account ? { id: p.instagram_business_account.id, username: p.instagram_business_account.username ?? p.instagram_business_account.id } : null })),
+        instagram,
+        pixels: pixels.map((p) => ({ id: p.id, name: p.name ?? p.id })),
+      };
     },
   };
 }

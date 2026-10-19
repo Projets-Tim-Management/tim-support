@@ -2892,12 +2892,39 @@ export interface AdAccount {
    * Dépense publicitaire maximale du mois pour ce compte. Aucun agent ne le fait encore respecter (phase 2).
    */
   monthlyCapEur?: number | null;
+  diffusion?: {
+    pageId?: string | null;
+    pageName?: string | null;
+    instagramId?: string | null;
+    instagramName?: string | null;
+    pixelId?: string | null;
+    pixelName?: string | null;
+    scopes?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    found?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    checkedAt?: string | null;
+  };
   /**
    * Posé à la connexion. Alerte à J-7 ; à l'échéance, il faut reconnecter le compte — ou poser un jeton d'utilisateur système.
    */
   tokenExpiresAt?: string | null;
   /**
-   * Business Manager › Utilisateurs système › Générer un jeton (droit ads_read). Il n'expire pas et prime sur l'OAuth. Collez-le puis enregistrez : il est chiffré et ne sera plus jamais affiché. Obligatoire avant que les agents puissent écrire.
+   * Business Manager › Utilisateurs système › Générer un jeton, en cochant ads_management, ads_read, business_management, pages_show_list, pages_read_engagement, pages_manage_ads et instagram_basic. Il n'expire pas et prime sur l'OAuth. Collez-le puis enregistrez : il est chiffré et ne sera plus jamais affiché. Obligatoire pour publier.
    */
   systemUserToken?: string | null;
   token?: string | null;
@@ -5028,6 +5055,19 @@ export interface AdAccountsSelect<T extends boolean = true> {
   currency?: T;
   timezone?: T;
   monthlyCapEur?: T;
+  diffusion?:
+    | T
+    | {
+        pageId?: T;
+        pageName?: T;
+        instagramId?: T;
+        instagramName?: T;
+        pixelId?: T;
+        pixelName?: T;
+        scopes?: T;
+        found?: T;
+        checkedAt?: T;
+      };
   tokenExpiresAt?: T;
   systemUserToken?: T;
   token?: T;

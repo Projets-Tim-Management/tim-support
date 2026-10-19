@@ -77,6 +77,17 @@ export type MetricRow = {
   leads: number;
 };
 
+/**
+ * Ce que le jeton d'un compte permet (plan Publicité, 3b) : ses droits, et les
+ * Pages, comptes Instagram et pixels au nom desquels il peut publier et mesurer.
+ */
+export type AccessReport = {
+  scopes: string[];
+  pages: { id: string; name: string; instagram: { id: string; username: string } | null }[];
+  instagram: { id: string; username: string }[];
+  pixels: { id: string; name: string }[];
+};
+
 /** Référence d'un objet à modifier chez la régie (phases suivantes). */
 export type ObjectRef = { level: Level; externalId: string };
 
@@ -90,6 +101,8 @@ export interface AdPlatform {
   listAccounts(token: string): Promise<AccountSnapshot[]>;
   listCampaigns(acc: AccountContext): Promise<CampaignSnapshot[]>;
   fetchMetrics(acc: AccountContext, range: DateRange, level: Level): Promise<MetricRow[]>;
+  /** Les droits du jeton et ce qu'il ouvre (Pages, Instagram, pixels) — avant toute publication. */
+  checkAccess?(acc: AccountContext): Promise<AccessReport>;
   setBudget?(acc: AccountContext, ref: ObjectRef, amount: number): Promise<void>;
   setStatus?(acc: AccountContext, ref: ObjectRef, status: "active" | "pause"): Promise<void>;
 }

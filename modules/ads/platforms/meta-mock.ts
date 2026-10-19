@@ -1,4 +1,5 @@
 import type {
+  AccessReport,
   AccountContext,
   AccountSnapshot,
   AdPlatform,
@@ -92,6 +93,15 @@ export function createMockMetaPlatform(): AdPlatform {
 
     async connect(): Promise<{ token: string; expiresAt: Date }> {
       return { token: MOCK_TOKEN, expiresAt: new Date(Date.now() + 60 * 86_400_000) };
+    },
+
+    async checkAccess(): Promise<AccessReport> {
+      return {
+        scopes: ["ads_management", "ads_read", "business_management", "pages_show_list", "pages_read_engagement", "pages_manage_ads", "instagram_basic"],
+        pages: [{ id: "100000000000001", name: `${MOCK_PREFIX} TIM Management`, instagram: { id: "178400000000001", username: "tim.management.simule" } }],
+        instagram: [{ id: "178400000000001", username: "tim.management.simule" }],
+        pixels: [{ id: "900000000000001", name: `${MOCK_PREFIX} Pixel du site` }],
+      };
     },
 
     async listAccounts(): Promise<AccountSnapshot[]> {
