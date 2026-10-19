@@ -11,14 +11,16 @@ import { useScoreSources } from "@/modules/partner/admin/useScoreSources";
  * et d'où il vient (« Démo programmée 25 % + 2 réunions = 33 % »). Il suit le
  * statut choisi dans le formulaire sans attendre l'enregistrement.
  *
- * Rien pour une affaire gagnée ou terminée : il n'y a plus rien à estimer.
+ * Rien pour une affaire terminée (perdue, résiliée, archivée) : il n'y a plus
+ * rien à estimer. Une affaire gagnée garde son 50 % — celui qui pèse sur les
+ * développements qu'elle a demandés.
  */
 export function SignatureScoreBox() {
   const status = useFormFields(([f]) => (f.clientStatus?.value as string | undefined) ?? "nouvelle");
   const { id } = useDocumentInfo();
   const sources = useScoreSources(id != null ? [Number(id)] : []);
   const phase = clientPhase(status);
-  if (phase === "client" || phase === "fin") return null;
+  if (phase === "fin") return null;
 
   // Fiche pas encore créée : elle naît maintenant, donc pas « silencieuse ».
   const s = signatureScore(status, sources?.[0]?.activities ?? [], new Date(), sources?.[0]?.createdAt ?? new Date().toISOString());

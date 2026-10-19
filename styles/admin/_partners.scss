@@ -2569,3 +2569,14 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
   font-size: 0.8rem;
   color: var(--tim-muted);
 }
+
+/* Kanban des opportunités : le % de signature au bout de la ligne d'activité. */
+.tim-kanban__activity--score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.tim-kanban__activity--score .tim-potential__pct {
+  cursor: help;
+}
