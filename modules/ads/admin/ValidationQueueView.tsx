@@ -14,7 +14,8 @@ import { testLabel, toneLabel, type TestDimension } from "@/modules/ads/lib/dime
 import type { FormatKey } from "@/modules/ads/lib/meta-specs";
 
 import { ActionProposals, type ProposedAction } from "./ActionProposals";
-import { CreativeCard, type CardCreative, type Attachment } from "./CreativeCard";
+import { CreativeCard, stageOf, type Attachment, type CardCreative, type CardStage } from "./CreativeCard";
+import type { ExpectedFile } from "./CreativeDesign";
 import { NotebookProposals, type ProposedInstruction, type ProposedLearning } from "./NotebookProposals";
 
 /**
@@ -77,40 +78,50 @@ const toLearning = (r: { id: number | string; statement: string; confidence?: st
   campaign: named(r.campaign),
 });
 
-/** Ce que l'agent propose pour la campagne, avant ses créas : on juge les créas à la lumière du plan. */
+/**
+ * Le plan de l'agent pour une campagne, en trois lignes : ce qu'on publiera, à
+ * qui, pour combien. L'analyse complète (positionnement, bilan) est repliée :
+ * on la lit si on veut comprendre, pas pour agir.
+ */
 function ProposalCard({ p }: { p: AgentProposal }) {
-  const rows: [string, string | null][] = [
-    ["Positionnement", p.positionnement],
-    ["Audiences", p.audience],
-    ["Répartition du budget", p.repartition],
-  ];
   return (
-    <article className="ads-card ads-card--proposal">
-      <header className="ads-card__head">
+    <section className="ads-plan">
+      <div className="ads-plan__rows">
         <div>
-          <h3 className="ads-card__angle">Proposition de l&apos;agent — {p.campagne.nom}</h3>
-          <p className="ads-card__origin">
-            {p.creasAValider} créa{p.creasAValider > 1 ? "s" : ""} de ce passage à décider ci-dessous. Rien n&apos;est envoyé à Meta.
-          </p>
+          <span>Diffusion</span>
+          <strong>{p.audience ?? "pas encore de plan"}</strong>
         </div>
-      </header>
-      <dl className="ads-proposal-card__rows">
-        {rows.map(([k, v]) => (
-          <div key={k}>
-            <dt>{k}</dt>
-            <dd>{v ?? <span className="ads-proposal-card__none">pas de proposition</span>}</dd>
-          </div>
-        ))}
-      </dl>
-      {p.bilan && <p className="ads-proposal-card__summary">{p.bilan}</p>}
-      <footer className="ads-card__actions">
-        <Link href={`/admin/collections/ad-campaigns/${p.campagne.id}`} prefetch={false} className="tim-btn">
-          Voir le passage (onglet « Agent »)
-        </Link>
-      </footer>
-    </article>
+        <div>
+          <span>Budget</span>
+          <strong>{p.repartition ?? "pas encore de répartition"}</strong>
+        </div>
+      </div>
+      {(p.positionnement || p.bilan) && (
+        <details className="ads-plan__more">
+          <summary>Lire l&apos;analyse de l&apos;agent</summary>
+          {p.positionnement && (
+            <p>
+              <b>Positionnement.</b> {p.positionnement}
+            </p>
+          )}
+          {p.bilan && <p className="ads-plan__bilan">{p.bilan}</p>}
+          <Link href={`/admin/collections/ad-campaigns/${p.campagne.id}`} prefetch={false}>
+            Voir le passage complet (onglet « Agent ») →
+          </Link>
+        </details>
+      )}
+    </section>
   );
 }
+
+/** Les fichiers que le brief attend, lus dans ses noms (« C17-9x16.mp4 »). Pure. */
+const expectedOf = (names: string[]): ExpectedFile[] =>
+  names.map((name) => {
+    const f = /-(1x1|4x5|9x16)\.(\w+)$/.exec(name);
+    return { name, format: f?.[1] ?? "", kind: f?.[2] === "png" ? ("image" as const) : ("video" as const) };
+  });
+
+const STAGE_ORDER: Record<CardStage, number> = { valider: 0, importer: 1, creer: 2, "sans-brief": 3, validee: 4, refusee: 5 };
 
 const toCard = (r: Raw): CardCreative => ({
   id: r.id,
@@ -138,6 +149,7 @@ const toCard = (r: Raw): CardCreative => ({
       }
     : null,
   files: (r.files ?? []).map((f) => ({ format: f.format, kind: f.kind, url: f.url, filename: f.filename ?? null, warnings: Array.isArray(f.warnings) ? f.warnings : [] })),
+  expected: r.brief?.prompt ? expectedOf(expectedFileNames(r.id, { kind: (r.brief.kind ?? "video") as "video", formats: (r.brief.formats ?? []) as FormatKey[] })) : [],
   missing: r.brief?.prompt ? missingFiles(r) : [],
   facts: (r.facts ?? []).filter((f): f is { statement: string; source: string } => typeof f === "object" && f !== null),
   costEur: r.generation?.costEur ?? null,
@@ -269,14 +281,60 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
             ))}
           </>
         ) : (
-          <>
-            {proposals.map((p) => (
-              <ProposalCard key={String(p.run)} p={p} />
-            ))}
-            {cards.map((c) => (
-              <CreativeCard key={String(c.id)} c={c} logos={logos} />
-            ))}
-          </>
+          (() => {
+            // Le dernier passage de chaque campagne seulement : un plan plus ancien est remplacé.
+            const latest = new Map<string, AgentProposal>();
+            for (const p of proposals) if (!latest.has(String(p.campagne.id))) latest.set(String(p.campagne.id), p);
+            const withBrief = cards.filter((c) => stageOf(c) !== "sans-brief");
+            const legacy = cards.filter((c) => stageOf(c) === "sans-brief");
+            const count = (st: CardStage) => withBrief.filter((c) => stageOf(c) === st).length;
+            const groups = new Map<string, CardCreative[]>();
+            for (const c of withBrief) {
+              const k = String(c.campaign?.id ?? "");
+              if (!groups.has(k)) groups.set(k, []);
+              groups.get(k)!.push(c);
+            }
+            const todo: [CardStage, string][] = [
+              ["creer", "à créer dans Claude Design"],
+              ["importer", "fichiers à compléter"],
+              ["valider", "prête(s) à valider"],
+            ];
+            return (
+              <>
+                <div className="ads-todo">
+                  {todo.map(([st, label]) => (
+                    <div key={st} className={`ads-todo__item ads-todo__item--${st}${count(st) ? "" : " ads-todo__item--zero"}`}>
+                      <strong>{count(st)}</strong>
+                      <span>{label}</span>
+                    </div>
+                  ))}
+                </div>
+                {[...groups.entries()].map(([id, group]) => (
+                  <section key={id} className="ads-queue__group">
+                    <header className="ads-queue__group-head">
+                      <h2>{group[0].campaign?.name ?? "Sans campagne"}</h2>
+                    </header>
+                    {latest.get(id) && <ProposalCard p={latest.get(id)!} />}
+                    {[...group]
+                      .sort((a, b) => STAGE_ORDER[stageOf(a)] - STAGE_ORDER[stageOf(b)])
+                      .map((c) => (
+                        <CreativeCard key={String(c.id)} c={c} logos={logos} />
+                      ))}
+                  </section>
+                ))}
+                {legacy.length > 0 && (
+                  <details className="ads-legacy">
+                    <summary>
+                      {legacy.length} ancienne(s) créa(s) sans brief Claude Design — d&apos;avant le 19/10, à refuser
+                    </summary>
+                    {legacy.map((c) => (
+                      <CreativeCard key={String(c.id)} c={c} logos={logos} />
+                    ))}
+                  </details>
+                )}
+              </>
+            );
+          })()
         )}
       </>
     );
@@ -297,7 +355,7 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
         <div className="an ads-dash">
           <header className="an-head">
             <h1 className="an-title">À valider</h1>
-            <p className="ads-dash__sub">Copiez le brief dans Claude Design, importez les fichiers finis, puis validez ou refusez. Validée, la créa se télécharge aux formats Meta.</p>
+            <p className="ads-dash__sub">Pour chaque pub : 1. créez-la dans Claude Design avec son brief, 2. importez les fichiers exportés, 3. validez.</p>
           </header>
           {body}
         </div>

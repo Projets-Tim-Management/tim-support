@@ -30,13 +30,16 @@ export type CardBrief = {
   expectedFiles: string[];
 };
 export type CardFile = { format: string; kind: string; url: string; filename: string | null; warnings: string[] };
+/** Un fichier que le brief attend : son nom à l'export, son format et sa nature. */
+export type ExpectedFile = { name: string; format: string; kind: "image" | "video" };
 
 const KIND_LABEL: Record<string, string> = { video: "Une vidéo", image: "Un visuel fixe", "les-deux": "Une vidéo et un visuel fixe" };
+const FORMAT_LABEL: Record<string, string> = { "9x16": "9:16 — Stories et Reels", "4x5": "4:5 — fil d'actualité", "1x1": "1:1 — carré" };
 const download = (url: string) => `${url}${url.includes("?") ? "&" : "?"}download=1`;
 
-export function BriefPanel({ brief, logos }: { brief: CardBrief | null; logos: Attachment[] }) {
+/** Étape 1 : de quoi créer la pub dans Claude Design — le prompt d'un clic, les fichiers à joindre, les noms à donner. */
+export function StepCreate({ brief, logos }: { brief: CardBrief; logos: Attachment[] }) {
   const [copied, setCopied] = useState(false);
-  if (!brief) return <p className="ads-card__empty">Pas encore de brief Claude Design : l&apos;agent l&apos;écrit avant de déposer la créa.</p>;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(brief.prompt);
@@ -44,47 +47,68 @@ export function BriefPanel({ brief, logos }: { brief: CardBrief | null; logos: A
       toast.success("Prompt copié : collez-le dans Claude Design.");
       setTimeout(() => setCopied(false), 2500);
     } catch {
-      toast.error("Copie impossible : sélectionnez le texte du prompt à la main.");
+      toast.error("Copie impossible : ouvrez « Voir le prompt » et sélectionnez le texte.");
     }
   };
   const attachments = [...brief.rushes, ...logos].filter((a) => a.url);
   return (
-    <section className="ads-brief">
-      <header className="ads-brief__head">
+    <div className="ads-create">
+      <p className="ads-create__what">
+        {KIND_LABEL[brief.kind] ?? brief.kind}
+        {brief.durationSec ? ` de ${brief.durationSec} s` : ""}, en {brief.formats.length} format{brief.formats.length > 1 ? "s" : ""}.
+      </p>
+      <div className="ads-create__row">
+        <span className="ads-create__n">a</span>
         <div>
-          <strong>Brief Claude Design</strong>
-          <span>
-            {KIND_LABEL[brief.kind] ?? brief.kind} · {brief.formats.map((f) => f.replace("x", ":")).join(", ")}
-            {brief.durationSec ? ` · ${brief.durationSec} s` : ""}
-          </span>
+          <button type="button" className="tim-btn tim-btn--primary" onClick={copy}>
+            {copied ? "Copié ✓" : "Copier le prompt"}
+          </button>
+          <span className="ads-create__help">puis collez-le dans un nouveau projet Claude Design.</span>
         </div>
-        <button type="button" className="tim-btn tim-btn--primary" onClick={copy}>
-          {copied ? "Copié ✓" : "Copier le prompt"}
-        </button>
-      </header>
-      {brief.rationale && <p className="ads-brief__why">{brief.rationale}</p>}
-      <details className="ads-brief__prompt">
-        <summary>Voir le prompt</summary>
-        <pre>{brief.prompt}</pre>
-      </details>
+      </div>
       {attachments.length > 0 && (
-        <div className="ads-brief__attach">
-          <span>À joindre dans Claude Design :</span>
-          <ul>
-            {attachments.map((a) => (
-              <li key={a.url!}>
-                <a href={download(a.url!)} download={a.filename ?? undefined}>
-                  {a.name}
-                </a>
+        <div className="ads-create__row">
+          <span className="ads-create__n">b</span>
+          <div>
+            <span className="ads-create__label">Téléchargez et joignez ces fichiers :</span>
+            <ul className="ads-create__files">
+              {attachments.map((a) => (
+                <li key={a.url!}>
+                  <a href={download(a.url!)} download={a.filename ?? undefined}>
+                    ↓ {a.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+      <div className="ads-create__row">
+        <span className="ads-create__n">{attachments.length ? "c" : "b"}</span>
+        <div>
+          <span className="ads-create__label">Exportez sous ces noms exacts :</span>
+          <ul className="ads-create__names">
+            {brief.expectedFiles.map((n) => (
+              <li key={n}>
+                <code>{n}</code>
               </li>
             ))}
           </ul>
         </div>
-      )}
-      <p className="ads-brief__names">
-        Noms des fichiers à exporter : <code>{brief.expectedFiles.join("  ")}</code>
-      </p>
-    </section>
+      </div>
+      <div className="ads-create__more">
+        {brief.rationale && (
+          <details>
+            <summary>Pourquoi cette pub</summary>
+            <p>{brief.rationale}</p>
+          </details>
+        )}
+        <details>
+          <summary>Voir le prompt</summary>
+          <pre>{brief.prompt}</pre>
+        </details>
+      </div>
+    </div>
   );
 }
 
@@ -117,7 +141,8 @@ async function measure(file: File): Promise<Pick<FileFacts, "width" | "height" |
   }
 }
 
-export function FilesPanel({ id, files, missing, editable }: { id: number | string; files: CardFile[]; missing: string[]; editable: boolean }) {
+/** Étape 2 : les fichiers attendus, cochés à mesure qu'ils arrivent, et la zone où les glisser. */
+export function StepImport({ id, files, expected, editable }: { id: number | string; files: CardFile[]; expected: ExpectedFile[]; editable: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -177,27 +202,40 @@ export function FilesPanel({ id, files, missing, editable }: { id: number | stri
     }
   };
 
+  const fileOf = (x: ExpectedFile) => files.find((f) => f.format === x.format && f.kind === x.kind) ?? null;
   return (
-    <section className="ads-files">
-      {files.length > 0 && (
-        <div className="ads-card__visuals">
-          {files.map((f) => (
-            <figure key={f.url} className={`ads-shot ads-shot--${f.format}`}>
-              {f.kind === "video" ? <video src={f.url} controls muted playsInline preload="metadata" /> : <img src={f.url} alt={f.filename ?? f.format} />}
-              <figcaption>
-                {f.format.replace("x", ":")} · {f.kind === "video" ? "vidéo" : "image"}
-                {editable && (
-                  <button type="button" className="ads-files__remove" disabled={busy != null} onClick={() => remove(f.url)} aria-label={`Retirer ${f.filename ?? f.format}`}>
-                    Retirer
-                  </button>
-                )}
-              </figcaption>
-              {f.warnings.length > 0 && <p className="ads-files__warn">{f.warnings.join(" ")}</p>}
-            </figure>
-          ))}
-        </div>
-      )}
-      {missing.length > 0 && <p className="ads-files__missing">Attendu : {missing.join(", ")}.</p>}
+    <div className="ads-import">
+      <ul className="ads-import__list">
+        {expected.map((x) => {
+          const f = fileOf(x);
+          return (
+            <li key={x.name} className={f ? "ads-import__item ads-import__item--ok" : "ads-import__item"}>
+              <span className="ads-import__check" aria-hidden>
+                {f ? "✓" : "○"}
+              </span>
+              <div className="ads-import__info">
+                <code>{x.name}</code>
+                <span>
+                  {FORMAT_LABEL[x.format] ?? x.format} · {x.kind === "video" ? "vidéo" : "image"}
+                </span>
+                {f?.warnings.length ? <span className="ads-files__warn">{f.warnings.join(" ")}</span> : null}
+              </div>
+              {f ? (
+                <div className="ads-import__thumb">
+                  {f.kind === "video" ? <video src={f.url} controls muted playsInline preload="metadata" /> : <img src={f.url} alt={x.name} />}
+                  {editable && (
+                    <button type="button" className="ads-files__remove" disabled={busy != null} onClick={() => remove(f.url)}>
+                      Retirer
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <em className="ads-import__wait">Attendu</em>
+              )}
+            </li>
+          );
+        })}
+      </ul>
       {editable && (
         <button
           type="button"
@@ -219,8 +257,8 @@ export function FilesPanel({ id, files, missing, editable }: { id: number | stri
             <strong>Import… {busy}</strong>
           ) : (
             <>
-              <strong>Glissez ici les fichiers exportés de Claude Design</strong>
-              <span>MP4, MOV, PNG ou JPEG — plusieurs à la fois. Nommés comme le brief le demande, ils se rangent seuls ; un réimport remplace le fichier du même format.</span>
+              <strong>Glissez ici les fichiers exportés, ou cliquez pour les choisir</strong>
+              <span>Plusieurs à la fois. Bien nommés, ils se rangent seuls ; un nouvel import remplace l&apos;ancien.</span>
             </>
           )}
         </button>
@@ -233,6 +271,6 @@ export function FilesPanel({ id, files, missing, editable }: { id: number | stri
         </ul>
       )}
       <input ref={input} type="file" hidden multiple accept={[...IMAGE_TYPES, ...VIDEO_TYPES].join(",")} onChange={(e) => e.target.files && send(e.target.files)} />
-    </section>
+    </div>
   );
 }
