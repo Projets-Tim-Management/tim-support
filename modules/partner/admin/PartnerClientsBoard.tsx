@@ -962,10 +962,10 @@ export function PartnerClientsBoard() {
 
                       {/* Le % de signature au bout de la ligne d'activité : il
                           n'ajoute pas de ligne à la carte ; son détail au survol.
-                          Rien pour une affaire terminée. */}
+                          Rien pour une affaire gagnée ou terminée. */}
                       {(() => {
                         const score =
-                          exchangesByClient && clientPhase(c.clientStatus) !== "fin"
+                          exchangesByClient && !["client", "fin"].includes(clientPhase(c.clientStatus))
                             ? signatureScore(c.clientStatus, exchangesByClient[String(c.id)] ?? [], new Date(), c.createdAt)
                             : null;
                         return (
