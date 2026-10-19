@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { stageOf } from "@/modules/ads/admin/CreativeCard";
+import { stageOf } from "@/modules/ads/lib/card-stage";
 
 const brief = { kind: "video", formats: ["9x16"], durationSec: 18, rationale: null, prompt: "…", rushes: [], expectedFiles: ["C1-9x16.mp4"] };
 const file = { format: "9x16", kind: "video", url: "u", filename: "C1-9x16.mp4", warnings: [] };

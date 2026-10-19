@@ -4,12 +4,14 @@ import { toast } from "@payloadcms/ui";
 import { useState } from "react";
 
 import { TEXT_LIMITS } from "@/modules/ads/lib/copy/guardrails";
+import { stageOf, type CardStage } from "@/modules/ads/lib/card-stage";
 import { REFUSAL_REASONS } from "@/modules/ads/lib/creative-options";
 
 import { StepCreate, StepImport, type Attachment, type CardBrief, type CardFile, type ExpectedFile } from "./CreativeDesign";
 import { postAdmin } from "./post-admin";
 
-export type { Attachment };
+export type { Attachment, CardStage };
+export { stageOf };
 
 export type CardCreative = {
   id: number | string;
@@ -35,16 +37,6 @@ export type CardCreative = {
   decidedAt: string | null;
   refusal: string | null;
 };
-
-/** Où en est une créa, en un mot : c'est ce qui dit quoi faire maintenant. Pure. */
-export type CardStage = "creer" | "importer" | "valider" | "validee" | "refusee" | "sans-brief";
-export function stageOf(c: Pick<CardCreative, "status" | "brief" | "files" | "missing">): CardStage {
-  if (c.status === "validee" || c.status === "en-ligne") return "validee";
-  if (c.status === "refusee") return "refusee";
-  if (!c.brief) return "sans-brief";
-  if (!c.files.length) return "creer";
-  return c.missing.length ? "importer" : "valider";
-}
 
 const STAGE_LABEL: Record<CardStage, string> = {
   creer: "À créer dans Claude Design",
