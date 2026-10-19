@@ -7,7 +7,7 @@ import { AnalyticsPage } from "@/modules/analytics/admin/AnalyticsPage";
 import { DailyChart, FunnelChart } from "@/modules/analytics/admin/charts";
 import { DataTable, type Column } from "@/modules/analytics/admin/DataTable";
 import { Card, Tile } from "@/modules/analytics/admin/ui";
-import { buildVideosAnalytics, parisDay, type VueRow } from "@/modules/analytics/lib/video-views";
+import { buildVideosAnalytics, parisDay, type Split, type VueRow } from "@/modules/analytics/lib/video-views";
 
 /**
  * Écran « Analyses → Vidéos » (/admin/analyses/videos) — les vidéos de
@@ -36,6 +36,15 @@ const PAGE_COLUMNS: Column[] = [
   { key: "completion", label: "Complétion", format: "pct" },
 ];
 
+const SPLIT_COLUMNS: Column[] = [
+  { key: "label", label: "" },
+  { key: "lectures", label: "Lectures", format: "int" },
+  { key: "completion", label: "Complétion", format: "pct" },
+  { key: "cta", label: "Clics bouton", format: "int" },
+];
+
+const splitRows = (list: Split[]) => list.map((x) => ({ label: x.label, lectures: x.lectures, completion: x.completion, cta: x.cta }));
+
 export default async function VideosView(view: AdminViewServerProps) {
   const { payload, user } = view.initPageResult.req;
   const days = daysFrom(await view.searchParams);
@@ -52,7 +61,7 @@ export default async function VideosView(view: AdminViewServerProps) {
       pagination: false,
       depth: 0,
       overrideAccess: true,
-      select: { videoId: true, page: true, etape: true, jour: true, nombre: true },
+      select: { videoId: true, page: true, etape: true, jour: true, appareil: true, canal: true, nombre: true },
     });
     const report = buildVideosAnalytics(found.docs as VueRow[], days, now);
 
@@ -72,7 +81,10 @@ export default async function VideosView(view: AdminViewServerProps) {
           <>
             {report.videos.map((v) => (
               <section key={v.videoId} className="an-video">
-                <h2 className="an-video__title">{v.videoId}</h2>
+                <h2 className="an-video__title">
+                  {v.videoId}
+                  {v.version > 1 ? <span className="an-video__version">version {v.version}</span> : null}
+                </h2>
                 <div className="an-tiles">
                   <Tile
                     icon={Icons.checkCircle()}
@@ -85,8 +97,20 @@ export default async function VideosView(view: AdminViewServerProps) {
                     }
                     tone="ok"
                   />
-                  <Tile icon={Icons.inbox()} label="Lectures lancées" value={String(v.lectures.current)} delta={v.lectures} />
+                  <Tile
+                    icon={Icons.inbox()}
+                    label="Lectures lancées"
+                    value={String(v.lectures.current)}
+                    delta={v.lectures}
+                    sub={v.lancement == null ? "affichages pas encore mesurés" : `${v.lancement} % des ${v.affichages} affichages`}
+                  />
                   <Tile icon={Icons.clock()} label="Regardées jusqu'au bout" value={String(v.fins)} />
+                  <Tile
+                    icon={Icons.reply()}
+                    label="Clics sur le bouton"
+                    value={String(v.cta)}
+                    sub={v.ctaRate == null ? "pour 100 lectures" : `${v.ctaRate} pour 100 lectures`}
+                  />
                 </div>
                 <div className="an-grid">
                   <Card title="Jusqu'où vont les lectures" sub="en nombre, et en part des lectures lancées">
@@ -105,6 +129,12 @@ export default async function VideosView(view: AdminViewServerProps) {
                       }))}
                       sort={{ key: "lectures", dir: "desc" }}
                     />
+                  </Card>
+                  <Card title="Par appareil" sub="mobile, tablette ou ordinateur">
+                    <DataTable columns={[{ ...SPLIT_COLUMNS[0], label: "Appareil" }, ...SPLIT_COLUMNS.slice(1)]} rows={splitRows(v.appareils)} sort={{ key: "lectures", dir: "desc" }} />
+                  </Card>
+                  <Card title="Par canal" sub="d'où venait la visite">
+                    <DataTable columns={[{ ...SPLIT_COLUMNS[0], label: "Canal" }, ...SPLIT_COLUMNS.slice(1)]} rows={splitRows(v.canaux)} sort={{ key: "lectures", dir: "desc" }} />
                   </Card>
                 </div>
               </section>

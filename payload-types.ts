@@ -2283,8 +2283,10 @@ export interface VideoView {
   id: number;
   videoId: string;
   page: string;
-  etape: 'lecture' | '25' | '50' | '75' | 'fin';
+  etape: 'affichage' | 'lecture' | '25' | '50' | '75' | 'fin' | 'cta';
   jour: string;
+  appareil: string;
+  canal: string;
   nombre: number;
   updatedAt: string;
   createdAt: string;
@@ -5247,6 +5249,8 @@ export interface VideoViewsSelect<T extends boolean = true> {
   page?: T;
   etape?: T;
   jour?: T;
+  appareil?: T;
+  canal?: T;
   nombre?: T;
   updatedAt?: T;
   createdAt?: T;

@@ -2,6 +2,7 @@ import { sql } from "@payloadcms/db-postgres";
 import type { Payload } from "payload";
 
 import { execSql } from "@/core/lib/raw-sql";
+import { CHANNELS, channelLabel } from "@/core/lib/channels";
 import { delta, type Delta } from "@/modules/analytics/lib/growth";
 import type { FunnelStep } from "@/modules/analytics/lib/pipeline";
 
@@ -10,22 +11,47 @@ import type { FunnelStep } from "@/modules/analytics/lib/pipeline";
  * 19/10/2026) : combien de lectures sont lancées, et jusqu'où elles vont.
  *
  * ANONYME ET AGRÉGÉ — c'est la condition de l'exemption de consentement de la
- * CNIL : un compteur par (vidéo, page, étape, jour), et rien d'autre. Ni IP,
- * ni navigateur, ni heure. On compte des LECTURES, pas des personnes.
+ * CNIL : un compteur par (vidéo, page, étape, jour, appareil, canal), et rien
+ * d'autre. Ni IP, ni navigateur, ni heure. L'appareil et le canal ne sont que
+ * des CATÉGORIES (« mobile », « sea ») : elles ne distinguent personne. On
+ * compte des LECTURES, pas des personnes.
+ *
+ * Étapes (19/10/2026) : `affichage` (la vidéo est apparue à l'écran — donne le
+ * taux de lancement), puis la lecture et sa progression, puis `cta` (clic sur
+ * le bouton d'action qui accompagne la vidéo).
  */
 
-export const ETAPES = ["lecture", "25", "50", "75", "fin"] as const;
+export const ETAPES = ["affichage", "lecture", "25", "50", "75", "fin", "cta"] as const;
 export type Etape = (typeof ETAPES)[number];
 
+/** Les étapes de l'entonnoir de lecture, en part des lectures lancées. */
+export const ETAPES_LECTURE = ["lecture", "25", "50", "75", "fin"] as const satisfies readonly Etape[];
+
 export const ETAPE_LABELS: Record<Etape, string> = {
+  affichage: "Affichages",
   lecture: "Lectures",
   "25": "25 %",
   "50": "50 %",
   "75": "75 %",
   fin: "Fin",
+  cta: "Clics sur le bouton",
 };
 
-export type Vue = { videoId: string; etape: Etape; page: string };
+/** Catégorie d'appareil, déduite par la vitrine. Absente ou inconnue : « inconnu ». */
+export const APPAREILS = ["mobile", "tablette", "ordinateur"] as const;
+export const APPAREIL_LABELS: Record<string, string> = { mobile: "Mobile", tablette: "Tablette", ordinateur: "Ordinateur", inconnu: "Non précisé" };
+
+/**
+ * Canal de la visite : les canaux des formulaires (core/lib/channels.ts), plus
+ * `direct`. Absent ou hors liste : « inconnu » — on ne perd pas une lecture
+ * pour un libellé.
+ */
+export const CANAUX = [...CHANNELS.map((c) => c.value), "direct"] as const;
+export const canalLabel = (v: string): string => channelLabel(v) ?? (v === "direct" ? "Accès direct" : "Non précisé");
+
+export const INCONNU = "inconnu";
+
+export type Vue = { videoId: string; etape: Etape; page: string; appareil: string; canal: string };
 
 const VIDEO_ID = /^[a-z0-9-]{1,64}$/;
 const PAGE = /^\/[a-z0-9/-]{0,200}$/;
@@ -41,7 +67,18 @@ export function parseVue(body: unknown): Vue | null {
   if (typeof videoId !== "string" || !VIDEO_ID.test(videoId)) return null;
   if (typeof etape !== "string" || !(ETAPES as readonly string[]).includes(etape)) return null;
   if (typeof page !== "string" || !PAGE.test(page)) return null;
-  return { videoId, etape: etape as Etape, page };
+  const pick = (v: unknown, list: readonly string[]) => (typeof v === "string" && list.includes(v) ? v : INCONNU);
+  return { videoId, etape: etape as Etape, page, appareil: pick(b.appareil, APPAREILS), canal: pick(b.canal, CANAUX) };
+}
+
+/**
+ * Une nouvelle version d'une vidéo porte le même identifiant suffixé
+ * (`planning-ouvriers-demo-v2`) : deux montages ne se mélangent pas, et se
+ * comparent côte à côte. Pure.
+ */
+export function videoVersion(videoId: string): { base: string; version: number } {
+  const m = /^(.*)-v(\d+)$/.exec(videoId);
+  return m ? { base: m[1], version: Number(m[2]) } : { base: videoId, version: 1 };
 }
 
 const PARIS_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" });
@@ -88,32 +125,44 @@ export function maskIp(ip: string | undefined): string {
 /**
  * +1 sur le compteur du jour, en UNE requête : deux lectures simultanées ne
  * s'écrasent pas (un « lire puis écrire » par l'API Payload le ferait).
- * Noms de colonnes et d'enum : ceux de la migration 20261019_*_video_views.
+ * Noms de colonnes et d'enum : ceux des migrations 20261019_*_video_views*.
  */
 export async function incrementVue(payload: Payload, v: Vue, now = new Date()): Promise<void> {
   await execSql(
     payload,
-    sql`INSERT INTO "video_views" ("video_id", "page", "etape", "jour", "nombre", "updated_at", "created_at")
-        VALUES (${v.videoId}, ${v.page}, ${v.etape}::"enum_video_views_etape", ${parisDay(now)}, 1, now(), now())
-        ON CONFLICT ("video_id", "page", "etape", "jour")
+    sql`INSERT INTO "video_views" ("video_id", "page", "etape", "jour", "appareil", "canal", "nombre", "updated_at", "created_at")
+        VALUES (${v.videoId}, ${v.page}, ${v.etape}::"enum_video_views_etape", ${parisDay(now)}, ${v.appareil}, ${v.canal}, 1, now(), now())
+        ON CONFLICT ("video_id", "page", "etape", "jour", "appareil", "canal")
         DO UPDATE SET "nombre" = "video_views"."nombre" + 1, "updated_at" = now()`,
   );
 }
 
 /* ─── Le rapport ─────────────────────────────────────────────────────────── */
 
-export type VueRow = { videoId: string; page: string; etape: string; jour: string; nombre: number };
+export type VueRow = { videoId: string; page: string; etape: string; jour: string; appareil?: string | null; canal?: string | null; nombre: number };
+
+/** Une répartition (appareil, canal, page) : ce qu'on y lit, en lectures. */
+export type Split = { key: string; label: string; lectures: number; fins: number; completion: number | null; cta: number };
 
 export type VideoReport = {
   videoId: string;
+  version: number;
+  affichages: number;
+  /** Lectures ÷ affichages, en % (null tant que la vitrine n'envoie pas l'affichage). */
+  lancement: number | null;
   lectures: Delta;
   fins: number;
+  cta: number;
+  /** Clics ÷ lectures, en %. */
+  ctaRate: number | null;
   /** Fins ÷ lectures, en % (null sans lecture). */
   completion: number | null;
   /** Le taux de la période précédente, pour comparer. */
   previousCompletion: number | null;
   funnel: FunnelStep[];
   pages: { page: string; kind: "produit" | "video"; lectures: number; fins: number }[];
+  appareils: Split[];
+  canaux: Split[];
 };
 
 export type VideosAnalytics = {
@@ -124,6 +173,8 @@ export type VideosAnalytics = {
 };
 
 const STEP_COLORS: Record<Etape, string> = {
+  affichage: "var(--tim-chart-6)",
+  cta: "var(--tim-chart-7)",
   lecture: "var(--tim-chart-1)",
   "25": "var(--tim-chart-2)",
   "50": "var(--tim-chart-3)",
@@ -157,9 +208,9 @@ export function buildVideosAnalytics(rows: VueRow[], n: number, now: Date): Vide
     const lectures = by("lecture");
     const fins = by("fin");
     const prevLectures = sum(before, (r) => r.etape === "lecture");
-    const funnel = ETAPES.map((e, i): FunnelStep => {
+    const funnel = ETAPES_LECTURE.map((e, i): FunnelStep => {
       const reached = by(e);
-      const prev = i > 0 ? by(ETAPES[i - 1]) : null;
+      const prev = i > 0 ? by(ETAPES_LECTURE[i - 1]) : null;
       return {
         key: e,
         label: ETAPE_LABELS[e],
@@ -170,10 +221,26 @@ export function buildVideosAnalytics(rows: VueRow[], n: number, now: Date): Vide
       };
     });
     const pageKeys = [...new Set(mine.map((r) => r.page))].sort();
+    const split = (keyOf: (r: VueRow) => string, labelOf: (k: string) => string): Split[] =>
+      [...new Set(mine.map(keyOf))]
+        .map((key) => {
+          const l = sum(mine, (r) => keyOf(r) === key && r.etape === "lecture");
+          const f = sum(mine, (r) => keyOf(r) === key && r.etape === "fin");
+          return { key, label: labelOf(key), lectures: l, fins: f, completion: pct(f, l), cta: sum(mine, (r) => keyOf(r) === key && r.etape === "cta") };
+        })
+        .filter((x) => x.lectures > 0 || x.cta > 0)
+        .sort((a, b) => b.lectures - a.lectures);
+    const affichages = by("affichage");
+    const cta = by("cta");
     return {
       videoId: id,
+      version: videoVersion(id).version,
+      affichages,
+      lancement: pct(lectures, affichages),
       lectures: delta(lectures, prevLectures),
       fins,
+      cta,
+      ctaRate: pct(cta, lectures),
       completion: pct(fins, lectures),
       previousCompletion: pct(sum(before, (r) => r.etape === "fin"), prevLectures),
       funnel,
@@ -185,6 +252,8 @@ export function buildVideosAnalytics(rows: VueRow[], n: number, now: Date): Vide
           fins: sum(mine, (r) => r.page === page && r.etape === "fin"),
         }))
         .sort((a, b) => b.lectures - a.lectures),
+      appareils: split((r) => r.appareil || INCONNU, (k) => APPAREIL_LABELS[k] ?? k),
+      canaux: split((r) => r.canal || INCONNU, canalLabel),
     };
   });
 

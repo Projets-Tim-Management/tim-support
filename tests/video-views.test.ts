@@ -6,6 +6,7 @@ import {
   maskIp,
   parisDay,
   parseVue,
+  videoVersion,
   type VueRow,
 } from "@/modules/analytics/lib/video-views";
 
@@ -19,8 +20,24 @@ const ok = { video_id: "planning-ouvriers-demo", etape: "25", page: "/plannings-
 
 describe("parseVue", () => {
   it("accepte un corps valide (étapes en chaînes, comme la vitrine les envoie)", () => {
-    expect(parseVue(ok)).toEqual({ videoId: "planning-ouvriers-demo", etape: "25", page: "/plannings-ouvriers" });
+    expect(parseVue(ok)).toEqual({ videoId: "planning-ouvriers-demo", etape: "25", page: "/plannings-ouvriers", appareil: "inconnu", canal: "inconnu" });
     expect(parseVue({ ...ok, etape: "lecture", page: "/video/demo-planning-ouvriers" })?.etape).toBe("lecture");
+  });
+
+  it("accepte les étapes affichage et cta", () => {
+    expect(parseVue({ ...ok, etape: "affichage" })?.etape).toBe("affichage");
+    expect(parseVue({ ...ok, etape: "cta" })?.etape).toBe("cta");
+  });
+
+  it("garde l'appareil et le canal connus, ramène le reste à « inconnu » sans refuser la lecture", () => {
+    expect(parseVue({ ...ok, appareil: "mobile", canal: "sea" })).toMatchObject({ appareil: "mobile", canal: "sea" });
+    expect(parseVue({ ...ok, appareil: "direct", canal: "direct" })).toMatchObject({ appareil: "inconnu", canal: "direct" });
+    expect(parseVue({ ...ok, appareil: "iPhone 15", canal: "newsletter" })).toMatchObject({ appareil: "inconnu", canal: "inconnu" });
+  });
+
+  it("lit la version d'une vidéo dans son identifiant", () => {
+    expect(videoVersion("planning-ouvriers-demo-v2")).toEqual({ base: "planning-ouvriers-demo", version: 2 });
+    expect(videoVersion("planning-ouvriers-demo")).toEqual({ base: "planning-ouvriers-demo", version: 1 });
   });
 
   it("refuse un video_id invalide", () => {
@@ -81,7 +98,7 @@ describe("plafond de débit", () => {
 
 describe("rapport", () => {
   const now = new Date("2026-10-19T10:00:00Z");
-  const row = (etape: string, nombre: number, jour = "2026-10-18", page = "/plannings-ouvriers", videoId = "planning-ouvriers-demo"): VueRow => ({ videoId, page, etape, jour, nombre });
+  const row = (etape: string, nombre: number, jour = "2026-10-18", page = "/plannings-ouvriers", videoId = "planning-ouvriers-demo", appareil = "inconnu", canal = "inconnu"): VueRow => ({ videoId, page, etape, jour, appareil, canal, nombre });
 
   it("donne l'entonnoir, le taux de complétion et la comparaison", () => {
     const r = buildVideosAnalytics(
@@ -96,6 +113,25 @@ describe("rapport", () => {
     expect(v.funnel[2]).toMatchObject({ fromStart: 60, fromPrevious: 75 });
     expect(r.days).toHaveLength(7);
     expect(r.daily.find((d) => d.day === "2026-10-18")?.["planning-ouvriers-demo"]).toBe(10);
+  });
+
+  it("donne le taux de lancement, les clics et les répartitions par appareil et canal", () => {
+    const r = buildVideosAnalytics(
+      [
+        row("affichage", 20),
+        row("lecture", 6, "2026-10-18", "/plannings-ouvriers", "planning-ouvriers-demo", "mobile", "sea"),
+        row("fin", 3, "2026-10-18", "/plannings-ouvriers", "planning-ouvriers-demo", "mobile", "sea"),
+        row("lecture", 4, "2026-10-18", "/plannings-ouvriers", "planning-ouvriers-demo", "ordinateur", "seo"),
+        row("cta", 2, "2026-10-18", "/plannings-ouvriers", "planning-ouvriers-demo", "ordinateur", "seo"),
+      ],
+      7,
+      now,
+    );
+    const v = r.videos[0];
+    expect([v.affichages, v.lancement, v.cta, v.ctaRate]).toEqual([20, 50, 2, 20]);
+    expect(v.funnel.map((s) => s.key)).toEqual(["lecture", "25", "50", "75", "fin"]);
+    expect(v.appareils.map((a) => [a.label, a.lectures, a.completion])).toEqual([["Mobile", 6, 50], ["Ordinateur", 4, 0]]);
+    expect(v.canaux.map((c) => [c.label, c.cta])).toEqual([["Google Ads — SEA", 0], ["Site vitrine — SEO", 2]]);
   });
 
   it("répartit par page et sépare la période précédente", () => {
@@ -141,6 +177,7 @@ describe("POST /api/videos/vues", () => {
     expect(res.status).toBe(204);
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(execute).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(execute.mock.calls[0][0])).toContain("appareil");
   });
 
   it("refuse un secret faux ou absent (401), une configuration manquante (503)", async () => {

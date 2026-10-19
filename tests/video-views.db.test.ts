@@ -24,11 +24,11 @@ const dbUrl = (): string | undefined => {
 };
 
 describe.skipIf(!process.env.RUN_DB_TESTS)("video_views en base", () => {
-  it("deux incréments simultanés donnent nombre = 2", async () => {
+  it("deux incréments simultanés donnent nombre = 2 (même appareil, même canal)", async () => {
     const pool = new pg.Pool({ connectionString: dbUrl(), max: 2 });
     const db = drizzle(pool);
     const payload = { db: { drizzle: db } } as unknown as Payload;
-    const vue = { videoId: `test-vitest-${Date.now()}`, etape: "lecture" as const, page: "/test" };
+    const vue = { videoId: `test-vitest-${Date.now()}`, etape: "lecture" as const, page: "/test", appareil: "mobile", canal: "sea" };
     try {
       await Promise.all([incrementVue(payload, vue), incrementVue(payload, vue)]);
       const r = await db.execute(sql`SELECT "nombre" FROM "video_views" WHERE "video_id" = ${vue.videoId} AND "jour" = ${parisDay(new Date())}`);

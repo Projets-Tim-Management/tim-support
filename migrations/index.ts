@@ -156,6 +156,7 @@ import * as migration_20261016_094649_licence_visuel from './20261016_094649_lic
 import * as migration_20261016_134706_licence_bureau_prestations from './20261016_134706_licence_bureau_prestations';
 import * as migration_20261019_082224_dev_potential from './20261019_082224_dev_potential';
 import * as migration_20261019_092705_video_views from './20261019_092705_video_views';
+import * as migration_20261019_103110_video_views_etapes from './20261019_103110_video_views_etapes';
 
 export const migrations = [
   {
@@ -946,6 +947,11 @@ export const migrations = [
   {
     up: migration_20261019_092705_video_views.up,
     down: migration_20261019_092705_video_views.down,
-    name: '20261019_092705_video_views'
+    name: '20261019_092705_video_views',
+  },
+  {
+    up: migration_20261019_103110_video_views_etapes.up,
+    down: migration_20261019_103110_video_views_etapes.down,
+    name: '20261019_103110_video_views_etapes'
   },
 ];
