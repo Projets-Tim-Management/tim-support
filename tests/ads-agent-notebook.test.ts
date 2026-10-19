@@ -117,7 +117,7 @@ describe("les appuis d'une décision", () => {
   });
 
   it("chaque outil de décision déclare ses appuis comme obligatoires", () => {
-    for (const name of ["proposer_positionnement", "proposer_angles", "proposer_audiences", "repartir_budget", "juger_crea"]) {
+    for (const name of ["proposer_positionnement", "proposer_angles", "proposer_plan_diffusion", "repartir_budget", "juger_crea"]) {
       expect(TOOLS[name].definition.input_schema.required).toContain("appuis");
     }
   });

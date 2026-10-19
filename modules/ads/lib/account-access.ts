@@ -17,7 +17,7 @@ const REASONS: Record<string, string> = {
 };
 
 /** Le compte, son jeton en clair (serveur seulement) et l'adaptateur de sa régie — ou la raison de ne pas s'en servir. */
-export async function accountContext(payload: Payload, id: number | string, env = process.env): Promise<{ acc: RawAccount; ctx: AccountContext; platform: AdPlatform }> {
+export async function accountContext(payload: Payload, id: number | string, env: Record<string, string | undefined> = process.env): Promise<{ acc: RawAccount; ctx: AccountContext; platform: AdPlatform }> {
   const res = (await payload.db.find({ collection: "ad-accounts", where: { id: { equals: id } }, limit: 1 } as never)) as { docs: RawAccount[] };
   const acc = res.docs[0];
   if (!acc) throw new AccountUnavailable("Compte introuvable.");

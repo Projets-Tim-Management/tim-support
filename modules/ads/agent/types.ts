@@ -9,6 +9,7 @@ import type { RunStatus } from "@/modules/ads/collections/AdAgentRuns";
 import type { AgentRole, AgentStatus } from "@/modules/ads/collections/AdAgents";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
 import type { RushForAgent } from "@/modules/ads/lib/design-brief/load";
+import type { TargetingKind, TargetingOption } from "@/modules/ads/platforms/types";
 import type { DesignIntent } from "@/modules/ads/lib/design-brief/prompt";
 
 /**
@@ -201,6 +202,10 @@ export interface SourcesPort {
   /** Les concurrents SUIVIS (ajoutés ou validés par Charlie) — jamais ceux seulement proposés. */
   competitors(): Promise<{ pageId: string; name: string }[]>;
   adLibrary(q: LibraryQuery): Promise<LibraryAd[]>;
+  /** Le ciblage officiel de la régie, cherché avec le compte de la campagne (intérêts, métiers, régions). */
+  targeting(campaign: Id, kind: TargetingKind, query: string): Promise<TargetingOption[]>;
+  /** Le compte de la campagne a-t-il un pixel ? (Optimiser sur les conversions l'exige.) */
+  hasPixel(campaign: Id): Promise<boolean>;
   /** Propose un concurrent : il n'entre dans la liste qu'après validation de Charlie. */
   proposeCompetitor(c: { pageId: string; name: string; keywords: string; rationale: string; run: Id }): Promise<"propose" | "deja-connu">;
 }

@@ -4,6 +4,8 @@ import {
   AdTokenError,
   type AccountContext,
   type AccessReport,
+  type TargetingKind,
+  type TargetingOption,
   type AccountSnapshot,
   type AccountToken,
   type AdPlatform,
@@ -238,6 +240,24 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
      * comptes Instagram liés au compte publicitaire, pixels. Une liste qui ne
      * se lit pas (droit manquant) reste vide : le rapport dit ce qui manque.
      */
+    /** La recherche de ciblage de Meta : intérêts (adinterest), métiers (adworkposition), régions (adgeolocation). */
+    async searchTargeting(acc: AccountContext, kind: TargetingKind, query: string, country = "FR"): Promise<TargetingOption[]> {
+      type Raw = { id?: string; key?: string; name?: string; audience_size_lower_bound?: number; audience_size?: number; path?: string[]; country_code?: string };
+      const params: Record<string, string> =
+        kind === "interet"
+          ? { type: "adinterest", q: query, limit: "15" }
+          : kind === "metier"
+            ? { type: "adworkposition", q: query, limit: "15" }
+            : { type: "adgeolocation", q: query, location_types: JSON.stringify(["region"]), country_code: country, limit: "15" };
+      const r = await get<{ data?: Raw[] }>(url("search", { ...params, access_token: acc.token }));
+      return (r.data ?? []).map((x) => ({
+        id: String(x.id ?? x.key ?? ""),
+        name: x.name ?? "",
+        audience: x.audience_size_lower_bound ?? x.audience_size ?? null,
+        path: x.path?.length ? x.path.join(" › ") : (x.country_code ?? null),
+      })).filter((x) => x.id && x.name);
+    },
+
     async checkAccess(acc: AccountContext): Promise<AccessReport> {
       type Debug = { data?: { scopes?: string[]; is_valid?: boolean } };
       const debug = await get<Debug>(url("debug_token", { input_token: acc.token, access_token: `${cfg.appId}|${cfg.appSecret}` }));

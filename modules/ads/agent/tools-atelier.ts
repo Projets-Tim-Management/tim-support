@@ -5,6 +5,7 @@ import { ROLE_SUBJECT } from "@/modules/ads/agent/roles";
 import { clip, type AgentTool, type ToolContext, type ToolOutcome } from "@/modules/ads/agent/tools";
 import type { Id } from "@/modules/ads/agent/types";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
+import { MAX_ENSEMBLES, OBJECTIFS, OPTIMISATIONS, planProblems, planSummary, readPlan } from "@/modules/ads/lib/media-plan";
 import { FORMAT_KEYS, VIDEO_SECONDS } from "@/modules/ads/lib/meta-specs";
 import { eur } from "@/modules/ads/lib/spend";
 
@@ -317,61 +318,63 @@ const proposerAngles: AgentTool = {
   },
 };
 
-const MODES = { "advantage-plus": "Advantage+ seul", "test-detaille-vs-advantage-plus": "ciblage détaillé contre Advantage+" } as const;
+const ENSEMBLE_SCHEMA = {
+  type: "object",
+  properties: {
+    nom: { type: "string" },
+    part: { type: "number", description: "Part du budget Meta de la campagne, en % (le total des ensembles fait 100)." },
+    advantage: { type: "boolean", description: "Advantage+ audience : Meta élargit au-delà du ciblage, qui devient une suggestion. Par défaut : oui." },
+    pays: { type: "array", items: { type: "string" }, description: "Codes pays (FR par défaut)." },
+    regions: { type: "array", items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" } } }, description: "Régions trouvées par chercher_ciblage (type region)." },
+    age_min: { type: "number" },
+    age_max: { type: "number" },
+    genres: { type: "string", enum: ["tous", "hommes", "femmes"] },
+    interets: { type: "array", items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" } } }, description: "Centres d'intérêt trouvés par chercher_ciblage — jamais inventés." },
+    metiers: { type: "array", items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" } } }, description: "Métiers trouvés par chercher_ciblage — jamais inventés." },
+  },
+  required: ["nom", "part"],
+} as const;
 
-const proposerAudiences: AgentTool = {
+const proposerPlanDiffusion: AgentTool = {
   definition: {
-    name: "proposer_audiences",
-    description:
-      "Propose les audiences Meta. Un test « ciblage détaillé contre Advantage+ » n'est permis que si le budget Meta alimente les deux ensembles : donne les chiffres (budget, CPL cible, conversions attendues par semaine et par ensemble) et justifie le seuil. Sinon, Advantage+ seul. Une proposition : rien n'est envoyé à Meta.",
+    name: "proposer_plan_diffusion",
+    description: [
+      "Propose le plan de diffusion Meta de la campagne : l'OBJECTIF (trafic, prospects, notoriete, interaction), ce sur quoi Meta optimise, et 1 à 4 ensembles de publicités avec leur part du budget et leur ciblage.",
+      "Choisis selon le besoin de la campagne et le budget : trafic optimisé sur les vues de page pour faire venir sur une page ; prospects (conversions) seulement si le compte a un pixel ; notoriété pour faire connaître ; interaction (vues de vidéo) pour une vidéo forte.",
+      "Les intérêts, métiers et régions viennent de chercher_ciblage : leurs identifiants sont ceux de Meta.",
+      "Plusieurs ensembles (un test) : donne les chiffres qui montrent que le budget les nourrit tous (décision du 29/09/2026). Sinon, un seul ensemble Advantage+.",
+      "Une proposition : la publication reste un geste de Charlie.",
+    ].join(" "),
     input_schema: {
       type: "object",
       properties: {
-        mode: { type: "string", enum: Object.keys(MODES) },
-        budget_meta_quotidien_eur: { type: "number" },
-        ensembles: { type: "number", description: "1 pour Advantage+ seul, 2 pour le test." },
-        cpl_cible_eur: { type: "number" },
-        conversions_semaine_par_ensemble: { type: "number" },
-        ciblage_detaille: { type: "string", description: "Métiers, âges, lieux — pour le test." },
-        justification: { type: "string", description: "Et le seuil retenu, chiffres à l'appui." },
+        objectif: { type: "string", enum: Object.keys(OBJECTIFS) },
+        optimisation: { type: "string", enum: Object.keys(OPTIMISATIONS) },
+        ensembles: { type: "array", minItems: 1, maxItems: MAX_ENSEMBLES, items: ENSEMBLE_SCHEMA },
+        chiffres: {
+          type: "object",
+          properties: { budget_meta_quotidien_eur: { type: "number" }, cout_cible_eur: { type: "number" }, resultats_semaine_par_ensemble: { type: "number" } },
+          description: "Obligatoires pour plusieurs ensembles.",
+        },
+        justification: { type: "string", description: "Pourquoi cet objectif et ces ensembles, chiffres à l'appui." },
         appuis: APPUIS,
       },
-      required: ["mode", "budget_meta_quotidien_eur", "ensembles", "justification", "appuis"],
+      required: ["objectif", "ensembles", "justification", "appuis"],
     },
   },
   async run(ctx, input) {
     const appuis = appuisOf(ctx, input);
     if (isOutcome(appuis)) return appuis;
-    const mode = String(input.mode) as keyof typeof MODES;
-    const num = (k: string) => (typeof input[k] === "number" && Number.isFinite(input[k]) && (input[k] as number) > 0 ? (input[k] as number) : null);
-    const after = {
-      mode,
-      budgetMetaQuotidienEur: num("budget_meta_quotidien_eur"),
-      ensembles: num("ensembles"),
-      cplCibleEur: num("cpl_cible_eur"),
-      conversionsSemaineParEnsemble: num("conversions_semaine_par_ensemble"),
-      ciblageDetaille: input.ciblage_detaille ? String(input.ciblage_detaille) : null,
-    };
-    // Décision 7 du 29/09/2026 : le test exige ses chiffres, en champs structurés. Le seuil reste le jugement de l'agent.
-    const missing =
-      mode === "test-detaille-vs-advantage-plus"
-        ? [
-            after.ensembles !== 2 && "2 ensembles",
-            !after.budgetMetaQuotidienEur && "le budget Meta quotidien",
-            !after.cplCibleEur && "le CPL cible",
-            !after.conversionsSemaineParEnsemble && "les conversions attendues par semaine et par ensemble",
-            !after.ciblageDetaille && "le ciblage détaillé",
-          ].filter(Boolean)
-        : mode === "advantage-plus"
-          ? [!after.budgetMetaQuotidienEur && "le budget Meta quotidien"].filter(Boolean)
-          : ["un mode connu"];
-    if (missing.length) {
-      const reason = `Il manque ${missing.join(", ")}.`;
-      await decide(ctx, "audience", "bloquee", String(input.justification ?? ""), after, appuis, reason);
-      return { kind: "ok", isError: true, output: { refus: reason }, line: `${who(ctx)} : proposition d'audience refusée — ${reason}` };
+    const plan = readPlan(input);
+    const [budget, hasPixel] = await Promise.all([ctx.deps.atelier.campaignBudget(ctx.run.campaign), ctx.deps.sources.hasPixel(ctx.run.campaign).catch(() => undefined)]);
+    const problems = planProblems(plan, { metaDailyEur: plan.chiffres?.budgetMetaQuotidienEur ?? (budget ? budget.totalDailyEur : null), hasPixel });
+    if (problems.length) {
+      const reason = problems.join(" ");
+      await decide(ctx, "audience", "bloquee", String(input.justification ?? ""), plan, appuis, reason);
+      return { kind: "ok", isError: true, output: { refus: reason }, line: `${who(ctx)} : plan de diffusion refusé — ${clip(reason, 100)}` };
     }
-    await decide(ctx, "audience", "proposee", String(input.justification ?? ""), after, appuis);
-    return { kind: "ok", output: { ok: true }, line: `${who(ctx)} propose ${MODES[mode]} (${eur(after.budgetMetaQuotidienEur!)} par jour chez Meta).` };
+    await decide(ctx, "audience", "proposee", String(input.justification ?? ""), plan, appuis);
+    return { kind: "ok", output: { ok: true }, line: `${who(ctx)} propose le plan de diffusion : ${clip(planSummary(plan), 120)}.` };
   },
 };
 
@@ -435,7 +438,7 @@ export const ATELIER_TOOLS: AgentTool[] = [
   jugerCrea,
   proposerPositionnement,
   proposerAngles,
-  proposerAudiences,
+  proposerPlanDiffusion,
   repartirBudget,
   deposerAValider,
 ];

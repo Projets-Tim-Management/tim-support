@@ -197,6 +197,8 @@ function sources(over: Partial<SourcesPort> = {}): SourcesPort {
     competitors: vi.fn(async () => [{ pageId: "111111", name: "Suivi" }]),
     adLibrary: vi.fn(async () => parseAds([{ id: "1", page_id: "111111", page_name: "Suivi", ad_creative_bodies: ["Pointez vite"], ad_delivery_start_time: "2026-07-07T00:00:00Z" }, { id: "2", page_id: "222222", page_name: "Nouveau", ad_creative_bodies: ["Devis rapides"] }], NOW)),
     proposeCompetitor: vi.fn(async () => "propose" as const),
+    targeting: vi.fn(async (_c: unknown, kind: string, q: string) => [{ id: kind === "metier" ? "108001" : "6003001", name: `${q} (Meta)`, audience: 120000, path: null }]),
+    hasPixel: vi.fn(async () => false),
     ...over,
   };
 }

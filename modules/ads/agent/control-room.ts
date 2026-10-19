@@ -4,6 +4,7 @@ import { ROLE_SUBJECT } from "@/modules/ads/agent/roles";
 import type { Id } from "@/modules/ads/agent/types";
 import { AGENT_ROLES } from "@/modules/ads/collections/AdAgents";
 import { DECISION_KINDS, DECISION_STATUSES } from "@/modules/ads/collections/AdDecisions";
+import { planSummary, type MediaPlan } from "@/modules/ads/lib/media-plan";
 import { spentOf } from "@/modules/ads/lib/spend";
 
 /**
@@ -93,6 +94,8 @@ export function decisionSummary(kind: string, after: unknown): string | null {
     case "angle":
       return Array.isArray(a.angles) ? a.angles.map((x) => `« ${String(x)} »`).join(", ") : null;
     case "audience":
+      // Le plan de diffusion (depuis le 19/10/2026) ; avant, une simple audience.
+      if (a.objectif) return planSummary(a as unknown as MediaPlan);
       return a.mode === "advantage-plus" ? `Advantage+ seul, ${eur(a.budgetMetaQuotidienEur)} par jour` : a.mode ? `Ciblage détaillé contre Advantage+, ${eur(a.budgetMetaQuotidienEur)} par jour` : null;
     case "repartition-budget":
       return `IA ${eur(a.aiDailyEur)} par jour, Meta ${eur(a.metaDailyEur)} par jour`;

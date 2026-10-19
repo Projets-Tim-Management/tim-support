@@ -64,7 +64,7 @@ async function setup(role: AgentRow["role"], atelier: ReturnType<typeof fakeAtel
       : await mem.store.createAgent({ run: run.id, parent: root.id, depth: 1, role, status: "en-cours", mission: "M", tools: [...ROLE_TOOLS[role]], model: "claude-sonnet-5-5", budgetEur });
   const step = await mem.store.createStep({ run: run.id, agent: agent.id, seq: 0, kind: "outil", tool: "x", status: "en-cours", line: "", input: null, output: null, idempotencyKey: `${agent.id}:t`, startedAt: NOW.toISOString() });
   await mem.withStrategy(run, root.id);
-  const deps: AgentDeps = { store: mem.store, model: vi.fn(), budget, atelier, sources: unusedPort("sources"), now: () => NOW };
+  const deps: AgentDeps = { store: mem.store, model: vi.fn(), budget, atelier, sources: { hasPixel: vi.fn(async () => false), targeting: vi.fn(async () => []) } as unknown as AgentDeps["sources"], now: () => NOW };
   const agents = await mem.store.listAgents(run.id);
   const ctx: ToolContext = { deps, run, agent: agents.find((a) => a.id === agent.id)!, agents, step: step as StepRow, ledger: (a) => ledgerOf(a, agents) };
   return { ctx, run, agent };
@@ -149,31 +149,27 @@ describe("juger_crea — le contrôleur, et la limite de réécriture", () => {
   });
 });
 
-describe("proposer_audiences — décision 7 du 29/09/2026", () => {
-  it("un test ciblage détaillé contre Advantage+ sans ses chiffres est refusé et journalisé « bloquée »", async () => {
+describe("proposer_plan_diffusion — l'objectif et les ensembles, vérifiés en code", () => {
+  const ENS = { nom: "Conducteurs", part: 100, advantage: true, pays: ["FR"], age_min: 25, age_max: 60, metiers: [{ id: "108001", name: "Conducteur de travaux" }] };
+
+  it("un plan qui se tient est proposé, avec son résumé (rien n'est envoyé à Meta)", async () => {
     const { ctx } = await setup("stratege", fakeAtelier());
-    const r = await use(ctx, "proposer_audiences", { mode: "test-detaille-vs-advantage-plus", budget_meta_quotidien_eur: 20, ensembles: 2, justification: "…" });
+    const r = await use(ctx, "proposer_plan_diffusion", { objectif: "trafic", optimisation: "vues-page", ensembles: [ENS], justification: "Faire venir sur la page démo", appuis: [] });
+    expect(r).toMatchObject({ kind: "ok", line: expect.stringMatching(/Trafic vers le site, optimisé sur vues de la page d'arrivée — Conducteurs 100 % \(Advantage\+\)/) });
+    expect(mem.decisions.at(-1)!).toMatchObject({ kind: "audience", status: "proposee", after: expect.objectContaining({ objectif: "trafic", optimisation: "vues-page" }) });
+  });
+
+  it("un test à plusieurs ensembles sans ses chiffres est refusé et journalisé « bloquée » (décision 7 du 29/09/2026)", async () => {
+    const { ctx } = await setup("stratege", fakeAtelier());
+    const r = await use(ctx, "proposer_plan_diffusion", { objectif: "trafic", ensembles: [{ ...ENS, part: 50 }, { ...ENS, nom: "Large", part: 50, metiers: [] }], justification: "…", appuis: [] });
     expect(r).toMatchObject({ isError: true });
-    expect(mem.decisions.at(-1)!).toMatchObject({ kind: "audience", status: "bloquee", guardrail: expect.stringMatching(/CPL cible.*conversions.*ciblage détaillé/) });
+    expect(mem.decisions.at(-1)!).toMatchObject({ kind: "audience", status: "bloquee", guardrail: expect.stringMatching(/budget Meta quotidien.*coût cible.*résultats attendus/) });
   });
 
-  it("avec ses chiffres, le test est proposé (rien n'est envoyé à Meta)", async () => {
+  it("optimiser sur les conversions sans pixel est refusé", async () => {
     const { ctx } = await setup("stratege", fakeAtelier());
-    await use(ctx, "proposer_audiences", {
-      mode: "test-detaille-vs-advantage-plus",
-      budget_meta_quotidien_eur: 40,
-      ensembles: 2,
-      cpl_cible_eur: 30,
-      conversions_semaine_par_ensemble: 5,
-      ciblage_detaille: "Conducteurs de travaux, 30-55 ans, France",
-      justification: "40 €/jour nourrissent deux ensembles à 5 leads par semaine chacun",
-    });
-    expect(mem.decisions.at(-1)!).toMatchObject({ kind: "audience", status: "proposee", after: expect.objectContaining({ ensembles: 2, cplCibleEur: 30 }) });
-  });
-
-  it("Advantage+ seul demande au moins son budget", async () => {
-    const { ctx } = await setup("stratege", fakeAtelier());
-    expect(await use(ctx, "proposer_audiences", { mode: "advantage-plus", ensembles: 1, justification: "…" })).toMatchObject({ isError: true });
+    const r = await use(ctx, "proposer_plan_diffusion", { objectif: "prospects", optimisation: "conversions", ensembles: [ENS], justification: "…", appuis: [] });
+    expect(r).toMatchObject({ isError: true, output: { refus: expect.stringMatching(/pixel/) } });
   });
 });
 

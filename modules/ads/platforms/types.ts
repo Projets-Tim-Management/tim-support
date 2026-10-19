@@ -88,6 +88,10 @@ export type AccessReport = {
   pixels: { id: string; name: string }[];
 };
 
+/** Ce que l'on cherche dans le ciblage de la régie : centres d'intérêt, métiers, régions. */
+export type TargetingKind = "interet" | "metier" | "region";
+export type TargetingOption = { id: string; name: string; audience: number | null; path: string | null };
+
 /** Référence d'un objet à modifier chez la régie (phases suivantes). */
 export type ObjectRef = { level: Level; externalId: string };
 
@@ -103,6 +107,8 @@ export interface AdPlatform {
   fetchMetrics(acc: AccountContext, range: DateRange, level: Level): Promise<MetricRow[]>;
   /** Les droits du jeton et ce qu'il ouvre (Pages, Instagram, pixels) — avant toute publication. */
   checkAccess?(acc: AccountContext): Promise<AccessReport>;
+  /** Les options de ciblage officielles de la régie (leurs identifiants servent à publier). */
+  searchTargeting?(acc: AccountContext, kind: TargetingKind, query: string, country?: string): Promise<TargetingOption[]>;
   setBudget?(acc: AccountContext, ref: ObjectRef, amount: number): Promise<void>;
   setStatus?(acc: AccountContext, ref: ObjectRef, status: "active" | "pause"): Promise<void>;
 }
