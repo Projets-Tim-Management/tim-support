@@ -1,4 +1,4 @@
-import type { AdminViewServerProps, Payload, Where } from "payload";
+import type { AdminViewServerProps, Where } from "payload";
 
 import { DefaultTemplate } from "@payloadcms/next/templates";
 import { Gutter } from "@payloadcms/ui";
@@ -6,20 +6,22 @@ import Link from "next/link";
 
 import { hasAdminRole } from "@/core/access";
 import { pendingProposals, type AgentProposal } from "@/modules/ads/agent/overview";
+import { missingFiles, type CreativeFile } from "@/modules/ads/lib/creative-files";
 import { REFUSAL_REASONS } from "@/modules/ads/lib/creative-options";
 import { ctaLabel } from "@/modules/ads/lib/cta";
+import { expectedFileNames } from "@/modules/ads/lib/design-brief/prompt";
 import { testLabel, toneLabel, type TestDimension } from "@/modules/ads/lib/dimensions";
-import { musicName } from "@/modules/ads/video/mount";
+import type { FormatKey } from "@/modules/ads/lib/meta-specs";
 
-import { CreativeCard, type CardCreative } from "./CreativeCard";
+import { CreativeCard, type CardCreative, type Attachment } from "./CreativeCard";
 import { NotebookProposals, type ProposedInstruction, type ProposedLearning } from "./NotebookProposals";
-import type { CardRetouch } from "./CreativeRetouches";
 
 /**
  * Publicité › À valider (/admin/publicite/a-valider).
  *
  * L'écran qu'on ouvre chaque matin (plan, §8) : les créas à décider, une carte
- * chacune, avec tout ce qu'il faut voir pour trancher ; puis, dans l'onglet
+ * chacune — ses textes, son brief Claude Design (le prompt à copier, les
+ * fichiers à joindre) et l'import des fichiers finis ; puis, dans l'onglet
  * « Validées », ce qui est prêt à partir, à télécharger par créa ou par campagne.
  *
  * En tête de l'onglet « À valider » : les consignes nées des refus et les
@@ -41,13 +43,19 @@ type Raw = {
   tests?: { dimension: TestDimension; value: string }[] | null;
   campaign?: { id: number | string; name: string } | number | null;
   copy?: { kind: string; text: string; status: string; reason?: string | null; chars?: number | null }[] | null;
-  assets?: { format: string; template?: string | null; media?: { url?: string | null } | number | null }[] | null;
+  brief?: {
+    kind?: string | null;
+    formats?: string[] | null;
+    durationSec?: number | null;
+    rationale?: string | null;
+    prompt?: string | null;
+    rushes?: ({ id: number; title?: string | null; original?: { url?: string | null; filename?: string | null } | null } | number)[] | null;
+  } | null;
+  files?: CreativeFile[] | null;
   facts?: ({ statement: string; source: string } | number)[] | null;
   generation?: { costEur?: number | null } | null;
   decidedAt?: string | null;
   refusalReason?: string | null;
-  style?: { name?: string } | number | null;
-  video?: { status?: string | null; error?: string | null; renders?: { format: string; url: string }[] | null; music?: { alt?: string | null; filename?: string | null } | number | null } | null;
 };
 
 type Named = { id: number | string; name: string } | number | null | undefined;
@@ -103,7 +111,7 @@ function ProposalCard({ p }: { p: AgentProposal }) {
   );
 }
 
-const toCard = (r: Raw, retouches: CardRetouch[] = []): CardCreative => ({
+const toCard = (r: Raw): CardCreative => ({
   id: r.id,
   angle: r.angle,
   requestedAngle: r.requestedAngle ?? null,
@@ -115,48 +123,26 @@ const toCard = (r: Raw, retouches: CardRetouch[] = []): CardCreative => ({
   status: r.status ?? "brouillon",
   campaign: typeof r.campaign === "object" && r.campaign ? { id: r.campaign.id, name: r.campaign.name } : null,
   texts: (r.copy ?? []).map((t) => ({ kind: t.kind, text: t.text, status: t.status, reason: t.reason ?? null, chars: t.chars ?? [...t.text].length })),
-  assets: (r.assets ?? []).map((a) => ({ format: a.format, template: a.template ?? null, url: typeof a.media === "object" && a.media ? (a.media.url ?? null) : null })),
+  brief: r.brief?.prompt
+    ? {
+        kind: r.brief.kind ?? "video",
+        formats: r.brief.formats ?? [],
+        durationSec: r.brief.durationSec ?? null,
+        rationale: r.brief.rationale ?? null,
+        prompt: r.brief.prompt,
+        rushes: (r.brief.rushes ?? [])
+          .filter((x): x is Exclude<typeof x, number> => typeof x === "object" && x !== null)
+          .map((x) => ({ name: x.title ?? `Rush ${x.id}`, url: x.original?.url ?? null, filename: x.original?.filename ?? null })),
+        expectedFiles: expectedFileNames(r.id, { kind: (r.brief.kind ?? "video") as "video", formats: (r.brief.formats ?? []) as FormatKey[] }),
+      }
+    : null,
+  files: (r.files ?? []).map((f) => ({ format: f.format, kind: f.kind, url: f.url, filename: f.filename ?? null, warnings: Array.isArray(f.warnings) ? f.warnings : [] })),
+  missing: r.brief?.prompt ? missingFiles(r) : [],
   facts: (r.facts ?? []).filter((f): f is { statement: string; source: string } => typeof f === "object" && f !== null),
   costEur: r.generation?.costEur ?? null,
   decidedAt: r.decidedAt ?? null,
   refusal: REFUSAL_REASONS.find((x) => x.value === r.refusalReason)?.label ?? null,
-  video: r.video?.status
-    ? {
-        status: r.video.status ?? null,
-        error: r.video.error ?? null,
-        renders: (r.video.renders ?? []).filter((x) => x?.url),
-        styleName: typeof r.style === "object" && r.style ? (r.style.name ?? null) : null,
-        musicName: typeof r.video.music === "object" && r.video.music ? musicName(r.video.music as Record<string, unknown>) : null,
-      }
-    : null,
-  retouches,
 });
-
-type RetouchDoc = { id: number; creative: number | { id: number }; instruction: string; status: string; summary?: string | null; error?: string | null; author?: { name?: string | null; email?: string | null } | number | null; createdAt: string; generalize?: boolean | null; before?: CardRetouch["before"] };
-
-/** Les retouches de chaque créa affichée, de la plus ancienne à la plus récente. */
-async function retouchesOf(payload: Payload, ids: (number | string)[]): Promise<Map<string, CardRetouch[]>> {
-  const by = new Map<string, CardRetouch[]>();
-  if (!ids.length) return by;
-  // Seulement ce que la carte affiche : `before` est un JSON (adresses), l'auteur se réduit à son nom.
-  const r = await payload.find({
-    collection: "ad-retouches",
-    where: { creative: { in: ids } },
-    sort: "createdAt",
-    pagination: false,
-    depth: 1,
-    overrideAccess: true,
-    select: { creative: true, instruction: true, status: true, summary: true, error: true, author: true, createdAt: true, generalize: true, before: true } as never,
-    populate: { "ad-creatives": { id: true }, users: { name: true, email: true } } as never,
-  });
-  for (const d of r.docs as unknown as RetouchDoc[]) {
-    const key = String(typeof d.creative === "object" ? d.creative.id : d.creative);
-    const author = d.author && typeof d.author === "object" ? (d.author.name ?? d.author.email ?? null) : null;
-    if (!by.has(key)) by.set(key, []);
-    by.get(key)!.push({ id: d.id, instruction: d.instruction, status: d.status, summary: d.summary ?? null, error: d.error ?? null, author, createdAt: d.createdAt, generalize: Boolean(d.generalize), before: d.before ?? null });
-  }
-  return by;
-}
 
 export default async function ValidationQueueView(view: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = view;
@@ -170,8 +156,8 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
   if (hasAdminRole(user)) {
     const status = tab === "validees" ? "validee" : "a-valider";
     const where: Where = { and: [{ status: { equals: status } }, ...(campaignFilter ? [{ campaign: { equals: campaignFilter } }] : [])] };
-    const [list, counts, campaigns, proposedInstructions, proposedLearnings, proposals, styles, musics] = await Promise.all([
-      // Profondeur 1 : campagne, médias des visuels, faits, style et musique — tout ce que la carte lit.
+    const [list, counts, campaigns, proposedInstructions, proposedLearnings, proposals, kit] = await Promise.all([
+      // Profondeur 1 : campagne, faits et rushes du brief — tout ce que la carte lit.
       tab === "validees"
         ? payload.find({ collection: "ad-creatives", where, sort: "-decidedAt", limit: VALIDATED_LIMIT, depth: 1, overrideAccess: true })
         : payload.find({ collection: "ad-creatives", where, sort: "createdAt", pagination: false, depth: 1, overrideAccess: true }),
@@ -180,21 +166,14 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
       payload.find({ collection: "ad-instructions", where: { status: { equals: "proposee" } }, sort: "createdAt", pagination: false, depth: 1, overrideAccess: true }),
       payload.find({ collection: "ad-learnings", where: { status: { equals: "global-propose" } }, sort: "createdAt", pagination: false, depth: 1, overrideAccess: true }),
       tab === "a-valider" ? pendingProposals(payload, campaignFilter) : Promise.resolve([]),
-      payload.find({ collection: "ad-styles", where: { active: { equals: true } }, sort: "name", pagination: false, depth: 0, overrideAccess: true, select: { name: true } as never }),
-      payload.find({
-        collection: "ad-media",
-        where: { and: [{ kind: { equals: "musique" } }, { active: { not_equals: false } }] },
-        sort: "filename",
-        pagination: false,
-        depth: 0,
-        overrideAccess: true,
-        select: { alt: true, filename: true } as never,
-      }),
+      // Les logos du kit : à joindre à chaque brief, avec les rushes.
+      payload.findGlobal({ slug: "ads-brand-kit", depth: 1, overrideAccess: true }) as unknown as Promise<Record<string, { url?: string | null; filename?: string | null } | number | null>>,
     ]);
-    const styleOptions = (styles.docs as unknown as { id: number; name: string }[]).map((x) => ({ id: x.id, name: x.name }));
-    const musicOptions = (musics.docs as unknown as Record<string, unknown>[]).map((m) => ({ id: m.id as number, name: musicName(m) }));
-    const retouches = await retouchesOf(payload, (list.docs as unknown as Raw[]).map((r) => r.id as number));
-    const cards = (list.docs as unknown as Raw[]).map((r) => toCard(r, retouches.get(String(r.id)) ?? []));
+    const logos: Attachment[] = (["logoOnLight", "logoOnDark", "logoSymbol"] as const)
+      .map((k) => kit[k])
+      .filter((m): m is { url?: string | null; filename?: string | null } => typeof m === "object" && m !== null && Boolean(m.url))
+      .map((m) => ({ name: m.filename ?? "Logo", url: m.url ?? null, filename: m.filename ?? null }));
+    const cards = (list.docs as unknown as Raw[]).map(toCard);
     const href = (t: string, c: string | null) => `${BASE}?vue=${t}${c ? `&campagne=${c}` : ""}`;
     const byCampaign = new Map<string, CardCreative[]>();
     for (const c of cards) {
@@ -235,11 +214,11 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
           <p className="ads-queue__empty">
             {tab === "a-valider" ? (
               <>
-                Rien à valider. Les créas arrivent ici quand on les génère depuis le brief d&apos;une{" "}
+                Rien à valider. Les créas arrivent ici quand l&apos;agent d&apos;une{" "}
                 <Link href="/admin/collections/ad-campaigns" prefetch={false}>
                   campagne
-                </Link>
-                .
+                </Link>{" "}
+                les dépose, avec leur brief Claude Design.
               </>
             ) : (
               "Aucune créa validée pour l'instant."
@@ -263,7 +242,7 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
                   )}
                 </header>
                 {group.map((c) => (
-                  <CreativeCard key={String(c.id)} c={c} styles={styleOptions} musics={musicOptions} />
+                  <CreativeCard key={String(c.id)} c={c} logos={logos} />
                 ))}
               </section>
             ))}
@@ -274,7 +253,7 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
               <ProposalCard key={String(p.run)} p={p} />
             ))}
             {cards.map((c) => (
-              <CreativeCard key={String(c.id)} c={c} styles={styleOptions} musics={musicOptions} />
+              <CreativeCard key={String(c.id)} c={c} logos={logos} />
             ))}
           </>
         )}
@@ -297,7 +276,7 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
         <div className="an ads-dash">
           <header className="an-head">
             <h1 className="an-title">À valider</h1>
-            <p className="ads-dash__sub">Chaque créa se valide ou se refuse ici. Validée, elle se télécharge aux formats Meta.</p>
+            <p className="ads-dash__sub">Copiez le brief dans Claude Design, importez les fichiers finis, puis validez ou refusez. Validée, la créa se télécharge aux formats Meta.</p>
           </header>
           {body}
         </div>

@@ -19,16 +19,9 @@ const validate = (field: string, value: unknown, sibling: Record<string, unknown
   find(AdMedia.fields as AnyField[], field)!.validate!(value, { siblingData: sibling });
 
 describe("médias publicitaires : ce qui permet de s'en servir est exigé", () => {
-  it("une capture exige l'absence de données réelles", () => {
-    expect(validate("noClientData", false, { kind: "capture" })).toMatch(/aucune donnée réelle/);
-    expect(validate("noClientData", true, { kind: "capture" })).toBe(true);
-    expect(validate("noClientData", undefined, { kind: "logo" })).toBe(true);
-  });
-
-  it("une photo ou une musique exige ses droits", () => {
-    expect(validate("rights", "", { kind: "photo" })).toMatch(/droits/);
-    expect(validate("rights", "Photo TIM, chantier Lyon, accord signé", { kind: "photo" })).toBe(true);
-    expect(validate("rights", "", { kind: "capture" })).toBe(true);
+  it("ne garde que les logos et les polices (les enregistrements de l'app vont dans les rushes)", () => {
+    const kind = AdMedia.fields.find((f) => (f as { name?: string }).name === "kind") as { options: { value: string }[] };
+    expect(kind.options.map((o) => o.value)).toEqual(["logo", "police"]);
   });
 
   it("une police exige sa licence, et se dépose en TTF ou OTF", () => {
@@ -36,7 +29,7 @@ describe("médias publicitaires : ce qui permet de s'en servir est exigé", () =
     const hook = AdMedia.hooks!.beforeValidate![0] as (a: unknown) => unknown;
     expect(() => hook({ data: { kind: "police" }, req: { file: { name: "Brand.woff2" } } })).toThrow(/ttf ou \.otf/);
     expect(hook({ data: { kind: "police" }, req: { file: { name: "Brand-Bold.ttf" } } })).toEqual({ kind: "police" });
-    expect(hook({ data: { kind: "photo" }, req: { file: { name: "chantier.webp" } } })).toEqual({ kind: "photo" });
+    expect(hook({ data: { kind: "logo" }, req: { file: { name: "logo.webp" } } })).toEqual({ kind: "logo" });
   });
 
   it("n'est lisible que par l'admin", () => {

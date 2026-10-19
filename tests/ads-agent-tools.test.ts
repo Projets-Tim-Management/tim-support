@@ -20,28 +20,25 @@ const crea = (id: Id, over: Partial<CreativeView> = {}): CreativeView => ({
   requestedAngle: `Demandé ${id}`,
   status: "brouillon",
   publishable: true,
-  visuals: 0,
+  hasBrief: false,
+  missingFiles: [],
   texts: [{ kind: "principal", text: "…", status: "ok", reason: null }],
   ...over,
 });
 
 function fakeAtelier(over: Partial<AtelierPort> = {}) {
   const atelier = {
-    brief: vi.fn(async () => ({ resume: "Brief", quotaRestant: 4, gabarits: [{ cle: "texte", libelle: "Texte", disponible: true }] })),
+    brief: vi.fn(async () => ({ resume: "Brief", quotaRestant: 4 })),
     generate: vi.fn(async (_c: Id, req: Parameters<AtelierPort["generate"]>[1]) => {
       await req.preCheck(0.3);
       return { creatives: req.angles.map((a, i) => crea(100 + i, { requestedAngle: a })), costEur: 0.12 };
     }),
-    render: vi.fn(async () => ({ template: "texte", visuals: 3 })),
     creatives: vi.fn(async (_campaign: Id, ids: Id[]) => ids.map((i) => crea(i))),
     submit: vi.fn(async (_campaign: Id, ids: Id[]) => ({ submitted: ids.filter((i) => i !== 999), skipped: ids.includes(999) ? [{ id: 999, reason: "Pas de titre passé." }] : [] })),
     campaignBudget: vi.fn(async () => ({ totalDailyEur: 30, maxAiSharePct: 15, metaFloorEur: 5 })),
     setSplit: vi.fn(async () => {}),
-    videoMaterial: vi.fn(async () => ({ base: {}, rushes: [], inspirations: [], musiques: [], logo: "Pas de logo animable", elements: { guide: {}, variantes: [] }, styles: [{ id: 1, nom: "A · Le geste en gros plan", quandLEmployer: "Un geste dans l'app", reglages: "Ouverture : titre" }] })),
-    video: vi.fn(async (_c: Id, crea: Id, req: { styles: Id[]; musics?: Id[] }) => ({
-      creas: req.styles.map((st, i) => ({ crea: i ? 200 + i : Number(crea), style: Number(st), styleNom: `Style ${String(st)}`, musique: 8, musiqueNom: "Énergique", test: i > 0 })),
-      ecartes: [],
-    })),
+    rushes: vi.fn(async () => [{ id: 1, title: "Pointage du matin", filename: "pointage.mov", description: "Un chef pointe son équipe.", mediaType: "video", source: "app-mobile", features: ["pointage"] }]),
+    writeBrief: vi.fn(async (_c: Id, crea: Id) => ({ prompt: "Crée une publicité…", files: [`C${String(crea)}-9x16.mp4`] })),
     ...over,
   };
   return atelier;
@@ -81,7 +78,7 @@ describe("chaque rôle a ses outils, et chaque outil existe", () => {
   });
 
   it("l'orchestrateur ne produit rien lui-même : ni textes, ni visuels, ni jugement", () => {
-    for (const t of ["generer_textes", "rendre_visuels", "juger_crea"]) expect(ROLE_TOOLS.orchestrateur).not.toContain(t);
+    for (const t of ["generer_textes", "ecrire_brief_design", "juger_crea"]) expect(ROLE_TOOLS.orchestrateur).not.toContain(t);
     expect(ROLE_TOOLS.orchestrateur).toContain("deposer_a_valider");
   });
 });
@@ -220,37 +217,39 @@ describe("deposer_a_valider — la fin du passage", () => {
   });
 });
 
-describe("la vidéo — le directeur artistique monte, le code vérifie (D4)", () => {
-  const PARTITION = { shots: [{ kind: "ouverture", seconds: 2, text: "Fini la ressaisie" }, { kind: "rush", seconds: 4, rush: 1, from: 0, to: 4 }, { kind: "fin", seconds: 2.5 }] };
+describe("le brief Claude Design — le directeur artistique l'écrit, le code vérifie", () => {
+  const BRIEF = { crea: 12, nature: "video", formats: ["9x16", "4x5"], duree: 18, pourquoi: "Les concurrents montrent des tableaux ; personne ne montre le geste du chef d'équipe.", direction: "Accroche : « Vendredi. » puis « Les carnets. »…", rushes: [1] };
 
-  it("seul le directeur artistique monte des vidéos", () => {
-    expect(ROLE_TOOLS["directeur-artistique"]).toEqual(expect.arrayContaining(["lire_rushes", "monter_video"]));
-    for (const role of ["orchestrateur", "stratege", "redacteur", "controleur"] as const) expect(ROLE_TOOLS[role]).not.toContain("monter_video");
+  it("seul le directeur artistique écrit les briefs ; plus aucun outil de rendu ni de montage", () => {
+    expect(ROLE_TOOLS["directeur-artistique"]).toEqual(expect.arrayContaining(["lire_rushes", "ecrire_brief_design"]));
+    for (const role of ["orchestrateur", "stratege", "redacteur", "controleur"] as const) expect(ROLE_TOOLS[role]).not.toContain("ecrire_brief_design");
+    for (const tools of Object.values(ROLE_TOOLS)) expect(tools).not.toEqual(expect.arrayContaining(["monter_video"]));
   });
 
-  it("lire_rushes rend la matière et les styles", async () => {
+  it("lire_rushes rend les rushes à joindre", async () => {
     const atelier = fakeAtelier();
     const { ctx } = await setup("directeur-artistique", atelier);
     const r = await use(ctx, "lire_rushes", {});
-    expect(r).toMatchObject({ kind: "ok", output: { styles: [{ id: 1 }] }, line: expect.stringMatching(/0 rush\(es\) prêt\(s\), 1 style\(s\), 0 musique/) });
+    expect(r).toMatchObject({ kind: "ok", output: [{ id: 1, features: ["pointage"] }], line: expect.stringMatching(/1 rush\(es\)/) });
   });
 
-  it("monter_video transmet la partition et les styles ; les tests de style sont comptés", async () => {
+  it("ecrire_brief_design transmet l'intention et rend les fichiers attendus", async () => {
     const atelier = fakeAtelier();
     const { ctx, run } = await setup("directeur-artistique", atelier);
-    const r = await use(ctx, "monter_video", { crea: 12, styles: [1, 3], partition: PARTITION, justification: "Deux styles se défendent." });
-    expect(atelier.video).toHaveBeenCalledWith(run.campaign, 12, { styles: [1, 3], musics: undefined, score: PARTITION });
-    expect(r).toMatchObject({ kind: "ok", line: expect.stringMatching(/monte la vidéo de la créa 12 : « Style 1 » sur « Énergique » ; « Style 3 » sur « Énergique » \(1 test\(s\)\)/) });
+    const r = await use(ctx, "ecrire_brief_design", BRIEF);
+    expect(atelier.writeBrief).toHaveBeenCalledWith(run.campaign, 12, { kind: "video", formats: ["9x16", "4x5"], durationSec: 18, rationale: BRIEF.pourquoi, scenario: BRIEF.direction, rushes: [1] });
+    expect(r).toMatchObject({ kind: "ok", output: { fichiersAttendus: ["C12-9x16.mp4"] }, line: expect.stringMatching(/écrit le brief Claude Design de la créa 12/) });
   });
 
-  it("une partition refusée revient au modèle avec la raison, sans rien casser", async () => {
+  it("un brief refusé revient au modèle avec la raison, sans rien casser", async () => {
     const atelier = fakeAtelier({
-      video: vi.fn(async () => {
-        throw new Error("Partition refusée : Chiffre non sourcé : 3.");
+      writeBrief: vi.fn(async () => {
+        throw new Error("Rush inconnu : 9.");
       }),
     });
     const { ctx } = await setup("directeur-artistique", atelier);
-    const r = await use(ctx, "monter_video", { crea: 12, styles: [1], partition: PARTITION, justification: "x" });
-    expect(r).toMatchObject({ kind: "ok", isError: true, output: { refus: expect.stringMatching(/Chiffre non sourcé/) }, line: expect.stringMatching(/montage vidéo refusé/) });
+    const r = await use(ctx, "ecrire_brief_design", BRIEF);
+    expect(r).toMatchObject({ kind: "ok", isError: true, output: { refus: expect.stringMatching(/Rush inconnu/) }, line: expect.stringMatching(/brief Claude Design refusé/) });
   });
 });
+

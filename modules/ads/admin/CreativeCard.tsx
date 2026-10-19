@@ -1,16 +1,15 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- aperçus de fichiers du CDN Blob, à leur taille réelle : next/image n'apporte rien ici. */
 import { toast } from "@payloadcms/ui";
 import { useState } from "react";
 
 import { TEXT_LIMITS } from "@/modules/ads/lib/copy/guardrails";
-import { CREATIVE_FORMATS, REFUSAL_REASONS, labelOf } from "@/modules/ads/lib/creative-options";
-import { TEMPLATES } from "@/modules/ads/lib/render/templates";
+import { REFUSAL_REASONS } from "@/modules/ads/lib/creative-options";
 
-import { CreativeRetouches, type CardRetouch } from "./CreativeRetouches";
-import { CreativeVideo, type CardVideo, type MusicOption, type StyleOption } from "./CreativeVideo";
+import { BriefPanel, FilesPanel, type Attachment, type CardBrief, type CardFile } from "./CreativeDesign";
 import { postAdmin } from "./post-admin";
+
+export type { Attachment };
 
 export type CardCreative = {
   id: number | string;
@@ -25,14 +24,15 @@ export type CardCreative = {
   status: string;
   campaign: { id: number | string; name: string } | null;
   texts: { kind: string; text: string; status: string; reason: string | null; chars: number }[];
-  assets: { format: string; url: string | null; template: string | null }[];
+  /** Le brief Claude Design, s'il est écrit. */
+  brief: CardBrief | null;
+  /** Les fichiers finis importés, et ce que le brief attend encore. */
+  files: CardFile[];
+  missing: string[];
   facts: { statement: string; source: string }[];
   costEur: number | null;
   decidedAt: string | null;
   refusal: string | null;
-  video: CardVideo | null;
-  /** Les retouches demandées sur cette créa, de la plus ancienne à la plus récente. */
-  retouches: CardRetouch[];
 };
 
 const KIND: Record<string, string> = { principal: "Textes principaux", titre: "Titres", description: "Descriptions" };
@@ -44,20 +44,19 @@ const charTone = (kind: string, n: number) => {
 };
 
 /**
- * Une créa dans la file : ce qu'il faut voir pour décider, et les gestes.
+ * Une créa dans la file : son brief Claude Design et ses fichiers finis, ses
+ * textes, et les gestes.
  *
  * Valider et refuser sont des clics qui agissent — pas de case à cocher puis
  * enregistrer. Refuser demande un motif, dans la carte (pas une fenêtre qui
  * cache ce qu'on refuse). Les textes rejetés par les garde-fous sont repliés
  * mais présents : on voit ce que le modèle a tenté.
  */
-export function CreativeCard({ c, styles = [], musics = [] }: { c: CardCreative; styles?: StyleOption[]; musics?: MusicOption[] }) {
+export function CreativeCard({ c, logos = [] }: { c: CardCreative; logos?: Attachment[] }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [refusing, setRefusing] = useState(false);
   const [reason, setReason] = useState("");
   const [detail, setDetail] = useState("");
-  const [template, setTemplate] = useState("");
-  const [safe, setSafe] = useState(true);
 
   const call = async (what: string, url: string, body: unknown, done: string) => {
     setBusy(what);
@@ -102,24 +101,9 @@ export function CreativeCard({ c, styles = [], musics = [] }: { c: CardCreative;
       </header>
 
       <div className="ads-card__body">
-        <div className="ads-card__visuals">
-          {c.assets.length ? (
-            c.assets.map((a) => (
-              <figure key={a.format} className={`ads-shot ads-shot--${a.format}`}>
-                {a.url ? <img src={a.url} alt={`${c.angle} — ${labelOf(CREATIVE_FORMATS, a.format)}`} /> : null}
-                {a.format === "9x16" && safe && <span className="ads-shot__safe" aria-hidden />}
-                <figcaption>{labelOf(CREATIVE_FORMATS, a.format)}</figcaption>
-              </figure>
-            ))
-          ) : (
-            <p className="ads-card__empty">Pas encore de visuel.</p>
-          )}
-          {c.assets.some((a) => a.format === "9x16") && (
-            <label className="ads-card__toggle">
-              <input type="checkbox" checked={safe} onChange={(e) => setSafe(e.target.checked)} /> Zone sûre 9:16 (ce que l&apos;interface de Meta peut couvrir)
-            </label>
-          )}
-          {(c.status === "a-valider" || c.status === "brouillon" || c.video?.renders.length) && <CreativeVideo id={c.id} video={c.video} styles={styles} musics={musics} />}
+        <div className="ads-card__design">
+          <BriefPanel brief={c.brief} logos={logos} />
+          {c.brief && <FilesPanel id={c.id} files={c.files} missing={c.missing} editable={pending || c.status === "brouillon"} />}
         </div>
 
         <div className="ads-card__texts">
@@ -167,12 +151,16 @@ export function CreativeCard({ c, styles = [], musics = [] }: { c: CardCreative;
         </div>
       </div>
 
-      {(pending || c.retouches.length > 0) && <CreativeRetouches id={c.id} retouches={c.retouches} />}
-
       <footer className="ads-card__actions">
         {pending && !refusing && (
           <>
-            <button type="button" className="tim-btn tim-btn--primary" disabled={busy != null} onClick={() => call("ok", `/api/admin/ads/creatives/${c.id}/decide`, { decision: "validee" }, "Créa validée.")}>
+            <button
+              type="button"
+              className="tim-btn tim-btn--primary"
+              disabled={busy != null || c.missing.length > 0 || !c.brief}
+              title={c.missing.length ? `Fichier(s) attendu(s) : ${c.missing.join(", ")}` : undefined}
+              onClick={() => call("ok", `/api/admin/ads/creatives/${c.id}/decide`, { decision: "validee" }, "Créa validée.")}
+            >
               {busy === "ok" ? "…" : "Valider"}
             </button>
             <button type="button" className="tim-btn" disabled={busy != null} onClick={() => setRefusing(true)}>
@@ -201,21 +189,6 @@ export function CreativeCard({ c, styles = [], musics = [] }: { c: CardCreative;
             </button>
             <button type="button" className="tim-btn" disabled={busy != null} onClick={() => setRefusing(false)}>
               Annuler
-            </button>
-          </div>
-        )}
-        {(pending || c.status === "brouillon") && (
-          <div className="ads-card__rerender">
-            <select value={template} onChange={(e) => setTemplate(e.target.value)} aria-label="Gabarit">
-              <option value="">Changer de visuel…</option>
-              {TEMPLATES.map((t) => (
-                <option key={t.key} value={t.key}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-            <button type="button" className="tim-btn" disabled={!template || busy != null} onClick={() => call("render", `/api/admin/ads/creatives/${c.id}/render`, { template }, "Visuels rendus de nouveau.")}>
-              {busy === "render" ? "Rendu…" : "Rendre"}
             </button>
           </div>
         )}

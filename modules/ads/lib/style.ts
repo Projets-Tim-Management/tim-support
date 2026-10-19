@@ -1,10 +1,10 @@
-import { BRAND_DEFAULTS, HEX, type BrandColors } from "@/core/lib/brand";
+import { BRAND_DEFAULTS, HEX } from "@/core/lib/brand";
 
 /**
  * La charte des publicités (Publicité › Paramètres › Kit de marque) : logos,
- * couleurs, typographie, formes, mouvement. Ici, les listes de choix, le
- * contraste et la charte RÉSOLUE — ce que lisent les rendus, avec un repli
- * sur les couleurs de Système › Apparence quand le kit ne dit rien.
+ * couleurs, typographie. Ici, les listes de choix, le contraste et la charte
+ * RÉSOLUE — ce que l'agent recopie dans ses briefs, avec un repli sur les
+ * couleurs de Système › Apparence quand le kit ne dit rien.
  *
  * Les couleurs du contrat restent dans Apparence ; celles des pubs vivent ici,
  * préremplies avec elles.
@@ -31,77 +31,6 @@ export const TITLE_CASES = [
   { label: "MAJUSCULES", value: "majuscules" },
 ] as const;
 
-export const CORNERS = [
-  { label: "Carrés", value: "carres" },
-  { label: "Arrondis", value: "arrondis" },
-  { label: "Pilule (très arrondis)", value: "pilule" },
-] as const;
-
-export const PHONE_FRAMES = [
-  { label: "Dans une maquette de téléphone", value: "maquette" },
-  { label: "L'écran seul, bord à bord", value: "ecran-seul" },
-  { label: "Incliné et flottant", value: "incline" },
-] as const;
-
-export const GRAPHICS = [
-  { label: "Les pastilles du logo", value: "pastilles" },
-  { label: "Soulignements", value: "soulignements" },
-  { label: "Bandeaux de couleur", value: "bandeaux" },
-] as const;
-
-export const PACES = [
-  { label: "Posé (plans de 3 à 4 s)", value: "pose" },
-  { label: "Dynamique (plans de 1,5 à 2,5 s)", value: "dynamique" },
-  { label: "Très rapide (plans de moins d'1 s)", value: "rapide" },
-] as const;
-
-export const TRANSITIONS = [
-  { label: "Coupe sèche", value: "coupe" },
-  { label: "Glissé", value: "glisse" },
-  { label: "Zoom", value: "zoom" },
-] as const;
-
-/** Comment le logo arrive dans une vidéo, quand il est déposé en SVG à calques (Kit de marque › Logos). */
-export const LOGO_ANIMATIONS = [
-  { label: "Construction : élément par élément", value: "construction" },
-  { label: "Fondu", value: "fondu" },
-  { label: "Aucune (logo posé)", value: "aucune" },
-] as const;
-
-/** Pour un style : reprendre la police (ou la casse) du Kit de marque plutôt que d'en imposer une. */
-export const FROM_KIT = { label: "Celle du Kit de marque", value: "kit" } as const;
-
-export const SUBTITLE_STYLES = [
-  { label: "En bandeau", value: "bandeau" },
-  { label: "Mot à mot surligné", value: "mot-a-mot" },
-  { label: "Aucun", value: "aucun" },
-] as const;
-
-/** Comment la pub s'ouvre : les deux premières secondes, celles qui arrêtent le pouce. */
-export const OPENINGS = [
-  { label: "Titre qui s'écrit mot à mot", value: "titre-mot-a-mot" },
-  { label: "Le problème, en grand sur un aplat", value: "aplat-probleme" },
-  { label: "Titre posé, avec une phrase d'appui", value: "titre-pose" },
-] as const;
-
-export const BACKGROUNDS = [
-  { label: "Fond sombre", value: "sombre" },
-  { label: "Fond clair", value: "clair" },
-  { label: "Aplats de couleur (accent et sombre)", value: "aplats" },
-] as const;
-
-/** Comment une preuve chiffrée (un fait sourcé) apparaît. */
-export const PROOF_STYLES = [
-  { label: "Une ligne discrète", value: "ligne" },
-  { label: "Le chiffre en géant", value: "chiffre-geant" },
-  { label: "Le chiffre et sa source", value: "chiffre-source" },
-] as const;
-
-export const INSPIRATION_VERDICTS = [
-  { label: "J'aime", value: "aimer" },
-  { label: "À éviter", value: "eviter" },
-] as const;
-
 /** La palette des pubs, préremplie avec les couleurs d'Apparence. */
 export const PALETTE_DEFAULTS = {
   primary: BRAND_DEFAULTS.brandPrimary,
@@ -119,17 +48,6 @@ const pick = (v: unknown, fallback: string) => (typeof v === "string" && HEX.tes
 export function luminance(hex: string): number {
   const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
   return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-}
-
-/** Une couleur du kit mêlée à une autre (#RRGGBB), dans la proportion `t` (0 : la première, 1 : la seconde). Pure. */
-export function mixColor(a: string, b: string, t: number): string {
-  const rgb = (h: string) => {
-    const m = /^#?([0-9a-f]{6})$/i.exec(h.trim());
-    const v = m ? parseInt(m[1], 16) : 0;
-    return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
-  };
-  const [x, y] = [rgb(a), rgb(b)];
-  return `#${x.map((c, i) => Math.round(c + (y[i] - c) * t).toString(16).padStart(2, "0")).join("")}`;
 }
 
 /** Le rapport de contraste WCAG entre deux couleurs (de 1 à 21), arrondi au dixième. Pure. */
@@ -178,9 +96,3 @@ export function paletteOf(kit: Kit | null | undefined, appearance?: Record<strin
     textOnLight: pick(k.textOnLight, a.primary),
   };
 }
-
-/**
- * Les couleurs telles que les gabarits statiques les attendent (le format
- * d'Apparence) : la palette des pubs prend le relais d'Apparence. Pure.
- */
-export const templateColors = (p: Palette): BrandColors => ({ primary: p.darkBg, secondary: p.lightBg, red: p.accent, other: p.lightBg });

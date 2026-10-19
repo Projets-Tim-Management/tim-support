@@ -8,7 +8,8 @@ import type { SitePage } from "@/modules/ads/agent/sources/site";
 import type { RunStatus } from "@/modules/ads/collections/AdAgentRuns";
 import type { AgentRole, AgentStatus } from "@/modules/ads/collections/AdAgents";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
-import type { MountResult, VideoMaterial } from "@/modules/ads/video/mount";
+import type { RushForAgent } from "@/modules/ads/lib/design-brief/load";
+import type { DesignIntent } from "@/modules/ads/lib/design-brief/prompt";
 
 /**
  * Les formes que manipule le moteur d'agents (plan Publicité, §9 quater, point 5).
@@ -135,7 +136,10 @@ export type CreativeView = {
   requestedAngle: string | null;
   status: string;
   publishable: boolean;
-  visuals: number;
+  /** Le brief Claude Design est écrit (prompt, formats, rushes). */
+  hasBrief: boolean;
+  /** Les fichiers finis encore attendus de Charlie (« 9:16 vidéo »…). */
+  missingFiles: string[];
   texts: { kind: string; text: string; status: string; reason: string | null }[];
 };
 
@@ -145,8 +149,8 @@ export type CreativeView = {
  * recopie rien. Branché sur Payload au commit 6 ; faux dans les tests.
  */
 export interface AtelierPort {
-  /** Le brief, le kit de marque et les faits, résumés pour un modèle ; le quota de la semaine ; les gabarits disponibles. */
-  brief(campaign: Id): Promise<{ resume: string; quotaRestant: number; gabarits: { cle: string; libelle: string; disponible: boolean }[] }>;
+  /** Le brief, le kit de marque et les faits, résumés pour un modèle ; le quota de la semaine. */
+  brief(campaign: Id): Promise<{ resume: string; quotaRestant: number }>;
   /** Fait écrire les textes des angles demandés par l'atelier (garde-fous compris). `preCheck` : budget de l'agent. */
   generate(
     campaign: Id,
@@ -154,14 +158,16 @@ export interface AtelierPort {
   ): Promise<{ creatives: CreativeView[]; costEur: number }>;
   // Chaque méthode qui touche une créa ne voit que celles de la campagne du passage : une créa d'une autre
   // campagne est introuvable pour l'agent (relecture du 01/10/2026, M3).
-  render(campaign: Id, creative: Id, template?: string): Promise<{ template: string; visuals: number }>;
   creatives(campaign: Id, ids: Id[]): Promise<CreativeView[]>;
   /** Passe des créas « À valider » ; celles qui ne sont pas publiables restent, avec la raison. */
   submit(campaign: Id, ids: Id[]): Promise<{ submitted: Id[]; skipped: { id: Id; reason: string }[] }>;
-  /** Les rushes prêts (description validée, recadrage), les styles actifs, les musiques analysées et les fiches de style des inspirations validées (D4, I1, M). */
-  videoMaterial(): Promise<VideoMaterial>;
-  /** Fait monter la vidéo d'une créa dans 1 à 3 styles OU sur 1 à 3 musiques (copies de test au-delà de la première). Lève avec la raison d'un refus. */
-  video(campaign: Id, creative: Id, req: { styles: Id[]; musics?: Id[]; score: unknown }): Promise<MountResult>;
+  /** Les rushes importés : ce qu'on y voit, les fonctionnalités montrées — de quoi choisir ceux à joindre. */
+  rushes(): Promise<RushForAgent[]>;
+  /**
+   * Écrit le brief Claude Design d'une créa : le serveur assemble le prompt (textes, Base V1, kit,
+   * zones sûres, noms de fichiers) autour de l'intention de l'agent. Lève avec la raison d'un refus.
+   */
+  writeBrief(campaign: Id, creative: Id, req: DesignIntent & { rushes: Id[] }): Promise<{ prompt: string; files: string[] }>;
   campaignBudget(campaign: Id): Promise<CampaignBudget | null>;
   setSplit(campaign: Id, split: Split, decision: Id, at: Date): Promise<void>;
 }

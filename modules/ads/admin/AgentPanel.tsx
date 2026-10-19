@@ -104,7 +104,7 @@ export function AgentPanel() {
     <section className="ads-gen ads-agent">
       <div className="ads-gen__head">
         <strong>Agent de campagne</strong>
-        <span>Il prépare positionnement, audiences, angles, textes et visuels, et dépose les créas « À valider ». Rien n&apos;est publié chez Meta.</span>
+        <span>Il prépare positionnement, audiences, angles, textes et briefs Claude Design, et dépose les créas « À valider ». Rien n&apos;est publié chez Meta.</span>
       </div>
 
       {running && current && (

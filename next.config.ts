@@ -16,14 +16,6 @@ const nextConfig: NextConfig = {
     cpus: 2,
   },
   /**
-   * `satori` (rendu des visuels publicitaires, modules/ads/lib/render) charge
-   * ses moteurs en WebAssembly — mise en page (yoga) et texte (harfbuzz) — par
-   * un chemin calculé à l'exécution. Empaqueté par Turbopack, ce chemin devient
-   * « /ROOT/node_modules/harfbuzzjs/hb.wasm » et le rendu échoue (constaté au
-   * build du 29/09/2026). Laissé externe, il est chargé depuis node_modules.
-   */
-  serverExternalPackages: ["satori"],
-  /**
    * `sharp` est chargé par Next pour l'optimisation de ses propres images.
    * C'est une bibliothèque NATIVE : à côté du JavaScript, elle embarque un
    * `.so` compilé pour la plateforme.
@@ -49,12 +41,6 @@ const nextConfig: NextConfig = {
    * dossiers `linux-x64` n'existent pas et ces lignes ne coûtent rien.
    */
   outputFileTracingIncludes: {
-    /**
-     * Le projet vidéo compilé (npm run build:video), lu à l'exécution par le
-     * rendu des pubs et déposé dans la Sandbox Vercel : rien ne l'importe, Next
-     * ne le tracerait pas.
-     */
-    "/api/cron/ads-renders": ["./remotion-bundle/**"],
     "/**": [
       "./node_modules/@img/sharp-linux-x64/**",
       "./node_modules/@img/sharp-libvips-linux-x64/**",
@@ -69,12 +55,8 @@ const nextConfig: NextConfig = {
       // Polices du rendu de signature, lues à l'exécution par la route de
       // signature (lib/e-signature-server, loadSignatureFont).
       "./assets/fonts/signature/**",
-      // Polices du contrat PDF (lib/contract-pdf), lues à l'exécution — et
-      // polices de repli des visuels publicitaires (lib/render).
+      // Polices du contrat PDF (lib/contract-pdf), lues à l'exécution.
       "./assets/fonts/contract/**",
-      // Moteurs WebAssembly de satori, lus à l'exécution (voir serverExternalPackages).
-      "./node_modules/satori/yoga.wasm",
-      "./node_modules/harfbuzzjs/hb.wasm",
     ],
   },
   images: {

@@ -3,25 +3,13 @@ import type { Field, GlobalConfig } from "payload";
 import { isAdmin } from "@/core/access";
 import { HEX } from "@/core/lib/brand";
 import { TONES } from "@/modules/ads/lib/dimensions";
-import {
-  AD_FONTS,
-  CORNERS,
-  GRAPHICS,
-  INSPIRATION_VERDICTS,
-  PACES,
-  PALETTE_DEFAULTS,
-  PHONE_FRAMES,
-  SUBTITLE_STYLES,
-  TITLE_CASES,
-  TRANSITIONS,
-} from "@/modules/ads/lib/style";
+import { AD_FONTS, PALETTE_DEFAULTS, TITLE_CASES } from "@/modules/ads/lib/style";
 
 /**
  * Publicité › Paramètres › Kit de marque — la charte des publicités, que lit
- * chaque génération et chaque montage (plan Publicité, §9 ter et §9 sexies).
+ * chaque génération de textes et que l'agent recopie dans ses briefs Claude
+ * Design (ton, logos, couleurs, typographie ; plan Publicité).
  *
- * En onglets, de ce qui se décide une fois (ton, logos, couleurs) à ce qui
- * règle le rendu (formes, mouvement) et à ce qui guide le goût (inspirations).
  * Les couleurs des pubs vivent ICI, préremplies avec celles de Système ›
  * Apparence ; celles du contrat restent dans Apparence. Les noms des champs
  * d'avant sont conservés : les onglets ne changent rien à la base.
@@ -50,7 +38,7 @@ export const AdsBrandKit: GlobalConfig = {
   label: "Kit de marque",
   admin: {
     group: "Publicité",
-    description: "La charte des publicités : ton, logos, couleurs, typographie, formes, mouvement et inspirations. Les agents la lisent à chaque génération et chaque montage.",
+    description: "La charte des publicités : ton, logos, couleurs, typographie. L'agent la lit à chaque génération et la recopie dans ses briefs Claude Design.",
   },
   access: { read: isAdmin, update: isAdmin },
   fields: [
@@ -98,7 +86,7 @@ export const AdsBrandKit: GlobalConfig = {
         },
         {
           label: "Logos",
-          description: "Trois variantes, chacune pour sa place, et un logo animable. Déposez-les dans Médias publicitaires, nature « Logo » (PNG transparent, WebP ou SVG).",
+          description: "Trois variantes, chacune pour sa place. Déposez-les dans Médias publicitaires, nature « Logo » (PNG transparent, WebP ou SVG) : elles se joignent aux briefs Claude Design.",
           fields: [
             {
               type: "row",
@@ -109,18 +97,6 @@ export const AdsBrandKit: GlobalConfig = {
               ],
             },
             { name: "logoPreview", type: "ui", admin: { components: { Field: "/modules/ads/admin/BrandKitPreview#LogoPreview" } } },
-            {
-              name: "logoAnimated",
-              type: "upload",
-              relationTo: "ad-media",
-              label: "Logo animable (SVG à calques)",
-              filterOptions: { kind: { equals: "logo" } },
-              admin: {
-                description:
-                  "Facultatif. Un SVG vectoriel dont les calques sont nommés « symbole » (un sous-calque par élément), « nom » (une lettre par sous-calque) et « baseline » : les vidéos font alors arriver le logo élément par élément.",
-              },
-            },
-            { name: "logoAnimatedCheck", type: "ui", admin: { components: { Field: "/modules/ads/admin/LogoAnimatedCheck#LogoAnimatedCheck" } } },
           ],
         },
         {
@@ -186,59 +162,13 @@ export const AdsBrandKit: GlobalConfig = {
           ],
         },
         {
-          label: "Formes et mouvement",
-          description: "La mise en scène et le rythme se règlent PAR STYLE, dans Publicité › Paramètres › Styles : l'agent choisit parmi les styles actifs et les fait tester entre eux. Ici, ce qui vaut pour tous les styles.",
+          label: "Fin de pub",
           fields: [
-            { name: "stylesLink", type: "ui", admin: { components: { Field: "/modules/ads/admin/BrandKitPreview#StylesLink" } } },
-            { name: "music", type: "upload", relationTo: "ad-media", label: "Musique par défaut", filterOptions: { kind: { equals: "musique" } }, admin: { description: "Celle qu'on prend quand personne n'en choisit. Toutes vos musiques se déposent dans Médias publicitaires (nature « Musique ») : l'agent choisit parmi elles et les teste." } },
             {
               name: "endCard",
               type: "group",
-              label: "Fin de vidéo",
-              fields: [
-                {
-                  type: "row",
-                  fields: [
-                    { name: "seconds", type: "number", label: "Durée (s)", defaultValue: 2.5, min: 1, max: 5, admin: { width: "20%", step: 0.5 } },
-                    { name: "url", type: "text", label: "Adresse affichée", defaultValue: "tim-management.co", admin: { width: "40%" } },
-                    { name: "showLogo", type: "checkbox", label: "Logo en grand", defaultValue: true, admin: { width: "40%" } },
-                  ],
-                },
-              ],
-            },
-            // Remplacés par les styles (14/10/2026) : colonnes conservées en base, champs masqués et ignorés
-            // — les retirer demanderait une migration destructive, à décider avec Charlie.
-            { name: "corners", type: "select", options: [...CORNERS], defaultValue: "arrondis", admin: { hidden: true } },
-            { name: "phoneFrame", type: "select", options: [...PHONE_FRAMES], defaultValue: "maquette", admin: { hidden: true } },
-            { name: "graphics", type: "select", hasMany: true, options: [...GRAPHICS], admin: { hidden: true } },
-            { name: "pace", type: "select", options: [...PACES], defaultValue: "dynamique", admin: { hidden: true } },
-            { name: "transitions", type: "select", hasMany: true, options: [...TRANSITIONS], admin: { hidden: true } },
-            { name: "subtitles", type: "select", options: [...SUBTITLE_STYLES], defaultValue: "mot-a-mot", admin: { hidden: true } },
-          ],
-        },
-        {
-          label: "Inspirations",
-          description:
-            "Les inspirations se déposent désormais dans Publicité › Inspirations : captures ET vidéos (MP4, MOV, jusqu'à 500 Mo). L'IA en tire une fiche de style que vous validez, et que le directeur artistique lit avant chaque montage.",
-          fields: [
-            {
-              // Remplacé par les inspirations de Publicité › Inspirations (I1) ; gardé en base, repris par scripts/ads-inspirations-reprise.ts.
-              name: "inspirations",
-              type: "array",
               label: false,
-              admin: { hidden: true },
-              labels: { singular: "Inspiration", plural: "Inspirations" },
-              fields: [
-                {
-                  type: "row",
-                  fields: [
-                    { name: "verdict", type: "select", label: "Verdict", options: [...INSPIRATION_VERDICTS], defaultValue: "aimer", required: true, admin: { width: "20%" } },
-                    { name: "image", type: "upload", relationTo: "ad-media", label: "Capture", filterOptions: { kind: { equals: "inspiration" } }, admin: { width: "40%" } },
-                    { name: "link", type: "text", label: "Lien (facultatif)", admin: { width: "40%", placeholder: "Bibliothèque publicitaire Meta, Instagram…" } },
-                  ],
-                },
-                { name: "why", type: "textarea", label: "Ce qui plaît, ou pas", required: true, admin: { placeholder: "Le téléphone en très gros plan, les mots qui apparaissent un à un, les couleurs franches…" } },
-              ],
+              fields: [{ name: "url", type: "text", label: "Adresse affichée", defaultValue: "tim-management.co", admin: { description: "Écrite à la fin des vidéos et sur les visuels, d'après le brief." } }],
             },
           ],
         },

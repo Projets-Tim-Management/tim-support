@@ -1,7 +1,6 @@
 "use client";
 
 import { useFormFields } from "@payloadcms/ui";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { fontFamily, paletteChecks, paletteOf, type Palette } from "@/modules/ads/lib/style";
@@ -95,15 +94,6 @@ export function PaletteCheck() {
       </ul>
       <p className="ads-kit-preview__hint">« Titres seulement » : assez contrasté pour un grand titre, pas pour une mention ou un sous-titre.</p>
     </div>
-  );
-}
-
-/** Onglet Formes et mouvement : le chemin vers les styles, qui portent désormais ces réglages. */
-export function StylesLink() {
-  return (
-    <p className="ads-kit-preview__hint">
-      <Link href="/admin/collections/ad-styles">Ouvrir les styles →</Link> A · Le geste en gros plan, B · Le chantier d&apos;abord, C · Clair et posé, et ceux que vous ajouterez.
-    </p>
   );
 }
 

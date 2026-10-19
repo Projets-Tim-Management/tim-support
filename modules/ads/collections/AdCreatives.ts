@@ -1,12 +1,19 @@
-import type { Access, CollectionBeforeChangeHook, CollectionBeforeDeleteHook, CollectionConfig } from "payload";
+import type { Access, CollectionAfterDeleteHook, CollectionBeforeChangeHook, CollectionConfig } from "payload";
 
 import { isAdmin } from "@/core/access";
 import { CTA_OPTIONS } from "@/modules/ads/lib/cta";
 import { CREATIVE_FORMATS, CREATIVE_STATUSES, REFUSAL_REASONS, TEXT_KINDS } from "@/modules/ads/lib/creative-options";
+import { BRIEF_KINDS } from "@/modules/ads/lib/creative-files";
 import { DEFAULT_TONE, TEST_DIMENSIONS, TONES } from "@/modules/ads/lib/dimensions";
 
 /**
- * Créas (plan Publicité, §4.3 et §9 ter) — un angle, ses textes, ses visuels.
+ * Créas (plan Publicité) — un angle, ses textes, son brief Claude Design et
+ * les fichiers finis importés.
+ *
+ * Depuis le 19/10/2026, le support ne fabrique plus les visuels : l'agent écrit
+ * un BRIEF (le prompt à coller dans Claude Design, les rushes à joindre, les
+ * formats attendus), Charlie crée la pub dans Claude Design puis IMPORTE les
+ * fichiers sur la créa, vérifiés aux exigences de Meta.
  *
  * Deux principes qui se voient dans les champs :
  *  - UNE VARIANTE = UNE DIMENSION ÉTIQUETÉE (décision du 29/09/2026). Le ton
@@ -36,12 +43,20 @@ const derive: CollectionBeforeChangeHook = ({ data }) => {
   return { ...data, copy, ...(tests ? { isTest: tests.length > 0 } : {}) };
 };
 
-/** Une créa supprimée emporte l'historique de ses retouches (le lien est obligatoire). */
-const dropRetouches: CollectionBeforeDeleteHook = async ({ id, req }) => {
-  await req.payload.delete({ collection: "ad-retouches", where: { creative: { equals: id } }, overrideAccess: true, req });
-};
-
 const decision = { create: () => false, update: () => false };
+
+/** Une créa supprimée emporte ses fichiers importés : rien ne reste en ligne pour rien. */
+const deleteFiles: CollectionAfterDeleteHook = async ({ doc, req }) => {
+  const urls = ((Array.isArray(doc?.files) ? doc.files : []) as { url?: string }[]).map((f) => f.url).filter((u): u is string => Boolean(u));
+  if (!urls.length || !process.env.BLOB_READ_WRITE_TOKEN) return doc;
+  try {
+    const { del } = await import("@vercel/blob");
+    await del(urls, { token: process.env.BLOB_READ_WRITE_TOKEN });
+  } catch (e) {
+    req.payload.logger.warn(`[publicité] fichiers de la créa ${doc?.id} non supprimés : ${(e as Error).message}`);
+  }
+  return doc;
+};
 
 export const AdCreatives: CollectionConfig = {
   slug: "ad-creatives",
@@ -50,13 +65,13 @@ export const AdCreatives: CollectionConfig = {
     useAsTitle: "angle",
     defaultColumns: ["angle", "campaign", "tone", "isTest", "status", "updatedAt"],
     group: "Publicité",
-    description: "Les créas de l'atelier : un angle, ses textes, ses visuels. Elles se valident dans la file « À valider ».",
+    description: "Un angle, ses textes, son brief Claude Design et les fichiers finis. Elles se valident dans la file « À valider ».",
   },
   // Créées par la génération (serveur) ; statut posé par les gestes de validation.
   access: { read: isAdmin, create: () => false, update: isAdmin, delete: deleteUndecided },
   disableDuplicate: true,
   defaultSort: "-createdAt",
-  hooks: { beforeChange: [derive], beforeDelete: [dropRetouches] },
+  hooks: { beforeChange: [derive], afterDelete: [deleteFiles] },
   fields: [
     { name: "angle", type: "text", label: "Angle", required: true, admin: { description: "L'idée en une ligne." } },
     {
@@ -68,45 +83,80 @@ export const AdCreatives: CollectionConfig = {
       admin: { readOnly: true, condition: (d) => Boolean(d?.requestedAngle) },
     },
     { name: "run", type: "relationship", relationTo: "ad-agent-runs", label: "Passage d'agent", index: true, admin: { readOnly: true, position: "sidebar", condition: (d) => Boolean(d?.run) } },
+    { name: "hook", type: "text", label: "Accroche du visuel", admin: { description: "Le texte posé sur l'image ou en ouverture de la vidéo." } },
     /**
-     * La vidéo de la créa (plan Publicité, §9 sexies, D3) : sa partition, rendue
-     * dans le style de la créa aux trois formats par le cron ads-renders (Sandbox
-     * Vercel). Écrite par le serveur seul.
+     * Le BRIEF Claude Design, écrit par l'agent (outil ecrire_brief_design) :
+     * le prompt prêt à coller, ce qu'il faut joindre, ce qu'on attend en retour.
+     * Écrit par le serveur seul.
      */
     {
-      name: "video",
+      name: "brief",
       type: "group",
-      label: "Vidéo",
-      // Écrite seulement par « Monter en vidéo » et le rendu (requestVideo, processNextRender), jamais par l'API.
+      label: "Brief Claude Design",
       access: decision,
-      admin: { condition: (d) => Boolean(d?.video?.status), readOnly: true },
+      admin: { readOnly: true, condition: (d) => Boolean(d?.brief?.prompt) },
       fields: [
         {
-          name: "status",
-          type: "select",
-          label: "État",
-          options: [
-            { label: "En attente de rendu", value: "en-attente" },
-            { label: "Rendu en cours", value: "en-cours" },
-            { label: "Prête", value: "prete" },
-            { label: "Échec", value: "echec" },
+          type: "row",
+          fields: [
+            { name: "kind", type: "select", label: "À créer", options: [...BRIEF_KINDS], admin: { width: "30%" } },
+            { name: "formats", type: "select", hasMany: true, label: "Formats attendus", options: [...CREATIVE_FORMATS], admin: { width: "40%" } },
+            { name: "durationSec", type: "number", label: "Durée visée (s)", admin: { width: "30%" } },
           ],
-          index: true,
         },
-        { name: "error", type: "text", label: "Motif de l'échec" },
-        { name: "score", type: "json", label: "Partition" },
-        // La musique de la vidéo, résolue au moment de la demander (celle du kit par défaut) ; vide : sans musique.
-        { name: "music", type: "relationship", relationTo: "ad-media", label: "Musique" },
-        { name: "renders", type: "json", label: "Fichiers rendus" },
-        // La photo des éléments du rendu : variante, nom, version et réglages du moment (pour l'analyse).
-        { name: "elements", type: "json", label: "Éléments utilisés" },
-        { name: "attempts", type: "number", label: "Essais", defaultValue: 0 },
-        { name: "renderedAt", type: "date", label: "Rendue le", admin: { date: { pickerAppearance: "dayAndTime" } } },
-        { name: "leaseUntil", type: "date", index: true, admin: { hidden: true } },
+        { name: "rationale", type: "textarea", label: "Pourquoi cette pub", admin: { description: "L'angle face aux concurrents, en quelques phrases." } },
+        { name: "prompt", type: "textarea", label: "Prompt à coller dans Claude Design" },
+        { name: "rushes", type: "relationship", relationTo: "ad-rushes", hasMany: true, label: "Rushes à joindre" },
+        { name: "writtenAt", type: "date", label: "Écrit le", admin: { date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" } } },
       ],
     },
-    { name: "style", type: "relationship", relationTo: "ad-styles", label: "Style", index: true, admin: { position: "sidebar", description: "Le style qui a rendu les visuels et la vidéo de cette créa." } },
-    { name: "hook", type: "text", label: "Accroche du visuel", admin: { description: "Le texte posé sur l'image." } },
+    /**
+     * Les fichiers finis, importés depuis Claude Design : un par format (et par
+     * nature), vérifiés aux exigences de Meta à l'import. Écrits par la route
+     * d'import seule.
+     */
+    {
+      name: "files",
+      type: "array",
+      label: "Fichiers importés",
+      labels: { singular: "Fichier", plural: "Fichiers" },
+      access: decision,
+      admin: { readOnly: true },
+      fields: [
+        {
+          type: "row",
+          fields: [
+            { name: "format", type: "select", label: "Format", options: [...CREATIVE_FORMATS], required: true, admin: { width: "20%" } },
+            {
+              name: "kind",
+              type: "select",
+              label: "Nature",
+              options: [
+                { label: "Image", value: "image" },
+                { label: "Vidéo", value: "video" },
+              ],
+              required: true,
+              admin: { width: "20%" },
+            },
+            { name: "filename", type: "text", label: "Fichier", admin: { width: "60%" } },
+          ],
+        },
+        { name: "url", type: "text", required: true },
+        { name: "pathname", type: "text" },
+        { name: "mime", type: "text" },
+        {
+          type: "row",
+          fields: [
+            { name: "bytes", type: "number", label: "Poids (octets)", admin: { width: "25%" } },
+            { name: "width", type: "number", label: "Largeur", admin: { width: "25%" } },
+            { name: "height", type: "number", label: "Hauteur", admin: { width: "25%" } },
+            { name: "durationSec", type: "number", label: "Durée (s)", admin: { width: "25%" } },
+          ],
+        },
+        { name: "warnings", type: "json", label: "Avertissements" },
+        { name: "importedAt", type: "date", label: "Importé le" },
+      ],
+    },
     {
       type: "row",
       fields: [
@@ -184,11 +234,12 @@ export const AdCreatives: CollectionConfig = {
       ],
     },
     {
+      // Les visuels rendus par l'ancien moteur (jusqu'au 19/10/2026) : remplacés par `files`, gardés jusqu'au nettoyage.
       name: "assets",
       type: "array",
-      label: "Visuels",
+      label: "Anciens visuels",
       labels: { singular: "Visuel", plural: "Visuels" },
-      admin: { readOnly: true },
+      admin: { readOnly: true, hidden: true },
       fields: [
         {
           type: "row",
@@ -205,7 +256,6 @@ export const AdCreatives: CollectionConfig = {
               required: true,
               admin: { width: "15%" },
             },
-            { name: "template", type: "text", label: "Gabarit", admin: { width: "25%" } },
             { name: "media", type: "upload", relationTo: "ad-media", label: "Fichier", required: true, admin: { width: "40%" } },
           ],
         },

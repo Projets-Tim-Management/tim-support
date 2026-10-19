@@ -1606,6 +1606,8 @@ code. Défauts :
 
 ## 9 sexies. Vidéo et motion design (D) — décidé le 14/10/2026
 
+> **Remplacé le 19/10/2026 par le §9 septies** : le moteur vidéo (Remotion, Sandbox, partitions, styles, musiques, éléments, retouches, inspirations) est retiré du code. Ce qui suit reste comme historique des décisions.
+
 > Constat du premier passage réel (13/10/2026) : des créas « pas du tout vendeuses ».
 > Charlie : le problème est le STYLE — il faut de la vidéo et du design. Il fournit
 > des vidéos libres de droits et des images du logiciel.
@@ -1652,6 +1654,25 @@ Les rushes d'origine ne sont jamais modifiés.
 | D2 | Planche de styles (artefact), choix de Charlie | — |
 | D3 | Moteur de motion : partition, vérifications, rendu Remotion en Sandbox | migration probable |
 | D4 | L'agent compose ses vidéos ; « À valider » et téléchargement en MP4 | — |
+
+## 9 septies. Les pubs se font dans Claude Design — décidé le 19/10/2026
+
+### Principe (décision de Charlie)
+Le support ne fabrique plus les visuels ni les vidéos : la qualité venait de la création, pas des textes (créas jugées « pas du tout vendeuses » le 13/10, Base V1 obtenue en des dizaines d'allers-retours). L'agent fait ce qu'il fait bien — analyser les concurrents, choisir les angles, écrire, tester, répartir le budget — et écrit pour chaque créa un **brief Claude Design** ; Charlie crée la pub dans Claude Design et en **importe** les fichiers finis.
+
+### Le flux
+1. Le stratège analyse les concurrents et choisit les angles ; le rédacteur fait écrire les textes (garde-fous inchangés).
+2. Le directeur artistique écrit le brief (`ecrire_brief_design`) : nature (vidéo, visuel fixe, les deux), formats, durée, pourquoi face aux concurrents, direction créative (les six temps de la Base V1 pour une vidéo), rushes à joindre. Le **serveur** assemble le prompt (`modules/ads/lib/design-brief/`) : textes passés aux garde-fous, règles de la Base V1 en mots, kit de marque, zones sûres Meta, noms de fichiers attendus (`C12-9x16.mp4`). Ce qui ne dépend pas du modèle n'est jamais laissé au modèle.
+3. Dans À valider : « Copier le prompt », télécharger les rushes et logos à joindre, puis glisser les fichiers exportés sur la carte. L'import (dépôt direct sur le stockage, 500 Mo) vérifie les exigences Meta (`lib/meta-specs.ts`) avant l'envoi et sur le serveur ; un réimport remplace le fichier du même format et de la même nature.
+4. Valider exige les fichiers que le brief attend ; le ZIP les emporte avec les textes. Ensuite : 3b (publication par l'agent), phase 1 (CAPI), 3d (optimisation selon le budget).
+
+### Ce qui a été retiré (analyse du 19/10/2026)
+Moteur vidéo `modules/ads/video/` et projet `remotion/`, rendu Satori des visuels, retouches, atelier des éléments, styles A/B/C, musiques et analyse du rythme, inspirations, conversion et description IA des rushes, recadrage, bouton « Générer » de la campagne, crons ads-renders / ads-retouches / ads-rushes, dépendances remotion, @remotion/*, @vercel/sandbox, satori. Le kit de marque garde ton, logos, couleurs, typographie, adresse de fin et mentions ; les médias publicitaires, les logos et polices ; les rushes deviennent une bibliothèque à joindre (bouton « Télécharger l'original »).
+
+### En deux temps (règle du 16/10 : jamais de DROP tant que la prod lit la colonne)
+- Temps 1 (code) : déployé avec une migration ADDITIVE (`20261019_142352_ads_brief_claude_design`) ; tables et colonnes de l'ancien moteur gardées en base.
+- Temps 2 (après mise en prod) : migration destructive avec l'accord de Charlie — tables `ad_elements`, `ad_element_notes`, `ad_retouches`, `ad_styles*`, `ad_inspirations`, `ads_brand_kit_graphics/transitions/inspirations` ; colonnes `video_*`, `style_id`, `assets` des créas, champs vidéo du kit et des rushes, natures de médias retirées ; suppression des 15 créas de test (« on repart de zéro »).
+- Temps 3 : ménage ponctuel du stockage (vidéos, aperçus, inspirations, retouches), par script relu.
 
 ## 10. Questions ouvertes
 

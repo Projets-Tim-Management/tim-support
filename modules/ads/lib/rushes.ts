@@ -1,37 +1,11 @@
 /**
- * Les rushes de la publicité (plan Publicité, §9 sexies) : la matière première
- * — vidéos et images de l'app, du chantier, du bureau — que les agents
- * retravaillent en motion design. Ici, les règles pures : ce qui s'importe,
- * où le fichier est rangé, ce qu'une fiche doit dire avant d'être utilisable.
+ * Les rushes de la publicité (plan Publicité) : les enregistrements d'écran de
+ * l'app, et les images de chantier ou de bureau, que l'agent désigne dans ses
+ * briefs et que Charlie joint dans Claude Design (décision du 19/10/2026). Ici,
+ * les règles pures : ce qui s'importe, où le fichier est rangé.
  *
- * Le fichier d'origine n'est JAMAIS modifié : la conversion produit à côté une
- * version de travail, une vignette et des images clés.
+ * Le fichier d'origine est conservé tel quel : c'est lui qu'on télécharge.
  */
-
-/**
- * À quoi sert un fichier importé : de la matière que les agents montent, ou une
- * inspiration — une pub (de TIM ou d'ailleurs) dont l'IA tire le style, jamais
- * montrée dans une vidéo (§9 sexies, I1).
- */
-export const RUSH_USES = [
-  { label: "Matière d'un montage", value: "matiere" },
-  { label: "Inspiration : une pub à imiter ou à éviter", value: "inspiration" },
-] as const;
-export const isInspiration = (d: { use?: unknown } | null | undefined): boolean => d?.use === "inspiration";
-
-/**
- * Les deux collections de fichiers importés : les rushes (la matière des
- * montages) et les inspirations (des pubs dont l'IA tire le style). Même
- * import, même conversion, même description IA ; deux listes, deux fiches.
- */
-export const IMPORT_COLLECTIONS = ["ad-rushes", "ad-inspirations"] as const;
-export type ImportCollection = (typeof IMPORT_COLLECTIONS)[number];
-export const isImportCollection = (v: unknown): v is ImportCollection => (IMPORT_COLLECTIONS as readonly unknown[]).includes(v);
-/** La collection désignée par une requête (« ?collection=ad-inspirations »), les rushes par défaut. Pure. */
-export const importCollectionOf = (url: string): ImportCollection => {
-  const v = new URL(url, "http://x").searchParams.get("collection");
-  return isImportCollection(v) ? v : "ad-rushes";
-};
 
 export const RUSH_SOURCES = [
   { label: "Écran de l'app mobile", value: "app-mobile" },
@@ -54,23 +28,13 @@ export const RUSH_FEATURES = [
   { label: "Autre", value: "autre" },
 ] as const;
 
-export const RUSH_STATUSES = [
-  { label: "En attente de conversion", value: "en-attente" },
-  { label: "Conversion en cours", value: "en-cours" },
-  { label: "Prêt", value: "pret" },
-  { label: "Échec", value: "echec" },
-] as const;
-
-/**
- * Ce qui s'importe. Les MOV de l'iPhone (HEVC compris) entrent tels quels : la
- * conversion les ramène au format de travail commun.
- */
+/** Ce qui s'importe. Les MOV de l'iPhone (HEVC compris) entrent tels quels. */
 export const RUSH_CONTENT_TYPES = ["video/mp4", "video/quicktime", "video/x-m4v", "image/png", "image/jpeg", "image/webp"] as const;
 
 /** 500 Mo : une minute de 4K iPhone tient dedans ; au-delà, c'est un film, pas un rush. */
 export const RUSH_MAX_BYTES = 500 * 1024 * 1024;
 
-/** Le dossier des rushes sur le stockage, à part des créas rendues. */
+/** Le dossier des rushes sur le stockage, à part des fichiers des créas. */
 export const RUSH_PREFIX = "ads/rushes/";
 
 export const isAppSource = (s: unknown): boolean => s === "app-mobile" || s === "app-web";
@@ -111,8 +75,8 @@ export const isRushPathname = (p: string): boolean => p.startsWith(RUSH_PREFIX) 
 
 /**
  * L'adresse vient-elle de NOTRE stockage ? La fiche reçoit l'adresse du
- * navigateur ; la conversion ira la chercher — on n'accepte que le stockage
- * public de Vercel Blob et le dossier des rushes. Pure.
+ * navigateur : on n'accepte que le stockage public de Vercel Blob et le
+ * dossier des rushes. Pure.
  */
 export function isRushBlobUrl(url: unknown): boolean {
   if (typeof url !== "string") return false;
@@ -122,30 +86,4 @@ export function isRushBlobUrl(url: unknown): boolean {
   } catch {
     return false;
   }
-}
-
-/**
- * Où en est un rush, en une étiquette et une couleur (liste et fiche) : la
- * conversion et la description de l'IA réunies, parce que c'est la question
- * qu'on se pose — « est-ce que les agents peuvent s'en servir ? ». Pure.
- *
- * - gris : en attente, ou description écartée (l'agent lit seulement celle de Charlie) ;
- * - bleu : conversion en cours ;
- * - orange : une action de Charlie est attendue (description à valider ou à proposer) ;
- * - vert : prêt, description validée — l'agent lit tout ;
- * - rouge : échec, la raison est sur la fiche.
- */
-export type RushTone = "gris" | "bleu" | "orange" | "vert" | "rouge";
-export type RushStage = { key: string; label: string; tone: RushTone };
-
-export function rushStage(doc: { processing?: { status?: string | null } | null; ai?: { status?: string | null; proposal?: string | null } | null } | null | undefined): RushStage {
-  const status = doc?.processing?.status ?? "en-attente";
-  if (status === "en-cours") return { key: "conversion", label: "Conversion en cours", tone: "bleu" };
-  if (status === "echec") return { key: "echec", label: "Échec — voir la fiche", tone: "rouge" };
-  if (status !== "pret") return { key: "attente", label: "En attente de conversion", tone: "gris" };
-  const ai = doc?.ai?.status;
-  if (ai === "validee") return { key: "valide", label: "Prêt — lu par les agents", tone: "vert" };
-  if (ai === "ecartee") return { key: "ecarte", label: "Prêt — description IA écartée", tone: "gris" };
-  if (doc?.ai?.proposal) return { key: "a-valider", label: "Description à valider", tone: "orange" };
-  return { key: "a-proposer", label: "Description à proposer", tone: "orange" };
 }

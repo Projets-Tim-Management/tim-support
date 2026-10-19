@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { AdRushes } from "@/modules/ads/collections/AdRushes";
-import { isRushBlobUrl, isRushPathname, mediaTypeOf, rushPathname, rushRefusal, rushStage, RUSH_MAX_BYTES } from "@/modules/ads/lib/rushes";
+import { isRushBlobUrl, isRushPathname, mediaTypeOf, rushPathname, rushRefusal, RUSH_MAX_BYTES } from "@/modules/ads/lib/rushes";
 
 /**
- * Les rushes (plan Publicité, §9 sexies) : ce qui s'importe, où ça se range,
- * et ce que la fiche garantit avant que la conversion ne s'en saisisse.
+ * Les rushes (plan Publicité) : ce qui s'importe, où ça se range, et ce que la
+ * fiche garantit avant que l'agent ne les désigne dans un brief.
  */
 
 const BLOB = "https://abc123.public.blob.vercel-storage.com/ads/rushes/pointage-AbC.mov";
@@ -53,17 +53,8 @@ describe("la fiche", () => {
     expect(() => prepare({ data: { title: "x", original: { url: "https://ailleurs.fr/a.mp4" } }, operation: "create" })).toThrow(/Déposez d'abord le fichier/);
   });
 
-  it("à la création : type déduit, mise en file de conversion", () => {
-    const out = prepare({ data: { title: "x", original }, operation: "create" });
-    expect(out).toMatchObject({ mediaType: "video", processing: { status: "en-attente", attempts: 0 } });
-  });
-
-  it("un fichier remplacé repart en conversion ; une autre modification n'y touche pas", () => {
-    const originalDoc = { original, processing: { status: "pret" } };
-    const replaced = prepare({ data: { original: { ...original, url: BLOB.replace("AbC", "XyZ") } }, originalDoc, operation: "update" });
-    expect(replaced).toMatchObject({ processing: { status: "en-attente" }, working: { url: null } });
-    const edited = prepare({ data: { description: "autre" }, originalDoc, operation: "update" });
-    expect(edited.processing).toBeUndefined();
+  it("déduit le type du fichier déposé", () => {
+    expect(prepare({ data: { title: "x", original }, operation: "create" })).toMatchObject({ mediaType: "video" });
   });
 
   it("supprimer la fiche supprime ses fichiers du stockage", async () => {
@@ -72,27 +63,9 @@ describe("la fiche", () => {
     vi.doMock("@vercel/blob", () => ({ del }));
     // Le hook importe le stockage à la demande : le simulacre s'applique.
     const hook = AdRushes.hooks!.afterDelete![0] as unknown as (a: unknown) => Promise<unknown>;
-    await hook({ doc: { id: 1, original, working: { url: "w", posterUrl: "p", keyframes: [{ url: "k1" }] } }, req: { payload: { logger: { warn: vi.fn() } } } });
-    expect(del).toHaveBeenCalledWith([BLOB, "w", "p", "k1"], { token: "t" });
+    await hook({ doc: { id: 1, original }, req: { payload: { logger: { warn: vi.fn() } } } });
+    expect(del).toHaveBeenCalledWith([BLOB], { token: "t" });
     vi.unstubAllEnvs();
     vi.doUnmock("@vercel/blob");
-  });
-});
-
-describe("l'étape d'un rush, en une étiquette et une couleur", () => {
-  const ready = (ai?: Record<string, unknown>) => ({ processing: { status: "pret" }, ai });
-
-  it("conversion : gris en attente, bleu en cours, rouge en échec", () => {
-    expect(rushStage({ processing: { status: "en-attente" } })).toMatchObject({ label: "En attente de conversion", tone: "gris" });
-    expect(rushStage(null)).toMatchObject({ tone: "gris" });
-    expect(rushStage({ processing: { status: "en-cours" } })).toMatchObject({ label: "Conversion en cours", tone: "bleu" });
-    expect(rushStage({ processing: { status: "echec" } })).toMatchObject({ label: "Échec — voir la fiche", tone: "rouge" });
-  });
-
-  it("prêt : orange tant que Charlie doit agir, vert quand les agents lisent tout", () => {
-    expect(rushStage(ready({ proposal: "…", status: "proposee" }))).toMatchObject({ label: "Description à valider", tone: "orange" });
-    expect(rushStage(ready())).toMatchObject({ label: "Description à proposer", tone: "orange" });
-    expect(rushStage(ready({ proposal: "…", status: "validee" }))).toMatchObject({ label: "Prêt — lu par les agents", tone: "vert" });
-    expect(rushStage(ready({ proposal: "…", status: "ecartee" }))).toMatchObject({ tone: "gris" });
   });
 });

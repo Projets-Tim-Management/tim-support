@@ -40,11 +40,3 @@ export const ADS_AGENT_MAX_TOKENS = 12_000;
  */
 export const ADS_EXTRACTION_MODEL = "claude-haiku-4-5" as const satisfies ClaudeModel;
 export const ADS_EXTRACTION_MAX_TOKENS = 2_000;
-
-/**
- * Regarder les images clés d'un rush et décrire ce qu'on y voit (plan
- * Publicité, §9 sexies, D1c) : Sonnet, qui lit les images aussi bien qu'Opus
- * pour une fraction du prix.
- */
-export const ADS_VISION_MODEL = "claude-sonnet-5-5" as const satisfies ClaudeModel;
-export const ADS_VISION_MAX_TOKENS = 3_000;

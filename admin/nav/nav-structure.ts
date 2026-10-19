@@ -104,11 +104,8 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     { label: "À valider", href: "/admin/publicite/a-valider", adminOnly: true },
     "ad-campaigns",
     "ad-creatives",
-    // La matière première des vidéos (montée par les agents), puis les pubs dont l'IA tire le style (jamais montées).
+    // Les enregistrements de l'application, à joindre aux briefs Claude Design.
     "ad-rushes",
-    "ad-inspirations",
-    // L'atelier des éléments de motion design : on les améliore et on en crée des variantes.
-    "ad-elements",
     // Ce que l'agent a fait, puis pourquoi.
     "ad-agent-runs",
     "ad-decisions",
@@ -117,7 +114,7 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     "ad-learnings",
     "ad-metrics-daily",
     // Paramètres toujours en dernier. La matière des créas d'abord (kit, faits, médias, concurrents), puis les réglages.
-    { label: "Paramètres", slugs: ["ads-brand-kit", "ad-styles", "ad-facts", "ad-media", "ad-competitors", "ad-accounts", "ads-settings", "ads-settings-history", "ad-ai-usage"] },
+    { label: "Paramètres", slugs: ["ads-brand-kit", "ad-facts", "ad-media", "ad-competitors", "ad-accounts", "ads-settings", "ads-settings-history", "ad-ai-usage"] },
   ],
   /**
    * Ce que TIM facture. Aucune collection : l'écran lit Pennylane à la demande.

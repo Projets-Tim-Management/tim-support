@@ -31,9 +31,6 @@ export async function POST(req: Request, { params }: Params) {
   if (!creative) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const error = decisionError(creative as never, d);
   if (error) return NextResponse.json({ error }, { status: 409 });
-  // Une retouche en file changerait ensuite une créa déjà décidée (voire téléchargée) : on attend qu'elle soit faite.
-  const running = await payload.count({ collection: "ad-retouches", where: { and: [{ creative: { equals: creative.id } }, { status: { in: ["en-attente", "en-cours"] } }] }, overrideAccess: true });
-  if (running.totalDocs) return NextResponse.json({ error: "Une retouche de cette créa est en cours : attendez qu'elle soit faite pour décider." }, { status: 409 });
 
   await payload.update({ collection: "ad-creatives", id, data: decisionData(d, user.id, new Date()) as never, overrideAccess: true });
   payload.logger.info(`[publicité] créa ${id} ${d.decision === "validee" ? "validée" : `refusée (${d.reason})`} par ${user.email}.`);
