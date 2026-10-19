@@ -324,6 +324,30 @@ export function MonthlyChart({ data, series, stacked = false, height = 240 }: { 
   );
 }
 
+/* ─── Comptes par jour : une ligne par série (« AAAA-MM-JJ » de Paris) ───── */
+
+const dayLabel = (day: string, long = false) =>
+  new Date(`${day}T12:00:00Z`).toLocaleDateString("fr-FR", long ? { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" } : { day: "numeric", month: "short", timeZone: "UTC" });
+
+export function DailyChart({ data, series, height = 240 }: { data: ({ day: string } & Record<string, number | string>)[]; series: Series[]; height?: number }) {
+  const c = useChartColors();
+  const rows = data.map((p) => ({ ...p, label: dayLabel(p.day), long: dayLabel(p.day, true) }));
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <ComposedChart data={rows} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+        <CartesianGrid {...gridProps(c)} />
+        <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} minTickGap={16} />
+        <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} allowDecimals={false} width={40} />
+        <Tooltip cursor={{ stroke: c.grid }} content={(p) => <Tip {...p} unit="int" title={p.payload?.[0]?.payload?.long} />} />
+        {series.length > 1 && <Legend {...legendProps(c)} />}
+        {series.map((s, i) => (
+          <Line key={s.key} name={s.label} type="monotone" dataKey={s.key} stroke={c.series[i % 5]} strokeWidth={LINE_WIDTH} dot={false} activeDot={lineActiveDot(c, c.series[i % 5])} />
+        ))}
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
 /* ─── Comptes par catégorie : barres horizontales, une seule teinte ──────── */
 
 export function CountBars({ data, unit = "int", colorByKey }: { data: { key: string; label: string; count: number; color?: string }[]; unit?: "int" | "days"; colorByKey?: boolean }) {

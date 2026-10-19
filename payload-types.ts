@@ -93,6 +93,7 @@ export interface Config {
     forms: Form;
     'form-submissions': FormSubmission;
     'ga4-sends': Ga4Send;
+    'video-views': VideoView;
     'ad-campaigns': AdCampaign;
     'ad-creatives': AdCreative;
     'ad-accounts': AdAccount;
@@ -182,6 +183,7 @@ export interface Config {
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'ga4-sends': Ga4SendsSelect<false> | Ga4SendsSelect<true>;
+    'video-views': VideoViewsSelect<false> | VideoViewsSelect<true>;
     'ad-campaigns': AdCampaignsSelect<false> | AdCampaignsSelect<true>;
     'ad-creatives': AdCreativesSelect<false> | AdCreativesSelect<true>;
     'ad-accounts': AdAccountsSelect<false> | AdAccountsSelect<true>;
@@ -2274,6 +2276,20 @@ export interface Sequence {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "video-views".
+ */
+export interface VideoView {
+  id: number;
+  videoId: string;
+  page: string;
+  etape: 'lecture' | '25' | '50' | '75' | 'fin';
+  jour: string;
+  nombre: number;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Les campagnes : celles lues chez les régies (mises à jour chaque nuit, chiffres en lecture seule) et les brouillons préparés ici, avec leur brief.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -4026,6 +4042,10 @@ export interface PayloadLockedDocument {
         value: number | Ga4Send;
       } | null)
     | ({
+        relationTo: 'video-views';
+        value: number | VideoView;
+      } | null)
+    | ({
         relationTo: 'ad-campaigns';
         value: number | AdCampaign;
       } | null)
@@ -5215,6 +5235,19 @@ export interface Ga4SendsSelect<T extends boolean = true> {
   claimedAt?: T;
   attempts?: T;
   nextTryAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "video-views_select".
+ */
+export interface VideoViewsSelect<T extends boolean = true> {
+  videoId?: T;
+  page?: T;
+  etape?: T;
+  jour?: T;
+  nombre?: T;
   updatedAt?: T;
   createdAt?: T;
 }

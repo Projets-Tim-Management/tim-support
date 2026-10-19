@@ -716,3 +716,22 @@
 }
 .an-valid__month--ok { background: var(--tim-green-bg); .an-valid__label, .an-valid__state { color: var(--tim-green); } }
 .an-valid__month--part { background: var(--tim-amber-bg); .an-valid__label, .an-valid__state { color: var(--tim-amber); } }
+
+/* ─── Vidéos : une section par vidéo ───────────────────────────────────────── */
+.an-video {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.an-video__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.an-video__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}

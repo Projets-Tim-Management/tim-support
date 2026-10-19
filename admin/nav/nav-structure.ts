@@ -132,6 +132,7 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     { label: "Facturation", href: "/admin/analyses/facturation", adminOnly: true },
     { label: "Clients & pipeline", href: "/admin/analyses/pipeline", adminOnly: true },
     { label: "Acquisition", href: "/admin/analyses/acquisition", adminOnly: true },
+    { label: "Vidéos", href: "/admin/analyses/videos", adminOnly: true },
     { label: "Support", href: "/admin/analyses/support", adminOnly: true },
     { label: "Développements", href: "/admin/analyses/developpements", adminOnly: true },
     { label: "Partenaires", href: "/admin/analyses/partenaires", adminOnly: true },
