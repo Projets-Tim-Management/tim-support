@@ -4,6 +4,7 @@ import { toast, useDocumentInfo, useField, useFormFields } from "@payloadcms/ui"
 import { useState } from "react";
 
 import { accessVerdict } from "@/modules/ads/lib/access-verdict";
+import type { AccountState } from "@/modules/ads/platforms/types";
 
 import { postAdmin } from "./post-admin";
 
@@ -20,6 +21,7 @@ type Found = {
   pages?: { id: string; name: string; instagram: { id: string; username: string } | null }[];
   instagram?: { id: string; username: string }[];
   pixels?: { id: string; name: string }[];
+  account?: AccountState | null;
 };
 
 function Picker({ label, idPath, namePath, options, empty }: { label: string; idPath: string; namePath: string; options: { id: string; name: string }[]; empty: string }) {
@@ -71,7 +73,7 @@ export function AccountAccess() {
     }
   };
 
-  const verdict = scopes ? accessVerdict(scopes, { pageId }) : null;
+  const verdict = scopes ? accessVerdict(scopes, { pageId, account: found?.account }) : null;
   return (
     <div className="ads-access">
       <div className="ads-access__head">

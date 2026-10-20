@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { accessVerdict } from "@/modules/ads/lib/access-verdict";
+import { accessVerdict, metaAccountState } from "@/modules/ads/lib/access-verdict";
 import { createMetaPlatform } from "@/modules/ads/platforms/meta";
 import { createMockMetaPlatform } from "@/modules/ads/platforms/meta-mock";
 import { AdTokenError } from "@/modules/ads/platforms/types";
@@ -63,5 +63,31 @@ describe("le verdict", () => {
       helpfulMissing: [],
       problems: [],
     });
+  });
+
+  it("un compte publicitaire fermé bloque, avec le chemin pour le rouvrir", () => {
+    const v = accessVerdict(["ads_management"], { pageId: "p", account: metaAccountState(101) });
+    expect(v.canPublish).toBe(false);
+    expect(v.problems[0]).toMatch(/fermé.*« Activer »/);
+    expect(accessVerdict(["ads_management"], { pageId: "p", account: metaAccountState(3) }).problems[0]).toMatch(/impayé/);
+  });
+});
+
+describe("l'état du compte publicitaire", () => {
+  it("seuls actif et délai de grâce diffusent ; un état absent ne bloque pas", () => {
+    expect(metaAccountState(1)).toEqual({ ok: true, code: 1, label: "actif" });
+    expect(metaAccountState(9).ok).toBe(true);
+    expect(metaAccountState(101)).toEqual({ ok: false, code: 101, label: "fermé" });
+    expect(metaAccountState(2).ok).toBe(false);
+    expect(metaAccountState(undefined).ok).toBe(true);
+  });
+
+  it("se lit en direct chez Meta, et accompagne la vérification des droits", async () => {
+    const { platform } = graph([
+      [/debug_token/, { data: { is_valid: true, scopes: ["ads_management"] } }],
+      [/act_42\?/, { account_status: 101, id: "act_42" }],
+    ]);
+    expect(await platform.accountState!(acc)).toEqual({ ok: false, code: 101, label: "fermé" });
+    expect((await platform.checkAccess!(acc)).account).toEqual({ ok: false, code: 101, label: "fermé" });
   });
 });

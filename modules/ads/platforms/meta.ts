@@ -1,9 +1,11 @@
 import { createHmac } from "node:crypto";
 
+import { metaAccountState } from "@/modules/ads/lib/access-verdict";
 import {
   AdTokenError,
   type AccountContext,
   type AccessReport,
+  type AccountState,
   type CreativeMedia,
   type NewAdSet,
   type NewCampaign,
@@ -402,6 +404,11 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
       await post(ref.externalId, acc.token, { daily_budget: toMetaAmount(amount, acc.currency) });
     },
 
+    async accountState(acc: AccountContext): Promise<AccountState> {
+      const r = await get<{ account_status?: number }>(url(acc.externalId, { access_token: acc.token, fields: "account_status" }));
+      return metaAccountState(r.account_status);
+    },
+
     async checkAccess(acc: AccountContext): Promise<AccessReport> {
       type Debug = { data?: { scopes?: string[]; is_valid?: boolean } };
       const debug = await get<Debug>(url("debug_token", { input_token: acc.token, access_token: `${cfg.appId}|${cfg.appSecret}` }));
@@ -410,10 +417,11 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
       type RawPage = { id: string; name?: string; instagram_business_account?: { id: string; username?: string } };
       type RawIg = { id: string; username?: string };
       type RawPixel = { id: string; name?: string };
-      const [pages, ig, pixels] = await Promise.all([
+      const [pages, ig, pixels, account] = await Promise.all([
         soft(all<RawPage>(url("me/accounts", { access_token: acc.token, fields: "id,name,instagram_business_account{id,username}", limit: "100" }))),
         soft(all<RawIg>(url(`${acc.externalId}/instagram_accounts`, { access_token: acc.token, fields: "id,username", limit: "100" }))),
         soft(all<RawPixel>(url(`${acc.externalId}/adspixels`, { access_token: acc.token, fields: "id,name", limit: "100" }))),
+        get<{ account_status?: number }>(url(acc.externalId, { access_token: acc.token, fields: "account_status" })).then((r) => metaAccountState(r.account_status)).catch(() => undefined),
       ]);
       const igOfPages = pages.flatMap((p) => (p.instagram_business_account ? [{ id: p.instagram_business_account.id, username: p.instagram_business_account.username ?? p.instagram_business_account.id }] : []));
       const instagram = [...igOfPages, ...ig.map((i) => ({ id: i.id, username: i.username ?? i.id }))].filter((x, i, arr) => arr.findIndex((y) => y.id === x.id) === i);
@@ -422,6 +430,7 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
         pages: pages.map((p) => ({ id: p.id, name: p.name ?? p.id, instagram: p.instagram_business_account ? { id: p.instagram_business_account.id, username: p.instagram_business_account.username ?? p.instagram_business_account.id } : null })),
         instagram,
         pixels: pixels.map((p) => ({ id: p.id, name: p.name ?? p.id })),
+        account,
       };
     },
   };

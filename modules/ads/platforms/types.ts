@@ -86,7 +86,12 @@ export type AccessReport = {
   pages: { id: string; name: string; instagram: { id: string; username: string } | null }[];
   instagram: { id: string; username: string }[];
   pixels: { id: string; name: string }[];
+  /** L'état du compte publicitaire lui-même : fermé, impayé, désactivé… bloque toute diffusion. */
+  account?: AccountState;
 };
+
+/** L'état d'un compte publicitaire chez la régie : peut-il diffuser ? */
+export type AccountState = { ok: boolean; code: number | null; label: string };
 
 /** Ce que l'on cherche dans le ciblage de la régie : centres d'intérêt, métiers, régions. */
 export type TargetingKind = "interet" | "metier" | "region";
@@ -138,6 +143,8 @@ export interface AdPlatform {
   fetchMetrics(acc: AccountContext, range: DateRange, level: Level): Promise<MetricRow[]>;
   /** Les droits du jeton et ce qu'il ouvre (Pages, Instagram, pixels) — avant toute publication. */
   checkAccess?(acc: AccountContext): Promise<AccessReport>;
+  /** L'état du compte publicitaire, lu en direct (un compte se ferme seul après 56 jours sans dépense). */
+  accountState?(acc: AccountContext): Promise<AccountState>;
   /** Les options de ciblage officielles de la régie (leurs identifiants servent à publier). */
   searchTargeting?(acc: AccountContext, kind: TargetingKind, query: string, country?: string): Promise<TargetingOption[]>;
   createCampaign?(acc: AccountContext, c: NewCampaign): Promise<string>;

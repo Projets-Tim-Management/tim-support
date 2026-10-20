@@ -52,11 +52,11 @@ export async function checkAccountAccess(payload: Payload, id: number | string, 
         pixelId,
         pixelName: report.pixels.find((p) => p.id === pixelId)?.name ?? null,
         scopes: report.scopes,
-        found: { pages: report.pages, instagram: report.instagram, pixels: report.pixels },
+        found: { pages: report.pages, instagram: report.instagram, pixels: report.pixels, account: report.account ?? null },
         checkedAt: now.toISOString(),
       },
     } as never,
     overrideAccess: true,
   });
-  return { ...report, verdict: accessVerdict(report.scopes, { pageId }) };
+  return { ...report, verdict: accessVerdict(report.scopes, { pageId, account: report.account }) };
 }

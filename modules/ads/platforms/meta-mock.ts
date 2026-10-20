@@ -1,5 +1,6 @@
 import type {
   AccessReport,
+  AccountState,
   NewAdSet,
   NewCampaign,
   NewCreative,
@@ -127,7 +128,12 @@ export function createMockMetaPlatform(): AdPlatform {
         pages: [{ id: "100000000000001", name: `${MOCK_PREFIX} TIM Management`, instagram: { id: "178400000000001", username: "tim.management.simule" } }],
         instagram: [{ id: "178400000000001", username: "tim.management.simule" }],
         pixels: [{ id: "900000000000001", name: `${MOCK_PREFIX} Pixel du site` }],
+        account: { ok: true, code: 1, label: "actif" },
       };
+    },
+
+    async accountState(): Promise<AccountState> {
+      return { ok: true, code: 1, label: "actif" };
     },
 
     async listAccounts(): Promise<AccountSnapshot[]> {
