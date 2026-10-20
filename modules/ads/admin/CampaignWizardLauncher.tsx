@@ -1,5 +1,6 @@
 "use client";
 
+import { useConfig } from "@payloadcms/ui";
 import { useEffect, useState } from "react";
 
 import { draftFromDoc, isComplete } from "@/modules/ads/lib/campaign-wizard";
@@ -13,14 +14,15 @@ import { CampaignWizard } from "./CampaignWizard";
  */
 export function CampaignWizardLauncher() {
   const [open, setOpen] = useState<{ id: number | string | null } | null>(null);
+  const rest = useConfig().config.routes.api;
   const [unfinished, setUnfinished] = useState<{ id: number; name: string }[]>([]);
 
   useEffect(() => {
-    fetch("/api/ad-campaigns?limit=50&depth=0&where[status][equals]=brouillon&where[externalId][exists]=false&sort=-updatedAt", { credentials: "include" })
+    fetch(`${rest}/ad-campaigns?limit=50&depth=0&where[status][equals]=brouillon&where[externalId][exists]=false&sort=-updatedAt`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : { docs: [] }))
       .then((d: { docs: (Record<string, unknown> & { id: number; name: string })[] }) => setUnfinished(d.docs.filter((c) => !isComplete(draftFromDoc(c as never))).map((c) => ({ id: c.id, name: c.name }))))
       .catch(() => null);
-  }, [open]);
+  }, [open, rest]);
 
   return (
     <div className="ads-wiz-launcher">

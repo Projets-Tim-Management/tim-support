@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "@payloadcms/ui";
+import { toast, useConfig } from "@payloadcms/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
@@ -41,6 +41,8 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function CampaignWizard({ campaignId, onClose }: { campaignId: number | string | null; onClose: () => void }) {
   const router = useRouter();
+  // L'API REST de Payload est servie sous `routes.api` (« /payload-api ») : /api/* appartient aux routes du site.
+  const rest = useConfig().config.routes.api;
   const [d, setD] = useState<WizardDraft>(emptyDraft);
   const [step, setStep] = useState<StepKey>("bases");
   const [loaded, setLoaded] = useState(false);
@@ -56,9 +58,9 @@ export function CampaignWizard({ campaignId, onClose }: { campaignId: number | s
   useEffect(() => {
     let alive = true;
     void Promise.all([
-      api<{ docs: { id: number; name: string; status?: string }[] }>("/api/ad-accounts?limit=50&depth=0"),
-      api<{ docs: { id: number; statement: string }[] }>("/api/ad-facts?limit=200&depth=0&where[active][equals]=true"),
-      campaignId != null ? api<Record<string, unknown>>(`/api/ad-campaigns/${encodeURIComponent(String(campaignId))}?depth=0`) : Promise.resolve(null),
+      api<{ docs: { id: number; name: string; status?: string }[] }>(`${rest}/ad-accounts?limit=50&depth=0`),
+      api<{ docs: { id: number; statement: string }[] }>(`${rest}/ad-facts?limit=200&depth=0&where[active][equals]=true`),
+      campaignId != null ? api<Record<string, unknown>>(`${rest}/ad-campaigns/${encodeURIComponent(String(campaignId))}?depth=0`) : Promise.resolve(null),
     ])
       .then(([acc, f, doc]) => {
         if (!alive) return;
@@ -74,7 +76,7 @@ export function CampaignWizard({ campaignId, onClose }: { campaignId: number | s
     return () => {
       alive = false;
     };
-  }, [campaignId]);
+  }, [campaignId, rest]);
 
   const index = WIZARD_STEPS.findIndex((s) => s.key === step);
   const problems = useMemo(() => stepProblems(step, d), [step, d]);
@@ -96,11 +98,11 @@ export function CampaignWizard({ campaignId, onClose }: { campaignId: number | s
   const save = async (): Promise<number | string> => {
     const data = stepData(step, d);
     if (d.id == null) {
-      const r = await api<{ doc: { id: number } }>("/api/ad-campaigns", { method: "POST", body: JSON.stringify(data) });
+      const r = await api<{ doc: { id: number } }>(`${rest}/ad-campaigns`, { method: "POST", body: JSON.stringify(data) });
       set("id", r.doc.id);
       return r.doc.id;
     }
-    if (Object.keys(data).length) await api(`/api/ad-campaigns/${encodeURIComponent(String(d.id))}`, { method: "PATCH", body: JSON.stringify(data) });
+    if (Object.keys(data).length) await api(`${rest}/ad-campaigns/${encodeURIComponent(String(d.id))}`, { method: "PATCH", body: JSON.stringify(data) });
     return d.id;
   };
 
