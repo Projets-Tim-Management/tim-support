@@ -244,6 +244,8 @@ export async function publicationPreviews(payload: Payload, id: number | string)
       if (html) out.push({ key: `${key}:${format}`, label: `C${creaId} ${kind === "video" ? "vidéo" : "image"} — ${label}`, html });
     }
   }
+  // Les aperçus ont été vus : le suivi de lancement le constate (pas de bouton « j'ai vu » à cocher).
+  if (out.length && !s.previewsSeenAt) await write(payload, c.id, { ...s, previewsSeenAt: new Date().toISOString() });
   return out;
 }
 

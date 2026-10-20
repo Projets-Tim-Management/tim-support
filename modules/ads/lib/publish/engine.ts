@@ -50,6 +50,8 @@ export type PubState = {
   creas: (number | string)[];
   publishedAt: string | null;
   activatedAt: string | null;
+  /** Première fois que les aperçus de Meta ont été affichés : une étape du suivi de lancement. */
+  previewsSeenAt?: string | null;
 };
 
 export const emptyState = (input: PubInput): PubState => ({

@@ -3,6 +3,7 @@ import type { Access, CollectionBeforeChangeHook, CollectionBeforeDeleteHook, Co
 import { isAdmin } from "@/core/access";
 import { AI_SHARE_MAX_PCT, DEFAULT_AI_SHARE_PCT, DEFAULT_META_FLOOR_EUR, validateAgentBudget } from "@/modules/ads/agent/limits";
 import { PURGE_CONTEXT } from "@/modules/ads/lib/accounts";
+import { OBJECTIVES } from "@/modules/ads/lib/campaign-options";
 import { CTA_OPTIONS } from "@/modules/ads/lib/cta";
 import { DEFAULT_TONE, TONES } from "@/modules/ads/lib/dimensions";
 import { validatePlatform } from "@/modules/ads/lib/platforms";
@@ -22,12 +23,7 @@ import { validatePlatform } from "@/modules/ads/lib/platforms";
  *    doublon, et le brief reste attaché à ses chiffres.
  */
 
-export const OBJECTIVES = [
-  { label: "Leads", value: "leads" },
-  { label: "Trafic", value: "trafic" },
-  { label: "Notoriété", value: "notoriete" },
-  { label: "Autre", value: "autre" },
-] as const;
+export { OBJECTIVES } from "@/modules/ads/lib/campaign-options";
 
 export const CAMPAIGN_STATUSES = [
   { label: "Brouillon", value: "brouillon" },
@@ -104,6 +100,7 @@ export const AdCampaigns: CollectionConfig = {
     useAsTitle: "name",
     defaultColumns: ["name", "status", "account", "kpis", "dailyBudget", "lastSyncAt"],
     group: "Publicité",
+    components: { beforeListTable: ["/modules/ads/admin/CampaignWizardLauncher#CampaignWizardLauncher"] },
     description:
       "Les campagnes : celles lues chez les régies (mises à jour chaque nuit, chiffres en lecture seule) et les brouillons préparés ici, avec leur brief.",
   },
@@ -114,6 +111,8 @@ export const AdCampaigns: CollectionConfig = {
   indexes: [{ fields: ["platform", "externalId"], unique: true }],
   fields: [
     { name: "name", type: "text", label: "Nom", required: true, access: { update: whileDraft } },
+    // Le parcours jusqu'à la diffusion, l'étape en cours et le bouton qui y mène.
+    { name: "launchTrack", type: "ui", admin: { components: { Field: "/modules/ads/admin/LaunchTrack#LaunchTrack" } } },
     {
       type: "tabs",
       tabs: [
