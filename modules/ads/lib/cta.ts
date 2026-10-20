@@ -12,8 +12,6 @@ export const CTAS = [
   { value: "reserver", label: "Réserver", meta: "BOOK_NOW" },
 ] as const;
 
-export type Cta = (typeof CTAS)[number]["value"];
-
 export const CTA_OPTIONS = CTAS.map((c) => ({ label: c.label, value: c.value }));
 
 export const ctaLabel = (v?: string | null): string | undefined => CTAS.find((c) => c.value === v)?.label;

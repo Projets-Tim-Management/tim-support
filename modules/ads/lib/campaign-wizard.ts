@@ -1,4 +1,5 @@
 import { DEFAULT_AI_SHARE_PCT, DEFAULT_META_FLOOR_EUR, validateAgentBudget } from "@/modules/ads/agent/limits";
+import { LANDING_URL } from "@/modules/ads/lib/campaign-options";
 
 /**
  * Créer une campagne pas à pas (demande de Charlie, 20/10/2026 : « des étapes
@@ -65,7 +66,6 @@ export const emptyDraft = (): WizardDraft => ({
   autonomy: "proposer",
 });
 
-const LANDING = /^https:\/\/[^\s/]+\.[^\s]+$/i;
 const filled = (s: string) => s.trim().length > 0;
 const idOf = (v: unknown): number | string | null => (v && typeof v === "object" && "id" in v ? (v as { id: number | string }).id : (v as number | string | null) ?? null);
 
@@ -87,7 +87,7 @@ export function stepProblems(step: StepKey, d: WizardDraft): string[] {
   }
   if (step === "pub") {
     if (!filled(d.landingUrl)) out.push("Indiquez la page d'arrivée.");
-    else if (!LANDING.test(d.landingUrl.trim())) out.push("La page d'arrivée doit être une adresse complète en https://.");
+    else if (!LANDING_URL.test(d.landingUrl.trim())) out.push("La page d'arrivée doit être une adresse complète en https://.");
   }
   if (step === "budget") {
     if (d.totalDailyEur == null || !(d.totalDailyEur > 0)) out.push("Indiquez le budget quotidien.");

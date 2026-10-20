@@ -3,7 +3,7 @@ import type { Access, CollectionBeforeChangeHook, CollectionBeforeDeleteHook, Co
 import { isAdmin } from "@/core/access";
 import { AI_SHARE_MAX_PCT, DEFAULT_AI_SHARE_PCT, DEFAULT_META_FLOOR_EUR, validateAgentBudget } from "@/modules/ads/agent/limits";
 import { PURGE_CONTEXT } from "@/modules/ads/lib/accounts";
-import { OBJECTIVES } from "@/modules/ads/lib/campaign-options";
+import { LANDING_URL, OBJECTIVES } from "@/modules/ads/lib/campaign-options";
 import { CTA_OPTIONS } from "@/modules/ads/lib/cta";
 import { DEFAULT_TONE, TONES } from "@/modules/ads/lib/dimensions";
 import { validatePlatform } from "@/modules/ads/lib/platforms";
@@ -23,7 +23,6 @@ import { validatePlatform } from "@/modules/ads/lib/platforms";
  *    doublon, et le brief reste attaché à ses chiffres.
  */
 
-export { OBJECTIVES } from "@/modules/ads/lib/campaign-options";
 
 export const CAMPAIGN_STATUSES = [
   { label: "Brouillon", value: "brouillon" },
@@ -91,8 +90,6 @@ const cleanUpBeforeDelete: CollectionBeforeDeleteHook = async ({ req, id }) => {
   }
 };
 
-const LANDING = /^https:\/\/[^\s/]+\.[^\s]+$/i;
-
 export const AdCampaigns: CollectionConfig = {
   slug: "ad-campaigns",
   labels: { singular: "Campagne", plural: "Campagnes" },
@@ -146,7 +143,7 @@ export const AdCampaigns: CollectionConfig = {
                       name: "landingUrl",
                       type: "text",
                       label: "Page d'arrivée",
-                      validate: (v: unknown) => (!v || LANDING.test(String(v).trim()) ? true : "Une adresse complète en https://"),
+                      validate: (v: unknown) => (!v || LANDING_URL.test(String(v).trim()) ? true : "Une adresse complète en https://"),
                       admin: {
                         width: "60%",
                         placeholder: "https://tim-management.co/…",

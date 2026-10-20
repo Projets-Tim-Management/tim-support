@@ -194,6 +194,12 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
     return body;
   }
 
+  /** L'état du compte publicitaire, lu en direct (un compte se ferme seul après 56 jours sans dépense). */
+  async function accountState(acc: AccountContext): Promise<AccountState> {
+    const r = await get<{ account_status?: number }>(url(acc.externalId, { access_token: acc.token, fields: "account_status" }));
+    return metaAccountState(r.account_status);
+  }
+
   /** Écriture : formulaire, objets en JSON, jeton et preuve dans le corps (jamais dans l'adresse). */
   async function post<T>(path: string, token: string, params: Record<string, unknown>): Promise<T> {
     const body = new URLSearchParams();
@@ -404,10 +410,7 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
       await post(ref.externalId, acc.token, { daily_budget: toMetaAmount(amount, acc.currency) });
     },
 
-    async accountState(acc: AccountContext): Promise<AccountState> {
-      const r = await get<{ account_status?: number }>(url(acc.externalId, { access_token: acc.token, fields: "account_status" }));
-      return metaAccountState(r.account_status);
-    },
+    accountState,
 
     async checkAccess(acc: AccountContext): Promise<AccessReport> {
       type Debug = { data?: { scopes?: string[]; is_valid?: boolean } };
@@ -421,7 +424,7 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
         soft(all<RawPage>(url("me/accounts", { access_token: acc.token, fields: "id,name,instagram_business_account{id,username}", limit: "100" }))),
         soft(all<RawIg>(url(`${acc.externalId}/instagram_accounts`, { access_token: acc.token, fields: "id,username", limit: "100" }))),
         soft(all<RawPixel>(url(`${acc.externalId}/adspixels`, { access_token: acc.token, fields: "id,name", limit: "100" }))),
-        get<{ account_status?: number }>(url(acc.externalId, { access_token: acc.token, fields: "account_status" })).then((r) => metaAccountState(r.account_status)).catch(() => undefined),
+        accountState(acc).catch(() => undefined),
       ]);
       const igOfPages = pages.flatMap((p) => (p.instagram_business_account ? [{ id: p.instagram_business_account.id, username: p.instagram_business_account.username ?? p.instagram_business_account.id }] : []));
       const instagram = [...igOfPages, ...ig.map((i) => ({ id: i.id, username: i.username ?? i.id }))].filter((x, i, arr) => arr.findIndex((y) => y.id === x.id) === i);

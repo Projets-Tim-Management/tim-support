@@ -139,11 +139,11 @@ async function run(payload: Payload, id: number, input: PubInput, state: PubStat
  * fermé (56 jours sans dépense) accepte encore campagne et ensembles, puis refuse
  * les créas d'une erreur de droits illisible. On le dit avant de rien créer.
  */
-async function assertAccountCanRun(payload: Payload, id: number): Promise<void> {
-  const { ctx, platform } = await accountContext(payload, await accountOf(payload, id));
-  if (!platform.accountState) return;
-  const state = await platform.accountState(ctx);
-  if (!state.ok) throw new PublishError(accountProblem(state));
+async function assertAccountCanRun(payload: Payload, id: number): Promise<Awaited<ReturnType<typeof accountContext>>> {
+  const account = await accountContext(payload, await accountOf(payload, id));
+  const state = await account.platform.accountState?.(account.ctx);
+  if (state && !state.ok) throw new PublishError(accountProblem(state));
+  return account;
 }
 
 async function accountOf(payload: Payload, id: number): Promise<number> {
@@ -195,8 +195,7 @@ export async function activatePublication(payload: Payload, id: number | string,
   if (!s || s.status !== "en-pause" || !s.campaignId) throw new PublishError("Rien à activer : publiez d'abord la campagne (elle naît en pause).");
   const { input } = await loadInput(payload, id);
   if (!input.enabled) throw new PublishError("L'interrupteur général de la publicité est coupé.");
-  await assertAccountCanRun(payload, c.id);
-  const { ctx, platform } = await accountContext(payload, await accountOf(payload, c.id));
+  const { ctx, platform } = await assertAccountCanRun(payload, c.id);
   if (!platform.setStatus) throw new PublishError(`${platform.label} : l'activation n'est pas branchée.`);
   if (!s.activatedAt) {
     for (const ad of Object.values(s.ads)) await platform.setStatus(ctx, { level: "ad", externalId: ad }, "active");

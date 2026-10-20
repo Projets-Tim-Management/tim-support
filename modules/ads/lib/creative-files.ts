@@ -10,7 +10,6 @@ export const BRIEF_KINDS = [
   { label: "Un visuel fixe", value: "image" },
   { label: "Vidéo et visuel fixe", value: "les-deux" },
 ] as const;
-export type BriefKind = (typeof BRIEF_KINDS)[number]["value"];
 export type FileKind = "image" | "video";
 
 export type CreativeFile = {

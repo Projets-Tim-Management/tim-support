@@ -362,9 +362,9 @@
 .ads-card__rejected ul { margin: 0.3rem 0 0; padding-left: 1.1rem; font-size: 0.78rem; color: var(--tim-muted); }
 
 .ads-card__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; border-top: 1px solid color-mix(in srgb, var(--tim-border) 60%, transparent); padding-top: 0.75rem; }
-.ads-card__refuse, .ads-card__rerender { display: inline-flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+.ads-card__refuse { display: inline-flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
 
-.ads-card__refuse select, .ads-card__refuse input, .ads-card__rerender select {
+.ads-card__refuse select, .ads-card__refuse input {
   padding: 0.4rem 0.5rem;
   border: 1px solid var(--tim-border);
   border-radius: 0.4rem;

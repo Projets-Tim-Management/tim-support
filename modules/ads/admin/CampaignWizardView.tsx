@@ -3,6 +3,8 @@ import { stepProblems, WIZARD_STEPS, type StepKey, type WizardDraft } from "@/mo
 import { CTA_OPTIONS } from "@/modules/ads/lib/cta";
 import { TONES } from "@/modules/ads/lib/dimensions";
 
+import { eur } from "./format";
+
 /**
  * La fenêtre « Nouvelle campagne », telle qu'elle s'affiche — sans chargement ni
  * appel : CampaignWizard tient l'état et les enregistrements, ce fichier dessine.
@@ -48,7 +50,6 @@ const AUTONOMY_CARDS = [
   { value: "autonome", label: "Autonome", help: "Il agit seul, dans les garde-fous.", icon: "bolt" },
 ] as const;
 
-const eur = (n: number) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
 const num = (v: string): number | null => (v.trim() === "" ? null : Number(v.replace(",", ".")));
 const labelOf = (list: readonly { label: string; value: string }[], v: string) => list.find((o) => o.value === v)?.label ?? v;
 

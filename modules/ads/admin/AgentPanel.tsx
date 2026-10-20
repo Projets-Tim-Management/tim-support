@@ -7,6 +7,7 @@ import type { ControlRoom as Room } from "@/modules/ads/agent/control-room";
 
 import { ControlRoom, RUN_STATUS } from "./ControlRoom";
 import { postAdmin } from "./post-admin";
+import { eur } from "./format";
 
 type Preview = {
   lancable: boolean;
@@ -24,7 +25,6 @@ type Preview = {
 const ACTIVE = ["en-cours", "en-pause-budget"];
 
 const plural = (n: number, one: string, many: string) => (n ? `${n} ${n > 1 ? many : one}` : `aucun${one.startsWith("consigne") ? "e" : ""} ${one}`);
-const eur = (n: number) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
 
 /**
  * L'agent de campagne, dans l'onglet « Agent » (plan, §9 quater).

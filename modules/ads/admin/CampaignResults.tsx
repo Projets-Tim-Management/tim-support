@@ -1,5 +1,7 @@
 import type { Payload } from "payload";
 
+import { eur } from "./format";
+
 /**
  * Campagne › Résultats (tri du 20/10/2026) : ce que la campagne a produit chez
  * la régie, en totaux puis jour par jour — les lignes « campagne » de
@@ -10,7 +12,6 @@ import type { Payload } from "payload";
 type Row = { day: string; spend?: number | null; impressions?: number | null; clicks?: number | null; leads?: number | null };
 
 const DAYS = 30;
-const eur = (n: number) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
 const int = (n: number) => n.toLocaleString("fr-FR");
 const pct = (a: number, b: number) => (b > 0 ? `${((a / b) * 100).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} %` : "—");
 const per = (a: number, b: number) => (b > 0 ? eur(a / b) : "—");

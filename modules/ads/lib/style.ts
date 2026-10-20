@@ -23,7 +23,6 @@ export const AD_FONTS = [
   { label: "Manrope — nette, produit", value: "manrope", family: "Manrope" },
   { label: "Lato — celle du contrat", value: "lato", family: "Lato" },
 ] as const;
-export type AdFont = (typeof AD_FONTS)[number]["value"];
 export const fontFamily = (v: unknown): string => AD_FONTS.find((f) => f.value === v)?.family ?? "Lato";
 
 export const TITLE_CASES = [

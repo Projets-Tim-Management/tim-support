@@ -20,8 +20,6 @@ export const AD_MEDIA_KINDS = [
   { label: "Police", value: "police" },
 ] as const;
 
-export type AdMediaKind = (typeof AD_MEDIA_KINDS)[number]["value"];
-
 const FONT_EXT = /\.(ttf|otf)$/i;
 
 /** Une police se dépose en TTF ou OTF : les fichiers qu'on installe et qu'on joint à Claude Design. */

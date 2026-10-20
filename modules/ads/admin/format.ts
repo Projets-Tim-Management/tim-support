@@ -1,2 +1,2 @@
-/** Une date du fil (retouches, notes, versions) : « 14 oct., 09:30 ». */
-export const when = (iso: string) => new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+/** Un montant en euros, à la française : « 12,50 € ». Partagé par les écrans de la publicité. */
+export const eur = (n: number) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
