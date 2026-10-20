@@ -8,7 +8,8 @@ const complete = {
     { kind: "principal", status: "ok" },
     { kind: "titre", status: "ok" },
   ],
-  assets: ["1x1", "4x5", "9x16"].map((format) => ({ format, type: "image" })),
+  brief: { kind: "video", formats: ["9x16", "4x5"] },
+  files: ["9x16", "4x5"].map((format) => ({ format, kind: "video", url: `https://blob.test/${format}.mp4` })),
 };
 
 describe("valider ou refuser une créa", () => {
@@ -17,10 +18,11 @@ describe("valider ou refuser une créa", () => {
     expect(decisionError({ ...complete, status: "brouillon" }, { decision: "refusee", reason: "faux" })).toMatch(/pas en attente/);
   });
 
-  it("on ne valide qu'une créa complète : textes passés et trois formats", () => {
+  it("on ne valide qu'une créa complète : textes passés et les fichiers que son brief attend", () => {
     expect(decisionError(complete, { decision: "validee" })).toBeNull();
     expect(decisionError({ ...complete, copy: [{ kind: "principal", status: "ok" }] }, { decision: "validee" })).toMatch(/un titre/);
-    expect(decisionError({ ...complete, assets: complete.assets.slice(0, 2) }, { decision: "validee" })).toMatch(/Visuel manquant : 9x16/);
+    expect(decisionError({ ...complete, files: complete.files.slice(0, 1) }, { decision: "validee" })).toMatch(/Fichier manquant : 4:5 vidéo/);
+    expect(decisionError({ ...complete, brief: { kind: "les-deux", formats: ["9x16"] }, files: complete.files.slice(0, 1) }, { decision: "validee" })).toMatch(/Fichier manquant : 9:16 image/);
   });
 
   it("on ne refuse qu'avec un motif de la liste", () => {
@@ -33,5 +35,16 @@ describe("valider ou refuser une créa", () => {
     const now = new Date("2026-09-29T12:00:00Z");
     expect(decisionData({ decision: "validee" }, 1, now)).toEqual({ status: "validee", decidedBy: 1, decidedAt: now.toISOString(), refusalReason: null, refusalDetail: null });
     expect(decisionData({ decision: "refusee", reason: "faux", detail: "  le chiffre date  " }, 1, now)).toMatchObject({ status: "refusee", refusalReason: "faux", refusalDetail: "le chiffre date" });
+  });
+});
+
+describe("rouvrir une créa validée", () => {
+  it("seulement une créa validée, et pas une fois publiée chez Meta", () => {
+    expect(decisionError({ ...complete, status: "validee" }, { decision: "rouvrir" })).toBeNull();
+    expect(decisionError({ ...complete, status: "validee" }, { decision: "rouvrir" }, true)).toMatch(/déjà publiée/);
+    expect(decisionError(complete, { decision: "rouvrir" })).toMatch(/Seule une créa validée/);
+  });
+  it("elle repasse « À valider », sans décision ni motif", () => {
+    expect(decisionData({ decision: "rouvrir" }, 1, new Date())).toEqual({ status: "a-valider", decidedBy: null, decidedAt: null, refusalReason: null, refusalDetail: null });
   });
 });

@@ -49,11 +49,11 @@ describe("la requête envoyée à Claude", () => {
 });
 
 describe("déposer une créa « À valider »", () => {
-  const c = (over: Partial<CreativeView> = {}): CreativeView => ({ id: 1, angle: "a", requestedAngle: null, status: "brouillon", publishable: true, visuals: 3, texts: [], ...over });
-  it("seulement une créa en brouillon, aux textes passés, avec ses trois formats", () => {
+  const c = (over: Partial<CreativeView> = {}): CreativeView => ({ id: 1, angle: "a", requestedAngle: null, status: "brouillon", publishable: true, hasBrief: true, missingFiles: ["9:16 vidéo"], texts: [], ...over });
+  it("seulement une créa en brouillon, aux textes passés, avec son brief Claude Design (les fichiers viennent ensuite)", () => {
     expect(submitRefusal(c())).toBeNull();
     expect(submitRefusal(c({ publishable: false }))).toMatch(/texte principal ou un titre/);
-    expect(submitRefusal(c({ visuals: 2 }))).toMatch(/2 sur 3 formats/);
+    expect(submitRefusal(c({ hasBrief: false }))).toMatch(/brief Claude Design n'est pas écrit/);
     expect(submitRefusal(c({ status: "validee" }))).toMatch(/Déjà/);
   });
 });

@@ -7,6 +7,7 @@ import type { ControlRoom as Room } from "@/modules/ads/agent/control-room";
 
 import { ControlRoom, RUN_STATUS } from "./ControlRoom";
 import { postAdmin } from "./post-admin";
+import { eur } from "./format";
 
 type Preview = {
   lancable: boolean;
@@ -24,7 +25,6 @@ type Preview = {
 const ACTIVE = ["en-cours", "en-pause-budget"];
 
 const plural = (n: number, one: string, many: string) => (n ? `${n} ${n > 1 ? many : one}` : `aucun${one.startsWith("consigne") ? "e" : ""} ${one}`);
-const eur = (n: number) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
 
 /**
  * L'agent de campagne, dans l'onglet « Agent » (plan, §9 quater).
@@ -104,7 +104,7 @@ export function AgentPanel() {
     <section className="ads-gen ads-agent">
       <div className="ads-gen__head">
         <strong>Agent de campagne</strong>
-        <span>Il prépare positionnement, audiences, angles, textes et visuels, et dépose les créas « À valider ». Rien n&apos;est publié chez Meta.</span>
+        <span>Il prépare positionnement, audiences, angles, textes et briefs Claude Design, et dépose les créas « À valider ». Rien n&apos;est publié chez Meta.</span>
       </div>
 
       {running && current && (
@@ -176,6 +176,13 @@ export function AgentPanel() {
       )}
 
       {room && <ControlRoom room={room} onSelectRun={(id) => setRunId(id === String(room.passages[0]?.id) ? null : id)} />}
+
+      {id != null && (
+        <nav className="ads-agent__journals" aria-label="Journaux de la campagne">
+          <a href={`/admin/collections/ad-agent-runs?where[campaign][equals]=${id}`}>Tous les passages de cette campagne →</a>
+          <a href={`/admin/collections/ad-decisions?where[campaign][equals]=${id}`}>Toutes ses décisions →</a>
+        </nav>
+      )}
     </section>
   );
 }

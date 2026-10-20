@@ -127,15 +127,15 @@ describe("M3 — l'agent ne voit que les créas de SA campagne", () => {
     expect(find).toHaveBeenCalledWith(expect.objectContaining({ where: { and: [{ id: { in: [12, 13] } }, { campaign: { equals: 4 } }] } }));
   });
 
-  it("une créa d'une autre campagne ne se rend pas, ne se dépose pas", async () => {
+  it("une créa d'une autre campagne n'a pas de brief, ne se dépose pas", async () => {
     const find = vi.fn(async () => ({ docs: [] }));
-    const port = payloadAtelier({ find, update: vi.fn() } as never);
-    await expect(port.render(4, 99)).rejects.toThrow(/introuvable dans cette campagne/);
+    const port = payloadAtelier({ find, update: vi.fn(), findByID: vi.fn(async () => ({ id: 99, campaign: 7, status: "brouillon" })) } as never);
+    await expect(port.writeBrief(4, 99, { kind: "video", formats: ["9x16"], rationale: "x", scenario: "y", rushes: [] })).rejects.toThrow(/introuvable dans cette campagne/);
     expect(await port.submit(4, [99])).toEqual({ submitted: [], skipped: [{ id: 99, reason: "Créa introuvable dans cette campagne." }] });
   });
 
   it("F3 — un identifiant reçu en texte (« 12 ») n'est pas compté introuvable quand la créa est déposée", async () => {
-    const doc = { id: 12, angle: "a", status: "brouillon", copy: [{ kind: "principal", text: "x", status: "ok" }, { kind: "titre", text: "y", status: "ok" }], assets: [1, 2, 3].map(() => ({ format: "1x1", type: "image" })) };
+    const doc = { id: 12, angle: "a", status: "brouillon", copy: [{ kind: "principal", text: "x", status: "ok" }, { kind: "titre", text: "y", status: "ok" }], brief: { prompt: "Crée une publicité…" } };
     const port = payloadAtelier({ find: vi.fn(async () => ({ docs: [doc] })), update: vi.fn() } as never);
     expect(await port.submit(4, ["12"])).toEqual({ submitted: [12], skipped: [] });
   });

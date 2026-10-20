@@ -16,6 +16,8 @@ const eur = (name: string, label: string, defaultValue: number, description: str
   ({ name, type: "number", label, defaultValue, min: 0, required: true, admin: { width: "25%", description } }) as const;
 
 const fields: Field[] = [
+  // Ce que l'IA a coûté ce mois-ci face aux plafonds réglés ici, et les journaux (hors menu).
+  { name: "spendSummary", type: "ui", admin: { components: { Field: "/modules/ads/admin/SpendSummary#SpendSummary" } } },
   {
     name: "enabled",
     type: "checkbox",
@@ -62,6 +64,31 @@ const fields: Field[] = [
           eur("agentPrepMaxEur", "Préparation — par passage (€)", 5, "Le budget maximal d'un clic sur « Lancer l'agent »."),
           eur("agentDailyEur", "Tous agents — par jour (€)", 15, "Toutes campagnes confondues."),
           eur("agentMonthlyEur", "Tous agents — par mois (€)", 150, "Toutes campagnes confondues."),
+        ],
+      },
+      {
+        // Phase 2 (plan, §6) : ce qu'une décision appliquée chez Meta n'a pas le droit de faire.
+        type: "row",
+        fields: [
+          {
+            name: "maxBudgetChangePct",
+            type: "number",
+            label: "Variation de budget max par décision (%)",
+            defaultValue: 20,
+            min: 1,
+            max: 100,
+            required: true,
+            admin: { width: "50%", description: "Au-delà, la décision attend une validation à la main, même en mode autonome." },
+          },
+          {
+            name: "minHoursBetweenChanges",
+            type: "number",
+            label: "Délai entre deux modifications d'un objet (h)",
+            defaultValue: 72,
+            min: 1,
+            required: true,
+            admin: { width: "50%", description: "Pour ne pas relancer sans cesse la phase d'apprentissage de Meta. Une urgence passe outre." },
+          },
         ],
       },
       {

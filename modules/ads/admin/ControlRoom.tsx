@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 
 import type { ControlRoom as Room } from "@/modules/ads/agent/control-room";
 
+import { eur } from "./format";
+
 /**
  * La salle de contrôle d'un passage, dans l'onglet « Agent » (plan Publicité,
  * §9 quater, point 4) : jauges, arbre des agents, fil d'activité, journal des
@@ -13,7 +15,6 @@ import type { ControlRoom as Room } from "@/modules/ads/agent/control-room";
 
 type Data = NonNullable<Room>;
 
-const eur = (n: number) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
 const time = (iso: string) => new Date(iso).toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const stamp = (iso: string) => new Date(iso).toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 

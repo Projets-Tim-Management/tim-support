@@ -77,6 +77,57 @@ export type MetricRow = {
   leads: number;
 };
 
+/**
+ * Ce que le jeton d'un compte permet (plan Publicité, 3b) : ses droits, et les
+ * Pages, comptes Instagram et pixels au nom desquels il peut publier et mesurer.
+ */
+export type AccessReport = {
+  scopes: string[];
+  pages: { id: string; name: string; instagram: { id: string; username: string } | null }[];
+  instagram: { id: string; username: string }[];
+  pixels: { id: string; name: string }[];
+  /** L'état du compte publicitaire lui-même : fermé, impayé, désactivé… bloque toute diffusion. */
+  account?: AccountState;
+};
+
+/** L'état d'un compte publicitaire chez la régie : peut-il diffuser ? */
+export type AccountState = { ok: boolean; code: number | null; label: string };
+
+/** Ce que l'on cherche dans le ciblage de la régie : centres d'intérêt, métiers, régions. */
+export type TargetingKind = "interet" | "metier" | "region";
+export type TargetingOption = { id: string; name: string; audience: number | null; path: string | null };
+
+/* ─── Publier (plan Publicité, 3b) ─────────────────────────────────────────── */
+
+/** Les montants sont en devise du compte (euros), convertis par l'adaptateur. Tout naît EN PAUSE. */
+export type NewCampaign = { name: string; objective: string };
+export type NewAdSet = {
+  campaignId: string;
+  name: string;
+  dailyBudget: number;
+  optimizationGoal: string;
+  billingEvent: string;
+  targeting: Record<string, unknown>;
+  promotedObject?: Record<string, unknown> | null;
+  destinationType?: string | null;
+};
+/** Un fichier d'une créa, rangé par placement : le 9:16 en Stories et Reels, le 4:5 ou le 1:1 dans les fils. */
+export type CreativeMedia = { format: "1x1" | "4x5" | "9x16"; image?: { hash: string } | null; video?: { id: string; thumbnailUrl: string | null } | null };
+export type NewCreative = {
+  name: string;
+  pageId: string;
+  instagramId?: string | null;
+  kind: "image" | "video";
+  media: CreativeMedia[];
+  body: string;
+  title: string;
+  description?: string | null;
+  link?: string | null;
+  urlTags?: string | null;
+  cta: string;
+};
+export type VideoState = { ready: boolean; error: string | null; thumbnailUrl: string | null };
+
 /** Référence d'un objet à modifier chez la régie (phases suivantes). */
 export type ObjectRef = { level: Level; externalId: string };
 
@@ -90,6 +141,23 @@ export interface AdPlatform {
   listAccounts(token: string): Promise<AccountSnapshot[]>;
   listCampaigns(acc: AccountContext): Promise<CampaignSnapshot[]>;
   fetchMetrics(acc: AccountContext, range: DateRange, level: Level): Promise<MetricRow[]>;
+  /** Les droits du jeton et ce qu'il ouvre (Pages, Instagram, pixels) — avant toute publication. */
+  checkAccess?(acc: AccountContext): Promise<AccessReport>;
+  /** L'état du compte publicitaire, lu en direct (un compte se ferme seul après 56 jours sans dépense). */
+  accountState?(acc: AccountContext): Promise<AccountState>;
+  /** Les options de ciblage officielles de la régie (leurs identifiants servent à publier). */
+  searchTargeting?(acc: AccountContext, kind: TargetingKind, query: string, country?: string): Promise<TargetingOption[]>;
+  createCampaign?(acc: AccountContext, c: NewCampaign): Promise<string>;
+  createAdSet?(acc: AccountContext, a: NewAdSet): Promise<string>;
+  /** Envoie une image (lue à son adresse) : rend son empreinte chez la régie. */
+  uploadImage?(acc: AccountContext, url: string, name: string): Promise<{ hash: string }>;
+  /** Fait chercher une vidéo à son adresse par la régie : son traitement prend du temps (voir videoState). */
+  uploadVideo?(acc: AccountContext, url: string, name: string): Promise<{ id: string }>;
+  videoState?(acc: AccountContext, id: string): Promise<VideoState>;
+  createCreative?(acc: AccountContext, c: NewCreative): Promise<string>;
+  createAd?(acc: AccountContext, a: { name: string; adSetId: string; creativeId: string }): Promise<string>;
+  /** L'aperçu d'une publicité (HTML d'une iframe), pour un placement. */
+  adPreview?(acc: AccountContext, adId: string, format: string): Promise<string>;
   setBudget?(acc: AccountContext, ref: ObjectRef, amount: number): Promise<void>;
   setStatus?(acc: AccountContext, ref: ObjectRef, status: "active" | "pause"): Promise<void>;
 }

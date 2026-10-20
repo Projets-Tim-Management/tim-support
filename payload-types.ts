@@ -109,11 +109,6 @@ export interface Config {
     'ad-instructions': AdInstruction;
     'ad-learnings': AdLearning;
     'ad-rushes': AdRush;
-    'ad-inspirations': AdInspiration;
-    'ad-retouches': AdRetouch;
-    'ad-elements': AdElement;
-    'ad-element-notes': AdElementNote;
-    'ad-styles': AdStyle;
     'ads-settings-history': AdsSettingsHistory;
     'email-suppressions': EmailSuppression;
     'client-employees': ClientEmployee;
@@ -199,11 +194,6 @@ export interface Config {
     'ad-instructions': AdInstructionsSelect<false> | AdInstructionsSelect<true>;
     'ad-learnings': AdLearningsSelect<false> | AdLearningsSelect<true>;
     'ad-rushes': AdRushesSelect<false> | AdRushesSelect<true>;
-    'ad-inspirations': AdInspirationsSelect<false> | AdInspirationsSelect<true>;
-    'ad-retouches': AdRetouchesSelect<false> | AdRetouchesSelect<true>;
-    'ad-elements': AdElementsSelect<false> | AdElementsSelect<true>;
-    'ad-element-notes': AdElementNotesSelect<false> | AdElementNotesSelect<true>;
-    'ad-styles': AdStylesSelect<false> | AdStylesSelect<true>;
     'ads-settings-history': AdsSettingsHistorySelect<false> | AdsSettingsHistorySelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
     'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
@@ -2344,6 +2334,10 @@ export interface AdCampaign {
         }[]
       | null;
   };
+  /**
+   * Quel que soit le mode : une hausse de plus de 20 % ou la réactivation d'une campagne entière se valident à la main, et une pub refusée par Meta se met en pause d'office.
+   */
+  autonomy?: ('observer' | 'proposer' | 'autonome') | null;
   agentBudget?: {
     /**
      * IA et Meta ensemble.
@@ -2364,6 +2358,17 @@ export interface AdCampaign {
       decision?: (number | null) | AdDecision;
     };
   };
+  publicationStatus?: ('en-cours' | 'en-pause' | 'active' | 'echec') | null;
+  publication?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  publicationLeaseUntil?: string | null;
   account?: (number | null) | AdAccount;
   externalId?: string | null;
   status?: ('brouillon' | 'active' | 'en-pause' | 'terminee') | null;
@@ -2430,6 +2435,9 @@ export interface AdDecision {
     | 'rejet-controleur'
     | 'creation-sous-agent'
     | 'concurrent'
+    | 'budget'
+    | 'pause'
+    | 'activation'
     | 'attente';
   status: 'proposee' | 'executee' | 'bloquee';
   rationale: string;
@@ -2455,6 +2463,9 @@ export interface AdDecision {
     | boolean
     | null;
   guardrail?: string | null;
+  target?: string | null;
+  executedAt?: string | null;
+  reviewedBy?: (number | null) | User;
   instructions?: (number | AdInstruction)[] | null;
   learnings?: (number | AdLearning)[] | null;
   /**
@@ -2659,7 +2670,7 @@ export interface AdInstruction {
   createdAt: string;
 }
 /**
- * Les créas de l'atelier : un angle, ses textes, ses visuels. Elles se valident dans la file « À valider ».
+ * Un angle, ses textes, son brief Claude Design et les fichiers finis. Elles se valident dans la file « À valider ».
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ad-creatives".
@@ -2672,49 +2683,47 @@ export interface AdCreative {
   angle: string;
   requestedAngle?: string | null;
   run?: (number | null) | AdAgentRun;
-  video?: {
-    status?: ('en-attente' | 'en-cours' | 'prete' | 'echec') | null;
-    error?: string | null;
-    score?:
-      | {
-          [k: string]: unknown;
-        }
-      | unknown[]
-      | string
-      | number
-      | boolean
-      | null;
-    music?: (number | null) | AdMedia;
-    renders?:
-      | {
-          [k: string]: unknown;
-        }
-      | unknown[]
-      | string
-      | number
-      | boolean
-      | null;
-    elements?:
-      | {
-          [k: string]: unknown;
-        }
-      | unknown[]
-      | string
-      | number
-      | boolean
-      | null;
-    attempts?: number | null;
-    renderedAt?: string | null;
-    leaseUntil?: string | null;
-  };
   /**
-   * Le style qui a rendu les visuels et la vidéo de cette créa.
-   */
-  style?: (number | null) | AdStyle;
-  /**
-   * Le texte posé sur l'image.
+   * Le texte posé sur l'image ou en ouverture de la vidéo.
    */
   hook?: string | null;
+  brief?: {
+    kind?: ('video' | 'image' | 'les-deux') | null;
+    formats?: ('1x1' | '4x5' | '9x16')[] | null;
+    durationSec?: number | null;
+    /**
+     * L'angle face aux concurrents, en quelques phrases.
+     */
+    rationale?: string | null;
+    prompt?: string | null;
+    rushes?: (number | AdRush)[] | null;
+    writtenAt?: string | null;
+  };
+  files?:
+    | {
+        format: '1x1' | '4x5' | '9x16';
+        kind: 'image' | 'video';
+        filename?: string | null;
+        url: string;
+        pathname?: string | null;
+        mime?: string | null;
+        bytes?: number | null;
+        width?: number | null;
+        height?: number | null;
+        durationSec?: number | null;
+        warnings?:
+          | {
+              [k: string]: unknown;
+            }
+          | unknown[]
+          | string
+          | number
+          | boolean
+          | null;
+        importedAt?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   campaign: number | AdCampaign;
   tone: 'vous' | 'tu';
   cta?: ('en-savoir-plus' | 's-inscrire' | 'reserver') | null;
@@ -2751,7 +2760,6 @@ export interface AdCreative {
     | {
         format: '1x1' | '4x5' | '9x16';
         type: 'image' | 'video';
-        template?: string | null;
         media: number | AdMedia;
         id?: string | null;
       }[]
@@ -2783,47 +2791,58 @@ export interface AdCreative {
   createdAt: string;
 }
 /**
- * Logos, polices, captures de l'app, photos : la matière des créas. Et les créas rendues. Réservé à TIM.
+ * Les enregistrements de l'app et les images de chantier ou de bureau. L'agent les désigne dans ses briefs ; vous les téléchargez pour les joindre dans Claude Design.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-rushes".
+ */
+export interface AdRush {
+  id: number;
+  original?: {
+    url?: string | null;
+    pathname?: string | null;
+    filename?: string | null;
+    contentType?: string | null;
+    size?: number | null;
+  };
+  title: string;
+  source: 'app-mobile' | 'app-web' | 'chantier' | 'bureau' | 'autre';
+  features?:
+    | (
+        | 'pointage'
+        | 'planning'
+        | 'feuilles-heures'
+        | 'conges'
+        | 'suivi-chantier'
+        | 'vehicules'
+        | 'documents'
+        | 'paie'
+        | 'autre'
+      )[]
+    | null;
+  /**
+   * Quelques phrases : c'est ce qui permet à l'agent de choisir ce rush pour un brief.
+   */
+  description: string;
+  origin?: string | null;
+  noRealData?: boolean | null;
+  mediaType?: ('video' | 'image') | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Les logos et les polices du kit de marque. Réservé à TIM.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ad-media".
  */
 export interface AdMedia {
   id: number;
-  kind: 'logo' | 'police' | 'capture' | 'photo' | 'visage' | 'musique' | 'fond' | 'inspiration' | 'crea';
+  kind: 'logo' | 'police';
   /**
    * Ce que montre le fichier, en une phrase.
    */
   alt?: string | null;
-  platform?: ('web' | 'mobile') | null;
-  feature?: string | null;
-  noClientData?: boolean | null;
-  /**
-   * Origine, auteur, date, licence ; pour une photo ou un visage, l'accord des personnes visibles (ou « image générée »).
-   */
-  rights?: string | null;
-  active?: boolean | null;
-  /**
-   * Ce que l'agent lit pour choisir cette musique (ambiance, énergie, pour quel genre d'angle).
-   */
-  whenToUse?: string | null;
-  beat?: {
-    status?: ('en-attente' | 'en-cours' | 'pret' | 'echec') | null;
-    /**
-     * Corrigeable s'il est faux (souvent du simple au double).
-     */
-    bpm?: number | null;
-    /**
-     * Là où la vidéo prend la musique.
-     */
-    bestStartSec?: number | null;
-    durationSec?: number | null;
-    error?: string | null;
-    firstBeatSec?: number | null;
-    confidence?: number | null;
-    attempts?: number | null;
-    leaseUntil?: string | null;
-  };
   license?: string | null;
   prefix?: string | null;
   updatedAt: string;
@@ -2835,71 +2854,6 @@ export interface AdMedia {
   filesize?: number | null;
   width?: number | null;
   height?: number | null;
-}
-/**
- * Les styles visuels et vidéo que l'agent emploie et teste entre eux. Désactivez un style pour qu'il ne serve plus.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-styles".
- */
-export interface AdStyle {
-  id: number;
-  name: string;
-  active?: boolean | null;
-  /**
-   * Ce que l'agent lit pour choisir ce style : son idée, ses forces, ce qu'il lui faut (des images de chantier, un chiffre…).
-   */
-  intent: string;
-  opening: 'titre-mot-a-mot' | 'aplat-probleme' | 'titre-pose';
-  background: 'sombre' | 'clair' | 'aplats';
-  proof?: ('ligne' | 'chiffre-geant' | 'chiffre-source') | null;
-  titleFont:
-    | 'kit'
-    | 'montserrat'
-    | 'inter'
-    | 'poppins'
-    | 'archivo'
-    | 'archivo-black'
-    | 'bebas-neue'
-    | 'space-grotesk'
-    | 'dm-sans'
-    | 'manrope'
-    | 'lato';
-  bodyFont:
-    | 'kit'
-    | 'montserrat'
-    | 'inter'
-    | 'poppins'
-    | 'archivo'
-    | 'archivo-black'
-    | 'bebas-neue'
-    | 'space-grotesk'
-    | 'dm-sans'
-    | 'manrope'
-    | 'lato';
-  titleCase?: ('kit' | 'normale' | 'majuscules') | null;
-  phoneFrame: 'maquette' | 'ecran-seul' | 'incline';
-  /**
-   * Dans la zone utile, sans jamais couper la zone protégée.
-   */
-  zoomOnGesture?: boolean | null;
-  corners?: ('carres' | 'arrondis' | 'pilule') | null;
-  /**
-   * Aucun si vide.
-   */
-  graphics?: ('pastilles' | 'soulignements' | 'bandeaux')[] | null;
-  pace: 'pose' | 'dynamique' | 'rapide';
-  /**
-   * Coupe sèche si vide.
-   */
-  transitions?: ('coupe' | 'glisse' | 'zoom')[] | null;
-  subtitles: 'bandeau' | 'mot-a-mot' | 'aucun';
-  /**
-   * Quand le logo est déposé en SVG à calques (Kit de marque › Logos) ; sinon, il est posé.
-   */
-  logoAnimation?: ('construction' | 'fondu' | 'aucune') | null;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * Ce que les campagnes ont appris, une phrase par ligne. L'agent les lit au lancement et cite ceux qui ont pesé sur chaque décision.
@@ -2959,12 +2913,39 @@ export interface AdAccount {
    * Dépense publicitaire maximale du mois pour ce compte. Aucun agent ne le fait encore respecter (phase 2).
    */
   monthlyCapEur?: number | null;
+  diffusion?: {
+    pageId?: string | null;
+    pageName?: string | null;
+    instagramId?: string | null;
+    instagramName?: string | null;
+    pixelId?: string | null;
+    pixelName?: string | null;
+    scopes?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    found?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    checkedAt?: string | null;
+  };
   /**
    * Posé à la connexion. Alerte à J-7 ; à l'échéance, il faut reconnecter le compte — ou poser un jeton d'utilisateur système.
    */
   tokenExpiresAt?: string | null;
   /**
-   * Business Manager › Utilisateurs système › Générer un jeton (droit ads_read). Il n'expire pas et prime sur l'OAuth. Collez-le puis enregistrez : il est chiffré et ne sera plus jamais affiché. Obligatoire avant que les agents puissent écrire.
+   * Business Manager › Utilisateurs système › Générer un jeton, en cochant ads_management, ads_read, business_management, pages_show_list, pages_read_engagement, pages_manage_ads et instagram_basic. Il n'expire pas et prime sur l'OAuth. Collez-le puis enregistrez : il est chiffré et ne sera plus jamais affiché. Obligatoire pour publier.
    */
   systemUserToken?: string | null;
   token?: string | null;
@@ -3053,306 +3034,6 @@ export interface AdCompetitor {
   proposedBy?: (number | null) | AdAgentRun;
   keywords?: string | null;
   rationale?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * La matière première des vidéos : écrans de l'app, chantier, bureau. Le fichier d'origine est conservé tel quel ; les agents en tirent leurs montages. Les pubs qui vous inspirent vont dans Publicité › Inspirations.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-rushes".
- */
-export interface AdRush {
-  id: number;
-  original?: {
-    url?: string | null;
-    pathname?: string | null;
-    filename?: string | null;
-    contentType?: string | null;
-    size?: number | null;
-  };
-  use: 'matiere' | 'inspiration';
-  title: string;
-  verdict: 'aimer' | 'eviter';
-  link?: string | null;
-  why?: string | null;
-  source?: ('app-mobile' | 'app-web' | 'chantier' | 'bureau' | 'autre') | null;
-  features?:
-    | (
-        | 'pointage'
-        | 'planning'
-        | 'feuilles-heures'
-        | 'conges'
-        | 'suivi-chantier'
-        | 'vehicules'
-        | 'documents'
-        | 'paie'
-        | 'autre'
-      )[]
-    | null;
-  /**
-   * Quelques phrases : c'est ce qui permet aux agents de choisir ce rush et d'en tirer le bon passage.
-   */
-  description?: string | null;
-  framing?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  origin?: string | null;
-  noRealData?: boolean | null;
-  mediaType?: ('video' | 'image') | null;
-  processing?: {
-    status?: ('en-attente' | 'en-cours' | 'pret' | 'echec') | null;
-    error?: string | null;
-    attempts?: number | null;
-    processedAt?: string | null;
-    leaseUntil?: string | null;
-  };
-  /**
-   * Produite par la conversion : c'est elle que les montages utilisent.
-   */
-  working?: {
-    url?: string | null;
-    posterUrl?: string | null;
-    keyframes?:
-      | {
-          [k: string]: unknown;
-        }
-      | unknown[]
-      | string
-      | number
-      | boolean
-      | null;
-    meta?:
-      | {
-          [k: string]: unknown;
-        }
-      | unknown[]
-      | string
-      | number
-      | boolean
-      | null;
-  };
-  ai?: {
-    proposal?: string | null;
-    timeline?:
-      | {
-          [k: string]: unknown;
-        }
-      | unknown[]
-      | string
-      | number
-      | boolean
-      | null;
-    status?: ('proposee' | 'validee' | 'ecartee') | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Des pubs que vous aimez, ou à éviter — de TIM ou de n'importe quelle marque. L'IA en tire une fiche de style que vous validez ; le directeur artistique la lit avant chaque montage. Jamais montrées dans une vidéo.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-inspirations".
- */
-export interface AdInspiration {
-  id: number;
-  original?: {
-    url?: string | null;
-    pathname?: string | null;
-    filename?: string | null;
-    contentType?: string | null;
-    size?: number | null;
-  };
-  title: string;
-  verdict: 'aimer' | 'eviter';
-  link?: string | null;
-  /**
-   * Ce qui vous fait l'aimer (ou la rejeter) : l'IA regarde les images avec cette phrase pour en tirer une fiche de style.
-   */
-  why: string;
-  mediaType?: ('video' | 'image') | null;
-  processing?: {
-    status?: ('en-attente' | 'en-cours' | 'pret' | 'echec') | null;
-    error?: string | null;
-    attempts?: number | null;
-    processedAt?: string | null;
-    leaseUntil?: string | null;
-  };
-  /**
-   * Produite par la conversion : c'est elle que les montages utilisent.
-   */
-  working?: {
-    url?: string | null;
-    posterUrl?: string | null;
-    keyframes?:
-      | {
-          [k: string]: unknown;
-        }
-      | unknown[]
-      | string
-      | number
-      | boolean
-      | null;
-    meta?:
-      | {
-          [k: string]: unknown;
-        }
-      | unknown[]
-      | string
-      | number
-      | boolean
-      | null;
-  };
-  ai?: {
-    proposal?: string | null;
-    timeline?:
-      | {
-          [k: string]: unknown;
-        }
-      | unknown[]
-      | string
-      | number
-      | boolean
-      | null;
-    status?: ('proposee' | 'validee' | 'ecartee') | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Les consignes données sur une créa précise et ce que l'IA en a fait. Se demandent depuis la carte de la créa, dans « À valider ».
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-retouches".
- */
-export interface AdRetouch {
-  id: number;
-  creative: number | AdCreative;
-  instruction: string;
-  author?: (number | null) | User;
-  generalize?: boolean | null;
-  instructionDoc?: (number | null) | AdInstruction;
-  status: 'en-attente' | 'en-cours' | 'faite' | 'echec';
-  costEur?: number | null;
-  doneAt?: string | null;
-  summary?: string | null;
-  error?: string | null;
-  before?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  after?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  attempts?: number | null;
-  leaseUntil?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Les éléments de motion design que l'agent pose dans les vidéos, et leurs variantes. Améliorez-les dans leur fil : vos idées, les propositions de l'IA, un aperçu rendu à chaque changement.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-elements".
- */
-export interface AdElement {
-  id: number;
-  name: string;
-  base:
-    | 'liste'
-    | 'notification'
-    | 'bouton'
-    | 'planning'
-    | 'fiche'
-    | 'champ'
-    | 'badge'
-    | 'tap'
-    | 'surbrillance'
-    | 'fleche'
-    | 'soulignement'
-    | 'titre'
-    | 'etiquette'
-    | 'bulle'
-    | 'compteur'
-    | 'logo'
-    | 'cta'
-    | 'pastilles'
-    | 'confettis';
-  status: 'brouillon' | 'actif' | 'retire';
-  variantOf?: (number | null) | AdElement;
-  /**
-   * Ce que l'agent lit pour choisir cet élément : ce qu'il montre, sur quel fond il rend le mieux, pour quel message.
-   */
-  whenToUse: string;
-  params?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  versions?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  preview?: {
-    status?: ('en-attente' | 'en-cours' | 'pret' | 'echec') | null;
-    videoUrl?: string | null;
-    imageUrl?: string | null;
-    error?: string | null;
-    attempts?: number | null;
-    leaseUntil?: string | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-element-notes".
- */
-export interface AdElementNote {
-  id: number;
-  element: number | AdElement;
-  kind: 'idee' | 'proposition' | 'decision';
-  author?: (number | null) | User;
-  body: string;
-  proposal?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  status?: ('a-decider' | 'appliquee' | 'variante' | 'ecartee' | 'hors-reglages' | 'developpement') | null;
-  variant?: (number | null) | AdElement;
-  development?: (number | null) | Development;
-  costEur?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -4112,26 +3793,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-rushes';
         value: number | AdRush;
-      } | null)
-    | ({
-        relationTo: 'ad-inspirations';
-        value: number | AdInspiration;
-      } | null)
-    | ({
-        relationTo: 'ad-retouches';
-        value: number | AdRetouch;
-      } | null)
-    | ({
-        relationTo: 'ad-elements';
-        value: number | AdElement;
-      } | null)
-    | ({
-        relationTo: 'ad-element-notes';
-        value: number | AdElementNote;
-      } | null)
-    | ({
-        relationTo: 'ad-styles';
-        value: number | AdStyle;
       } | null)
     | ({
         relationTo: 'ads-settings-history';
@@ -5289,6 +4950,7 @@ export interface AdCampaignsSelect<T extends boolean = true> {
               id?: T;
             };
       };
+  autonomy?: T;
   agentBudget?:
     | T
     | {
@@ -5304,6 +4966,9 @@ export interface AdCampaignsSelect<T extends boolean = true> {
               decision?: T;
             };
       };
+  publicationStatus?: T;
+  publication?: T;
+  publicationLeaseUntil?: T;
   account?: T;
   externalId?: T;
   status?: T;
@@ -5324,21 +4989,35 @@ export interface AdCreativesSelect<T extends boolean = true> {
   angle?: T;
   requestedAngle?: T;
   run?: T;
-  video?:
+  hook?: T;
+  brief?:
     | T
     | {
-        status?: T;
-        error?: T;
-        score?: T;
-        music?: T;
-        renders?: T;
-        elements?: T;
-        attempts?: T;
-        renderedAt?: T;
-        leaseUntil?: T;
+        kind?: T;
+        formats?: T;
+        durationSec?: T;
+        rationale?: T;
+        prompt?: T;
+        rushes?: T;
+        writtenAt?: T;
       };
-  style?: T;
-  hook?: T;
+  files?:
+    | T
+    | {
+        format?: T;
+        kind?: T;
+        filename?: T;
+        url?: T;
+        pathname?: T;
+        mime?: T;
+        bytes?: T;
+        width?: T;
+        height?: T;
+        durationSec?: T;
+        warnings?: T;
+        importedAt?: T;
+        id?: T;
+      };
   campaign?: T;
   tone?: T;
   cta?: T;
@@ -5367,7 +5046,6 @@ export interface AdCreativesSelect<T extends boolean = true> {
     | {
         format?: T;
         type?: T;
-        template?: T;
         media?: T;
         id?: T;
       };
@@ -5402,6 +5080,19 @@ export interface AdAccountsSelect<T extends boolean = true> {
   currency?: T;
   timezone?: T;
   monthlyCapEur?: T;
+  diffusion?:
+    | T
+    | {
+        pageId?: T;
+        pageName?: T;
+        instagramId?: T;
+        instagramName?: T;
+        pixelId?: T;
+        pixelName?: T;
+        scopes?: T;
+        found?: T;
+        checkedAt?: T;
+      };
   tokenExpiresAt?: T;
   systemUserToken?: T;
   token?: T;
@@ -5438,25 +5129,6 @@ export interface AdMetricsDailySelect<T extends boolean = true> {
 export interface AdMediaSelect<T extends boolean = true> {
   kind?: T;
   alt?: T;
-  platform?: T;
-  feature?: T;
-  noClientData?: T;
-  rights?: T;
-  active?: T;
-  whenToUse?: T;
-  beat?:
-    | T
-    | {
-        status?: T;
-        bpm?: T;
-        bestStartSec?: T;
-        durationSec?: T;
-        error?: T;
-        firstBeatSec?: T;
-        confidence?: T;
-        attempts?: T;
-        leaseUntil?: T;
-      };
   license?: T;
   prefix?: T;
   updatedAt?: T;
@@ -5605,6 +5277,9 @@ export interface AdDecisionsSelect<T extends boolean = true> {
   before?: T;
   after?: T;
   guardrail?: T;
+  target?: T;
+  executedAt?: T;
+  reviewedBy?: T;
   instructions?: T;
   learnings?: T;
   citations?: T;
@@ -5678,177 +5353,13 @@ export interface AdRushesSelect<T extends boolean = true> {
         contentType?: T;
         size?: T;
       };
-  use?: T;
   title?: T;
-  verdict?: T;
-  link?: T;
-  why?: T;
   source?: T;
   features?: T;
   description?: T;
-  framing?: T;
   origin?: T;
   noRealData?: T;
   mediaType?: T;
-  processing?:
-    | T
-    | {
-        status?: T;
-        error?: T;
-        attempts?: T;
-        processedAt?: T;
-        leaseUntil?: T;
-      };
-  working?:
-    | T
-    | {
-        url?: T;
-        posterUrl?: T;
-        keyframes?: T;
-        meta?: T;
-      };
-  ai?:
-    | T
-    | {
-        proposal?: T;
-        timeline?: T;
-        status?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-inspirations_select".
- */
-export interface AdInspirationsSelect<T extends boolean = true> {
-  original?:
-    | T
-    | {
-        url?: T;
-        pathname?: T;
-        filename?: T;
-        contentType?: T;
-        size?: T;
-      };
-  title?: T;
-  verdict?: T;
-  link?: T;
-  why?: T;
-  mediaType?: T;
-  processing?:
-    | T
-    | {
-        status?: T;
-        error?: T;
-        attempts?: T;
-        processedAt?: T;
-        leaseUntil?: T;
-      };
-  working?:
-    | T
-    | {
-        url?: T;
-        posterUrl?: T;
-        keyframes?: T;
-        meta?: T;
-      };
-  ai?:
-    | T
-    | {
-        proposal?: T;
-        timeline?: T;
-        status?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-retouches_select".
- */
-export interface AdRetouchesSelect<T extends boolean = true> {
-  creative?: T;
-  instruction?: T;
-  author?: T;
-  generalize?: T;
-  instructionDoc?: T;
-  status?: T;
-  costEur?: T;
-  doneAt?: T;
-  summary?: T;
-  error?: T;
-  before?: T;
-  after?: T;
-  attempts?: T;
-  leaseUntil?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-elements_select".
- */
-export interface AdElementsSelect<T extends boolean = true> {
-  name?: T;
-  base?: T;
-  status?: T;
-  variantOf?: T;
-  whenToUse?: T;
-  params?: T;
-  versions?: T;
-  preview?:
-    | T
-    | {
-        status?: T;
-        videoUrl?: T;
-        imageUrl?: T;
-        error?: T;
-        attempts?: T;
-        leaseUntil?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-element-notes_select".
- */
-export interface AdElementNotesSelect<T extends boolean = true> {
-  element?: T;
-  kind?: T;
-  author?: T;
-  body?: T;
-  proposal?: T;
-  status?: T;
-  variant?: T;
-  development?: T;
-  costEur?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-styles_select".
- */
-export interface AdStylesSelect<T extends boolean = true> {
-  name?: T;
-  active?: T;
-  intent?: T;
-  opening?: T;
-  background?: T;
-  proof?: T;
-  titleFont?: T;
-  bodyFont?: T;
-  titleCase?: T;
-  phoneFrame?: T;
-  zoomOnGesture?: T;
-  corners?: T;
-  graphics?: T;
-  pace?: T;
-  transitions?: T;
-  subtitles?: T;
-  logoAnimation?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -6484,6 +5995,14 @@ export interface AdsSetting {
    */
   agentMonthlyEur: number;
   /**
+   * Au-delà, la décision attend une validation à la main, même en mode autonome.
+   */
+  maxBudgetChangePct: number;
+  /**
+   * Pour ne pas relancer sans cesse la phase d'apprentissage de Meta. Une urgence passe outre.
+   */
+  minHoursBetweenChanges: number;
+  /**
    * 60 jours après sa création. Rappel à J-7 ; le renouvellement se fait à la main.
    */
   adLibraryTokenExpiresAt?: string | null;
@@ -6491,7 +6010,7 @@ export interface AdsSetting {
   createdAt?: string | null;
 }
 /**
- * La charte des publicités : ton, logos, couleurs, typographie, formes, mouvement et inspirations. Les agents la lisent à chaque génération et chaque montage.
+ * La charte des publicités : ton, logos, couleurs, typographie. L'agent la lit à chaque génération et la recopie dans ses briefs Claude Design.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ads-brand-kit".
@@ -6527,10 +6046,6 @@ export interface AdsBrandKit {
    * Carré, sans texte : coin d'une vidéo, petits espaces.
    */
   logoSymbol?: (number | null) | AdMedia;
-  /**
-   * Facultatif. Un SVG vectoriel dont les calques sont nommés « symbole » (un sous-calque par élément), « nom » (une lettre par sous-calque) et « baseline » : les vidéos font alors arriver le logo élément par élément.
-   */
-  logoAnimated?: (number | null) | AdMedia;
   palette?: {
     /**
      * La couleur de la marque.
@@ -6597,30 +6112,12 @@ export interface AdsBrandKit {
         id?: string | null;
       }[]
     | null;
-  /**
-   * Celle qu'on prend quand personne n'en choisit. Toutes vos musiques se déposent dans Médias publicitaires (nature « Musique ») : l'agent choisit parmi elles et les teste.
-   */
-  music?: (number | null) | AdMedia;
   endCard?: {
-    seconds?: number | null;
+    /**
+     * Écrite à la fin des vidéos et sur les visuels, d'après le brief.
+     */
     url?: string | null;
-    showLogo?: boolean | null;
   };
-  corners?: ('carres' | 'arrondis' | 'pilule') | null;
-  phoneFrame?: ('maquette' | 'ecran-seul' | 'incline') | null;
-  graphics?: ('pastilles' | 'soulignements' | 'bandeaux')[] | null;
-  pace?: ('pose' | 'dynamique' | 'rapide') | null;
-  transitions?: ('coupe' | 'glisse' | 'zoom')[] | null;
-  subtitles?: ('bandeau' | 'mot-a-mot' | 'aucun') | null;
-  inspirations?:
-    | {
-        verdict: 'aimer' | 'eviter';
-        image?: (number | null) | AdMedia;
-        link?: string | null;
-        why: string;
-        id?: string | null;
-      }[]
-    | null;
   advertiser?: string | null;
   /**
    * Ajoutées au fichier de textes téléchargé avec chaque créa.
@@ -6787,6 +6284,8 @@ export interface AdsSettingsSelect<T extends boolean = true> {
   agentPrepMaxEur?: T;
   agentDailyEur?: T;
   agentMonthlyEur?: T;
+  maxBudgetChangePct?: T;
+  minHoursBetweenChanges?: T;
   adLibraryTokenExpiresAt?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -6811,7 +6310,6 @@ export interface AdsBrandKitSelect<T extends boolean = true> {
   logoOnLight?: T;
   logoOnDark?: T;
   logoSymbol?: T;
-  logoAnimated?: T;
   palette?:
     | T
     | {
@@ -6833,28 +6331,10 @@ export interface AdsBrandKitSelect<T extends boolean = true> {
         file?: T;
         id?: T;
       };
-  music?: T;
   endCard?:
     | T
     | {
-        seconds?: T;
         url?: T;
-        showLogo?: T;
-      };
-  corners?: T;
-  phoneFrame?: T;
-  graphics?: T;
-  pace?: T;
-  transitions?: T;
-  subtitles?: T;
-  inspirations?:
-    | T
-    | {
-        verdict?: T;
-        image?: T;
-        link?: T;
-        why?: T;
-        id?: T;
       };
   advertiser?: T;
   legalNotice?: T;

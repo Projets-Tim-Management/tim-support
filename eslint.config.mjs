@@ -23,7 +23,6 @@ const config = [
       "payload-types.ts", // généré par Payload
       "migrations/**", // SQL généré
       "public/**",
-      "remotion-bundle/**", // projet vidéo compilé (scripts/video-bundle.mjs)
     ],
   },
   ...nextCoreWebVitals,

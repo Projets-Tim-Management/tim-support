@@ -198,4 +198,28 @@ const proposerConcurrent: AgentTool = {
   },
 };
 
-export const SOURCE_TOOLS: AgentTool[] = [lireSite, lireAcquisition, lirePubsConcurrents, rechercherConcurrents, proposerConcurrent];
+const chercherCiblage: AgentTool = {
+  definition: {
+    name: "chercher_ciblage",
+    description:
+      "Cherche dans le ciblage officiel de Meta, avec le compte de la campagne : des centres d'intérêt (interet), des intitulés de poste (metier) ou des régions françaises (region). Rend leurs identifiants Meta et la taille d'audience ; ce sont les seuls à mettre dans un plan de diffusion. Sans coût IA.",
+    input_schema: {
+      type: "object",
+      properties: { type: { type: "string", enum: ["interet", "metier", "region"] }, recherche: { type: "string", description: "Quelques mots : « conducteur de travaux », « BTP », « Auvergne »." } },
+      required: ["type", "recherche"],
+    },
+  },
+  async run(ctx, input) {
+    const kind = String(input.type) as "interet" | "metier" | "region";
+    const q = String(input.recherche ?? "").trim().slice(0, 80);
+    if (!["interet", "metier", "region"].includes(kind) || !q) return { kind: "ok", isError: true, output: { refus: "Type (interet, metier, region) et recherche attendus." }, line: `${who(ctx)} : recherche de ciblage incomplète.` };
+    try {
+      const found = await ctx.deps.sources.targeting(ctx.run.campaign, kind, q);
+      return { kind: "ok", output: found, line: `${who(ctx)} cherche « ${clip(q, 40)} » dans le ciblage Meta (${found.length} résultat(s)).` };
+    } catch (e) {
+      return refusal(ctx, e, "la recherche de ciblage");
+    }
+  },
+};
+
+export const SOURCE_TOOLS: AgentTool[] = [lireSite, lireAcquisition, lirePubsConcurrents, rechercherConcurrents, proposerConcurrent, chercherCiblage];

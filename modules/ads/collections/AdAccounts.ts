@@ -231,6 +231,29 @@ export const AdAccounts: CollectionConfig = {
       ],
     },
     {
+      /**
+       * Publier (plan Publicité, 3b) : les droits du jeton et la Page, le compte
+       * Instagram et le pixel au nom desquels les pubs paraissent et se
+       * mesurent. Remplis par « Vérifier les droits » (lus chez Meta) ; la Page,
+       * Instagram et le pixel se choisissent dans ce qui a été trouvé.
+       */
+      name: "diffusion",
+      type: "group",
+      label: "Diffusion des pubs",
+      fields: [
+        { name: "accessCheck", type: "ui", admin: { components: { Field: "/modules/ads/admin/AccountAccess#AccountAccess" } } },
+        { name: "pageId", type: "text", admin: { hidden: true } },
+        { name: "pageName", type: "text", admin: { hidden: true } },
+        { name: "instagramId", type: "text", admin: { hidden: true } },
+        { name: "instagramName", type: "text", admin: { hidden: true } },
+        { name: "pixelId", type: "text", admin: { hidden: true } },
+        { name: "pixelName", type: "text", admin: { hidden: true } },
+        { name: "scopes", type: "json", admin: { hidden: true } },
+        { name: "found", type: "json", admin: { hidden: true } },
+        { name: "checkedAt", type: "date", admin: { hidden: true } },
+      ],
+    },
+    {
       type: "collapsible",
       label: "Jetons",
       admin: { initCollapsed: false },
@@ -265,7 +288,7 @@ export const AdAccounts: CollectionConfig = {
           },
           admin: {
             description:
-              "Business Manager › Utilisateurs système › Générer un jeton (droit ads_read). Il n'expire pas et prime sur l'OAuth. Collez-le puis enregistrez : il est chiffré et ne sera plus jamais affiché. Obligatoire avant que les agents puissent écrire.",
+              "Business Manager › Utilisateurs système › Générer un jeton, en cochant ads_management, ads_read, business_management, pages_show_list, pages_read_engagement, pages_manage_ads et instagram_basic. Il n'expire pas et prime sur l'OAuth. Collez-le puis enregistrez : il est chiffré et ne sera plus jamais affiché. Obligatoire pour publier.",
           },
         },
       ],

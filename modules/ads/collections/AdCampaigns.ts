@@ -3,6 +3,7 @@ import type { Access, CollectionBeforeChangeHook, CollectionBeforeDeleteHook, Co
 import { isAdmin } from "@/core/access";
 import { AI_SHARE_MAX_PCT, DEFAULT_AI_SHARE_PCT, DEFAULT_META_FLOOR_EUR, validateAgentBudget } from "@/modules/ads/agent/limits";
 import { PURGE_CONTEXT } from "@/modules/ads/lib/accounts";
+import { LANDING_URL, OBJECTIVES } from "@/modules/ads/lib/campaign-options";
 import { CTA_OPTIONS } from "@/modules/ads/lib/cta";
 import { DEFAULT_TONE, TONES } from "@/modules/ads/lib/dimensions";
 import { validatePlatform } from "@/modules/ads/lib/platforms";
@@ -22,12 +23,6 @@ import { validatePlatform } from "@/modules/ads/lib/platforms";
  *    doublon, et le brief reste attaché à ses chiffres.
  */
 
-export const OBJECTIVES = [
-  { label: "Leads", value: "leads" },
-  { label: "Trafic", value: "trafic" },
-  { label: "Notoriété", value: "notoriete" },
-  { label: "Autre", value: "autre" },
-] as const;
 
 export const CAMPAIGN_STATUSES = [
   { label: "Brouillon", value: "brouillon" },
@@ -95,8 +90,6 @@ const cleanUpBeforeDelete: CollectionBeforeDeleteHook = async ({ req, id }) => {
   }
 };
 
-const LANDING = /^https:\/\/[^\s/]+\.[^\s]+$/i;
-
 export const AdCampaigns: CollectionConfig = {
   slug: "ad-campaigns",
   labels: { singular: "Campagne", plural: "Campagnes" },
@@ -104,6 +97,7 @@ export const AdCampaigns: CollectionConfig = {
     useAsTitle: "name",
     defaultColumns: ["name", "status", "account", "kpis", "dailyBudget", "lastSyncAt"],
     group: "Publicité",
+    components: { beforeListTable: ["/modules/ads/admin/CampaignWizardLauncher#CampaignWizardLauncher"] },
     description:
       "Les campagnes : celles lues chez les régies (mises à jour chaque nuit, chiffres en lecture seule) et les brouillons préparés ici, avec leur brief.",
   },
@@ -114,6 +108,8 @@ export const AdCampaigns: CollectionConfig = {
   indexes: [{ fields: ["platform", "externalId"], unique: true }],
   fields: [
     { name: "name", type: "text", label: "Nom", required: true, access: { update: whileDraft } },
+    // Le parcours jusqu'à la diffusion, l'étape en cours et le bouton qui y mène.
+    { name: "launchTrack", type: "ui", admin: { components: { Field: "/modules/ads/admin/LaunchTrack#LaunchTrack" } } },
     {
       type: "tabs",
       tabs: [
@@ -121,11 +117,6 @@ export const AdCampaigns: CollectionConfig = {
           label: "Brief",
           description: "Ce que la génération de créas lit. À nous, modifiable à tout moment.",
           fields: [
-            {
-              name: "generate",
-              type: "ui",
-              admin: { components: { Field: "/modules/ads/admin/GenerateCreatives#GenerateCreatives" } },
-            },
             {
               name: "brief",
               type: "group",
@@ -152,7 +143,7 @@ export const AdCampaigns: CollectionConfig = {
                       name: "landingUrl",
                       type: "text",
                       label: "Page d'arrivée",
-                      validate: (v: unknown) => (!v || LANDING.test(String(v).trim()) ? true : "Une adresse complète en https://"),
+                      validate: (v: unknown) => (!v || LANDING_URL.test(String(v).trim()) ? true : "Une adresse complète en https://"),
                       admin: {
                         width: "60%",
                         placeholder: "https://tim-management.co/…",
@@ -191,6 +182,19 @@ export const AdCampaigns: CollectionConfig = {
               name: "agentPanel",
               type: "ui",
               admin: { components: { Field: "/modules/ads/admin/AgentPanel#AgentPanel" } },
+            },
+            {
+              // D5 : ce que l'agent a le droit de faire seul sur la campagne en ligne (plan, §6).
+              name: "autonomy",
+              type: "select",
+              label: "Autonomie de l'agent",
+              defaultValue: "proposer",
+              options: [
+                { label: "Observer — il rapporte, il n'agit pas", value: "observer" },
+                { label: "Proposer — tout passe par « À valider »", value: "proposer" },
+                { label: "Autonome — il agit seul dans les garde-fous", value: "autonome" },
+              ],
+              admin: { description: "Quel que soit le mode : une hausse de plus de 20 % ou la réactivation d'une campagne entière se valident à la main, et une pub refusée par Meta se met en pause d'office." },
             },
             {
               name: "agentBudget",
@@ -247,37 +251,70 @@ export const AdCampaigns: CollectionConfig = {
           ],
         },
         {
-          label: "Chez la régie",
-          description: "Lu chez la régie par la synchro. Ne se modifie pas ici.",
+          // Publier chez Meta (plan Publicité, 3b) : un geste de Charlie, jamais d'un agent. Voir lib/publish.
+          label: "Diffusion",
+          description: "Publier la campagne chez Meta selon le plan de diffusion de l'agent : tout naît en pause, la diffusion démarre à « Activer ».",
           fields: [
+            { name: "publishPanel", type: "ui", admin: { components: { Field: "/modules/ads/admin/PublishPanel#PublishPanel" } } },
             {
-              type: "row",
-              fields: [
-                { name: "account", type: "relationship", relationTo: "ad-accounts", label: "Compte", index: true, access: { update: whileDraft }, admin: { width: "50%" } },
-                { name: "externalId", type: "text", label: "Identifiant chez la régie", index: true, access: mirror, admin: { width: "50%", readOnly: true } },
+              name: "publicationStatus",
+              type: "select",
+              label: "Publication",
+              options: [
+                { label: "En cours", value: "en-cours" },
+                { label: "Publiée, en pause", value: "en-pause" },
+                { label: "En diffusion", value: "active" },
+                { label: "Échec", value: "echec" },
               ],
+              index: true,
+              access: mirror,
+              admin: { hidden: true },
             },
+            // L'état de la publication : identifiants obtenus chez Meta, journal. Écrit par le serveur seul.
+            { name: "publication", type: "json", access: mirror, admin: { hidden: true } },
+            { name: "publicationLeaseUntil", type: "date", access: mirror, admin: { hidden: true } },
+          ],
+        },
+        {
+          label: "Résultats",
+          description: "Ce que la campagne a produit chez la régie, jour par jour — lu par la synchro, rien ne se modifie ici.",
+          fields: [
+            { name: "results", type: "ui", admin: { components: { Field: "/modules/ads/admin/CampaignResults#CampaignResults" } } },
             {
-              type: "row",
+              type: "collapsible",
+              label: "Chez la régie : compte, identifiants, état brut",
+              admin: { initCollapsed: true },
               fields: [
-                { name: "status", type: "select", label: "État", options: [...CAMPAIGN_STATUSES], defaultValue: "brouillon", index: true, access: mirror, admin: { width: "33%", readOnly: true } },
-                { name: "objective", type: "select", label: "Objectif", options: [...OBJECTIVES], access: { update: whileDraft }, admin: { width: "33%" } },
                 {
-                  name: "dailyBudget",
-                  type: "number",
-                  label: "Budget quotidien",
+                  type: "row",
+                  fields: [
+                    { name: "account", type: "relationship", relationTo: "ad-accounts", label: "Compte", index: true, access: { update: whileDraft }, admin: { width: "50%" } },
+                    { name: "externalId", type: "text", label: "Identifiant chez la régie", index: true, access: mirror, admin: { width: "50%", readOnly: true } },
+                  ],
+                },
+                {
+                  type: "row",
+                  fields: [
+                    { name: "status", type: "select", label: "État", options: [...CAMPAIGN_STATUSES], defaultValue: "brouillon", index: true, access: mirror, admin: { width: "33%", readOnly: true } },
+                    { name: "objective", type: "select", label: "Objectif", options: [...OBJECTIVES], access: { update: whileDraft }, admin: { width: "33%" } },
+                    {
+                      name: "dailyBudget",
+                      type: "number",
+                      label: "Budget quotidien",
+                      access: mirror,
+                      admin: { width: "34%", readOnly: true, description: "En devise du compte, lu chez la régie." },
+                    },
+                  ],
+                },
+                { name: "externalStatus", type: "text", label: "État chez la régie (brut)", access: mirror, admin: { readOnly: true } },
+                {
+                  name: "lastSyncAt",
+                  type: "date",
+                  label: "Dernière synchro",
                   access: mirror,
-                  admin: { width: "34%", readOnly: true, description: "En devise du compte, lu chez la régie." },
+                  admin: { readOnly: true, date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" } },
                 },
               ],
-            },
-            { name: "externalStatus", type: "text", label: "État chez la régie (brut)", access: mirror, admin: { readOnly: true } },
-            {
-              name: "lastSyncAt",
-              type: "date",
-              label: "Dernière synchro",
-              access: mirror,
-              admin: { readOnly: true, date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" } },
             },
           ],
         },

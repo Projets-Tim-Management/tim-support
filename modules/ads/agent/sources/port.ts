@@ -5,6 +5,7 @@ import { searchAdLibrary } from "@/modules/ads/agent/sources/ad-library";
 import { FETCH_TIMEOUT_MS } from "@/modules/ads/agent/limits";
 import { readSite, siteFetcher } from "@/modules/ads/agent/sources/site";
 import type { SourcesPort } from "@/modules/ads/agent/types";
+import { accountContext, AccountUnavailable } from "@/modules/ads/lib/account-access";
 
 /**
  * Le port des sources du stratège, branché sur la base et sur le réseau.
@@ -43,6 +44,20 @@ export function createSourcesPort(payload: Payload, deps: { fetch?: typeof fetch
     },
 
     adLibrary: (q) => searchAdLibrary(q, { fetch: (url) => f(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }), env, now: now() }),
+
+    async targeting(campaign, kind, query) {
+      const c = (await payload.findByID({ collection: "ad-campaigns", id: campaign, depth: 0, overrideAccess: true })) as { account?: number | { id: number } | null };
+      const account = typeof c.account === "object" && c.account ? c.account.id : c.account;
+      if (!account) throw new AccountUnavailable("La campagne n'a pas de compte publicitaire : choisissez-le dans l'onglet « Chez la régie ».");
+      const { ctx, platform } = await accountContext(payload, account, env);
+      if (!platform.searchTargeting) throw new AccountUnavailable(`${platform.label} : la recherche de ciblage n'est pas branchée.`);
+      return platform.searchTargeting(ctx, kind, query);
+    },
+
+    async hasPixel(campaign) {
+      const c = (await payload.findByID({ collection: "ad-campaigns", id: campaign, depth: 1, overrideAccess: true })) as { account?: { diffusion?: { pixelId?: string | null } | null } | number | null };
+      return typeof c.account === "object" && Boolean(c.account?.diffusion?.pixelId);
+    },
 
     async proposeCompetitor(c) {
       const known = await payload.count({ collection: "ad-competitors", where: { pageId: { equals: c.pageId } }, overrideAccess: true });

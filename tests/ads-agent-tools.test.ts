@@ -20,28 +20,25 @@ const crea = (id: Id, over: Partial<CreativeView> = {}): CreativeView => ({
   requestedAngle: `Demandé ${id}`,
   status: "brouillon",
   publishable: true,
-  visuals: 0,
+  hasBrief: false,
+  missingFiles: [],
   texts: [{ kind: "principal", text: "…", status: "ok", reason: null }],
   ...over,
 });
 
 function fakeAtelier(over: Partial<AtelierPort> = {}) {
   const atelier = {
-    brief: vi.fn(async () => ({ resume: "Brief", quotaRestant: 4, gabarits: [{ cle: "texte", libelle: "Texte", disponible: true }] })),
+    brief: vi.fn(async () => ({ resume: "Brief", quotaRestant: 4 })),
     generate: vi.fn(async (_c: Id, req: Parameters<AtelierPort["generate"]>[1]) => {
       await req.preCheck(0.3);
       return { creatives: req.angles.map((a, i) => crea(100 + i, { requestedAngle: a })), costEur: 0.12 };
     }),
-    render: vi.fn(async () => ({ template: "texte", visuals: 3 })),
     creatives: vi.fn(async (_campaign: Id, ids: Id[]) => ids.map((i) => crea(i))),
     submit: vi.fn(async (_campaign: Id, ids: Id[]) => ({ submitted: ids.filter((i) => i !== 999), skipped: ids.includes(999) ? [{ id: 999, reason: "Pas de titre passé." }] : [] })),
     campaignBudget: vi.fn(async () => ({ totalDailyEur: 30, maxAiSharePct: 15, metaFloorEur: 5 })),
     setSplit: vi.fn(async () => {}),
-    videoMaterial: vi.fn(async () => ({ base: {}, rushes: [], inspirations: [], musiques: [], logo: "Pas de logo animable", elements: { guide: {}, variantes: [] }, styles: [{ id: 1, nom: "A · Le geste en gros plan", quandLEmployer: "Un geste dans l'app", reglages: "Ouverture : titre" }] })),
-    video: vi.fn(async (_c: Id, crea: Id, req: { styles: Id[]; musics?: Id[] }) => ({
-      creas: req.styles.map((st, i) => ({ crea: i ? 200 + i : Number(crea), style: Number(st), styleNom: `Style ${String(st)}`, musique: 8, musiqueNom: "Énergique", test: i > 0 })),
-      ecartes: [],
-    })),
+    rushes: vi.fn(async () => [{ id: 1, title: "Pointage du matin", filename: "pointage.mov", description: "Un chef pointe son équipe.", mediaType: "video", source: "app-mobile", features: ["pointage"] }]),
+    writeBrief: vi.fn(async (_c: Id, crea: Id) => ({ prompt: "Crée une publicité…", files: [`C${String(crea)}-9x16.mp4`] })),
     ...over,
   };
   return atelier;
@@ -67,7 +64,7 @@ async function setup(role: AgentRow["role"], atelier: ReturnType<typeof fakeAtel
       : await mem.store.createAgent({ run: run.id, parent: root.id, depth: 1, role, status: "en-cours", mission: "M", tools: [...ROLE_TOOLS[role]], model: "claude-sonnet-5-5", budgetEur });
   const step = await mem.store.createStep({ run: run.id, agent: agent.id, seq: 0, kind: "outil", tool: "x", status: "en-cours", line: "", input: null, output: null, idempotencyKey: `${agent.id}:t`, startedAt: NOW.toISOString() });
   await mem.withStrategy(run, root.id);
-  const deps: AgentDeps = { store: mem.store, model: vi.fn(), budget, atelier, sources: unusedPort("sources"), now: () => NOW };
+  const deps: AgentDeps = { store: mem.store, model: vi.fn(), budget, atelier, sources: { hasPixel: vi.fn(async () => false), targeting: vi.fn(async () => []) } as unknown as AgentDeps["sources"], now: () => NOW };
   const agents = await mem.store.listAgents(run.id);
   const ctx: ToolContext = { deps, run, agent: agents.find((a) => a.id === agent.id)!, agents, step: step as StepRow, ledger: (a) => ledgerOf(a, agents) };
   return { ctx, run, agent };
@@ -81,7 +78,7 @@ describe("chaque rôle a ses outils, et chaque outil existe", () => {
   });
 
   it("l'orchestrateur ne produit rien lui-même : ni textes, ni visuels, ni jugement", () => {
-    for (const t of ["generer_textes", "rendre_visuels", "juger_crea"]) expect(ROLE_TOOLS.orchestrateur).not.toContain(t);
+    for (const t of ["generer_textes", "ecrire_brief_design", "juger_crea"]) expect(ROLE_TOOLS.orchestrateur).not.toContain(t);
     expect(ROLE_TOOLS.orchestrateur).toContain("deposer_a_valider");
   });
 });
@@ -152,31 +149,27 @@ describe("juger_crea — le contrôleur, et la limite de réécriture", () => {
   });
 });
 
-describe("proposer_audiences — décision 7 du 29/09/2026", () => {
-  it("un test ciblage détaillé contre Advantage+ sans ses chiffres est refusé et journalisé « bloquée »", async () => {
+describe("proposer_plan_diffusion — l'objectif et les ensembles, vérifiés en code", () => {
+  const ENS = { nom: "Conducteurs", part: 100, advantage: true, pays: ["FR"], age_min: 25, age_max: 60, metiers: [{ id: "108001", name: "Conducteur de travaux" }] };
+
+  it("un plan qui se tient est proposé, avec son résumé (rien n'est envoyé à Meta)", async () => {
     const { ctx } = await setup("stratege", fakeAtelier());
-    const r = await use(ctx, "proposer_audiences", { mode: "test-detaille-vs-advantage-plus", budget_meta_quotidien_eur: 20, ensembles: 2, justification: "…" });
+    const r = await use(ctx, "proposer_plan_diffusion", { objectif: "trafic", optimisation: "vues-page", ensembles: [ENS], justification: "Faire venir sur la page démo", appuis: [] });
+    expect(r).toMatchObject({ kind: "ok", line: expect.stringMatching(/Trafic vers le site, optimisé sur vues de la page d'arrivée — Conducteurs 100 % \(Advantage\+\)/) });
+    expect(mem.decisions.at(-1)!).toMatchObject({ kind: "audience", status: "proposee", after: expect.objectContaining({ objectif: "trafic", optimisation: "vues-page" }) });
+  });
+
+  it("un test à plusieurs ensembles sans ses chiffres est refusé et journalisé « bloquée » (décision 7 du 29/09/2026)", async () => {
+    const { ctx } = await setup("stratege", fakeAtelier());
+    const r = await use(ctx, "proposer_plan_diffusion", { objectif: "trafic", ensembles: [{ ...ENS, part: 50 }, { ...ENS, nom: "Large", part: 50, metiers: [] }], justification: "…", appuis: [] });
     expect(r).toMatchObject({ isError: true });
-    expect(mem.decisions.at(-1)!).toMatchObject({ kind: "audience", status: "bloquee", guardrail: expect.stringMatching(/CPL cible.*conversions.*ciblage détaillé/) });
+    expect(mem.decisions.at(-1)!).toMatchObject({ kind: "audience", status: "bloquee", guardrail: expect.stringMatching(/budget Meta quotidien.*coût cible.*résultats attendus/) });
   });
 
-  it("avec ses chiffres, le test est proposé (rien n'est envoyé à Meta)", async () => {
+  it("optimiser sur les conversions sans pixel est refusé", async () => {
     const { ctx } = await setup("stratege", fakeAtelier());
-    await use(ctx, "proposer_audiences", {
-      mode: "test-detaille-vs-advantage-plus",
-      budget_meta_quotidien_eur: 40,
-      ensembles: 2,
-      cpl_cible_eur: 30,
-      conversions_semaine_par_ensemble: 5,
-      ciblage_detaille: "Conducteurs de travaux, 30-55 ans, France",
-      justification: "40 €/jour nourrissent deux ensembles à 5 leads par semaine chacun",
-    });
-    expect(mem.decisions.at(-1)!).toMatchObject({ kind: "audience", status: "proposee", after: expect.objectContaining({ ensembles: 2, cplCibleEur: 30 }) });
-  });
-
-  it("Advantage+ seul demande au moins son budget", async () => {
-    const { ctx } = await setup("stratege", fakeAtelier());
-    expect(await use(ctx, "proposer_audiences", { mode: "advantage-plus", ensembles: 1, justification: "…" })).toMatchObject({ isError: true });
+    const r = await use(ctx, "proposer_plan_diffusion", { objectif: "prospects", optimisation: "conversions", ensembles: [ENS], justification: "…", appuis: [] });
+    expect(r).toMatchObject({ isError: true, output: { refus: expect.stringMatching(/pixel/) } });
   });
 });
 
@@ -220,37 +213,39 @@ describe("deposer_a_valider — la fin du passage", () => {
   });
 });
 
-describe("la vidéo — le directeur artistique monte, le code vérifie (D4)", () => {
-  const PARTITION = { shots: [{ kind: "ouverture", seconds: 2, text: "Fini la ressaisie" }, { kind: "rush", seconds: 4, rush: 1, from: 0, to: 4 }, { kind: "fin", seconds: 2.5 }] };
+describe("le brief Claude Design — le directeur artistique l'écrit, le code vérifie", () => {
+  const BRIEF = { crea: 12, nature: "video", formats: ["9x16", "4x5"], duree: 18, pourquoi: "Les concurrents montrent des tableaux ; personne ne montre le geste du chef d'équipe.", direction: "Accroche : « Vendredi. » puis « Les carnets. »…", rushes: [1] };
 
-  it("seul le directeur artistique monte des vidéos", () => {
-    expect(ROLE_TOOLS["directeur-artistique"]).toEqual(expect.arrayContaining(["lire_rushes", "monter_video"]));
-    for (const role of ["orchestrateur", "stratege", "redacteur", "controleur"] as const) expect(ROLE_TOOLS[role]).not.toContain("monter_video");
+  it("seul le directeur artistique écrit les briefs ; plus aucun outil de rendu ni de montage", () => {
+    expect(ROLE_TOOLS["directeur-artistique"]).toEqual(expect.arrayContaining(["lire_rushes", "ecrire_brief_design"]));
+    for (const role of ["orchestrateur", "stratege", "redacteur", "controleur"] as const) expect(ROLE_TOOLS[role]).not.toContain("ecrire_brief_design");
+    for (const tools of Object.values(ROLE_TOOLS)) expect(tools).not.toEqual(expect.arrayContaining(["monter_video"]));
   });
 
-  it("lire_rushes rend la matière et les styles", async () => {
+  it("lire_rushes rend les rushes à joindre", async () => {
     const atelier = fakeAtelier();
     const { ctx } = await setup("directeur-artistique", atelier);
     const r = await use(ctx, "lire_rushes", {});
-    expect(r).toMatchObject({ kind: "ok", output: { styles: [{ id: 1 }] }, line: expect.stringMatching(/0 rush\(es\) prêt\(s\), 1 style\(s\), 0 musique/) });
+    expect(r).toMatchObject({ kind: "ok", output: [{ id: 1, features: ["pointage"] }], line: expect.stringMatching(/1 rush\(es\)/) });
   });
 
-  it("monter_video transmet la partition et les styles ; les tests de style sont comptés", async () => {
+  it("ecrire_brief_design transmet l'intention et rend les fichiers attendus", async () => {
     const atelier = fakeAtelier();
     const { ctx, run } = await setup("directeur-artistique", atelier);
-    const r = await use(ctx, "monter_video", { crea: 12, styles: [1, 3], partition: PARTITION, justification: "Deux styles se défendent." });
-    expect(atelier.video).toHaveBeenCalledWith(run.campaign, 12, { styles: [1, 3], musics: undefined, score: PARTITION });
-    expect(r).toMatchObject({ kind: "ok", line: expect.stringMatching(/monte la vidéo de la créa 12 : « Style 1 » sur « Énergique » ; « Style 3 » sur « Énergique » \(1 test\(s\)\)/) });
+    const r = await use(ctx, "ecrire_brief_design", BRIEF);
+    expect(atelier.writeBrief).toHaveBeenCalledWith(run.campaign, 12, { kind: "video", formats: ["9x16", "4x5"], durationSec: 18, rationale: BRIEF.pourquoi, scenario: BRIEF.direction, rushes: [1] });
+    expect(r).toMatchObject({ kind: "ok", output: { fichiersAttendus: ["C12-9x16.mp4"] }, line: expect.stringMatching(/écrit le brief Claude Design de la créa 12/) });
   });
 
-  it("une partition refusée revient au modèle avec la raison, sans rien casser", async () => {
+  it("un brief refusé revient au modèle avec la raison, sans rien casser", async () => {
     const atelier = fakeAtelier({
-      video: vi.fn(async () => {
-        throw new Error("Partition refusée : Chiffre non sourcé : 3.");
+      writeBrief: vi.fn(async () => {
+        throw new Error("Rush inconnu : 9.");
       }),
     });
     const { ctx } = await setup("directeur-artistique", atelier);
-    const r = await use(ctx, "monter_video", { crea: 12, styles: [1], partition: PARTITION, justification: "x" });
-    expect(r).toMatchObject({ kind: "ok", isError: true, output: { refus: expect.stringMatching(/Chiffre non sourcé/) }, line: expect.stringMatching(/montage vidéo refusé/) });
+    const r = await use(ctx, "ecrire_brief_design", BRIEF);
+    expect(r).toMatchObject({ kind: "ok", isError: true, output: { refus: expect.stringMatching(/Rush inconnu/) }, line: expect.stringMatching(/brief Claude Design refusé/) });
   });
 });
+

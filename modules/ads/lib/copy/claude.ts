@@ -26,8 +26,6 @@ export class CopyModelError extends Error {
   }
 }
 
-export const callClaude: ModelCall = (input) => callClaudeWithin({})(input);
-
 export const callClaudeWithin = (limits: CallLimits): ModelCall => async ({ system, user }) => {
   const client = new Anthropic(limits);
   const res = await client.messages.parse({

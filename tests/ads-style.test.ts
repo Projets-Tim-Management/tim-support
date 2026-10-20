@@ -2,7 +2,7 @@ import type { Field } from "payload";
 import { describe, expect, it } from "vitest";
 
 import { AdsBrandKit } from "@/modules/ads/globals/AdsBrandKit";
-import { contrastRatio, contrastVerdict, fontFamily, paletteChecks, paletteOf, PALETTE_DEFAULTS, templateColors } from "@/modules/ads/lib/style";
+import { contrastRatio, contrastVerdict, fontFamily, paletteChecks, paletteOf, PALETTE_DEFAULTS } from "@/modules/ads/lib/style";
 
 /**
  * La charte des pubs (Kit de marque) : contraste, palette résolue, polices, et
@@ -36,10 +36,6 @@ describe("la palette résolue", () => {
     expect(paletteOf(null).primary).toBe(PALETTE_DEFAULTS.primary);
   });
 
-  it("les gabarits statiques lisent la palette des pubs au format d'Apparence", () => {
-    expect(templateColors({ ...PALETTE_DEFAULTS, accent: "#00AA00" })).toMatchObject({ primary: PALETTE_DEFAULTS.darkBg, red: "#00AA00" });
-  });
-
   it("une police inconnue retombe sur Lato, celle du contrat", () => {
     expect(fontFamily("bebas-neue")).toBe("Bebas Neue");
     expect(fontFamily("comic-sans")).toBe("Lato");
@@ -61,8 +57,9 @@ describe("le Kit de marque en onglets", () => {
     for (const old of ["defaultTone", "voice", "goodExamples", "badExamples", "forbidden", "logoOnDark", "fonts", "advertiser", "legalNotice"]) expect(all).toContain(old);
   });
 
-  it("ajoute logos, palette, typographie, formes, mouvement et inspirations", () => {
+  it("garde logos, palette, typographie et adresse de fin — et plus rien du moteur vidéo", () => {
     const all = names(AdsBrandKit.fields);
-    for (const added of ["logoOnLight", "logoSymbol", "palette", "titleFont", "bodyFont", "titleCase", "corners", "phoneFrame", "graphics", "pace", "transitions", "subtitles", "music", "endCard", "inspirations"]) expect(all).toContain(added);
+    for (const kept of ["logoOnLight", "logoSymbol", "palette", "titleFont", "bodyFont", "titleCase", "endCard"]) expect(all).toContain(kept);
+    for (const gone of ["logoAnimated", "corners", "phoneFrame", "graphics", "pace", "transitions", "subtitles", "music", "inspirations"]) expect(all).not.toContain(gone);
   });
 });

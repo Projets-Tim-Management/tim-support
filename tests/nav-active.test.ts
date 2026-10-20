@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { NAV_LAYOUT, isActiveHref, isSubGroup } from "@/admin/nav/nav-structure";
+import { NAV_HIDDEN, NAV_LAYOUT, isActiveHref, isSubGroup } from "@/admin/nav/nav-structure";
 
 describe("menu : une seule entrée active", () => {
   it("sur « À valider », le tableau de bord Publicité ne s'allume pas avec", () => {
@@ -31,13 +31,30 @@ describe("menu Publicité : chaque entrée a son icône", () => {
   // Les globals sont identifiés `global-<slug>` dans le menu.
   const GLOBALS = new Set(["ads-brand-kit", "ads-settings"]);
 
-  it("Paramètres reste la dernière entrée du groupe", () => {
+  it("Réglages reste la dernière entrée du groupe", () => {
     const last = NAV_LAYOUT["Publicité"].at(-1);
-    expect(last && isSubGroup(last) && last.label).toBe("Paramètres");
+    expect(last && isSubGroup(last) && last.label).toBe("Réglages");
   });
 
   it.each(slugs)("%s", (slug) => {
     const key = GLOBALS.has(slug) ? `global-${slug}` : slug;
     expect(scss).toContain(`"${key}":`);
+  });
+});
+
+describe("pages hors menu", () => {
+  const listed = new Set(
+    Object.values(NAV_LAYOUT)
+      .flat()
+      .flatMap((it) => (typeof it === "string" ? [it] : "slugs" in it ? it.slugs : [])),
+  );
+
+  it("une collection hors menu n'est rangée nulle part dans le menu", () => {
+    for (const slug of NAV_HIDDEN) expect(listed.has(slug)).toBe(false);
+  });
+
+  it("Publicité : 4 entrées de travail, puis la matière de l'agent, puis les réglages", () => {
+    const pub = NAV_LAYOUT["Publicité"];
+    expect(pub.map((it) => (typeof it === "string" ? it : it.label))).toEqual(["Tableau de bord", "À valider", "ad-campaigns", "ad-creatives", "Ressources", "Réglages"]);
   });
 });

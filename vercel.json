@@ -57,24 +57,16 @@
       "schedule": "* * * * *"
     },
     {
-      "path": "/api/cron/ads-rushes",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/ads-renders",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/ads-retouches",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/cron/ads-storage",
       "schedule": "30 3 * * *"
     },
     {
       "path": "/api/cron/ga4-steps",
       "schedule": "20 * * * *"
+    },
+    {
+      "path": "/api/cron/ads-publish",
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/cron/dev-potential",

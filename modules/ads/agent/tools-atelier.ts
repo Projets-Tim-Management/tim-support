@@ -5,17 +5,16 @@ import { ROLE_SUBJECT } from "@/modules/ads/agent/roles";
 import { clip, type AgentTool, type ToolContext, type ToolOutcome } from "@/modules/ads/agent/tools";
 import type { Id } from "@/modules/ads/agent/types";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
+import { BRIEF_KIND_VALUES } from "@/modules/ads/lib/creative-files";
+import { MAX_ENSEMBLES, OBJECTIFS, OPTIMISATIONS, planProblems, planSummary, readPlan } from "@/modules/ads/lib/media-plan";
+import { FORMAT_KEYS, VIDEO_SECONDS } from "@/modules/ads/lib/meta-specs";
 import { eur } from "@/modules/ads/lib/spend";
-import { MAX_VARIANTS } from "@/modules/ads/video/mount";
-import { BEAT_ROLES } from "@/modules/ads/video/base-v1";
-import { BACKGROUNDS, ELEMENT_TYPES, ENTRIES, EXITS, MAX_ELEMENTS, MOVES } from "@/modules/ads/video/elements";
-import { MAX_SHOT, MAX_TOTAL, MIN_SHOT, MIN_TOTAL, MIN_ZOOM } from "@/modules/ads/video/score";
 
 /**
  * Les outils qui passent par l'atelier de créas (plan Publicité, §9 quater,
  * commit 4). Chacun APPELLE l'atelier par `deps.atelier` — génération et
- * garde-fous des textes, rendu des visuels, file « À valider » — et rien n'est
- * recopié ici. Les choix du stratège et de l'orchestrateur deviennent des
+ * garde-fous des textes, brief Claude Design, file « À valider » — et rien
+ * n'est recopié ici. Les choix du stratège et de l'orchestrateur deviennent des
  * décisions journalisées, avec leur justification.
  *
  * Tout ce qui toucherait Meta (audiences, répartition du budget) naît
@@ -99,7 +98,7 @@ async function decide(ctx: ToolContext, kind: DecisionKind, status: DecisionStat
 const lireBrief: AgentTool = {
   definition: {
     name: "lire_brief",
-    description: "Le brief de la campagne, le kit de marque, les faits sourcés autorisés, le quota de créas de la semaine et les gabarits de visuels disponibles.",
+    description: "Le brief de la campagne, le kit de marque, les faits sourcés autorisés et le quota de créas de la semaine.",
     input_schema: { type: "object", properties: {} },
   },
   async run(ctx) {
@@ -168,138 +167,59 @@ const genererTextes: AgentTool = {
   },
 };
 
-const rendreVisuels: AgentTool = {
-  definition: {
-    name: "rendre_visuels",
-    description: "Rend les visuels d'une créa aux trois formats Meta, avec un gabarit de l'atelier (voir lire_brief). Sans gabarit, l'atelier choisit selon la matière disponible.",
-    input_schema: {
-      type: "object",
-      properties: { crea: { type: ["number", "string"] }, gabarit: { type: "string", enum: ["capture", "chiffre", "photo", "texte"] } },
-      required: ["crea"],
-    },
-  },
-  async run(ctx, input) {
-    try {
-      const r = await ctx.deps.atelier.render(ctx.run.campaign, idOf(input.crea), input.gabarit ? String(input.gabarit) : undefined);
-      return { kind: "ok", output: r, line: `${who(ctx)} rend les visuels de la créa ${String(input.crea)} (gabarit « ${r.template} », ${r.visuals} format(s)).` };
-    } catch (e) {
-      return errorOf(ctx, e, "le rendu des visuels");
-    }
-  },
-};
-
 const lireRushes: AgentTool = {
   definition: {
     name: "lire_rushes",
     description:
-      "La matière des vidéos : les rushes prêts (écrans de l'app, chantier…) avec ce qu'on y voit, la description détaillée validée et ses plans repérés, la durée et le recadrage (zone utile, zone à ne jamais couper) ; les styles actifs, avec quand employer chacun et ce que le moteur en fait (un zoom ou un sous-titre que le style ignore ne sert à rien) ; les musiques, avec quand les employer et leur tempo ; les inspirations de Charlie — des pubs à imiter ou à éviter, réduites à leur fiche de style (elles ne se montent jamais) ; et le vocabulaire des éléments animés (sans fond, à poser sur n'importe quel fond), avec leurs données.",
+      "Les rushes importés par Charlie — enregistrements d'écran de l'app (données fictives), images de chantier ou de bureau — avec ce qu'on y voit et les fonctionnalités montrées. Pour choisir ceux à joindre à un brief : un angle pointage joint un rush de pointage.",
     input_schema: { type: "object", properties: {} },
   },
   async run(ctx) {
-    // La Base V1 est déjà dans les consignes du directeur artistique (mises en cache) : inutile de la renvoyer ici à chaque lecture.
-    const m: Omit<Awaited<ReturnType<typeof ctx.deps.atelier.videoMaterial>>, "base"> & { base?: unknown } = await ctx.deps.atelier.videoMaterial();
-    delete m.base;
-    return {
-      kind: "ok",
-      output: m,
-      line: `${who(ctx)} passe en revue ${m.rushes.length} rush(es) prêt(s), ${m.styles.length} style(s), ${m.musiques.length} musique(s)${m.inspirations.length ? ` et ${m.inspirations.length} inspiration(s)` : ""}.`,
-    };
+    const rushes = await ctx.deps.atelier.rushes();
+    return { kind: "ok", output: rushes, line: `${who(ctx)} passe en revue ${rushes.length} rush(es).` };
   },
 };
 
-const monterVideo: AgentTool = {
+const ecrireBriefDesign: AgentTool = {
   definition: {
-    name: "monter_video",
+    name: "ecrire_brief_design",
     description: [
-      `Monte la vidéo d'une créa : tu écris la partition (les plans, dans l'ordre), le moteur la rend aux trois formats Meta. Tu peux tester plusieurs styles sur une musique, OU un style sur plusieurs musiques — jamais les deux à la fois —, ${MAX_VARIANTS} vidéos au plus.`,
-      "La première variante va sur la créa ; chaque suivante crée une copie étiquetée « test de style » ou « test de musique » (même angle, mêmes textes), comptée dans le quota de la semaine.",
-      "Sur une musique au tempo connu, le moteur cale chaque coupe sur le temps : écris des durées proches de multiples du temps (60 / BPM) — les coupes vont sur le temps suivant, jamais avant. Sans musique précisée, c'est celle du Kit de marque.",
-      `Le code vérifie la partition avant tout rendu : ${MIN_TOTAL} à ${MAX_TOTAL} s au total, plans de ${MIN_SHOT} à ${MAX_SHOT} s, au moins un plan qui montre le logiciel (rush, ou plan composé sur un rush ou avec un élément d'interface), aucun élément hors du cadre ni opaque sur la zone protégée d'un rush dans aucun format, une seule fin et en dernier, des rushes prêts pris dans leur durée, aucun zoom plus serré que ${MIN_ZOOM * 100} % ni qui coupe la zone protégée, aucun chiffre absent des faits sourcés et de l'offre, aucune mention interdite. Un refus dit pourquoi : corrige et rappelle.`,
-      "BASE V1 OBLIGATOIRE : écris base « v1 » et le role de chaque plan, dans l'ordre accroche → retournement → geste → consequence → (preuve) → fin ; suis « base » de lire_rushes (ce qui est gardé, ce qui est libre, le vocabulaire : transitions, caméra, fonds, téléphone) et inspire-toi de ses deux exemples sans les recopier.",
-      "Le rendu prend quelques minutes, sans coût IA ; la vidéo apparaît sur la carte de la créa.",
+      "Écrit le brief Claude Design d'une créa : Charlie le colle dans Claude Design, y joint les rushes désignés et le logo, puis importe les fichiers finis sur la créa.",
+      "Tu donnes l'INTENTION : la nature (video, image ou les-deux), les formats, la durée d'une vidéo, pourquoi cette pub face à ce que font les concurrents (cite ce que tu as lu), la direction créative — temps par temps pour une vidéo (accroche, retournement, geste, conséquence, preuve facultative, fin : les mots exacts à l'écran, ce que montre le rush, le mouvement), la composition pour un visuel fixe — et les rushes à joindre (voir lire_rushes).",
+      "Le serveur y ajoute toujours les textes de la créa passés aux garde-fous, les règles de design de la Base V1, le kit de marque, les zones sûres de Meta et les noms de fichiers à exporter : ne les recopie pas.",
+      "Aucun chiffre absent des faits sourcés, aucun témoignage, aucune mention interdite. Un refus dit pourquoi : corrige et rappelle. Sans coût IA.",
     ].join(" "),
     input_schema: {
       type: "object",
       properties: {
         crea: { type: ["number", "string"] },
-        styles: { type: "array", items: { type: "number" }, minItems: 1, maxItems: MAX_VARIANTS, description: "Les identifiants des styles (voir lire_rushes), le préféré d'abord." },
-        musiques: { type: "array", items: { type: "number" }, minItems: 1, maxItems: MAX_VARIANTS, description: "Les identifiants des musiques (voir lire_rushes), la préférée d'abord. Omis : la musique du Kit de marque." },
-        partition: {
-          type: "object",
-          properties: {
-            base: { type: "string", enum: ["v1"], description: "La base de montage suivie : toujours « v1 »." },
-            shots: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  role: { type: "string", enum: [...BEAT_ROLES], description: "Le temps de la Base V1 que joue ce plan." },
-                  transition: { type: "object", description: "Comment ce plan entre : type (voir base.vocabulaire.transitions), seconds, x/y pour « cercle »." },
-                  camera: { type: "object", description: "Plan composé : le mouvement de caméra (voir base.vocabulaire.camera)." },
-                  kind: {
-                    type: "string",
-                    // La Base V1 ne compose qu'avec ces deux-là (les anciens types restent lus pour les anciennes créas).
-                    enum: ["compo", "fin"],
-                    description: "compo : un plan composé — un fond et des éléments animés posés dessus (voir « elements » dans lire_rushes). fin : le logo puis l'offre et le bouton (le moteur s'en charge).",
-                  },
-                  fond: {
-                    type: "object",
-                    description: "compo : le fond (voir base.vocabulaire.fonds). type : couleur (couleur, halo), telephone (rush, from, to, couleur, halo, telephone {…}), rush (rush, from, to, zoom, flou, voile 0 à 0,7), image (media, flou, voile), style.",
-                    properties: { type: { type: "string", enum: [...BACKGROUNDS] } },
-                  },
-                  elements: {
-                    type: "array",
-                    maxItems: MAX_ELEMENTS,
-                    description: "compo : les éléments, chacun placé par son centre (x, y en fractions du cadre, 0 à 1), sa largeur (fraction du cadre), son début et sa fin (secondes dans le plan), son entrée, sa sortie et son mouvement.",
-                    items: {
-                      type: "object",
-                      properties: {
-                        type: { type: "string", enum: [...ELEMENT_TYPES] },
-                        variante: { type: "number", description: "L'identifiant d'une variante active de l'atelier (voir « elements.variantes » dans lire_rushes), du même type ; omise, l'élément de base." },
-                        data: { type: "object" },
-                        x: { type: "number" },
-                        y: { type: "number" },
-                        largeur: { type: "number" },
-                        hauteur: { type: "number", description: "surbrillance : la hauteur de la zone." },
-                        x2: { type: "number", description: "fleche : le point d'arrivée." },
-                        y2: { type: "number" },
-                        debut: { type: "number" },
-                        fin: { type: "number" },
-                        entree: { type: "string", enum: [...ENTRIES] },
-                        sortie: { type: "string", enum: [...EXITS] },
-                        mouvement: { type: "string", enum: [...MOVES] },
-                      },
-                      required: ["type", "x", "y", "debut"],
-                    },
-                  },
-                  seconds: { type: "number" },
-                  line: { type: "string", description: "fin : une phrase au-dessus du bouton." },
-                },
-                required: ["kind", "seconds"],
-              },
-            },
-          },
-          required: ["shots"],
-        },
-        justification: { type: "string", description: "Pourquoi ce montage et ces styles pour cet angle." },
+        nature: { type: "string", enum: BRIEF_KIND_VALUES },
+        formats: { type: "array", items: { type: "string", enum: [...FORMAT_KEYS] }, minItems: 1, maxItems: 3, description: "9x16 pour Stories et Reels, 4x5 et 1x1 pour le fil d'actualité." },
+        duree: { type: "number", description: `Vidéo : la durée visée en secondes (la Base V1 vise ${VIDEO_SECONDS.target[0]} à ${VIDEO_SECONDS.target[1]} s).` },
+        pourquoi: { type: "string", description: "Pourquoi cette pub, face à ce que font les concurrents : quelques phrases." },
+        direction: { type: "string", description: "La direction créative, précise : temps par temps pour une vidéo, la composition pour un visuel fixe." },
+        rushes: { type: "array", items: { type: "number" }, description: "Les identifiants des rushes à joindre (voir lire_rushes)." },
       },
-      required: ["crea", "styles", "partition", "justification"],
+      required: ["crea", "nature", "formats", "pourquoi", "direction"],
     },
   },
   async run(ctx, input) {
-    const styles = (Array.isArray(input.styles) ? input.styles : []).map(idOf);
     try {
-      const musics = Array.isArray(input.musiques) ? input.musiques.map(idOf) : undefined;
-      const r = await ctx.deps.atelier.video(ctx.run.campaign, idOf(input.crea), { styles, musics, score: input.partition });
-      const tests = r.creas.filter((c) => c.test).length;
-      const label = (c: (typeof r.creas)[number]) => `« ${clip(c.styleNom, 30)} »${c.musiqueNom ? ` sur « ${clip(c.musiqueNom, 30)} »` : ", sans musique"}`;
+      const r = await ctx.deps.atelier.writeBrief(ctx.run.campaign, idOf(input.crea), {
+        kind: input.nature as "video" | "image" | "les-deux",
+        formats: (Array.isArray(input.formats) ? input.formats : []).map(String) as never,
+        durationSec: typeof input.duree === "number" ? input.duree : null,
+        rationale: String(input.pourquoi ?? ""),
+        scenario: String(input.direction ?? ""),
+        rushes: (Array.isArray(input.rushes) ? input.rushes : []).map(idOf),
+      });
       return {
         kind: "ok",
-        output: r,
-        line: `${who(ctx)} monte la vidéo de la créa ${String(input.crea)} : ${r.creas.map(label).join(" ; ")}${tests ? ` (${tests} test(s))` : ""}${r.ecartes.length ? ` — ${r.ecartes.length} variante(s) écartée(s) : quota` : ""}.`,
+        output: { fichiersAttendus: r.files },
+        line: `${who(ctx)} écrit le brief Claude Design de la créa ${String(input.crea)} (${r.files.join(", ")}).`,
       };
     } catch (e) {
-      return errorOf(ctx, e, "le montage vidéo");
+      return errorOf(ctx, e, "le brief Claude Design");
     }
   },
 };
@@ -313,7 +233,7 @@ async function rejectionsOf(ctx: ToolContext, angle: string): Promise<number> {
 const verifierCrea: AgentTool = {
   definition: {
     name: "verifier_crea",
-    description: "Une créa telle qu'elle est : angle demandé, textes et verdict des garde-fous de l'atelier, visuels, rejets déjà prononcés sur cet angle.",
+    description: "Une créa telle qu'elle est : angle demandé, textes et verdict des garde-fous de l'atelier, brief Claude Design écrit ou non, fichiers encore attendus, rejets déjà prononcés sur cet angle.",
     input_schema: { type: "object", properties: { crea: { type: ["number", "string"] } }, required: ["crea"] },
   },
   async run(ctx, input) {
@@ -399,61 +319,63 @@ const proposerAngles: AgentTool = {
   },
 };
 
-const MODES = { "advantage-plus": "Advantage+ seul", "test-detaille-vs-advantage-plus": "ciblage détaillé contre Advantage+" } as const;
+const ENSEMBLE_SCHEMA = {
+  type: "object",
+  properties: {
+    nom: { type: "string" },
+    part: { type: "number", description: "Part du budget Meta de la campagne, en % (le total des ensembles fait 100)." },
+    advantage: { type: "boolean", description: "Advantage+ audience : Meta élargit au-delà du ciblage, qui devient une suggestion. Par défaut : oui." },
+    pays: { type: "array", items: { type: "string" }, description: "Codes pays (FR par défaut)." },
+    regions: { type: "array", items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" } } }, description: "Régions trouvées par chercher_ciblage (type region)." },
+    age_min: { type: "number" },
+    age_max: { type: "number" },
+    genres: { type: "string", enum: ["tous", "hommes", "femmes"] },
+    interets: { type: "array", items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" } } }, description: "Centres d'intérêt trouvés par chercher_ciblage — jamais inventés." },
+    metiers: { type: "array", items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" } } }, description: "Métiers trouvés par chercher_ciblage — jamais inventés." },
+  },
+  required: ["nom", "part"],
+} as const;
 
-const proposerAudiences: AgentTool = {
+const proposerPlanDiffusion: AgentTool = {
   definition: {
-    name: "proposer_audiences",
-    description:
-      "Propose les audiences Meta. Un test « ciblage détaillé contre Advantage+ » n'est permis que si le budget Meta alimente les deux ensembles : donne les chiffres (budget, CPL cible, conversions attendues par semaine et par ensemble) et justifie le seuil. Sinon, Advantage+ seul. Une proposition : rien n'est envoyé à Meta.",
+    name: "proposer_plan_diffusion",
+    description: [
+      "Propose le plan de diffusion Meta de la campagne : l'OBJECTIF (trafic, prospects, notoriete, interaction), ce sur quoi Meta optimise, et 1 à 4 ensembles de publicités avec leur part du budget et leur ciblage.",
+      "Choisis selon le besoin de la campagne et le budget : trafic optimisé sur les vues de page pour faire venir sur une page ; prospects (conversions) seulement si le compte a un pixel ; notoriété pour faire connaître ; interaction (vues de vidéo) pour une vidéo forte.",
+      "Les intérêts, métiers et régions viennent de chercher_ciblage : leurs identifiants sont ceux de Meta.",
+      "Plusieurs ensembles (un test) : donne les chiffres qui montrent que le budget les nourrit tous (décision du 29/09/2026). Sinon, un seul ensemble Advantage+.",
+      "Une proposition : la publication reste un geste de Charlie.",
+    ].join(" "),
     input_schema: {
       type: "object",
       properties: {
-        mode: { type: "string", enum: Object.keys(MODES) },
-        budget_meta_quotidien_eur: { type: "number" },
-        ensembles: { type: "number", description: "1 pour Advantage+ seul, 2 pour le test." },
-        cpl_cible_eur: { type: "number" },
-        conversions_semaine_par_ensemble: { type: "number" },
-        ciblage_detaille: { type: "string", description: "Métiers, âges, lieux — pour le test." },
-        justification: { type: "string", description: "Et le seuil retenu, chiffres à l'appui." },
+        objectif: { type: "string", enum: Object.keys(OBJECTIFS) },
+        optimisation: { type: "string", enum: Object.keys(OPTIMISATIONS) },
+        ensembles: { type: "array", minItems: 1, maxItems: MAX_ENSEMBLES, items: ENSEMBLE_SCHEMA },
+        chiffres: {
+          type: "object",
+          properties: { budget_meta_quotidien_eur: { type: "number" }, cout_cible_eur: { type: "number" }, resultats_semaine_par_ensemble: { type: "number" } },
+          description: "Obligatoires pour plusieurs ensembles.",
+        },
+        justification: { type: "string", description: "Pourquoi cet objectif et ces ensembles, chiffres à l'appui." },
         appuis: APPUIS,
       },
-      required: ["mode", "budget_meta_quotidien_eur", "ensembles", "justification", "appuis"],
+      required: ["objectif", "ensembles", "justification", "appuis"],
     },
   },
   async run(ctx, input) {
     const appuis = appuisOf(ctx, input);
     if (isOutcome(appuis)) return appuis;
-    const mode = String(input.mode) as keyof typeof MODES;
-    const num = (k: string) => (typeof input[k] === "number" && Number.isFinite(input[k]) && (input[k] as number) > 0 ? (input[k] as number) : null);
-    const after = {
-      mode,
-      budgetMetaQuotidienEur: num("budget_meta_quotidien_eur"),
-      ensembles: num("ensembles"),
-      cplCibleEur: num("cpl_cible_eur"),
-      conversionsSemaineParEnsemble: num("conversions_semaine_par_ensemble"),
-      ciblageDetaille: input.ciblage_detaille ? String(input.ciblage_detaille) : null,
-    };
-    // Décision 7 du 29/09/2026 : le test exige ses chiffres, en champs structurés. Le seuil reste le jugement de l'agent.
-    const missing =
-      mode === "test-detaille-vs-advantage-plus"
-        ? [
-            after.ensembles !== 2 && "2 ensembles",
-            !after.budgetMetaQuotidienEur && "le budget Meta quotidien",
-            !after.cplCibleEur && "le CPL cible",
-            !after.conversionsSemaineParEnsemble && "les conversions attendues par semaine et par ensemble",
-            !after.ciblageDetaille && "le ciblage détaillé",
-          ].filter(Boolean)
-        : mode === "advantage-plus"
-          ? [!after.budgetMetaQuotidienEur && "le budget Meta quotidien"].filter(Boolean)
-          : ["un mode connu"];
-    if (missing.length) {
-      const reason = `Il manque ${missing.join(", ")}.`;
-      await decide(ctx, "audience", "bloquee", String(input.justification ?? ""), after, appuis, reason);
-      return { kind: "ok", isError: true, output: { refus: reason }, line: `${who(ctx)} : proposition d'audience refusée — ${reason}` };
+    const plan = readPlan(input);
+    const [budget, hasPixel] = await Promise.all([ctx.deps.atelier.campaignBudget(ctx.run.campaign), ctx.deps.sources.hasPixel(ctx.run.campaign).catch(() => undefined)]);
+    const problems = planProblems(plan, { metaDailyEur: plan.chiffres?.budgetMetaQuotidienEur ?? (budget ? budget.totalDailyEur : null), hasPixel });
+    if (problems.length) {
+      const reason = problems.join(" ");
+      await decide(ctx, "audience", "bloquee", String(input.justification ?? ""), plan, appuis, reason);
+      return { kind: "ok", isError: true, output: { refus: reason }, line: `${who(ctx)} : plan de diffusion refusé — ${clip(reason, 100)}` };
     }
-    await decide(ctx, "audience", "proposee", String(input.justification ?? ""), after, appuis);
-    return { kind: "ok", output: { ok: true }, line: `${who(ctx)} propose ${MODES[mode]} (${eur(after.budgetMetaQuotidienEur!)} par jour chez Meta).` };
+    await decide(ctx, "audience", "proposee", String(input.justification ?? ""), plan, appuis);
+    return { kind: "ok", output: { ok: true }, line: `${who(ctx)} propose le plan de diffusion : ${clip(planSummary(plan), 120)}.` };
   },
 };
 
@@ -511,14 +433,13 @@ const deposerAValider: AgentTool = {
 export const ATELIER_TOOLS: AgentTool[] = [
   lireBrief,
   genererTextes,
-  rendreVisuels,
   lireRushes,
-  monterVideo,
+  ecrireBriefDesign,
   verifierCrea,
   jugerCrea,
   proposerPositionnement,
   proposerAngles,
-  proposerAudiences,
+  proposerPlanDiffusion,
   repartirBudget,
   deposerAValider,
 ];

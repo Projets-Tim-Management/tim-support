@@ -119,11 +119,9 @@ describe("adaptateur Meta (API Graph simulée)", () => {
     expect((err as Error).message).toMatch(/17.*limit/);
   });
 
-  it("ne déclare que la lecture : aucune méthode d'écriture", () => {
+  it("déclare la lecture et, depuis la 3b, la publication", () => {
     const { platform } = graph([]);
-    expect(platform.capabilities).toEqual(["lecture"]);
-    expect(platform.setBudget).toBeUndefined();
-    expect(platform.setStatus).toBeUndefined();
+    expect(platform.capabilities).toEqual(["lecture", "creation", "upload-crea", "statut", "budget"]);
   });
 });
 

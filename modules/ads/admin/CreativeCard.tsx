@@ -1,16 +1,16 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- aperçus de fichiers du CDN Blob, à leur taille réelle : next/image n'apporte rien ici. */
 import { toast } from "@payloadcms/ui";
 import { useState } from "react";
 
 import { TEXT_LIMITS } from "@/modules/ads/lib/copy/guardrails";
-import { CREATIVE_FORMATS, REFUSAL_REASONS, labelOf } from "@/modules/ads/lib/creative-options";
-import { TEMPLATES } from "@/modules/ads/lib/render/templates";
+import { stageOf, type CardStage } from "@/modules/ads/lib/card-stage";
+import { REFUSAL_REASONS } from "@/modules/ads/lib/creative-options";
 
-import { CreativeRetouches, type CardRetouch } from "./CreativeRetouches";
-import { CreativeVideo, type CardVideo, type MusicOption, type StyleOption } from "./CreativeVideo";
+import { StepCreate, StepImport, type Attachment, type CardBrief, type CardFile, type ExpectedFile } from "./CreativeDesign";
 import { postAdmin } from "./post-admin";
+
+export type { Attachment };
 
 export type CardCreative = {
   id: number | string;
@@ -25,14 +25,25 @@ export type CardCreative = {
   status: string;
   campaign: { id: number | string; name: string } | null;
   texts: { kind: string; text: string; status: string; reason: string | null; chars: number }[];
-  assets: { format: string; url: string | null; template: string | null }[];
+  /** Le brief Claude Design, s'il est écrit. */
+  brief: CardBrief | null;
+  /** Les fichiers finis importés, ceux que le brief attend, et ce qu'il manque. */
+  files: CardFile[];
+  expected: ExpectedFile[];
+  missing: string[];
   facts: { statement: string; source: string }[];
   costEur: number | null;
   decidedAt: string | null;
   refusal: string | null;
-  video: CardVideo | null;
-  /** Les retouches demandées sur cette créa, de la plus ancienne à la plus récente. */
-  retouches: CardRetouch[];
+};
+
+const STAGE_LABEL: Record<CardStage, string> = {
+  creer: "À créer dans Claude Design",
+  importer: "Fichiers à compléter",
+  valider: "Prête à valider",
+  validee: "Validée",
+  refusee: "Refusée",
+  "sans-brief": "Sans brief",
 };
 
 const KIND: Record<string, string> = { principal: "Textes principaux", titre: "Titres", description: "Descriptions" };
@@ -44,20 +55,20 @@ const charTone = (kind: string, n: number) => {
 };
 
 /**
- * Une créa dans la file : ce qu'il faut voir pour décider, et les gestes.
+ * Une créa dans la file, en TROIS ÉTAPES numérotées — créer dans Claude Design,
+ * importer les fichiers, valider — dont seule l'étape en cours est mise en
+ * avant. Le badge dit en un mot ce qu'il reste à faire. Les textes de l'annonce
+ * (une douzaine) sont repliés derrière un aperçu : on les relit au moment de
+ * valider, pas avant d'avoir créé la pub.
  *
- * Valider et refuser sont des clics qui agissent — pas de case à cocher puis
- * enregistrer. Refuser demande un motif, dans la carte (pas une fenêtre qui
- * cache ce qu'on refuse). Les textes rejetés par les garde-fous sont repliés
- * mais présents : on voit ce que le modèle a tenté.
+ * Valider et refuser sont des clics qui agissent. Refuser demande un motif,
+ * dans la carte.
  */
-export function CreativeCard({ c, styles = [], musics = [] }: { c: CardCreative; styles?: StyleOption[]; musics?: MusicOption[] }) {
+export function CreativeCard({ c, logos = [] }: { c: CardCreative; logos?: Attachment[] }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [refusing, setRefusing] = useState(false);
   const [reason, setReason] = useState("");
   const [detail, setDetail] = useState("");
-  const [template, setTemplate] = useState("");
-  const [safe, setSafe] = useState(true);
 
   const call = async (what: string, url: string, body: unknown, done: string) => {
     setBusy(what);
@@ -71,61 +82,79 @@ export function CreativeCard({ c, styles = [], musics = [] }: { c: CardCreative;
     }
   };
 
+  const stage = stageOf(c);
   const ok = c.texts.filter((t) => t.status === "ok");
   const rejected = c.texts.filter((t) => t.status === "rejete");
-  const pending = c.status === "a-valider";
+  const open = c.status === "a-valider" || c.status === "brouillon";
+  const firstText = ok.find((t) => t.kind === "principal")?.text;
+  const firstTitle = ok.find((t) => t.kind === "titre")?.text;
+  const step = stage === "creer" ? 1 : stage === "importer" ? 2 : 3;
 
   return (
-    <article className="ads-card">
+    <article className={`ads-card ads-card--${stage}`}>
       <header className="ads-card__head">
         <div>
           <h3 className="ads-card__angle">{c.angle}</h3>
-          {c.requestedAngle && (
-            <p className="ads-card__origin" title="Le rédacteur peut reformuler : voici l'angle que le stratège avait choisi.">
-              Angle demandé par l'agent : « {c.requestedAngle} »
-            </p>
-          )}
           <p className="ads-card__meta">
-            {c.campaign?.name ?? "—"} · Bouton « {c.cta} »{c.costEur != null ? ` · ${c.costEur.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 3 })}` : ""}
+            C{String(c.id)} · {c.campaign?.name ?? "—"} · Bouton « {c.cta} » · {c.toneLabel}
+            {c.testLabels.length ? ` · ${c.testLabels.join(", ")}` : ""}
           </p>
         </div>
-        <div className="ads-card__badges">
-          <span className="ads-badge">{c.toneLabel}</span>
-          {c.testLabels.map((l) => (
-            <span key={l} className="ads-badge ads-badge--test" title="Variante étiquetée : ses résultats seront comptés à part.">
-              {l}
-            </span>
-          ))}
-          {c.status === "validee" && <span className="ads-badge ads-badge--ok">Validée</span>}
-          {c.status === "refusee" && <span className="ads-badge ads-badge--bad">Refusée{c.refusal ? ` — ${c.refusal}` : ""}</span>}
-        </div>
+        <span className={`ads-stage ads-stage--${stage}`}>{STAGE_LABEL[stage]}{stage === "refusee" && c.refusal ? ` — ${c.refusal}` : ""}</span>
       </header>
 
-      <div className="ads-card__body">
-        <div className="ads-card__visuals">
-          {c.assets.length ? (
-            c.assets.map((a) => (
-              <figure key={a.format} className={`ads-shot ads-shot--${a.format}`}>
-                {a.url ? <img src={a.url} alt={`${c.angle} — ${labelOf(CREATIVE_FORMATS, a.format)}`} /> : null}
-                {a.format === "9x16" && safe && <span className="ads-shot__safe" aria-hidden />}
-                <figcaption>{labelOf(CREATIVE_FORMATS, a.format)}</figcaption>
-              </figure>
-            ))
-          ) : (
-            <p className="ads-card__empty">Pas encore de visuel.</p>
-          )}
-          {c.assets.some((a) => a.format === "9x16") && (
-            <label className="ads-card__toggle">
-              <input type="checkbox" checked={safe} onChange={(e) => setSafe(e.target.checked)} /> Zone sûre 9:16 (ce que l&apos;interface de Meta peut couvrir)
-            </label>
-          )}
-          {(c.status === "a-valider" || c.status === "brouillon" || c.video?.renders.length) && <CreativeVideo id={c.id} video={c.video} styles={styles} musics={musics} />}
-        </div>
+      {c.brief && open && (
+        <ol className="ads-steps">
+          <li className={`ads-step${step === 1 ? " ads-step--current" : " ads-step--done"}`}>
+            <div className="ads-step__head">
+              <span className="ads-step__num">{step > 1 ? "✓" : "1"}</span>
+              <strong>Créer la pub dans Claude Design</strong>
+            </div>
+            {step === 1 ? (
+              <StepCreate brief={c.brief} expected={c.expected} logos={logos} />
+            ) : (
+              <details className="ads-step__again">
+                <summary>Revoir le brief</summary>
+                <StepCreate brief={c.brief} expected={c.expected} logos={logos} />
+              </details>
+            )}
+          </li>
+          <li className={`ads-step${step === 2 ? " ads-step--current" : step > 2 ? " ads-step--done" : ""}`}>
+            <div className="ads-step__head">
+              <span className="ads-step__num">{step > 2 ? "✓" : "2"}</span>
+              <strong>Importer les fichiers exportés</strong>
+            </div>
+            <StepImport id={c.id} files={c.files} expected={c.expected} editable={open} />
+          </li>
+          <li className={`ads-step${step === 3 ? " ads-step--current" : ""}`}>
+            <div className="ads-step__head">
+              <span className="ads-step__num">3</span>
+              <strong>Relire les textes et valider</strong>
+            </div>
+          </li>
+        </ol>
+      )}
 
+      {stage === "validee" && c.files.length > 0 && <StepImport id={c.id} files={c.files} expected={c.expected} editable={false} />}
+
+      <details className="ads-card__copy">
+        <summary>
+          <span>Textes de l&apos;annonce</span>
+          {firstTitle || firstText ? (
+            <em>
+              {firstTitle ? `« ${firstTitle} »` : ""}
+              {firstTitle && firstText ? " — " : ""}
+              {firstText ? `${firstText.slice(0, 90)}${firstText.length > 90 ? "…" : ""}` : ""}
+            </em>
+          ) : null}
+          <small>
+            {ok.filter((t) => t.kind === "principal").length} textes, {ok.filter((t) => t.kind === "titre").length} titres, {ok.filter((t) => t.kind === "description").length} descriptions
+          </small>
+        </summary>
         <div className="ads-card__texts">
           {c.hook && (
             <p className="ads-card__hook">
-              <span>Accroche du visuel</span> {c.hook}
+              <span>Accroche</span> {c.hook}
             </p>
           )}
           {(["principal", "titre", "description"] as const).map((kind) => {
@@ -134,7 +163,7 @@ export function CreativeCard({ c, styles = [], musics = [] }: { c: CardCreative;
             return (
               <section key={kind} className="ads-card__group">
                 <h4>
-                  {KIND[kind]} <small>limite {TEXT_LIMITS[kind].max}, lu en entier jusqu&apos;à {TEXT_LIMITS[kind].target}</small>
+                  {KIND[kind]} <small>lu en entier jusqu&apos;à {TEXT_LIMITS[kind].target} caractères</small>
                 </h4>
                 <ol>
                   {list.map((t, i) => (
@@ -147,14 +176,10 @@ export function CreativeCard({ c, styles = [], musics = [] }: { c: CardCreative;
               </section>
             );
           })}
-          {c.facts.length > 0 && (
-            <p className="ads-card__facts">
-              Cite : {c.facts.map((f) => `${f.statement} (${f.source})`).join(" ; ")}
-            </p>
-          )}
+          {c.facts.length > 0 && <p className="ads-card__facts">Preuves citées : {c.facts.map((f) => `${f.statement} (${f.source})`).join(" ; ")}</p>}
           {rejected.length > 0 && (
             <details className="ads-card__rejected">
-              <summary>{rejected.length} texte(s) rejeté(s) par les garde-fous</summary>
+              <summary>{rejected.length} texte(s) écarté(s) par les garde-fous</summary>
               <ul>
                 {rejected.map((t, i) => (
                   <li key={i}>
@@ -165,22 +190,27 @@ export function CreativeCard({ c, styles = [], musics = [] }: { c: CardCreative;
             </details>
           )}
         </div>
-      </div>
-
-      {(pending || c.retouches.length > 0) && <CreativeRetouches id={c.id} retouches={c.retouches} />}
+      </details>
 
       <footer className="ads-card__actions">
-        {pending && !refusing && (
+        {c.status === "a-valider" && !refusing && (
           <>
-            <button type="button" className="tim-btn tim-btn--primary" disabled={busy != null} onClick={() => call("ok", `/api/admin/ads/creatives/${c.id}/decide`, { decision: "validee" }, "Créa validée.")}>
+            <button
+              type="button"
+              className="tim-btn tim-btn--primary"
+              disabled={busy != null || stage !== "valider"}
+              title={stage === "valider" ? undefined : c.brief ? `Importez d'abord : ${c.missing.join(", ")}` : "Cette créa n'a pas de brief : refusez-la."}
+              onClick={() => call("ok", `/api/admin/ads/creatives/${c.id}/decide`, { decision: "validee" }, "Créa validée.")}
+            >
               {busy === "ok" ? "…" : "Valider"}
             </button>
             <button type="button" className="tim-btn" disabled={busy != null} onClick={() => setRefusing(true)}>
               Refuser…
             </button>
+            {stage !== "valider" && c.brief && <span className="ads-card__hint">Valider s&apos;active quand tous les fichiers sont importés.</span>}
           </>
         )}
-        {pending && refusing && (
+        {c.status === "a-valider" && refusing && (
           <div className="ads-card__refuse">
             <select value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Motif du refus">
               <option value="">Motif du refus…</option>
@@ -204,25 +234,25 @@ export function CreativeCard({ c, styles = [], musics = [] }: { c: CardCreative;
             </button>
           </div>
         )}
-        {(pending || c.status === "brouillon") && (
-          <div className="ads-card__rerender">
-            <select value={template} onChange={(e) => setTemplate(e.target.value)} aria-label="Gabarit">
-              <option value="">Changer de visuel…</option>
-              {TEMPLATES.map((t) => (
-                <option key={t.key} value={t.key}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-            <button type="button" className="tim-btn" disabled={!template || busy != null} onClick={() => call("render", `/api/admin/ads/creatives/${c.id}/render`, { template }, "Visuels rendus de nouveau.")}>
-              {busy === "render" ? "Rendu…" : "Rendre"}
-            </button>
-          </div>
-        )}
         {c.status === "validee" && (
-          <a className="tim-btn tim-btn--primary" href={`/api/admin/ads/creatives/${c.id}/download`}>
-            Télécharger (ZIP)
-          </a>
+          <>
+            <a className="tim-btn tim-btn--primary" href={`/api/admin/ads/creatives/${c.id}/download`}>
+              Télécharger (ZIP)
+            </a>
+            <button
+              type="button"
+              className="tim-btn"
+              disabled={busy != null}
+              title="Repasse la créa « À valider » pour remplacer ses fichiers. Impossible une fois publiée chez Meta."
+              onClick={() => {
+                if (window.confirm("Rouvrir cette créa ? Elle repasse « À valider » : vous pourrez remplacer ses fichiers, puis la valider de nouveau.")) {
+                  void call("rouvrir", `/api/admin/ads/creatives/${c.id}/decide`, { decision: "rouvrir" }, "Créa rouverte : elle est de nouveau dans « À valider ».");
+                }
+              }}
+            >
+              {busy === "rouvrir" ? "…" : "Rouvrir pour modifier"}
+            </button>
+          </>
         )}
       </footer>
     </article>

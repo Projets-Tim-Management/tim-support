@@ -5,15 +5,14 @@ import { AGENT_CLIENT_OPTIONS } from "@/modules/ads/agent/claude";
 import { callClaudeWithin } from "@/modules/ads/lib/copy/claude";
 import { generateCreatives, loadGenerationContext, publishable, weeklyUsed } from "@/modules/ads/lib/copy/generate";
 import { briefLines } from "@/modules/ads/lib/copy/prompt";
-import { FORMAT_KEYS } from "@/modules/ads/lib/render/formats";
-import { TEMPLATES, type TemplateKey } from "@/modules/ads/lib/render/templates";
-import { availableMaterial, renderCreativeVisuals, templateAvailable } from "@/modules/ads/lib/render/visuals";
-import { mountVideo, videoMaterial } from "@/modules/ads/video/mount";
+import { missingFiles, type CreativeFile } from "@/modules/ads/lib/creative-files";
+import { loadRushes } from "@/modules/ads/lib/design-brief/load";
+import { writeDesignBrief } from "@/modules/ads/lib/design-brief/write";
 
 /**
- * L'atelier de créas (phase 3a), branché pour l'agent de campagne : chaque
- * méthode APPELLE le code de l'atelier — génération et garde-fous des textes,
- * rendu des visuels, statut des créas. Rien n'est recopié ici.
+ * L'atelier de créas, branché pour l'agent de campagne : chaque méthode
+ * APPELLE le code de l'atelier — génération et garde-fous des textes, brief
+ * Claude Design, statut des créas. Rien n'est recopié ici.
  */
 
 type RawCreative = {
@@ -22,7 +21,8 @@ type RawCreative = {
   requestedAngle?: string | null;
   status?: string | null;
   copy?: { kind: string; text: string; status: string; reason?: string | null }[] | null;
-  assets?: { format: string; type: string }[] | null;
+  brief?: { prompt?: string | null; kind?: string | null; formats?: string[] | null } | null;
+  files?: CreativeFile[] | null;
 };
 
 const view = (c: RawCreative): CreativeView => ({
@@ -31,15 +31,19 @@ const view = (c: RawCreative): CreativeView => ({
   requestedAngle: c.requestedAngle ?? null,
   status: c.status ?? "brouillon",
   publishable: publishable(c.copy ?? []),
-  visuals: (c.assets ?? []).filter((a) => a.type === "image").length,
+  hasBrief: Boolean(c.brief?.prompt),
+  missingFiles: missingFiles(c),
   texts: (c.copy ?? []).map((t) => ({ kind: t.kind, text: t.text, status: t.status, reason: t.reason ?? null })),
 });
 
-/** Une créa se dépose si ses textes passent et qu'elle a un visuel dans chacun des formats Meta. Pure. */
+/**
+ * Une créa se dépose si ses textes passent et que son brief Claude Design est
+ * écrit. Les fichiers finis viennent ensuite, de Charlie, dans « À valider ». Pure.
+ */
 export function submitRefusal(c: CreativeView): string | null {
   if (c.status !== "brouillon") return `Déjà « ${c.status} ».`;
   if (!c.publishable) return "Il manque un texte principal ou un titre passé aux garde-fous.";
-  if (c.visuals < FORMAT_KEYS.length) return `Visuels incomplets (${c.visuals} sur ${FORMAT_KEYS.length} formats).`;
+  if (!c.hasBrief) return "Le brief Claude Design n'est pas écrit (ecrire_brief_design).";
   return null;
 }
 
@@ -55,15 +59,14 @@ export function payloadAtelier(payload: Payload): AtelierPort {
   return {
     async brief(campaign) {
       const ctx = await loadGenerationContext(payload, campaign);
-      const [used, material] = await Promise.all([weeklyUsed(payload, campaign, new Date()), availableMaterial(payload)]);
-      const have = { ...material, fact: ctx.brief.facts.length > 0 };
+      const used = await weeklyUsed(payload, campaign, new Date());
       return {
         resume: [
           ...briefLines(ctx.brief),
           "",
           `Ton : ${ctx.brief.tone === "vous" ? "vouvoiement" : "tutoiement"}.`,
           ctx.forbidden.length ? `Interdits (kit et campagne) : ${ctx.forbidden.join(", ")}.` : "",
-          // Les textes à l'écran d'une vidéo (accroche, sous-titres, fin) s'écrivent dans cette voix.
+          // Les textes à l'écran (accroche, titres de la vidéo) s'écrivent dans cette voix.
           ctx.voice.voice ? `VOIX DE LA MARQUE : ${ctx.voice.voice}` : "",
           ctx.voice.goodExamples ? `Phrases justes :\n${ctx.voice.goodExamples}` : "",
           ctx.voice.badExamples ? `Phrases à éviter :\n${ctx.voice.badExamples}` : "",
@@ -71,7 +74,6 @@ export function payloadAtelier(payload: Payload): AtelierPort {
           .filter(Boolean)
           .join("\n"),
         quotaRestant: Math.max(0, ctx.weeklyLimit - used),
-        gabarits: TEMPLATES.map((t) => ({ cle: t.key, libelle: t.label, disponible: templateAvailable(t.key, have) })),
       };
     },
 
@@ -86,20 +88,11 @@ export function payloadAtelier(payload: Payload): AtelierPort {
       return { creatives: await creatives(campaign, r.created), costEur: r.costEur };
     },
 
-    async render(campaign, creative, template) {
-      if (!(await creatives(campaign, [creative])).length) throw new Error("Créa introuvable dans cette campagne.");
-      const r = await renderCreativeVisuals(payload, creative, { template: template as TemplateKey | undefined, keepDraft: true });
-      return { template: r.template, visuals: r.assets };
-    },
-
     creatives,
 
-    videoMaterial: () => videoMaterial(payload),
+    rushes: () => loadRushes(payload),
 
-    async video(campaign, creative, req) {
-      if (!(await creatives(campaign, [creative])).length) throw new Error("Créa introuvable dans cette campagne.");
-      return mountVideo(payload, campaign, creative, req, new Date());
-    },
+    writeBrief: (campaign, creative, req) => writeDesignBrief(payload, campaign, creative, req),
 
     async submit(campaign, ids) {
       const submitted: Id[] = [];

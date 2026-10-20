@@ -8,8 +8,8 @@ import { testLabel, toneLabel, type TestDimension } from "@/modules/ads/lib/dime
  * Le paquet téléchargeable des créas validées (plan Publicité, §9 ter, point 7).
  *
  * Tout ce qu'il faut pour publier à la main dans le Gestionnaire de publicités,
- * sans rien retaper : les images aux trois formats, nommées pour qu'on sache ce
- * qu'on dépose, et un fichier de textes — textes principaux, titres,
+ * sans rien retaper : les fichiers finis importés depuis Claude Design (images
+ * et vidéos, aux formats du brief), nommés pour qu'on sache ce qu'on dépose, et un fichier de textes — textes principaux, titres,
  * descriptions, bouton, URL de destination et PARAMÈTRES D'URL obligatoires
  * (plan, §4.8), sans lesquels les leads tomberaient dans le mauvais canal.
  *
@@ -19,7 +19,6 @@ import { testLabel, toneLabel, type TestDimension } from "@/modules/ads/lib/dime
 /** Les paramètres d'URL obligatoires sur toute annonce Meta de TIM (§4.8). */
 export const META_URL_PARAMS = "utm_source={{site_source_name}}&utm_medium=paid_social&utm_campaign={{campaign.id}}&utm_content={{ad.id}}";
 
-type Media = { url?: string | null; filename?: string | null } | number | string | null | undefined;
 export type DownloadCreative = {
   id: number | string;
   angle: string;
@@ -27,9 +26,8 @@ export type DownloadCreative = {
   cta?: string | null;
   tests?: { dimension: TestDimension; value: string }[] | null;
   copy?: { kind: string; text: string; status: string; chars?: number | null }[] | null;
-  assets?: { format: string; type: string; template?: string | null; media: Media }[] | null;
-  /** La vidéo rendue, aux trois formats (plan §9 sexies, D3). */
-  video?: { status?: string | null; renders?: { format: string; url: string }[] | null } | null;
+  /** Les fichiers finis, importés depuis Claude Design. */
+  files?: { format: string; kind: string; url: string; filename?: string | null }[] | null;
 };
 export type DownloadCampaign = { id: number | string; name: string; brief?: { landingUrl?: string | null; cta?: string | null } | null };
 export type DownloadKit = { advertiser?: string | null; legalNotice?: string | null };
@@ -45,7 +43,13 @@ export const folderOf = (c: DownloadCreative, i: number) => {
   return `${String(i + 1).padStart(2, "0")}-${slug(c.angle)}${test ? `__${test}` : ""}`;
 };
 
-export const assetName = (campaign: DownloadCampaign, c: DownloadCreative, format: string) => `tim_${slug(campaign.name)}_${slug(c.angle)}_${format}.jpg`;
+/** L'extension d'un fichier importé, d'après son nom (jpg pour une image, mp4 pour une vidéo par défaut). Pure. */
+const extOf = (f: { kind: string; filename?: string | null }) => {
+  const m = /\.([a-z0-9]{2,4})$/i.exec(f.filename ?? "");
+  return m ? m[1].toLowerCase() : f.kind === "video" ? "mp4" : "jpg";
+};
+
+export const assetName = (campaign: DownloadCampaign, c: DownloadCreative, format: string, ext = "jpg") => `tim_${slug(campaign.name)}_${slug(c.angle)}_${format}.${ext}`;
 
 const okTexts = (c: DownloadCreative) => (c.copy ?? []).filter((t) => t.status === "ok");
 
@@ -109,22 +113,14 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
   return out;
 }
 
-/** Le ZIP : un dossier par créa (ses images), et les deux fichiers de textes à la racine. */
+/** Le ZIP : un dossier par créa (ses fichiers), et les deux fichiers de textes à la racine. */
 export async function buildZip(campaign: DownloadCampaign, creatives: DownloadCreative[], kit: DownloadKit, load: Loader): Promise<Uint8Array> {
   // D'abord la liste des fichiers, dans l'ordre du ZIP ; puis les téléchargements, en parallèle.
   const wanted: { folder: string; name: string; url: string }[] = [];
   for (const [i, c] of creatives.entries()) {
     const folder = folderOf(c, i);
-    for (const a of c.assets ?? []) {
-      const url = typeof a.media === "object" && a.media ? a.media.url : null;
-      if (!url || a.type !== "image") continue;
-      wanted.push({ folder, name: assetName(campaign, c, a.format), url });
-    }
-    // Les vidéos, à côté des images, sous le même nom (en .mp4).
-    if (c.video?.status === "prete") {
-      for (const v of c.video.renders ?? []) {
-        if (v.url) wanted.push({ folder, name: assetName(campaign, c, v.format).replace(/\.jpg$/, ".mp4"), url: v.url });
-      }
+    for (const f of c.files ?? []) {
+      if (f.url) wanted.push({ folder, name: assetName(campaign, c, f.format, extOf(f)), url: f.url });
     }
   }
   const data = await mapLimit(wanted, ZIP_CONCURRENCY, async (w) => new Uint8Array((await load(w.url)).data));

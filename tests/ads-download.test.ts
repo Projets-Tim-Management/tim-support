@@ -14,9 +14,9 @@ const crea = (over: Partial<DownloadCreative> = {}): DownloadCreative => ({
     { kind: "principal", text: "Un outil révolutionnaire", status: "rejete" },
     { kind: "titre", text: "Le pointage sans papier", status: "ok" },
   ],
-  assets: [
-    { format: "1x1", type: "image", media: { url: "https://blob.test/a.jpg" } },
-    { format: "9x16", type: "image", media: { url: "https://blob.test/b.jpg" } },
+  files: [
+    { format: "1x1", kind: "image", url: "https://blob.test/a.png", filename: "C1-1x1.png" },
+    { format: "9x16", kind: "video", url: "https://blob.test/b.mp4", filename: "C1-9x16.mp4" },
   ],
   ...over,
 });
@@ -49,12 +49,12 @@ describe("paquet téléchargeable", () => {
     expect(textsTxt(campaign, [tu], {})).toMatch(/Tutoiement — test de ton \(tu\), à mesurer à part/);
   });
 
-  it("le ZIP range les images par créa, et les textes à la racine", async () => {
+  it("le ZIP range les fichiers importés par créa (image et vidéo, avec leur extension), et les textes à la racine", async () => {
     const zip = await buildZip(campaign, [crea()], {}, async () => ({ data: Buffer.from("jpeg") }));
     const files = unzipSync(zip);
     expect(Object.keys(files).filter((k) => !k.endsWith("/")).sort()).toEqual([
-      "01-le-pointage-papier-coute-cher/tim_pointage-btp_le-pointage-papier-coute-cher_1x1.jpg",
-      "01-le-pointage-papier-coute-cher/tim_pointage-btp_le-pointage-papier-coute-cher_9x16.jpg",
+      "01-le-pointage-papier-coute-cher/tim_pointage-btp_le-pointage-papier-coute-cher_1x1.png",
+      "01-le-pointage-papier-coute-cher/tim_pointage-btp_le-pointage-papier-coute-cher_9x16.mp4",
       "textes.csv",
       "textes.txt",
     ]);

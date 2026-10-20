@@ -206,7 +206,7 @@ export async function launchRun(payload: Payload, input: { campaign: Id; objecti
       depth: 0,
       role: "orchestrateur",
       status: "en-cours",
-      mission: `Préparer la campagne « ${campaign.name} » : positionnement, audiences, angles, textes et visuels, puis déposer les créas « À valider ».`,
+      mission: `Préparer la campagne « ${campaign.name} » : positionnement, audiences, angles, textes et briefs Claude Design, puis déposer les créas « À valider ».`,
       tools: [...ROLE_TOOLS.orchestrateur],
       model: ADS_AGENT_MODELS.orchestrateur,
       budgetEur: b.prep.budgetEur,

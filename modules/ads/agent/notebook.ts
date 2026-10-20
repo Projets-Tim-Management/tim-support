@@ -98,8 +98,6 @@ export function resolveAppuis(nb: Notebook, raw: unknown): Appuis | { error: str
   };
 }
 
-export const EMPTY_NOTEBOOK: Notebook = { instructions: [], learnings: [] };
-
 /** Relit la photo stockée sur un passage (json) ; vide si absente (passages d'avant le carnet). */
 export function notebookOf(run: { learningsRead?: unknown; instructionsRead?: unknown }): Notebook {
   const list = (v: unknown) => (Array.isArray(v) ? (v as NotebookEntry[]) : []);

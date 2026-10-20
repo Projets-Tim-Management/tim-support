@@ -45,12 +45,7 @@ import { AdAgentSteps } from "./modules/ads/collections/AdAgentSteps";
 import { AdDecisions } from "./modules/ads/collections/AdDecisions";
 import { AdCompetitors } from "./modules/ads/collections/AdCompetitors";
 import { AdInstructions } from "./modules/ads/collections/AdInstructions";
-import { AdInspirations } from "./modules/ads/collections/AdInspirations";
-import { AdElementNotes } from "./modules/ads/collections/AdElementNotes";
-import { AdElements } from "./modules/ads/collections/AdElements";
-import { AdRetouches } from "./modules/ads/collections/AdRetouches";
 import { AdRushes } from "./modules/ads/collections/AdRushes";
-import { AdStyles } from "./modules/ads/collections/AdStyles";
 import { AdLearnings } from "./modules/ads/collections/AdLearnings";
 import { AdsSettingsHistory } from "./modules/ads/collections/AdsSettingsHistory";
 import { AdCreatives } from "./modules/ads/collections/AdCreatives";
@@ -395,11 +390,6 @@ export default buildConfig({
       AdInstructions,
       AdLearnings,
       AdRushes,
-      AdInspirations,
-      AdRetouches,
-      AdElements,
-      AdElementNotes,
-      AdStyles,
       AdsSettingsHistory,
       // Adresses qui ne reçoivent plus d'envoi commercial — transverse à tous
       // les modules, d'où sa place à côté des collections système.

@@ -1,7 +1,6 @@
 import type { Payload } from "payload";
 
 import { buildZip, zipFileName, type DownloadCampaign, type DownloadCreative, type DownloadKit } from "@/modules/ads/lib/download";
-import { fetchFile } from "@/modules/ads/lib/render/visuals";
 
 /**
  * Au-delà, le ZIP ne passe plus par la réponse de la fonction (Vercel plafonne
@@ -9,6 +8,14 @@ import { fetchFile } from "@/modules/ads/lib/render/visuals";
  * aléatoire, et le navigateur y est redirigé. Les vidéos le font vite dépasser.
  */
 export const INLINE_ZIP_MAX = 4 * 1024 * 1024;
+
+/** Charge un fichier servi par le CDN (ou, en local, par Payload). */
+export const fetchFile = async (url: string): Promise<{ data: Buffer; mime: string }> => {
+  const abs = url.startsWith("/") ? `${(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3001").replace(/\/$/, "")}${url}` : url;
+  const res = await fetch(abs);
+  if (!res.ok) throw new Error(`Fichier illisible (${res.status}) : ${url}`);
+  return { data: Buffer.from(await res.arrayBuffer()), mime: res.headers.get("content-type") ?? "application/octet-stream" };
+};
 
 /** Les créas VALIDÉES (ou déjà en ligne) : les seules qui se téléchargent. */
 export const DOWNLOADABLE = ["validee", "en-ligne"];

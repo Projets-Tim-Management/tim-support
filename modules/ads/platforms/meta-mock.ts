@@ -1,4 +1,12 @@
 import type {
+  AccessReport,
+  AccountState,
+  NewAdSet,
+  NewCampaign,
+  NewCreative,
+  VideoState,
+  TargetingKind,
+  TargetingOption,
   AccountContext,
   AccountSnapshot,
   AdPlatform,
@@ -50,6 +58,9 @@ function unit(key: string): number {
   return (h >>> 0) / 0x100000000;
 }
 
+/** Un identifiant simulé, stable pour une clé (« 1200… » comme chez Meta). */
+const mockId = (prefix: string, key: string) => `12${String(Math.floor(unit(`${prefix}:${key}`) * 1e13)).padStart(13, "0")}`;
+
 /** Jours inclus entre deux dates AAAA-MM-JJ. */
 export function daysBetween(range: DateRange): string[] {
   const out: string[] = [];
@@ -88,10 +99,41 @@ export function createMockMetaPlatform(): AdPlatform {
   return {
     key: "meta",
     label: "Meta",
-    capabilities: ["lecture"],
+    capabilities: ["lecture", "creation", "upload-crea", "statut", "budget"],
+
+    // Écritures simulées : des identifiants stables (même nom → même identifiant), rien n'est gardé.
+    createCampaign: async (_a: AccountContext, c: NewCampaign) => mockId("c", c.name),
+    createAdSet: async (_a: AccountContext, x: NewAdSet) => mockId("s", `${x.campaignId}:${x.name}`),
+    uploadImage: async (_a: AccountContext, url: string) => ({ hash: mockId("h", url) }),
+    uploadVideo: async (_a: AccountContext, url: string) => ({ id: mockId("v", url) }),
+    videoState: async (): Promise<VideoState> => ({ ready: true, error: null, thumbnailUrl: "https://example.test/vignette.jpg" }),
+    createCreative: async (_a: AccountContext, c: NewCreative) => mockId("k", c.name),
+    createAd: async (_a: AccountContext, x: { name: string; adSetId: string; creativeId: string }) => mockId("a", `${x.adSetId}:${x.creativeId}`),
+    adPreview: async (_a: AccountContext, adId: string, format: string) => `<p>${MOCK_PREFIX} Aperçu de la publicité ${adId} (${format})</p>`,
+    setStatus: async () => {},
+    setBudget: async () => {},
 
     async connect(): Promise<{ token: string; expiresAt: Date }> {
       return { token: MOCK_TOKEN, expiresAt: new Date(Date.now() + 60 * 86_400_000) };
+    },
+
+    async searchTargeting(_acc: AccountContext, kind: TargetingKind, query: string): Promise<TargetingOption[]> {
+      const base = kind === "interet" ? 6003000000000 : kind === "metier" ? 108000000000 : 3000;
+      return [0, 1, 2].map((i) => ({ id: String(base + i + Math.floor(unit(`${kind}:${query}`) * 1000) * 10), name: `${MOCK_PREFIX} ${query} ${i + 1}`, audience: 50_000 * (i + 1), path: kind === "region" ? "FR" : null }));
+    },
+
+    async checkAccess(): Promise<AccessReport> {
+      return {
+        scopes: ["ads_management", "ads_read", "business_management", "pages_show_list", "pages_read_engagement", "pages_manage_ads", "instagram_basic"],
+        pages: [{ id: "100000000000001", name: `${MOCK_PREFIX} TIM Management`, instagram: { id: "178400000000001", username: "tim.management.simule" } }],
+        instagram: [{ id: "178400000000001", username: "tim.management.simule" }],
+        pixels: [{ id: "900000000000001", name: `${MOCK_PREFIX} Pixel du site` }],
+        account: { ok: true, code: 1, label: "actif" },
+      };
+    },
+
+    async accountState(): Promise<AccountState> {
+      return { ok: true, code: 1, label: "actif" };
     },
 
     async listAccounts(): Promise<AccountSnapshot[]> {
