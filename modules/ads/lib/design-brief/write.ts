@@ -1,6 +1,7 @@
 import type { Payload } from "payload";
 
 import { checkForbidden, checkTestimonial } from "@/modules/ads/lib/copy/guardrails";
+import { BRIEF_KIND_VALUES, OPEN_STATUSES } from "@/modules/ads/lib/creative-files";
 import { ctaLabel } from "@/modules/ads/lib/cta";
 import { loadDesignKit, loadRushes } from "@/modules/ads/lib/design-brief/load";
 import { buildDesignPrompt, expectedFileNames, type DesignIntent } from "@/modules/ads/lib/design-brief/prompt";
@@ -15,12 +16,9 @@ import { FORMAT_KEYS, VIDEO_SECONDS, type FormatKey } from "@/modules/ads/lib/me
 
 export class BriefError extends Error {}
 
-const KINDS = ["video", "image", "les-deux"] as const;
-const WRITABLE = ["brouillon", "a-valider"];
-
 /** L'intention de l'agent, vérifiée ; lève `BriefError` avec la raison. Pure. */
 export function checkIntent(raw: Partial<DesignIntent> & { rushes?: unknown }, forbidden: string[]): DesignIntent & { rushes: number[] } {
-  const kind = KINDS.find((k) => k === raw.kind);
+  const kind = BRIEF_KIND_VALUES.find((k) => k === raw.kind);
   if (!kind) throw new BriefError("Nature attendue : video, image ou les-deux.");
   const formats = [...new Set((raw.formats ?? []).filter((f): f is FormatKey => (FORMAT_KEYS as string[]).includes(f)))];
   if (!formats.length) throw new BriefError("Au moins un format : 1x1, 4x5 ou 9x16.");
@@ -60,7 +58,7 @@ export async function writeDesignBrief(
   const c = (await payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 0, overrideAccess: true }).catch(() => null)) as RawCreative | null;
   const campaignOf = c && (typeof c.campaign === "object" && c.campaign ? c.campaign.id : c.campaign);
   if (!c || String(campaignOf) !== String(campaign)) throw new BriefError("Créa introuvable dans cette campagne.");
-  if (!WRITABLE.includes(c.status ?? "")) throw new BriefError(`Créa « ${c.status} » : son brief ne se réécrit plus.`);
+  if (!OPEN_STATUSES.includes(c.status ?? "")) throw new BriefError(`Créa « ${c.status} » : son brief ne se réécrit plus.`);
   if ((c.files ?? []).length) throw new BriefError("Des fichiers sont déjà importés pour cette créa : son brief ne change plus.");
 
   const kit = await loadDesignKit(payload);

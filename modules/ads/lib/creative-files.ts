@@ -10,6 +10,10 @@ export const BRIEF_KINDS = [
   { label: "Un visuel fixe", value: "image" },
   { label: "Vidéo et visuel fixe", value: "les-deux" },
 ] as const;
+export const BRIEF_KIND_VALUES = BRIEF_KINDS.map((k) => k.value);
+
+/** Les états où une créa se travaille encore : son brief se réécrit, ses fichiers s'importent. */
+export const OPEN_STATUSES: readonly string[] = ["brouillon", "a-valider"];
 export type FileKind = "image" | "video";
 
 export type CreativeFile = {
@@ -61,10 +65,14 @@ export function withImported(files: CreativeFile[] | null | undefined, added: Cr
 /** Le dossier des fichiers d'une créa, à part des rushes : « ads/creas/12/ ». */
 export const creaPrefix = (creative: number | string) => `ads/creas/${String(creative).replace(/[^0-9]/g, "")}/`;
 
+/** Le nom d'un fichier fini, celui que le brief demande à l'export : « C12-9x16.mp4 ». Pure. */
+export const creaFileName = (creative: number | string, format: string, ext: string): string =>
+  `C${String(creative).replace(/[^0-9]/g, "")}-${format.replace(/[^0-9x]/g, "")}.${ext}`;
+
 /** Le nom sur le stockage : « ads/creas/12/C12-9x16.mp4 » (le stockage ajoute un suffixe aléatoire). Pure. */
 export function creaPathname(creative: number | string, format: string, filename: string): string {
   const ext = (/\.([a-z0-9]{2,4})$/i.exec(filename)?.[1] ?? "bin").toLowerCase();
-  return `${creaPrefix(creative)}C${String(creative).replace(/[^0-9]/g, "")}-${format.replace(/[^0-9x]/g, "")}.${ext}`;
+  return `${creaPrefix(creative)}${creaFileName(creative, format, ext)}`;
 }
 
 /** Un chemin que le jeton de dépôt accepte pour CETTE créa, sans remontée. Pure. */

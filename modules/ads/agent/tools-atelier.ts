@@ -5,6 +5,7 @@ import { ROLE_SUBJECT } from "@/modules/ads/agent/roles";
 import { clip, type AgentTool, type ToolContext, type ToolOutcome } from "@/modules/ads/agent/tools";
 import type { Id } from "@/modules/ads/agent/types";
 import type { DecisionKind, DecisionStatus } from "@/modules/ads/collections/AdDecisions";
+import { BRIEF_KIND_VALUES } from "@/modules/ads/lib/creative-files";
 import { MAX_ENSEMBLES, OBJECTIFS, OPTIMISATIONS, planProblems, planSummary, readPlan } from "@/modules/ads/lib/media-plan";
 import { FORMAT_KEYS, VIDEO_SECONDS } from "@/modules/ads/lib/meta-specs";
 import { eur } from "@/modules/ads/lib/spend";
@@ -192,7 +193,7 @@ const ecrireBriefDesign: AgentTool = {
       type: "object",
       properties: {
         crea: { type: ["number", "string"] },
-        nature: { type: "string", enum: ["video", "image", "les-deux"] },
+        nature: { type: "string", enum: BRIEF_KIND_VALUES },
         formats: { type: "array", items: { type: "string", enum: [...FORMAT_KEYS] }, minItems: 1, maxItems: 3, description: "9x16 pour Stories et Reels, 4x5 et 1x1 pour le fil d'actualité." },
         duree: { type: "number", description: `Vidéo : la durée visée en secondes (la Base V1 vise ${VIDEO_SECONDS.target[0]} à ${VIDEO_SECONDS.target[1]} s).` },
         pourquoi: { type: "string", description: "Pourquoi cette pub, face à ce que font les concurrents : quelques phrases." },

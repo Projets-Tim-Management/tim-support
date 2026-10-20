@@ -1,3 +1,4 @@
+import { creaFileName } from "@/modules/ads/lib/creative-files";
 import { baseV1Text } from "@/modules/ads/lib/design-brief/base-v1";
 import { FORMATS, safeBox, type FormatKey } from "@/modules/ads/lib/meta-specs";
 
@@ -47,10 +48,13 @@ export type DesignRush = { id: number | string; title: string; filename?: string
 const KIND_LABEL: Record<string, string> = { principal: "Texte principal (sous la pub, chez Meta)", titre: "Titre (sous la pub)", description: "Description" };
 
 /** Les noms de fichiers à exporter, relus par l'import : « C12-9x16.mp4 ». Pure. */
-export function expectedFileNames(creative: DesignCreative["id"], intent: Pick<DesignIntent, "kind" | "formats">): string[] {
-  const exts = intent.kind === "image" ? ["png"] : intent.kind === "video" ? ["mp4"] : ["mp4", "png"];
-  return exts.flatMap((ext) => intent.formats.map((f) => `C${creative}-${f}.${ext}`));
+/** Les fichiers que le brief demande : nom à l'export, format, nature. Pure. */
+export function expectedFiles(creative: DesignCreative["id"], intent: Pick<DesignIntent, "kind" | "formats">): { name: string; format: FormatKey; kind: "image" | "video" }[] {
+  const kinds = intent.kind === "image" ? (["image"] as const) : intent.kind === "video" ? (["video"] as const) : (["video", "image"] as const);
+  return kinds.flatMap((kind) => intent.formats.map((format) => ({ name: creaFileName(creative, format, kind === "image" ? "png" : "mp4"), format, kind })));
 }
+
+export const expectedFileNames = (creative: DesignCreative["id"], intent: Pick<DesignIntent, "kind" | "formats">): string[] => expectedFiles(creative, intent).map((f) => f.name);
 
 export function buildDesignPrompt(c: DesignCreative, intent: DesignIntent, kit: DesignKit, rushes: DesignRush[]): string {
   const video = intent.kind !== "image";

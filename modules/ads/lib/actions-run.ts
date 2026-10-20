@@ -1,7 +1,7 @@
 import type { Payload } from "payload";
 
 import { accountContext } from "@/modules/ads/lib/account-access";
-import { actionSummary, judgeAction, readAction, type Action, type Autonomy, type GuardContext, type Verdict } from "@/modules/ads/lib/actions";
+import { ACTION_KINDS, actionSummary, judgeAction, readAction, type Action, type Autonomy, type GuardContext, type Verdict } from "@/modules/ads/lib/actions";
 
 /**
  * Appliquer une action chez Meta, sous les garde-fous (plan Publicité, phase 2)
@@ -15,8 +15,6 @@ import { actionSummary, judgeAction, readAction, type Action, type Autonomy, typ
 export class ActionError extends Error {}
 
 type Origin = { run?: number | string | null; agent?: number | string | null; step?: number | string | null };
-
-const KINDS = ["budget", "pause", "activation"] as const;
 
 /** Le premier jour du mois et les jours qui restent, à Paris. */
 function month(now: Date): { start: string; daysLeft: number } {
@@ -35,7 +33,7 @@ type RawCampaign = {
 };
 
 /** Tout ce que les garde-fous ont besoin de savoir pour juger une action sur cette campagne. */
-export async function guardContext(payload: Payload, campaignId: number | string, a: Action, now = new Date()): Promise<{ ctx: GuardContext; campaign: RawCampaign; accountId: number }> {
+async function guardContext(payload: Payload, campaignId: number | string, a: Action, now = new Date()): Promise<{ ctx: GuardContext; campaign: RawCampaign; accountId: number }> {
   const campaign = (await payload.findByID({ collection: "ad-campaigns", id: campaignId, depth: 1, overrideAccess: true }).catch(() => null)) as RawCampaign | null;
   if (!campaign) throw new ActionError("Campagne introuvable.");
   const account = typeof campaign.account === "object" && campaign.account ? campaign.account : null;
@@ -45,7 +43,7 @@ export async function guardContext(payload: Payload, campaignId: number | string
     payload.findGlobal({ slug: "ads-settings", overrideAccess: true }) as Promise<{ enabled?: boolean | null; maxBudgetChangePct?: number | null; minHoursBetweenChanges?: number | null }>,
     payload.find({ collection: "ad-decisions", where: { and: [{ target: { equals: a.externalId } }, { executedAt: { exists: true } }] }, sort: "-executedAt", limit: 1, depth: 0, overrideAccess: true }),
     payload.find({ collection: "ad-metrics-daily", where: { and: [{ account: { equals: account.id } }, { level: { equals: "campaign" } }, { day: { greater_than_equal: start } }] }, pagination: false, depth: 0, overrideAccess: true, select: { spend: true } as never }),
-    payload.find({ collection: "ad-campaigns", where: { and: [{ account: { equals: account.id } }, { publicationStatus: { equals: "active" } }] }, pagination: false, depth: 0, overrideAccess: true }),
+    payload.find({ collection: "ad-campaigns", where: { and: [{ account: { equals: account.id } }, { publicationStatus: { equals: "active" } }] }, pagination: false, depth: 0, overrideAccess: true, select: { agentBudget: true } as never }),
   ]);
   const lastAt = (last.docs[0] as { executedAt?: string } | undefined)?.executedAt;
   return {
@@ -132,7 +130,7 @@ export async function submitAction(
  */
 export async function reviewAction(payload: Payload, id: number | string, choice: "valider" | "refuser", userId: number | string, now = new Date()): Promise<{ status: string; guardrail: string | null }> {
   const d = (await payload.findByID({ collection: "ad-decisions", id, depth: 0, overrideAccess: true }).catch(() => null)) as { id: number; kind: string; status: string; campaign: number; after?: unknown } | null;
-  if (!d || !(KINDS as readonly string[]).includes(d.kind)) throw new ActionError("Décision introuvable.");
+  if (!d || !(ACTION_KINDS as readonly string[]).includes(d.kind)) throw new ActionError("Décision introuvable.");
   if (d.status !== "proposee") throw new ActionError("Cette action n'attend plus de décision.");
   const a = readAction(d.after);
   if (!a) throw new ActionError("Action illisible.");

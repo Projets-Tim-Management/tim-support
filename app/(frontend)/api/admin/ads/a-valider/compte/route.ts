@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { ACTION_KINDS } from "@/modules/ads/lib/actions";
 import { adminRequest } from "@/modules/ads/lib/route-auth";
 
 /**
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
   const { payload } = auth;
   const counts = await Promise.all([
     payload.count({ collection: "ad-creatives", where: { status: { equals: "a-valider" } }, overrideAccess: true }),
-    payload.count({ collection: "ad-decisions", where: { and: [{ kind: { in: ["budget", "pause", "activation"] } }, { status: { equals: "proposee" } }] }, overrideAccess: true }),
+    payload.count({ collection: "ad-decisions", where: { and: [{ kind: { in: [...ACTION_KINDS] } }, { status: { equals: "proposee" } }] }, overrideAccess: true }),
     payload.count({ collection: "ad-instructions", where: { status: { equals: "proposee" } }, overrideAccess: true }),
     payload.count({ collection: "ad-learnings", where: { status: { equals: "global-propose" } }, overrideAccess: true }),
   ]);

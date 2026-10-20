@@ -14,7 +14,10 @@
  * Pure.
  */
 
-export type Level = "campaign" | "adset" | "ad";
+import type { Level } from "@/modules/ads/platforms/types";
+
+/** Les actions sur une campagne en ligne, telles qu'elles s'écrivent dans les décisions. */
+export const ACTION_KINDS = ["budget", "pause", "activation"] as const;
 export type Action =
   | { kind: "budget"; level: "adset" | "campaign"; externalId: string; name: string; fromEur: number; toEur: number }
   | { kind: "pause"; level: Level; externalId: string; name: string; urgence?: boolean }

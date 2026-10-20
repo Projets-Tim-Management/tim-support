@@ -27,7 +27,6 @@ export type CardBrief = {
   rationale: string | null;
   prompt: string;
   rushes: Attachment[];
-  expectedFiles: string[];
 };
 export type CardFile = { format: string; kind: string; url: string; filename: string | null; warnings: string[] };
 /** Un fichier que le brief attend : son nom à l'export, son format et sa nature. */
@@ -38,7 +37,7 @@ const FORMAT_LABEL: Record<string, string> = { "9x16": "9:16 — Stories et Reel
 const download = (url: string) => `${url}${url.includes("?") ? "&" : "?"}download=1`;
 
 /** Étape 1 : de quoi créer la pub dans Claude Design — le prompt d'un clic, les fichiers à joindre, les noms à donner. */
-export function StepCreate({ brief, logos }: { brief: CardBrief; logos: Attachment[] }) {
+export function StepCreate({ brief, expected, logos }: { brief: CardBrief; expected: ExpectedFile[]; logos: Attachment[] }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -88,9 +87,9 @@ export function StepCreate({ brief, logos }: { brief: CardBrief; logos: Attachme
         <div>
           <span className="ads-create__label">Exportez sous ces noms exacts :</span>
           <ul className="ads-create__names">
-            {brief.expectedFiles.map((n) => (
-              <li key={n}>
-                <code>{n}</code>
+            {expected.map(({ name }) => (
+              <li key={name}>
+                <code>{name}</code>
               </li>
             ))}
           </ul>

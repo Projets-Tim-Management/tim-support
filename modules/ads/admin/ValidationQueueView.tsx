@@ -6,17 +6,17 @@ import Link from "next/link";
 
 import { hasAdminRole } from "@/core/access";
 import { pendingProposals, type AgentProposal } from "@/modules/ads/agent/overview";
+import { ACTION_KINDS } from "@/modules/ads/lib/actions";
 import { stageOf, type CardStage } from "@/modules/ads/lib/card-stage";
 import { missingFiles, type CreativeFile } from "@/modules/ads/lib/creative-files";
 import { REFUSAL_REASONS } from "@/modules/ads/lib/creative-options";
 import { ctaLabel } from "@/modules/ads/lib/cta";
-import { expectedFileNames } from "@/modules/ads/lib/design-brief/prompt";
+import { expectedFiles } from "@/modules/ads/lib/design-brief/prompt";
 import { testLabel, toneLabel, type TestDimension } from "@/modules/ads/lib/dimensions";
 import type { FormatKey } from "@/modules/ads/lib/meta-specs";
 
 import { ActionProposals, type ProposedAction } from "./ActionProposals";
 import { CreativeCard, type Attachment, type CardCreative } from "./CreativeCard";
-import type { ExpectedFile } from "./CreativeDesign";
 import { NotebookProposals, type ProposedInstruction, type ProposedLearning } from "./NotebookProposals";
 
 /**
@@ -115,13 +115,6 @@ function ProposalCard({ p }: { p: AgentProposal }) {
   );
 }
 
-/** Les fichiers que le brief attend, lus dans ses noms (« C17-9x16.mp4 »). Pure. */
-const expectedOf = (names: string[]): ExpectedFile[] =>
-  names.map((name) => {
-    const f = /-(1x1|4x5|9x16)\.(\w+)$/.exec(name);
-    return { name, format: f?.[1] ?? "", kind: f?.[2] === "png" ? ("image" as const) : ("video" as const) };
-  });
-
 const STAGE_ORDER: Record<CardStage, number> = { valider: 0, importer: 1, creer: 2, "sans-brief": 3, validee: 4, refusee: 5 };
 
 const toCard = (r: Raw): CardCreative => ({
@@ -146,11 +139,10 @@ const toCard = (r: Raw): CardCreative => ({
         rushes: (r.brief.rushes ?? [])
           .filter((x): x is Exclude<typeof x, number> => typeof x === "object" && x !== null)
           .map((x) => ({ name: x.title ?? `Rush ${x.id}`, url: x.original?.url ?? null, filename: x.original?.filename ?? null })),
-        expectedFiles: expectedFileNames(r.id, { kind: (r.brief.kind ?? "video") as "video", formats: (r.brief.formats ?? []) as FormatKey[] }),
       }
     : null,
   files: (r.files ?? []).map((f) => ({ format: f.format, kind: f.kind, url: f.url, filename: f.filename ?? null, warnings: Array.isArray(f.warnings) ? f.warnings : [] })),
-  expected: r.brief?.prompt ? expectedOf(expectedFileNames(r.id, { kind: (r.brief.kind ?? "video") as "video", formats: (r.brief.formats ?? []) as FormatKey[] })) : [],
+  expected: r.brief?.prompt ? expectedFiles(r.id, { kind: (r.brief.kind ?? "video") as "video", formats: (r.brief.formats ?? []) as FormatKey[] }) : [],
   missing: r.brief?.prompt ? missingFiles(r) : [],
   facts: (r.facts ?? []).filter((f): f is { statement: string; source: string } => typeof f === "object" && f !== null),
   costEur: r.generation?.costEur ?? null,
@@ -186,7 +178,7 @@ export default async function ValidationQueueView(view: AdminViewServerProps) {
       tab === "a-valider"
         ? payload.find({
             collection: "ad-decisions",
-            where: { and: [{ kind: { in: ["budget", "pause", "activation"] } }, { status: { equals: "proposee" } }, ...(campaignFilter ? [{ campaign: { equals: campaignFilter } }] : [])] },
+            where: { and: [{ kind: { in: [...ACTION_KINDS] } }, { status: { equals: "proposee" } }, ...(campaignFilter ? [{ campaign: { equals: campaignFilter } }] : [])] },
             sort: "createdAt",
             pagination: false,
             depth: 1,

@@ -3,6 +3,7 @@ import type { Access, CollectionAfterDeleteHook, CollectionBeforeChangeHook, Col
 import { isAdmin } from "@/core/access";
 import { CTA_OPTIONS } from "@/modules/ads/lib/cta";
 import { CREATIVE_FORMATS, CREATIVE_STATUSES, REFUSAL_REASONS, TEXT_KINDS } from "@/modules/ads/lib/creative-options";
+import { deleteBlobs } from "@/modules/ads/lib/blob";
 import { BRIEF_KINDS } from "@/modules/ads/lib/creative-files";
 import { DEFAULT_TONE, TEST_DIMENSIONS, TONES } from "@/modules/ads/lib/dimensions";
 
@@ -47,14 +48,7 @@ const decision = { create: () => false, update: () => false };
 
 /** Une créa supprimée emporte ses fichiers importés : rien ne reste en ligne pour rien. */
 const deleteFiles: CollectionAfterDeleteHook = async ({ doc, req }) => {
-  const urls = ((Array.isArray(doc?.files) ? doc.files : []) as { url?: string }[]).map((f) => f.url).filter((u): u is string => Boolean(u));
-  if (!urls.length || !process.env.BLOB_READ_WRITE_TOKEN) return doc;
-  try {
-    const { del } = await import("@vercel/blob");
-    await del(urls, { token: process.env.BLOB_READ_WRITE_TOKEN });
-  } catch (e) {
-    req.payload.logger.warn(`[publicité] fichiers de la créa ${doc?.id} non supprimés : ${(e as Error).message}`);
-  }
+  await deleteBlobs(req.payload, ((Array.isArray(doc?.files) ? doc.files : []) as { url?: string }[]).map((f) => f.url), `fichiers de la créa ${doc?.id}`);
   return doc;
 };
 

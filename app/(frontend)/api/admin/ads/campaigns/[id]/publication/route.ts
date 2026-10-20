@@ -27,7 +27,7 @@ export async function GET(req: Request, { params }: Params) {
       problems: publishProblems(input),
       plan: input.plan ? planSummary(input.plan) : null,
       metaDailyEur: input.metaDailyEur,
-      creas: input.creas.map((c) => ({ id: c.id, angle: c.angle, files: c.files.length })),
+      creas: input.creas.map((c) => ({ id: c.id, angle: c.angle })),
       state: campaign.publication ?? null,
     });
   } catch (e) {

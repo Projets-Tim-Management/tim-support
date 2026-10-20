@@ -1,6 +1,7 @@
 import type { CollectionAfterDeleteHook, CollectionBeforeChangeHook, CollectionConfig } from "payload";
 
 import { isAdmin } from "@/core/access";
+import { deleteBlobs } from "@/modules/ads/lib/blob";
 import { isAppSource, isRushBlobUrl, mediaTypeOf, RUSH_FEATURES, RUSH_SOURCES } from "@/modules/ads/lib/rushes";
 
 /**
@@ -26,13 +27,7 @@ export const prepare: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
 /** Supprimer une fiche supprime son fichier : un rush abandonné ne reste pas en ligne. */
 export const deleteFiles: CollectionAfterDeleteHook = async ({ doc, req }) => {
   const url = doc?.original?.url;
-  if (typeof url !== "string" || !url || !process.env.BLOB_READ_WRITE_TOKEN) return doc;
-  try {
-    const { del } = await import("@vercel/blob");
-    await del([url], { token: process.env.BLOB_READ_WRITE_TOKEN });
-  } catch (e) {
-    req.payload.logger.warn(`[publicité] fichier du rush ${doc?.id} non supprimé : ${(e as Error).message}`);
-  }
+  await deleteBlobs(req.payload, [typeof url === "string" ? url : null], `fichier du rush ${doc?.id}`);
   return doc;
 };
 

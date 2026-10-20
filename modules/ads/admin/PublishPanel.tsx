@@ -19,10 +19,9 @@ type State = {
   status: "en-cours" | "en-pause" | "active" | "echec";
   error: string | null;
   history: { at: string; line: string }[];
-  ads: Record<string, string>;
   activatedAt: string | null;
 };
-type Info = { problems: string[]; plan: string | null; metaDailyEur: number | null; creas: { id: number; angle: string; files: number }[]; state: State | null };
+type Info = { problems: string[]; plan: string | null; metaDailyEur: number | null; creas: { id: number; angle: string }[]; state: State | null };
 type Preview = { key: string; label: string; html: string };
 
 const STATUS: Record<State["status"], string> = { "en-cours": "Publication en cours", "en-pause": "Publiée, en pause", active: "En diffusion", echec: "Échec" };

@@ -113,13 +113,13 @@ export function toMetaAmount(amount: number, currency?: string | null): number {
 }
 
 /** Où va chaque format : le 9:16 en Stories et Reels ; le 4:5 (sinon le 1:1) dans les fils. Pure. */
-export const STORY_SPEC = {
+const STORY_SPEC = {
   publisher_platforms: ["facebook", "instagram", "messenger"],
   facebook_positions: ["story", "facebook_reels"],
   instagram_positions: ["story", "reels"],
   messenger_positions: ["story"],
 };
-export const FEED_SPEC = {
+const FEED_SPEC = {
   publisher_platforms: ["facebook", "instagram"],
   facebook_positions: ["feed", "marketplace", "video_feeds", "search"],
   instagram_positions: ["stream", "explore", "profile_feed"],
@@ -310,12 +310,6 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
       }));
     },
 
-    /**
-     * Les droits du jeton (debug_token, interrogé avec le jeton de l'application)
-     * et ce qu'il ouvre : Pages (avec leur compte Instagram professionnel),
-     * comptes Instagram liés au compte publicitaire, pixels. Une liste qui ne
-     * se lit pas (droit manquant) reste vide : le rapport dit ce qui manque.
-     */
     /** La recherche de ciblage de Meta : intérêts (adinterest), métiers (adworkposition), régions (adgeolocation). */
     async searchTargeting(acc: AccountContext, kind: TargetingKind, query: string, country = "FR"): Promise<TargetingOption[]> {
       type Raw = { id?: string; key?: string; name?: string; audience_size_lower_bound?: number; audience_size?: number; path?: string[]; country_code?: string };
@@ -412,6 +406,12 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
 
     accountState,
 
+    /**
+     * Les droits du jeton (debug_token, interrogé avec le jeton de l'application)
+     * et ce qu'il ouvre : Pages (avec leur compte Instagram professionnel),
+     * comptes Instagram liés au compte publicitaire, pixels. Une liste qui ne
+     * se lit pas (droit manquant) reste vide : le rapport dit ce qui manque.
+     */
     async checkAccess(acc: AccountContext): Promise<AccessReport> {
       type Debug = { data?: { scopes?: string[]; is_valid?: boolean } };
       const debug = await get<Debug>(url("debug_token", { input_token: acc.token, access_token: `${cfg.appId}|${cfg.appSecret}` }));

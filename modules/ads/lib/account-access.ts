@@ -5,8 +5,6 @@ import { getPlatform, isMetaMock } from "@/modules/ads/platforms";
 import { accessVerdict, type AccessVerdict } from "@/modules/ads/lib/access-verdict";
 import type { AccessReport, AccountContext, AdPlatform } from "@/modules/ads/platforms/types";
 
-export { accessVerdict, type AccessVerdict };
-
 export class AccountUnavailable extends Error {}
 
 const REASONS: Record<string, string> = {

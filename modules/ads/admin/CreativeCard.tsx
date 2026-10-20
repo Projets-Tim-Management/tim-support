@@ -111,11 +111,11 @@ export function CreativeCard({ c, logos = [] }: { c: CardCreative; logos?: Attac
               <strong>Créer la pub dans Claude Design</strong>
             </div>
             {step === 1 ? (
-              <StepCreate brief={c.brief} logos={logos} />
+              <StepCreate brief={c.brief} expected={c.expected} logos={logos} />
             ) : (
               <details className="ads-step__again">
                 <summary>Revoir le brief</summary>
-                <StepCreate brief={c.brief} logos={logos} />
+                <StepCreate brief={c.brief} expected={c.expected} logos={logos} />
               </details>
             )}
           </li>

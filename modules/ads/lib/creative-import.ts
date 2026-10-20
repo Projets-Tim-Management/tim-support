@@ -1,6 +1,7 @@
 import type { Payload } from "payload";
 
-import { isCreaBlobUrl, withImported, type CreativeFile } from "@/modules/ads/lib/creative-files";
+import { deleteBlobs } from "@/modules/ads/lib/blob";
+import { isCreaBlobUrl, OPEN_STATUSES, withImported, type CreativeFile } from "@/modules/ads/lib/creative-files";
 import { checkFile, parseFileName, type FileFacts, type SpecCheck } from "@/modules/ads/lib/meta-specs";
 
 /**
@@ -17,13 +18,11 @@ import { checkFile, parseFileName, type FileFacts, type SpecCheck } from "@/modu
 
 export class ImportError extends Error {}
 
-const OPEN = ["brouillon", "a-valider"];
-
 export type ImportRequest = FileFacts & { url: string; pathname?: string | null; filename: string };
 
 /** Ce que dit l'import, avant toute écriture ; lève `ImportError` avec la raison. Pure. */
 export function checkImport(creativeId: number | string, status: string | null | undefined, r: ImportRequest): SpecCheck & { format: NonNullable<SpecCheck["format"]>; kind: "image" | "video" } {
-  if (!OPEN.includes(status ?? "")) throw new ImportError(`Créa « ${status} » : ses fichiers ne changent plus.`);
+  if (!OPEN_STATUSES.includes(status ?? "")) throw new ImportError(`Créa « ${status} » : ses fichiers ne changent plus.`);
   if (!isCreaBlobUrl(creativeId, r.url)) throw new ImportError("Fichier introuvable sur le stockage de cette créa : réimportez-le.");
   const named = parseFileName(r.filename);
   if (named.creative != null && String(named.creative) !== String(creativeId)) throw new ImportError(`Ce fichier est nommé pour la créa C${named.creative}, pas pour celle-ci (C${creativeId}).`);
@@ -44,15 +43,7 @@ async function imageSize(url: string): Promise<{ width: number; height: number }
   }
 }
 
-async function dropBlob(payload: Payload, url: string | null | undefined) {
-  if (!url || !process.env.BLOB_READ_WRITE_TOKEN) return;
-  try {
-    const { del } = await import("@vercel/blob");
-    await del([url], { token: process.env.BLOB_READ_WRITE_TOKEN });
-  } catch (e) {
-    payload.logger.warn(`[publicité] ancien fichier non supprimé (${url}) : ${(e as Error).message}`);
-  }
-}
+const dropBlob = (payload: Payload, url: string | null | undefined) => deleteBlobs(payload, [url], `ancien fichier (${url})`);
 
 type Raw = { id: number; status?: string | null; files?: CreativeFile[] | null };
 
@@ -89,7 +80,7 @@ export async function importCreativeFile(payload: Payload, creativeId: number | 
 export async function removeCreativeFile(payload: Payload, creativeId: number | string, url: string): Promise<void> {
   const c = (await payload.findByID({ collection: "ad-creatives", id: creativeId, depth: 0, overrideAccess: true }).catch(() => null)) as Raw | null;
   if (!c) throw new ImportError("Créa introuvable.");
-  if (!OPEN.includes(c.status ?? "")) throw new ImportError(`Créa « ${c.status} » : ses fichiers ne changent plus.`);
+  if (!OPEN_STATUSES.includes(c.status ?? "")) throw new ImportError(`Créa « ${c.status} » : ses fichiers ne changent plus.`);
   const files = c.files ?? [];
   if (!files.some((f) => f.url === url)) throw new ImportError("Fichier introuvable sur cette créa.");
   await payload.update({ collection: "ad-creatives", id: c.id, data: { files: files.filter((f) => f.url !== url) } as never, overrideAccess: true });
