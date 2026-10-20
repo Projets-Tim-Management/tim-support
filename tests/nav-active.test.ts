@@ -55,6 +55,6 @@ describe("pages hors menu", () => {
 
   it("Publicité : 4 entrées de travail, puis la matière de l'agent, puis les réglages", () => {
     const pub = NAV_LAYOUT["Publicité"];
-    expect(pub.map((it) => (typeof it === "string" ? it : it.label))).toEqual(["Tableau de bord", "À valider", "ad-campaigns", "ad-creatives", "Ce que l'agent sait", "Réglages"]);
+    expect(pub.map((it) => (typeof it === "string" ? it : it.label))).toEqual(["Tableau de bord", "À valider", "ad-campaigns", "ad-creatives", "Ressources", "Réglages"]);
   });
 });

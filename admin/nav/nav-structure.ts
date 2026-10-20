@@ -128,7 +128,7 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     { label: "À valider", href: "/admin/publicite/a-valider", adminOnly: true, badge: "/api/admin/ads/a-valider/compte" },
     "ad-campaigns",
     "ad-creatives",
-    { label: "Ce que l'agent sait", slugs: ["ads-brand-kit", "ad-rushes", "ad-facts", "ad-competitors", "ad-instructions", "ad-learnings"] },
+    { label: "Ressources", slugs: ["ads-brand-kit", "ad-rushes", "ad-facts", "ad-competitors", "ad-instructions", "ad-learnings"] },
     { label: "Réglages", slugs: ["ad-accounts", "ads-settings"] },
   ],
   /**
