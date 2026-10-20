@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { LaunchStep } from "@/modules/ads/lib/launch-track";
 
 import { CampaignWizard } from "./CampaignWizard";
+import { LaunchTrackView } from "./LaunchTrackView";
 
 /**
  * En tête de la fiche campagne : le parcours jusqu'à la diffusion (lib/launch-track),
@@ -35,8 +36,6 @@ export function LaunchTrack() {
   }, [load]);
 
   if (id == null || !steps) return null;
-  const current = steps.find((s) => s.current) ?? null;
-
   const act = (s: LaunchStep) => {
     if (!s.action) return;
     if (s.action.kind === "wizard") setWizard(true);
@@ -50,31 +49,8 @@ export function LaunchTrack() {
   };
 
   return (
-    <section className="ads-track" aria-label="Lancement de la campagne">
-      <ol className="ads-track__steps">
-        {steps.map((s, i) => (
-          <li key={s.key} className={`ads-track__step${s.done ? " ads-track__step--done" : ""}${s.current ? " ads-track__step--current" : ""}`}>
-            <span className="ads-track__dot" aria-hidden>
-              {s.done ? "✓" : i + 1}
-            </span>
-            <span className="ads-track__label">{s.label}</span>
-          </li>
-        ))}
-      </ol>
-      {current ? (
-        <div className="ads-track__next">
-          <span>
-            <strong>Prochaine étape : {current.label.toLowerCase()}.</strong> {current.detail}
-          </span>
-          {current.action && (
-            <button type="button" className="tim-btn tim-btn--primary" onClick={() => act(current)}>
-              {current.actionLabel} →
-            </button>
-          )}
-        </div>
-      ) : (
-        <p className="ads-track__next ads-track__next--done">La campagne est en diffusion.</p>
-      )}
+    <>
+      <LaunchTrackView steps={steps} onAct={act} />
       {wizard && (
         <CampaignWizard
           campaignId={id}
@@ -85,7 +61,7 @@ export function LaunchTrack() {
           }}
         />
       )}
-    </section>
+    </>
   );
 }
 
