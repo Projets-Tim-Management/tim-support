@@ -86,6 +86,9 @@ export function publishProblems(i: PubInput): string[] {
 /** Les natures d'une créa (vidéo, image) et leurs fichiers. Pure. */
 export const kindsOf = (c: PubCrea) => (["video", "image"] as const).filter((k) => c.files.some((f) => f.kind === k));
 
+/** Les centres d'intérêt que Meta dit retirés de son catalogue, d'après son message d'erreur. Pure. */
+export const deprecatedInterests = (message: string): string[] => [...message.matchAll(/"deprecated_interest_id"\s*:\s*"?(\d+)/g)].map((m) => m[1]);
+
 export type Deps = { platform: AdPlatform; acc: AccountContext; now: () => Date; deadline: number };
 
 /** Une étape a été faite : on la note, on garde l'état (le chemin le plus court vers la reprise). */
@@ -120,24 +123,39 @@ export async function advance(state: PubState, input: PubInput, d: Deps, save: S
   }
 
   // 2. Les ensembles, dans l'ordre du plan.
-  for (const [i, e] of plan.ensembles.entries()) {
+  for (const [i, planned] of plan.ensembles.entries()) {
     if (s.adsets[i]) continue;
+    let e = planned;
     const daily = Math.round(((input.metaDailyEur ?? 0) * e.part) / 100 * 100) / 100;
-    s.adsets[i] = await p.createAdSet(d.acc, {
-      campaignId: s.campaignId,
-      name: e.nom,
-      dailyBudget: daily,
-      optimizationGoal: opt.meta,
-      billingEvent: "IMPRESSIONS",
-      targeting: metaTargeting(e),
-      promotedObject:
-        plan.optimisation === "conversions" && input.account.pixelId
-          ? { pixel_id: input.account.pixelId, custom_event_type: "LEAD" }
-          : !def.site && input.account.pageId
-            ? { page_id: input.account.pageId }
-            : null,
-      destinationType: def.site ? "WEBSITE" : null,
-    });
+    const create = () =>
+      p.createAdSet!(d.acc, {
+        campaignId: s.campaignId!,
+        name: e.nom,
+        dailyBudget: daily,
+        optimizationGoal: opt.meta,
+        billingEvent: "IMPRESSIONS",
+        targeting: metaTargeting(e),
+        promotedObject:
+          plan.optimisation === "conversions" && input.account.pixelId
+            ? { pixel_id: input.account.pixelId, custom_event_type: "LEAD" }
+            : !def.site && input.account.pageId
+              ? { page_id: input.account.pageId }
+              : null,
+        destinationType: def.site ? "WEBSITE" : null,
+      });
+    try {
+      s.adsets[i] = await create();
+    } catch (err) {
+      // Meta retire des centres d'intérêt de son catalogue : on les enlève du ciblage —
+      // sans prendre l'« alternative » proposée, qui ne vise pas le même public — et on réessaie une fois.
+      const gone = deprecatedInterests((err as Error).message);
+      const dropped = e.interets.filter((x) => gone.includes(String(x.id)));
+      if (!dropped.length) throw err;
+      e = { ...e, interets: e.interets.filter((x) => !gone.includes(String(x.id))) };
+      s.plan = { ...s.plan!, ensembles: s.plan!.ensembles.map((x, j) => (j === i ? e : x)) };
+      await note(`Centre d'intérêt retiré par Meta, enlevé du ciblage de « ${e.nom} » : ${dropped.map((x) => `« ${x.name} »`).join(", ")}.`);
+      s.adsets[i] = await create();
+    }
     s.adsets = [...s.adsets];
     await note(`Ensemble « ${e.nom} » créé (${daily.toFixed(2)} € par jour).`);
     if (late()) return s;

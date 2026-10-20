@@ -128,4 +128,26 @@ describe("publier, d'un bout à l'autre", () => {
     expect((p2.createAdSet as ReturnType<typeof vi.fn>).mock.calls[0][1]).toMatchObject({ optimizationGoal: "REACH", promotedObject: { page_id: "p1" }, destinationType: null });
     expect((p2.createCreative as ReturnType<typeof vi.fn>).mock.calls[0][1]).toMatchObject({ link: null, urlTags: null });
   });
+
+  it("un centre d'intérêt retiré par Meta est enlevé du ciblage, noté, et l'ensemble recréé une fois", async () => {
+    const p = platform();
+    const meta = `Meta 100 : Invalid parameter — Autres options pertinentes : [{"deprecated_interest_id":"222","deprecated_interest_name":"Vieux","alternative_interest_id":"999","alternative_interest_name":"Autre"}]`;
+    (p.createAdSet as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error(meta));
+    const withInterests = readPlan({ objectif: "trafic", optimisation: "vues-page", ensembles: [{ nom: "A", part: 100, interets: [{ id: "111", name: "Construction" }, { id: "222", name: "Vieux" }] }] });
+    const s = await advance(emptyState(input({ plan: withInterests })), input({ plan: withInterests }), deps(p), async () => {});
+    expect(s.status).toBe("en-pause");
+    const calls = (p.createAdSet as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(JSON.stringify(calls[1][1].targeting)).not.toContain("222");
+    expect(JSON.stringify(calls[1][1].targeting)).not.toContain("999");
+    expect(s.plan?.ensembles[0].interets.map((x) => x.id)).toEqual(["111"]);
+    expect(s.history.some((h) => h.line.includes("« Vieux »"))).toBe(true);
+  });
+
+  it("une autre erreur de Meta sur l'ensemble lève, sans réessayer", async () => {
+    const p = platform();
+    (p.createAdSet as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("Meta 100 : budget trop bas"));
+    await expect(advance(emptyState(input()), input(), deps(p), async () => {})).rejects.toThrow(/budget trop bas/);
+    expect(p.createAdSet).toHaveBeenCalledTimes(1);
+  });
 });
