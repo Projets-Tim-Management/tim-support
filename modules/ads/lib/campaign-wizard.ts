@@ -12,12 +12,12 @@ import { DEFAULT_AI_SHARE_PCT, DEFAULT_META_FLOOR_EUR, validateAgentBudget } fro
  */
 
 export const WIZARD_STEPS = [
-  { key: "bases", label: "Bases", title: "La campagne" },
-  { key: "cible", label: "Cible", title: "À qui parle-t-on ?" },
-  { key: "offre", label: "Offre", title: "Que propose-t-on ?" },
-  { key: "pub", label: "Pub", title: "Où mène la pub ?" },
-  { key: "budget", label: "Budget", title: "Combien, et quelle liberté pour l'agent ?" },
-  { key: "verifier", label: "Vérifier", title: "Tout est-il juste ?" },
+  { key: "bases", label: "Bases", title: "La campagne", intro: "Un nom pour la retrouver, le compte qui paiera, et ce qu'elle doit obtenir : l'agent choisit sa stratégie d'après ce dernier point." },
+  { key: "cible", label: "Cible", title: "À qui parle-t-on ?", intro: "L'agent écrit pour ces personnes, avec leurs mots. Plus c'est précis, plus les textes sonnent juste." },
+  { key: "offre", label: "Offre", title: "Que propose-t-on ?", intro: "Ce que la pub propose, ce qui change pour le client, et les seuls chiffres qu'elle aura le droit de citer." },
+  { key: "pub", label: "Pub", title: "Où mène la pub ?", intro: "La page où arrive le clic, le bouton affiché et la façon de s'adresser aux gens." },
+  { key: "budget", label: "Budget", title: "Combien, et quelle liberté ?", intro: "Ce que la campagne peut dépenser par jour, IA et Meta compris, et ce que l'agent a le droit de faire une fois en ligne." },
+  { key: "verifier", label: "Vérifier", title: "Tout est-il juste ?", intro: "Relisez : chaque bloc se modifie d'un clic. Puis lancez l'agent, ou gardez la campagne pour plus tard." },
 ] as const;
 
 export type StepKey = (typeof WIZARD_STEPS)[number]["key"];
