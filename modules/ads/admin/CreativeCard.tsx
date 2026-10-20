@@ -235,9 +235,24 @@ export function CreativeCard({ c, logos = [] }: { c: CardCreative; logos?: Attac
           </div>
         )}
         {c.status === "validee" && (
-          <a className="tim-btn tim-btn--primary" href={`/api/admin/ads/creatives/${c.id}/download`}>
-            Télécharger (ZIP)
-          </a>
+          <>
+            <a className="tim-btn tim-btn--primary" href={`/api/admin/ads/creatives/${c.id}/download`}>
+              Télécharger (ZIP)
+            </a>
+            <button
+              type="button"
+              className="tim-btn"
+              disabled={busy != null}
+              title="Repasse la créa « À valider » pour remplacer ses fichiers. Impossible une fois publiée chez Meta."
+              onClick={() => {
+                if (window.confirm("Rouvrir cette créa ? Elle repasse « À valider » : vous pourrez remplacer ses fichiers, puis la valider de nouveau.")) {
+                  void call("rouvrir", `/api/admin/ads/creatives/${c.id}/decide`, { decision: "rouvrir" }, "Créa rouverte : elle est de nouveau dans « À valider ».");
+                }
+              }}
+            >
+              {busy === "rouvrir" ? "…" : "Rouvrir pour modifier"}
+            </button>
+          </>
         )}
       </footer>
     </article>

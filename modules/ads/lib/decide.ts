@@ -13,7 +13,7 @@ import { missingFiles, type CreativeFile } from "@/modules/ads/lib/creative-file
  * il servira à la génération suivante.
  */
 
-export type Decision = { decision: "validee" } | { decision: "refusee"; reason: string; detail?: string | null };
+export type Decision = { decision: "validee" } | { decision: "refusee"; reason: string; detail?: string | null } | { decision: "rouvrir" };
 
 type Creative = {
   status?: string | null;
@@ -23,7 +23,12 @@ type Creative = {
 };
 
 /** La raison de refuser le geste, ou `null` s'il est permis. Pure. */
-export function decisionError(c: Creative, d: Decision): string | null {
+export function decisionError(c: Creative, d: Decision, published = false): string | null {
+  // Rouvrir une créa validée (pour changer ses fichiers) : seulement tant qu'elle n'est pas partie chez Meta.
+  if (d.decision === "rouvrir") {
+    if (c.status !== "validee") return "Seule une créa validée se rouvre.";
+    return published ? "Cette créa est déjà publiée chez Meta : elle ne se rouvre plus." : null;
+  }
   if (c.status !== "a-valider") return "Cette créa n'est pas en attente de validation.";
   if (d.decision === "refusee") {
     return REFUSAL_REASONS.some((r) => r.value === d.reason) ? null : "Choisissez un motif de refus.";
@@ -34,10 +39,13 @@ export function decisionError(c: Creative, d: Decision): string | null {
 }
 
 /** Ce que le geste écrit sur la créa. Pure. */
-export const decisionData = (d: Decision, userId: number | string, now: Date) => ({
+export const decisionData = (d: Decision, userId: number | string, now: Date) =>
+  d.decision === "rouvrir"
+    ? { status: "a-valider", decidedBy: null, decidedAt: null, refusalReason: null, refusalDetail: null }
+    : {
   status: d.decision,
   decidedBy: userId,
   decidedAt: now.toISOString(),
   refusalReason: d.decision === "refusee" ? d.reason : null,
   refusalDetail: d.decision === "refusee" ? (d.detail?.trim() || null) : null,
-});
+};

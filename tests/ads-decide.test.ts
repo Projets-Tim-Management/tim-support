@@ -37,3 +37,14 @@ describe("valider ou refuser une créa", () => {
     expect(decisionData({ decision: "refusee", reason: "faux", detail: "  le chiffre date  " }, 1, now)).toMatchObject({ status: "refusee", refusalReason: "faux", refusalDetail: "le chiffre date" });
   });
 });
+
+describe("rouvrir une créa validée", () => {
+  it("seulement une créa validée, et pas une fois publiée chez Meta", () => {
+    expect(decisionError({ ...complete, status: "validee" }, { decision: "rouvrir" })).toBeNull();
+    expect(decisionError({ ...complete, status: "validee" }, { decision: "rouvrir" }, true)).toMatch(/déjà publiée/);
+    expect(decisionError(complete, { decision: "rouvrir" })).toMatch(/Seule une créa validée/);
+  });
+  it("elle repasse « À valider », sans décision ni motif", () => {
+    expect(decisionData({ decision: "rouvrir" }, 1, new Date())).toEqual({ status: "a-valider", decidedBy: null, decidedAt: null, refusalReason: null, refusalDetail: null });
+  });
+});
