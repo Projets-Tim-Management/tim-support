@@ -20,7 +20,7 @@ const SYSTEM_FIELDS = new Set(["id", "createdAt", "updatedAt", "globalType"]);
 export function settingFields(fields: Field[]): { name: string; label: string }[] {
   return fields.flatMap((f) => {
     if ("fields" in f && !("name" in f && f.name)) return settingFields(f.fields as Field[]);
-    if ("name" in f && f.name && !("fields" in f) && !SYSTEM_FIELDS.has(f.name)) return [{ name: f.name, label: typeof f.label === "string" ? f.label : f.name }];
+    if (f.type !== "ui" && "name" in f && f.name && !("fields" in f) && !SYSTEM_FIELDS.has(f.name)) return [{ name: f.name, label: typeof f.label === "string" ? f.label : f.name }];
     return [];
   });
 }

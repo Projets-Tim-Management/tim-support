@@ -6,12 +6,12 @@ import { EntityType } from "@payloadcms/ui/shared";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import { formatAdminURL } from "payload/shared";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 import { hasAdminRole } from "@/core/access";
 
 import CollapsibleGroup from "./CollapsibleGroup";
-import { NAV_LAYOUT, NAV_ORDER, isActiveHref, isLink, isSubGroup, type NavItem, type NavLink } from "./nav-structure";
+import { NAV_HIDDEN, NAV_LAYOUT, NAV_ORDER, isActiveHref, isLink, isSubGroup, type NavItem, type NavLink } from "./nav-structure";
 import { useNavRail } from "./useNavRail";
 
 const baseClass = "nav";
@@ -105,6 +105,29 @@ export default function CustomNavClient({ groups }: Props) {
   const isActive = useIsActive();
   const pathname = usePathname();
   const adminRoute = config.routes.admin;
+  /**
+   * Les pastilles des liens libres (ex. « À valider ») : chaque adresse rend
+   * `{ count }`, relue à chaque changement de page — un geste fait ailleurs
+   * (valider une créa) se voit au clic suivant. Une erreur laisse la pastille vide.
+   */
+  const [badges, setBadges] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const urls = [...new Set(Object.values(NAV_LAYOUT).flat().filter(isLink).filter((l) => l.badge && (!l.adminOnly || hasAdminRole(user))).map((l) => l.badge!))];
+    if (!urls.length) return;
+    let alive = true;
+    void Promise.all(
+      urls.map((u) =>
+        fetch(u, { credentials: "include", cache: "no-store" })
+          .then((r) => (r.ok ? (r.json() as Promise<{ count?: number }>) : {}))
+          .then((d): [string, number] => [u, Number((d as { count?: number }).count) || 0])
+          .catch((): [string, number] => [u, 0]),
+      ),
+    ).then((pairs) => alive && setBadges(Object.fromEntries(pairs)));
+    return () => {
+      alive = false;
+    };
+  }, [pathname, user]);
+
   const [railed, setRailed] = useNavRail();
 
   // Rôles non-admin (support, partenaires) : menus OUVERTS par défaut — la nav
@@ -187,7 +210,7 @@ export default function CustomNavClient({ groups }: Props) {
           if (isSubGroup(item)) item.slugs.forEach((s) => placed.add(s));
           else if (typeof item === "string") placed.add(item);
         });
-        const leftovers = group.entities.filter((e) => !placed.has(e.slug));
+        const leftovers = group.entities.filter((e) => !placed.has(e.slug) && !NAV_HIDDEN.has(e.slug));
 
         /**
          * Lien libre vers une vue custom : aucune collection derrière, donc rien
@@ -205,6 +228,13 @@ export default function CustomNavClient({ groups }: Props) {
             <Fragment>
               {on && <div className={`${baseClass}__link-indicator`} />}
               <span className={`${baseClass}__link-label`}>{item.label}</span>
+              {item.badge && badges[item.badge] ? (
+                <span className="nav-badges">
+                  <span className="nav-badge nav-badge--new" title="En attente de votre décision">
+                    {badges[item.badge]}
+                  </span>
+                </span>
+              ) : null}
             </Fragment>
           );
           return on ? (

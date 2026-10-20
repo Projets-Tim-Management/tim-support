@@ -125,6 +125,7 @@ import { FormOptionRowLabel as FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f
 import { FormFieldRowLabel as FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3 } from '../../../modules/forms/admin/FormFieldRowLabel'
 import { AgentPanel as AgentPanel_35a1e979f04c9e33500ed20b629a4bc2 } from '../../../modules/ads/admin/AgentPanel'
 import { PublishPanel as PublishPanel_0b56d77730197393cc2744e5eef1a5ba } from '../../../modules/ads/admin/PublishPanel'
+import { CampaignResults as CampaignResults_d5392f32e5024388768850e56d85ed5c } from '../../../modules/ads/admin/CampaignResults'
 import { CampaignKpisCell as CampaignKpisCell_17973b2b589d2f9fcdba067f516b0a98 } from '../../../modules/ads/admin/CampaignKpisCell'
 import { AccountAccess as AccountAccess_a9ac008dac897824fdd0000e805385e4 } from '../../../modules/ads/admin/AccountAccess'
 import { ConnectMetaPanel as ConnectMetaPanel_0443b5b41d00975585a76653d22b342f } from '../../../modules/ads/admin/ConnectMetaPanel'
@@ -136,6 +137,7 @@ import { default as default_c08243cbb0e32dd70b45a5afb5f6cbd4 } from '../../../ad
 import { default as default_72ee9fe55f81abe2c8ae550d52d0ab85 } from '../../../admin/fields/ColorField'
 import { EmailTemplatesBackLink as EmailTemplatesBackLink_7a3b3427a104dea3e6a7f18d27228e56 } from '../../../modules/dev/admin/EmailTemplatesBackLink'
 import { AnnounceEmailPreview as AnnounceEmailPreview_7677cf785fe8efda4b98a8d065538a81 } from '../../../modules/dev/admin/AnnounceEmailPreview'
+import { SpendSummary as SpendSummary_d6210025cd211b2c2ea880e5a46bff95 } from '../../../modules/ads/admin/SpendSummary'
 import { LogoPreview as LogoPreview_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
 import { PaletteCheck as PaletteCheck_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
 import { FontPreview as FontPreview_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
@@ -295,6 +297,7 @@ export const importMap = {
   "/modules/forms/admin/FormFieldRowLabel#FormFieldRowLabel": FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3,
   "/modules/ads/admin/AgentPanel#AgentPanel": AgentPanel_35a1e979f04c9e33500ed20b629a4bc2,
   "/modules/ads/admin/PublishPanel#PublishPanel": PublishPanel_0b56d77730197393cc2744e5eef1a5ba,
+  "/modules/ads/admin/CampaignResults#CampaignResults": CampaignResults_d5392f32e5024388768850e56d85ed5c,
   "/modules/ads/admin/CampaignKpisCell#CampaignKpisCell": CampaignKpisCell_17973b2b589d2f9fcdba067f516b0a98,
   "/modules/ads/admin/AccountAccess#AccountAccess": AccountAccess_a9ac008dac897824fdd0000e805385e4,
   "/modules/ads/admin/ConnectMetaPanel#ConnectMetaPanel": ConnectMetaPanel_0443b5b41d00975585a76653d22b342f,
@@ -306,6 +309,7 @@ export const importMap = {
   "/admin/fields/ColorField#default": default_72ee9fe55f81abe2c8ae550d52d0ab85,
   "/modules/dev/admin/EmailTemplatesBackLink#EmailTemplatesBackLink": EmailTemplatesBackLink_7a3b3427a104dea3e6a7f18d27228e56,
   "/modules/dev/admin/AnnounceEmailPreview#AnnounceEmailPreview": AnnounceEmailPreview_7677cf785fe8efda4b98a8d065538a81,
+  "/modules/ads/admin/SpendSummary#SpendSummary": SpendSummary_d6210025cd211b2c2ea880e5a46bff95,
   "/modules/ads/admin/BrandKitPreview#LogoPreview": LogoPreview_f97f8060092912987144671ff9edb2ae,
   "/modules/ads/admin/BrandKitPreview#PaletteCheck": PaletteCheck_f97f8060092912987144671ff9edb2ae,
   "/modules/ads/admin/BrandKitPreview#FontPreview": FontPreview_f97f8060092912987144671ff9edb2ae,

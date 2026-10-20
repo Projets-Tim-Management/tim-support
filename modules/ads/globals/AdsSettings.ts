@@ -16,6 +16,8 @@ const eur = (name: string, label: string, defaultValue: number, description: str
   ({ name, type: "number", label, defaultValue, min: 0, required: true, admin: { width: "25%", description } }) as const;
 
 const fields: Field[] = [
+  // Ce que l'IA a coûté ce mois-ci face aux plafonds réglés ici, et les journaux (hors menu).
+  { name: "spendSummary", type: "ui", admin: { components: { Field: "/modules/ads/admin/SpendSummary#SpendSummary" } } },
   {
     name: "enabled",
     type: "checkbox",

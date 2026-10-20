@@ -280,37 +280,45 @@ export const AdCampaigns: CollectionConfig = {
           ],
         },
         {
-          label: "Chez la régie",
-          description: "Lu chez la régie par la synchro. Ne se modifie pas ici.",
+          label: "Résultats",
+          description: "Ce que la campagne a produit chez la régie, jour par jour — lu par la synchro, rien ne se modifie ici.",
           fields: [
+            { name: "results", type: "ui", admin: { components: { Field: "/modules/ads/admin/CampaignResults#CampaignResults" } } },
             {
-              type: "row",
+              type: "collapsible",
+              label: "Chez la régie : compte, identifiants, état brut",
+              admin: { initCollapsed: true },
               fields: [
-                { name: "account", type: "relationship", relationTo: "ad-accounts", label: "Compte", index: true, access: { update: whileDraft }, admin: { width: "50%" } },
-                { name: "externalId", type: "text", label: "Identifiant chez la régie", index: true, access: mirror, admin: { width: "50%", readOnly: true } },
-              ],
-            },
-            {
-              type: "row",
-              fields: [
-                { name: "status", type: "select", label: "État", options: [...CAMPAIGN_STATUSES], defaultValue: "brouillon", index: true, access: mirror, admin: { width: "33%", readOnly: true } },
-                { name: "objective", type: "select", label: "Objectif", options: [...OBJECTIVES], access: { update: whileDraft }, admin: { width: "33%" } },
                 {
-                  name: "dailyBudget",
-                  type: "number",
-                  label: "Budget quotidien",
+                  type: "row",
+                  fields: [
+                    { name: "account", type: "relationship", relationTo: "ad-accounts", label: "Compte", index: true, access: { update: whileDraft }, admin: { width: "50%" } },
+                    { name: "externalId", type: "text", label: "Identifiant chez la régie", index: true, access: mirror, admin: { width: "50%", readOnly: true } },
+                  ],
+                },
+                {
+                  type: "row",
+                  fields: [
+                    { name: "status", type: "select", label: "État", options: [...CAMPAIGN_STATUSES], defaultValue: "brouillon", index: true, access: mirror, admin: { width: "33%", readOnly: true } },
+                    { name: "objective", type: "select", label: "Objectif", options: [...OBJECTIVES], access: { update: whileDraft }, admin: { width: "33%" } },
+                    {
+                      name: "dailyBudget",
+                      type: "number",
+                      label: "Budget quotidien",
+                      access: mirror,
+                      admin: { width: "34%", readOnly: true, description: "En devise du compte, lu chez la régie." },
+                    },
+                  ],
+                },
+                { name: "externalStatus", type: "text", label: "État chez la régie (brut)", access: mirror, admin: { readOnly: true } },
+                {
+                  name: "lastSyncAt",
+                  type: "date",
+                  label: "Dernière synchro",
                   access: mirror,
-                  admin: { width: "34%", readOnly: true, description: "En devise du compte, lu chez la régie." },
+                  admin: { readOnly: true, date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" } },
                 },
               ],
-            },
-            { name: "externalStatus", type: "text", label: "État chez la régie (brut)", access: mirror, admin: { readOnly: true } },
-            {
-              name: "lastSyncAt",
-              type: "date",
-              label: "Dernière synchro",
-              access: mirror,
-              admin: { readOnly: true, date: { pickerAppearance: "dayAndTime", displayFormat: "dd/MM/yyyy HH:mm" } },
             },
           ],
         },

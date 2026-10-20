@@ -10,7 +10,8 @@
  *
  * 👉 Pour réorganiser le menu, il suffit d'éditer NAV_LAYOUT ci-dessous : pas de
  *    code à toucher. Un slug non listé ici reste affiché (à la fin du groupe,
- *    dans l'ordre de Payload) → aucune collection ne disparaît jamais du menu.
+ *    dans l'ordre de Payload) → aucune collection ne disparaît du menu par
+ *    oubli. Seule exception, voulue et listée : NAV_HIDDEN.
  */
 
 export interface NavSubGroup {
@@ -29,7 +30,28 @@ export interface NavLink {
   href: string;
   /** Réservé aux admins : les autres rôles ne voient pas le lien. */
   adminOnly?: boolean;
+  /** Pastille de compteur à côté du libellé : adresse d'API qui rend `{ count }` (rien à 0). */
+  badge?: string;
 }
+
+/**
+ * Collections volontairement HORS MENU : des listes brutes qu'on ouvre depuis
+ * l'endroit où elles servent (un lien dans une fiche, un réglage), jamais en
+ * naviguant. Elles restent accessibles par leur adresse. C'est la seule
+ * exception à la règle « un slug non listé reste affiché ».
+ */
+export const NAV_HIDDEN = new Set([
+  // Publicité : dans l'onglet « Agent » de la campagne (salle de contrôle) et « À valider ».
+  "ad-agent-runs",
+  "ad-decisions",
+  // Publicité : lues par le tableau de bord et l'onglet « Résultats » de la campagne.
+  "ad-metrics-daily",
+  // Publicité : logos et polices se déposent dans le Kit de marque.
+  "ad-media",
+  // Publicité : ouverts depuis Garde-fous.
+  "ads-settings-history",
+  "ad-ai-usage",
+]);
 
 /** Un item de groupe : un slug, un sous-groupe repliable, ou un lien libre. */
 export type NavItem = string | NavSubGroup | NavLink;
@@ -95,26 +117,19 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
    */
   Partenaires: ["partners", "partner-clients"],
   /**
-   * Les campagnes payantes, toutes régies. Les campagnes d'abord — c'est ce qu'on
-   * regarde ; les comptes et les garde-fous se règlent une fois, ils vont dans
-   * « Paramètres ». Admin seul (plan Publicité, D1).
+   * Les campagnes payantes, toutes régies. Admin seul (plan Publicité, D1).
+   * Trois étages (tri du 20/10/2026, « on s'y perd ») : ce qu'on travaille
+   * chaque jour ; ce que l'agent lit (sa matière) ; ce qui se règle une fois.
+   * Les listes brutes (passages, décisions, métriques, médias, historique,
+   * dépenses IA) sont hors menu — voir NAV_HIDDEN —, ouvertes là où elles servent.
    */
   Publicité: [
     { label: "Tableau de bord", href: "/admin/publicite", adminOnly: true },
-    { label: "À valider", href: "/admin/publicite/a-valider", adminOnly: true },
+    { label: "À valider", href: "/admin/publicite/a-valider", adminOnly: true, badge: "/api/admin/ads/a-valider/compte" },
     "ad-campaigns",
     "ad-creatives",
-    // Les enregistrements de l'application, à joindre aux briefs Claude Design.
-    "ad-rushes",
-    // Ce que l'agent a fait, puis pourquoi.
-    "ad-agent-runs",
-    "ad-decisions",
-    // Ce que l'agent doit respecter, et ce qu'il a appris : lu à chaque lancement.
-    "ad-instructions",
-    "ad-learnings",
-    "ad-metrics-daily",
-    // Paramètres toujours en dernier. La matière des créas d'abord (kit, faits, médias, concurrents), puis les réglages.
-    { label: "Paramètres", slugs: ["ads-brand-kit", "ad-facts", "ad-media", "ad-competitors", "ad-accounts", "ads-settings", "ads-settings-history", "ad-ai-usage"] },
+    { label: "Ce que l'agent sait", slugs: ["ads-brand-kit", "ad-rushes", "ad-facts", "ad-competitors", "ad-instructions", "ad-learnings"] },
+    { label: "Réglages", slugs: ["ad-accounts", "ads-settings"] },
   ],
   /**
    * Ce que TIM facture. Aucune collection : l'écran lit Pennylane à la demande.

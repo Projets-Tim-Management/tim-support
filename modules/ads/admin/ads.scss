@@ -507,3 +507,35 @@
 .ads-legacy { margin-top: 1.5rem; }
 .ads-legacy > summary { cursor: pointer; font-size: 0.88rem; color: var(--tim-muted); }
 .ads-legacy[open] > summary { margin-bottom: 0.75rem; }
+
+/* Garde-fous : dépenses IA du mois face aux plafonds (tri du 20/10/2026). */
+.ads-spend { display: flex; flex-direction: column; gap: 0.75rem; margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px solid var(--tim-border); border-radius: 0.6rem; background: var(--tim-surface); }
+.ads-spend__head { display: flex; justify-content: space-between; align-items: baseline; }
+.ads-spend__head span { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ads-spend__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+.ads-spend__row { display: grid; grid-template-columns: 9rem 1fr auto; align-items: center; gap: 0.75rem; font-size: 0.9rem; }
+.ads-spend__bar { height: 6px; border-radius: 3px; background: var(--tim-border); overflow: hidden; }
+.ads-spend__bar span { display: block; height: 100%; background: var(--tim-info); }
+.ads-spend__row--high .ads-spend__bar span { background: var(--tim-warning); }
+.ads-spend__value { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ads-spend__value small { color: var(--tim-muted); }
+.ads-spend__links { display: flex; flex-wrap: wrap; gap: 1.25rem; font-size: 0.875rem; }
+@media (max-width: 640px) { .ads-spend__row { grid-template-columns: 1fr auto; } .ads-spend__bar { grid-column: 1 / -1; order: 3; } }
+
+/* Campagne › Résultats : totaux, puis jour par jour (tri du 20/10/2026). */
+.ads-results { display: flex; flex-direction: column; gap: 1rem; margin: 0 0 1.5rem; }
+.ads-results__empty { margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px dashed var(--tim-border); border-radius: 0.6rem; color: var(--tim-muted); }
+.ads-results__kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 0.75rem; }
+.ads-results__kpis > div { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.8rem 0.9rem; border: 1px solid var(--tim-border); border-radius: 0.6rem; background: var(--tim-surface); }
+.ads-results__kpis span { font-size: 0.8rem; color: var(--tim-muted); }
+.ads-results__kpis strong { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.ads-results__kpis small { font-size: 0.75rem; color: var(--tim-muted); }
+.ads-results__table { width: 100%; border-collapse: collapse; font-size: 0.875rem; font-variant-numeric: tabular-nums; }
+.ads-results__table caption { text-align: left; padding-bottom: 0.4rem; color: var(--tim-muted); font-size: 0.8rem; }
+.ads-results__table th, .ads-results__table td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--tim-border); text-align: right; white-space: nowrap; }
+.ads-results__table th:first-child, .ads-results__table thead th:first-child { text-align: left; font-weight: 500; }
+.ads-results__table thead th { color: var(--tim-muted); font-weight: 500; font-size: 0.8rem; }
+@media (max-width: 640px) { .ads-results__table { display: block; overflow-x: auto; } }
+
+/* Onglet Agent : les journaux sortis du menu (tri du 20/10/2026). */
+.ads-agent__journals { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--tim-border); font-size: 0.875rem; }

@@ -176,6 +176,13 @@ export function AgentPanel() {
       )}
 
       {room && <ControlRoom room={room} onSelectRun={(id) => setRunId(id === String(room.passages[0]?.id) ? null : id)} />}
+
+      {id != null && (
+        <nav className="ads-agent__journals" aria-label="Journaux de la campagne">
+          <a href={`/admin/collections/ad-agent-runs?where[campaign][equals]=${id}`}>Tous les passages de cette campagne →</a>
+          <a href={`/admin/collections/ad-decisions?where[campaign][equals]=${id}`}>Toutes ses décisions →</a>
+        </nav>
+      )}
     </section>
   );
 }
