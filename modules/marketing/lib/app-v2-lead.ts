@@ -2,9 +2,7 @@ import type { Payload } from "payload";
 
 import { validatePhone } from "@/core/lib/validators";
 import { normalizePhone } from "@/modules/forms/lib/to-opportunity";
-import { APP_V2_HOST_PARTNER_ID, APP_V2_PATH } from "@/modules/marketing/lib/app-v2";
 import { formatSlot } from "@/modules/marketing/lib/scheduling";
-import { vitrinePartnerId } from "@/modules/partner/lib/vitrine-partner";
 
 /**
  * Un rendez-vous pris sur la page de présentation de la V2 devient du travail
@@ -14,7 +12,7 @@ import { vitrinePartnerId } from "@/modules/partner/lib/vitrine-partner";
  * La personne est-elle déjà connue ? On cherche son adresse partout où un client
  * en laisse une — la fiche, ses contacts, son espace client. Connue : le
  * rendez-vous s'ajoute à SA fiche, sans doublon. Inconnue : une opportunité
- * « Nouvelle » est créée, comme pour un formulaire du site vitrine, et peut
+ * « Nouvelle » est créée chez l'interlocuteur de la page, et peut
  * ensuite être rattachée à la main si c'était quelqu'un d'une entreprise
  * existante sous une autre adresse.
  */
@@ -55,9 +53,17 @@ async function knownClient(payload: Payload, email: string): Promise<number | st
 
 export async function leadFromBooking(
   payload: Payload,
-  args: { at: string; person: Person; meetingUrl: string | null },
+  args: {
+    at: string;
+    person: Person;
+    meetingUrl: string | null;
+    /** Fiche partenaire de l'interlocuteur : un nouveau prospect lui est attribué. */
+    hostId: number;
+    /** Adresse de la page, pour la note du prospect. */
+    path: string;
+  },
 ): Promise<{ clientId: number | string; created: boolean } | null> {
-  const { at, person: p, meetingUrl } = args;
+  const { at, person: p, meetingUrl, hostId, path } = args;
   const email = (p.email ?? "").toLowerCase();
   const who = [p.firstName, p.lastName].filter(Boolean).join(" ");
   const when = formatSlot(at);
@@ -66,7 +72,9 @@ export async function leadFromBooking(
   const created = clientId == null;
 
   if (clientId == null) {
-    const partner = (await vitrinePartnerId(payload)) ?? APP_V2_HOST_PARTNER_ID;
+    // L'interlocuteur de la page : c'est avec lui que le rendez-vous est pris,
+    // c'est donc lui qui suit le prospect.
+    const partner = hostId;
     const phone = normalizePhone(p.phone);
     const doc = await payload.create({
       collection: "partner-clients",
@@ -79,7 +87,7 @@ export async function leadFromBooking(
         // en brouillon n'apparaît ni dans le Kanban ni dans les rappels.
         clientStatus: "nouvelle" as const,
         leadNotes: [
-          `Rendez-vous « tour de l'app mobile V2 » réservé depuis ${APP_V2_PATH}.`,
+          `Rendez-vous « tour de l'app mobile V2 » réservé depuis ${path}.`,
           `Créneau : ${when}`,
           `Contact : ${who} — ${email}${p.phone ? ` — ${p.phone}` : ""}`,
           p.message ? `Message : ${p.message}` : "",

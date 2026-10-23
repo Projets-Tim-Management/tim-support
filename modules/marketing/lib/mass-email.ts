@@ -1,5 +1,5 @@
 import { BRAND, BODY, FONT, escape, plainShell } from "@/core/lib/email-template";
-import { APP_V2_PATH } from "@/modules/marketing/lib/app-v2";
+import { appV2Path } from "@/modules/marketing/lib/app-v2";
 
 /**
  * E-mail de masse — un même message envoyé à une liste d'adresses, mais UN
@@ -17,7 +17,7 @@ import { APP_V2_PATH } from "@/modules/marketing/lib/app-v2";
  * `localhost` — un lien mort chez le client.
  */
 const PUBLIC_SITE = "https://support.tim-management.co";
-export const APP_V2_PUBLIC_URL = `${PUBLIC_SITE}${APP_V2_PATH}`;
+export const APP_V2_PUBLIC_URL = `${PUBLIC_SITE}${appV2Path()}`;
 
 export type MassEmailTemplate = {
   key: string;

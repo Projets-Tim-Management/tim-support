@@ -13,7 +13,7 @@ export default function ConditionalFooter() {
   const pathname       = usePathname();
   const isParcoursStep = /^\/parcours\/[^/]+/.test(pathname);
   // Présentation de la V2 : page autonome, son propre pied (voir ConditionalHeader).
-  const isPresentation = pathname === "/app-mobile-v2";
+  const isPresentation = pathname.startsWith("/app-mobile-v2");
   if (isParcoursStep || isPresentation) return null;
   return <Footer />;
 }
