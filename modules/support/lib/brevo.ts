@@ -265,6 +265,24 @@ export async function getEmailActivity(
   }
 }
 
+/**
+ * TOUS les événements d'un tag, page après page — pour les statistiques d'une
+ * campagne (e-mail de masse), où une seule page de 200 ne couvrirait même pas
+ * les « délivré » d'un envoi à 300 personnes. Plafonné à 90 jours par l'API.
+ */
+export async function getTaggedEvents(tag: string, days = 90): Promise<BrevoEvent[]> {
+  if (!process.env.BREVO_API_KEY) return [];
+  const PAGE = 1000;
+  const out: BrevoEvent[] = [];
+  // Garde-fou : 20 pages = 20 000 événements, bien au-delà d'un envoi à 300.
+  for (let offset = 0; offset < PAGE * 20; offset += PAGE) {
+    const page = await query({ tags: tag, days: String(Math.min(days, 90)), limit: String(PAGE), offset: String(offset), sort: "desc" });
+    out.push(...page);
+    if (page.length < PAGE) break;
+  }
+  return out;
+}
+
 async function query(params: Record<string, string>): Promise<BrevoEvent[]> {
   const key = process.env.BREVO_API_KEY;
   if (!key) return [];

@@ -158,6 +158,7 @@ import { default as default_a8bdfd6ec46ed48bd1e9402d58bf4c34 } from '../../../ad
 import { default as default_6971e0609c24bbf2339323e60b70e021 } from '../../../modules/support/admin/NotificationsView'
 import { default as default_a53e8fe3edc1ecea3fa295b8b21d1b14 } from '../../../modules/dev/admin/DevEmailTemplatesView'
 import { default as default_31771f6a3fa0ba20a52c3d00b490cd26 } from '../../../admin/connections/SupportConnectionsView'
+import { default as default_3908d81f48b7e7be5fc8566580e8ef6f } from '../../../modules/marketing/admin/MassEmailView'
 import { default as default_d8e7bbf9f25486534fff2dfe79658e80 } from '../../../modules/partner/admin/BillingCheckView'
 import { default as default_3fac943f745ba0ff2dbf26360a2df675 } from '../../../modules/analytics/admin/BillingView'
 import { default as default_3125f72c9cf5e6cdd1ecf6cff4f3fd8c } from '../../../modules/analytics/admin/PipelineView'
@@ -332,6 +333,7 @@ export const importMap = {
   "/modules/support/admin/NotificationsView#default": default_6971e0609c24bbf2339323e60b70e021,
   "/modules/dev/admin/DevEmailTemplatesView#default": default_a53e8fe3edc1ecea3fa295b8b21d1b14,
   "/admin/connections/SupportConnectionsView#default": default_31771f6a3fa0ba20a52c3d00b490cd26,
+  "/modules/marketing/admin/MassEmailView#default": default_3908d81f48b7e7be5fc8566580e8ef6f,
   "/modules/partner/admin/BillingCheckView#default": default_d8e7bbf9f25486534fff2dfe79658e80,
   "/modules/analytics/admin/BillingView#default": default_3fac943f745ba0ff2dbf26360a2df675,
   "/modules/analytics/admin/PipelineView#default": default_3125f72c9cf5e6cdd1ecf6cff4f3fd8c,

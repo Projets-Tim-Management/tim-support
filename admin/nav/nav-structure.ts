@@ -51,6 +51,11 @@ export const NAV_HIDDEN = new Set([
   // Publicité : ouverts depuis Garde-fous.
   "ads-settings-history",
   "ad-ai-usage",
+  // Rendez-vous de la page V2 : registre technique (créneau, événement d'agenda).
+  // Chaque rendez-vous se traite sur sa fiche prospect, via sa tâche datée.
+  "presentation-bookings",
+  // E-mail de masse : les campagnes se lisent dans l'onglet « Campagnes envoyées ».
+  "mass-email-campaigns",
 ]);
 
 /** Un item de groupe : un slug, un sous-groupe repliable, ou un lien libre. */
@@ -102,6 +107,7 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     "journey-runs",
     "sequence-runs",
     "form-submissions",
+    { label: "E-mail de masse", href: "/admin/emails-de-masse", adminOnly: true },
     {
       label: "Paramètres",
       // Les modèles d'e-mail sont ici et non sous « Partenaires » : choisir les

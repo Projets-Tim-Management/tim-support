@@ -163,6 +163,8 @@ import * as migration_20261019_142352_ads_brief_claude_design from './20261019_1
 import * as migration_20261019_145810_ads_compte_diffusion from './20261019_145810_ads_compte_diffusion';
 import * as migration_20261019_152431_ads_publication from './20261019_152431_ads_publication';
 import * as migration_20261019_162421_ads_actions_phase2 from './20261019_162421_ads_actions_phase2';
+import * as migration_20261023_095743_presentation_bookings from './20261023_095743_presentation_bookings';
+import * as migration_20261023_115605_mass_email_campaigns from './20261023_115605_mass_email_campaigns';
 
 export const migrations = [
   {
@@ -988,6 +990,16 @@ export const migrations = [
   {
     up: migration_20261019_162421_ads_actions_phase2.up,
     down: migration_20261019_162421_ads_actions_phase2.down,
-    name: '20261019_162421_ads_actions_phase2'
+    name: '20261019_162421_ads_actions_phase2',
+  },
+  {
+    up: migration_20261023_095743_presentation_bookings.up,
+    down: migration_20261023_095743_presentation_bookings.down,
+    name: '20261023_095743_presentation_bookings',
+  },
+  {
+    up: migration_20261023_115605_mass_email_campaigns.up,
+    down: migration_20261023_115605_mass_email_campaigns.down,
+    name: '20261023_115605_mass_email_campaigns'
   },
 ];

@@ -92,6 +92,8 @@ export interface Config {
     sequences: Sequence;
     forms: Form;
     'form-submissions': FormSubmission;
+    'presentation-bookings': PresentationBooking;
+    'mass-email-campaigns': MassEmailCampaign;
     'ga4-sends': Ga4Send;
     'video-views': VideoView;
     'ad-campaigns': AdCampaign;
@@ -177,6 +179,8 @@ export interface Config {
     sequences: SequencesSelect<false> | SequencesSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
+    'presentation-bookings': PresentationBookingsSelect<false> | PresentationBookingsSelect<true>;
+    'mass-email-campaigns': MassEmailCampaignsSelect<false> | MassEmailCampaignsSelect<true>;
     'ga4-sends': Ga4SendsSelect<false> | Ga4SendsSelect<true>;
     'video-views': VideoViewsSelect<false> | VideoViewsSelect<true>;
     'ad-campaigns': AdCampaignsSelect<false> | AdCampaignsSelect<true>;
@@ -2272,6 +2276,65 @@ export interface Sequence {
   createdAt: string;
 }
 /**
+ * Tours de l'app mobile V2 réservés depuis la page de présentation (/app-mobile-v2). Supprimer un rendez-vous l'annule aussi dans l'agenda.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "presentation-bookings".
+ */
+export interface PresentationBooking {
+  id: number;
+  summary?: string | null;
+  at: string;
+  /**
+   * La fiche prospect ou client où le rendez-vous a été posé, avec sa tâche datée.
+   */
+  client?: (number | null) | PartnerClient;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string | null;
+  company: string;
+  message?: string | null;
+  notes?: string | null;
+  meetingUrl?: string | null;
+  /**
+   * Vide : l'événement n'a pas pu être créé — l'invitation est à envoyer à la main.
+   */
+  eventId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "mass-email-campaigns".
+ */
+export interface MassEmailCampaign {
+  id: number;
+  subject: string;
+  sentAt: string;
+  tag: string;
+  fromEmail?: string | null;
+  withSignature?: boolean | null;
+  templateLabel?: string | null;
+  sentBy?: (number | null) | User;
+  body?: string | null;
+  closing?: string | null;
+  sentCount?: number | null;
+  suppressedCount?: number | null;
+  failedCount?: number | null;
+  recipients?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "video-views".
  */
@@ -3727,6 +3790,14 @@ export interface PayloadLockedDocument {
         value: number | FormSubmission;
       } | null)
     | ({
+        relationTo: 'presentation-bookings';
+        value: number | PresentationBooking;
+      } | null)
+    | ({
+        relationTo: 'mass-email-campaigns';
+        value: number | MassEmailCampaign;
+      } | null)
+    | ({
         relationTo: 'ga4-sends';
         value: number | Ga4Send;
       } | null)
@@ -4889,6 +4960,47 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
   ip?: T;
   sessionId?: T;
   userAgent?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "presentation-bookings_select".
+ */
+export interface PresentationBookingsSelect<T extends boolean = true> {
+  summary?: T;
+  at?: T;
+  client?: T;
+  firstName?: T;
+  lastName?: T;
+  email?: T;
+  phone?: T;
+  company?: T;
+  message?: T;
+  notes?: T;
+  meetingUrl?: T;
+  eventId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "mass-email-campaigns_select".
+ */
+export interface MassEmailCampaignsSelect<T extends boolean = true> {
+  subject?: T;
+  sentAt?: T;
+  tag?: T;
+  fromEmail?: T;
+  withSignature?: T;
+  templateLabel?: T;
+  sentBy?: T;
+  body?: T;
+  closing?: T;
+  sentCount?: T;
+  suppressedCount?: T;
+  failedCount?: T;
+  recipients?: T;
   updatedAt?: T;
   createdAt?: T;
 }

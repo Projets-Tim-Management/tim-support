@@ -44,6 +44,8 @@ export default function HelpFab() {
 
   // Pas de FAB sur la page /contact (formulaire = redondant)
   if (pathname === "/contact") return null;
+  // Ni sur la présentation de la V2 : la page a déjà son action, le rendez-vous.
+  if (pathname === "/app-mobile-v2") return null;
 
   function go(type: string) {
     setOpen(false);
