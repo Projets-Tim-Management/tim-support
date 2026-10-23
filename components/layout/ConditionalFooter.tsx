@@ -12,6 +12,8 @@ import Footer from "./Footer";
 export default function ConditionalFooter() {
   const pathname       = usePathname();
   const isParcoursStep = /^\/parcours\/[^/]+/.test(pathname);
-  if (isParcoursStep) return null;
+  // Présentation de la V2 : page autonome, son propre pied (voir ConditionalHeader).
+  const isPresentation = pathname === "/app-mobile-v2";
+  if (isParcoursStep || isPresentation) return null;
   return <Footer />;
 }

@@ -88,7 +88,7 @@ export default function SlotCalendar({
 
   return (
     <div>
-      <div className="grid gap-8 rounded-lg border border-border bg-white p-6 md:grid-cols-[auto_1fr]">
+      <div className="grid gap-8 rounded-lg border border-border bg-white p-4 sm:p-6 md:grid-cols-[auto_1fr]">
         {/* Étape 1 — le jour */}
         <div>
           <div className="mb-4 flex items-center justify-between gap-4">
@@ -133,7 +133,7 @@ export default function SlotCalendar({
                   disabled={!open}
                   aria-pressed={selected}
                   onClick={() => setDay(key)}
-                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm transition ${
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-sm transition sm:h-10 sm:w-10 ${
                     selected
                       ? "bg-primary font-semibold text-white"
                       : open

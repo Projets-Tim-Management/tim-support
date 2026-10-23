@@ -67,6 +67,8 @@ import { ClientPortalAccounts } from "./modules/marketing/collections/ClientPort
 import { ElectronicSignatures } from "./modules/partner/collections/ElectronicSignatures";
 import { ClientContracts } from "./modules/partner/collections/ClientContracts";
 import { CalendarConnections } from "./modules/marketing/collections/CalendarConnections";
+import { PresentationBookings } from "./modules/marketing/collections/PresentationBookings";
+import { MassEmailCampaigns } from "./modules/marketing/collections/MassEmailCampaigns";
 import { seedJourneys } from "./modules/marketing/lib/seed";
 import { ContractSettings, seedContractSettings } from "./modules/partner/globals/ContractSettings";
 import { Trainings } from "./modules/training/collections/Trainings";
@@ -258,6 +260,14 @@ export default buildConfig({
           exact: true,
           meta: { title: "Connexions du support" },
         },
+        // Marketing › E-mail de masse : un message, une liste d'adresses, un
+        // e-mail par personne — voir modules/marketing/admin/MassEmailView.
+        emailsDeMasse: {
+          Component: "/modules/marketing/admin/MassEmailView#default",
+          path: "/emails-de-masse",
+          exact: true,
+          meta: { title: "E-mail de masse" },
+        },
         facturation: {
           Component: "/modules/partner/admin/BillingCheckView#default",
           path: "/facturation",
@@ -370,6 +380,10 @@ export default buildConfig({
       // Formulaires du site vitrine : la définition servie au site, et ce qu'il renvoie
       Forms,
       FormSubmissions,
+      // Tours de l'app mobile V2 réservés depuis la page de présentation
+      PresentationBookings,
+      // E-mail de masse : la trace de chaque envoi, clé des statistiques Brevo
+      MassEmailCampaigns,
       // Les étapes commerciales renvoyées à GA4 (plan de mesure) : une ligne par opportunité et par étape
       Ga4Sends,
       VideoViews,

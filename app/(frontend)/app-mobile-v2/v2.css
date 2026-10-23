@@ -1,0 +1,187 @@
+/*
+ * Présentation de la V2 — le mouvement de la page.
+ *
+ * Tout passe par les tokens du thème (globals.css) : aucune couleur ici n'est
+ * écrite en dur, les transparences se font par color-mix. Et tout s'arrête pour
+ * qui a demandé moins d'animations (bas du fichier).
+ */
+
+/* ── Fond « aurore » : des halos colorés qui dérivent lentement ─────────── */
+.v2-aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.v2-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.5;
+  animation: v2-drift 20s ease-in-out infinite alternate;
+}
+/* Sur fond clair, les halos restent des touches de couleur, pas des taches. */
+.v2-aurora-light .v2-blob { opacity: 0.22; }
+.v2-blob:nth-child(2) { animation-duration: 26s; animation-delay: -6s; }
+.v2-blob:nth-child(3) { animation-duration: 32s; animation-delay: -12s; }
+@keyframes v2-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(8%, -6%) scale(1.15); }
+  100% { transform: translate(-6%, 5%) scale(0.95); }
+}
+
+/* Trame fine par-dessus, en bleu très pâle : donne de la matière au fond clair. */
+.v2-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--color-absence) 9%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-absence) 9%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black 30%, transparent 75%);
+}
+
+/* ── Texte en dégradé qui glisse ───────────────────────────────────────── */
+.v2-gradient-text {
+  background: linear-gradient(
+    90deg,
+    var(--color-primary),
+    var(--color-unavailable),
+    var(--color-absence),
+    var(--color-primary)
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: v2-shine 9s linear infinite;
+}
+@keyframes v2-shine {
+  to { background-position: 300% 0; }
+}
+
+/* ── Entrée du titre, mot par mot ──────────────────────────────────────── */
+.v2-word,
+.v2-in {
+  animation: v2-word 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+/* Un mot reste dans la ligne ; un bloc (.v2-in) garde son propre affichage. */
+.v2-word { display: inline-block; }
+@keyframes v2-word {
+  from { opacity: 0; transform: translateY(0.45em); filter: blur(8px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+/* ── Apparition au défilement (voir Reveal.tsx) ────────────────────────── */
+.v2-reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition:
+    opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms),
+    transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms);
+}
+.v2-reveal[data-shown] {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Téléphones : montée à l'ouverture, puis flottement ────────────────── */
+.v2-rise {
+  animation: v2-rise 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes v2-rise {
+  from { opacity: 0; translate: 0 80px; }
+  to   { opacity: 1; translate: 0 0; }
+}
+.v2-float {
+  animation: v2-float 6s ease-in-out infinite;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes v2-float {
+  0%, 100% { translate: 0 0; }
+  50%      { translate: 0 -14px; }
+}
+
+/* Cadre de téléphone dessiné : bord, reflet, ombre portée. */
+.v2-phone {
+  position: relative;
+  aspect-ratio: 9 / 19.5;
+  border-radius: 14% / 6.5%;
+  padding: 3.2%;
+  background: linear-gradient(150deg, var(--color-ink-line), var(--color-ink) 45%);
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, white 14%, transparent),
+    0 40px 80px -30px color-mix(in srgb, var(--color-ink) 70%, transparent);
+}
+.v2-phone-screen {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 11.5% / 5.4%;
+  background: white;
+}
+
+/* Changement d'écran dans un téléphone : fondu croisé. */
+.v2-screen {
+  transition: opacity 0.8s ease, transform 1.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.v2-screen[data-hidden] {
+  opacity: 0;
+  transform: scale(1.04);
+}
+
+/* Point qui bat, pour « places limitées ». */
+.v2-pulse {
+  position: relative;
+}
+.v2-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: inherit;
+  animation: v2-pulse 2s ease-out infinite;
+}
+@keyframes v2-pulse {
+  from { transform: scale(1); opacity: 0.7; }
+  to   { transform: scale(3); opacity: 0; }
+}
+
+/* ── La vidéo grandit en arrivant à l'écran (navigateurs récents) ──────── */
+@supports (animation-timeline: view()) {
+  .v2-zoom {
+    animation: v2-zoom linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 40%;
+  }
+  @keyframes v2-zoom {
+    from { transform: scale(0.82) translateY(40px); opacity: 0.35; }
+    to   { transform: none; opacity: 1; }
+  }
+}
+
+/* Liste d'un profil : chaque ligne entre à son tour au changement d'onglet. */
+.v2-stagger > * {
+  animation: v2-word 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.v2-stagger > *:nth-child(2) { animation-delay: 70ms; }
+.v2-stagger > *:nth-child(3) { animation-delay: 140ms; }
+.v2-stagger > *:nth-child(4) { animation-delay: 210ms; }
+.v2-stagger > *:nth-child(5) { animation-delay: 280ms; }
+.v2-stagger > *:nth-child(6) { animation-delay: 350ms; }
+
+/* ── Moins d'animations demandées : tout est posé d'emblée ─────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .v2-blob, .v2-gradient-text, .v2-word, .v2-in, .v2-rise, .v2-float, .v2-pulse::after,
+  .v2-zoom, .v2-stagger > * {
+    animation: none !important;
+  }
+  .v2-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
