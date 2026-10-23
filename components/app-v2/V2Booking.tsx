@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import SlotCalendar from "@/components/portal/SlotCalendar";
 
 /**
- * Réserver un tour de l'app V2 avec Charlie : un créneau, puis qui l'on est.
+ * Réserver un tour de l'app V2 avec l'interlocuteur du compte : un créneau,
+ * puis qui l'on est.
  *
  * Deux temps, comme dans l'espace client : choisir l'heure d'abord (c'est la
  * décision), se présenter ensuite (c'est la formalité). Le créneau choisi reste
@@ -33,7 +34,7 @@ const ERRORS: Record<string, string> = {
 
 const input = "mt-1 w-full rounded-md border border-border px-3 py-2 text-foreground outline-none focus:border-primary";
 
-export default function V2Booking() {
+export default function V2Booking({ hote, hostFirstName }: { hote: string; hostFirstName: string }) {
   const [data, setData] = useState<Data | null>(null);
   const [failed, setFailed] = useState(false);
   const [slot, setSlot] = useState<string | null>(null);
@@ -43,14 +44,14 @@ export default function V2Booking() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/app-v2/creneaux", { cache: "no-store" });
+      const res = await fetch(`/api/app-v2/creneaux?hote=${encodeURIComponent(hote)}`, { cache: "no-store" });
       if (!res.ok) throw new Error(String(res.status));
       setData((await res.json()) as Data);
       setFailed(false);
     } catch {
       setFailed(true);
     }
-  }, []);
+  }, [hote]);
 
   useEffect(() => {
     void load();
@@ -68,6 +69,7 @@ export default function V2Booking() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          hote,
           at: slot,
           firstName: field("firstName"),
           lastName: field("lastName"),
@@ -109,7 +111,9 @@ export default function V2Booking() {
   if (done) {
     return (
       <div className="rounded-lg border border-success/40 bg-success-bg p-6 sm:p-8">
-        <p className="text-sm font-semibold uppercase tracking-wide text-success-text">C&apos;est noté</p>
+        <p className="text-sm font-semibold uppercase tracking-wide text-success-text">
+          C&apos;est noté, {hostFirstName} vous attend
+        </p>
         <p className="mt-2 text-2xl font-bold capitalize text-foreground">{longDate(done.booked)}</p>
         <p className="text-lg text-foreground">
           à {hour(done.booked)} · {data?.durationMin ?? 20} minutes en visio
@@ -175,7 +179,7 @@ export default function V2Booking() {
     <form onSubmit={submit} className="rounded-lg border border-border bg-white p-5 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-muted">Votre créneau</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-muted">Votre créneau avec {hostFirstName}</p>
           <p className="mt-1 text-xl font-bold capitalize text-foreground">{longDate(slot)}</p>
           <p className="text-foreground">
             à {hour(slot)} · {data.durationMin} minutes en visio

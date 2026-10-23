@@ -8,9 +8,10 @@ import { createRateLimiter, maskIp } from "@/modules/analytics/lib/video-views";
 import { clientIp } from "@/modules/forms/lib/ingest";
 import {
   APP_V2_BOOKING_UNTIL,
-  APP_V2_HOST_PARTNER_ID,
-  APP_V2_PATH,
+  APP_V2_DEFAULT_HOST,
   APP_V2_RULES,
+  appV2HostId,
+  appV2Path,
   openSlots,
 } from "@/modules/marketing/lib/app-v2";
 import { leadFromBooking } from "@/modules/marketing/lib/app-v2-lead";
@@ -19,14 +20,16 @@ import { formatSlot, generateSlots, resolveRules } from "@/modules/marketing/lib
 import { takenForPartner } from "../../portal/rendez-vous/route";
 
 /**
- * Créneaux du tour de l'app mobile V2, sur la page publique /app-mobile-v2.
+ * Créneaux du tour de l'app mobile V2, sur la page publique
+ * /app-mobile-v2/<interlocuteur>.
  *
- * GET  → créneaux libres dans l'agenda de Charlie, selon les règles de la page.
- * POST → réserve un créneau, crée l'événement (Google Meet, client invité) et
- *        prévient Charlie.
+ * GET  ?hote=…            → créneaux libres dans l'agenda de l'interlocuteur.
+ * POST { hote, at, … }    → réserve un créneau, crée l'événement (Google Meet,
+ *                           client invité) et prévient l'interlocuteur.
  *
- * Page publique, donc aucune session : l'agenda visé est FIXÉ ici
- * (APP_V2_HOST_PARTNER_ID), jamais lu dans la requête. Et comme pour l'espace
+ * Page publique, donc aucune session : l'interlocuteur vient de l'URL, mais il
+ * n'est accepté que s'il figure dans la liste fermée APP_V2_HOSTS — on ne
+ * réserve pas dans l'agenda de n'importe qui. Et comme pour l'espace
  * client, le créneau demandé est revérifié contre l'offre générée à l'instant —
  * ce seul contrôle ferme la date arbitraire, le conflit d'agenda et la double
  * réservation ; l'index unique sur `at` couvre les deux clics à la même seconde.
@@ -43,7 +46,7 @@ const limiter = createRateLimiter({ max: 10, windowMs: 60 * 60 * 1000 });
 type Payload = Awaited<ReturnType<typeof payloadClient>>;
 
 /** Créneaux déjà pris : les tours V2, plus les sessions des parcours. */
-async function taken(payload: Payload): Promise<string[]> {
+async function taken(payload: Payload, hostId: number): Promise<string[]> {
   const booked = await payload.find({
     collection: "presentation-bookings",
     where: { at: { greater_than: new Date().toISOString() } },
@@ -53,20 +56,20 @@ async function taken(payload: Payload): Promise<string[]> {
   });
   return [
     ...booked.docs.map((d) => (d as { at?: string }).at).filter((v): v is string => Boolean(v)),
-    ...(await takenForPartner(payload, APP_V2_HOST_PARTNER_ID)),
+    ...(await takenForPartner(payload, hostId)),
   ];
 }
 
-async function currentSlots(payload: Payload): Promise<string[] | null> {
+async function currentSlots(payload: Payload, hostId: number): Promise<string[] | null> {
   const from = new Date().toISOString();
-  const busy = await busyForPartner(payload, APP_V2_HOST_PARTNER_ID, from, APP_V2_BOOKING_UNTIL);
+  const busy = await busyForPartner(payload, hostId, from, APP_V2_BOOKING_UNTIL);
   // Agenda illisible ⇒ aucun créneau (voir busyForPartner) : null, pour que
   // l'écran dise « momentanément indisponible » plutôt que « plus de place ».
   if (!busy.reliable) return null;
   const free = generateSlots({
     rules: APP_V2_RULES,
     nowMs: Date.now(),
-    taken: await taken(payload),
+    taken: await taken(payload, hostId),
     busy: busy.periods,
     until: APP_V2_BOOKING_UNTIL,
   });
@@ -79,9 +82,11 @@ async function currentSlots(payload: Payload): Promise<string[] | null> {
 /** Point de départ de la grille de référence (mise en ligne de la page). */
 const GRID_FROM = Date.parse("2026-10-23T00:00:00+02:00");
 
-export async function GET() {
+export async function GET(req: Request) {
+  const hostId = appV2HostId(new URL(req.url).searchParams.get("hote") ?? APP_V2_DEFAULT_HOST);
+  if (hostId == null) return fail("unknown_host", 404);
   const payload = await payloadClient();
-  const slots = await currentSlots(payload);
+  const slots = await currentSlots(payload, hostId);
   return NextResponse.json(
     { slots: slots ?? [], available: slots !== null, durationMin: resolveRules(APP_V2_RULES).durationMin },
     { headers: NO_STORE },
@@ -89,6 +94,8 @@ export async function GET() {
 }
 
 type BookingBody = {
+  /** Interlocuteur de la page (`cpiancatelli`) — vérifié contre APP_V2_HOSTS. */
+  hote?: string;
   at?: string;
   firstName?: string;
   lastName?: string;
@@ -117,6 +124,9 @@ export async function POST(req: Request) {
     /* corps illisible */
   }
   if (!body) return fail("bad_body", 400);
+  const hostSlug = body.hote ?? APP_V2_DEFAULT_HOST;
+  const hostId = appV2HostId(hostSlug);
+  if (hostId == null) return fail("unknown_host", 404);
 
   // Robot : on fait comme si tout allait bien, sans rien réserver.
   if (body.website) return NextResponse.json({ ok: true }, { headers: NO_STORE });
@@ -142,7 +152,7 @@ export async function POST(req: Request) {
 
   const at = body.at;
   if (!at) return fail("missing_slot", 400);
-  const slots = await currentSlots(payload);
+  const slots = await currentSlots(payload, hostId);
   if (slots === null) return fail("calendar_unavailable", 503);
   if (!slots.includes(at)) return fail("slot_unavailable", 409);
 
@@ -160,7 +170,7 @@ export async function POST(req: Request) {
   }
 
   const durationMin = resolveRules(APP_V2_RULES).durationMin;
-  const event = await createEvent(payload, booking.id, at, durationMin, person);
+  const event = await createEvent(payload, hostId, booking.id, at, durationMin, person);
   if (event) {
     await payload
       .update({
@@ -175,7 +185,13 @@ export async function POST(req: Request) {
   // Le rendez-vous devient un prospect (ou rejoint sa fiche) avec une tâche
   // datée : c'est là que l'équipe le traite. Un échec n'annule pas la
   // réservation — le créneau est pris, l'invitation est partie.
-  const lead = await leadFromBooking(payload, { at, person, meetingUrl: event?.meetingUrl ?? null }).catch((err) => {
+  const lead = await leadFromBooking(payload, {
+    at,
+    person,
+    meetingUrl: event?.meetingUrl ?? null,
+    hostId,
+    path: appV2Path(hostSlug),
+  }).catch((err) => {
     payload.logger.error(`[app-v2] prospect du rendez-vous ${booking.id} non créé : ${err}`);
     return null;
   });
@@ -185,7 +201,7 @@ export async function POST(req: Request) {
       .catch(() => undefined);
   }
 
-  await notifyHost(payload, booking.id, at, person, event?.meetingUrl ?? null, Boolean(event), lead);
+  await notifyHost(payload, hostId, appV2Path(hostSlug), booking.id, at, person, event?.meetingUrl ?? null, Boolean(event), lead);
 
   return NextResponse.json(
     { ok: true, booked: at, meetingUrl: event?.meetingUrl ?? null, invited: Boolean(event) },
@@ -203,15 +219,22 @@ type Person = {
 };
 
 /**
- * Événement dans l'agenda de Charlie, client invité : Google envoie lui-même
+ * Événement dans l'agenda de l'interlocuteur, client invité : Google envoie lui-même
  * l'invitation (avec le lien Meet), qui fait office de confirmation.
  *
  * Un échec ne défait PAS la réservation : le créneau est pris, Charlie est
  * prévenu que l'invitation est à envoyer à la main (voir notifyHost).
  */
-async function createEvent(payload: Payload, id: number | string, at: string, durationMin: number, p: Person) {
+async function createEvent(
+  payload: Payload,
+  hostId: number,
+  id: number | string,
+  at: string,
+  durationMin: number,
+  p: Person,
+) {
   try {
-    const target = await targetConnection(payload, APP_V2_HOST_PARTNER_ID);
+    const target = await targetConnection(payload, hostId);
     const provider = target ? getProvider(target.connection.provider) : null;
     const token = target && provider ? await accessTokenFor(payload, target.connection) : null;
     if (!target || !provider || !token) {
@@ -249,6 +272,8 @@ async function createEvent(payload: Payload, id: number | string, at: string, du
  */
 async function notifyHost(
   payload: Payload,
+  hostId: number,
+  path: string,
   id: number | string,
   at: string,
   p: Person,
@@ -258,7 +283,7 @@ async function notifyHost(
 ) {
   try {
     const host = (await payload
-      .findByID({ collection: "partners", id: APP_V2_HOST_PARTNER_ID, depth: 0, overrideAccess: true })
+      .findByID({ collection: "partners", id: hostId, depth: 0, overrideAccess: true })
       .catch(() => null)) as { email?: string | null } | null;
     const to = host?.email?.trim();
     if (!to) {
@@ -290,7 +315,7 @@ async function notifyHost(
         .filter((l) => l !== "")
         .join("\n"),
       html: internalNotice({
-        kicker: `App mobile V2 · ${APP_V2_PATH}`,
+        kicker: `App mobile V2 · ${path}`,
         heading: "Tour de l'app V2 réservé",
         rows: [
           ["Société", p.company ?? ""],

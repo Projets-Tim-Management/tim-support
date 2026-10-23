@@ -16,11 +16,32 @@ export const APP_V2_VIDEO_ID = "app-mobile-v2";
 export const APP_V2_PATH = "/app-mobile-v2";
 
 /**
- * Fiche partenaire dont l'agenda reçoit les rendez-vous : Charlie Piancatelli.
- * Par identifiant, jamais par e-mail (voir resolvePartner) — dev et prod
- * partagent la même base, l'identifiant est donc le même partout.
+ * Les interlocuteurs : la page se lit sous `/app-mobile-v2/<interlocuteur>`, et
+ * c'est l'agenda, le nom et la photo de CETTE fiche partenaire que le client
+ * voit. Liste fermée : une adresse qui n'y est pas renvoie une page introuvable
+ * — on ne réserve pas dans l'agenda de n'importe qui en tapant une URL.
+ *
+ * Par identifiant de fiche, jamais par e-mail (voir resolvePartner) — dev et
+ * prod partagent la même base, l'identifiant est le même partout.
+ *
+ * ⚠️ Un SECOND interlocuteur demandera de rattacher chaque rendez-vous à son
+ * hôte (registre `presentation-bookings`) : aujourd'hui le créneau verrouillé et
+ * l'annulation d'agenda supposent un hôte unique.
  */
-export const APP_V2_HOST_PARTNER_ID = 6;
+export const APP_V2_HOSTS: Record<string, number> = {
+  cpiancatelli: 6,
+};
+export const APP_V2_DEFAULT_HOST = "cpiancatelli";
+
+/** Fiche partenaire de l'interlocuteur par défaut (Charlie Piancatelli). */
+export const APP_V2_HOST_PARTNER_ID = APP_V2_HOSTS[APP_V2_DEFAULT_HOST];
+
+/** Fiche partenaire d'un interlocuteur de l'URL, ou null s'il n'est pas dans la liste. */
+export const appV2HostId = (slug?: string | null): number | null =>
+  slug && Object.prototype.hasOwnProperty.call(APP_V2_HOSTS, slug) ? APP_V2_HOSTS[slug] : null;
+
+/** Adresse de la page d'un interlocuteur : `/app-mobile-v2/cpiancatelli`. */
+export const appV2Path = (slug: string = APP_V2_DEFAULT_HOST): string => `${APP_V2_PATH}/${slug}`;
 
 /**
  * Règles des créneaux : 20 minutes, mardi, mercredi et jeudi de 14 h à 18 h.
