@@ -25,6 +25,15 @@ import { availableSenders, massEmailContext, pickSender, signatureForSender } fr
  * l'aperçu.
  */
 
+/**
+ * Cinq minutes, le maximum de Vercel : les e-mails partent UN PAR UN dans cette
+ * requête, et une requête coupée en route laisserait une partie des clients
+ * servis, la campagne non enregistrée — et un second clic renverrait l'e-mail à
+ * ceux qui l'ont déjà reçu. Sans cette ligne, c'est la durée par défaut de la
+ * plateforme qui s'applique, bien trop courte pour quelques dizaines d'envois.
+ */
+export const maxDuration = 300;
+
 /** Au-delà, ce n'est plus un envoi personnel mais une campagne : c'est Brevo. */
 const MAX_RECIPIENTS = 300;
 
@@ -198,20 +207,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `${MAX_RECIPIENTS} destinataires au plus par envoi.` }, { status: 400 });
   }
 
-  const results: { email: string; status: "sent" | "suppressed" | "failed" }[] = [];
-  // Un par un, jamais groupés : chaque message n'a qu'un seul destinataire.
-  for (const r of valid) {
-    if (await isSuppressed(payload, r.email)) {
-      results.push({ email: r.email, status: "suppressed" });
-      continue;
-    }
+  type Result = { email: string; status: "sent" | "suppressed" | "failed" };
+  const deliver = async (r: (typeof valid)[number]): Promise<Result> => {
+    if (await isSuppressed(payload, r.email)) return { email: r.email, status: "suppressed" };
     try {
       await send(r.email, r.firstName);
-      results.push({ email: r.email, status: "sent" });
+      return { email: r.email, status: "sent" };
     } catch (err) {
       payload.logger.error(`[e-mail de masse] non parti vers ${r.email} : ${err}`);
-      results.push({ email: r.email, status: "failed" });
+      return { email: r.email, status: "failed" };
     }
+  };
+
+  /**
+   * Cinq envois à la fois : assez pour qu'un envoi à 300 tienne dans la durée
+   * de la requête, assez peu pour ne pas se faire réguler par le relais Brevo.
+   * Chaque message reste UN e-mail pour UNE adresse — on parallélise les envois,
+   * jamais les destinataires.
+   */
+  const results: Result[] = [];
+  for (let i = 0; i < valid.length; i += 5) {
+    results.push(...(await Promise.all(valid.slice(i, i + 5).map(deliver))));
   }
 
   const sent = results.filter((r) => r.status === "sent").length;
