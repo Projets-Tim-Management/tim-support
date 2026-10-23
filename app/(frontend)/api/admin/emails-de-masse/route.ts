@@ -4,7 +4,7 @@ import { hasAdminRole, partnerIdOf } from "@/core/access";
 import { isSuppressed, unsubscribeHeaders } from "@/core/lib/email-suppression";
 import { payloadClient } from "@/core/payload-client";
 import { buildMassEmail, parseRecipients, type MassEmailTemplate } from "@/modules/marketing/lib/mass-email";
-import { availableSenders, massEmailContext, pickSender, signatureOf } from "@/modules/marketing/lib/mass-email-server";
+import { availableSenders, massEmailContext, pickSender, signatureForSender } from "@/modules/marketing/lib/mass-email-server";
 
 /**
  * E-mail de masse (écran Marketing → E-mail de masse, /admin/emails-de-masse).
@@ -78,7 +78,9 @@ export async function POST(req: Request) {
   };
   const { valid, invalid } = parseRecipients(body.recipients ?? "");
   // Signature retirée pour CET envoi si la case est décochée.
-  const signature = body.signature === false ? { html: "", text: "" } : await signatureOf(payload, user);
+  // Signature de l'EXPÉDITEUR choisi (voir signatureForSender) ; retirée si la case est décochée.
+  const signature =
+    body.signature === false ? { html: "", text: "" } : await signatureForSender(payload, body.from ?? user.email, user);
 
   /**
    * Enregistrer comme modèle : dans « Modèles d'e-mail », à SON nom (portée

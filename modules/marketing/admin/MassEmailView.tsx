@@ -47,7 +47,7 @@ export default async function MassEmailView({ initPageResult, params, searchPara
             directory={context.directory}
             senders={context.senders}
             defaultSender={context.defaultSender}
-            hasSignature={context.hasSignature}
+            signatures={context.signatures}
           />
         ) : (
           <p className="mass-mail__hint">Cet écran est réservé aux administrateurs.</p>

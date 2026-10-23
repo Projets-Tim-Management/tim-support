@@ -60,6 +60,30 @@ export async function signatureOf(payload: Payload, user: unknown) {
 }
 
 /**
+ * La fiche partenaire qui SIGNE pour une adresse d'expédition : celle du compte
+ * qui porte cette adresse, sinon une fiche à cette adresse. La signature suit
+ * l'expéditeur choisi, pas le compte connecté — un admin connecté en
+ * `direction@` qui envoie depuis `cpiancatelli@` signe en Charlie Piancatelli.
+ */
+async function partnerForAddress(payload: Payload, email: string): Promise<number | string | null> {
+  const account = await payload
+    .find({ collection: "users", where: { email: { equals: email } }, limit: 1, depth: 0, overrideAccess: true })
+    .catch(() => null);
+  const fromAccount = partnerIdOf(account?.docs[0]);
+  if (fromAccount != null) return fromAccount;
+  const fiche = await payload
+    .find({ collection: "partners", where: { email: { equals: email } }, limit: 1, depth: 0, overrideAccess: true })
+    .catch(() => null);
+  return fiche?.docs[0]?.id ?? null;
+}
+
+/** Signature à poser pour un envoi depuis `senderEmail` (repli : le compte connecté). */
+export async function signatureForSender(payload: Payload, senderEmail: string | null | undefined, user: unknown) {
+  const partnerId = senderEmail ? await partnerForAddress(payload, senderEmail.trim().toLowerCase()) : null;
+  return signatureOf(payload, partnerId != null ? { partner: partnerId } : user);
+}
+
+/**
  * Les modèles enregistrés depuis l'écran — et tous ceux de la collection
  * « Modèles d'e-mail » que ce compte voit : les modèles TIM et les siens.
  * Une seule réserve de modèles dans le logiciel, plutôt qu'une seconde à tenir.
@@ -166,20 +190,35 @@ export async function contactDirectory(payload: Payload): Promise<DirectoryEntry
   );
 }
 
+/**
+ * Expéditeur présélectionné : sa propre adresse si elle signe ; sinon la
+ * première adresse qui a une signature (connecté en `direction@`, sans fiche,
+ * on part de `cpiancatelli@`) ; à défaut sa propre adresse, puis la première.
+ */
+function defaultSenderOf(senders: MassSender[], signatures: Record<string, boolean>, userEmail?: string | null) {
+  const own = pickSender(senders, null, userEmail)?.email ?? null;
+  if (own && signatures[own]) return own;
+  return senders.find((s) => signatures[s.email])?.email ?? own ?? senders[0]?.email ?? null;
+}
+
 /** Tout ce que l'écran affiche à l'ouverture. */
 export async function massEmailContext(payload: Payload, user: { email?: string | null } & Record<string, unknown>) {
-  const [senders, signature, saved, directory] = await Promise.all([
+  const [senders, saved, directory] = await Promise.all([
     availableSenders(),
-    signatureOf(payload, user),
     savedTemplates(payload, user),
     contactDirectory(payload),
   ]);
+  // Pour chaque expéditeur possible : une signature existe-t-elle ? (l'interrupteur s'y règle)
+  const signatures = Object.fromEntries(
+    await Promise.all(
+      senders.map(async (s) => [s.email, Boolean((await signatureForSender(payload, s.email, user)).html)] as const),
+    ),
+  );
   return {
     directory,
     templates: [...MASS_EMAIL_TEMPLATES, ...saved],
     senders,
-    // Par défaut : sa propre adresse quand elle est utilisable.
-    defaultSender: pickSender(senders, null, user.email)?.email ?? senders[0]?.email ?? null,
-    hasSignature: Boolean(signature.html),
+    defaultSender: defaultSenderOf(senders, signatures, user.email),
+    signatures,
   };
 }

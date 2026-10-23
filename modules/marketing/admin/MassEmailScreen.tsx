@@ -18,7 +18,7 @@ export default function MassEmailScreen(props: {
   directory: DirectoryEntry[];
   senders: MassSender[];
   defaultSender: string | null;
-  hasSignature: boolean;
+  signatures: Record<string, boolean>;
 }) {
   const [tab, setTab] = useState<"envoi" | "campagnes">("envoi");
   // Incrémenté après chaque envoi : l'onglet des campagnes se recharge.

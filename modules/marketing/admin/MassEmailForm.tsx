@@ -55,7 +55,7 @@ export default function MassEmailForm({
   directory,
   senders,
   defaultSender,
-  hasSignature,
+  signatures,
   onSent,
   onShowCampaigns,
 }: {
@@ -65,11 +65,13 @@ export default function MassEmailForm({
   directory: DirectoryEntry[];
   senders: Sender[];
   defaultSender: string | null;
-  hasSignature: boolean;
+  /** Par adresse d'expédition : sa fiche partenaire a-t-elle une signature ? */
+  signatures: Record<string, boolean>;
 }) {
   const [fromEmail, setFromEmail] = useState(defaultSender ?? "");
-  // Cochée par défaut quand une signature existe ; décochée = envoi sans.
-  const [withSignature, setWithSignature] = useState(hasSignature);
+  // Cochée par défaut ; sans effet pour une adresse qui n'a pas de signature.
+  const [withSignature, setWithSignature] = useState(true);
+  const hasSignature = Boolean(signatures[fromEmail]);
   const sender = senders.find((s) => s.email === fromEmail) ?? null;
   const first = initialTemplates[0];
   const [templates, setTemplates] = useState<MassEmailTemplate[]>(initialTemplates);
@@ -146,12 +148,21 @@ export default function MassEmailForm({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "preview", subject, body, closing, preheader: template?.preheader, recipients, signature: withSignature }),
+        body: JSON.stringify({
+          action: "preview",
+          subject,
+          body,
+          closing,
+          preheader: template?.preheader,
+          recipients,
+          from: fromEmail,
+          signature: withSignature && hasSignature,
+        }),
       });
       if (res.ok) setPreview((await res.json()) as { subject: string; html: string });
     }, 450);
     return () => window.clearTimeout(timer.current);
-  }, [templateKey, subject, body, closing, recipients, template?.preheader, withSignature]);
+  }, [templateKey, subject, body, closing, recipients, template?.preheader, withSignature, hasSignature, fromEmail]);
 
   /** Supprime un modèle enregistré ; si c'était celui à l'écran, on revient à la page blanche. */
   async function deleteTemplate(key: string) {
@@ -215,7 +226,7 @@ export default function MassEmailForm({
           preheader: template?.preheader,
           recipients,
           from: fromEmail,
-          signature: withSignature,
+          signature: withSignature && hasSignature,
           templateLabel: template?.label,
         }),
       });
@@ -443,7 +454,7 @@ export default function MassEmailForm({
               <label className={`mass-mail__switch ${hasSignature ? "" : "is-disabled"}`}>
                 <input
                   type="checkbox"
-                  checked={withSignature}
+                  checked={withSignature && hasSignature}
                   disabled={!hasSignature}
                   onChange={(e) => setWithSignature(e.target.checked)}
                 />
@@ -451,7 +462,11 @@ export default function MassEmailForm({
                 <span>
                   <span className="mass-mail__label">Signature</span>
                   <span className="mass-mail__hint">
-                    {hasSignature ? (withSignature ? "Ajoutée sous le message" : "Envoi sans signature") : "Aucune sur votre fiche"}
+                    {hasSignature
+                      ? withSignature
+                        ? "Ajoutée sous le message"
+                        : "Envoi sans signature"
+                      : "Aucune signature pour cette adresse"}
                   </span>
                 </span>
               </label>
@@ -472,7 +487,7 @@ export default function MassEmailForm({
             <label className="mass-mail__field">
               <span className="mass-mail__label">Formule de politesse</span>
               <input value={closing} onChange={(e) => setClosing(e.target.value)} maxLength={120} />
-              <span className="mass-mail__hint">{withSignature ? "Votre signature est ajoutée en dessous." : "C'est la dernière ligne du message."}</span>
+              <span className="mass-mail__hint">{withSignature && hasSignature ? "La signature est ajoutée en dessous." : "C'est la dernière ligne du message."}</span>
             </label>
             <div className="mass-mail__step-foot">
               {saveName === null ? (
@@ -574,7 +589,7 @@ export default function MassEmailForm({
                 {count} destinataire{count > 1 ? "s" : ""}
               </strong>{" "}
               · un e-mail chacun · depuis {sender?.email ?? "—"}
-              {withSignature ? "" : " · sans signature"}
+              {withSignature && hasSignature ? "" : " · sans signature"}
             </span>
           )}
         </div>
