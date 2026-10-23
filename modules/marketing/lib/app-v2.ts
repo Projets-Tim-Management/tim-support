@@ -149,7 +149,11 @@ export type AppV2Profile = {
   label: string;
   /** Les rôles couverts, avec leur couleur (l'encadrement en réunit deux). */
   roles: { label: string; tone: AppV2Tone }[];
-  /** Écrans de l'app (public/app-v2), dans l'ordre où ils défilent. */
+  /**
+   * Écrans de l'app (public/app-v2) : les captures d'iPhone de Charlie, une par
+   * profil. Plusieurs écrans défileraient (voir Phone) — on s'en tient à ses
+   * captures, sans écran tiré de la vidéo.
+   */
   screens: { src: string; alt: string; full?: boolean }[];
   /** Pour qui, en une ligne : le client doit se reconnaître sans hésiter. */
   pourQui: string;
@@ -192,12 +196,7 @@ export const APP_V2_PROFILES: AppV2Profile[] = [
     id: "compagnon",
     label: "Compagnon",
     roles: [{ label: "Compagnon", tone: "absence" }],
-    screens: [
-      // Le chrono d'abord : c'est l'écran mis en avant en haut de la page (capture
-      // réelle, qui remplit le téléphone), l'accueil vient ensuite dans l'onglet.
-      { src: "/app-v2/ecran-chrono-3.jpg", alt: "Pointage au chrono en cours", full: true },
-      { src: "/app-v2/ecran-accueil.jpg", alt: "Accueil du compagnon avec le bouton Pointer" },
-    ],
+    screens: [{ src: "/app-v2/ecran-chrono-3.jpg", alt: "Pointage au chrono en cours", full: true }],
     pourQui: "Pour les compagnons qui pointent leurs heures au quotidien.",
     intro: "Le pointage arrive sur l'écran d'accueil : moins d'onglets, moins de gestes.",
     changes: [
@@ -231,10 +230,7 @@ export const APP_V2_PROFILES: AppV2Profile[] = [
       { label: "Chef de chantier", tone: "success" },
       { label: "Conducteur de travaux", tone: "unavailable" },
     ],
-    screens: [
-      { src: "/app-v2/ecran-equipe-3.jpg", alt: "Accueil du chef de chantier : l'équipe du jour à pointer", full: true },
-      { src: "/app-v2/ecran-fiche.jpg", alt: "Fiche d'un ouvrier, ouverte d'un glissé" },
-    ],
+    screens: [{ src: "/app-v2/ecran-equipe-3.jpg", alt: "Accueil du chef de chantier : l'équipe du jour à pointer", full: true }],
     pourQui: "Pour ceux qui pointent pour leur équipe et suivent leurs compagnons.",
     intro: "L'onglet Pointage reste là, avec un accès direct à la fiche de chaque ouvrier.",
     changes: [
