@@ -24,7 +24,7 @@ import "./v2.css";
  *
  * Une page PAR INTERLOCUTEUR (`/app-mobile-v2/cpiancatelli`) : le rendez-vous
  * se prend avec lui, dans son agenda, et la section le présente — nom, fonction,
- * photo de sa fiche partenaire —, puisque c'est lui qui suit le compte client.
+ * photo de sa fiche partenaire — comme le contact pour la présentation de la V2.
  *
  * Hors navigation du centre d'aide (voir ConditionalHeader). Non indexée :
  * c'est un envoi, pas une page du site.
@@ -342,12 +342,14 @@ export default function AppV2Landing({ host }: { host: AppV2Host }) {
               tout le monde.
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-lg text-foreground/70">
-              20 minutes en visio avec {host.name}, votre interlocuteur principal : un tour de la V2 sur vos cas réels,
-              et toutes vos questions, avant la mise en production.
+              20 minutes en visio avec {host.name}, votre contact pour la présentation de la V2 : un tour de
+              l&apos;application sur vos cas réels, et toutes vos questions, avant la mise en production.
             </p>
           </Reveal>
 
-          {/* Avec qui : la personne qui suit le compte, pas « l'équipe ». */}
+          {/* Avec qui : une personne, pas « l'équipe ». « Contact pour la V2 » et non
+              « interlocuteur principal » : la page part aussi aux clients suivis par
+              un autre partenaire (ceux de Luis), pour qui ce serait faux. */}
           <Reveal delay={80} className="mt-10 flex justify-center">
             <div className="inline-flex items-center gap-4 rounded-2xl bg-white px-5 py-4 text-left shadow-lg shadow-foreground/5 ring-1 ring-border">
               {host.photoUrl ? (
@@ -372,7 +374,7 @@ export default function AppV2Landing({ host }: { host: AppV2Host }) {
                 <span className="block text-lg font-bold text-ink">{host.name}</span>
                 {host.jobTitle && <span className="block text-sm text-foreground/70">{host.jobTitle}</span>}
                 <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-primary-light px-2.5 py-0.5 text-xs font-semibold text-primary">
-                  Votre interlocuteur principal
+                  Votre contact pour la V2
                 </span>
               </span>
             </div>
