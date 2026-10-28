@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { hasAdminRole, isPartnerMetier, partnerIdOf } from "@/core/access";
-import { payloadClient } from "@/core/payload-client";
+import { authorizeClient } from "@/modules/partner/lib/client-access";
 import { SIGNING_ACCESS_ERRORS, ensureSigningAccess } from "@/modules/partner/lib/signing-access";
 import { signingStarted } from "@/modules/partner/lib/signing";
 
@@ -28,27 +27,7 @@ type ClientDoc = {
   signatureDate?: string | null;
 };
 
-async function authorize(req: Request, clientId: unknown) {
-  const payload = await payloadClient();
-  const { user } = await payload.auth({ headers: req.headers });
-  if (clientId == null || clientId === "") return { payload, error: 400 as const };
-
-  const client = (await payload
-    .findByID({ collection: "partner-clients", id: clientId as number, depth: 0, overrideAccess: true })
-    .catch(() => null)) as ClientDoc | null;
-  if (!client) return { payload, error: 404 as const };
-
-  const partnerId =
-    client.partner && typeof client.partner === "object"
-      ? (client.partner as { id?: unknown }).id
-      : client.partner;
-  const allowed =
-    hasAdminRole(user) ||
-    (isPartnerMetier(user) && partnerIdOf(user) != null && String(partnerIdOf(user)) === String(partnerId));
-  if (!allowed) return { payload, error: 403 as const };
-
-  return { payload, client };
-}
+const authorize = (req: Request, clientId: unknown) => authorizeClient<ClientDoc>(req, clientId);
 
 export async function GET(req: Request) {
   const ctx = await authorize(req, new URL(req.url).searchParams.get("clientId"));

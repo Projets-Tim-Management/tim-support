@@ -1,6 +1,6 @@
 "use client";
 
-import { useDocumentInfo } from "@payloadcms/ui";
+import { toast, useDocumentInfo } from "@payloadcms/ui";
 import { useEffect, useState } from "react";
 
 import { EmailPreview } from "@/core/admin/EmailPreview";
@@ -20,12 +20,18 @@ import "./sequence-state.scss";
  * son prénom et la signature de son partenaire. C'est ce qu'on veut relire avant
  * de décrocher : savoir ce qu'elle a déjà lu, et ce qu'elle va recevoir.
  *
- * En lecture seule pour le reste, et volontairement : arrêter une séquence est
- * un geste qui appartient à l'écran de la séquence, avec son motif d'arrêt. Un
- * bouton ici inviterait à couper sans dire pourquoi.
+ * Une séquence en cours s'arrête d'ici — c'est sur la fiche qu'on décide de
+ * couper, au sortir d'un appel. Mais jamais sans MOTIF : le bouton ouvre un
+ * choix de motif (et une précision), car « a répondu », « s'est désinscrit » et
+ * « coupé après un appel » n'appellent pas le même geste commercial ensuite.
  */
 
-type Message = { key?: string; scheduledAt?: string; sentAt?: string | null; skipped?: string | null };
+type Message = {
+  key?: string;
+  scheduledAt?: string;
+  sentAt?: string | null;
+  skipped?: string | null;
+};
 
 type Run = {
   id: number | string;
@@ -33,6 +39,7 @@ type Run = {
   sequenceLabel?: string;
   status?: string;
   stopReason?: string;
+  stopNote?: string;
   startedAt?: string;
   messages?: Message[];
 };
@@ -50,13 +57,29 @@ const STOP: Record<string, string> = {
   "statut-change": "sortie de « Perdue »",
 };
 
+/** Les motifs qu'un humain peut donner (« sortie de Perdue » est posé par le système). */
+const MANUAL_REASONS: { value: string; label: string }[] = [
+  {
+    value: "manuelle",
+    label: "Coupée à la main (après un appel, un échange…)",
+  },
+  { value: "reponse", label: "Le prospect a répondu" },
+  { value: "desinscription", label: "Il ne veut plus recevoir d'e-mails" },
+];
+
 const SKIPPED: Record<string, string> = {
   desinscrit: "non envoyé — désinscrit",
   echec: "non envoyé — échec",
 };
 
 const day = (iso?: string | null): string =>
-  iso ? new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "";
+  iso
+    ? new Date(iso).toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "";
 
 export const SequenceState: React.FC = () => {
   const { id } = useDocumentInfo();
@@ -65,6 +88,52 @@ export const SequenceState: React.FC = () => {
   const [titles, setTitles] = useState<Record<string, string>>({});
   /** Message dont le rendu est ouvert (null = aucun). */
   const [preview, setPreview] = useState<{ url: string; title: string } | null>(null);
+  /** La séquence dont on est en train de confirmer l'arrêt. */
+  const [stopping, setStopping] = useState<number | string | null>(null);
+  const [reason, setReason] = useState("manuelle");
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const stop = async (run: Run) => {
+    setSending(true);
+    try {
+      const res = await fetch(`/payload-api/sequence-runs/${run.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "arretee",
+          stopReason: reason,
+          stopNote: note.trim() || undefined,
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(body?.errors?.[0]?.message ?? `Arrêt impossible (erreur ${res.status}).`);
+        return;
+      }
+      setRuns((list) =>
+        (list ?? []).map((r) =>
+          r.id === run.id
+            ? {
+                ...r,
+                status: "arretee",
+                stopReason: reason,
+                stopNote: note.trim(),
+              }
+            : r,
+        ),
+      );
+      toast.success("Séquence arrêtée : plus aucun message ne partira.");
+      setStopping(null);
+      setNote("");
+      setReason("manuelle");
+    } catch {
+      toast.error("Arrêt impossible : le serveur n'a pas répondu.");
+    } finally {
+      setSending(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -112,7 +181,10 @@ export const SequenceState: React.FC = () => {
         const messages = run.messages ?? [];
         const total = messages.length;
         const done = messages.filter((m) => m.sentAt || m.skipped).length;
-        const status = STATUS[run.status ?? ""] ?? { label: run.status ?? "—", tone: "stop" };
+        const status = STATUS[run.status ?? ""] ?? {
+          label: run.status ?? "—",
+          tone: "stop",
+        };
         // Le prochain message : ce qui intéresse vraiment avant de décrocher.
         const next = messages.find((m) => !m.sentAt && !m.skipped);
 
@@ -167,6 +239,50 @@ export const SequenceState: React.FC = () => {
                 );
               })}
             </ol>
+
+            {run.status === "en-cours" &&
+              (stopping === run.id ? (
+                <div className="seq-state__stop-form">
+                  <label className="seq-state__stop-label">
+                    Pourquoi l&apos;arrêter ?
+                    <select value={reason} onChange={(e) => setReason(e.target.value)}>
+                      {MANUAL_REASONS.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={note}
+                    placeholder="Précision (facultatif) — ex. rappelle en janvier"
+                    onChange={(e) => setNote(e.target.value)}
+                  />
+                  <div className="seq-state__stop-actions">
+                    <button
+                      type="button"
+                      className="seq-state__stop-confirm"
+                      disabled={sending}
+                      onClick={() => void stop(run)}
+                    >
+                      {sending ? "Arrêt…" : "Arrêter la séquence"}
+                    </button>
+                    <button
+                      type="button"
+                      className="seq-state__stop-cancel"
+                      disabled={sending}
+                      onClick={() => setStopping(null)}
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="seq-state__stop" onClick={() => setStopping(run.id)}>
+                  Arrêter cette séquence…
+                </button>
+              ))}
           </div>
         );
       })}

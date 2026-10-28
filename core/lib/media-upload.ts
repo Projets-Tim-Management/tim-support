@@ -110,6 +110,13 @@ export interface MediaLite {
   mimeType?: string;
 }
 
+/** Un média vidéo : par son type, à défaut par l'extension de son adresse. */
+export const isVideoMedia = (m?: Pick<MediaLite, "mimeType" | "url"> | null): boolean => {
+  if (!m) return false;
+  if (m.mimeType) return m.mimeType.startsWith("video/");
+  return /\.(mp4|webm|mov)(\?|$)/i.test(m.url ?? "");
+};
+
 export type Envoi = { ok: true; doc: MediaLite } | { ok: false; message: string };
 
 /** Droit de dépôt sur le CDN, délivré par le serveur (avec l'écrasement). */

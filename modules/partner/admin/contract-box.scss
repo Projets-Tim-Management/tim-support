@@ -530,3 +530,61 @@
 .ctr-cs__done { display: grid; gap: 0.25rem; }
 .ctr-cs__error { color: var(--tim-danger-text); }
 .ctr-cs__back { display: block; margin-top: 1rem; }
+
+/* Fusion d'un doublon (MergeClientModal) : choisir la fiche à garder, voir ce
+   qui va passer, confirmer. */
+.mrg { width: min(640px, 96vw); }
+.mrg__body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1rem 1.25rem;
+}
+.mrg__intro { margin: 0; font-size: 0.8125rem; color: var(--tim-foreground); }
+.mrg__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  max-height: 16rem;
+  overflow-y: auto;
+  li + li { border-top: 1px solid var(--tim-elevation-150); }
+}
+.mrg__empty { padding: 0.75rem 0.875rem; font-size: 0.8125rem; color: var(--tim-muted); }
+.mrg__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border: 0;
+  background: var(--tim-white);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  &:hover { background: var(--tim-surface); }
+  &.is-picked { background: var(--tim-primary-light); box-shadow: inset 3px 0 0 var(--tim-primary); }
+}
+.mrg__name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+.mrg__meta { font-size: 0.75rem; color: var(--tim-muted); }
+.mrg__summary {
+  padding: 0.75rem 0.875rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+  p { margin: 0 0 0.375rem; }
+  ul { margin: 0 0 0.5rem; padding-left: 1.125rem; }
+}
+.mrg__summary--ko { background: var(--tim-red-bg); color: var(--tim-danger-text); }
+.mrg__summary-title { font-weight: 600; }

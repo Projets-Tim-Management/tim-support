@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import ProfileBadges from "@/components/features/ProfileBadges";
 import type { Metadata } from "next";
 import { getFeatureBySlug, getAllFeatureSlugs, getFeatures } from "@/modules/editorial/lib/content";
 import { htmlToText } from "@/core/lib/html";
@@ -85,6 +86,7 @@ export default async function FeaturePage({
             </span>
           ))}
         </div>
+        <ProfileBadges profiles={feature.profiles} className="mb-3" />
 
         <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
           {feature.acf?.title_feature || feature.title}

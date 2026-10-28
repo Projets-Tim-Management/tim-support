@@ -52,9 +52,19 @@
   overflow: hidden;
   background: var(--tim-white);
 }
-.direct-upload__grid--single .direct-upload__thumb img {
+.direct-upload__grid--single .direct-upload__thumb img,
+.direct-upload__grid--single .direct-upload__thumb video {
   max-width: 220px;
   max-height: 220px;
+}
+/* Une vidéo convertie se montre EN ENTIER (portrait mobile compris), en boucle. */
+.direct-upload__thumb video {
+  display: block;
+  width: auto;
+  max-width: 220px;
+  max-height: 220px;
+  object-fit: contain;
+  background: var(--tim-surface);
 }
 .direct-upload__thumb img {
   display: block;
@@ -169,3 +179,110 @@
 .direct-upload__grid--single .direct-upload__name {
   max-width: 220px;
 }
+
+/* Conversion d'une capture vidéo : où on en est, puis ce qu'elle a produit. */
+.direct-upload__progress,
+.direct-upload__info {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+.direct-upload__progress { background: var(--tim-primary-light); color: var(--tim-foreground); font-weight: 600; }
+.direct-upload__info { background: var(--tim-green-bg); color: var(--tim-green); }
+
+/* ─── Retoucher une capture (VideoTrimmer) ─────────────────────────────────────
+   Une fenêtre au-dessus de tout (y compris de « Rédiger avec Claude ») :
+   l'aperçu en boucle, puis la frise des images à retirer. */
+.vt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: color-mix(in srgb, var(--tim-foreground) 50%, transparent);
+}
+.vt {
+  display: flex;
+  flex-direction: column;
+  width: min(960px, 100%);
+  max-height: 100%;
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  overflow: hidden;
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--tim-foreground) 30%, transparent);
+}
+.vt__head,
+.vt__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+}
+.vt__head { border-bottom: 1px solid var(--tim-border); }
+.vt__foot { border-top: 1px solid var(--tim-border); }
+.vt__eyebrow { margin: 0; font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tim-muted); }
+.vt__title { margin: 0.125rem 0 0; font-size: 1.1875rem; color: var(--tim-foreground); }
+.vt__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 1rem 1.25rem; background: var(--tim-surface); }
+.vt__preview {
+  display: flex;
+  justify-content: center;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-foreground);
+  video { display: block; max-width: 100%; max-height: 34vh; }
+}
+.vt__help { margin: 0.75rem 0; font-size: 1rem; color: var(--tim-muted); }
+.vt__strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: 0.375rem;
+}
+.vt__thumb {
+  position: relative;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  cursor: pointer;
+  overflow: hidden;
+  img { display: block; width: 100%; height: 4.5rem; object-fit: cover; }
+  &:hover { border-color: var(--tim-border); }
+  &.is-playing { border-color: var(--tim-primary); }
+  &.is-removed {
+    img { opacity: 0.25; filter: grayscale(1); }
+    &::after {
+      content: "Retirée";
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--tim-danger-text);
+      background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--tim-red) 12%, transparent) 6px 12px);
+    }
+  }
+}
+.vt__thumb-wait { display: block; height: 4.5rem; background: var(--tim-elevation-100); }
+.vt__thumb-time {
+  position: absolute;
+  left: 0.25rem;
+  bottom: 0.25rem;
+  padding: 0 0.25rem;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--tim-foreground) 70%, transparent);
+  color: var(--tim-white);
+  font-size: 0.75rem;
+}
+.vt__summary { display: flex; align-items: center; gap: 0.75rem; font-size: 1rem; color: var(--tim-foreground); }
+.vt__error { color: var(--tim-danger-text); }
+.vt .ctr-btn { height: 2.75rem; padding: 0 1.25rem; font-size: 1rem; }
+
+/* « Ou reprendre une vidéo déjà dans la médiathèque… » sous la zone de dépôt. */
+.direct-upload__pick { display: inline-block; margin-top: 0.5rem; font-size: 0.875rem; }

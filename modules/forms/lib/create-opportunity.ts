@@ -1,6 +1,7 @@
-import type { Payload, Where } from "payload";
+import type { Payload } from "payload";
 
 import { logActivity } from "@/modules/partner/lib/journal";
+import { findKnownClient } from "@/modules/partner/lib/known-client";
 import { vitrinePartnerEmail, vitrinePartnerId } from "@/modules/partner/lib/vitrine-partner";
 import type { OpportunityDraft } from "@/modules/forms/lib/to-opportunity";
 
@@ -18,7 +19,13 @@ import type { OpportunityDraft } from "@/modules/forms/lib/to-opportunity";
 
 export type OpportunityOutcome =
   | { status: "opportunite"; clientId: number | string; issues: number }
-  | { status: "rattachee"; clientId: number | string; issues: number }
+  | {
+      status: "rattachee";
+      clientId: number | string;
+      issues: number;
+      /** Le partenaire qui suit déjà la fiche, quand ce n'est pas celui du site. */
+      followedBy: number | string | null;
+    }
   | { status: "echec"; error: string };
 
 export async function createOpportunity(
@@ -36,6 +43,10 @@ export async function createOpportunity(
    * demande est journalisée sur sa fiche, pour que le commercial voie qu'il est
    * revenu et ce qu'il demande cette fois.
    *
+   * Chez TOUS les partenaires (voir findKnownClient) : une entreprise suivie par
+   * un partenaire, qui passe par le site, reste SA fiche. Elle ne change pas de
+   * partenaire, et celui-ci est prévenu par l'appelant (`followedBy`).
+   *
    * On ne touche PAS à `formSubmission` de la fiche : ce champ dit quelle
    * soumission l'a CRÉÉE, et il est unique. C'est la soumission qui pointe vers
    * la fiche, jamais l'inverse — sinon un prospect qui revient trois fois se
@@ -44,28 +55,30 @@ export async function createOpportunity(
    * Et surtout, on ne remplace pas la « demande du lead » d'origine : elle est
    * la trace de ce qu'il voulait la première fois.
    */
-  // Par l'e-mail quand on l'a, sinon par le téléphone : un lead dont l'adresse
-  // est mal tapée peut très bien être déjà connu par son numéro.
-  const matchOn: Where | null = draft.email ? { email: { equals: draft.email } } : draft.phone ? { phone: { equals: draft.phone } } : null;
-  if (matchOn) {
-    const same = await payload.find({
-      collection: "partner-clients",
-      where: { and: [matchOn, { partner: { equals: partner } }] },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-    });
-    const existing = same.docs[0] as { id: number | string } | undefined;
-    if (existing) {
-      await logActivity(payload, {
-        client: existing.id,
-        title: "Nouvelle demande depuis le site vitrine",
-        content: draft.leadNotes,
-      }).catch((e) =>
-        payload.logger.error(`[formulaires] journal de ${existing.id} échoué : ${e}`),
-      );
-      return { status: "rattachee", clientId: existing.id, issues: draft.issues.length };
-    }
+  // L'adresse et le numéro de la fiche, et ceux de la personne qui écrit : un
+  // lead dont l'adresse est mal tapée peut très bien être connu par son numéro.
+  // Le plus souvent ce sont les MÊMES (le formulaire n'a qu'une adresse) : on
+  // ne relance alors pas la même recherche une seconde fois.
+  const sameProbe = draft.contact.email === draft.email && draft.contact.phone === draft.phone;
+  const existing =
+    (await findKnownClient(payload, { email: draft.email, phone: draft.phone })) ??
+    (!sameProbe && (draft.contact.email || draft.contact.phone)
+      ? await findKnownClient(payload, { email: draft.contact.email, phone: draft.contact.phone })
+      : null);
+  if (existing) {
+    await logActivity(payload, {
+      client: existing.id,
+      title: "Nouvelle demande depuis le site vitrine",
+      content: draft.leadNotes,
+    }).catch((e) =>
+      payload.logger.error(`[formulaires] journal de ${existing.id} échoué : ${e}`),
+    );
+    return {
+      status: "rattachee",
+      clientId: existing.id,
+      issues: draft.issues.length,
+      followedBy: existing.partner != null && String(existing.partner) !== String(partner) ? existing.partner : null,
+    };
   }
 
   /**

@@ -1,10 +1,13 @@
 "use client";
 
-import { PopupList, useConfig, useDocumentInfo, useField, useForm, useLocale, useModal } from "@payloadcms/ui";
+import { PopupList, useAuth, useConfig, useDocumentInfo, useField, useForm, useLocale, useModal } from "@payloadcms/ui";
 
+import { hasAdminRole } from "@/core/access";
+import { clientStatusMeta } from "@/modules/partner/lib/clientStatus";
 import { docSubmitAction } from "@/modules/partner/lib/format";
 
 import { ARCHIVE_MODAL_SLUG } from "./ArchiveClientModal";
+import { MERGE_MODAL_SLUG } from "./MergeClientModal";
 
 /**
  * Item « Archiver / Désarchiver » du menu 3-points natif (editMenuItems).
@@ -31,6 +34,7 @@ export function PartnerClientEditMenu() {
   const { openModal } = useModal();
   const status = useField<string>({ path: "clientStatus" });
   const contractStart = useField<string>({ path: "contractStartDate" });
+  const { user } = useAuth();
 
   if (!id) return null; // uniquement sur un client déjà enregistré
 
@@ -56,9 +60,20 @@ export function PartnerClientEditMenu() {
     openModal(ARCHIVE_MODAL_SLUG);
   };
 
+  // Fusionner : réservé à TIM, et seulement pour un LEAD encore dans le
+  // pipeline — le serveur le vérifie aussi (voir clients/[id]/merge).
+  const canMerge = hasAdminRole(user) && clientStatusMeta(status.value)?.phase === "pipeline";
+
   return (
-    <PopupList.Button onClick={onClick}>
-      {archived ? "Désarchiver le client" : "Archiver le client"}
-    </PopupList.Button>
+    <>
+      <PopupList.Button onClick={onClick}>
+        {archived ? "Désarchiver le client" : "Archiver le client"}
+      </PopupList.Button>
+      {canMerge && (
+        <PopupList.Button onClick={() => openModal(MERGE_MODAL_SLUG)}>
+          Fusionner dans une fiche existante…
+        </PopupList.Button>
+      )}
+    </>
   );
 }

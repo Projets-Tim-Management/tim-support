@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 
 import { frDate } from "@/core/lib/dates";
 import { useSaveAfterDispatch } from "@/modules/marketing/admin/useSaveAfterDispatch";
+import { ReminderDrawer, reminderLine, type ReminderHistory } from "@/modules/partner/admin/ReminderDrawer";
+import type { SignableKind } from "@/modules/partner/lib/e-signature";
 import {
   COMPANY_FIELDS,
   SIGNING_DOC_FIELDS,
@@ -24,6 +26,11 @@ import {
  * « Fait par e-mail » pose la date de l'étape sans document, puis enregistre :
  * un clic = un état persisté. C'est le cas du devis envoyé en pièce jointe, ou
  * du contrat signé que le client a renvoyé par retour de mail.
+ *
+ * « Relancer » sur un document qui attend la signature du client : un e-mail
+ * de rappel, vu en aperçu avant de partir (voir ReminderDrawer). Proposé
+ * seulement quand le document est dans l'espace du client — l'état vient du
+ * serveur, donc d'une fiche enregistrée.
  */
 
 type Access = {
@@ -33,6 +40,20 @@ type Access = {
   lastLoginAt: string | null;
   invitationSentAt: string | null;
 };
+
+type ReminderKind = SignableKind;
+type ReminderState = {
+  available: boolean;
+  reason: string | null;
+  reminders: ReminderHistory;
+};
+
+/** L'étape « retourné signé » que la relance fait avancer. */
+const REMIND_STEP: Partial<Record<SigningDocKey, ReminderKind>> = {
+  "devis-signe": "devis",
+  "contrat-signe": "contrat",
+};
+
 
 // Dérivé de COMPANY_FIELDS : un champ obligatoire ajouté là est lu ici aussi
 // (la forme sociale et le représentant ne l'étaient pas, et l'étape restait
@@ -64,7 +85,7 @@ function stateLine(step: SigningStepState): string {
 }
 
 export function SigningChecklist() {
-  const { id } = useDocumentInfo();
+  const { id, lastUpdateTime } = useDocumentInfo();
   const { dispatchFields } = useForm();
   const saveNow = useSaveAfterDispatch();
 
@@ -101,6 +122,22 @@ export function SigningChecklist() {
   }, [id]);
 
   useEffect(loadAccess, [loadAccess]);
+
+  // ── Relances ───────────────────────────────────────────────────────────────
+  const [reminders, setReminders] = useState<Record<ReminderKind, ReminderState> | null>(null);
+  const [reminding, setReminding] = useState<ReminderKind | null>(null);
+
+  const loadReminders = useCallback(() => {
+    if (id == null) return;
+    fetch(`/api/admin/signing-reminder?clientId=${id}`, { credentials: "include" })
+      .then((r) => (r.ok ? (r.json() as Promise<Record<ReminderKind, ReminderState>>) : null))
+      .then(setReminders)
+      .catch(() => setReminders(null));
+  }, [id]);
+
+  // L'état vient de la fiche ENREGISTRÉE : relu à chaque enregistrement — un
+  // dépôt rend la relance possible, une signature la retire.
+  useEffect(() => loadReminders(), [loadReminders, lastUpdateTime]);
 
   const invite = async () => {
     setSending(true);
@@ -175,6 +212,8 @@ export function SigningChecklist() {
       <ol className="sig-steps">
         {steps.map((step, i) => {
           const docKey = step.key === "entreprise" ? null : (step.key as SigningDocKey);
+          const remindKind = docKey && !step.done ? (REMIND_STEP[docKey] ?? null) : null;
+          const remindLine = remindKind ? reminderLine(reminders?.[remindKind]?.reminders) : null;
           return (
             <li key={step.key} className={`sig-step${step.done ? " sig-step--done" : ""}`}>
               <span className="sig-step__dot" aria-hidden>
@@ -186,12 +225,18 @@ export function SigningChecklist() {
                   <span className="sig-step__who">{step.who}</span>
                 </p>
                 <p className="sig-step__state">{stateLine(step)}</p>
+                {remindLine && <p className="sig-step__hint">{remindLine}</p>}
                 {step.key === "entreprise" && !step.done && (
                   <p className="sig-step__hint">
                     À compléter dans l&apos;onglet « Facturation client », ou par le client dans son espace.
                   </p>
                 )}
               </div>
+              {remindKind && reminders?.[remindKind]?.available && (
+                <button type="button" className="sig-btn" onClick={() => setReminding(remindKind)}>
+                  Relancer
+                </button>
+              )}
               {docKey && !step.done && (
                 <button type="button" className="sig-btn sig-btn--ghost" onClick={() => setManual(docKey, true)}>
                   Fait par e-mail
@@ -206,6 +251,19 @@ export function SigningChecklist() {
           );
         })}
       </ol>
+
+      {reminding && (
+        <ReminderDrawer
+          title={`Relancer le client · ${reminding}`}
+          endpoint="/api/admin/signing-reminder"
+          body={{ clientId: id, kind: reminding }}
+          onClose={() => setReminding(null)}
+          onSent={() => {
+            setReminding(null);
+            loadReminders();
+          }}
+        />
+      )}
     </div>
   );
 }

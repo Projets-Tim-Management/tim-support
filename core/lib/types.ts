@@ -47,6 +47,8 @@ export interface Feature {
   thumbnail:  string | null;
   platforms:  FeatureTerm[];
   categories: FeatureTerm[];
+  /** Profils concernés (valeurs de FEATURE_PROFILES). Vide = tout le monde. */
+  profiles:   string[];
   acf:        FeatureACF;
   feedback:   FeatureFeedback;
   date:       string;     // ISO 8601 UTC — date de création (post_date_gmt)

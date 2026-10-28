@@ -1,10 +1,15 @@
 "use client";
 
-import { FieldLabel, useField } from "@payloadcms/ui";
+import { FieldLabel, useField, useFormFields } from "@payloadcms/ui";
 import { useEffect, useState } from "react";
 
-import { uploadFile, type MediaLite } from "@/core/lib/media-upload";
+import { formatOctets, isVideoMedia, uploadFile, type MediaLite } from "@/core/lib/media-upload";
+import { convertToLoop, isVideoFile, type LoopFormat } from "@/core/lib/video-loop";
+import { MediaPicker } from "@/modules/editorial/admin/MediaPicker";
+import { extOf, featureMediaName } from "@/modules/editorial/lib/media-name";
+import type { Range } from "@/core/lib/video-trim";
 import UploadZone from "./UploadZone";
+import { VideoTrimmer } from "./VideoTrimmer";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -17,7 +22,15 @@ import UploadZone from "./UploadZone";
  * Gère mono-fichier ET multi (`hasMany`), image ET document.
  *
  * Branché via `admin.components.Field` sur les champs `type: "upload"`.
- * Options par champ via `admin.custom` : `{ accept, noun }`.
+ * Options par champ via `admin.custom` :
+ *   - `{ accept, noun }` ;
+ *   - `convertVideo` : une capture vidéo déposée est convertie DANS LE
+ *     NAVIGATEUR en courte vidéo MP4 en boucle (voir core/lib/video-loop) —
+ *     seule la vidéo finale est envoyée ;
+ *   - `nameFrom: "feature"` : le fichier prend un nom tiré de la feature et de
+ *     sa place (voir modules/editorial/lib/media-name) ;
+ *   - `pickExisting` : un lien sous la zone reprend un média déjà dans la
+ *     médiathèque (une vidéo d'une autre feature), sans rien renvoyer.
  */
 
 function isImage(m?: MediaLite | null): boolean {
@@ -46,6 +59,14 @@ export default function DirectUpload(props: any) {
   const custom = props?.field?.admin?.custom ?? {};
   const accept: string = custom.accept ?? "image/*";
   const noun: string = custom.noun ?? "une image";
+  const convertVideo = Boolean(custom.convertVideo);
+  const nameFromFeature = custom.nameFrom === "feature";
+  const pickExisting = Boolean(custom.pickExisting);
+  const [picking, setPicking] = useState(false);
+  // Le slug (à défaut le titre) de la feature, pour nommer le fichier.
+  const featureName = useFormFields(([fields]) =>
+    nameFromFeature ? String(fields.slug?.value || fields.title?.value || "") : "",
+  );
 
   const { value, setValue } = useField<any>({ path });
   const [items, setItems] = useState<MediaLite[]>([]);
@@ -58,6 +79,16 @@ export default function DirectUpload(props: any) {
    * on recommençait, indéfiniment.
    */
   const [erreur, setErreur] = useState<string | null>(null);
+  /** Conversion vidéo en cours : où on en est, en toutes lettres. */
+  const [progress, setProgress] = useState<string | null>(null);
+  /** Ce que la conversion a produit, dit une fois (poids avant / après). */
+  const [info, setInfo] = useState<string | null>(null);
+  /**
+   * La capture en cours de retouche, et la promesse qui attend le choix :
+   * l'envoi reprend quand on clique « Convertir » (ou s'arrête sur « Annuler »).
+   */
+  const [trimming, setTrimming] = useState<{ file: File; resolve: (keep: Range[] | null) => void } | null>(null);
+  const askTrim = (file: File) => new Promise<Range[] | null>((resolve) => setTrimming({ file, resolve }));
 
   // Résout la/les valeur(s) actuelle(s) en médias pour l'aperçu.
   useEffect(() => {
@@ -85,16 +116,57 @@ export default function DirectUpload(props: any) {
     if (arr.length === 0 || readOnly) return;
     setBusy(true);
     setErreur(null);
+    setInfo(null);
     const uploaded: MediaLite[] = [];
     const echecs: string[] = [];
-    for (const f of hasMany ? arr : [arr[0]]) {
+    const notes: string[] = [];
+    const lot = hasMany ? arr : [arr[0]];
+    for (const [i, original] of lot.entries()) {
+      let f = original;
+      let format: LoopFormat | null = null;
+      if (convertVideo && isVideoFile(original)) {
+        // D'abord la retouche : retirer les passages qui ne vont pas.
+        const keep = await askTrim(original);
+        if (!keep) continue;
+        try {
+          setProgress("Préparation de la vidéo…");
+          const out = await convertToLoop(
+            original,
+            (x) => setProgress(`Conversion de la vidéo… ${Math.round(x * 100)} %`),
+            keep,
+          );
+          format = out.format;
+          f = new File([out.blob], "capture.mp4", { type: "video/mp4" });
+          notes.push(
+            `Vidéo ${out.format === "mobile" ? "mobile" : "ordinateur"} ${out.width} × ${out.height} : ${formatOctets(out.blob.size)} (capture d'origine : ${formatOctets(original.size)}).`,
+          );
+        } catch (e) {
+          echecs.push((e as Error).message);
+          continue;
+        } finally {
+          setProgress(null);
+        }
+      }
+      if (nameFromFeature) {
+        const name = featureMediaName({
+          slug: featureName,
+          path,
+          ext: extOf(f.name) || (f.type === "video/mp4" ? "mp4" : "bin"),
+          format,
+          index: lot.length > 1 ? i + 1 : null,
+        });
+        f = new File([f], name, { type: f.type });
+      }
+      if (convertVideo && isVideoFile(original)) setProgress("Envoi de la vidéo…");
       const envoi = await uploadFile(f);
+      setProgress(null);
       if (envoi.ok) uploaded.push(envoi.doc);
       // Le NOM du fichier fautif : sur un dépôt multiple, « échec » sans nom
       // oblige à tout recommencer pour trouver lequel.
       else echecs.push(arr.length > 1 ? `${f.name} — ${envoi.message}` : envoi.message);
     }
     if (echecs.length) setErreur(echecs.join("\n"));
+    if (notes.length) setInfo(notes.join("\n"));
     if (uploaded.length) {
       if (hasMany) {
         const existing = Array.isArray(value) ? value : [];
@@ -127,7 +199,17 @@ export default function DirectUpload(props: any) {
         <div className={`direct-upload__grid${hasMany ? "" : " direct-upload__grid--single"}`}>
           {items.map((m, i) => (
             <div key={`${m.id}-${i}`} className="direct-upload__thumb">
-              {isImage(m) ? (
+              {isVideoMedia(m) ? (
+                <>
+                  {/* Comme sur le site : sans son, en boucle, lancée seule. */}
+                  <video src={m.url} muted autoPlay loop playsInline />
+                  {m.filename && (
+                    <span className="direct-upload__name" title={m.filename}>
+                      {m.filename}
+                    </span>
+                  )}
+                </>
+              ) : isImage(m) ? (
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={m.url} alt={m.filename ?? ""} />
@@ -185,10 +267,31 @@ export default function DirectUpload(props: any) {
         </div>
       )}
 
+      {progress && (
+        <p className="direct-upload__progress" role="status">
+          {progress}
+        </p>
+      )}
+      {info && !progress && <p className="direct-upload__info">{info}</p>}
+
       {erreur && (
         <p className="direct-upload__error" role="alert">
           {erreur}
         </p>
+      )}
+
+      {trimming && (
+        <VideoTrimmer
+          file={trimming.file}
+          onCancel={() => {
+            trimming.resolve(null);
+            setTrimming(null);
+          }}
+          onDone={({ keep }) => {
+            trimming.resolve(keep);
+            setTrimming(null);
+          }}
+        />
       )}
 
       {showZone && !readOnly && (
@@ -198,6 +301,25 @@ export default function DirectUpload(props: any) {
           noun={noun}
           multiple={hasMany}
           busy={busy}
+        />
+      )}
+
+      {showZone && !readOnly && pickExisting && (
+        <button type="button" className="ctr-link direct-upload__pick" onClick={() => setPicking(true)} disabled={busy}>
+          Ou reprendre une vidéo déjà dans la médiathèque…
+        </button>
+      )}
+
+      {picking && (
+        <MediaPicker
+          onCancel={() => setPicking(false)}
+          onPick={(m) => {
+            setErreur(null);
+            setInfo(null);
+            if (hasMany) setValue([...(Array.isArray(value) ? value : []), m.id]);
+            else setValue(m.id);
+            setPicking(false);
+          }}
         />
       )}
     </div>

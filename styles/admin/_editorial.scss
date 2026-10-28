@@ -877,3 +877,391 @@
 .feat-json__actions .feat-import__copy {
   margin-left: 0;
 }
+
+/* ─── Liste des features : filtres Web / Mobile puis par section ─────────────
+   (FeatureListFilters). UNE ligne compacte : sélecteur segmenté, puis les
+   sections en pastilles qui défilent, pour ne pas manger l'en-tête de la liste. */
+.ftr-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin: 0.25rem 0 0.875rem;
+}
+.ftr-seg {
+  flex: 0 0 auto;
+  display: inline-flex;
+  padding: 0.1875rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-elevation-100);
+}
+.ftr-seg__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3rem 0.75rem;
+  border: 0;
+  border-radius: calc(var(--tim-radius-sm) - 2px);
+  background: none;
+  color: var(--tim-muted);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover { color: var(--tim-foreground); }
+  &.is-active {
+    background: var(--tim-white);
+    color: var(--tim-primary);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 15%, transparent);
+  }
+}
+.ftr-count {
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  background: var(--tim-elevation-150);
+  color: var(--tim-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.ftr-seg__btn.is-active .ftr-count { background: var(--tim-primary-light); color: var(--tim-primary); }
+/* Les sections : une ligne qui défile horizontalement (molette, trackpad ou
+   glisser), avec un fondu à droite qui dit qu'il y en a d'autres. */
+.ftr-sections {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  gap: 0.375rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 0.125rem 1.5rem 0.375rem 0;
+  /* Le masque ne lit que l'opacité : n'importe quelle couleur pleine convient. */
+  mask-image: linear-gradient(to right, var(--tim-foreground) calc(100% - 2rem), transparent);
+}
+.ftr-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 999px;
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  &:hover:not(:disabled) { background: var(--tim-surface); }
+  &:disabled { color: var(--tim-muted); cursor: default; opacity: 0.6; }
+  &.is-active {
+    border-color: var(--tim-primary);
+    background: var(--tim-primary-light);
+    color: var(--tim-primary);
+    font-weight: 600;
+    .ftr-count { background: var(--tim-white); color: var(--tim-primary); }
+  }
+}
+
+/* ─── Fiche feature : avis des lecteurs, en une ligne (FeatureFeedback) ───── */
+.ftr-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+}
+.ftr-feedback__label { font-size: 0.75rem; font-weight: 600; color: var(--tim-muted); }
+.ftr-feedback__votes {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+  em { margin-left: 0.5rem; font-style: normal; font-weight: 500; color: var(--tim-muted); font-size: 0.8rem; }
+}
+.ftr-feedback__empty { font-size: 0.8125rem; color: var(--tim-muted); }
+
+/* ─── « Rédiger avec Claude » (FeatureWriter) ─────────────────────────────────
+   Le cadre plein écran est celui de « Préparer le contrat » (ctr-editor) :
+   même en-tête, mêmes étapes, même pied. Seul le contenu est propre ici. */
+.fw-launch { margin: 0 0 0.75rem; }
+
+/* En FENÊTRE centrée, pas en page entière : le cadre ctr-editor (plein écran
+   pour le contrat) est ramené à une boîte bornée sur un fond assombri. */
+.fw-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: color-mix(in srgb, var(--tim-foreground) 45%, transparent);
+}
+.ctr-editor.fw {
+  position: relative;
+  inset: auto;
+  width: min(1040px, 100%);
+  /* À la taille du contenu, sans dépasser l'écran : au-delà, le milieu défile. */
+  height: auto;
+  max-height: min(960px, 100%);
+  border-radius: var(--tim-radius);
+  overflow: hidden;
+  box-shadow: 0 24px 60px color-mix(in srgb, var(--tim-foreground) 30%, transparent);
+}
+/* En-tête sur deux lignes : titre + actions, puis les étapes en pleine largeur. */
+.fw .ctr-editor__head {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "who actions" "steps steps";
+  row-gap: 0.625rem;
+  .ctr-editor__who { grid-area: who; }
+  .ctr-editor__actions { grid-area: actions; }
+  .ctr-stepper { grid-area: steps; justify-self: center; }
+}
+.fw .ctr-editor__title { font-size: 1.375rem; }
+.fw .ctr-editor__scroll { flex: 1 1 auto; }
+.fw-launch--edit { margin: 0; height: 2.25rem; }
+.fw-step { padding: 1rem 1.25rem 1.5rem; }
+.fw-cost {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+}
+.fw-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.fw-mode__btn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  strong { font-size: 1.125rem; color: var(--tim-foreground); }
+  span { font-size: 0.9375rem; color: var(--tim-muted); }
+  &.is-active { border-color: var(--tim-primary); background: var(--tim-primary-light); box-shadow: inset 0 0 0 1px var(--tim-primary); }
+}
+.fw-notes { margin-top: 0.875rem; }
+.fw-notes textarea,
+.fw-part__desc {
+  height: auto;
+  padding: 0.625rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+.fw-checks { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
+.fw-profiles { margin-top: 0.875rem; }
+.fw-video {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+}
+.fw-video__media,
+.fw-part__media video,
+.fw-part__media img,
+.fw-part__media .fw-video__wait {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-height: 9rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  overflow: hidden;
+  video, img { max-width: 100%; max-height: 9rem; object-fit: contain; }
+}
+.fw-video__media { height: 7rem; }
+.fw-video__wait { color: var(--tim-muted); font-size: 0.8125rem; min-height: 4rem; }
+.fw-video__title { margin: 0 0 0.375rem; font-size: 1rem; font-weight: 700; color: var(--tim-foreground); }
+.fw-video__state { margin: 0.375rem 0 0; font-size: 0.875rem; color: var(--tim-muted); }
+.fw-video__state.is-error { color: var(--tim-danger-text); }
+.fw-video__tools { display: flex; gap: 0.875rem; }
+.fw-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1.75rem 1rem;
+  border: 2px dashed var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  text-align: center;
+  cursor: pointer;
+  input { display: none; }
+  strong { color: var(--tim-primary); font-size: 1.125rem; }
+  span { color: var(--tim-muted); font-size: 0.9375rem; }
+  &:hover { background: var(--tim-primary-light); border-color: var(--tim-primary); }
+}
+.fw-writing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 4rem 1rem;
+  text-align: center;
+}
+.fw-writing__state { font-size: 1.1875rem; font-weight: 600; color: var(--tim-foreground); }
+.fw-writing__error { font-size: 1.0625rem; color: var(--tim-danger-text); }
+.fw-part {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 14rem;
+  gap: 1rem;
+}
+.fw-part__text { display: flex; flex-direction: column; gap: 0.5rem; }
+.fw-part__media { display: flex; flex-direction: column; gap: 0.5rem; }
+.fw-redo { display: flex; align-items: flex-end; gap: 0.75rem; .ctr-field { flex: 1; } }
+
+/* « Pour qui ? » en pastilles sur deux colonnes (ProfilesField). */
+.fw-pills {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+}
+.fw-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: left;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+  &:hover:not(:disabled) { background: var(--tim-surface); }
+  &:disabled { cursor: default; opacity: 0.6; }
+  &.is-active {
+    border-color: var(--tim-primary);
+    background: var(--tim-primary-light);
+    color: var(--tim-primary);
+    font-weight: 600;
+  }
+}
+.fw-pill--all { grid-column: 1 / -1; font-weight: 600; }
+.fw-pill__mark {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border: 1.5px solid var(--tim-border);
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  line-height: 1;
+}
+.fw-pill.is-active .fw-pill__mark { border-color: var(--tim-primary); background: var(--tim-primary); color: var(--tim-white); }
+.fw-manual {
+  margin: -0.25rem 0 1rem;
+  font-size: 0.9375rem;
+  color: var(--tim-muted);
+  a { color: var(--tim-foreground); text-decoration: underline; }
+  a:hover { color: var(--tim-primary); }
+}
+.fw-caption--empty { border-color: var(--tim-warning); }
+.fw-video__hint { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--tim-amber); }
+.fw-unused {
+  margin: 0 0 1rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+  font-size: 1rem;
+}
+.fw-part__head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.fw-part__keep { font-size: 0.875rem; color: var(--tim-muted); cursor: help; }
+
+/* ─── Lisibilité de la fenêtre « Rédiger avec Claude » ────────────────────────
+   Les classes reprises du contrat (ctr-*) sont dimensionnées pour un écran
+   dense ; dans une fenêtre qu'on lit et remplit d'un bout à l'autre, elles
+   étaient trop petites. Agrandies ICI, sous .fw, sans toucher au contrat
+   (les classes fw-* propres à la fenêtre portent directement leur taille). */
+.fw {
+  .ctr-editor__eyebrow { font-size: 0.8125rem; }
+  .ctr-stepper__step { font-size: 1rem; padding: 0.45rem 0.9rem; }
+  .ctr-stepper__num { font-size: 0.875rem; }
+  .ctr-btn { height: 2.75rem; padding: 0 1.25rem; font-size: 1rem; }
+  .ctr-link { font-size: 0.9375rem; }
+  .ctr-card { padding: 1.125rem 1.25rem; }
+  .ctr-card__title { font-size: 1.125rem; }
+  .ctr-intro,
+  .ctr-muted { font-size: 1rem; line-height: 1.55; }
+  .ctr-field { gap: 0.4rem; }
+  .ctr-field__label { font-size: 1rem; }
+  .ctr-field__hint { font-size: 0.875rem; }
+  .ctr-input { height: 2.875rem; font-size: 1rem; padding: 0 0.75rem; }
+  textarea.ctr-input { height: auto; padding: 0.7rem 0.75rem; line-height: 1.55; }
+  select.ctr-input { padding-right: 2rem; }
+  .ctr-check { font-size: 1rem; gap: 0.5rem; }
+  .ctr-check input { width: 1.15rem; height: 1.15rem; }
+  .ctr-tag { font-size: 0.8125rem; }
+}
+/* Le contenu prend toute la largeur de la fenêtre (la colonne bornée vient du contrat). */
+.fw .ctr-step.fw-step { max-width: none; margin: 0; }
+
+/* « Reprendre une vidéo existante » : le choix dans la médiathèque (MediaPicker). */
+.fw-part__links { display: flex; flex-direction: column; align-items: flex-start; gap: 0.375rem; }
+.fw-part__reused {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--tim-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mp__search { width: 100%; margin-bottom: 1rem; }
+.mp__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.75rem;
+}
+.mp__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.5rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  text-align: left;
+  cursor: pointer;
+  &:hover,
+  &:focus-visible { border-color: var(--tim-primary); }
+}
+.mp__media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 8rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  overflow: hidden;
+  video,
+  img { max-width: 100%; max-height: 100%; object-fit: contain; }
+}
+.mp__name {
+  font-size: 0.8125rem;
+  color: var(--tim-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mp__more { margin: 1rem auto 0; display: flex; }
+.fw-pick { display: inline-block; margin: 0.75rem 0 0.25rem; }

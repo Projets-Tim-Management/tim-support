@@ -195,3 +195,67 @@
     }
   }
 }
+
+/* Arrêter une séquence depuis la fiche, avec son motif. */
+.seq-state__stop {
+  margin-top: 0.625rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--tim-danger-text);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
+}
+.seq-state__stop-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--tim-border);
+  select,
+  textarea {
+    width: 100%;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--tim-border);
+    border-radius: var(--tim-radius-sm);
+    background: var(--tim-white);
+    color: var(--tim-foreground);
+    font: inherit;
+    font-size: 0.8125rem;
+  }
+  textarea { resize: vertical; }
+}
+.seq-state__stop-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+.seq-state__stop-actions { display: flex; gap: 0.5rem; }
+.seq-state__stop-confirm,
+.seq-state__stop-cancel {
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--tim-radius-sm);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.seq-state__stop-confirm {
+  border: 1px solid var(--tim-danger-text);
+  background: var(--tim-danger-text);
+  color: var(--tim-white);
+}
+.seq-state__stop-cancel {
+  border: 1px solid var(--tim-border);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+}
+.seq-state__stop-confirm:disabled,
+.seq-state__stop-cancel:disabled { opacity: 0.6; cursor: default; }

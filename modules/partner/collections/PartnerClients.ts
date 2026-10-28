@@ -650,6 +650,8 @@ export const PartnerClients: CollectionConfig = {
           "/modules/partner/admin/SmartSaveButton#SmartSaveButton",
           // Modal de confirmation d'archivage (monté en permanence, ouvert par le menu).
           "/modules/partner/admin/ArchiveClientModal#ArchiveClientModal",
+          // Fusion d'un doublon dans une fiche existante (monté en permanence, ouvert par le menu).
+          "/modules/partner/admin/MergeClientModal#MergeClientModal",
         ],
         // « Archiver » ajouté au menu 3-points natif (édition).
         editMenuItems: ["/modules/partner/admin/PartnerClientEditMenu#PartnerClientEditMenu"],

@@ -1,7 +1,7 @@
 import type { Payload, PayloadRequest } from "payload";
 
 import { JOURNEY_EMAILS, type JourneyEmailContext } from "@/modules/marketing/lib/emails";
-import { buildJourneyContext, type JourneyRunLike } from "@/modules/marketing/lib/journey-context";
+import { NEEDS_LICENCE_GAPS, buildJourneyContext, type JourneyRunLike } from "@/modules/marketing/lib/journey-context";
 import { readEmailTexts } from "@/modules/marketing/lib/email-overrides";
 import { armAutoStep } from "@/modules/marketing/lib/auto-steps";
 import {
@@ -119,11 +119,9 @@ export async function sendJourneyEmail(
   const row = rows.find((e) => e.key === key);
   if (row?.sentAt && !force) return { sent: false, reason: "already_sent" };
 
-  const { ctx, clientEmail, clientEmailSource, partnerEmail } = await buildJourneyContext(
-    payload,
-    fresh,
-    req,
-  );
+  const { ctx, clientEmail, clientEmailSource, partnerEmail } = await buildJourneyContext(payload, fresh, req, {
+    licenceGaps: NEEDS_LICENCE_GAPS.has(key),
+  });
 
   /**
    * Le public vient de la LIGNE du parcours, à défaut du modèle.

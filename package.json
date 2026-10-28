@@ -34,6 +34,7 @@
     "graphql": "^16.14.2",
     "jose": "^5.9.6",
     "leaflet": "^1.9.4",
+    "mp4-muxer": "5.2.2",
     "next": "^16.2.4",
     "nodemailer": "^9.0.3",
     "payload": "^3.86.0",
