@@ -32,8 +32,8 @@ export const ADS_AGENT_MODELS = {
 } as const satisfies Record<AgentRole, ClaudeModel>;
 
 /**
- * L'analyste des campagnes en ligne (plan, §9 nonies) : Sonnet le matin, pour
- * lire et prévenir à peu de frais ; Opus le lundi et au bilan du mois, quand il
+ * L'analyste des campagnes en ligne (plan, §9 nonies) : Sonnet tous les 2 jours,
+ * pour lire et prévenir à peu de frais ; Opus le lundi et au bilan du mois, quand il
  * décide (§9 quinquies §5).
  */
 export const ADS_FOLLOWUP_MODELS = {

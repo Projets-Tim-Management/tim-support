@@ -15,7 +15,7 @@ import { postAdmin } from "./post-admin";
  * question à lui poser. Rien à lancer à la main : les passages sont seuls.
  */
 
-const RYTHME: Record<string, string> = { quotidien: "Matin", hebdomadaire: "Lundi", mensuel: "Bilan du mois" };
+const RYTHME: Record<string, string> = { quotidien: "Suivi (tous les 2 jours)", hebdomadaire: "Lundi", mensuel: "Bilan du mois" };
 const AUTONOMIE: Record<string, string> = {
   autonome: "Autonome : il ajuste budgets et pauses seul, dans les garde-fous ; le reste passe par « À valider ».",
   proposer: "Proposer : chaque action attend votre validation dans « À valider ».",
@@ -60,7 +60,7 @@ export function FollowUpPanel({ campaignId }: { campaignId: string }) {
       <div className="ads-gen__head">
         <strong>Suivi de la campagne en ligne</strong>
         <span>
-          L&apos;analyste passe seul : chaque matin à 7 h (il lit et prévient), le lundi à 8 h (il décide), le premier lundi du mois à 9 h (bilan). {AUTONOMIE[view.autonomie] ?? view.autonomie}
+          L&apos;analyste passe seul : tous les 2 jours à 7 h (il lit et prévient), le lundi à 8 h (il décide), le premier lundi du mois à 9 h (bilan). {AUTONOMIE[view.autonomie] ?? view.autonomie}
         </span>
       </div>
 
@@ -121,7 +121,7 @@ export function FollowUpPanel({ campaignId }: { campaignId: string }) {
           )}
         </div>
       ) : (
-        <p className="ads-followup__meta">Premier passage demain matin à 7 h.</p>
+        <p className="ads-followup__meta">Premier passage au prochain 7 h.</p>
       )}
 
       <div className="ads-followup__ask">

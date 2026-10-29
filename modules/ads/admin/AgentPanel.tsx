@@ -115,7 +115,7 @@ export function AgentPanel() {
           <strong>{online ? "Passages des agents" : "Agent de campagne"}</strong>
           <span>
             {online
-              ? "Chaque passage — suivi du matin, du lundi, du mois, ou préparation de nouvelles créas demandée par l'analyste — avec ce qu'il a lu, décidé et dépensé."
+              ? "Chaque passage — suivi tous les 2 jours, du lundi, du mois, ou préparation de nouvelles créas demandée par l'analyste — avec ce qu'il a lu, décidé et dépensé."
               : "Il prépare positionnement, audiences, angles, textes et briefs Claude Design, et dépose les créas « À valider ». Rien n'est publié chez Meta."}
           </span>
         </div>

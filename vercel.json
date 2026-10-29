@@ -53,10 +53,6 @@
       "schedule": "30 4 * * *"
     },
     {
-      "path": "/api/cron/ads-sync?live=1",
-      "schedule": "5 * * * *"
-    },
-    {
       "path": "/api/cron/ads-agent-tick",
       "schedule": "* * * * *"
     },

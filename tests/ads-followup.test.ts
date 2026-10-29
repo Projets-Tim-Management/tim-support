@@ -17,13 +17,23 @@ describe("quand passent les agents de suivi (heure de Paris)", () => {
     expect(at("2026-11-03T22:30:00Z").date).toBe("2026-11-03");
   });
 
-  it("le matin chaque jour, le lundi à la place du matin, le bilan du mois à la place du lundi", () => {
+  it("à 7 h hors lundi, le lundi à 8 h, le bilan du mois à la place du lundi", () => {
     expect(dueKinds(at("2026-11-03T05:00:00Z"), {})).toEqual([]); // 6 h : trop tôt
     expect(dueKinds(at("2026-11-03T06:30:00Z"), {})).toEqual(["quotidien"]);
     expect(dueKinds(at("2026-11-09T06:30:00Z"), {})).toEqual([]); // lundi 7 h : on attend 8 h
     expect(dueKinds(at("2026-11-09T07:30:00Z"), {})).toEqual(["hebdomadaire"]);
     expect(dueKinds(at("2026-11-02T07:30:00Z"), {})).toEqual([]); // premier lundi 8 h : on attend 9 h
     expect(dueKinds(at("2026-11-02T08:30:00Z"), {})).toEqual(["mensuel"]);
+  });
+
+  it("entre deux lundis, un passage tous les 2 jours au plus (décision du 29/10/2026)", () => {
+    const wednesday = at("2026-11-04T10:00:00Z");
+    expect(dueKinds(wednesday, {}, "2026-11-03")).toEqual([]); // la veille : trop tôt
+    expect(dueKinds(wednesday, {}, "2026-11-02")).toEqual(["quotidien"]); // lundi : deux jours après
+    expect(dueKinds(at("2026-11-03T10:00:00Z"), {}, "2026-11-02")).toEqual([]); // mardi, au lendemain du lundi
+    expect(dueKinds(wednesday, {}, null)).toEqual(["quotidien"]); // jamais passé
+    // Le lundi décide quand même, même la veille d'un passage.
+    expect(dueKinds(at("2026-11-09T07:30:00Z"), {}, "2026-11-08")).toEqual(["hebdomadaire"]);
   });
 
   it("un seul passage par période", () => {

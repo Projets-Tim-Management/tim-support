@@ -20,9 +20,10 @@ import { adminEmails } from "@/modules/marketing/lib/notify";
 
 type Env = Record<string, string | undefined>;
 /**
- * `live` : le passage de chaque heure (plan, §9 nonies) — seulement les comptes
- * qui ont une campagne en diffusion, et sans les rappels de jetons, qui restent
- * l'affaire du passage quotidien (sinon un rappel « J-7 » partirait 24 fois).
+ * `live` : seulement les comptes qui ont une campagne en diffusion, et sans les
+ * rappels de jetons, qui restent l'affaire du passage de nuit. Il n'est plus
+ * planifié chaque heure (décision du 29/10/2026) ; il sert à une relecture à
+ * la main.
  */
 type Options = { now?: Date; env?: Env; only?: number | string; dry?: boolean; live?: boolean; days?: number; platformFor?: (key: string) => AdPlatform };
 

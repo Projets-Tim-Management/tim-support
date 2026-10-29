@@ -4,7 +4,7 @@ import type { Action } from "@/modules/ads/lib/actions";
  * Les urgences d'une campagne en ligne, détectées par le CODE, sans IA (plan
  * Publicité, §9 quinquies §5 « continu » et §9 nonies, étape 2).
  *
- * Chaque synchro (toutes les heures pour une campagne en diffusion) les
+ * Chaque synchro (celle de la nuit, avant le passage de l'analyste) les
  * recalcule à partir de ce que la base sait — l'état des pubs, les chiffres du
  * jour, la page d'arrivée. Une alerte qui ne se constate plus se clôt seule.
  *
@@ -12,8 +12,8 @@ import type { Action } from "@/modules/ads/lib/actions";
  *  - **pub refusée** : mise en pause de la pub, quel que soit le niveau
  *    d'autonomie (décision 4 du 29/09/2026) ;
  *  - **dépense anormale** (au-delà de 175 % du budget du jour, le plafond
- *    annoncé par Meta) et **page d'arrivée en panne** (constatée deux heures de
- *    suite — une coupure d'une minute ne coupe pas la campagne) : pause de la
+ *    annoncé par Meta) et **page d'arrivée en panne** (constatée à deux synchros
+ *    de suite — une coupure d'une minute ne coupe pas la campagne) : pause de la
  *    campagne, selon son niveau d'autonomie, sans attendre la fin du gel des 7
  *    jours ni les 72 h entre deux changements ;
  *  - **diffusion nulle** depuis 24 h : rien à couper, il faut regarder ;

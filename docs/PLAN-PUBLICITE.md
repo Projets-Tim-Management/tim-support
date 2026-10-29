@@ -1707,7 +1707,7 @@ seule, enchaîné.
 
 | # | Étape | Schéma |
 |---|---|---|
-| 1 | **Mesure** : la synchro lit aussi portée, répétition, clics vers le site, vues de la page d'arrivée et l'état de chaque pub ; elle passe toutes les heures pour une campagne en diffusion. Les leads du site sont rattachés à la pub (`utm_content` = identifiant de la pub) ; leads qualifiés et affaires gagnées comptés depuis les fiches | migration |
+| 1 | **Mesure** : la synchro lit aussi portée, répétition, clics vers le site, vues de la page d'arrivée et l'état de chaque pub ; relue chaque nuit (la relecture horaire a été retirée le 29/10/2026). Les leads du site sont rattachés à la pub (`utm_content` = identifiant de la pub) ; leads qualifiés et affaires gagnées comptés depuis les fiches | migration |
 | 2 | **Alertes en code**, sans IA : pub refusée (pause d'office), dépense anormale (> 175 % du budget du jour), diffusion nulle depuis 24 h, page d'arrivée en erreur, clics sans lead ; e-mail d'urgence | migration (`ad-alerts`) |
 | 3 | **Analyste** : rôle, outils (lire les résultats, les décisions, proposer une action → `submitAction`, noter un apprentissage, demander des créas), passages quotidien / hebdomadaire / mensuel ordonnancés par `ads-agent-tick` | migration |
 | 4 | **Tests A/B** : registre `ad-tests`, verdict calculé par le code (pur, testé), un test à la fois | migration |
@@ -1721,7 +1721,7 @@ Meta de la vitrine sur la branche `feat/pixel-meta` de tim-front (8e900a7).
 Rien n'est encore poussé. Décisions prises en route : envoi à Meta **avec
 l'accord « Publicité » seulement** ; bascule vers les prospects = **l'agent
 prépare un brouillon, Charlie publie** (10 leads reçus par Meta en 30 jours) ;
-campagne #7 passée en **autonome**. Premier vrai passage du matin (29/10,
+campagne #7 passée en **autonome** ; l'analyste passe **tous les 2 jours** (et non chaque matin) et la relecture des chiffres reste **de nuit**, sans relecture horaire (Charlie : « avoir assez de recul à chaque fois »). Premier vrai passage du matin (29/10,
 0,03 €) : diagnostic « la page ne convertit pas » (521 vues, 0 lead).
 
 **Lead qualifié (v1)** : une fiche née d'un formulaire dont l'état a dépassé la

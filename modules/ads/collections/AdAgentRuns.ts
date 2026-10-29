@@ -26,7 +26,8 @@ export type RunStatus = (typeof RUN_STATUSES)[number]["value"];
 /** Le même moteur sert aux quatre rythmes (§9 quinquies) : la préparation d'un brouillon, puis le suivi en ligne (§9 nonies). */
 export const RUN_KINDS = [
   { label: "Préparation", value: "preparation" },
-  { label: "Quotidien", value: "quotidien" },
+  // La valeur reste « quotidien » (base) ; le passage a lieu tous les 2 jours depuis le 29/10/2026.
+  { label: "Tous les 2 jours", value: "quotidien" },
   { label: "Hebdomadaire", value: "hebdomadaire" },
   { label: "Mensuel", value: "mensuel" },
 ] as const;

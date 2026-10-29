@@ -13,13 +13,14 @@ import { MAX_CONCURRENT, MAX_DEPTH } from "@/modules/ads/agent/limits";
  *
  * | Rythme        | Quand (Paris)               | Modèle | Agit ? |
  * |---------------|-----------------------------|--------|--------|
- * | quotidien     | chaque jour dès 7 h         | Sonnet | non : il lit, repère, prévient |
+ * | quotidien     | tous les 2 jours dès 7 h    | Sonnet | non : il lit, repère, prévient |
  * | hebdomadaire  | chaque lundi dès 8 h        | Opus   | oui, sous les garde-fous |
  * | mensuel       | le premier lundi dès 9 h    | Opus   | oui, et il fait le bilan et revoit le carnet |
  *
- * Un passage par rythme et par période (jour, semaine, mois), jamais deux en
- * même temps sur une campagne : celui du matin attend que celui du lundi ait
- * fini, le jour même, plutôt que de se chevaucher.
+ * Un passage par rythme et par période, jamais deux en même temps sur une
+ * campagne. Le passage « quotidien » n'a lieu que deux jours au moins après
+ * le dernier passage de suivi, quel qu'il soit (décision de Charlie du
+ * 29/10/2026 : avoir assez de recul à chaque fois) ; le lundi le remplace.
  */
 
 export type FollowUpKind = "quotidien" | "hebdomadaire" | "mensuel";
@@ -53,22 +54,28 @@ export function periodKey(kind: FollowUpKind, p: ParisNow): string {
 /**
  * Les rythmes dus maintenant pour une campagne, du plus lourd au plus léger :
  * le bilan du mois tient lieu de passage du lundi, et celui du lundi de passage
- * du matin. `last` : la période du dernier passage de chaque rythme. Pure.
+ * entre deux lundis. `last` : la période du dernier passage de chaque rythme ;
+ * `lastDay` : le jour (Paris) du dernier passage de suivi, tous rythmes
+ * confondus. Pure.
  */
-export function dueKinds(p: ParisNow, last: Partial<Record<FollowUpKind, string>>): FollowUpKind[] {
+export const SPACING_DAYS = 2;
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000);
+
+export function dueKinds(p: ParisNow, last: Partial<Record<FollowUpKind, string>>, lastDay?: string | null): FollowUpKind[] {
   const monday = p.weekday === 1;
   const firstMonday = monday && p.dayOfMonth <= 7;
   const due: FollowUpKind[] = [];
   if (firstMonday && p.hour >= HOUR.mensuel && last.mensuel !== periodKey("mensuel", p)) due.push("mensuel");
   if (monday && p.hour >= HOUR.hebdomadaire && last.hebdomadaire !== periodKey("hebdomadaire", p) && !firstMonday) due.push("hebdomadaire");
-  if (p.hour >= HOUR.quotidien && last.quotidien !== periodKey("quotidien", p) && !monday) due.push("quotidien");
+  const rested = !lastDay || daysBetween(lastDay, p.date) >= SPACING_DAYS;
+  if (p.hour >= HOUR.quotidien && last.quotidien !== periodKey("quotidien", p) && !monday && rested) due.push("quotidien");
   return due;
 }
 
 /** Ce que l'analyste doit faire à ce rythme : sa mission, en clair. */
 export function missionOf(kind: FollowUpKind, campaign: string): string {
   if (kind === "quotidien") {
-    return `Passage du matin sur la campagne en ligne « ${campaign} » : lis les résultats des 7 derniers jours et le journal, repère ce qui a changé (rupture de dépense, pub qui s'use, page qui ne convertit pas, alerte ouverte). Tu n'agis pas : tu dis ce que tu as vu et ce que tu proposerais au passage du lundi.`;
+    return `Passage de suivi (tous les 2 jours) sur la campagne en ligne « ${campaign} » : lis les résultats des 7 derniers jours et le journal, repère ce qui a changé (rupture de dépense, pub qui s'use, page qui ne convertit pas, alerte ouverte). Tu n'agis pas : tu dis ce que tu as vu et ce que tu proposerais au passage du lundi.`;
   }
   if (kind === "hebdomadaire") {
     return `Passage du lundi sur la campagne en ligne « ${campaign} » : lis les résultats sur 7 et 14 jours et le journal, puis DÉCIDE — budget entre ensembles, pause d'une pub qui perd ou s'use, réactivation — sous les garde-fous, ou attends en disant pourquoi. Note ce que les chiffres ont établi. Dans ton résultat : ce que tu as fait, ce qui attend Charlie, et ce qui ne se règle pas chez Meta (page, offre, créas à renouveler).`;
@@ -104,11 +111,13 @@ export async function scheduleFollowUps(payload: Payload, now = new Date()): Pro
     const docs = runs.docs as unknown as { kind: string; status: string; startedAt: string }[];
     if (docs.some((r) => r.status === "en-cours" || r.status === "en-pause-budget")) continue;
     const last: Partial<Record<FollowUpKind, string>> = {};
+    const latest = docs.find((d) => d.kind === "quotidien" || d.kind === "hebdomadaire" || d.kind === "mensuel");
+    const lastDay = latest ? parisNow(new Date(latest.startedAt)).date : null;
     for (const k of ["quotidien", "hebdomadaire", "mensuel"] as FollowUpKind[]) {
       const r = docs.find((d) => d.kind === k);
       if (r) last[k] = periodKey(k, parisNow(new Date(r.startedAt)));
     }
-    const kind = dueKinds(p, last)[0];
+    const kind = dueKinds(p, last, lastDay)[0];
     if (!kind) continue;
     const spent = await spentOf(payload, "agent", now);
     const b = prepBudget({ prepMaxEur: FOLLOWUP_BUDGET_EUR[kind], dailyEur: settings.agentDailyEur ?? 15, monthlyEur: settings.agentMonthlyEur ?? 150 }, spent);
@@ -160,7 +169,7 @@ export async function launchFollowUp(payload: Payload, c: { id: Id; name: string
       role: "analyste",
       status: "en-cours",
       mission,
-      // Le matin, il lit ; il n'a pas l'outil pour agir (l'outil le refuserait aussi).
+      // Entre deux lundis, il lit ; il n'a pas l'outil pour agir (l'outil le refuserait aussi).
       tools: ROLE_TOOLS.analyste.filter((t) => kind !== "quotidien" || !["agir", "ouvrir_test", "demander_creas", "preparer_campagne_prospects"].includes(t)),
       model: ADS_FOLLOWUP_MODELS[kind],
       budgetEur,

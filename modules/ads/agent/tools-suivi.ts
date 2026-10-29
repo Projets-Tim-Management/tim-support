@@ -9,7 +9,7 @@ import type { SuiviPort } from "@/modules/ads/agent/types";
  * qu'on a appris.
  *
  * Agir n'est permis qu'au passage du LUNDI (et au bilan du mois) : le passage
- * du matin lit et prévient, il ne touche à rien (§9 quinquies §5) — les
+ * de suivi (tous les 2 jours) lit et prévient, il ne touche à rien (§9 quinquies §5) — les
  * urgences, elles, sont l'affaire du code (lib/alerts.ts).
  */
 
@@ -72,7 +72,7 @@ const agir: AgentTool = {
     },
   },
   async run(ctx, input) {
-    if (ctx.run.kind === "quotidien") return refuse(ctx, "Le passage du matin lit et prévient ; il n'agit pas. Note ce que tu proposes dans ton résultat : le passage du lundi décidera.");
+    if (ctx.run.kind === "quotidien") return refuse(ctx, "Le passage de suivi (tous les 2 jours) lit et prévient ; il n'agit pas. Note ce que tu proposes dans ton résultat : le passage du lundi décidera.");
     const appuis = resolveAppuis(notebookOf(ctx.run), input.appuis);
     if ("error" in appuis) return refuse(ctx, appuis.error);
     const justification = String(input.justification ?? "").trim();

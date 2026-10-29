@@ -16,8 +16,9 @@ import { evaluateTests } from "@/modules/ads/lib/tests-run";
  * l'alerte J-7 des jetons OAuth qui arrivent à échéance, et les urgences des
  * campagnes en ligne (lib/alerts-run.ts).
  *
- * `live=1` : le passage de chaque heure — les comptes qui ont une campagne en
- * diffusion, sans les rappels de jetons (plan, §9 nonies).
+ * `live=1` : seulement les comptes qui ont une campagne en diffusion, sans les
+ * rappels de jetons. Plus planifié chaque heure (décision du 29/10/2026 : la
+ * relecture de nuit suffit) ; reste disponible pour une relecture à la main.
  *
  * `dry=1` : dit quels comptes seraient synchronisés, sans rien lire chez la régie.
  *
