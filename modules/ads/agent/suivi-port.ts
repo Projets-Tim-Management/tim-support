@@ -21,6 +21,7 @@ type RawCampaign = {
   autonomy?: string | null;
   publication?: { activatedAt?: string | null; ads?: Record<string, string>; plan?: { objectif?: string; optimisation?: string } } | null;
   agentBudget?: { metaFloorEur?: number | null; split?: { aiDailyEur?: number | null } | null } | null;
+  brief?: { landingUrl?: string | null } | null;
   account?: { timezone?: string | null } | number | null;
 };
 
@@ -72,6 +73,7 @@ export function payloadSuivi(payload: Payload, now: () => Date = () => new Date(
           aiDailyEur: c.agentBudget?.split?.aiDailyEur ?? null,
           objective: c.publication?.plan?.objectif ?? null,
           optimisation: c.publication?.plan?.optimisation ?? null,
+          landingUrl: c.brief?.landingUrl ?? null,
         },
         today,
         days,

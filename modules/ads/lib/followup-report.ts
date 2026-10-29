@@ -116,6 +116,8 @@ export function buildReport(input: {
     /** Le plan publié : objectif et ce sur quoi Meta optimise (« vues-page », « conversions »…). */
     objective: string | null;
     optimisation: string | null;
+    /** La page où mène chaque pub : à comparer avec ce que la pub promet. */
+    landingUrl: string | null;
   };
   today: string;
   days: number;
@@ -198,6 +200,7 @@ export function buildReport(input: {
       autonomie: c.autonomy,
       objectif: c.objective,
       optimisation: c.optimisation,
+      pageArrivee: c.landingUrl,
       enDiffusionDepuisJours: activeDays,
       gelJusquAu: activeDays != null && activeDays < 7 ? freezeUntil : null,
       budgetQuotidienMetaEur: r2(adsets.filter((a) => a.etat === "ACTIVE").reduce((s, a) => s + (a.budgetQuotidienEur ?? 0), 0)),

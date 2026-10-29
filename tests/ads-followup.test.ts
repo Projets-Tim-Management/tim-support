@@ -62,7 +62,7 @@ describe("le rapport d'une campagne en ligne", () => {
       ...days(23, 7, { level: "campaign", externalId: "C", spend: 5, impressions: 1000, linkClicks: 20 }),
     ];
     const r = buildReport({
-      campaign: { id: 7, name: "Test", externalId: "C", autonomy: "autonome", activatedAt: "2026-10-01T00:00:00Z", floorEur: 5, aiDailyEur: 1, objective: "trafic", optimisation: "vues-page" },
+      campaign: { id: 7, name: "Test", externalId: "C", autonomy: "autonome", activatedAt: "2026-10-01T00:00:00Z", floorEur: 5, aiDailyEur: 1, objective: "trafic", optimisation: "vues-page", landingUrl: "https://tim-management.co/pointage" },
       today: "2026-10-29",
       days: 7,
       metrics,
@@ -73,7 +73,7 @@ describe("le rapport d'une campagne en ligne", () => {
       now: new Date("2026-10-29T12:00:00Z"),
     });
     expect(r.periode).toMatchObject({ du: "2026-10-23", au: "2026-10-29", precedente: { du: "2026-10-16", au: "2026-10-22" } });
-    expect(r.campagne).toMatchObject({ budgetQuotidienMetaEur: 9, gelJusquAu: null });
+    expect(r.campagne).toMatchObject({ budgetQuotidienMetaEur: 9, gelJusquAu: null, pageArrivee: "https://tim-management.co/pointage" });
     expect(r.publicites[0]).toMatchObject({ crea: { id: 19, angle: "Pointage en 2 minutes" }, tendanceTauxClicPct: -60, usee: true, partDepensePct: 100 });
   });
 });
