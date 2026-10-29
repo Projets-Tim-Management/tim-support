@@ -1418,7 +1418,7 @@ export interface Feature {
    * Où ranger la fiche, ex. « Mobile › Authentification ».
    */
   categories?: (number | FeatureCategory)[] | null;
-  profiles?: ('conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'visuel' | 'bureau')[] | null;
+  profiles?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'visuel' | 'bureau')[] | null;
   /**
    * Facultative : visuel des cartes et des résultats de recherche.
    */

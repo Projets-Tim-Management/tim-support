@@ -1,4 +1,4 @@
-import { FEATURE_PROFILES, profileLabel } from "@/modules/editorial/lib/feature-profiles";
+import { FEATURE_PROFILES, forEveryone, profileLabel } from "@/modules/editorial/lib/feature-profiles";
 
 /**
  * « Rôles concernés : » — une pastille de couleur par rôle.
@@ -13,6 +13,7 @@ import { FEATURE_PROFILES, profileLabel } from "@/modules/editorial/lib/feature-
  * de le dire.
  */
 const TONE: Record<string, string> = {
+  admin: "bg-ink text-white",
   conducteur: "bg-unavailable-bg text-unavailable",
   chefChantier: "bg-success-bg text-success-text",
   chefEquipe: "bg-primary-light text-primary",
@@ -25,6 +26,7 @@ const pill = "rounded-[5px] px-2 py-0.5 text-xs font-semibold";
 
 /** La couleur PLEINE de chaque rôle, pour les points des cartes. */
 const DOT: Record<string, string> = {
+  admin: "bg-ink",
   conducteur: "bg-unavailable",
   chefChantier: "bg-success",
   chefEquipe: "bg-primary",
@@ -48,7 +50,7 @@ export default function ProfileBadges({
   variant?: "labels" | "dots";
 }) {
   if (!profiles?.length) return null;
-  const all = FEATURE_PROFILES.every((p) => profiles.includes(p.value));
+  const all = forEveryone(profiles);
   // Toujours dans l'ordre de la liste : du conducteur au bureau, sur toutes les fiches.
   const ordered = FEATURE_PROFILES.map((p) => p.value as string).filter((v) => profiles.includes(v));
 
