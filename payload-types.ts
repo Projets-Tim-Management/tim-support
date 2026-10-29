@@ -104,6 +104,8 @@ export interface Config {
     'ad-alerts': AdAlert;
     'ad-tests': AdTest;
     'ad-conversions': AdConversion;
+    'ad-questions': AdQuestion;
+    'ad-recaps': AdRecap;
     'ad-media': AdMedia;
     'ad-facts': AdFact;
     'ad-ai-usage': AdAiUsage;
@@ -195,6 +197,8 @@ export interface Config {
     'ad-alerts': AdAlertsSelect<false> | AdAlertsSelect<true>;
     'ad-tests': AdTestsSelect<false> | AdTestsSelect<true>;
     'ad-conversions': AdConversionsSelect<false> | AdConversionsSelect<true>;
+    'ad-questions': AdQuestionsSelect<false> | AdQuestionsSelect<true>;
+    'ad-recaps': AdRecapsSelect<false> | AdRecapsSelect<true>;
     'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
     'ad-facts': AdFactsSelect<false> | AdFactsSelect<true>;
     'ad-ai-usage': AdAiUsageSelect<false> | AdAiUsageSelect<true>;
@@ -3176,6 +3180,35 @@ export interface AdConversion {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-questions".
+ */
+export interface AdQuestion {
+  id: number;
+  campaign: number | AdCampaign;
+  question: string;
+  answer?: string | null;
+  error?: string | null;
+  askedBy?: (number | null) | User;
+  costEur?: number | null;
+  askedAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-recaps".
+ */
+export interface AdRecap {
+  id: number;
+  week: string;
+  status: 'envoye' | 'vide' | 'echec';
+  text?: string | null;
+  sentAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Chaque appel payant de l'atelier de créas, avec son coût. Écrit par le serveur ; les plafonds le relisent avant chaque appel.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3972,6 +4005,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-conversions';
         value: number | AdConversion;
+      } | null)
+    | ({
+        relationTo: 'ad-questions';
+        value: number | AdQuestion;
+      } | null)
+    | ({
+        relationTo: 'ad-recaps';
+        value: number | AdRecap;
       } | null)
     | ({
         relationTo: 'ad-media';
@@ -5473,6 +5514,33 @@ export interface AdConversionsSelect<T extends boolean = true> {
   pixelId?: T;
   status?: T;
   detail?: T;
+  sentAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-questions_select".
+ */
+export interface AdQuestionsSelect<T extends boolean = true> {
+  campaign?: T;
+  question?: T;
+  answer?: T;
+  error?: T;
+  askedBy?: T;
+  costEur?: T;
+  askedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-recaps_select".
+ */
+export interface AdRecapsSelect<T extends boolean = true> {
+  week?: T;
+  status?: T;
+  text?: T;
   sentAt?: T;
   updatedAt?: T;
   createdAt?: T;
