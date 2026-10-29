@@ -166,6 +166,7 @@ import * as migration_20261019_162421_ads_actions_phase2 from './20261019_162421
 import * as migration_20261023_095743_presentation_bookings from './20261023_095743_presentation_bookings';
 import * as migration_20261023_115605_mass_email_campaigns from './20261023_115605_mass_email_campaigns';
 import * as migration_20261026_142149_feature_profiles from './20261026_142149_feature_profiles';
+import * as migration_20261029_121256_parcours_profil_visuel from './20261029_121256_parcours_profil_visuel';
 
 export const migrations = [
   {
@@ -1006,6 +1007,11 @@ export const migrations = [
   {
     up: migration_20261026_142149_feature_profiles.up,
     down: migration_20261026_142149_feature_profiles.down,
-    name: '20261026_142149_feature_profiles'
+    name: '20261026_142149_feature_profiles',
+  },
+  {
+    up: migration_20261029_121256_parcours_profil_visuel.up,
+    down: migration_20261029_121256_parcours_profil_visuel.down,
+    name: '20261029_121256_parcours_profil_visuel'
   },
 ];

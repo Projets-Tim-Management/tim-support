@@ -1849,7 +1849,7 @@ export interface Parcour {
    * Tri croissant (équivalent menu_order WP).
    */
   order?: number | null;
-  profil?: ('admin' | 'conducteur' | 'chef-chantier' | 'compagnon') | null;
+  profil?: ('admin' | 'conducteur' | 'chef-chantier' | 'compagnon' | 'visuel') | null;
   intro?: string | null;
   /**
    * L'ordre des features définit l'ordre des étapes.

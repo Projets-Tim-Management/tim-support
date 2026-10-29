@@ -28,6 +28,7 @@ const PROFILS: ProfilDef[] = [
   { key: "conducteur",    label: "Conducteur de travaux", icon: "📋", tagline: "Suivi des chantiers et de l'activité",       hoverBorder: "hover:border-absence",    accentBg: "bg-absence-bg"       },
   { key: "chef-chantier", label: "Chef de chantier",      icon: "🦺", tagline: "Pilotage opérationnel sur le terrain",       hoverBorder: "hover:border-processing", accentBg: "bg-processing-bg"    },
   { key: "compagnon",     label: "Compagnon",             icon: "🛠️", tagline: "Pointage et consultation au quotidien",     hoverBorder: "hover:border-success",    accentBg: "bg-success-bg"       },
+  { key: "visuel",        label: "Compagnon visuel",      icon: "👀", tagline: "Son planning et ses pointages, en consultation", hoverBorder: "hover:border-unavailable", accentBg: "bg-unavailable-bg" },
 ];
 
 export default async function ParcoursIndexPage({
@@ -65,7 +66,7 @@ export default async function ParcoursIndexPage({
           </p>
         </header>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-5">
           {PROFILS.map((p) => {
             const count = countByProfil.get(p.key) ?? 0;
             const isAvailable = count > 0;
