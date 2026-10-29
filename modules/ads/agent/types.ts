@@ -36,6 +36,8 @@ export type RunRow = {
   /** La photo des consignes et du carnet prise au lancement (agent/notebook.ts). */
   instructionsRead?: unknown;
   learningsRead?: unknown;
+  /** Le rythme du passage : la préparation d'un brouillon, ou le suivi d'une campagne en ligne. */
+  kind?: "preparation" | "quotidien" | "hebdomadaire" | "mensuel";
 };
 
 export type AgentRow = {
@@ -210,4 +212,25 @@ export interface SourcesPort {
   proposeCompetitor(c: { pageId: string; name: string; keywords: string; rationale: string; run: Id }): Promise<"propose" | "deja-connu">;
 }
 
-export type AgentDeps = { store: AgentStore; model: AgentModelCall; budget: GlobalBudget; atelier: AtelierPort; sources: SourcesPort; now: () => Date };
+/**
+ * Le suivi d'une campagne EN LIGNE (plan, §9 nonies, étape 3) : ce que
+ * l'analyste lit (rapport calculé par le code, journal) et ce par quoi il agit
+ * — toujours sous les garde-fous de `submitAction`, jamais chez Meta en direct.
+ */
+export interface SuiviPort {
+  report(campaign: Id, days: number): Promise<import("@/modules/ads/lib/followup-report").CampaignReport>;
+  /** Les décisions et alertes récentes de la campagne, les plus récentes d'abord. */
+  journal(campaign: Id, days: number): Promise<{ decisions: { le: string; type: string; etat: string; quoi: string; pourquoi: string; gardeFou: string | null }[]; alertes: { le: string; type: string; constat: string; close: boolean }[] }>;
+  /** Une action, jugée par les garde-fous. Le budget de départ est relu chez nous, jamais pris au modèle. */
+  act(
+    campaign: Id,
+    req: { kind: "budget" | "pause" | "activation"; level: "campaign" | "adset" | "ad"; externalId: string; toEur?: number },
+    rationale: string,
+    origin: { run: Id; agent: Id; step: Id },
+    extra: Record<string, unknown>,
+  ): Promise<{ decision: Id; outcome: "executer" | "proposer" | "bloquer"; reasons: string[]; error: string | null; summary: string }>;
+  /** Un apprentissage de la campagne, né d'un résultat ; « global » le propose seulement (Charlie valide). */
+  learn(campaign: Id, l: { statement: string; confidence: "faible" | "moyenne" | "forte"; global: boolean; decision: Id | null }): Promise<Id>;
+}
+
+export type AgentDeps = { store: AgentStore; model: AgentModelCall; budget: GlobalBudget; atelier: AtelierPort; sources: SourcesPort; suivi?: SuiviPort; now: () => Date };

@@ -138,7 +138,7 @@ export const sameValue = (a: unknown, b: unknown): boolean =>
  * (réel ou simulé, voir syncDecision). Ne lève jamais : l'erreur est écrite sur
  * la fiche et renvoyée dans le résultat.
  */
-export async function syncAccount(payload: Payload, acc: RawAccount, platform: AdPlatform, now: Date): Promise<SyncResult> {
+export async function syncAccount(payload: Payload, acc: RawAccount, platform: AdPlatform, now: Date, days = SYNC_DAYS): Promise<SyncResult> {
   const base = { id: acc.id, name: acc.name ?? String(acc.id), decision: "ok" as const };
   const setAccount = (data: Record<string, unknown>) =>
     payload.update({ collection: "ad-accounts", id: acc.id, data, overrideAccess: true });
@@ -159,7 +159,8 @@ export async function syncAccount(payload: Payload, acc: RawAccount, platform: A
 
   const ctx = { externalId: acc.externalId ?? "", token, currency: acc.currency, timezone: acc.timezone };
   const platformKey = acc.platform ?? platform.key;
-  const window = syncWindow(now, acc.timezone || "Europe/Paris");
+  // `days` au-delà de 7 : un rattrapage ponctuel (un nouveau compteur à remplir sur l'historique).
+  const window = syncWindow(now, acc.timezone || "Europe/Paris", days);
 
   try {
     // 1. Campagnes — miroir de la régie.

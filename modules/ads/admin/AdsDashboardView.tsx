@@ -85,7 +85,7 @@ function Filters({ d, platform }: { d: AdsDashboard; platform: string | null }) 
   );
 }
 
-const RUN_STATUS: Record<string, string> = { "en-cours": "En cours", "en-pause-budget": "En pause (plafond du jour)", "a-valider": "Terminé — à valider", arrete: "Arrêté", echoue: "Échoué" };
+const RUN_STATUS: Record<string, string> = { "en-cours": "En cours", "en-pause-budget": "En pause (plafond du jour)", "a-valider": "Terminé — à valider", termine: "Terminé", arrete: "Arrêté", echoue: "Échoué" };
 
 /** La carte « Agents » : chaque campagne, son passage en cours ou le dernier, et le coût IA du jour. */
 function AgentsCard({ o }: { o: AgentsOverview }) {
@@ -108,7 +108,7 @@ function AgentsCard({ o }: { o: AgentsOverview }) {
               <Link href={`/admin/collections/ad-campaigns/${c.id}`} prefetch={false}>
                 {c.nom}
               </Link>
-              <span className={`ads-badge ${c.enCours ? "ads-badge--test" : c.statut === "a-valider" ? "ads-badge--ok" : c.statut === "echoue" ? "ads-badge--bad" : ""}`}>{RUN_STATUS[c.statut] ?? c.statut}</span>
+              <span className={`ads-badge ${c.enCours ? "ads-badge--test" : c.statut === "a-valider" || c.statut === "termine" ? "ads-badge--ok" : c.statut === "echoue" ? "ads-badge--bad" : ""}`}>{RUN_STATUS[c.statut] ?? c.statut}</span>
               <span className="ads-dash__agents-meta">
                 {c.enCours ? `${c.agentsActifs} agent${c.agentsActifs > 1 ? "s" : ""} actif${c.agentsActifs > 1 ? "s" : ""} · ` : ""}
                 passage {eur(c.depensePassage)} sur {eur(c.budgetPassage)} · aujourd&apos;hui {eur(c.coutJour)}

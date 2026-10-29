@@ -24,7 +24,7 @@ type Env = Record<string, string | undefined>;
  * qui ont une campagne en diffusion, et sans les rappels de jetons, qui restent
  * l'affaire du passage quotidien (sinon un rappel « J-7 » partirait 24 fois).
  */
-type Options = { now?: Date; env?: Env; only?: number | string; dry?: boolean; live?: boolean; platformFor?: (key: string) => AdPlatform };
+type Options = { now?: Date; env?: Env; only?: number | string; dry?: boolean; live?: boolean; days?: number; platformFor?: (key: string) => AdPlatform };
 
 export type RunSummary = { results: SyncResult[]; alerted: string[] };
 
@@ -65,7 +65,7 @@ export async function runAdsSync(payload: Payload, opts: Options = {}): Promise<
       results.push({ id: acc.id, name, decision, status: "erreur", error });
       continue;
     }
-    const r = await syncAccount(payload, acc, platform, now);
+    const r = await syncAccount(payload, acc, platform, now, opts.days);
     results.push(r);
     if (r.error) payload.logger.warn(`[publicité] synchro de « ${name} » : ${r.error}`);
   }

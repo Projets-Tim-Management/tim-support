@@ -15,13 +15,15 @@ export const RUN_STATUSES = [
   { label: "En cours", value: "en-cours" },
   { label: "En pause (plafond du jour)", value: "en-pause-budget" },
   { label: "À valider", value: "a-valider" },
+  // Un passage de suivi (§9 nonies) ne dépose rien « À valider » : il a lu, agi ou attendu, et s'est terminé.
+  { label: "Terminé", value: "termine" },
   { label: "Arrêté", value: "arrete" },
   { label: "Échoué", value: "echoue" },
 ] as const;
 
 export type RunStatus = (typeof RUN_STATUSES)[number]["value"];
 
-/** Le même moteur sert aux quatre rythmes (§9 quinquies) ; la 3c ne lance que la préparation. */
+/** Le même moteur sert aux quatre rythmes (§9 quinquies) : la préparation d'un brouillon, puis le suivi en ligne (§9 nonies). */
 export const RUN_KINDS = [
   { label: "Préparation", value: "preparation" },
   { label: "Quotidien", value: "quotidien" },

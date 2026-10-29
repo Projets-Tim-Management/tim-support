@@ -169,6 +169,7 @@ import * as migration_20261026_142149_feature_profiles from './20261026_142149_f
 import * as migration_20261029_121256_parcours_profil_visuel from './20261029_121256_parcours_profil_visuel';
 import * as migration_20261029_125211_suivi_mesure from './20261029_125211_suivi_mesure';
 import * as migration_20261029_130118_suivi_alertes from './20261029_130118_suivi_alertes';
+import * as migration_20261029_141053_suivi_analyste from './20261029_141053_suivi_analyste';
 
 export const migrations = [
   {
@@ -1024,6 +1025,11 @@ export const migrations = [
   {
     up: migration_20261029_130118_suivi_alertes.up,
     down: migration_20261029_130118_suivi_alertes.down,
-    name: '20261029_130118_suivi_alertes'
+    name: '20261029_130118_suivi_alertes',
+  },
+  {
+    up: migration_20261029_141053_suivi_analyste.up,
+    down: migration_20261029_141053_suivi_analyste.down,
+    name: '20261029_141053_suivi_analyste'
   },
 ];

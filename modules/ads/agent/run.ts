@@ -10,6 +10,7 @@ import { ROLE_TOOLS } from "@/modules/ads/agent/roles";
 import { createSourcesPort } from "@/modules/ads/agent/sources/port";
 import { MAX_PAGES, plannedSitePages, siteFetcher } from "@/modules/ads/agent/sources/site";
 import { payloadAgentStore } from "@/modules/ads/agent/store-payload";
+import { payloadSuivi } from "@/modules/ads/agent/suivi-port";
 import type { AgentDeps, Id } from "@/modules/ads/agent/types";
 import { FINISHED } from "@/modules/ads/agent/tools";
 import { AGENT_ROLES } from "@/modules/ads/collections/AdAgents";
@@ -38,6 +39,7 @@ export function agentDeps(payload: Payload): AgentDeps {
     },
     atelier: payloadAtelier(payload),
     sources: createSourcesPort(payload),
+    suivi: payloadSuivi(payload),
     now: () => new Date(),
   };
 }
@@ -237,6 +239,7 @@ export async function stopRun(payload: Payload, runId: Id, who: string, now = ne
 export async function tickDueRuns(payload: Payload, deadline: Date, deps: AgentDeps = agentDeps(payload)): Promise<{ run: Id; result: TickResult | "repris" }[]> {
   const now = deps.now();
   const out: { run: Id; result: TickResult | "repris" }[] = [];
+
   const paused = await payload.find({ collection: "ad-agent-runs", where: { status: { equals: "en-pause-budget" } }, pagination: false, depth: 0, overrideAccess: true });
   for (const r of paused.docs as { id: Id }[]) {
     try {

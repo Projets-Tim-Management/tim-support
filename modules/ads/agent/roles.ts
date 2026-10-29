@@ -18,7 +18,7 @@ export const ROLE_SUBJECT: Record<AgentRole, string> = {
   analyste: "L'analyste",
 };
 
-/** Les rôles qu'un agent peut créer. L'orchestrateur est unique ; l'analyste arrive en phase 2. */
+/** Les rôles qu'un agent peut créer. L'orchestrateur et l'analyste sont des racines : le code les crée, jamais un agent. */
 export const CREATABLE_ROLES = ["stratege", "redacteur", "directeur-artistique", "controleur"] as const satisfies readonly AgentRole[];
 export type CreatableRole = (typeof CREATABLE_ROLES)[number];
 
@@ -47,7 +47,7 @@ export const ROLE_TOOLS: Record<AgentRole, readonly string[]> = {
   redacteur: ["lire_brief", "generer_textes", "terminer"],
   "directeur-artistique": [...ORCHESTRATION, "lire_brief", "verifier_crea", "lire_rushes", "ecrire_brief_design", "terminer"],
   controleur: ["verifier_crea", "juger_crea", "terminer"],
-  analyste: ["terminer"],
+  analyste: ["lire_resultats", "lire_journal", "agir", "attendre", "noter_apprentissage", "terminer"],
 };
 
 const ROLE_BRIEF: Record<AgentRole, string> = {
@@ -59,7 +59,14 @@ const ROLE_BRIEF: Record<AgentRole, string> = {
   "directeur-artistique":
     "Tu es le directeur artistique : tu écris le brief Claude Design de chaque créa (« ecrire_brief_design ») — Charlie colle ton prompt dans Claude Design, y joint les rushes que tu désignes et le logo, puis importe les fichiers finis. Commence par relire la créa (« verifier_crea ») et les rushes (« lire_rushes »). Tout parle de la fonctionnalité de l'angle : le rush joint la MONTRE (ses fonctionnalités déclarées le disent), et les mots à l'écran en viennent (un angle pointage : un rush de pointage, des noms qui pointent, « Pointage validé »). Pour une vidéo, ta direction suit les six temps de la Base V1 (accroche → retournement → geste → conséquence → preuve facultative → fin) : pour chacun, les mots exacts à l'écran, ce qu'on voit, le mouvement ; le serveur ajoute les règles de design, le kit et les formats. Dis précisément pourquoi cette pub, face à ce que font les concurrents. Varie d'une créa à l'autre ce que la Base V1 laisse libre (accroche, mise en scène) : c'est ce qui permettra d'apprendre ce qui marche — et une seule différence à la fois entre deux variantes d'un même angle. Données d'interface fictives mais crédibles. Dans ton résultat, rends la liste des créas dont le brief est écrit.",
   controleur: "Tu es le contrôleur : tu acceptes ou rejettes chaque créa, avec un motif précis.",
-  analyste: "Tu es l'analyste : tu lis les résultats d'une campagne publiée.",
+  analyste: [
+    "Tu es l'analyste d'une campagne EN LIGNE chez Meta : tu la suis, tu l'orientes, tu la fais progresser. Commence toujours par « lire_resultats » et « lire_journal » (dans le même tour).",
+    "Lis l'entonnoir dans l'ordre et trouve où il fuit : impressions → taux de clic vers le site → arrivée sur la page (vues de la page / clics) → conversion de la page (leads du site / vues) → leads qualifiés → clients signés. Un coût par clic bas ne vaut rien si la page ne convertit pas.",
+    "Ce que tu peux régler chez Meta, sous les garde-fous : déplacer du budget vers l'ensemble qui rapporte (±20 % par décision, 72 h entre deux changements d'un même objet), mettre en pause une pub qui perd ou qui s'use (« usee » dans le rapport), réactiver. Une décision demande du VOLUME : au moins 1 000 impressions et l'équivalent de deux leads cibles dépensés par variante avant de juger une pub ; sous ce seuil, ou pendant le gel des 7 jours, ou en phase d'apprentissage, tu ATTENDS (outil « attendre », avec ta raison). Ne coupe jamais la seule pub active d'un ensemble. Une seule modification à la fois par objet.",
+    "Ce qui ne se règle pas chez Meta (la page d'arrivée ne convertit pas, l'offre ne parle pas, toutes les pubs s'usent), tu le dis clairement dans ton résultat, avec ce que tu recommandes : c'est ce que Charlie lira.",
+    "Note dans le carnet ce que les chiffres ont ÉTABLI (« noter_apprentissage »), pas une impression.",
+    "Termine avec « terminer » : `resume` en 3 à 6 lignes pour Charlie (français simple, chiffres clés, ce que tu as fait ou proposé) ; `donnees` = { constats: [...], recommandations: [...], aSurveiller: [...] }.",
+  ].join(" "),
 };
 
 /** Les règles communes, puis le rôle. Le prompt n'est pas un garde-fou : les limites sont vérifiées en code. */

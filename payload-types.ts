@@ -2562,7 +2562,7 @@ export interface AdAgentRun {
   campaign: number | AdCampaign;
   objective: string;
   kind: 'preparation' | 'quotidien' | 'hebdomadaire' | 'mensuel';
-  status: 'en-cours' | 'en-pause-budget' | 'a-valider' | 'arrete' | 'echoue';
+  status: 'en-cours' | 'en-pause-budget' | 'a-valider' | 'termine' | 'arrete' | 'echoue';
   budgetEur: number;
   costEur?: number | null;
   tokens?: {
