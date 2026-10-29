@@ -93,7 +93,9 @@ function memory(seed: Record<string, Doc[]>) {
 }
 
 describe("le cycle d'une alerte", () => {
-  beforeEach(() => submitAction.mockClear());
+  beforeEach(() => {
+    submitAction.mockClear();
+  });
   const seed = (effectiveStatus = "DISAPPROVED") => ({
     "ad-campaigns": [{ id: 7, name: C.name, externalId: C.externalId, status: "active", publicationStatus: "active", publication: { activatedAt: C.activatedAt }, account: { timezone: "Europe/Paris" } } as Doc],
     "ad-objects": [{ id: 1, ...adset() } as Doc, { id: 2, ...ad({ effectiveStatus }) } as Doc],

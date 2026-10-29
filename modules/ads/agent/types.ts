@@ -238,6 +238,8 @@ export interface SuiviPort {
   interpret(campaign: Id, test: Id, text: string): Promise<void>;
   /** Fait préparer de nouvelles créas pour la campagne en ligne (une préparation, validée ensuite par Charlie). */
   renew(campaign: Id, req: { reason: string; angles: string[]; count: number }, origin: { run: Id; agent: Id }): Promise<{ run: Id; budgetEur: number }>;
+  /** Prépare en brouillon la campagne Prospects qui prendra le relais (Charlie la publie). */
+  prospects(campaign: Id, req: { reason: string; creatives: Id[] }, origin: { run: Id; agent: Id; step: Id }): Promise<{ campaign: Id; creatives: Id[] }>;
   /** Un apprentissage de la campagne, né d'un résultat ; « global » le propose seulement (Charlie valide). */
   learn(campaign: Id, l: { statement: string; confidence: "faible" | "moyenne" | "forte"; global: boolean; decision: Id | null }): Promise<Id>;
 }

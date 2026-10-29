@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { runAlerts } from "@/modules/ads/lib/alerts-run";
+import { sendConversions } from "@/modules/ads/lib/conversions-run";
 import { runAdsSync } from "@/modules/ads/lib/sync-run";
 import { evaluateTests } from "@/modules/ads/lib/tests-run";
 
@@ -37,6 +38,8 @@ export async function GET(req: Request) {
   const alerts = dry ? null : await runAlerts(payload).catch((e) => (payload.logger.error(`[publicité] alertes : ${(e as Error).message}`), null));
   // Et le verdict des tests A/B ouverts, sur les mêmes chiffres (§9 nonies, étape 4).
   const tests = dry ? null : await evaluateTests(payload).catch((e) => (payload.logger.error(`[publicité] tests : ${(e as Error).message}`), null));
+  // Puis ce que deviennent les leads, renvoyé à Meta — avec l'accord « Publicité » seulement (§9 nonies, étape 6).
+  const conversions = dry ? null : await sendConversions(payload).catch((e) => (payload.logger.error(`[publicité] conversions : ${(e as Error).message}`), null));
 
   const done = results.filter((r) => r.decision === "ok");
   payload.logger.info(
@@ -44,5 +47,5 @@ export async function GET(req: Request) {
       `${done.filter((r) => r.error).length} en échec, ${results.length - done.length} ignoré(s), ${alerted.length} alerte(s) J-7` +
       (alerts ? `, alertes : ${alerts.opened} ouverte(s), ${alerts.confirmed} confirmée(s), ${alerts.resolved} close(s), ${alerts.notified} e-mail(s).` : "."),
   );
-  return NextResponse.json({ ok: true, dry, live, results, alerted, alerts, tests });
+  return NextResponse.json({ ok: true, dry, live, results, alerted, alerts, tests, conversions });
 }

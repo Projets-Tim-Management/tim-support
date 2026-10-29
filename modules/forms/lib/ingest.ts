@@ -88,6 +88,9 @@ const exact = (value: unknown, max: number, pattern: RegExp): string | undefined
 const GA_CLIENT_ID = /^\d+\.\d+$/;
 /** Cookie `_ga_<flux>` : l'horodatage de la session, en chiffres. */
 const GA_SESSION_ID = /^\d+$/;
+/** Cookies Meta : `_fbp` « fb.1.<horodatage>.<aléa> », `_fbc` « fb.1.<horodatage>.<fbclid> ». */
+const FBP = /^fb\.\d\.\d+\.\d+$/;
+const FBC = /^fb\.\d\.\d+\.[\w-]+$/;
 
 const PLACEMENT_VALUES = new Set<string>(PLACEMENTS.map((p) => p.value));
 
@@ -129,6 +132,15 @@ export interface Attribution {
    */
   gaClientId?: string;
   gaSessionId?: string;
+  /**
+   * Le visiteur a accepté les cookies « Publicité » de la vitrine. C'est la
+   * condition, décidée le 29/10/2026, pour renvoyer ce lead à Meta (API
+   * Conversions) — sans elle, rien ne part, même haché.
+   */
+  adsConsent?: boolean;
+  /** Cookies Meta `_fbp` (navigateur) et `_fbc` (clic), posés par le pixel avec le même accord. */
+  fbp?: string;
+  fbc?: string;
   /** La vidéo regardée pendant la visite, jusqu'où, et le bouton qui a ouvert la demande (voir video-lead.ts). */
   videoId?: string;
   videoPourcentage?: VideoPourcentage;
@@ -167,6 +179,9 @@ export function parseAttribution(raw: unknown): Attribution {
     fbclid: cap(a.fbclid, 500),
     gaClientId: exact(a.ga_client_id ?? a.gaClientId, 64, GA_CLIENT_ID),
     gaSessionId: exact(a.ga_session_id ?? a.gaSessionId, 32, GA_SESSION_ID),
+    ...(a.ads_consent === true || a.adsConsent === true ? { adsConsent: true } : {}),
+    fbp: exact(a.fbp, 64, FBP),
+    fbc: exact(a.fbc, 600, FBC),
     ...parseVideoLead(a),
   };
 }

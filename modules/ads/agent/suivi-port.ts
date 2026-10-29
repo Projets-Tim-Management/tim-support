@@ -6,6 +6,7 @@ import { ActionError, submitAction } from "@/modules/ads/lib/actions-run";
 import { actionSummary, readAction } from "@/modules/ads/lib/actions";
 import { buildReport, type CreativeIn, type MetricIn, type ObjectIn } from "@/modules/ads/lib/followup-report";
 import { dayInTz } from "@/modules/ads/lib/sync";
+import { prepareProspects } from "@/modules/ads/lib/prospects";
 import { openTest } from "@/modules/ads/lib/tests-run";
 import { REVALIDATE_DAYS } from "@/modules/ads/collections/AdLearnings";
 
@@ -200,6 +201,10 @@ export function payloadSuivi(payload: Payload, now: () => Date = () => new Date(
       const { launchRenewal } = await import("@/modules/ads/agent/run");
       const r = await launchRenewal(payload, { campaign: campaignId, ...req, origin }, now());
       return { run: r.id, budgetEur: r.budgetEur };
+    },
+
+    async prospects(campaignId, req, origin) {
+      return prepareProspects(payload, { campaign: campaignId, reason: req.reason, creatives: req.creatives, origin }, now());
     },
 
     async learn(campaignId, l) {

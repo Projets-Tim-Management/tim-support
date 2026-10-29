@@ -194,6 +194,8 @@ export interface AdPlatform {
   /** L'aperçu d'une publicité (HTML d'une iframe), pour un placement. */
   adPreview?(acc: AccountContext, adId: string, format: string): Promise<string>;
   setBudget?(acc: AccountContext, ref: ObjectRef, amount: number): Promise<void>;
+  /** API Conversions : envoie des événements au pixel (jeu de données). Rend le nombre reçu par la régie. */
+  sendEvents?(acc: AccountContext, pixelId: string, events: Record<string, unknown>[]): Promise<{ received: number }>;
   setStatus?(acc: AccountContext, ref: ObjectRef, status: "active" | "pause"): Promise<void>;
 }
 

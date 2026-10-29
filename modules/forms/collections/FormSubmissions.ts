@@ -249,6 +249,22 @@ export const FormSubmissions: CollectionConfig = {
                   ],
                 },
                 {
+                  // Posés par la vitrine si le visiteur a accepté les cookies « Publicité » : la condition pour
+                  // renvoyer ce lead à Meta (API Conversions, décision du 29/10/2026). Jamais modifiés ensuite.
+                  type: "row",
+                  fields: [
+                    {
+                      name: "adsConsent",
+                      type: "checkbox",
+                      label: "Accord « Publicité »",
+                      access: { update: () => false },
+                      admin: { width: "34%", readOnly: true, description: "Coché : le visiteur a accepté les cookies publicitaires. Sinon, rien de ce lead ne part chez Meta." },
+                    },
+                    { name: "fbp", type: "text", label: "_fbp", access: { update: () => false }, admin: { width: "33%", readOnly: true } },
+                    { name: "fbc", type: "text", label: "_fbc", access: { update: () => false }, admin: { width: "33%", readOnly: true } },
+                  ],
+                },
+                {
                   // Posés par la vitrine si le visiteur a accepté la mesure d'audience ; lus pour renvoyer à GA4
                   // les étapes commerciales (démo programmée, signature) rattachées à cette visite.
                   type: "row",

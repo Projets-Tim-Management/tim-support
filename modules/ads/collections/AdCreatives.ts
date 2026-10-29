@@ -46,9 +46,17 @@ const derive: CollectionBeforeChangeHook = ({ data }) => {
 
 const decision = { create: () => false, update: () => false };
 
-/** Une créa supprimée emporte ses fichiers importés : rien ne reste en ligne pour rien. */
+/**
+ * Une créa supprimée emporte ses fichiers importés : rien ne reste en ligne pour
+ * rien — sauf ceux qu'une autre créa emploie encore (une créa reprise dans une
+ * campagne Prospects partage les fichiers de l'originale, §9 nonies).
+ */
 const deleteFiles: CollectionAfterDeleteHook = async ({ doc, req }) => {
-  await deleteBlobs(req.payload, ((Array.isArray(doc?.files) ? doc.files : []) as { url?: string }[]).map((f) => f.url), `fichiers de la créa ${doc?.id}`);
+  const urls = ((Array.isArray(doc?.files) ? doc.files : []) as { url?: string }[]).map((f) => f.url).filter((u): u is string => Boolean(u));
+  if (!urls.length) return doc;
+  const others = await req.payload.find({ collection: "ad-creatives", where: { and: [{ id: { not_equals: doc.id } }, { "files.url": { in: urls } }] }, pagination: false, depth: 0, overrideAccess: true, req });
+  const shared = new Set((others.docs as { files?: { url?: string }[] }[]).flatMap((d) => (d.files ?? []).map((f) => f.url)));
+  await deleteBlobs(req.payload, urls.filter((u) => !shared.has(u)), `fichiers de la créa ${doc?.id}`);
   return doc;
 };
 

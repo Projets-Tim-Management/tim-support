@@ -103,6 +103,7 @@ export interface Config {
     'ad-objects': AdObject;
     'ad-alerts': AdAlert;
     'ad-tests': AdTest;
+    'ad-conversions': AdConversion;
     'ad-media': AdMedia;
     'ad-facts': AdFact;
     'ad-ai-usage': AdAiUsage;
@@ -193,6 +194,7 @@ export interface Config {
     'ad-objects': AdObjectsSelect<false> | AdObjectsSelect<true>;
     'ad-alerts': AdAlertsSelect<false> | AdAlertsSelect<true>;
     'ad-tests': AdTestsSelect<false> | AdTestsSelect<true>;
+    'ad-conversions': AdConversionsSelect<false> | AdConversionsSelect<true>;
     'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
     'ad-facts': AdFactsSelect<false> | AdFactsSelect<true>;
     'ad-ai-usage': AdAiUsageSelect<false> | AdAiUsageSelect<true>;
@@ -925,6 +927,12 @@ export interface FormSubmission {
    * Identifiant de clic Meta. Présent aussi sur les clics organiques : il ne dit pas qu'un lead vient d'une annonce.
    */
   fbclid?: string | null;
+  /**
+   * Coché : le visiteur a accepté les cookies publicitaires. Sinon, rien de ce lead ne part chez Meta.
+   */
+  adsConsent?: boolean | null;
+  fbp?: string | null;
+  fbc?: string | null;
   /**
    * Cookie _ga. Vide : visiteur sans consentement, lead manuel ou importé — rien n'est envoyé à GA4.
    */
@@ -2510,7 +2518,8 @@ export interface AdDecision {
     | 'activation'
     | 'attente'
     | 'test'
-    | 'renouvellement';
+    | 'renouvellement'
+    | 'bascule';
   status: 'proposee' | 'executee' | 'bloquee';
   rationale: string;
   before?:
@@ -3147,6 +3156,22 @@ export interface AdTest {
   interpretation?: string | null;
   openedAt: string;
   closedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-conversions".
+ */
+export interface AdConversion {
+  id: number;
+  submission: number | FormSubmission;
+  event: 'Lead' | 'QualifiedLead' | 'WonDeal';
+  eventId: string;
+  pixelId?: string | null;
+  status: 'envoye' | 'ignore' | 'echec';
+  detail?: string | null;
+  sentAt: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -3943,6 +3968,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-tests';
         value: number | AdTest;
+      } | null)
+    | ({
+        relationTo: 'ad-conversions';
+        value: number | AdConversion;
       } | null)
     | ({
         relationTo: 'ad-media';
@@ -5076,6 +5105,9 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
   msclkid?: T;
   oaiclid?: T;
   fbclid?: T;
+  adsConsent?: T;
+  fbp?: T;
+  fbc?: T;
   gaClientId?: T;
   gaSessionId?: T;
   client?: T;
@@ -5427,6 +5459,21 @@ export interface AdTestsSelect<T extends boolean = true> {
   interpretation?: T;
   openedAt?: T;
   closedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-conversions_select".
+ */
+export interface AdConversionsSelect<T extends boolean = true> {
+  submission?: T;
+  event?: T;
+  eventId?: T;
+  pixelId?: T;
+  status?: T;
+  detail?: T;
+  sentAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

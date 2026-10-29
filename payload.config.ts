@@ -37,6 +37,7 @@ import { AdMetricsDaily } from "./modules/ads/collections/AdMetricsDaily";
 import { AdObjects } from "./modules/ads/collections/AdObjects";
 import { AdAlerts } from "./modules/ads/collections/AdAlerts";
 import { AdTests } from "./modules/ads/collections/AdTests";
+import { AdConversions } from "./modules/ads/collections/AdConversions";
 import { AdsSettings } from "./modules/ads/globals/AdsSettings";
 import { AdsBrandKit } from "./modules/ads/globals/AdsBrandKit";
 import { AdMedia } from "./modules/ads/collections/AdMedia";
@@ -398,6 +399,7 @@ export default buildConfig({
       AdObjects,
       AdAlerts,
       AdTests,
+      AdConversions,
       AdMedia,
       AdFacts,
       AdAiUsage,

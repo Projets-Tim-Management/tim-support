@@ -34,6 +34,8 @@ export const DECISION_KINDS = [
   { label: "Test", value: "test" },
   // L'analyste fait préparer de nouvelles créas pour une campagne en ligne (§9 nonies, étape 5).
   { label: "Renouvellement des créas", value: "renouvellement" },
+  // La campagne Prospects préparée à partir d'une campagne Trafic (§9 nonies, étape 6).
+  { label: "Bascule vers les prospects", value: "bascule" },
 ] as const;
 
 export type DecisionKind = (typeof DECISION_KINDS)[number]["value"];

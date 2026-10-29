@@ -120,6 +120,7 @@ export function createMockMetaPlatform(): AdPlatform {
     adPreview: async (_a: AccountContext, adId: string, format: string) => `<p>${MOCK_PREFIX} Aperçu de la publicité ${adId} (${format})</p>`,
     setStatus: async () => {},
     setBudget: async () => {},
+    sendEvents: async (_a: AccountContext, _pixel: string, events: Record<string, unknown>[]) => ({ received: events.length }),
 
     async connect(): Promise<{ token: string; expiresAt: Date }> {
       return { token: MOCK_TOKEN, expiresAt: new Date(Date.now() + 60 * 86_400_000) };

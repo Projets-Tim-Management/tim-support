@@ -471,6 +471,11 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
       await post(ref.externalId, acc.token, { status: status === "active" ? "ACTIVE" : "PAUSED" });
     },
 
+    async sendEvents(acc: AccountContext, pixelId: string, events: Record<string, unknown>[]): Promise<{ received: number }> {
+      const r = await post<{ events_received?: number }>(`${pixelId}/events`, acc.token, { data: events });
+      return { received: Number(r.events_received ?? 0) };
+    },
+
     async setBudget(acc: AccountContext, ref: ObjectRef, amount: number): Promise<void> {
       await post(ref.externalId, acc.token, { daily_budget: toMetaAmount(amount, acc.currency) });
     },

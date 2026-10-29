@@ -284,4 +284,46 @@ const demanderCreas: AgentTool = {
   },
 };
 
-export const SUIVI_TOOLS: AgentTool[] = [demanderCreas, lireResultats, lireJournal, agir, attendre, noterApprentissage, lireTests, ouvrirTest, interpreterTest];
+const preparerProspects: AgentTool = {
+  definition: {
+    name: "preparer_campagne_prospects",
+    description:
+      "Quand Meta reçoit assez de leads (10 en 30 jours, par l'API Conversions) : prépare en BROUILLON la campagne qui optimisera sur les prospects — même compte, brief, budget et ciblage, objectif Prospects, avec les créas EN LIGNE que tu choisis (les gagnantes). Charlie la publie ; ensuite, propose de couper l'ancienne. Une seule bascule par campagne.",
+    input_schema: {
+      type: "object",
+      properties: {
+        justification: { type: "string", description: "Pourquoi maintenant, chiffres à l'appui." },
+        creas: { type: "array", items: { type: "number" }, description: "Les identifiants des créas en ligne à reprendre (rapport : publicites[].crea.id)." },
+        appuis: { type: "array", items: { type: "string" } },
+      },
+      required: ["justification", "creas", "appuis"],
+    },
+  },
+  async run(ctx, input) {
+    if (ctx.run.kind === "quotidien") return refuse(ctx, "La bascule se prépare au passage du lundi.");
+    const appuis = resolveAppuis(notebookOf(ctx.run), input.appuis);
+    if ("error" in appuis) return refuse(ctx, appuis.error);
+    const reason = String(input.justification ?? "").trim();
+    try {
+      const r = await port(ctx).prospects(ctx.run.campaign, { reason, creatives: Array.isArray(input.creas) ? input.creas.map(Number) : [] }, { run: ctx.run.id, agent: ctx.agent.id, step: ctx.step.id });
+      await ctx.deps.store.createDecision({
+        campaign: ctx.run.campaign,
+        run: ctx.run.id,
+        agent: ctx.agent.id,
+        step: ctx.step.id,
+        kind: "bascule",
+        status: "executee",
+        rationale: reason,
+        after: { campagne: r.campaign, creas: r.creatives },
+        instructions: appuis.instructions,
+        learnings: appuis.learnings,
+        citations: appuis.citations,
+      });
+      return { kind: "ok", output: { campagne: r.campaign, creas: r.creatives }, line: `${who(ctx)} prépare la campagne Prospects (brouillon n° ${r.campaign}, ${r.creatives.length} créa(s)) : à publier par Charlie.` };
+    } catch (e) {
+      return refuse(ctx, (e as Error).message);
+    }
+  },
+};
+
+export const SUIVI_TOOLS: AgentTool[] = [preparerProspects, demanderCreas, lireResultats, lireJournal, agir, attendre, noterApprentissage, lireTests, ouvrirTest, interpreterTest];
