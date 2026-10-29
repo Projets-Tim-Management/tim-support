@@ -2,6 +2,7 @@ import type { Payload, PayloadRequest } from "payload";
 
 import type { JourneyEmailContext } from "@/modules/marketing/lib/emails";
 import { sessionSummary, stepDueDate } from "@/modules/marketing/lib/journey";
+import { licenceGaps } from "@/modules/marketing/lib/licence-gaps";
 
 /**
  * Contexte d'un message de parcours : les données réelles qui remplissent le
@@ -72,16 +73,43 @@ const idOf = (ref: unknown): number | string | null => {
  * `req` au seul chargement du parcours ne suffisait pas — l'échec se déplaçait
  * simplement d'un cran.
  */
+/**
+ * Les profils déclarés dans « Utilisateurs TIM » (une ligne par utilisateur),
+ * pour chiffrer ce qui manque face aux licences de la fiche (voir licence-gaps).
+ */
+export async function declaredProfiles(
+  payload: Payload,
+  clientId: number | string,
+  req?: PayloadRequest,
+): Promise<(string | null | undefined)[]> {
+  return payload
+    .find({
+      collection: "client-contacts",
+      where: { client: { equals: clientId } },
+      limit: 1000,
+      depth: 0,
+      select: { licenceProfile: true },
+      overrideAccess: true,
+      ...(req ? { req } : {}),
+    })
+    .then((r) => (r.docs as { licenceProfile?: string | null }[]).map((d) => d.licenceProfile))
+    .catch(() => []);
+}
+
+/** Seule la relance du dossier chiffre les licences manquantes : les autres envois s'épargnent la lecture. */
+export const NEEDS_LICENCE_GAPS = new Set(["relance-dossier"]);
+
 export async function buildJourneyContext(
   payload: Payload,
   run: JourneyRunLike,
   req?: PayloadRequest,
+  opts: { licenceGaps?: boolean } = {},
 ): Promise<JourneyContext> {
   const clientId = idOf(run.client);
   const partnerId = idOf(run.partner);
   const tx = req ? { req } : {};
 
-  const [client, partner, account, credentials] = await Promise.all([
+  const [client, partner, account, credentials, declared] = await Promise.all([
     clientId != null
       ? payload
           .findByID({ collection: "partner-clients", id: clientId, depth: 0, overrideAccess: true, ...tx })
@@ -116,6 +144,7 @@ export async function buildJourneyContext(
           .then((r) => r.totalDocs)
           .catch(() => 0)
       : 0,
+    opts.licenceGaps && clientId != null ? declaredProfiles(payload, clientId, req) : null,
   ]);
 
   const c = client as { companyName?: string; email?: string } | null;
@@ -152,6 +181,7 @@ export async function buildJourneyContext(
       sessionGuests: run.sessionGuests ?? null,
       credentialCount: credentials as number,
       dossierDeadline,
+      licenceGaps: declared ? licenceGaps(client as Record<string, unknown> | null, declared) : null,
     },
     ...clientAddress(a?.email, c?.email),
     partnerEmail: p?.email ?? null,

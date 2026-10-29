@@ -189,6 +189,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
         );
       }
 
+      // Le partenaire qui suit déjà cette entreprise : prévenu de la demande.
+      const follower =
+        outcome.status === "rattachee" && outcome.followedBy != null
+          ? ((await payload
+              .findByID({ collection: "partners", id: outcome.followedBy, depth: 0, overrideAccess: true })
+              .catch(() => null)) as { displayName?: string | null; email?: string | null } | null)
+          : null;
+
       // Les deux e-mails. Après l'opportunité, pour que l'alerte interne porte le
       // lien vers la fiche — et jamais bloquants : un relais SMTP qui tousse ne
       // doit pas faire disparaître un lead déjà enregistré.
@@ -199,6 +207,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
         channel,
         clientId: outcome.status === "echec" ? undefined : outcome.clientId,
         issues: outcome.status === "echec" ? [] : opportunity.issues.map((i) => `${i.message} (« ${i.raw} »)`),
+        known: outcome.status === "rattachee",
+        followedBy: follower ? { name: follower.displayName || "son partenaire", email: follower.email ?? null } : null,
       });
     } catch (e) {
       const error = (e as Error).message;

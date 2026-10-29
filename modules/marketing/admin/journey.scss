@@ -547,6 +547,32 @@
   color: var(--tim-muted);
 }
 
+/* Relance du dossier : sur toute la largeur du récap, sous les deux colonnes.
+   Ambre quand des utilisateurs manquent face aux licences prévues. */
+.jr-onb__remind {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+}
+.jr-onb__remind--gap { background: var(--tim-amber-bg); }
+.jr-onb__remind-title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--tim-foreground);
+}
+.jr-onb__remind--gap .jr-onb__remind-title { color: var(--tim-amber); }
+.jr-onb__remind-state {
+  margin: 0.125rem 0 0;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+
 /* ─── Cellule « Date d'assurance » ──────────────────────────────────────────── */
 .jr-ins {
   display: inline-flex;
@@ -2557,3 +2583,29 @@ body.tim-prep-fullscreen .doc-controls {
   color: var(--tim-primary-dark);
   font-weight: 700;
 }
+
+/* Copie au clic (console de préparation) : la confirmation, posée sur la case
+   copiée. Un `em` et non un `span` : les règles des cases ci-dessus visent les
+   `span` (pastille, texte non éditable). */
+.jr-prep__body td > .jr-copied {
+  position: absolute;
+  top: 50%;
+  right: 1.75rem;
+  z-index: 2;
+  transform: translateY(-50%);
+  padding: 0.125rem 0.4375rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-foreground);
+  color: var(--tim-white);
+  font-size: 0.6875rem;
+  font-style: normal;
+  font-weight: 600;
+  pointer-events: none;
+  animation: jr-copied-in 0.12s ease-out;
+}
+@keyframes jr-copied-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.jr-prep__body td > span.jr-copyable { cursor: copy; }
+.jr-prep__body td > span.jr-copyable:hover { background: var(--tim-primary-light); }

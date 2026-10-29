@@ -66,6 +66,36 @@ const frDate = (value: unknown): string => {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
 };
 
+/**
+ * Met un texte dans le presse-papiers. L'API moderne d'abord ; à défaut (page
+ * non sécurisée, permission refusée), l'ancienne commande, qui copie la
+ * sélection — d'où le champ sélectionné AVANT l'appel.
+ */
+const writeClipboard = async (text: string, field?: HTMLInputElement): Promise<boolean> => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      field?.select();
+      return document.execCommand("copy");
+    } catch {
+      return false;
+    }
+  }
+};
+
+/** Position du curseur, ou `null` : `email` et `number` ne l'exposent pas. */
+const selectionOf = (el: HTMLInputElement): { start: number; end: number } | null => {
+  try {
+    return el.selectionStart == null || el.selectionEnd == null
+      ? null
+      : { start: el.selectionStart, end: el.selectionEnd };
+  } catch {
+    return null;
+  }
+};
+
 /** Une ligne vide ne s'enregistre pas : on ne crée pas de fantômes en tabulant. */
 const isBlank = (row: Row, fields: PortalField[]) =>
   fields.every((f) => {
@@ -117,6 +147,10 @@ export default function SectionEditor({
    * jusqu'à ce que la ligne soit quittée, moment où il devient une vraie date.
    */
   const [typing, setTyping] = useState<Record<string, string>>({});
+  /** La case qui vient d'être copiée (`ligne:champ`), le temps du « Copié ». */
+  const [copied, setCopied] = useState<string | null>(null);
+  const copiedTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(copiedTimer.current), []);
   // Sauvegarde en cours par ligne : évite qu'un aller-retour lent double l'envoi.
   const inFlight = useRef<Set<string>>(new Set());
   /**
@@ -332,6 +366,75 @@ export default function SectionEditor({
   };
 
   /**
+   * Côté TIM : un clic sur une case COPIE sa valeur entière.
+   *
+   * Chaque valeur part vers le logiciel TIM, recopiée case par case. Avant, le
+   * clic ne faisait que sélectionner (au focus), et la copie restait à faire —
+   * avec trois pièges qui donnaient une valeur tronquée :
+   *  - le relâché du clic annulait la sélection, ou y posait le curseur ;
+   *  - un double-clic ne sélectionne qu'un MOT : « Jean » pour « Jean-Pierre »,
+   *    « Le » pour « Le Gall » ;
+   *  - recliquer dans la case déjà active ne sélectionnait plus rien.
+   * On copie donc nous-mêmes la valeur du champ, en entier, à chaque clic. Seul
+   * un glisser qui sélectionne une PARTIE du texte est respecté : c'est un choix
+   * délibéré, que ⌘C copiera tel quel.
+   */
+  const copyValue = async (text: string, cellId: string, field?: HTMLInputElement) => {
+    if (!text) return;
+    if (!(await writeClipboard(text, field))) return;
+    setCopied(cellId);
+    window.clearTimeout(copiedTimer.current);
+    copiedTimer.current = window.setTimeout(() => setCopied(null), 1200);
+  };
+
+  /**
+   * La case était-elle déjà active au moment du clic ? Arriver dans une case la
+   * sélectionne entière ; recliquer dedans y pose le curseur, pour corriger un
+   * caractère — sans quoi la frappe remplacerait toute la valeur.
+   */
+  const wasFocused = useRef(false);
+
+  const copyHandlers = (cellId: string) =>
+    admin
+      ? {
+          onMouseDown: (e: React.MouseEvent<HTMLInputElement>) => {
+            wasFocused.current = document.activeElement === e.currentTarget;
+            // Double ou triple clic : pas de sélection par mot, la case entière.
+            if (e.detail < 2) return;
+            e.preventDefault();
+            e.currentTarget.select();
+          },
+          onMouseUp: (e: React.MouseEvent<HTMLInputElement>) => {
+            const el = e.currentTarget;
+            const sel = selectionOf(el);
+            const partial = sel != null && sel.end - sel.start > 0 && sel.end - sel.start < el.value.length;
+            if (partial) return;
+            if (!wasFocused.current || e.detail >= 2) {
+              // Le relâché ne doit pas défaire la sélection complète.
+              e.preventDefault();
+              el.select();
+            }
+            void copyValue(el.value, cellId, el);
+          },
+          // Pas de glisser-déposer du texte : la case est sélectionnée entière
+          // après le clic, et glisser dedans DÉPLAÇAIT la valeur (vers une
+          // autre case, ou hors du tableau) au lieu d'en sélectionner une
+          // partie. Pour une partie : un second clic pose le curseur, puis on
+          // glisse.
+          onDragStart: (e: React.DragEvent<HTMLInputElement>) => e.preventDefault(),
+          // ⌘C sans rien de sélectionné : la valeur entière plutôt que rien.
+          onCopy: (e: React.ClipboardEvent<HTMLInputElement>) => {
+            const el = e.currentTarget;
+            const sel = selectionOf(el);
+            if (!sel || sel.start !== sel.end || !el.value) return;
+            e.preventDefault();
+            e.clipboardData.setData("text/plain", el.value);
+            void copyValue(el.value, cellId);
+          },
+        }
+      : {};
+
+  /**
    * `select` réserve plus de place à droite : la flèche native du menu s'y
    * trouve déjà, et la pastille de validité venait se poser dessus.
    */
@@ -534,10 +637,10 @@ export default function SectionEditor({
                     const disabled = locked || !visible;
                     const common = {
                       disabled,
-                      // Côté TIM, chaque valeur part vers le logiciel : un clic
-                      // sélectionne la case entière, il ne reste qu'à copier.
-                      // Côté client, ce serait une gêne — on saisit, on ne
-                      // recopie pas.
+                      // Côté TIM, arriver dans une case au clavier (Tab) la
+                      // sélectionne entière ; à la souris, le clic la copie
+                      // (voir copyHandlers). Côté client, ce serait une gêne —
+                      // on saisit, on ne recopie pas.
                       // `select()` n'existe que sur un champ de saisie : un
                       // `<select>` reçoit le même gestionnaire, d'où le garde.
                       ...(admin
@@ -564,8 +667,14 @@ export default function SectionEditor({
                     const badge =
                       !visible || !filled ? null : live[field.name] ? "ko" : "ok";
 
+                    const cellId = `${_key}:${field.name}`;
                     return (
                       <td key={field.name} className="relative border-l border-border p-0 align-middle">
+                        {copied === cellId && (
+                          <em className="jr-copied" role="status">
+                            Copié
+                          </em>
+                        )}
                         {badge && (
                           <span
                             className={`pointer-events-none absolute top-1/2 -translate-y-1/2 ${
@@ -587,7 +696,15 @@ export default function SectionEditor({
                           // Valeur produite par le logiciel : on la montre, on
                           // ne la saisit pas. La rendre éditable inviterait à
                           // corriger à la main un code qui vit ailleurs.
-                          <span className="block px-3 py-2 text-sm text-foreground">
+                          <span
+                            className={`block px-3 py-2 text-sm text-foreground${admin ? " jr-copyable" : ""}`}
+                            {...(admin
+                              ? {
+                                  onClick: () => void copyValue(String(row[field.name] ?? ""), cellId),
+                                  title: "Cliquer pour copier",
+                                }
+                              : {})}
+                          >
                             {String(row[field.name] ?? "") || <span className="text-muted">—</span>}
                           </span>
                         ) : field.type === "checkbox" ? (
@@ -620,6 +737,7 @@ export default function SectionEditor({
                           // un tableur, et la conversion se fait à la sortie.
                           <input
                             {...common}
+                            {...copyHandlers(cellId)}
                             type="text"
                             inputMode="numeric"
                             value={typing[`${_key}:${field.name}`] ?? frDate(row[field.name])}
@@ -631,6 +749,7 @@ export default function SectionEditor({
                         ) : (
                           <input
                             {...common}
+                            {...copyHandlers(cellId)}
                             type={
                               field.type === "email"
                                 ? "email"

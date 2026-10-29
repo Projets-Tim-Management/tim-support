@@ -1126,6 +1126,8 @@ body.tim-dev-kanban .collection-list__list-selection {
   grid-template-columns: 1fr 1fr;
   gap: 0.7rem;
 }
+/* La colonne du tableau, sous Type et Priorité, sur toute la largeur. */
+.dev-need__label--wide { grid-column: 1 / -1; order: 3; }
 .dev-need__actions {
   display: flex;
   align-items: center;
@@ -2172,3 +2174,72 @@ body.dev-gallery-mode {
   white-space: pre-line;
   pointer-events: none;
 }
+
+/* Tiroir « Besoin » : créer un développement, ou rattacher la fiche à un existant. */
+.dev-need__modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  padding: 0.25rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+}
+.dev-need__modes button {
+  padding: 0.45rem 0.6rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: transparent;
+  color: var(--tim-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dev-need__modes button.is-active {
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 12%, transparent);
+}
+.dev-need__found {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dev-need__found-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+}
+.dev-need__found-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  font-size: 0.88rem;
+  color: var(--tim-foreground);
+}
+.dev-need__found-status { font-size: 0.75rem; color: var(--tim-muted); }
+.dev-need__found-done { font-size: 0.78rem; color: var(--tim-muted); white-space: nowrap; }
+.dev-need__found-btn {
+  flex-shrink: 0;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--tim-primary);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-primary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dev-need__found-btn:hover:not(:disabled) { background: var(--tim-primary); color: var(--tim-white); }
+.dev-need__found-btn:disabled { opacity: 0.5; cursor: default; }

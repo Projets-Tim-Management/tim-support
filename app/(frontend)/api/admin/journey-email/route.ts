@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { hasAdminRole, isPartnerMetier, partnerIdOf } from "@/core/access";
 import { payloadClient } from "@/core/payload-client";
 import { readEmailTexts } from "@/modules/marketing/lib/email-overrides";
+import { NEEDS_LICENCE_GAPS, declaredProfiles } from "@/modules/marketing/lib/journey-context";
+import { licenceGaps } from "@/modules/marketing/lib/licence-gaps";
 import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
 import { sessionSummary, stepDueDate } from "@/modules/marketing/lib/journey";
 import {
@@ -170,6 +172,11 @@ export async function GET(req: Request) {
       // réécrit dans le modèle montre un message que personne ne recevra.
       const texts = await readEmailTexts(payload, (run as { journey?: unknown }).journey, key);
 
+      // Ce qui manque dans « Utilisateurs TIM », comme à l'envoi (voir
+      // buildJourneyContext) : seule la relance du dossier s'en sert.
+      const declared =
+        NEEDS_LICENCE_GAPS.has(key) && run.client ? await declaredProfiles(payload, run.client) : [];
+
       const built = template({
         // Sans lui, l'aperçu perd les liens qui RENVOIENT une réponse dans le
         // parcours — les cinq visages de « Comment ça se passe ? » — et montre
@@ -184,6 +191,7 @@ export async function GET(req: Request) {
         sessionAt: (run as { sessionAt?: string }).sessionAt,
         sessionModality: sessionSummary(run as never),
         credentialCount: credentials,
+        licenceGaps: NEEDS_LICENCE_GAPS.has(key) ? licenceGaps(c, declared) : null,
         // Le vrai code est tiré au hasard à l'envoi et n'est jamais conservé en
         // clair : l'aperçu en montre un d'exemple, et le dit.
         code: key === "code-connexion" ? "123456" : undefined,

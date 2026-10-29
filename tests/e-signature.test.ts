@@ -147,4 +147,24 @@ describe("les e-mails de la signature", () => {
     expect(mail.html).toContain("https://cdn/x.pdf");
     expect(mail.html).toContain("Télécharger votre contrat signé");
   });
+
+  it("la relance rappelle le document, sa date d'envoi, et mène à la signature", () => {
+    const mail = JOURNEY_EMAILS["relance-signature"]({
+      documentNoun: "contrat",
+      documentSentAt: "2026-10-20T09:00:00.000Z",
+      contactFirstName: "Marie",
+    });
+    expect(mail.text).toContain("Nous vous avons transmis votre contrat le mardi 20 octobre");
+    expect(mail.html).toContain("<strong>contrat</strong>");
+    expect(mail.html).toContain("Signer mon contrat");
+    expect(mail.html).toContain("next=%2Fespace-client%2Fsignature");
+  });
+
+  it("la relance porte le mot personnel, échappé, dans les deux versions", () => {
+    const mail = JOURNEY_EMAILS["relance-signature"]({ documentNoun: "devis", personalNote: "Voir <b>ici</b>\nMerci" });
+    expect(mail.html).toContain("Voir &lt;b&gt;ici&lt;/b&gt;<br>Merci");
+    expect(mail.text).toContain("Voir <b>ici</b>\nMerci");
+    const sans = JOURNEY_EMAILS["relance-signature"]({ documentNoun: "devis" });
+    expect(sans.text).toContain("Votre devis est disponible dans votre espace client : il attend toujours votre signature.");
+  });
 });

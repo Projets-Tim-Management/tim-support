@@ -6,7 +6,7 @@ import type { Channel } from "@/modules/forms/lib/form-schema";
 import type { PublicForm } from "@/modules/forms/lib/public-schema";
 import type { AnswerValue } from "@/modules/forms/lib/validate";
 import { channelLabel } from "@/modules/forms/lib/form-schema";
-import { leadConfirmationEmail, newLeadNoticeEmail } from "@/modules/forms/lib/lead-emails";
+import { knownLeadPartnerEmail, leadConfirmationEmail, newLeadNoticeEmail } from "@/modules/forms/lib/lead-emails";
 
 /**
  * Envoi des deux e-mails d'une soumission — accusé de réception au prospect,
@@ -37,9 +37,13 @@ export async function sendLeadEmails(
     clientId?: number | string;
     /** Réserves posées sur la fiche (e-mail mal formé…) : l'alerte interne les dit. */
     issues?: string[];
+    /** La demande a rejoint une fiche existante (aucune fiche créée). */
+    known?: boolean;
+    /** Le partenaire qui suit cette fiche, prévenu à part — sauf celui du site. */
+    followedBy?: { name: string; email: string | null } | null;
   },
 ): Promise<void> {
-  const { form, answers, attribution, channel, clientId, issues } = args;
+  const { form, answers, attribution, channel, clientId, issues, known, followedBy } = args;
 
   const besoinValues = Array.isArray(answers.besoins) ? answers.besoins : [];
   const ctx = {
@@ -71,6 +75,8 @@ export async function sendLeadEmails(
     variante: attribution.lpVariant,
     clientId,
     issues,
+    known,
+    followedBy: followedBy?.name,
   });
 
   await payload
@@ -81,4 +87,11 @@ export async function sendLeadEmails(
       text: notice.text,
     })
     .catch((e) => payload.logger.error(`[formulaires] alerte interne échouée : ${e}`));
+
+  if (followedBy?.email) {
+    const mail = knownLeadPartnerEmail({ ...ctx, telephone: str(answers.telephone), canal: channelLabel(channel), clientId });
+    await payload
+      .sendEmail({ to: followedBy.email, subject: mail.subject, html: mail.html, text: mail.text })
+      .catch((e) => payload.logger.error(`[formulaires] avis au partenaire ${followedBy.email} échoué : ${e}`));
+  }
 }

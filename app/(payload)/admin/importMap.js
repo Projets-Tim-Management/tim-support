@@ -58,7 +58,12 @@ import { UnderlineFeatureClient as UnderlineFeatureClient_e70f5e05f09f93e00b997e
 import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { DocSectionRowLabel as DocSectionRowLabel_67e1bc4d7225aec381db547c4b4a729c } from '../../../modules/editorial/admin/DocSectionRowLabel'
+import { ProfilesField as ProfilesField_f535d9f41f549a2a35471fc079dcdac3 } from '../../../modules/editorial/admin/ProfilesField'
+import { FeatureFeedback as FeatureFeedback_ea52287775313f465e9e8e34a56fd233 } from '../../../modules/editorial/admin/FeatureFeedback'
+import { FeatureWriterLauncher as FeatureWriterLauncher_5728575d3903454f73d4fc42ca77b15b } from '../../../modules/editorial/admin/FeatureWriter'
 import { FeatureImport as FeatureImport_0cbeb25d32bc0babbecc520b3ac7820e } from '../../../modules/editorial/admin/FeatureImport'
+import { FeatureListFilters as FeatureListFilters_4f368d8e763e844320f6ca114f57f3d7 } from '../../../modules/editorial/admin/FeatureListFilters'
+import { FeatureWriterEditButton as FeatureWriterEditButton_5728575d3903454f73d4fc42ca77b15b } from '../../../modules/editorial/admin/FeatureWriter'
 import { FeatureJsonMenu as FeatureJsonMenu_93f888e6d67e320ea8122b4b161a7229 } from '../../../modules/editorial/admin/FeatureJsonMenu'
 import { default as default_7e85f5cff101ba7e7585712dd2365fa1 } from '../../../modules/editorial/admin/ParcoursListView'
 import { ContractModelAutofill as ContractModelAutofill_efe650ce4b81695b55d0f3c26a9c1118 } from '../../../modules/partner/admin/ContractModelAutofill'
@@ -99,6 +104,7 @@ import { PartnerClientsTotals as PartnerClientsTotals_a95dc08b9178c1ea2adff6a6c4
 import { PartnerClientsViewSwitcher as PartnerClientsViewSwitcher_b8c8256971de8bf5f5dde87d3219777f } from '../../../modules/partner/admin/PartnerClientsViewSwitcher'
 import { SmartSaveButton as SmartSaveButton_d2f84cfd7b2e15c9b318cc3949e7984f } from '../../../modules/partner/admin/SmartSaveButton'
 import { ArchiveClientModal as ArchiveClientModal_a512844c00e3b0e965609bd9ac0749f3 } from '../../../modules/partner/admin/ArchiveClientModal'
+import { MergeClientModal as MergeClientModal_1f7eda67423c6f92a2b4714047e8a0a7 } from '../../../modules/partner/admin/MergeClientModal'
 import { PartnerClientEditMenu as PartnerClientEditMenu_e271aadbf9279fb914faf39302326860 } from '../../../modules/partner/admin/PartnerClientEditMenu'
 import { default as default_06617f97e881e99c74ab5a8129fcef54 } from '../../../modules/partner/admin/MissionsCatalog'
 import { EditableNumberCell as EditableNumberCell_3870cc48058273f86b46eff4152d7ef5 } from '../../../admin/fields/EditableNumberCell'
@@ -233,7 +239,12 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#BoldFeatureClient": BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "/modules/editorial/admin/DocSectionRowLabel#DocSectionRowLabel": DocSectionRowLabel_67e1bc4d7225aec381db547c4b4a729c,
+  "/modules/editorial/admin/ProfilesField#ProfilesField": ProfilesField_f535d9f41f549a2a35471fc079dcdac3,
+  "/modules/editorial/admin/FeatureFeedback#FeatureFeedback": FeatureFeedback_ea52287775313f465e9e8e34a56fd233,
+  "/modules/editorial/admin/FeatureWriter#FeatureWriterLauncher": FeatureWriterLauncher_5728575d3903454f73d4fc42ca77b15b,
   "/modules/editorial/admin/FeatureImport#FeatureImport": FeatureImport_0cbeb25d32bc0babbecc520b3ac7820e,
+  "/modules/editorial/admin/FeatureListFilters#FeatureListFilters": FeatureListFilters_4f368d8e763e844320f6ca114f57f3d7,
+  "/modules/editorial/admin/FeatureWriter#FeatureWriterEditButton": FeatureWriterEditButton_5728575d3903454f73d4fc42ca77b15b,
   "/modules/editorial/admin/FeatureJsonMenu#FeatureJsonMenu": FeatureJsonMenu_93f888e6d67e320ea8122b4b161a7229,
   "/modules/editorial/admin/ParcoursListView#default": default_7e85f5cff101ba7e7585712dd2365fa1,
   "/modules/partner/admin/ContractModelAutofill#ContractModelAutofill": ContractModelAutofill_efe650ce4b81695b55d0f3c26a9c1118,
@@ -274,6 +285,7 @@ export const importMap = {
   "/modules/partner/admin/PartnerClientsViewSwitcher#PartnerClientsViewSwitcher": PartnerClientsViewSwitcher_b8c8256971de8bf5f5dde87d3219777f,
   "/modules/partner/admin/SmartSaveButton#SmartSaveButton": SmartSaveButton_d2f84cfd7b2e15c9b318cc3949e7984f,
   "/modules/partner/admin/ArchiveClientModal#ArchiveClientModal": ArchiveClientModal_a512844c00e3b0e965609bd9ac0749f3,
+  "/modules/partner/admin/MergeClientModal#MergeClientModal": MergeClientModal_1f7eda67423c6f92a2b4714047e8a0a7,
   "/modules/partner/admin/PartnerClientEditMenu#PartnerClientEditMenu": PartnerClientEditMenu_e271aadbf9279fb914faf39302326860,
   "/modules/partner/admin/MissionsCatalog#default": default_06617f97e881e99c74ab5a8129fcef54,
   "/admin/fields/EditableNumberCell#EditableNumberCell": EditableNumberCell_3870cc48058273f86b46eff4152d7ef5,

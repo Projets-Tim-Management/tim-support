@@ -1,5 +1,5 @@
-import Image from "next/image";
 import type { DocSection as DocSectionType, MediaDocItem, WPMedia } from "@/core/lib/types";
+import DocMedia from "./DocMedia";
 import ImageCarousel from "./ImageCarousel";
 
 type AcfImage = WPMedia | Record<string, unknown> | null | undefined;
@@ -26,6 +26,15 @@ function imgWidth(img: AcfImage): number {
   return (typeof details?.width === "number" ? details.width : 0) || (typeof o.width === "number" ? o.width : 0) || 800;
 }
 
+/** Dimensions RÉELLES enregistrées, 0 si inconnues (une vidéo n'en a pas) — sans les valeurs de repli. */
+function knownSize(img: AcfImage): { width: number; height: number } {
+  if (!img || typeof img === "string") return { width: 0, height: 0 };
+  const o = img as Record<string, unknown>;
+  const d = o.media_details as Record<string, unknown> | undefined;
+  const num = (v: unknown) => (typeof v === "number" && v > 0 ? v : 0);
+  return { width: num(d?.width) || num(o.width), height: num(d?.height) || num(o.height) };
+}
+
 function imgHeight(img: AcfImage): number {
   if (!img || typeof img === "string") return 450;
   const o = img as Record<string, unknown>;
@@ -42,20 +51,15 @@ function MediaBlock({ items }: { items: MediaDocItem[] }) {
         if (item.acf_fc_layout === "img" && item.img) {
           const src = imgSrc(item.img);
           if (!src) return null;
-          // Les GIF doivent être servis "bruts" — next/image les ré-encode
-          // sinon, ce qui casse l'animation ou la limite à une seule passe.
-          const isAnimated = /\.gif(\?|$)/i.test(src);
+          // Image, GIF ou capture vidéo ; une capture mobile dans un téléphone (voir DocMedia).
           return (
-            <div key={i} className="rounded-lg border border-border bg-surface flex items-center justify-center p-3">
-              <Image
-                src={src}
-                alt={imgAlt(item.img)}
-                width={imgWidth(item.img)}
-                height={imgHeight(item.img)}
-                unoptimized={isAnimated}
-                className="w-auto h-auto max-w-full max-h-[510px] object-contain rounded-md border-1 border-black"
-              />
-            </div>
+            <DocMedia
+              key={i}
+              src={src}
+              alt={imgAlt(item.img)}
+              width={knownSize(item.img).width}
+              height={knownSize(item.img).height}
+            />
           );
         }
 

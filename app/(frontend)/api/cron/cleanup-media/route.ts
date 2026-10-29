@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 import { sql } from "@payloadcms/db-postgres";
 
-import {
-  COLONNES_TEXTE_LIBRE,
-  conditionCitee,
-  conditionReferencee,
-  type Reference,
-} from "@/core/lib/media-orphans";
+import { conditionCitee, conditionReferencee } from "@/core/lib/media-orphans";
 import { cronGuard } from "@/core/lib/cron-guard";
+import { freeTextColumns, mediaForeignKeys } from "@/core/lib/media-catalog";
 import { payloadClient } from "@/core/payload-client";
 
 /**
@@ -54,13 +50,7 @@ export async function GET(req: Request) {
 
   let condition: string;
   try {
-    const refs = await db.execute(sql`
-      select tc.table_name as table, kcu.column_name as column
-      from information_schema.table_constraints tc
-      join information_schema.key_column_usage kcu on kcu.constraint_name = tc.constraint_name
-      join information_schema.constraint_column_usage ccu on ccu.constraint_name = tc.constraint_name
-      where tc.constraint_type = 'FOREIGN KEY' and ccu.table_name = 'media'`);
-    condition = conditionReferencee((refs.rows ?? refs) as Reference[]);
+    condition = conditionReferencee(await mediaForeignKeys(db));
   } catch (err) {
     // On ne devine pas : sans la liste des références, tout média paraîtrait
     // inutilisé. Mieux vaut ne rien faire aujourd'hui.
@@ -78,15 +68,7 @@ export async function GET(req: Request) {
    */
   let cite: string | null = null;
   try {
-    const noms = COLONNES_TEXTE_LIBRE.map((n) => `'${n}'`).join(",");
-    const cols = await db.execute(
-      sql.raw(`select table_name as table, column_name as column
-               from information_schema.columns
-               where table_schema = 'public'
-                 and data_type in ('text','character varying')
-                 and column_name in (${noms})`),
-    );
-    cite = conditionCitee((cols.rows ?? cols) as Reference[]);
+    cite = conditionCitee(await freeTextColumns(db));
   } catch (err) {
     payload.logger.warn(`[medias] colonnes de texte libre illisibles, filet ignoré : ${err}`);
   }

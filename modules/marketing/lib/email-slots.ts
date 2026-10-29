@@ -180,6 +180,24 @@ export const EMAIL_SLOTS: Record<string, EmailSlot[]> = {
     ),
   ],
 
+  "relance-signature": [
+    objet("Rappel : un document attend votre signature"),
+    titre("Un document attend votre signature"),
+    apercu("Il ne vous reste qu'à le signer en ligne, en une minute."),
+    s(
+      "intro",
+      "Introduction",
+      "Après le rappel du document et de sa date d'envoi : l'invitation à poser ses questions.",
+      "Une question, une remarque avant de signer ? Répondez simplement à cet e-mail.",
+    ),
+    s(
+      "suite",
+      "Comment signer",
+      "Le geste attendu, en une phrase.",
+      "Sinon, la signature se fait en ligne, en une minute : un code vous est envoyé par e-mail, sa saisie vaut signature. Rien à imprimer.",
+    ),
+  ],
+
   "document-signe": [
     objet("C'est signé — votre copie signée"),
     titre("Merci, c'est signé"),

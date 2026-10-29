@@ -3,6 +3,7 @@
 import { useDocumentInfo, useForm, useFormFields } from "@payloadcms/ui";
 import { useCallback, useEffect, useState } from "react";
 
+import { ReminderDrawer, reminderLine, type ReminderHistory } from "@/modules/partner/admin/ReminderDrawer";
 import { PROFILS, type ProfilKey } from "@/modules/partner/lib/pricing";
 
 /**
@@ -17,7 +18,19 @@ import { PROFILS, type ProfilKey } from "@/modules/partner/lib/pricing";
  * salariés peuvent ne donner que 12 licences. Le report dans le tableau des
  * licences est un BOUTON, jamais automatique — le partenaire a pu négocier un
  * périmètre différent de ce que le client a déclaré, et son chiffrage prime.
+ *
+ * Et dans l'autre sens, « Relancer le client » : quand il a déclaré MOINS
+ * d'utilisateurs que de licences prévues, un e-mail lui dit lesquels manquent
+ * (« 18 compagnons, 2 déclarés sur 20 ») avec le lien du tableau — vu en aperçu
+ * avant de partir (voir la route dossier-reminder).
  */
+
+type Reminder = {
+  available: boolean;
+  reason: string | null;
+  missing: number;
+  reminders: ReminderHistory;
+};
 
 type Counts = {
   contacts: number;
@@ -60,6 +73,18 @@ export function OnboardingRecap() {
   const [counts, setCounts] = useState<Counts>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [reported, setReported] = useState(false);
+  const [reminder, setReminder] = useState<Reminder | null>(null);
+  const [reminding, setReminding] = useState(false);
+
+  const loadReminder = useCallback(() => {
+    if (!id) return;
+    fetch(`/api/admin/dossier-reminder?clientId=${id}`, { credentials: "include" })
+      .then((r) => (r.ok ? (r.json() as Promise<Reminder>) : null))
+      .then(setReminder)
+      .catch(() => setReminder(null));
+  }, [id]);
+
+  useEffect(() => loadReminder(), [loadReminder]);
 
   // Quantités actuellement saisies dans le tableau des licences (onglet voisin),
   // pour ne proposer le report que s'il change réellement quelque chose.
@@ -230,6 +255,41 @@ export function OnboardingRecap() {
           <span className="jr-onb__done">Licences alignées sur le dossier.</span>
         )}
       </div>
+
+      {reminder && (
+        <div className={`jr-onb__remind${reminder.missing > 0 ? " jr-onb__remind--gap" : ""}`}>
+          <div>
+            <p className="jr-onb__remind-title">
+              {reminder.missing > 0
+                ? `Il manque ${reminder.missing} utilisateur${reminder.missing > 1 ? "s" : ""} face aux licences prévues`
+                : "Relance du dossier"}
+            </p>
+            <p className="jr-onb__remind-state">
+              {reminder.reason ??
+                reminderLine(reminder.reminders) ??
+                "L'e-mail liste ce qui manque, avec le lien du tableau à compléter."}
+            </p>
+          </div>
+          {reminder.available && (
+            <button type="button" className="jr-btn" onClick={() => setReminding(true)}>
+              Relancer le client
+            </button>
+          )}
+        </div>
+      )}
+
+      {reminding && (
+        <ReminderDrawer
+          title="Relancer le client · dossier de démarrage"
+          endpoint="/api/admin/dossier-reminder"
+          body={{ clientId: id }}
+          onClose={() => setReminding(false)}
+          onSent={() => {
+            setReminding(false);
+            loadReminder();
+          }}
+        />
+      )}
     </div>
   );
 }

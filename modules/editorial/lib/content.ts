@@ -5,6 +5,8 @@ import type { SerializedEditorState } from "@payloadcms/richtext-lexical/lexical
 
 import { payloadClient } from "@/core/payload-client";
 import { AVAILABILITY_LABEL } from "@/modules/editorial/lib/availability";
+import { concerns } from "@/modules/editorial/lib/feature-profiles";
+import { categoryAndDescendants } from "@/modules/editorial/lib/category-tree";
 import type {
   Feature,
   FeatureTerm,
@@ -100,6 +102,7 @@ function toFeature(d: FeatureDoc, full: boolean): Feature {
     thumbnail: mediaUrl(d.thumbnail),
     platforms: (d.platforms ?? []).map(toTerm),
     categories: (d.categories ?? []).map(toTerm),
+    profiles: Array.isArray(d.profiles) ? (d.profiles as string[]) : [],
     acf: {
       title_feature: d.titleFeature || d.title,
       short_description: d.shortDescription || "",
@@ -130,14 +133,21 @@ function toFeature(d: FeatureDoc, full: boolean): Feature {
 // appels identiques d'un même rendu — ex. generateMetadata + page, ou layout +
 // page — pour n'exécuter la requête Payload qu'une fois.
 export const getFeatures = cache(
-  async (opts: { platform?: string; category?: string } = {}): Promise<Feature[]> => {
+  async (opts: { platform?: string; category?: string; profile?: string } = {}): Promise<Feature[]> => {
     const payload = await payloadClient();
     const res = await payload.find({ collection: "features", limit: 1000, depth: 1, sort: "title" });
     let docs = res.docs as FeatureDoc[];
     if (opts.platform)
       docs = docs.filter((d) => (d.platforms ?? []).some((p: TermDoc) => p.slug === opts.platform));
-    if (opts.category)
-      docs = docs.filter((d) => (d.categories ?? []).some((c: TermDoc) => c.slug === opts.category));
+    if (opts.category) {
+      // La catégorie ET ses sous-catégories : une fiche rangée dans « Chantier › Info »
+      // apparaît aussi quand on affiche « Chantier ».
+      const ids = categoryAndDescendants(await getFeatureCategories(), opts.category);
+      docs = docs.filter((d) => (d.categories ?? []).some((c: TermDoc) => ids.has(typeof c === "object" ? c.id : (c as number))));
+    }
+    // « Je suis compagnon » : les fiches cochées pour ce profil, et celles qui
+    // concernent tout le monde (aucun profil coché).
+    if (opts.profile) docs = docs.filter((d) => concerns(d.profiles, opts.profile));
     return docs.map((d) => toFeature(d, false));
   },
 );

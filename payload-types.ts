@@ -1284,28 +1284,17 @@ export interface Integration {
 export interface Feature {
   id: number;
   /**
-   * Nom interne de la feature (sert de titre à la fiche).
+   * Nom interne (liste, recherche dans l'admin).
    */
   title: string;
   /**
-   * Laisser vide pour générer automatiquement depuis le titre.
-   */
-  slug: string;
-  /**
-   * Peut différer du titre interne. Laissez vide pour réutiliser le titre.
+   * À remplir seulement s'il diffère du titre.
    */
   titleFeature?: string | null;
   /**
-   * Résumé d'une phrase (listes, résultats de recherche).
+   * Une ou deux phrases : affiché dans les listes et les résultats de recherche.
    */
   shortDescription?: string | null;
-  /**
-   * Termes de recherche alternatifs (ex : masquer panneau).
-   */
-  keywords?: string[] | null;
-  /**
-   * Texte d'intro de la fiche, avant les parties détaillées ci-dessous.
-   */
   content?: {
     root: {
       type: string;
@@ -1340,13 +1329,13 @@ export interface Feature {
           [k: string]: unknown;
         } | null;
         /**
-         * Ajoutez un GIF animé (bloc « Image / GIF »), une image, une galerie ou un fichier. Laissez vide si la partie n'a pas de visuel.
+         * Ajoutez une capture vidéo ou un GIF (bloc « Image / GIF / vidéo »), une image, une galerie ou un fichier. Laissez vide si la partie n'a pas de visuel.
          */
         mediaDoc?:
           | (
               | {
                   /**
-                   * PNG, JPG ou GIF animé (démonstration de la partie).
+                   * PNG, JPG, GIF — ou directement la capture vidéo (.mov, .mp4) : elle est convertie dans le navigateur en courte vidéo en boucle, légère et nette, à 1200 px de large (ordinateur ou mobile).
                    */
                   image: number | Media;
                   id?: string | null;
@@ -1395,15 +1384,27 @@ export interface Feature {
       }[]
     | null;
   /**
-   * Visuel de couverture (listes, cartes, résultats de recherche).
+   * Générée depuis le titre si vide.
+   */
+  slug: string;
+  /**
+   * Termes qu'un utilisateur pourrait chercher (ex : masquer panneau).
+   */
+  keywords?: string[] | null;
+  availability?: ('disponible' | 'beta' | 'prochainement') | null;
+  /**
+   * Web, Mobile, ou les deux.
+   */
+  platforms?: (number | Platform)[] | null;
+  /**
+   * Où ranger la fiche, ex. « Mobile › Authentification ».
+   */
+  categories?: (number | FeatureCategory)[] | null;
+  profiles?: ('conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'visuel' | 'bureau')[] | null;
+  /**
+   * Facultative : visuel des cartes et des résultats de recherche.
    */
   thumbnail?: (number | null) | Media;
-  availability?: ('disponible' | 'beta' | 'prochainement') | null;
-  platforms?: (number | Platform)[] | null;
-  categories?: (number | FeatureCategory)[] | null;
-  /**
-   * Votes « utile / pas utile » recueillis sur le front (lecture seule).
-   */
   feedback?: {
     helpful?: number | null;
     notHelpful?: number | null;
@@ -4157,10 +4158,8 @@ export interface DevStatusesSelect<T extends boolean = true> {
  */
 export interface FeaturesSelect<T extends boolean = true> {
   title?: T;
-  slug?: T;
   titleFeature?: T;
   shortDescription?: T;
-  keywords?: T;
   content?: T;
   doc?:
     | T
@@ -4202,10 +4201,13 @@ export interface FeaturesSelect<T extends boolean = true> {
         mediaPosition?: T;
         id?: T;
       };
-  thumbnail?: T;
+  slug?: T;
+  keywords?: T;
   availability?: T;
   platforms?: T;
   categories?: T;
+  profiles?: T;
+  thumbnail?: T;
   feedback?:
     | T
     | {

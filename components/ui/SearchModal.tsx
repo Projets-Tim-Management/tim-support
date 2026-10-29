@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } fro
 import { useRouter } from "next/navigation";
 import type { Feature, FeatureACF, FeatureTerm } from "@/core/lib/types";
 import { htmlToText } from "@/core/lib/html";
+import { PROFILE_STORAGE_KEY } from "@/components/features/ProfilePicker";
+import { FEATURE_PROFILES, concerns, profileLabel } from "@/modules/editorial/lib/feature-profiles";
 
 interface Props {
   open:          boolean;
@@ -141,6 +143,12 @@ export default function SearchModal({ open, onClose, initialQuery }: Props) {
   const [categories,  setCategories]  = useState<FeatureTerm[]>([]);
   const [loaded,      setLoaded]      = useState(false);
   const [active,      setActive]      = useState(0);
+  /**
+   * « Je suis… » : le profil retenu par le navigateur (même clé que la page des
+   * fonctionnalités). Les résultats ne gardent que les fiches de ce profil et
+   * celles qui concernent tout le monde.
+   */
+  const [profile,     setProfile]     = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const router   = useRouter();
 
@@ -168,6 +176,11 @@ export default function SearchModal({ open, onClose, initialQuery }: Props) {
   // Reset + focus à l'ouverture (pré-rempli si initialQuery est fourni)
   useEffect(() => {
     if (open) {
+      try {
+        setProfile(localStorage.getItem(PROFILE_STORAGE_KEY) ?? "");
+      } catch {
+        /* stockage indisponible : tous les profils */
+      }
       setQuery(initialQuery ?? "");
       setActive(0);
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -180,11 +193,14 @@ export default function SearchModal({ open, onClose, initialQuery }: Props) {
     if (tokens.length === 0) return [];
 
     return allFeatures
+      .filter((f) => concerns(f.profiles, profile))
       .map((f) => {
         const title     = normalize(f.acf?.title_feature || f.title);
         const desc      = f.acf?.short_description ? normalize(strip(f.acf.short_description)) : "";
         const cats      = f.categories.map((c) => normalize(c.name)).join(" ");
         const plats     = f.platforms.map((p) => normalize(p.name)).join(" ");
+        // « compagnon pointage » : le profil compte comme un mot de la fiche.
+        const profs     = (f.profiles ?? []).map((p) => normalize(profileLabel(p))).join(" ");
         const docTitles = (f.acf?.doc ?? []).map((s) => normalize(s.title_doc ?? "")).join(" ");
         const h2        = (f.search_h2 ?? []).map(normalize).join(" ");
         const h3        = (f.search_h3 ?? []).map(normalize).join(" ");
@@ -207,6 +223,7 @@ export default function SearchModal({ open, onClose, initialQuery }: Props) {
           if (desc.includes(t))         tokenScore += 3;
           if (h3.includes(t))           tokenScore += 2;
           if (cats.includes(t))         tokenScore += 2;
+          if (profs.includes(t))        tokenScore += 2;
           if (plats.includes(t))        tokenScore += 1;
 
           if (tokenScore > 0) matchedTokens++;
@@ -223,13 +240,25 @@ export default function SearchModal({ open, onClose, initialQuery }: Props) {
       .sort((a, b) => b.score - a.score)
       .slice(0, 8)
       .map((x) => x.f);
-  }, [query, allFeatures]);
+  }, [query, allFeatures, profile]);
 
   // Suggestions quand pas de query : 5 features récentes
   const suggestions = useMemo(
-    () => allFeatures.slice(0, 5),
-    [allFeatures]
+    () => allFeatures.filter((f) => concerns(f.profiles, profile)).slice(0, 5),
+    [allFeatures, profile]
   );
+
+  const pickProfile = (value: string) => {
+    setProfile(value);
+    setActive(0);
+    try {
+      if (value) localStorage.setItem(PROFILE_STORAGE_KEY, value);
+      else localStorage.removeItem(PROFILE_STORAGE_KEY);
+    } catch {
+      /* sans mémoire, le filtre vaut pour cette ouverture */
+    }
+  };
+  const profilParam = profile ? `profil=${encodeURIComponent(profile)}` : "";
 
   const displayList = query.trim() ? results : suggestions;
 
@@ -295,6 +324,26 @@ export default function SearchModal({ open, onClose, initialQuery }: Props) {
           </button>
         </div>
 
+        {/* « Je suis… » — sur une ligne qui défile, pour ne pas pousser les résultats. */}
+        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border overflow-x-auto" role="group" aria-label="Filtrer par profil">
+          <span className="shrink-0 text-[11px] font-semibold text-muted uppercase tracking-wider mr-1">Je suis</span>
+          {[{ value: "", label: "Tous" }, ...FEATURE_PROFILES].map((p) => (
+            <button
+              key={p.value || "tous"}
+              type="button"
+              aria-pressed={profile === p.value}
+              onClick={() => pickProfile(p.value)}
+              className={`shrink-0 px-2.5 py-1 rounded-[5px] text-xs border transition-all ${
+                profile === p.value
+                  ? "border-primary bg-primary-light text-primary font-medium"
+                  : "border-border text-foreground hover:bg-surface"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
         {/* Catégories rapides */}
         {!q && categories.length > 0 && (
           <div className="px-4 pt-3 pb-1">
@@ -303,7 +352,7 @@ export default function SearchModal({ open, onClose, initialQuery }: Props) {
               {categories.map((cat) => (
                 <button
                   key={cat.id}
-                  onClick={() => navigate(`/features?category=${cat.slug}`)}
+                  onClick={() => navigate(`/features?category=${cat.slug}${profilParam ? `&${profilParam}` : ""}`)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-sm border border-border bg-surface text-foreground hover:bg-[#f0f0f0] transition-all"
                 >
                   {cat.slug === "web" ? "🖥️" : cat.slug === "mobile" ? "📱" : "📁"}
@@ -311,7 +360,7 @@ export default function SearchModal({ open, onClose, initialQuery }: Props) {
                 </button>
               ))}
               <button
-                onClick={() => navigate("/features")}
+                onClick={() => navigate(profilParam ? `/features?${profilParam}` : "/features")}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] text-sm border border-border text-muted hover:bg-surface transition-all"
               >
                 Toutes →

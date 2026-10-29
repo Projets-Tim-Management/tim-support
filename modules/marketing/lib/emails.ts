@@ -28,6 +28,7 @@ import {
   satisfactionUrl,
 } from "@/modules/marketing/lib/satisfaction";
 import { profileRank } from "@/modules/partner/lib/pricing";
+import { missingOnly, profileCount, type LicenceGap } from "@/modules/marketing/lib/licence-gaps";
 
 /**
  * Les e-mails de la phase de test, rédigés.
@@ -99,6 +100,19 @@ export type JourneyEmailContext = {
   documentNoun?: string | null;
   /** Lien vers le document signé, pour la copie envoyée au signataire. */
   documentUrl?: string | null;
+  /** Relance de signature : date d'envoi du document, rappelée au client. */
+  documentSentAt?: string | null;
+  /**
+   * Relance de signature : un mot de la personne qui relance, tel qu'elle l'a
+   * écrit. Du texte, jamais du HTML ; absent = encadré retiré.
+   */
+  personalNote?: string | null;
+  /**
+   * Relance du dossier : les licences prévues sur la fiche face aux
+   * utilisateurs déclarés (voir licence-gaps). Seules celles où il en manque
+   * sont citées ; vide ou absent = message inchangé.
+   */
+  licenceGaps?: LicenceGap[] | null;
   /**
    * Phases de test du partenaire, pour le récapitulatif hebdomadaire. Un digest
    * qui se contente d'un lien ne se lit pas : ce qu'on veut savoir, c'est quel
@@ -464,6 +478,48 @@ const documentDisponible = (ctx: JourneyEmailContext): BuiltEmail => {
   };
 };
 
+/**
+ * Relance : un devis ou un contrat attend toujours la signature du client.
+ *
+ * Envoyée À LA MAIN, depuis l'onglet « Signature » de la fiche, après aperçu :
+ * c'est la personne qui suit l'affaire qui juge du bon moment. Le ton n'est pas
+ * celui de l'avis de dépôt — on ne réannonce pas le document, on rappelle qu'il
+ * attend, et on ouvre la porte aux questions (la réponse revient à celui qui
+ * relance, voir la route signing-reminder).
+ */
+/** Le mot personnel d'une relance faite à la main : en texte, et encadré dans le HTML. */
+const personalNote = (ctx: JourneyEmailContext): { text: string[]; html: string } => {
+  const note = ctx.personalNote?.trim();
+  return note ? { text: ["", note], html: callout(escape(note).replace(/\n/g, "<br>")) } : { text: [], html: "" };
+};
+
+const relanceSignature = (ctx: JourneyEmailContext): BuiltEmail => {
+  const key = "relance-signature";
+  const noun = ctx.documentNoun ?? "document";
+  const sent = frDate(ctx.documentSentAt);
+  const intro = bloc(ctx, key, "intro");
+  const suite = bloc(ctx, key, "suite");
+  const url = `${PORTAL}?next=${encodeURIComponent("/espace-client/signature")}`;
+  const rappel = (n: string) =>
+    `${sent ? `Nous vous avons transmis votre ${n} le ${sent}` : `Votre ${n} est disponible dans votre espace client`} : il attend toujours votre signature.`;
+  const note = personalNote(ctx);
+  return {
+    subject: sujet(ctx, key),
+    text: [hello(ctx), "", rappel(noun), intro.text, ...note.text, "", suite.text, "", url, textSignature()].join("\n"),
+    html: shell({
+      heading: texte(ctx, key, "titre"),
+      preheader: texte(ctx, key, "apercu"),
+      bodyHtml:
+        paragraph(hello(ctx)) +
+        paragraph(`${rappel(`<strong>${escape(noun)}</strong>`)} ${intro.html}`) +
+        note.html +
+        paragraph(suite.html) +
+        button(`Signer mon ${escape(noun)}`, url) +
+        signature(),
+    }),
+  };
+};
+
 /** La copie du document signé, remise au signataire — c'est aussi sa preuve. */
 const documentSigne = (ctx: JourneyEmailContext): BuiltEmail => {
   const key = "document-signe";
@@ -557,16 +613,30 @@ const relanceDossier = (ctx: JourneyEmailContext): BuiltEmail => {
   // Pas de date limite ici, contrairement à l'invitation : la relance part APRÈS
   // l'échéance annoncée (−3 j contre −5 j). Lui répéter « à compléter avant le
   // 26 » le 28 la décrédibiliserait. Le repère utile est devenu le démarrage.
-  const url = `${PORTAL}/dossier`;
   const intro = bloc(ctx, "relance-dossier", "intro");
   const enjeu = bloc(ctx, "relance-dossier", "enjeu");
   const note = bloc(ctx, "relance-dossier", "note");
+  /**
+   * CE QUI MANQUE, chiffré, quand on le sait : « 18 compagnons (2 déclarés sur
+   * 20) ». « Votre dossier nous manque » ne dit pas quoi faire à quelqu'un qui
+   * a rempli trois lignes et croit avoir fini ; la liste, si. Le bouton mène
+   * alors droit au tableau des utilisateurs.
+   */
+  const gaps = missingOnly(ctx.licenceGaps ?? []);
+  const url = gaps.length ? `${PORTAL}/dossier/administrateur` : `${PORTAL}/dossier`;
+  const lines = gaps.map(
+    (g) => `${profileCount(g.key, g.missing)} (${g.declared} déclaré${g.declared > 1 ? "s" : ""} sur ${g.expected})`,
+  );
+  const gapsLead = "Dans votre tableau « Utilisateurs TIM », il manque encore :";
+  const personal = personalNote(ctx);
   return {
     subject: sujet(ctx, "relance-dossier"),
     text: [
       hello(ctx),
       "",
       intro.text,
+      ...(gaps.length ? ["", gapsLead, ...lines.map((l) => `- ${l}`)] : []),
+      ...personal.text,
       "",
       enjeu.text,
       "",
@@ -580,6 +650,10 @@ const relanceDossier = (ctx: JourneyEmailContext): BuiltEmail => {
       bodyHtml:
         paragraph(hello(ctx)) +
         paragraph(intro.html) +
+        (gaps.length
+          ? callout(`<strong>${escape(gapsLead)}</strong><br>${lines.map((l) => `• ${escape(l)}`).join("<br>")}`)
+          : "") +
+        personal.html +
         paragraph(enjeu.html) +
         button(texte(ctx, "relance-dossier", "bouton"), url) +
         paragraph(`<span style="color:${MUTED};font-size:14px;">${note.html}</span>`) +
@@ -1558,6 +1632,7 @@ export const JOURNEY_EMAILS: Record<
   "code-signature": codeSignature,
   "document-signe": documentSigne,
   "document-disponible": documentDisponible,
+  "relance-signature": relanceSignature,
   "dossier-recu": dossierRecu,
   "relance-creneau": relanceCreneau,
   "relance-dossier": relanceDossier,

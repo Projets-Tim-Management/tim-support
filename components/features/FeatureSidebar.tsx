@@ -73,6 +73,8 @@ function NavItem({
   activeSlugs: string[];      // slugs depuis contexte (page feature)
   depth?:      number;
 }) {
+  // Le profil choisi (« Je suis… ») suit la navigation entre sections.
+  const profil    = useSearchParams().get("profil") ?? "";
   const isActive  = active
     ? active === node.slug
     : isDeepestMatch(node, activeSlugs);
@@ -94,7 +96,7 @@ function NavItem({
       <div className={`flex items-center group ${pl}`}>
         {/* Lien principal */}
         <Link
-          href={`/features?category=${node.slug}`}
+          href={`/features?category=${node.slug}${profil ? `&profil=${encodeURIComponent(profil)}` : ""}`}
           className={`flex-1 flex items-center gap-1.5 py-1.5 px-2 rounded-md text-sm transition-all ${
             isActive
               ? "text-primary font-medium bg-primary-light"
@@ -139,6 +141,8 @@ export default function FeatureSidebar({ categories }: { categories: FeatureTerm
   // Page liste (/features?category=xxx) → searchParams
   // Page feature (/features/[slug])     → contexte avec tous les slugs
   const currentCat  = searchParams.get("category") ?? "";
+  const profil      = searchParams.get("profil") ?? "";
+  const profilHref  = profil ? `/features?profil=${encodeURIComponent(profil)}` : "/features";
   const tree        = buildTree(categories);
 
   // Note : la masquage responsive est géré par les composants parents
@@ -150,7 +154,7 @@ export default function FeatureSidebar({ categories }: { categories: FeatureTerm
           {/* Toutes */}
           <li>
             <Link
-              href="/features"
+              href={profilHref}
               className={`flex items-center gap-2 py-1.5 px-2 rounded-md text-sm transition-all border-l-2 ${
                 !currentCat && ctxSlugs.length === 0
                   ? "text-primary font-medium bg-primary-light border-primary"

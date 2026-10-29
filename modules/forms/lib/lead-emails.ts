@@ -211,6 +211,10 @@ export interface LeadNoticeContext extends LeadEmailContext {
   clientId?: number | string;
   /** Réserves posées sur la fiche : elle existe, « Nouvelle », mais quelque chose est à corriger. */
   issues?: string[];
+  /** L'entreprise avait déjà une fiche : la demande y est rattachée, aucune fiche créée. */
+  known?: boolean;
+  /** Le partenaire qui suit cette fiche, quand ce n'est pas celui du site. */
+  followedBy?: string;
 }
 
 /**
@@ -220,7 +224,8 @@ export interface LeadNoticeContext extends LeadEmailContext {
  * Tout le texte est échappé par `internalNotice` — les valeurs sont donc passées
  * brutes. « Dupont & Fils » suffirait sinon à casser le message.
  */
-export function newLeadNoticeEmail(ctx: LeadNoticeContext): BuiltEmail {
+/** Les lignes d'une demande, communes à l'alerte TIM et à l'avis au partenaire. */
+function leadRows(ctx: LeadNoticeContext): Array<[string, string]> {
   const who = [ctx.civilite, ctx.nom].filter(Boolean).join(" ");
   const company = ctx.companyName || "Société inconnue";
 
@@ -237,8 +242,17 @@ export function newLeadNoticeEmail(ctx: LeadNoticeContext): BuiltEmail {
       .filter(Boolean)
       .join(" · ") || "—",
   ]);
+  return rows;
+}
 
-  const subject = `Nouveau lead — ${company}${ctx.canal ? ` (${ctx.canal})` : ""}`;
+export function newLeadNoticeEmail(ctx: LeadNoticeContext): BuiltEmail {
+  const company = ctx.companyName || "Société inconnue";
+  const rows = leadRows(ctx);
+  if (ctx.followedBy) rows.splice(1, 0, ["Déjà suivie par", ctx.followedBy]);
+
+  // Une entreprise déjà connue n'est pas un « nouveau lead » : le dire dès
+  // l'objet évite de la rappeler comme une inconnue.
+  const subject = `${ctx.known ? "Demande d'un prospect connu" : "Nouveau lead"} — ${company}${ctx.canal ? ` (${ctx.canal})` : ""}`;
 
   const text = [
     subject,
@@ -256,11 +270,15 @@ export function newLeadNoticeEmail(ctx: LeadNoticeContext): BuiltEmail {
     text,
     html: internalNotice({
       kicker: "Site vitrine · Formulaire",
-      heading: "Nouveau lead du site vitrine",
+      heading: ctx.known ? "Demande d'une entreprise déjà suivie" : "Nouveau lead du site vitrine",
       rows,
-      message: ctx.issues?.length
-        ? `Fiche créée « Nouvelle » avec des réserves — à corriger sur la fiche : ${ctx.issues.join(" · ")}`
-        : undefined,
+      message: ctx.known
+        ? `Aucune fiche créée : la demande est inscrite dans l'historique de la fiche existante${
+            ctx.followedBy ? `, suivie par ${ctx.followedBy}, qui est prévenu` : ""
+          }.`
+        : ctx.issues?.length
+          ? `Fiche créée « Nouvelle » avec des réserves — à corriger sur la fiche : ${ctx.issues.join(" · ")}`
+          : undefined,
       cta: {
         label: ctx.clientId ? "Ouvrir l'opportunité" : "Voir les soumissions",
         url: ctx.clientId
@@ -268,6 +286,32 @@ export function newLeadNoticeEmail(ctx: LeadNoticeContext): BuiltEmail {
           : adminUrl("/collections/form-submissions"),
       },
       links: [{ label: "Toutes les soumissions", url: adminUrl("/collections/form-submissions") }],
+    }),
+  };
+}
+
+/**
+ * Avis au PARTENAIRE : une entreprise qu'il suit vient de passer par le
+ * formulaire du site. La fiche reste la sienne ; sans cet avis, il apprendrait
+ * la demande par TIM, ou jamais.
+ */
+export function knownLeadPartnerEmail(ctx: LeadNoticeContext): BuiltEmail {
+  const company = ctx.companyName || "Une entreprise que vous suivez";
+  const url = ctx.clientId ? adminUrl(`/collections/partner-clients/${ctx.clientId}`) : adminUrl("/collections/partner-clients");
+  const subject = `${company} vient de faire une demande sur le site TIM`;
+  const rows = leadRows(ctx);
+  const message =
+    "Elle est passée par le formulaire du site. Sa demande est inscrite dans l'historique de sa fiche, qui reste la vôtre : à vous de la recontacter.";
+  return {
+    subject,
+    text: [subject, "", ...rows.map(([k, v]) => `${k} : ${v}`), "", message, "", url].join("\n"),
+    html: internalNotice({
+      kicker: "Site TIM · Formulaire",
+      heading: "Une entreprise que vous suivez a fait une demande",
+      audience: "partenaire",
+      rows,
+      message,
+      cta: { label: "Ouvrir la fiche", url },
     }),
   };
 }
