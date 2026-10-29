@@ -44,6 +44,17 @@ describe("les garde-fous d'une action", () => {
     expect(judgeAction(urgent, ctx({ autonomy: "observer", activatedAt: days(1), lastChangeAt: days(0.1) })).outcome).toBe("executer");
   });
 
+  it("une pause d'alerte suit l'autonomie, sans attendre le gel ni les 72 h", () => {
+    const alerte: Action = { kind: "pause", level: "campaign", externalId: "120000005", name: "X", alerte: true };
+    const fresh = { activatedAt: days(1), lastChangeAt: days(0.1) };
+    expect(judgeAction(alerte, ctx(fresh)).outcome).toBe("executer");
+    expect(judgeAction(alerte, ctx({ ...fresh, autonomy: "proposer" })).outcome).toBe("proposer");
+    expect(judgeAction(alerte, ctx({ ...fresh, autonomy: "observer" })).outcome).toBe("bloquer");
+    expect(judgeAction(alerte, ctx({ settings: { enabled: false, maxBudgetChangePct: 20, minHoursBetweenChanges: 72 } })).outcome).toBe("bloquer");
+    expect(actionSummary(alerte)).toBe("Alerte — mettre en pause la campagne");
+    expect(readAction(alerte)).toEqual({ ...alerte, urgence: false });
+  });
+
   it("réactiver une campagne entière se valide à la main ; une publicité, non", () => {
     expect(judgeAction({ kind: "activation", level: "campaign", externalId: "120000003", name: "X" }, ctx()).outcome).toBe("proposer");
     expect(judgeAction({ kind: "activation", level: "ad", externalId: "120000004", name: "C12" }, ctx()).outcome).toBe("executer");

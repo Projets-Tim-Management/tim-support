@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
+import { runAlerts } from "@/modules/ads/lib/alerts-run";
 import { runAdsSync } from "@/modules/ads/lib/sync-run";
 
 /**
@@ -10,7 +11,8 @@ import { runAdsSync } from "@/modules/ads/lib/sync-run";
  * Chaque compte non archivé : ses campagnes, puis ses chiffres des 7 derniers
  * jours aux trois niveaux — la régie corrige les siens après coup. Un compte en
  * erreur n'arrête pas les autres ; son erreur s'écrit sur sa fiche. Puis
- * l'alerte J-7 des jetons OAuth qui arrivent à échéance.
+ * l'alerte J-7 des jetons OAuth qui arrivent à échéance, et les urgences des
+ * campagnes en ligne (lib/alerts-run.ts).
  *
  * `live=1` : le passage de chaque heure — les comptes qui ont une campagne en
  * diffusion, sans les rappels de jetons (plan, §9 nonies).
@@ -30,11 +32,14 @@ export async function GET(req: Request) {
   const live = params.get("live") === "1";
   const payload = await payloadClient();
   const { results, alerted } = await runAdsSync(payload, { dry, live });
+  // Les urgences, sur les chiffres qu'on vient de lire (§9 nonies, étape 2). Une erreur ici ne fait pas échouer la synchro.
+  const alerts = dry ? null : await runAlerts(payload).catch((e) => (payload.logger.error(`[publicité] alertes : ${(e as Error).message}`), null));
 
   const done = results.filter((r) => r.decision === "ok");
   payload.logger.info(
     `[cron] synchro publicité${live ? " (horaire)" : ""} : ${done.length} compte(s)${dry ? " (à blanc)" : ""}, ` +
-      `${done.filter((r) => r.error).length} en échec, ${results.length - done.length} ignoré(s), ${alerted.length} alerte(s) J-7.`,
+      `${done.filter((r) => r.error).length} en échec, ${results.length - done.length} ignoré(s), ${alerted.length} alerte(s) J-7` +
+      (alerts ? `, alertes : ${alerts.opened} ouverte(s), ${alerts.confirmed} confirmée(s), ${alerts.resolved} close(s), ${alerts.notified} e-mail(s).` : "."),
   );
-  return NextResponse.json({ ok: true, dry, live, results, alerted });
+  return NextResponse.json({ ok: true, dry, live, results, alerted, alerts });
 }

@@ -168,6 +168,7 @@ import * as migration_20261023_115605_mass_email_campaigns from './20261023_1156
 import * as migration_20261026_142149_feature_profiles from './20261026_142149_feature_profiles';
 import * as migration_20261029_121256_parcours_profil_visuel from './20261029_121256_parcours_profil_visuel';
 import * as migration_20261029_125211_suivi_mesure from './20261029_125211_suivi_mesure';
+import * as migration_20261029_130118_suivi_alertes from './20261029_130118_suivi_alertes';
 
 export const migrations = [
   {
@@ -1018,6 +1019,11 @@ export const migrations = [
   {
     up: migration_20261029_125211_suivi_mesure.up,
     down: migration_20261029_125211_suivi_mesure.down,
-    name: '20261029_125211_suivi_mesure'
+    name: '20261029_125211_suivi_mesure',
+  },
+  {
+    up: migration_20261029_130118_suivi_alertes.up,
+    down: migration_20261029_130118_suivi_alertes.down,
+    name: '20261029_130118_suivi_alertes'
   },
 ];

@@ -20,7 +20,12 @@ import type { Level } from "@/modules/ads/platforms/types";
 export const ACTION_KINDS = ["budget", "pause", "activation"] as const;
 export type Action =
   | { kind: "budget"; level: "adset" | "campaign"; externalId: string; name: string; fromEur: number; toEur: number }
-  | { kind: "pause"; level: Level; externalId: string; name: string; urgence?: boolean }
+  /**
+   * `urgence` : pub refusée — exécutée quel que soit le niveau d'autonomie.
+   * `alerte` : une alerte du code (dépense anormale, page en panne) — elle suit
+   * le niveau d'autonomie, mais n'attend ni la fin du gel ni les 72 h.
+   */
+  | { kind: "pause"; level: Level; externalId: string; name: string; urgence?: boolean; alerte?: boolean }
   | { kind: "activation"; level: Level; externalId: string; name: string };
 
 export type Autonomy = "observer" | "proposer" | "autonome";
@@ -66,6 +71,9 @@ export function judgeAction(a: Action, c: GuardContext): Verdict {
   // Une pub refusée par Meta se met en pause quel que soit le niveau d'autonomie (décision 4 du §9 quinquies).
   if (urgent) return { outcome: "executer", reasons: ["Urgence : mise en pause immédiate."] };
   if (c.autonomy === "observer") return block("Campagne en observation : l'agent rapporte, il n'agit pas.");
+  if (a.kind === "pause" && a.alerte === true) {
+    return c.autonomy === "proposer" ? { outcome: "proposer", reasons: ["Alerte : pause proposée (campagne en mode « proposer »)."] } : { outcome: "executer", reasons: ["Alerte : mise en pause sans attendre (campagne autonome)."] };
+  }
   if (c.activatedAt && c.now.getTime() - c.activatedAt.getTime() < FREEZE_DAYS * 24 * H) return block(`Gel des ${FREEZE_DAYS} premiers jours de diffusion : Meta apprend encore.`);
   if (c.lastChangeAt && c.now.getTime() - c.lastChangeAt.getTime() < c.settings.minHoursBetweenChanges * H) {
     return block(`Modifié il y a moins de ${c.settings.minHoursBetweenChanges} h : on ne relance pas sans cesse l'apprentissage de Meta.`);
@@ -93,7 +101,7 @@ export function judgeAction(a: Action, c: GuardContext): Verdict {
 export function actionSummary(a: Action): string {
   const what = a.level === "campaign" ? "la campagne" : a.level === "adset" ? `l'ensemble « ${a.name} »` : `la publicité « ${a.name} »`;
   if (a.kind === "budget") return `Budget de ${what} : ${a.fromEur.toFixed(2)} € → ${a.toEur.toFixed(2)} € par jour`;
-  if (a.kind === "pause") return `${a.urgence ? "Urgence — m" : "M"}ettre en pause ${what}`;
+  if (a.kind === "pause") return `${a.urgence ? "Urgence — m" : a.alerte ? "Alerte — m" : "M"}ettre en pause ${what}`;
   return `Réactiver ${what}`;
 }
 
@@ -105,7 +113,7 @@ export function readAction(raw: unknown): Action | null {
   const name = typeof r.name === "string" ? r.name.slice(0, 120) : "";
   if (!level || !externalId) return null;
   if (r.kind === "budget" && level !== "ad" && typeof r.fromEur === "number" && typeof r.toEur === "number") return { kind: "budget", level, externalId, name, fromEur: r.fromEur, toEur: Math.round(r.toEur * 100) / 100 };
-  if (r.kind === "pause") return { kind: "pause", level, externalId, name, urgence: r.urgence === true };
+  if (r.kind === "pause") return { kind: "pause", level, externalId, name, urgence: r.urgence === true, ...(r.alerte === true ? { alerte: true } : {}) };
   if (r.kind === "activation") return { kind: "activation", level, externalId, name };
   return null;
 }

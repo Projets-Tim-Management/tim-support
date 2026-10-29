@@ -101,6 +101,7 @@ export interface Config {
     'ad-accounts': AdAccount;
     'ad-metrics-daily': AdMetricsDaily;
     'ad-objects': AdObject;
+    'ad-alerts': AdAlert;
     'ad-media': AdMedia;
     'ad-facts': AdFact;
     'ad-ai-usage': AdAiUsage;
@@ -189,6 +190,7 @@ export interface Config {
     'ad-accounts': AdAccountsSelect<false> | AdAccountsSelect<true>;
     'ad-metrics-daily': AdMetricsDailySelect<false> | AdMetricsDailySelect<true>;
     'ad-objects': AdObjectsSelect<false> | AdObjectsSelect<true>;
+    'ad-alerts': AdAlertsSelect<false> | AdAlertsSelect<true>;
     'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
     'ad-facts': AdFactsSelect<false> | AdFactsSelect<true>;
     'ad-ai-usage': AdAiUsageSelect<false> | AdAiUsageSelect<true>;
@@ -3078,6 +3080,27 @@ export interface AdObject {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-alerts".
+ */
+export interface AdAlert {
+  id: number;
+  campaign: number | AdCampaign;
+  kind: 'pub-refusee' | 'depense-anormale' | 'diffusion-nulle' | 'lien-casse' | 'clics-sans-lead';
+  level?: string | null;
+  objectExternalId?: string | null;
+  objectName?: string | null;
+  detail: string;
+  stage?: ('a-confirmer' | 'confirmee') | null;
+  detectedAt: string;
+  confirmedAt?: string | null;
+  resolvedAt?: string | null;
+  notifiedAt?: string | null;
+  decision?: (number | null) | AdDecision;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Chaque appel payant de l'atelier de créas, avec son coût. Écrit par le serveur ; les plafonds le relisent avant chaque appel.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3862,6 +3885,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-objects';
         value: number | AdObject;
+      } | null)
+    | ({
+        relationTo: 'ad-alerts';
+        value: number | AdAlert;
       } | null)
     | ({
         relationTo: 'ad-media';
@@ -5300,6 +5327,26 @@ export interface AdObjectsSelect<T extends boolean = true> {
   reach7d?: T;
   frequency7d?: T;
   syncedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-alerts_select".
+ */
+export interface AdAlertsSelect<T extends boolean = true> {
+  campaign?: T;
+  kind?: T;
+  level?: T;
+  objectExternalId?: T;
+  objectName?: T;
+  detail?: T;
+  stage?: T;
+  detectedAt?: T;
+  confirmedAt?: T;
+  resolvedAt?: T;
+  notifiedAt?: T;
+  decision?: T;
   updatedAt?: T;
   createdAt?: T;
 }
