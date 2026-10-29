@@ -15,8 +15,9 @@ import { validatePlatform } from "@/modules/ads/lib/platforms";
  * c'est le jour tel que la régie le compte. Un horodatage le ferait glisser d'un
  * jour selon le fuseau de qui le lit — et la clé d'unicité avec lui.
  *
- * `qualifiedLeads` et `won` sont calculés chez nous (phase 1), à partir des
- * fiches : c'est ce qui distingue un lead pas cher d'un lead qui signe.
+ * `siteLeads`, `qualifiedLeads` et `won` sont calculés CHEZ NOUS, à partir des
+ * formulaires du site et des fiches (lib/site-leads.ts) : c'est ce qui distingue
+ * un lead pas cher d'un lead qui signe. Ils sont rangés au jour du formulaire.
  */
 
 export const METRIC_LEVELS = [
@@ -69,7 +70,11 @@ export const AdMetricsDaily: CollectionConfig = {
     },
     {
       type: "row",
-      fields: [count("qualifiedLeads", "Leads qualifiés"), count("won", "Affaires gagnées")],
+      fields: [count("siteLeads", "Leads du site"), count("qualifiedLeads", "Leads qualifiés"), count("won", "Affaires gagnées")],
+    },
+    {
+      type: "row",
+      fields: [count("reach", "Portée du jour"), count("linkClicks", "Clics vers le site"), count("landingViews", "Vues de la page d'arrivée")],
     },
   ],
 };

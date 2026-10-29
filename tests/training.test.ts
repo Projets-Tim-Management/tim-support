@@ -18,6 +18,7 @@ describe("programmesFromParcours — brouillon du programme type", () => {
     { id: 8, title: "Parcours 2.1 — Pointer votre équipe (Chrono)", profil: "chef-chantier", order: 2, steps: [6] },
     { id: 4, title: "Vos premiers pas", profil: "compagnon", order: 1, steps: [] },
     { id: 9, title: null, profil: "compagnon", order: 2, steps: [7] },
+    { id: 17, title: "Parcours 1 — Votre espace", profil: "visuel", order: 1, steps: [8, 9] },
   ];
   const byProfile = () => Object.fromEntries(programmesFromParcours(parcours).map((p) => [p.profile, p.modules]));
 
@@ -42,6 +43,10 @@ describe("programmesFromParcours — brouillon du programme type", () => {
   it("donne au chef d'équipe le parcours du chef de chantier", () => {
     expect(byProfile().chefEquipe).toEqual(byProfile().chefChantier);
     expect(byProfile().chefChantier[0].title).toBe("Pointer votre équipe (Chrono)");
+  });
+
+  it("donne au compagnon visuel son propre parcours, plus celui du compagnon", () => {
+    expect(byProfile().visuel).toEqual([{ title: "Votre espace", minutes: 2 * MINUTES_PER_FEATURE, parcours: 17 }]);
   });
 
   it("laisse vide un profil sans parcours, écarte un parcours sans titre", () => {

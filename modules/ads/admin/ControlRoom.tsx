@@ -18,7 +18,7 @@ type Data = NonNullable<Room>;
 const time = (iso: string) => new Date(iso).toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const stamp = (iso: string) => new Date(iso).toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
-export const RUN_STATUS: Record<string, string> = { "en-cours": "En cours", "en-pause-budget": "En pause (plafond du jour)", "a-valider": "Terminé — à valider", arrete: "Arrêté", echoue: "Échoué" };
+export const RUN_STATUS: Record<string, string> = { "en-cours": "En cours", "en-pause-budget": "En pause (plafond du jour)", "a-valider": "Terminé — à valider", termine: "Terminé", arrete: "Arrêté", echoue: "Échoué" };
 const AGENT_STATUS: Record<string, { label: string; dot: string }> = {
   "en-attente": { label: "En attente", dot: "wait" },
   "en-cours": { label: "En cours", dot: "live" },
@@ -77,7 +77,7 @@ export function ControlRoom({ room, onSelectRun }: { room: Data; onSelectRun: (i
         ) : (
           <strong>Passage du {stamp(run.lanceLe)}</strong>
         )}
-        <span className={`ads-badge ${run.enCours ? "ads-badge--test" : run.statut === "a-valider" ? "ads-badge--ok" : run.statut === "echoue" ? "ads-badge--bad" : ""}`}>{RUN_STATUS[run.statut] ?? run.statut}</span>
+        <span className={`ads-badge ${run.enCours ? "ads-badge--test" : run.statut === "a-valider" || run.statut === "termine" ? "ads-badge--ok" : run.statut === "echoue" ? "ads-badge--bad" : ""}`}>{RUN_STATUS[run.statut] ?? run.statut}</span>
       </header>
       <p className="ads-agent__objective">« {run.objectif} »</p>
       {(run.bilan || run.motif) && <p className="ads-agent__last">{[run.bilan, run.motif].filter(Boolean).join(" ")}</p>}

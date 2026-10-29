@@ -64,6 +64,19 @@ async function guardContext(payload: Payload, campaignId: number | string, a: Ac
   };
 }
 
+/**
+ * Après un budget appliqué chez Meta, la part Meta de la répartition suit : c'est
+ * elle que lit le plafond mensuel du compte pour projeter la fin du mois.
+ */
+async function followSplit(payload: Payload, campaignId: number | string, a: Action): Promise<void> {
+  if (a.kind !== "budget") return;
+  const c = (await payload.findByID({ collection: "ad-campaigns", id: campaignId, depth: 0, overrideAccess: true }).catch(() => null)) as RawCampaign | null;
+  const split = c?.agentBudget?.split;
+  if (!split || split.metaDailyEur == null) return;
+  const metaDailyEur = Math.max(0, Math.round((Number(split.metaDailyEur) + a.toEur - a.fromEur) * 100) / 100);
+  await payload.update({ collection: "ad-campaigns", id: campaignId, data: { agentBudget: { ...c!.agentBudget, split: { ...split, metaDailyEur } } } as never, overrideAccess: true });
+}
+
 /** Applique l'action chez la régie. */
 async function apply(payload: Payload, accountId: number, a: Action): Promise<void> {
   const { ctx, platform } = await accountContext(payload, accountId);
@@ -120,6 +133,7 @@ export async function submitAction(
     overrideAccess: true,
   });
   if (error) payload.logger.warn(`[publicité] action « ${actionSummary(a)} » : ${error}`);
+  else await followSplit(payload, campaign.id, a).catch((e) => payload.logger.warn(`[publicité] répartition non suivie : ${(e as Error).message}`));
   return { decision: d.id, verdict, error };
 }
 
@@ -153,5 +167,6 @@ export async function reviewAction(payload: Payload, id: number | string, choice
     return { status: "bloquee", guardrail };
   }
   await payload.update({ collection: "ad-decisions", id, data: { status: "executee", executedAt: now.toISOString(), reviewedBy: userId } as never, overrideAccess: true });
+  await followSplit(payload, d.campaign, a).catch((e) => payload.logger.warn(`[publicité] répartition non suivie : ${(e as Error).message}`));
   return { status: "executee", guardrail: null };
 }

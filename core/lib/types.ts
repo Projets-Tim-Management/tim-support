@@ -133,7 +133,7 @@ export interface WPMedia {
 
 // ─── Parcours d'apprentissage ────────────────────────────────────────────────
 
-export type ParcoursProfil = "admin" | "conducteur" | "chef-chantier" | "compagnon" | "";
+export type ParcoursProfil = "admin" | "conducteur" | "chef-chantier" | "compagnon" | "visuel" | "";
 
 export interface ParcoursSummary {
   id:         number;

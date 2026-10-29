@@ -231,7 +231,7 @@ async function advanceAgent(deps: AgentDeps, run: RunRow, agent: AgentRow, agent
   }
 }
 
-export type TickResult = { outcome: "occupe" | "pause-budget" | "en-cours" | "a-valider" | "echoue" | "arrete"; steps: number };
+export type TickResult = { outcome: "occupe" | "pause-budget" | "en-cours" | "a-valider" | "termine" | "echoue" | "arrete"; steps: number };
 
 /**
  * Un agent qui attend ses sous-agents (étape d'attente ouverte, ou demandée et
@@ -256,7 +256,7 @@ export async function tickRun(deps: AgentDeps, runId: RunRow["id"], deadline: Da
   if (!(await store.acquireLease(runId, held, now()))) return { outcome: "occupe", steps: 0 };
   let count = 0;
   let lost = false;
-  const finish = async (status: "a-valider" | "echoue", patch: { summary?: string | null; error?: string | null }): Promise<TickResult> => {
+  const finish = async (status: "a-valider" | "termine" | "echoue", patch: { summary?: string | null; error?: string | null }): Promise<TickResult> => {
     // Un « Arrêter » arrivé pendant l'étape l'emporte : on ne le remplace pas (relecture du 01/10/2026, F6).
     const current = await store.getRun(runId);
     if (current.status !== "en-cours") return { outcome: current.status === "en-pause-budget" ? "pause-budget" : current.status, steps: count };
@@ -276,7 +276,8 @@ export async function tickRun(deps: AgentDeps, runId: RunRow["id"], deadline: Da
 
       const root = agents.find((a) => a.depth === 0);
       if (!root) return finish("echoue", { error: "Aucun orchestrateur." });
-      if (root.status === "termine") return finish("a-valider", { summary: (root.result as { resume?: string } | null)?.resume ?? null });
+      // Une préparation dépose ses créas « À valider » ; un passage de suivi a fini son travail.
+      if (root.status === "termine") return finish(run.kind && run.kind !== "preparation" ? "termine" : "a-valider", { summary: (root.result as { resume?: string } | null)?.resume ?? null });
       if (root.status === "echoue" || root.status === "arrete") return finish("echoue", { error: root.error ?? "L'orchestrateur s'est arrêté." });
 
       // Un agent fini ne laisse pas tourner ses sous-agents : personne ne lirait leur résultat.

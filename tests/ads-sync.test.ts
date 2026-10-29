@@ -15,7 +15,7 @@ type Where = Record<string, unknown>;
 
 /** Une base en mémoire : juste ce que la synchro utilise (find, update, create, db.find, sendEmail). */
 function memoryPayload(seed: Record<string, Doc[]> = {}, settings: Record<string, unknown> = {}) {
-  const tables: Record<string, Doc[]> = { "ad-accounts": [], "ad-campaigns": [], "ad-metrics-daily": [], users: [], ...seed };
+  const tables: Record<string, Doc[]> = { "ad-accounts": [], "ad-campaigns": [], "ad-metrics-daily": [], "ad-objects": [], "form-submissions": [], "partner-clients": [], users: [], ...seed };
   let next = 1000;
   const mails: { to: string; subject: string; text: string }[] = [];
   const writes = { create: 0, update: 0 };
@@ -175,10 +175,76 @@ describe("synchro d'un compte", () => {
     expect((await syncAccount(memoryPayload({ "ad-accounts": [withSystem] }).payload, withSystem, spy, NOW)).status).toBe("connecte");
   });
 
+  it("lit l'état des ensembles et des pubs, avec leur répétition sur la fenêtre", async () => {
+    const { payload, tables } = memoryPayload({ "ad-accounts": [simulated()] });
+    const r = await syncAccount(payload, simulated(), mock, NOW);
+    // 3 campagnes × (2 ensembles + 4 annonces)
+    expect(r.objects).toBe(18);
+    const ad = tables["ad-objects"].find((o) => o.level === "ad")!;
+    expect(ad).toMatchObject({ effectiveStatus: expect.any(String), adsetExternalId: expect.stringMatching(/-e\d$/) });
+    expect(ad.frequency7d as number).toBeGreaterThan(1);
+    await syncAccount(payload, simulated(), mock, NOW);
+    expect(tables["ad-objects"]).toHaveLength(18); // réécrits, jamais doublés
+  });
+
+  it("range un formulaire venu d'une pub sur la pub, son ensemble et sa campagne", async () => {
+    const campaign = "120000000000000001";
+    const { payload, tables } = memoryPayload({
+      "ad-accounts": [simulated()],
+      "form-submissions": [{ id: 5, createdAt: "2026-09-27T09:00:00.000Z", utmMedium: "paid_social", utmCampaign: campaign, utmContent: `${campaign}-a3` } as never],
+      "partner-clients": [{ id: 9, formSubmission: 5, clientStatus: "demo-programmee" }],
+    });
+    // L'identifiant simulé d'une annonce n'est pas un nombre : on le rend lisible pour le test.
+    const numeric: AdPlatform = {
+      ...mock,
+      listObjects: async (a) => (await mock.listObjects!(a)).map((o) => ({ ...o, externalId: o.externalId.replace("-a", "9").replace("-e", "8"), adsetExternalId: o.adsetExternalId?.replace("-e", "8") ?? null })),
+    };
+    (tables["form-submissions"][0] as Doc).utmContent = `${campaign}93`;
+    const r = await syncAccount(payload, simulated(), numeric, NOW);
+    expect(r.siteLeads).toBe(3);
+    const at = (level: string, id: string) => tables["ad-metrics-daily"].find((d) => d.level === level && d.externalId === id && d.day === "2026-09-27");
+    expect(at("ad", `${campaign}93`)).toMatchObject({ siteLeads: 1, qualifiedLeads: 1, won: 0 });
+    expect(at("adset", `${campaign}82`)).toMatchObject({ siteLeads: 1 });
+    expect(at("campaign", campaign)).toMatchObject({ siteLeads: 1, qualifiedLeads: 1 });
+    // La fiche est perdue : le lead reste, il n'est plus qualifié.
+    (tables["partner-clients"][0] as Doc).clientStatus = "perdue";
+    await syncAccount(payload, simulated(), numeric, NOW);
+    expect(at("campaign", campaign)).toMatchObject({ siteLeads: 1, qualifiedLeads: 0 });
+  });
+
+  it("un échec sur l'état des pubs n'arrête pas la synchro", async () => {
+    const { payload, tables } = memoryPayload({ "ad-accounts": [simulated()] });
+    const failing: AdPlatform = { ...mock, listObjects: async () => { throw new Error("Meta 100 : champ inconnu"); } };
+    const r = await syncAccount(payload, simulated(), failing, NOW);
+    expect(r.status).toBe("connecte");
+    expect(r.warnings).toEqual(["État des pubs : Meta 100 : champ inconnu"]);
+    expect(tables["ad-metrics-daily"]).toHaveLength(7 * 21);
+  });
+
   it("compare une colonne numérique revenue en chaîne", () => {
     expect(sameValue("12.3", 12.3)).toBe(true);
     expect(sameValue(null, 0)).toBe(false);
     expect(sameValue("abc", "abc")).toBe(true);
+  });
+});
+
+describe("le passage de chaque heure", () => {
+  it("ne lit que les comptes qui ont une campagne en diffusion, sans rappel de jeton", async () => {
+    const soon = { tokenExpiresAt: "2026-10-03T08:00:00.000Z" };
+    const { payload, mails } = memoryPayload({
+      "ad-accounts": [simulated(soon), simulated({ ...soon, id: 2, name: "Sans diffusion" })],
+      "ad-campaigns": [{ id: 50, account: 1, publicationStatus: "active" } as never],
+      users: [{ id: 1, email: "direction@tim.test", roles: ["admin"] } as never],
+    });
+    const { results, alerted } = await runAdsSync(payload, { now: NOW, env: { ADS_META_MOCK: "1" }, live: true });
+    expect(results.map((r) => r.id)).toEqual([1]);
+    expect(alerted).toEqual([]);
+    expect(mails).toEqual([]);
+  });
+
+  it("sans campagne en diffusion, ne lit rien", async () => {
+    const { payload } = memoryPayload({ "ad-accounts": [simulated()] });
+    expect((await runAdsSync(payload, { now: NOW, env: { ADS_META_MOCK: "1" }, live: true })).results).toEqual([]);
   });
 });
 

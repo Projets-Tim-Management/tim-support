@@ -10,6 +10,7 @@ export const PARCOURS_PROFILS = [
   { value: "conducteur", label: "Conducteur de travaux" },
   { value: "chef-chantier", label: "Chef de chantier" },
   { value: "compagnon", label: "Compagnon" },
+  { value: "visuel", label: "Compagnon visuel" },
 ] as const;
 
 /** Valeurs valides, dans l'ordre (pour tri / validation). */

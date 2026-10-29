@@ -6,7 +6,7 @@ import { accessVerdict, accountProblem } from "@/modules/ads/lib/access-verdict"
 import { accountContext } from "@/modules/ads/lib/account-access";
 import { ctaMeta } from "@/modules/ads/lib/cta";
 import { readPlan, type MediaPlan } from "@/modules/ads/lib/media-plan";
-import { advance, emptyState, publishProblems, type PubCrea, type PubFile, type PubInput, type PubState } from "@/modules/ads/lib/publish/engine";
+import { advance, advanceAdditions, emptyState, publishProblems, type PubCrea, type PubFile, type PubInput, type PubState } from "@/modules/ads/lib/publish/engine";
 import type { AccountState } from "@/modules/ads/platforms/types";
 
 /**
@@ -190,6 +190,58 @@ export async function tickPublications(payload: Payload): Promise<{ checked: num
     if (s.status === "en-pause") done++;
   }
   return { checked: r.docs.length, done };
+}
+
+/**
+ * Les créas validées d'une campagne EN DIFFUSION qui n'y sont pas encore
+ * (renouvellement, §9 nonies étape 5 — décision du 29/10/2026 : la validation de
+ * Charlie suffit, la publication suit seule). Chaque minute, par le cron
+ * ads-publish, sous le même bail que la publication. Seules les créas nées
+ * APRÈS la publication sont concernées ; une créa sans fichier, sans texte
+ * principal ou sans titre attend.
+ */
+export async function tickAdditions(payload: Payload): Promise<{ checked: number; placed: number }> {
+  const settings = (await payload.findGlobal({ slug: "ads-settings", overrideAccess: true })) as { enabled?: boolean | null };
+  if (settings.enabled === false) return { checked: 0, placed: 0 };
+  const r = await payload.find({ collection: "ad-campaigns", where: { publicationStatus: { equals: "active" } }, pagination: false, depth: 0, overrideAccess: true });
+  let checked = 0;
+  let placed = 0;
+  for (const c of r.docs as unknown as RawCampaign[]) {
+    const s = c.publication;
+    if (!s || s.status !== "active") continue;
+    // Seulement les créas NÉES après la publication : une créa validée avant, et jamais publiée, ne part pas d'elle-même.
+    const born = await payload.find({
+      collection: "ad-creatives",
+      where: { and: [{ campaign: { equals: c.id } }, { status: { equals: "validee" } }, { createdAt: { greater_than: s.publishedAt ?? s.activatedAt ?? new Date().toISOString() } }] },
+      pagination: false,
+      depth: 0,
+      overrideAccess: true,
+      select: { id: true } as never,
+    });
+    if (!born.docs.length) continue;
+    const ids = new Set((born.docs as { id: number }[]).map((d) => String(d.id)));
+    const { input, campaign } = await loadInput(payload, c.id);
+    const fresh = input.creas.filter((x) => ids.has(String(x.id)) && !s.creas.map(String).includes(String(x.id)) && x.body && x.title);
+    if (!fresh.length) continue;
+    checked++;
+    if (!(await claim(payload, c.id))) continue;
+    try {
+      const account = await assertAccountCanRun(payload, campaign);
+      const out = await advanceAdditions(s, fresh, input, { platform: account.platform, acc: account.ctx, now: () => new Date(), deadline: Date.now() + STEP_BUDGET_MS }, (st) => write(payload, c.id, st));
+      await write(payload, c.id, out.state);
+      for (const id of out.placed) await payload.update({ collection: "ad-creatives", id, data: { status: "en-ligne" } as never, overrideAccess: true }).catch(() => null);
+      placed += out.placed.length;
+    } catch (e) {
+      // La campagne reste en diffusion : l'échec se note au journal de la publication, et la minute suivante réessaie.
+      const now = new Date().toISOString();
+      const latest = (await current(payload, c.id)) ?? s;
+      await write(payload, c.id, { ...latest, history: [...latest.history, { at: now, line: `Ajout de créas en échec : ${(e as Error).message}` }] });
+      payload.logger.warn(`[publicité] ajout de créas à la campagne ${c.id} : ${(e as Error).message}`);
+    } finally {
+      await release(payload, c.id);
+    }
+  }
+  return { checked, placed };
 }
 
 /** « Activer » : publicités, ensembles puis campagne passent actifs ; les créas « En ligne ». */

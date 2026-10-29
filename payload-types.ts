@@ -100,6 +100,12 @@ export interface Config {
     'ad-creatives': AdCreative;
     'ad-accounts': AdAccount;
     'ad-metrics-daily': AdMetricsDaily;
+    'ad-objects': AdObject;
+    'ad-alerts': AdAlert;
+    'ad-tests': AdTest;
+    'ad-conversions': AdConversion;
+    'ad-questions': AdQuestion;
+    'ad-recaps': AdRecap;
     'ad-media': AdMedia;
     'ad-facts': AdFact;
     'ad-ai-usage': AdAiUsage;
@@ -187,6 +193,12 @@ export interface Config {
     'ad-creatives': AdCreativesSelect<false> | AdCreativesSelect<true>;
     'ad-accounts': AdAccountsSelect<false> | AdAccountsSelect<true>;
     'ad-metrics-daily': AdMetricsDailySelect<false> | AdMetricsDailySelect<true>;
+    'ad-objects': AdObjectsSelect<false> | AdObjectsSelect<true>;
+    'ad-alerts': AdAlertsSelect<false> | AdAlertsSelect<true>;
+    'ad-tests': AdTestsSelect<false> | AdTestsSelect<true>;
+    'ad-conversions': AdConversionsSelect<false> | AdConversionsSelect<true>;
+    'ad-questions': AdQuestionsSelect<false> | AdQuestionsSelect<true>;
+    'ad-recaps': AdRecapsSelect<false> | AdRecapsSelect<true>;
     'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
     'ad-facts': AdFactsSelect<false> | AdFactsSelect<true>;
     'ad-ai-usage': AdAiUsageSelect<false> | AdAiUsageSelect<true>;
@@ -920,6 +932,12 @@ export interface FormSubmission {
    */
   fbclid?: string | null;
   /**
+   * Coché : le visiteur a accepté les cookies publicitaires. Sinon, rien de ce lead ne part chez Meta.
+   */
+  adsConsent?: boolean | null;
+  fbp?: string | null;
+  fbc?: string | null;
+  /**
    * Cookie _ga. Vide : visiteur sans consentement, lead manuel ou importé — rien n'est envoyé à GA4.
    */
   gaClientId?: string | null;
@@ -1400,7 +1418,7 @@ export interface Feature {
    * Où ranger la fiche, ex. « Mobile › Authentification ».
    */
   categories?: (number | FeatureCategory)[] | null;
-  profiles?: ('conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'visuel' | 'bureau')[] | null;
+  profiles?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'visuel' | 'bureau')[] | null;
   /**
    * Facultative : visuel des cartes et des résultats de recherche.
    */
@@ -1849,7 +1867,7 @@ export interface Parcour {
    * Tri croissant (équivalent menu_order WP).
    */
   order?: number | null;
-  profil?: ('admin' | 'conducteur' | 'chef-chantier' | 'compagnon') | null;
+  profil?: ('admin' | 'conducteur' | 'chef-chantier' | 'compagnon' | 'visuel') | null;
   intro?: string | null;
   /**
    * L'ordre des features définit l'ordre des étapes.
@@ -2502,7 +2520,10 @@ export interface AdDecision {
     | 'budget'
     | 'pause'
     | 'activation'
-    | 'attente';
+    | 'attente'
+    | 'test'
+    | 'renouvellement'
+    | 'bascule';
   status: 'proposee' | 'executee' | 'bloquee';
   rationale: string;
   before?:
@@ -2558,7 +2579,7 @@ export interface AdAgentRun {
   campaign: number | AdCampaign;
   objective: string;
   kind: 'preparation' | 'quotidien' | 'hebdomadaire' | 'mensuel';
-  status: 'en-cours' | 'en-pause-budget' | 'a-valider' | 'arrete' | 'echoue';
+  status: 'en-cours' | 'en-pause-budget' | 'a-valider' | 'termine' | 'arrete' | 'echoue';
   budgetEur: number;
   costEur?: number | null;
   tokens?: {
@@ -3035,8 +3056,155 @@ export interface AdMetricsDaily {
   impressions?: number | null;
   clicks?: number | null;
   leads?: number | null;
+  siteLeads?: number | null;
   qualifiedLeads?: number | null;
   won?: number | null;
+  reach?: number | null;
+  linkClicks?: number | null;
+  landingViews?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-objects".
+ */
+export interface AdObject {
+  id: number;
+  account: number | AdAccount;
+  platform: string;
+  level: 'adset' | 'ad';
+  externalId: string;
+  name?: string | null;
+  campaignExternalId?: string | null;
+  adsetExternalId?: string | null;
+  status?: string | null;
+  effectiveStatus?: string | null;
+  dailyBudget?: number | null;
+  issues?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  reach7d?: number | null;
+  frequency7d?: number | null;
+  syncedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-alerts".
+ */
+export interface AdAlert {
+  id: number;
+  campaign: number | AdCampaign;
+  kind: 'pub-refusee' | 'depense-anormale' | 'diffusion-nulle' | 'lien-casse' | 'clics-sans-lead';
+  level?: string | null;
+  objectExternalId?: string | null;
+  objectName?: string | null;
+  detail: string;
+  stage?: ('a-confirmer' | 'confirmee') | null;
+  detectedAt: string;
+  confirmedAt?: string | null;
+  resolvedAt?: string | null;
+  notifiedAt?: string | null;
+  decision?: (number | null) | AdDecision;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-tests".
+ */
+export interface AdTest {
+  id: number;
+  campaign: number | AdCampaign;
+  run?: (number | null) | AdAgentRun;
+  hypothesis: string;
+  dimension: 'ton' | 'angle' | 'accroche' | 'format' | 'visuel' | 'cta' | 'style' | 'musique' | 'page' | 'audience';
+  metric: 'cpl-qualifie' | 'cpl' | 'cout-par-vue' | 'ctr';
+  /**
+   * [{ label, ads: [identifiants Meta], creatives: [identifiants] }]
+   */
+  variants:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  minResults?: number | null;
+  minDays?: number | null;
+  maxDays?: number | null;
+  status: 'en-attente-de-volume' | 'en-cours' | 'conclu' | 'sans-verdict' | 'abandonne';
+  reason?: string | null;
+  results?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  winner?: string | null;
+  probability?: number | null;
+  confidence?: ('forte' | 'moyenne') | null;
+  interpretation?: string | null;
+  openedAt: string;
+  closedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-conversions".
+ */
+export interface AdConversion {
+  id: number;
+  submission: number | FormSubmission;
+  event: 'Lead' | 'QualifiedLead' | 'WonDeal';
+  eventId: string;
+  pixelId?: string | null;
+  status: 'envoye' | 'ignore' | 'echec';
+  detail?: string | null;
+  sentAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-questions".
+ */
+export interface AdQuestion {
+  id: number;
+  campaign: number | AdCampaign;
+  question: string;
+  answer?: string | null;
+  error?: string | null;
+  askedBy?: (number | null) | User;
+  costEur?: number | null;
+  askedAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-recaps".
+ */
+export interface AdRecap {
+  id: number;
+  week: string;
+  status: 'envoye' | 'vide' | 'echec';
+  text?: string | null;
+  sentAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3821,6 +3989,30 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-metrics-daily';
         value: number | AdMetricsDaily;
+      } | null)
+    | ({
+        relationTo: 'ad-objects';
+        value: number | AdObject;
+      } | null)
+    | ({
+        relationTo: 'ad-alerts';
+        value: number | AdAlert;
+      } | null)
+    | ({
+        relationTo: 'ad-tests';
+        value: number | AdTest;
+      } | null)
+    | ({
+        relationTo: 'ad-conversions';
+        value: number | AdConversion;
+      } | null)
+    | ({
+        relationTo: 'ad-questions';
+        value: number | AdQuestion;
+      } | null)
+    | ({
+        relationTo: 'ad-recaps';
+        value: number | AdRecap;
       } | null)
     | ({
         relationTo: 'ad-media';
@@ -4954,6 +5146,9 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
   msclkid?: T;
   oaiclid?: T;
   fbclid?: T;
+  adsConsent?: T;
+  fbp?: T;
+  fbc?: T;
   gaClientId?: T;
   gaSessionId?: T;
   client?: T;
@@ -5231,8 +5426,122 @@ export interface AdMetricsDailySelect<T extends boolean = true> {
   impressions?: T;
   clicks?: T;
   leads?: T;
+  siteLeads?: T;
   qualifiedLeads?: T;
   won?: T;
+  reach?: T;
+  linkClicks?: T;
+  landingViews?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-objects_select".
+ */
+export interface AdObjectsSelect<T extends boolean = true> {
+  account?: T;
+  platform?: T;
+  level?: T;
+  externalId?: T;
+  name?: T;
+  campaignExternalId?: T;
+  adsetExternalId?: T;
+  status?: T;
+  effectiveStatus?: T;
+  dailyBudget?: T;
+  issues?: T;
+  reach7d?: T;
+  frequency7d?: T;
+  syncedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-alerts_select".
+ */
+export interface AdAlertsSelect<T extends boolean = true> {
+  campaign?: T;
+  kind?: T;
+  level?: T;
+  objectExternalId?: T;
+  objectName?: T;
+  detail?: T;
+  stage?: T;
+  detectedAt?: T;
+  confirmedAt?: T;
+  resolvedAt?: T;
+  notifiedAt?: T;
+  decision?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-tests_select".
+ */
+export interface AdTestsSelect<T extends boolean = true> {
+  campaign?: T;
+  run?: T;
+  hypothesis?: T;
+  dimension?: T;
+  metric?: T;
+  variants?: T;
+  minResults?: T;
+  minDays?: T;
+  maxDays?: T;
+  status?: T;
+  reason?: T;
+  results?: T;
+  winner?: T;
+  probability?: T;
+  confidence?: T;
+  interpretation?: T;
+  openedAt?: T;
+  closedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-conversions_select".
+ */
+export interface AdConversionsSelect<T extends boolean = true> {
+  submission?: T;
+  event?: T;
+  eventId?: T;
+  pixelId?: T;
+  status?: T;
+  detail?: T;
+  sentAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-questions_select".
+ */
+export interface AdQuestionsSelect<T extends boolean = true> {
+  campaign?: T;
+  question?: T;
+  answer?: T;
+  error?: T;
+  askedBy?: T;
+  costEur?: T;
+  askedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-recaps_select".
+ */
+export interface AdRecapsSelect<T extends boolean = true> {
+  week?: T;
+  status?: T;
+  text?: T;
+  sentAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

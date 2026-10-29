@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 
 import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
-import { tickPublications } from "@/modules/ads/lib/publish/run";
+import { tickAdditions, tickPublications } from "@/modules/ads/lib/publish/run";
 
 /**
  * Chaque minute : les publications chez Meta qui attendent (vidéo encore en
  * traitement, passe interrompue) avancent d'une passe, sous bail. Ne crée
  * jamais une publication : seul le geste « Publier » de Charlie en ouvre une.
+ * Puis les créas validées d'une campagne EN DIFFUSION y sont ajoutées
+ * (renouvellement, §9 nonies) : la validation de Charlie suffit.
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -18,5 +20,7 @@ export async function GET(req: Request) {
   const payload = await payloadClient();
   const r = await tickPublications(payload);
   if (r.checked) payload.logger.info(`[cron] publication : ${r.checked} en cours, ${r.done} terminée(s).`);
-  return NextResponse.json({ ok: true, ...r });
+  const a = await tickAdditions(payload).catch((e) => (payload.logger.error(`[publicité] ajout de créas : ${(e as Error).message}`), { checked: 0, placed: 0 }));
+  if (a.placed) payload.logger.info(`[cron] publication : ${a.placed} créa(s) ajoutée(s) à des campagnes en ligne.`);
+  return NextResponse.json({ ok: true, ...r, ajouts: a });
 }

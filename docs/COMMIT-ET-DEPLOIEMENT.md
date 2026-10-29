@@ -156,9 +156,9 @@ db:security`, qui fait échouer la commande si une table est ouverte à `anon` /
 `authenticated` ou sans RLS. Un échec de ce contrôle se traite avant toute
 autre chose.
 
-Avant d'appliquer : serveur de dev coupé (voir « Les quatre portes »), dump de
-la base vérifié dans `~/tim-backups` (droits 600), et feu vert de
-l'utilisateur.
+Avant d'appliquer : serveur de dev coupé (voir « Les quatre portes ») et feu
+vert de l'utilisateur. Pas de dump de la base avant de migrer (décision de
+Charlie, 29/10/2026), sauf demande explicite.
 
 > **Migration bloquée comme destructive : on s'arrête (règle du 29/09/2026).**
 > Si `db:migrate:apply` refuse une migration parce qu'elle contient un

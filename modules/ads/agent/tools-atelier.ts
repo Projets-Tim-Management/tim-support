@@ -336,6 +336,14 @@ const ENSEMBLE_SCHEMA = {
   required: ["nom", "part"],
 } as const;
 
+/** Un renouvellement travaille sur une campagne en ligne : ce qui est publié ne se repropose pas (§9 nonies, étape 5). */
+const refuseOnline = (ctx: ToolContext, what: string): ToolOutcome => ({
+  kind: "ok",
+  isError: true,
+  output: { refus: `Campagne en ligne : ${what} est en place et ne change pas ici. Concentre-toi sur les nouvelles créas.` },
+  line: `${who(ctx)} : ${what} d'une campagne en ligne ne se repropose pas.`,
+});
+
 const proposerPlanDiffusion: AgentTool = {
   definition: {
     name: "proposer_plan_diffusion",
@@ -364,6 +372,7 @@ const proposerPlanDiffusion: AgentTool = {
     },
   },
   async run(ctx, input) {
+    if (ctx.run.renewal) return refuseOnline(ctx, "le plan de diffusion");
     const appuis = appuisOf(ctx, input);
     if (isOutcome(appuis)) return appuis;
     const plan = readPlan(input);
@@ -391,6 +400,7 @@ const repartirBudget: AgentTool = {
     },
   },
   async run(ctx, input) {
+    if (ctx.run.renewal) return refuseOnline(ctx, "la répartition du budget");
     const appuis = appuisOf(ctx, input);
     if (isOutcome(appuis)) return appuis;
     const split = { aiDailyEur: Number(input.ia_eur_jour), metaDailyEur: Number(input.meta_eur_jour) };

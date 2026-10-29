@@ -31,6 +31,17 @@ export const ADS_AGENT_MODELS = {
   analyste: "claude-sonnet-5-5",
 } as const satisfies Record<AgentRole, ClaudeModel>;
 
+/**
+ * L'analyste des campagnes en ligne (plan, §9 nonies) : Sonnet tous les 2 jours,
+ * pour lire et prévenir à peu de frais ; Opus le lundi et au bilan du mois, quand il
+ * décide (§9 quinquies §5).
+ */
+export const ADS_FOLLOWUP_MODELS = {
+  quotidien: "claude-sonnet-5-5",
+  hebdomadaire: "claude-opus-5-5",
+  mensuel: "claude-opus-5-5",
+} as const satisfies Record<"quotidien" | "hebdomadaire" | "mensuel", ClaudeModel>;
+
 /** Sortie maximale d'un tour d'agent (réflexion comprise) : elle fixe le coût maximal vérifié avant chaque appel. */
 export const ADS_AGENT_MAX_TOKENS = 12_000;
 

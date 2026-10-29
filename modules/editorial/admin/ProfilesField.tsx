@@ -2,16 +2,17 @@
 
 import { FieldLabel, useField } from "@payloadcms/ui";
 
-import { FEATURE_PROFILES } from "@/modules/editorial/lib/feature-profiles";
+import { FEATURE_PROFILES, forEveryone, TEAM_PROFILES } from "@/modules/editorial/lib/feature-profiles";
 
 /**
  * « Pour qui ? » en cases à cocher, avec « Tous les profils » en tête.
  *
  * La liste déroulante à choix multiple obligeait à ajouter les six profils un
- * par un pour dire « tout le monde ». « Tous » coche les six d'un coup — c'est
- * la même valeur en base (les six profils), aucune valeur spéciale à gérer.
+ * par un pour dire « tout le monde ». « Tous » coche les six profils métier
+ * d'un coup — c'est la même valeur en base, aucune valeur spéciale à gérer.
  * Rien de coché reste possible et veut dire la même chose : la fiche concerne
- * tout le monde.
+ * tout le monde. « Administrateur » seul : une fiche que lui seul voit (il voit
+ * tout de toute façon, sa case n'entre pas dans « Tous »).
  */
 const ALL = FEATURE_PROFILES.map((p) => p.value as string);
 
@@ -28,7 +29,7 @@ export function ProfilePills({
   onChange: (next: string[]) => void;
   disabled?: boolean;
 }) {
-  const all = ALL.every((v) => value.includes(v));
+  const all = value.length > 0 && forEveryone(value);
   // Toujours dans l'ordre de la liste : la fiche ne change pas selon l'ordre des clics.
   const toggle = (v: string, on: boolean) => onChange(ALL.filter((x) => (x === v ? on : value.includes(x))));
 
@@ -43,7 +44,7 @@ export function ProfilePills({
         className={pill(all, " fw-pill--all")}
         aria-pressed={all}
         disabled={disabled}
-        onClick={() => onChange(all ? [] : ALL)}
+        onClick={() => onChange(all ? [] : TEAM_PROFILES)}
       >
         <span className="fw-pill__mark" aria-hidden>
           {all ? "✓" : ""}
@@ -77,7 +78,7 @@ export function ProfilesField(props: any) {
   const path: string = props?.path ?? "profiles";
   const { value, setValue } = useField<string[] | null>({ path });
   const current = Array.isArray(value) ? value : [];
-  const all = ALL.every((v) => current.includes(v));
+  const all = current.length > 0 && forEveryone(current);
 
   return (
     <div className="field-type">
@@ -88,7 +89,9 @@ export function ProfilesField(props: any) {
           ? "Aucun profil coché : la fiche s'affiche pour tout le monde."
           : all
             ? "La fiche s'affiche pour tous les profils."
-            : `La fiche s'affiche pour ${current.length} profil${current.length > 1 ? "s" : ""} sur ${ALL.length}.`}
+            : current.length === 1 && current[0] === "admin"
+              ? "La fiche ne s'affiche que pour l'administrateur."
+              : `La fiche s'affiche pour ${current.length} profil${current.length > 1 ? "s" : ""} sur ${ALL.length}.`}
       </p>
     </div>
   );

@@ -22,7 +22,9 @@ import {
   type DateRange,
   type Level,
   type MetricRow,
+  type ObjectSnapshot,
   type Objective,
+  type ReachRow,
 } from "@/modules/ads/platforms/types";
 
 /**
@@ -103,6 +105,27 @@ export function metaLeads(actions?: Action[] | null): number {
   const agg = actions.find((a) => a.action_type === LEAD_AGGREGATE);
   if (agg) return Number(agg.value) || 0;
   return actions.filter((a) => LEAD_PARTS.includes(a.action_type ?? "")).reduce((s, a) => s + (Number(a.value) || 0), 0);
+}
+
+/** La valeur d'un type d'action (« landing_page_view »), 0 s'il n'y est pas. Pure. */
+export const metaAction = (actions: Action[] | null | undefined, type: string): number => Number(actions?.find((a) => a.action_type === type)?.value) || 0;
+
+type RawIssue = { error_summary?: string; error_message?: string };
+
+/**
+ * Ce que Meta reproche à un objet, en clair : la revue d'une pub refusée
+ * (`ad_review_feedback`, par règle enfreinte) et les problèmes de diffusion
+ * (`issues_info`). Sans doublon. Pure.
+ */
+export function metaIssues(feedback: unknown, issues: RawIssue[] | null | undefined): string[] {
+  const out: string[] = [];
+  const fb = (feedback ?? {}) as { global?: Record<string, string> } & Record<string, unknown>;
+  for (const [rule, text] of Object.entries(fb.global ?? {})) out.push(text ? `${rule} : ${text}` : rule);
+  for (const i of issues ?? []) {
+    const t = [i.error_summary, i.error_message].filter(Boolean).join(" — ");
+    if (t) out.push(t);
+  }
+  return [...new Set(out)];
 }
 
 type GraphError = { error?: { message?: string; code?: number; error_subcode?: number; type?: string; error_user_msg?: string } };
@@ -284,6 +307,8 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
         spend?: string;
         impressions?: string;
         clicks?: string;
+        reach?: string;
+        inline_link_clicks?: string;
         actions?: Action[];
       };
       const rows = await all<Raw>(
@@ -292,7 +317,7 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
           level,
           time_range: JSON.stringify(range),
           time_increment: "1",
-          fields: "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,impressions,clicks,actions",
+          fields: "campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,spend,impressions,clicks,reach,inline_link_clicks,actions",
           limit: "500",
         }),
       );
@@ -307,6 +332,52 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
         impressions: Number(r.impressions) || 0,
         clicks: Number(r.clicks) || 0,
         leads: metaLeads(r.actions),
+        reach: Number(r.reach) || 0,
+        linkClicks: Number(r.inline_link_clicks) || 0,
+        landingViews: metaAction(r.actions, "landing_page_view"),
+      }));
+    },
+
+    async listObjects(acc: AccountContext): Promise<ObjectSnapshot[]> {
+      type RawObj = {
+        id: string;
+        name?: string;
+        campaign_id?: string;
+        adset_id?: string;
+        status?: string;
+        effective_status?: string;
+        daily_budget?: string;
+        ad_review_feedback?: unknown;
+        issues_info?: RawIssue[];
+      };
+      const [adsets, ads] = await Promise.all([
+        all<RawObj>(url(`${acc.externalId}/adsets`, { access_token: acc.token, fields: "id,name,campaign_id,status,effective_status,daily_budget,issues_info", limit: "200" })),
+        all<RawObj>(url(`${acc.externalId}/ads`, { access_token: acc.token, fields: "id,name,campaign_id,adset_id,status,effective_status,ad_review_feedback,issues_info", limit: "200" })),
+      ]);
+      const snap = (level: "adset" | "ad", r: RawObj): ObjectSnapshot => ({
+        level,
+        externalId: r.id,
+        name: r.name ?? "",
+        campaignExternalId: r.campaign_id ?? "",
+        adsetExternalId: level === "ad" ? (r.adset_id ?? null) : null,
+        status: r.status ?? "",
+        effectiveStatus: r.effective_status ?? "",
+        dailyBudget: metaAmount(r.daily_budget, acc.currency),
+        issues: metaIssues(r.ad_review_feedback, r.issues_info),
+      });
+      return [...adsets.map((r) => snap("adset", r)), ...ads.map((r) => snap("ad", r))];
+    },
+
+    async fetchReach(acc: AccountContext, range: DateRange, level: Level): Promise<ReachRow[]> {
+      type Raw = { campaign_id?: string; adset_id?: string; ad_id?: string; reach?: string; frequency?: string };
+      const rows = await all<Raw>(
+        url(`${acc.externalId}/insights`, { access_token: acc.token, level, time_range: JSON.stringify(range), fields: "campaign_id,adset_id,ad_id,reach,frequency", limit: "500" }),
+      );
+      return rows.map((r) => ({
+        level,
+        externalId: (level === "ad" ? r.ad_id : level === "adset" ? r.adset_id : r.campaign_id) ?? "",
+        reach: Number(r.reach) || 0,
+        frequency: Number(r.frequency) || 0,
       }));
     },
 
@@ -398,6 +469,11 @@ export function createMetaPlatform(cfg: MetaConfig): AdPlatform {
 
     async setStatus(acc: AccountContext, ref: ObjectRef, status: "active" | "pause"): Promise<void> {
       await post(ref.externalId, acc.token, { status: status === "active" ? "ACTIVE" : "PAUSED" });
+    },
+
+    async sendEvents(acc: AccountContext, pixelId: string, events: Record<string, unknown>[]): Promise<{ received: number }> {
+      const r = await post<{ events_received?: number }>(`${pixelId}/events`, acc.token, { data: events });
+      return { received: Number(r.events_received ?? 0) };
     },
 
     async setBudget(acc: AccountContext, ref: ObjectRef, amount: number): Promise<void> {

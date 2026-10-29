@@ -75,7 +75,38 @@ export type MetricRow = {
   impressions: number;
   clicks: number;
   leads: number;
+  /** Personnes distinctes touchées CE jour-là (une portée ne s'additionne pas d'un jour à l'autre). */
+  reach: number;
+  /** Clics qui mènent au site (les « clics » comptent aussi les ouvertures de profil, les mentions J'aime…). */
+  linkClicks: number;
+  /** Arrivées sur la page, chargée : ce sur quoi la campagne optimise en « trafic ». */
+  landingViews: number;
 };
+
+/**
+ * Un ensemble ou une publicité, tel qu'il est CHEZ la régie au moment de la
+ * synchro : son état (une pub refusée, en revue…), son budget, et ce qu'en dit
+ * la revue. C'est ce qui permet d'agir sur un objet précis.
+ */
+export type ObjectSnapshot = {
+  level: "adset" | "ad";
+  externalId: string;
+  name: string;
+  campaignExternalId: string;
+  /** Pour une publicité : son ensemble. */
+  adsetExternalId: string | null;
+  /** L'état configuré (`ACTIVE`, `PAUSED`…). */
+  status: string;
+  /** L'état de diffusion (`ACTIVE`, `DISAPPROVED`, `PENDING_REVIEW`, `WITH_ISSUES`…). */
+  effectiveStatus: string;
+  /** Budget quotidien en devise du compte, s'il vit à ce niveau. */
+  dailyBudget: number | null;
+  /** Ce que la revue ou la diffusion reproche à l'objet, en clair. */
+  issues: string[];
+};
+
+/** Portée et répétition sur une PÉRIODE (elles ne se recalculent pas à partir des jours). */
+export type ReachRow = { level: Level; externalId: string; reach: number; frequency: number };
 
 /**
  * Ce que le jeton d'un compte permet (plan Publicité, 3b) : ses droits, et les
@@ -141,6 +172,10 @@ export interface AdPlatform {
   listAccounts(token: string): Promise<AccountSnapshot[]>;
   listCampaigns(acc: AccountContext): Promise<CampaignSnapshot[]>;
   fetchMetrics(acc: AccountContext, range: DateRange, level: Level): Promise<MetricRow[]>;
+  /** Les ensembles et les publicités du compte, avec leur état et leur budget. */
+  listObjects?(acc: AccountContext): Promise<ObjectSnapshot[]>;
+  /** Portée et répétition de chaque objet sur la période, d'un seul tenant. */
+  fetchReach?(acc: AccountContext, range: DateRange, level: Level): Promise<ReachRow[]>;
   /** Les droits du jeton et ce qu'il ouvre (Pages, Instagram, pixels) — avant toute publication. */
   checkAccess?(acc: AccountContext): Promise<AccessReport>;
   /** L'état du compte publicitaire, lu en direct (un compte se ferme seul après 56 jours sans dépense). */
@@ -159,6 +194,8 @@ export interface AdPlatform {
   /** L'aperçu d'une publicité (HTML d'une iframe), pour un placement. */
   adPreview?(acc: AccountContext, adId: string, format: string): Promise<string>;
   setBudget?(acc: AccountContext, ref: ObjectRef, amount: number): Promise<void>;
+  /** API Conversions : envoie des événements au pixel (jeu de données). Rend le nombre reçu par la régie. */
+  sendEvents?(acc: AccountContext, pixelId: string, events: Record<string, unknown>[]): Promise<{ received: number }>;
   setStatus?(acc: AccountContext, ref: ObjectRef, status: "active" | "pause"): Promise<void>;
 }
 

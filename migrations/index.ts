@@ -166,6 +166,15 @@ import * as migration_20261019_162421_ads_actions_phase2 from './20261019_162421
 import * as migration_20261023_095743_presentation_bookings from './20261023_095743_presentation_bookings';
 import * as migration_20261023_115605_mass_email_campaigns from './20261023_115605_mass_email_campaigns';
 import * as migration_20261026_142149_feature_profiles from './20261026_142149_feature_profiles';
+import * as migration_20261029_121256_parcours_profil_visuel from './20261029_121256_parcours_profil_visuel';
+import * as migration_20261029_125211_suivi_mesure from './20261029_125211_suivi_mesure';
+import * as migration_20261029_130118_suivi_alertes from './20261029_130118_suivi_alertes';
+import * as migration_20261029_141053_suivi_analyste from './20261029_141053_suivi_analyste';
+import * as migration_20261029_155312_suivi_tests from './20261029_155312_suivi_tests';
+import * as migration_20261029_160026_suivi_renouvellement from './20261029_160026_suivi_renouvellement';
+import * as migration_20261029_161326_suivi_conversions from './20261029_161326_suivi_conversions';
+import * as migration_20261029_162202_suivi_ecrans from './20261029_162202_suivi_ecrans';
+import * as migration_20261029_174309_feature_profil_admin from './20261029_174309_feature_profil_admin';
 
 export const migrations = [
   {
@@ -1006,6 +1015,51 @@ export const migrations = [
   {
     up: migration_20261026_142149_feature_profiles.up,
     down: migration_20261026_142149_feature_profiles.down,
-    name: '20261026_142149_feature_profiles'
+    name: '20261026_142149_feature_profiles',
+  },
+  {
+    up: migration_20261029_121256_parcours_profil_visuel.up,
+    down: migration_20261029_121256_parcours_profil_visuel.down,
+    name: '20261029_121256_parcours_profil_visuel',
+  },
+  {
+    up: migration_20261029_125211_suivi_mesure.up,
+    down: migration_20261029_125211_suivi_mesure.down,
+    name: '20261029_125211_suivi_mesure',
+  },
+  {
+    up: migration_20261029_130118_suivi_alertes.up,
+    down: migration_20261029_130118_suivi_alertes.down,
+    name: '20261029_130118_suivi_alertes',
+  },
+  {
+    up: migration_20261029_141053_suivi_analyste.up,
+    down: migration_20261029_141053_suivi_analyste.down,
+    name: '20261029_141053_suivi_analyste',
+  },
+  {
+    up: migration_20261029_155312_suivi_tests.up,
+    down: migration_20261029_155312_suivi_tests.down,
+    name: '20261029_155312_suivi_tests',
+  },
+  {
+    up: migration_20261029_160026_suivi_renouvellement.up,
+    down: migration_20261029_160026_suivi_renouvellement.down,
+    name: '20261029_160026_suivi_renouvellement',
+  },
+  {
+    up: migration_20261029_161326_suivi_conversions.up,
+    down: migration_20261029_161326_suivi_conversions.down,
+    name: '20261029_161326_suivi_conversions',
+  },
+  {
+    up: migration_20261029_162202_suivi_ecrans.up,
+    down: migration_20261029_162202_suivi_ecrans.down,
+    name: '20261029_162202_suivi_ecrans',
+  },
+  {
+    up: migration_20261029_174309_feature_profil_admin.up,
+    down: migration_20261029_174309_feature_profil_admin.down,
+    name: '20261029_174309_feature_profil_admin'
   },
 ];

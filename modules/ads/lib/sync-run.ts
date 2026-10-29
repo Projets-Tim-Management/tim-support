@@ -19,7 +19,13 @@ import { adminEmails } from "@/modules/marketing/lib/notify";
  */
 
 type Env = Record<string, string | undefined>;
-type Options = { now?: Date; env?: Env; only?: number | string; dry?: boolean; platformFor?: (key: string) => AdPlatform };
+/**
+ * `live` : seulement les comptes qui ont une campagne en diffusion, et sans les
+ * rappels de jetons, qui restent l'affaire du passage de nuit. Il n'est plus
+ * planifié chaque heure (décision du 29/10/2026) ; il sert à une relecture à
+ * la main.
+ */
+type Options = { now?: Date; env?: Env; only?: number | string; dry?: boolean; live?: boolean; days?: number; platformFor?: (key: string) => AdPlatform };
 
 export type RunSummary = { results: SyncResult[]; alerted: string[] };
 
@@ -29,7 +35,13 @@ export async function runAdsSync(payload: Payload, opts: Options = {}): Promise<
   const mock = isMetaMock(env);
   const platformFor = opts.platformFor ?? ((key: string) => getPlatform(key, env));
 
-  const where = opts.only != null ? { id: { equals: opts.only } } : {};
+  let where: Record<string, unknown> = opts.only != null ? { id: { equals: opts.only } } : {};
+  if (opts.live) {
+    const live = await payload.find({ collection: "ad-campaigns", where: { publicationStatus: { equals: "active" } }, pagination: false, depth: 0, overrideAccess: true, select: { account: true } as never });
+    const ids = [...new Set((live.docs as { account?: number | { id: number } | null }[]).map((c) => (typeof c.account === "object" ? c.account?.id : c.account)).filter((x) => x != null))];
+    if (!ids.length) return { results: [], alerted: [] };
+    where = { id: { in: ids } };
+  }
   const res = (await payload.db.find({ collection: "ad-accounts", where, limit: 0, pagination: false } as never)) as { docs: RawAccount[] };
 
   const results: SyncResult[] = [];
@@ -54,10 +66,12 @@ export async function runAdsSync(payload: Payload, opts: Options = {}): Promise<
       results.push({ id: acc.id, name, decision, status: "erreur", error });
       continue;
     }
-    const r = await syncAccount(payload, acc, platform, now);
+    const r = await syncAccount(payload, acc, platform, now, opts.days);
     results.push(r);
     if (r.error) payload.logger.warn(`[publicité] synchro de « ${name} » : ${r.error}`);
   }
+
+  if (opts.live) return { results, alerted: [] };
 
   // Alerte J-7 : un jeton OAuth qui arrive à échéance, une fois par échéance.
   const due = res.docs.filter((a) => syncDecision(a, mock, env) === "ok" && tokenAlertDue(a, now));

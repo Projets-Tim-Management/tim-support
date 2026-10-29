@@ -6,10 +6,12 @@ import { useCallback, useEffect, useState } from "react";
 import type { ControlRoom as Room } from "@/modules/ads/agent/control-room";
 
 import { ControlRoom, RUN_STATUS } from "./ControlRoom";
+import { FollowUpPanel } from "./FollowUpPanel";
 import { postAdmin } from "./post-admin";
 import { eur } from "./format";
 
 type Preview = {
+  campagne: { statut?: string | null };
   lancable: boolean;
   blocages: string[];
   budget: { plafondDuPassageEur: number | null; preparationMaxEur: number; coutMaximalEur: number; agentsJour: { depense: number; plafond: number }; agentsMois: { depense: number; plafond: number } };
@@ -36,6 +38,9 @@ const plural = (n: number, one: string, many: string) => (n ? `${n} ${n > 1 ? ma
  *
  * En dessous, la salle de contrôle (commit 7) : le passage en cours ou le
  * dernier, ou un précédent choisi dans la liste.
+ *
+ * Une campagne EN LIGNE n'a plus de lancement à la main : le suivi (§9 nonies)
+ * s'affiche en tête, et la salle de contrôle montre ses passages.
  */
 export function AgentPanel() {
   const { id } = useDocumentInfo();
@@ -99,90 +104,99 @@ export function AgentPanel() {
   };
 
   const canLaunch = Boolean(preview?.lancable && objective.trim() && !busy && Number(capEur) > 0);
+  // Une campagne lue chez la régie ne se prépare plus : ses agents de suivi passent seuls (panneau du haut).
+  const online = Boolean(preview?.campagne.statut && preview.campagne.statut !== "brouillon");
 
   return (
-    <section className="ads-gen ads-agent">
-      <div className="ads-gen__head">
-        <strong>Agent de campagne</strong>
-        <span>Il prépare positionnement, audiences, angles, textes et briefs Claude Design, et dépose les créas « À valider ». Rien n&apos;est publié chez Meta.</span>
-      </div>
-
-      {running && current && (
-        <div className="ads-agent__status">
-          <span className="ads-badge ads-badge--test">{RUN_STATUS[current.statut] ?? current.statut}</span>
+    <>
+      <FollowUpPanel campaignId={String(id)} />
+      <section className="ads-gen ads-agent">
+        <div className="ads-gen__head">
+          <strong>{online ? "Passages des agents" : "Agent de campagne"}</strong>
           <span>
-            Dépensé <strong>{eur(current.depenseEur)}</strong> sur {eur(current.budgetEur)}
+            {online
+              ? "Chaque passage — suivi tous les 2 jours, du lundi, du mois, ou préparation de nouvelles créas demandée par l'analyste — avec ce qu'il a lu, décidé et dépensé."
+              : "Il prépare positionnement, audiences, angles, textes et briefs Claude Design, et dépose les créas « À valider ». Rien n'est publié chez Meta."}
           </span>
-          <button type="button" className="tim-btn ads-actions__danger" disabled={busy} onClick={() => post(`/api/admin/ads/agent-runs/${encodeURIComponent(String(current.id))}/stop`, {}, "Passage arrêté.")}>
-            Arrêter
-          </button>
         </div>
-      )}
 
-      {!running && (
-        <>
-          <label className="ads-agent__objective-field">
-            Objectif de la campagne, en une phrase
-            <textarea rows={2} value={objective} onChange={(e) => setObjective(e.target.value)} disabled={busy} placeholder="Obtenir des démos auprès de gérants de PME du BTP de 11 à 50 salariés" />
-          </label>
-          <div className="ads-gen__controls">
-            <label className="ads-gen__field">
-              Plafond de ce passage (€)
-              <input type="number" min="0.5" step="0.5" value={capEur} onChange={(e) => setCapEur(e.target.value)} disabled={busy} />
-            </label>
-            <button type="button" className="tim-btn tim-btn--primary" disabled={!canLaunch} onClick={() => post(base!, { objective, capEur: Number(capEur) }, "Agent lancé.")}>
-              Lancer l&apos;agent
+        {running && current && (
+          <div className="ads-agent__status">
+            <span className="ads-badge ads-badge--test">{RUN_STATUS[current.statut] ?? current.statut}</span>
+            <span>
+              Dépensé <strong>{eur(current.depenseEur)}</strong> sur {eur(current.budgetEur)}
+            </span>
+            <button type="button" className="tim-btn ads-actions__danger" disabled={busy} onClick={() => post(`/api/admin/ads/agent-runs/${encodeURIComponent(String(current.id))}/stop`, {}, "Passage arrêté.")}>
+              Arrêter
             </button>
           </div>
-          {preview && (
-            <ul className="ads-gen__facts">
-              {preview.blocages.map((b) => (
-                <li key={b} className="ads-gen__bad">
-                  {b}
-                </li>
-              ))}
-              <li>
-                Coût maximal de ce passage : <strong>{eur(preview.budget.coutMaximalEur)}</strong> — aucun appel ne part au-delà. Agents aujourd&apos;hui : {eur(preview.budget.agentsJour.depense)} sur{" "}
-                {eur(preview.budget.agentsJour.plafond)} ; ce mois : {eur(preview.budget.agentsMois.depense)} sur {eur(preview.budget.agentsMois.plafond)}.
-              </li>
-              <li>
-                Il lira : le brief ({preview.lectures.brief.faits} fait(s) sourcé(s), {preview.lectures.brief.interdits} interdit(s)) ; ces {preview.lectures.site.adresses.length} pages du site :
-                <ol className="ads-agent__pages">
-                  {preview.lectures.site.adresses.map((u) => (
-                    <li key={u}>
-                      <a href={u} target="_blank" rel="noreferrer">
-                        {u.replace("https://tim-management.co", "") || "/"}
-                      </a>
-                    </li>
-                  ))}
-                </ol>
-                les leads par canal et {preview.lectures.acquisition.clientsSignes} client(s) signé(s), en chiffres anonymes ;{" "}
-                {preview.lectures.concurrents.suivis.length
-                  ? `les publicités de ${preview.lectures.concurrents.suivis.length} concurrent(s) suivi(s) (bibliothèque ${preview.lectures.concurrents.bibliotheque})`
-                  : "aucun concurrent (aucun n'est suivi)"}
-                ; {plural(preview.lectures.carnet.consignes, "consigne active", "consignes actives")} et{" "}
-                {plural(preview.lectures.carnet.apprentissages, "apprentissage", "apprentissages")} du carnet
-                {preview.lectures.carnet.aRevalider ? ` (dont ${preview.lectures.carnet.aRevalider} à revalider)` : ""}.
-              </li>
-              {preview.lectures.acquisition.manque.map((m) => (
-                <li key={m} className="ads-gen__warn">
-                  Manque : {m}.
-                </li>
-              ))}
-              <li>Créas possibles cette semaine : {preview.creasPossibles}.</li>
-            </ul>
-          )}
-        </>
-      )}
+        )}
 
-      {room && <ControlRoom room={room} onSelectRun={(id) => setRunId(id === String(room.passages[0]?.id) ? null : id)} />}
+        {!running && !online && (
+          <>
+            <label className="ads-agent__objective-field">
+              Objectif de la campagne, en une phrase
+              <textarea rows={2} value={objective} onChange={(e) => setObjective(e.target.value)} disabled={busy} placeholder="Obtenir des démos auprès de gérants de PME du BTP de 11 à 50 salariés" />
+            </label>
+            <div className="ads-gen__controls">
+              <label className="ads-gen__field">
+                Plafond de ce passage (€)
+                <input type="number" min="0.5" step="0.5" value={capEur} onChange={(e) => setCapEur(e.target.value)} disabled={busy} />
+              </label>
+              <button type="button" className="tim-btn tim-btn--primary" disabled={!canLaunch} onClick={() => post(base!, { objective, capEur: Number(capEur) }, "Agent lancé.")}>
+                Lancer l&apos;agent
+              </button>
+            </div>
+            {preview && (
+              <ul className="ads-gen__facts">
+                {preview.blocages.map((b) => (
+                  <li key={b} className="ads-gen__bad">
+                    {b}
+                  </li>
+                ))}
+                <li>
+                  Coût maximal de ce passage : <strong>{eur(preview.budget.coutMaximalEur)}</strong> — aucun appel ne part au-delà. Agents aujourd&apos;hui : {eur(preview.budget.agentsJour.depense)} sur{" "}
+                  {eur(preview.budget.agentsJour.plafond)} ; ce mois : {eur(preview.budget.agentsMois.depense)} sur {eur(preview.budget.agentsMois.plafond)}.
+                </li>
+                <li>
+                  Il lira : le brief ({preview.lectures.brief.faits} fait(s) sourcé(s), {preview.lectures.brief.interdits} interdit(s)) ; ces {preview.lectures.site.adresses.length} pages du site :
+                  <ol className="ads-agent__pages">
+                    {preview.lectures.site.adresses.map((u) => (
+                      <li key={u}>
+                        <a href={u} target="_blank" rel="noreferrer">
+                          {u.replace("https://tim-management.co", "") || "/"}
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                  les leads par canal et {preview.lectures.acquisition.clientsSignes} client(s) signé(s), en chiffres anonymes ;{" "}
+                  {preview.lectures.concurrents.suivis.length
+                    ? `les publicités de ${preview.lectures.concurrents.suivis.length} concurrent(s) suivi(s) (bibliothèque ${preview.lectures.concurrents.bibliotheque})`
+                    : "aucun concurrent (aucun n'est suivi)"}
+                  ; {plural(preview.lectures.carnet.consignes, "consigne active", "consignes actives")} et{" "}
+                  {plural(preview.lectures.carnet.apprentissages, "apprentissage", "apprentissages")} du carnet
+                  {preview.lectures.carnet.aRevalider ? ` (dont ${preview.lectures.carnet.aRevalider} à revalider)` : ""}.
+                </li>
+                {preview.lectures.acquisition.manque.map((m) => (
+                  <li key={m} className="ads-gen__warn">
+                    Manque : {m}.
+                  </li>
+                ))}
+                <li>Créas possibles cette semaine : {preview.creasPossibles}.</li>
+              </ul>
+            )}
+          </>
+        )}
 
-      {id != null && (
-        <nav className="ads-agent__journals" aria-label="Journaux de la campagne">
-          <a href={`/admin/collections/ad-agent-runs?where[campaign][equals]=${id}`}>Tous les passages de cette campagne →</a>
-          <a href={`/admin/collections/ad-decisions?where[campaign][equals]=${id}`}>Toutes ses décisions →</a>
-        </nav>
-      )}
-    </section>
+        {room && <ControlRoom room={room} onSelectRun={(id) => setRunId(id === String(room.passages[0]?.id) ? null : id)} />}
+
+        {id != null && (
+          <nav className="ads-agent__journals" aria-label="Journaux de la campagne">
+            <a href={`/admin/collections/ad-agent-runs?where[campaign][equals]=${id}`}>Tous les passages de cette campagne →</a>
+            <a href={`/admin/collections/ad-decisions?where[campaign][equals]=${id}`}>Toutes ses décisions →</a>
+          </nav>
+        )}
+      </section>
+    </>
   );
 }

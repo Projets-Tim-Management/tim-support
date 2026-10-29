@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { readPlan } from "@/modules/ads/lib/media-plan";
-import { advance, emptyState, publishProblems, type PubInput, type PubState } from "@/modules/ads/lib/publish/engine";
+import { advance, advanceAdditions, emptyState, publishProblems, type PubInput, type PubState } from "@/modules/ads/lib/publish/engine";
 import type { AdPlatform } from "@/modules/ads/platforms/types";
 
 const acc = { externalId: "act_1", token: "T", currency: "EUR" };
@@ -149,5 +149,62 @@ describe("publier, d'un bout à l'autre", () => {
     (p.createAdSet as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("Meta 100 : budget trop bas"));
     await expect(advance(emptyState(input()), input(), deps(p), async () => {})).rejects.toThrow(/budget trop bas/);
     expect(p.createAdSet).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ajouter des créas à une campagne en diffusion (renouvellement)", () => {
+  const fresh = {
+    id: 31,
+    angle: "La météo change, le planning suit",
+    cta: "LEARN_MORE",
+    body: "Texte",
+    title: "Titre",
+    description: null,
+    files: [{ format: "4x5" as const, kind: "video" as const, url: "https://blob/C31-4x5.mp4" }],
+  };
+  const live = async () => {
+    const p = platform();
+    const s = await advance(emptyState(input()), input(), deps(p), async () => {});
+    return { p, state: { ...s, status: "active" as const, activatedAt: "2026-10-20T09:00:00Z" } };
+  };
+
+  it("pose la créa dans chaque ensemble, active ses publicités, sans toucher à la campagne ni aux ensembles", async () => {
+    const { p, state } = await live();
+    const setStatus = vi.fn(async () => {});
+    (p as unknown as { setStatus: typeof setStatus }).setStatus = setStatus;
+    const created = p as unknown as Record<"createCampaign" | "createAdSet", ReturnType<typeof vi.fn>>;
+    created.createCampaign.mockClear();
+    created.createAdSet.mockClear();
+    const out = await advanceAdditions(state, [fresh], input({ creas: [fresh] }), deps(p), async () => {});
+    expect(out).toMatchObject({ done: true, placed: [31] });
+    expect(created.createCampaign).not.toHaveBeenCalled();
+    expect(created.createAdSet).not.toHaveBeenCalled();
+    // 1 nature × 2 ensembles → 2 publicités créées puis activées.
+    expect(setStatus).toHaveBeenCalledTimes(2);
+    expect(out.state.liveAds).toEqual(["31:video:0", "31:video:1"]);
+    expect(out.state.creas).toEqual([12, 31]);
+    expect(out.state.status).toBe("active");
+
+    // Rejoué : rien de plus.
+    const again = await advanceAdditions(out.state, [fresh], input({ creas: [fresh] }), deps(p), async () => {});
+    expect(again.placed).toEqual([]);
+    expect(setStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it("attend une vidéo en traitement, sans rien activer", async () => {
+    const { state } = await live();
+    let ready = false;
+    const p = platform({ videoReady: () => ready });
+    (p as unknown as { setStatus: () => Promise<void> }).setStatus = vi.fn(async () => {});
+    const first = await advanceAdditions(state, [fresh], input({ creas: [fresh] }), deps(p), async () => {});
+    expect(first).toMatchObject({ done: false, placed: [] });
+    ready = true;
+    expect((await advanceAdditions(first.state, [fresh], input({ creas: [fresh] }), deps(p), async () => {})).placed).toEqual([31]);
+  });
+
+  it("refuse une campagne qui n'est pas en diffusion", async () => {
+    const { p, state } = await live();
+    (p as unknown as { setStatus: () => Promise<void> }).setStatus = vi.fn(async () => {});
+    await expect(advanceAdditions({ ...state, status: "en-pause" }, [fresh], input(), deps(p), async () => {})).rejects.toThrow(/pas en diffusion/);
   });
 });

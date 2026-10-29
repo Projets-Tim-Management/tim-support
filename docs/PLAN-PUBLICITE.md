@@ -1683,6 +1683,53 @@ Décision de Charlie : « lancer n'importe quel type de campagne selon les besoi
 - **Publication** (`lib/publish/`) : geste de Charlie seulement ; étapes idempotentes (identifiants gardés), bail en base, cron ads-publish chaque minute ; Activer / Mettre en pause ; créas « En ligne ».
 - Limites v1 : un texte principal, un titre et une description par créa (les variantes de texte passent par des créas étiquetées) ; formulaires instantanés Meta non gérés (il faudrait la récupération des prospects) ; les aperçus sont ceux que rend Meta.
 
+## 9 nonies. Les agents de suivi (3d) — décidé le 29/10/2026
+
+**Constat du 29/10/2026.** La campagne #7 tourne depuis le 20/10 (78,54 €,
+14 202 impressions, 863 clics) sans aucun agent pour la suivre : seuls les agents
+de préparation existaient, et la 3d n'avait pas une ligne de code. Meta a
+concentré 95 % du budget sur C19 dès le 21/10. **Aucun formulaire du site n'est
+arrivé par Meta** (0 lead `paid_social` en 10 jours) : la campagne optimise sur
+les vues de la page d'arrivée, pas sur les leads.
+
+**Décisions de Charlie (29/10/2026)** — option A : les agents de suivi d'abord,
+sur les chiffres Meta, puis tout ce qu'il faut pour que la campagne s'optimise
+seule, enchaîné.
+
+| # | Sujet | Décision |
+|---|---|---|
+| 1 | Autonomie | **Autonome** : l'agent agit seul dans les garde-fous codés (±20 % de budget, 72 h entre deux changements d'un objet, plancher, plafond du compte, gel de 7 jours). Réactiver une campagne entière et une variation hors bornes restent à valider |
+| 2 | Nouvelles créas | **Brief + validation de Charlie** : l'agent écrit textes et brief Claude Design, Charlie fait le visuel et valide ; la publication dans la campagne en ligne est ensuite automatique |
+| 3 | Optimisation | **Sur les leads** une fois la boucle branchée (pixel sur la vitrine + envoi serveur des leads) |
+| 4 | E-mails | **Urgences + récapitulatif du lundi** (remplace la décision 3 du 29/09 « urgences seulement ») |
+
+### Découpage (chaque étape est un commit, testé)
+
+| # | Étape | Schéma |
+|---|---|---|
+| 1 | **Mesure** : la synchro lit aussi portée, répétition, clics vers le site, vues de la page d'arrivée et l'état de chaque pub ; relue chaque nuit (la relecture horaire a été retirée le 29/10/2026). Les leads du site sont rattachés à la pub (`utm_content` = identifiant de la pub) ; leads qualifiés et affaires gagnées comptés depuis les fiches | migration |
+| 2 | **Alertes en code**, sans IA : pub refusée (pause d'office), dépense anormale (> 175 % du budget du jour), diffusion nulle depuis 24 h, page d'arrivée en erreur, clics sans lead ; e-mail d'urgence | migration (`ad-alerts`) |
+| 3 | **Analyste** : rôle, outils (lire les résultats, les décisions, proposer une action → `submitAction`, noter un apprentissage, demander des créas), passages quotidien / hebdomadaire / mensuel ordonnancés par `ads-agent-tick` | migration |
+| 4 | **Tests A/B** : registre `ad-tests`, verdict calculé par le code (pur, testé), un test à la fois | migration |
+| 5 | **Renouvellement des créas** : l'analyste lance une préparation sur une campagne en ligne ; une créa validée s'ajoute à l'ensemble en diffusion | — |
+| 6 | **Boucle des leads vers Meta** : pixel sur la vitrine, API Conversions (lead, lead qualifié), bascule de l'optimisation sur les leads | — |
+| 7 | **Écrans et e-mails** : rythmes, alertes et tests dans la salle de contrôle ; « Poser une question à l'agent » ; récapitulatif du lundi | — |
+
+**État au 29/10/2026 au soir** : les 7 étapes sont faites et commitées sur
+`refonte-support` (9118398 → 2d0ead5), migrations additives appliquées ; pixel
+Meta de la vitrine sur la branche `feat/pixel-meta` de tim-front (8e900a7).
+Rien n'est encore poussé. Décisions prises en route : envoi à Meta **avec
+l'accord « Publicité » seulement** ; bascule vers les prospects = **l'agent
+prépare un brouillon, Charlie publie** (10 leads reçus par Meta en 30 jours) ;
+campagne #7 passée en **autonome** ; l'analyste passe **tous les 2 jours** (et non chaque matin) et la relecture des chiffres reste **de nuit**, sans relecture horaire (Charlie : « avoir assez de recul à chaque fois »). Premier vrai passage du matin (29/10,
+0,03 €) : diagnostic « la page ne convertit pas » (521 vues, 0 lead).
+
+**Lead qualifié (v1)** : une fiche née d'un formulaire dont l'état a dépassé la
+qualification (démo programmée et au-delà, signée, résiliée, archivée). Une fiche
+« perdue » ne compte pas : l'historique des états n'est pas encore lu.
+
+---
+
 ## 10. Questions ouvertes
 
 1. **Formulaires instantanés Meta ou page d'arrivée** sur le site ? Les deux sont prévus
