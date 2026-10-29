@@ -156,4 +156,85 @@ const noterApprentissage: AgentTool = {
   },
 };
 
-export const SUIVI_TOOLS: AgentTool[] = [lireResultats, lireJournal, agir, attendre, noterApprentissage];
+const DIMENSIONS = ["angle", "accroche", "ton", "format", "visuel", "cta", "style", "musique", "page", "audience"];
+
+const lireTests: AgentTool = {
+  definition: {
+    name: "lire_tests",
+    description: "Les tests A/B de la campagne : celui en cours (où il en est) et les derniers clos, avec le verdict CALCULÉ PAR LE CODE (gagnant, probabilité, confiance) et les chiffres par variante. Un verdict ne se discute pas : il s'interprète.",
+    input_schema: { type: "object", properties: {} },
+  },
+  async run(ctx) {
+    const t = await port(ctx).tests(ctx.run.campaign);
+    const open = t.find((x) => x.etat === "en-cours" || x.etat === "en-attente-de-volume");
+    return { kind: "ok", output: t, line: `${who(ctx)} relit les tests : ${open ? `un en cours (${clip(open.ouEnEst ?? open.etat, 60)})` : "aucun en cours"}, ${t.filter((x) => x !== open).length} clos.` };
+  },
+};
+
+const ouvrirTest: AgentTool = {
+  definition: {
+    name: "ouvrir_test",
+    description:
+      "Ouvre un test A/B entre des publicités EN LIGNE de la campagne (un seul test à la fois). Une seule différence entre les variantes (la dimension). Le code le juge à chaque synchro : volume et durée minimum, puis gagnant à 95 % (ou 80 % après deux fois la durée minimum), ou « sans verdict » au bout de 42 jours. Choisis la métrique que la campagne peut atteindre : sans leads, juger sur le coût par lead n'aboutira jamais.",
+    input_schema: {
+      type: "object",
+      properties: {
+        hypothese: { type: "string", description: "Ce qu'on cherche à savoir, en une phrase vérifiable." },
+        dimension: { type: "string", enum: DIMENSIONS },
+        metrique: { type: "string", enum: ["cpl-qualifie", "cpl", "cout-par-vue", "ctr"] },
+        variantes: {
+          type: "array",
+          items: { type: "object", properties: { nom: { type: "string" }, pubs: { type: "array", items: { type: "string" } } }, required: ["nom", "pubs"] },
+          description: "2 à 4 variantes ; chacune = des identifiants Meta de publicités de la campagne.",
+        },
+        appuis: { type: "array", items: { type: "string" } },
+      },
+      required: ["hypothese", "dimension", "metrique", "variantes", "appuis"],
+    },
+  },
+  async run(ctx, input) {
+    if (ctx.run.kind === "quotidien") return refuse(ctx, "Un test s'ouvre au passage du lundi.");
+    const appuis = resolveAppuis(notebookOf(ctx.run), input.appuis);
+    if ("error" in appuis) return refuse(ctx, appuis.error);
+    const variants = (Array.isArray(input.variantes) ? input.variantes : []).map((v: { nom?: unknown; pubs?: unknown }) => ({ label: String(v.nom ?? ""), ads: Array.isArray(v.pubs) ? v.pubs.map(String) : [] }));
+    try {
+      const id = await port(ctx).openTest(ctx.run.campaign, { hypothesis: String(input.hypothese ?? ""), dimension: String(input.dimension ?? ""), metric: String(input.metrique ?? ""), variants }, ctx.run.id);
+      await ctx.deps.store.createDecision({
+        campaign: ctx.run.campaign,
+        run: ctx.run.id,
+        agent: ctx.agent.id,
+        step: ctx.step.id,
+        kind: "test",
+        status: "executee",
+        rationale: String(input.hypothese ?? ""),
+        after: { test: id, dimension: input.dimension, metrique: input.metrique, variantes: variants },
+        instructions: appuis.instructions,
+        learnings: appuis.learnings,
+        citations: appuis.citations,
+      });
+      return { kind: "ok", output: { test: id }, line: `${who(ctx)} ouvre un test : « ${clip(String(input.hypothese ?? ""), 90)} »` };
+    } catch (e) {
+      return refuse(ctx, (e as Error).message);
+    }
+  },
+};
+
+const interpreterTest: AgentTool = {
+  definition: {
+    name: "interpreter_test",
+    description: "Écrit ce qu'on retient d'un test CLOS (conclu ou sans verdict), en une ou deux phrases. Puis, s'il a établi quelque chose, note-le au carnet.",
+    input_schema: { type: "object", properties: { test: { type: "number" }, interpretation: { type: "string" } }, required: ["test", "interpretation"] },
+  },
+  async run(ctx, input) {
+    const text = String(input.interpretation ?? "").trim();
+    if (!text) return refuse(ctx, "Une interprétation vide ne s'écrit pas.");
+    try {
+      await port(ctx).interpret(ctx.run.campaign, Number(input.test), text);
+      return { kind: "ok", output: { ok: true }, line: `${who(ctx)} interprète le test ${input.test} : ${clip(text, 90)}` };
+    } catch (e) {
+      return refuse(ctx, (e as Error).message);
+    }
+  },
+};
+
+export const SUIVI_TOOLS: AgentTool[] = [lireResultats, lireJournal, agir, attendre, noterApprentissage, lireTests, ouvrirTest, interpreterTest];

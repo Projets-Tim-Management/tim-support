@@ -30,6 +30,8 @@ export const DECISION_KINDS = [
   { label: "Réactivation", value: "activation" },
   // « Attendre » est une décision : on sait pourquoi rien n'a bougé (§9 quinquies, règle 6).
   { label: "Attente", value: "attente" },
+  // L'ouverture d'un test A/B (§9 nonies, étape 4) ; son verdict, lui, est écrit par le code sur le test.
+  { label: "Test", value: "test" },
 ] as const;
 
 export type DecisionKind = (typeof DECISION_KINDS)[number]["value"];

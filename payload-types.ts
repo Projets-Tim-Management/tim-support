@@ -102,6 +102,7 @@ export interface Config {
     'ad-metrics-daily': AdMetricsDaily;
     'ad-objects': AdObject;
     'ad-alerts': AdAlert;
+    'ad-tests': AdTest;
     'ad-media': AdMedia;
     'ad-facts': AdFact;
     'ad-ai-usage': AdAiUsage;
@@ -191,6 +192,7 @@ export interface Config {
     'ad-metrics-daily': AdMetricsDailySelect<false> | AdMetricsDailySelect<true>;
     'ad-objects': AdObjectsSelect<false> | AdObjectsSelect<true>;
     'ad-alerts': AdAlertsSelect<false> | AdAlertsSelect<true>;
+    'ad-tests': AdTestsSelect<false> | AdTestsSelect<true>;
     'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
     'ad-facts': AdFactsSelect<false> | AdFactsSelect<true>;
     'ad-ai-usage': AdAiUsageSelect<false> | AdAiUsageSelect<true>;
@@ -2506,7 +2508,8 @@ export interface AdDecision {
     | 'budget'
     | 'pause'
     | 'activation'
-    | 'attente';
+    | 'attente'
+    | 'test';
   status: 'proposee' | 'executee' | 'bloquee';
   rationale: string;
   before?:
@@ -3097,6 +3100,52 @@ export interface AdAlert {
   resolvedAt?: string | null;
   notifiedAt?: string | null;
   decision?: (number | null) | AdDecision;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-tests".
+ */
+export interface AdTest {
+  id: number;
+  campaign: number | AdCampaign;
+  run?: (number | null) | AdAgentRun;
+  hypothesis: string;
+  dimension: 'ton' | 'angle' | 'accroche' | 'format' | 'visuel' | 'cta' | 'style' | 'musique' | 'page' | 'audience';
+  metric: 'cpl-qualifie' | 'cpl' | 'cout-par-vue' | 'ctr';
+  /**
+   * [{ label, ads: [identifiants Meta], creatives: [identifiants] }]
+   */
+  variants:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  minResults?: number | null;
+  minDays?: number | null;
+  maxDays?: number | null;
+  status: 'en-attente-de-volume' | 'en-cours' | 'conclu' | 'sans-verdict' | 'abandonne';
+  reason?: string | null;
+  results?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  winner?: string | null;
+  probability?: number | null;
+  confidence?: ('forte' | 'moyenne') | null;
+  interpretation?: string | null;
+  openedAt: string;
+  closedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3889,6 +3938,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-alerts';
         value: number | AdAlert;
+      } | null)
+    | ({
+        relationTo: 'ad-tests';
+        value: number | AdTest;
       } | null)
     | ({
         relationTo: 'ad-media';
@@ -5347,6 +5400,32 @@ export interface AdAlertsSelect<T extends boolean = true> {
   resolvedAt?: T;
   notifiedAt?: T;
   decision?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-tests_select".
+ */
+export interface AdTestsSelect<T extends boolean = true> {
+  campaign?: T;
+  run?: T;
+  hypothesis?: T;
+  dimension?: T;
+  metric?: T;
+  variants?: T;
+  minResults?: T;
+  minDays?: T;
+  maxDays?: T;
+  status?: T;
+  reason?: T;
+  results?: T;
+  winner?: T;
+  probability?: T;
+  confidence?: T;
+  interpretation?: T;
+  openedAt?: T;
+  closedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -6,6 +6,7 @@ import { ActionError, submitAction } from "@/modules/ads/lib/actions-run";
 import { actionSummary, readAction } from "@/modules/ads/lib/actions";
 import { buildReport, type CreativeIn, type MetricIn, type ObjectIn } from "@/modules/ads/lib/followup-report";
 import { dayInTz } from "@/modules/ads/lib/sync";
+import { openTest } from "@/modules/ads/lib/tests-run";
 import { REVALIDATE_DAYS } from "@/modules/ads/collections/AdLearnings";
 
 /**
@@ -162,6 +163,36 @@ export function payloadSuivi(payload: Payload, now: () => Date = () => new Date(
       if (action.kind === "budget" && !(fromEur > 0)) throw new ActionError("Le budget actuel de cet ensemble n'est pas connu : attends la prochaine synchro.");
       const r = await submitAction(payload, { campaign: c.id, action, rationale, origin, extra }, now());
       return { decision: r.decision, outcome: r.verdict.outcome, reasons: r.verdict.reasons, error: r.error, summary: actionSummary(action) };
+    },
+
+    async tests(campaignId) {
+      const r = await payload.find({ collection: "ad-tests", where: { campaign: { equals: campaignId } }, sort: "-openedAt", limit: 5, depth: 0, overrideAccess: true });
+      return (r.docs as unknown as Record<string, unknown>[]).map((t) => ({
+        id: t.id as Id,
+        hypothese: String(t.hypothesis ?? ""),
+        dimension: String(t.dimension ?? ""),
+        metrique: String(t.metric ?? ""),
+        etat: String(t.status ?? ""),
+        ouEnEst: (t.reason as string | null) ?? null,
+        gagnant: (t.winner as string | null) ?? null,
+        confiance: (t.confidence as string | null) ?? null,
+        variantes: t.variants,
+        resultats: t.results ?? null,
+        interpretation: (t.interpretation as string | null) ?? null,
+        ouvertLe: String(t.openedAt ?? "").slice(0, 10),
+      }));
+    },
+
+    async openTest(campaignId, t, run) {
+      return openTest(payload, { campaign: campaignId, ...t, run }, now());
+    },
+
+    async interpret(campaignId, testId, text) {
+      const t = (await payload.findByID({ collection: "ad-tests", id: testId, depth: 0, overrideAccess: true }).catch(() => null)) as { campaign?: unknown; status?: string } | null;
+      const camp = t && (typeof t.campaign === "object" ? (t.campaign as { id: Id }).id : t.campaign);
+      if (!t || String(camp) !== String(campaignId)) throw new ActionError("Test introuvable sur cette campagne.");
+      if (t.status !== "conclu" && t.status !== "sans-verdict") throw new ActionError("Ce test n'est pas clos : son verdict n'est pas encore écrit.");
+      await payload.update({ collection: "ad-tests", id: testId, data: { interpretation: text } as never, overrideAccess: true });
     },
 
     async learn(campaignId, l) {

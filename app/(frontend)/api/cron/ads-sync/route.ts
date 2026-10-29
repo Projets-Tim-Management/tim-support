@@ -4,6 +4,7 @@ import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { runAlerts } from "@/modules/ads/lib/alerts-run";
 import { runAdsSync } from "@/modules/ads/lib/sync-run";
+import { evaluateTests } from "@/modules/ads/lib/tests-run";
 
 /**
  * Synchro quotidienne des comptes publicitaires (plan Publicité, §4.6).
@@ -34,6 +35,8 @@ export async function GET(req: Request) {
   const { results, alerted } = await runAdsSync(payload, { dry, live });
   // Les urgences, sur les chiffres qu'on vient de lire (§9 nonies, étape 2). Une erreur ici ne fait pas échouer la synchro.
   const alerts = dry ? null : await runAlerts(payload).catch((e) => (payload.logger.error(`[publicité] alertes : ${(e as Error).message}`), null));
+  // Et le verdict des tests A/B ouverts, sur les mêmes chiffres (§9 nonies, étape 4).
+  const tests = dry ? null : await evaluateTests(payload).catch((e) => (payload.logger.error(`[publicité] tests : ${(e as Error).message}`), null));
 
   const done = results.filter((r) => r.decision === "ok");
   payload.logger.info(
@@ -41,5 +44,5 @@ export async function GET(req: Request) {
       `${done.filter((r) => r.error).length} en échec, ${results.length - done.length} ignoré(s), ${alerted.length} alerte(s) J-7` +
       (alerts ? `, alertes : ${alerts.opened} ouverte(s), ${alerts.confirmed} confirmée(s), ${alerts.resolved} close(s), ${alerts.notified} e-mail(s).` : "."),
   );
-  return NextResponse.json({ ok: true, dry, live, results, alerted, alerts });
+  return NextResponse.json({ ok: true, dry, live, results, alerted, alerts, tests });
 }

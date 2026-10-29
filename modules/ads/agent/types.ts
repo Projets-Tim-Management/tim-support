@@ -229,6 +229,11 @@ export interface SuiviPort {
     origin: { run: Id; agent: Id; step: Id },
     extra: Record<string, unknown>,
   ): Promise<{ decision: Id; outcome: "executer" | "proposer" | "bloquer"; reasons: string[]; error: string | null; summary: string }>;
+  /** Les tests A/B de la campagne : celui en cours et les derniers clos, avec le verdict du code. */
+  tests(campaign: Id): Promise<{ id: Id; hypothese: string; dimension: string; metrique: string; etat: string; ouEnEst: string | null; gagnant: string | null; confiance: string | null; variantes: unknown; resultats: unknown; interpretation: string | null; ouvertLe: string }[]>;
+  openTest(campaign: Id, t: { hypothesis: string; dimension: string; metric: string; variants: { label: string; ads: string[] }[] }, run: Id): Promise<Id>;
+  /** L'interprétation d'un test clos de la campagne, par l'analyste. */
+  interpret(campaign: Id, test: Id, text: string): Promise<void>;
   /** Un apprentissage de la campagne, né d'un résultat ; « global » le propose seulement (Charlie valide). */
   learn(campaign: Id, l: { statement: string; confidence: "faible" | "moyenne" | "forte"; global: boolean; decision: Id | null }): Promise<Id>;
 }

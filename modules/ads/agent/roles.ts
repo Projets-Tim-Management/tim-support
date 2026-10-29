@@ -47,7 +47,7 @@ export const ROLE_TOOLS: Record<AgentRole, readonly string[]> = {
   redacteur: ["lire_brief", "generer_textes", "terminer"],
   "directeur-artistique": [...ORCHESTRATION, "lire_brief", "verifier_crea", "lire_rushes", "ecrire_brief_design", "terminer"],
   controleur: ["verifier_crea", "juger_crea", "terminer"],
-  analyste: ["lire_resultats", "lire_journal", "agir", "attendre", "noter_apprentissage", "terminer"],
+  analyste: ["lire_resultats", "lire_journal", "lire_tests", "agir", "attendre", "ouvrir_test", "interpreter_test", "noter_apprentissage", "terminer"],
 };
 
 const ROLE_BRIEF: Record<AgentRole, string> = {
@@ -64,6 +64,7 @@ const ROLE_BRIEF: Record<AgentRole, string> = {
     "Lis l'entonnoir dans l'ordre et trouve où il fuit : impressions → taux de clic vers le site → arrivée sur la page (vues de la page / clics) → conversion de la page (leads du site / vues) → leads qualifiés → clients signés. Un coût par clic bas ne vaut rien si la page ne convertit pas. Vérifie aussi que chaque pub mène vers une page qui parle de CE qu'elle promet (son angle face à « pageArrivee ») : une promesse que la page ne tient pas fait fuir.",
     "Ce que tu peux régler chez Meta, sous les garde-fous : déplacer du budget vers l'ensemble qui rapporte (±20 % par décision, 72 h entre deux changements d'un même objet), mettre en pause une pub qui perd ou qui s'use (« usee » dans le rapport), réactiver. Une décision demande du VOLUME : au moins 1 000 impressions et l'équivalent de deux leads cibles dépensés par variante avant de juger une pub ; sous ce seuil, ou pendant le gel des 7 jours, ou en phase d'apprentissage, tu ATTENDS (outil « attendre », avec ta raison). Ne coupe jamais la seule pub active d'un ensemble. Une seule modification à la fois par objet.",
     "Ce qui ne se règle pas chez Meta (la page d'arrivée ne convertit pas, l'offre ne parle pas, toutes les pubs s'usent), tu le dis clairement dans ton résultat, avec ce que tu recommandes : c'est ce que Charlie lira.",
+    "Lis les tests (« lire_tests ») : un test clos s'interprète (« interpreter_test ») et ce qu'il a établi va au carnet ; le lundi, s'il n'y en a pas en cours et que deux pubs en ligne diffèrent d'UNE chose, ouvre-en un (« ouvrir_test ») sur une métrique que la campagne peut atteindre.",
     "Note dans le carnet ce que les chiffres ont ÉTABLI (« noter_apprentissage »), pas une impression.",
     "Termine avec « terminer » : `resume` en 3 à 6 lignes pour Charlie (français simple, chiffres clés, ce que tu as fait ou proposé) ; `donnees` = { constats: [...], recommandations: [...], aSurveiller: [...] }.",
   ].join(" "),
