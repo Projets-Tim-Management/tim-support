@@ -1715,6 +1715,15 @@ seule, enchaîné.
 | 6 | **Boucle des leads vers Meta** : pixel sur la vitrine, API Conversions (lead, lead qualifié), bascule de l'optimisation sur les leads | — |
 | 7 | **Écrans et e-mails** : rythmes, alertes et tests dans la salle de contrôle ; « Poser une question à l'agent » ; récapitulatif du lundi | — |
 
+**État au 29/10/2026 au soir** : les 7 étapes sont faites et commitées sur
+`refonte-support` (9118398 → 2d0ead5), migrations additives appliquées ; pixel
+Meta de la vitrine sur la branche `feat/pixel-meta` de tim-front (8e900a7).
+Rien n'est encore poussé. Décisions prises en route : envoi à Meta **avec
+l'accord « Publicité » seulement** ; bascule vers les prospects = **l'agent
+prépare un brouillon, Charlie publie** (10 leads reçus par Meta en 30 jours) ;
+campagne #7 passée en **autonome**. Premier vrai passage du matin (29/10,
+0,03 €) : diagnostic « la page ne convertit pas » (521 vues, 0 lead).
+
 **Lead qualifié (v1)** : une fiche née d'un formulaire dont l'état a dépassé la
 qualification (démo programmée et au-delà, signée, résiliée, archivée). Une fiche
 « perdue » ne compte pas : l'historique des états n'est pas encore lu.
