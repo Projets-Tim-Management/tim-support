@@ -52,6 +52,12 @@ export type PubState = {
   activatedAt: string | null;
   /** Première fois que les aperçus de Meta ont été affichés : une étape du suivi de lancement. */
   previewsSeenAt?: string | null;
+  /**
+   * Les publicités AJOUTÉES à la campagne en ligne (créas renouvelées, §9 nonies
+   * étape 5) et déjà activées : leur clé dans `ads`. Une ajoutée naît en pause
+   * comme les autres ; elle ne passe active qu'une fois notée ici.
+   */
+  liveAds?: string[];
 };
 
 export const emptyState = (input: PubInput): PubState => ({
@@ -163,15 +169,35 @@ export async function advance(state: PubState, input: PubInput, d: Deps, save: S
     if (late()) return s;
   }
 
+  // 3 à 6. Médias, traitement des vidéos, créas, publicités.
+  if (!(await placeCreas(s, input.creas, plan, input, d, note, save))) return s;
+
+  s.status = "en-pause";
+  s.publishedAt = d.now().toISOString();
+  await note(`Publiée chez Meta, EN PAUSE : ${Object.keys(s.ads).length} publicité(s) dans ${plan.ensembles.length} ensemble(s). Vérifiez les aperçus, puis « Activer ».`);
+  return s;
+}
+
+/**
+ * Médias, traitement des vidéos, créas, puis publicités — pour `creas`, dans
+ * chaque ensemble déjà créé. Idempotent comme le reste. Rend `false` s'il faut
+ * revenir (vidéo en traitement, délai dépassé), `true` quand tout est posé.
+ * Une publicité naît EN PAUSE (createAd) : c'est l'appelant qui décide de
+ * l'activer.
+ */
+async function placeCreas(s: PubState, creas: PubCrea[], plan: MediaPlan, input: PubInput, d: Deps, note: (line: string) => Promise<void>, save: Save): Promise<boolean> {
+  const p = d.platform as Required<Pick<AdPlatform, "uploadImage" | "uploadVideo" | "videoState" | "createCreative" | "createAd">> & AdPlatform;
+  const late = () => Date.now() > d.deadline;
+  const def = OBJECTIFS[plan.objectif];
   // 3. Les médias : une image s'envoie, une vidéo est cherchée par Meta à son adresse.
-  for (const c of input.creas)
+  for (const c of creas)
     for (const f of c.files) {
       if (s.media[f.url]) continue;
       const name = f.filename ?? `C${c.id}-${f.format}`;
       s.media[f.url] = f.kind === "image" ? { kind: "image", hash: (await p.uploadImage(d.acc, f.url, name)).hash, ready: true } : { kind: "video", videoId: (await p.uploadVideo(d.acc, f.url, name)).id, ready: false };
       s.media = { ...s.media };
       await note(`${f.kind === "image" ? "Image" : "Vidéo"} ${name} envoyée.`);
-      if (late()) return s;
+      if (late()) return false;
     }
 
   // 4. Les vidéos, jusqu'à la fin de leur traitement chez Meta (et leur vignette).
@@ -181,14 +207,14 @@ export async function advance(state: PubState, input: PubInput, d: Deps, save: S
     if (v.error) throw new Error(`Vidéo refusée par Meta : ${v.error}`);
     if (!v.ready) {
       await note("Vidéo en cours de traitement chez Meta : reprise dans une minute.");
-      return s;
+      return false;
     }
     s.media = { ...s.media, [url]: { ...m, ready: true, thumbnailUrl: v.thumbnailUrl } };
     await save(s);
   }
 
   // 5. Les créas : une par créa et par nature (vidéo, image), chaque format à sa place.
-  for (const c of input.creas)
+  for (const c of creas)
     for (const kind of kindsOf(c)) {
       const key = `${c.id}:${kind}`;
       if (s.creatives[key]) continue;
@@ -215,22 +241,55 @@ export async function advance(state: PubState, input: PubInput, d: Deps, save: S
         }),
       };
       await note(`Créa C${c.id} (${kind === "video" ? "vidéo" : "image"}) créée.`);
-      if (late()) return s;
+      if (late()) return false;
     }
 
   // 6. Les publicités : chaque créa dans chaque ensemble.
   for (const [i, e] of plan.ensembles.entries())
-    for (const c of input.creas)
+    for (const c of creas)
       for (const kind of kindsOf(c)) {
         const key = `${c.id}:${kind}:${i}`;
         if (s.ads[key]) continue;
         s.ads = { ...s.ads, [key]: await p.createAd(d.acc, { name: `C${c.id} ${kind === "video" ? "vidéo" : "image"} — ${e.nom}`.slice(0, 100), adSetId: s.adsets[i], creativeId: s.creatives[`${c.id}:${kind}`] }) };
         await save(s);
-        if (late()) return s;
+        if (late()) return false;
       }
 
-  s.status = "en-pause";
-  s.publishedAt = d.now().toISOString();
-  await note(`Publiée chez Meta, EN PAUSE : ${Object.keys(s.ads).length} publicité(s) dans ${plan.ensembles.length} ensemble(s). Vérifiez les aperçus, puis « Activer ».`);
-  return s;
+  return true;
+}
+
+/**
+ * Ajoute des créas validées à une campagne DÉJÀ EN DIFFUSION (plan, §9 nonies,
+ * étape 5) : médias, créas et publicités dans chaque ensemble existant, puis
+ * chaque nouvelle publicité passe active — la campagne et ses ensembles ne
+ * bougent pas. Idempotent : rejoué chaque minute jusqu'au bout. Rend les créas
+ * posées entièrement à ce passage.
+ */
+export async function advanceAdditions(state: PubState, creas: PubCrea[], input: PubInput, d: Deps, save: Save): Promise<{ state: PubState; placed: (number | string)[]; done: boolean }> {
+  const p = d.platform;
+  if (!p.uploadImage || !p.uploadVideo || !p.videoState || !p.createCreative || !p.createAd || !p.setStatus) throw new Error(`${p.label} : l'ajout de publicités n'est pas branché.`);
+  if (state.status !== "active" || !state.plan || !state.adsets.length) throw new Error("La campagne n'est pas en diffusion : rien à quoi ajouter.");
+  const s: PubState = { ...state, liveAds: [...(state.liveAds ?? [])] };
+  const note = async (line: string) => {
+    s.history = [...s.history, { at: d.now().toISOString(), line }];
+    await save(s);
+  };
+  if (!(await placeCreas(s, creas, s.plan!, input, d, note, save))) return { state: s, placed: [], done: false };
+  const placed: (number | string)[] = [];
+  for (const c of creas) {
+    for (const [i] of s.plan!.ensembles.entries())
+      for (const kind of kindsOf(c)) {
+        const key = `${c.id}:${kind}:${i}`;
+        if (s.liveAds!.includes(key)) continue;
+        await p.setStatus(d.acc, { level: "ad", externalId: s.ads[key] }, "active");
+        s.liveAds = [...s.liveAds!, key];
+        await save(s);
+      }
+    if (!s.creas.map(String).includes(String(c.id))) {
+      s.creas = [...s.creas, c.id];
+      placed.push(c.id);
+      await note(`Créa C${c.id} ajoutée à la campagne en ligne : ${kindsOf(c).length * s.plan!.ensembles.length} publicité(s) actives.`);
+    }
+  }
+  return { state: s, placed, done: true };
 }

@@ -219,6 +219,86 @@ export async function launchRun(payload: Payload, input: { campaign: Id; objecti
   return { id: run.id as Id, budgetEur: b.prep.budgetEur };
 }
 
+/** Le plafond d'un renouvellement : moins qu'une première préparation, le plan est déjà fait. */
+export const RENEWAL_CAP_EUR = 3;
+
+/**
+ * Renouveler les créas d'une campagne EN LIGNE (plan, §9 nonies, étape 5),
+ * à la demande de l'analyste : une préparation comme les autres — stratège,
+ * rédacteur, directeur artistique, contrôleur — mais sur ce que la campagne a
+ * appris, sans toucher à son plan de diffusion ni à sa répartition (les outils
+ * le refusent). Les créas partent « À valider » ; une fois validées par Charlie,
+ * la publication les ajoute seule à la campagne (tickAdditions).
+ */
+export async function launchRenewal(
+  payload: Payload,
+  input: { campaign: Id; reason: string; angles: string[]; count: number; origin?: { run: Id; agent: Id } },
+  now = new Date(),
+): Promise<{ id: Id; budgetEur: number }> {
+  const reason = input.reason.trim();
+  if (!reason) throw new LaunchError("Dis pourquoi renouveler : ce qui s'use, ce qui manque.");
+  const ctx = await loadGenerationContext(payload, input.campaign);
+  const campaign = ctx.campaign as Campaign & { publicationStatus?: string | null };
+  const campaignId = campaign.id;
+  if (campaign.publicationStatus !== "active") throw new LaunchError("Le renouvellement vaut pour une campagne en diffusion.");
+  const missing = missingBrief(campaign as never);
+  if (missing.length) throw new LaunchError(`Brief incomplet : il manque ${missing.join(", ")}.`);
+  const left = ctx.weeklyLimit - (await weeklyUsed(payload, campaignId, now));
+  if (left <= 0) throw new LaunchError("Quota de créas de la semaine atteint pour cette campagne.");
+  const busy = await payload.count({ collection: "ad-agent-runs", where: { and: [{ campaign: { equals: campaignId } }, { kind: { equals: "preparation" } }, { status: { in: ACTIVE } }] }, overrideAccess: true });
+  if (busy.totalDocs) throw new LaunchError("Une préparation est déjà en cours sur cette campagne.");
+  const waiting = await payload.count({ collection: "ad-creatives", where: { and: [{ campaign: { equals: campaignId } }, { status: { equals: "a-valider" } }] }, overrideAccess: true });
+  if (waiting.totalDocs) throw new LaunchError(`${waiting.totalDocs} créa(s) attendent déjà la validation de Charlie : on ne prépare pas les suivantes avant.`);
+  const b = await runBudget(payload, RENEWAL_CAP_EUR, now);
+  if (!b.enabled) throw new LaunchError("Interrupteur général coupé (Publicité › Paramètres › Garde-fous).");
+  if (!b.prep.ok) throw new LaunchError(b.prep.reason);
+  const blocked = libraryBlocker((await createSourcesPort(payload).competitors()).length, process.env);
+  if (blocked) throw new LaunchError(blocked);
+  const notebook = await loadNotebook(payload, campaignId, now);
+  const count = Math.max(1, Math.min(left, Math.round(input.count) || 2, 4));
+  const angles = input.angles.map((a) => a.trim()).filter(Boolean).slice(0, 4);
+
+  const run = await payload.create({
+    collection: "ad-agent-runs",
+    data: {
+      campaign: campaignId,
+      objective: `Renouveler les créas : ${reason}`.slice(0, 500),
+      kind: "preparation",
+      status: "en-cours",
+      instructionsRead: notebook.instructions,
+      learningsRead: notebook.learnings,
+      budgetEur: b.prep.budgetEur,
+      costEur: 0,
+      startedAt: now.toISOString(),
+      limits: { renouvellement: true, demandePar: input.origin ?? null, creas: count, plafondDuPassageEur: RENEWAL_CAP_EUR, profondeur: MAX_DEPTH, simultanes: MAX_CONCURRENT, sousAgents: MAX_AGENTS_PER_RUN, rejets: MAX_REJECTIONS },
+    } as never,
+    overrideAccess: true,
+  });
+  await payload.create({
+    collection: "ad-agents",
+    data: {
+      run: run.id,
+      depth: 0,
+      role: "orchestrateur",
+      status: "en-cours",
+      mission: [
+        `Renouveler les créas de la campagne EN LIGNE « ${campaign.name} » : ${count} nouvelle(s) créa(s), à déposer « À valider ».`,
+        `Ce que l'analyste a constaté : ${reason}`,
+        angles.length ? `Pistes d'angles de l'analyste : ${angles.join(" ; ")}.` : "",
+        "La campagne est publiée : son plan de diffusion et sa répartition du budget sont en place, tu n'en proposes pas d'autre (les outils le refusent). Le stratège part de ce que la campagne a appris (carnet, consignes) et des concurrents ; chaque nouvelle créa ne diffère d'une créa en ligne que par UNE chose, pour qu'on puisse les comparer.",
+      ]
+        .filter(Boolean)
+        .join(" "),
+      tools: ROLE_TOOLS.orchestrateur.filter((t) => t !== "repartir_budget"),
+      model: ADS_AGENT_MODELS.orchestrateur,
+      budgetEur: b.prep.budgetEur,
+      spentEur: 0,
+    } as never,
+    overrideAccess: true,
+  });
+  return { id: run.id as Id, budgetEur: b.prep.budgetEur };
+}
+
 /** Arrêter tout de suite : le passage, et chaque agent qui n'a pas fini. Ce qui est produit reste. */
 export async function stopRun(payload: Payload, runId: Id, who: string, now = new Date()) {
   const run = (await payload.findByID({ collection: "ad-agent-runs", id: runId, depth: 0, overrideAccess: true })) as { status: string };

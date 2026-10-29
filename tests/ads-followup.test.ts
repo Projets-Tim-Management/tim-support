@@ -86,6 +86,7 @@ describe("un passage de suivi complet", () => {
     journal: vi.fn(async () => ({ decisions: [], alertes: [] })),
     act: vi.fn(async () => ({ decision: 9, outcome: "bloquer" as const, reasons: ["Gel des 7 premiers jours"], error: null, summary: "Mettre en pause la publicité « C17 »" })),
     learn: vi.fn(async () => 3),
+    renew: vi.fn(async () => ({ run: 55, budgetEur: 3 })),
   } as unknown as SuiviPort & { act: ReturnType<typeof vi.fn>; learn: ReturnType<typeof vi.fn> };
   beforeEach(() => {
     mem = memoryStore();
@@ -139,5 +140,29 @@ describe("un passage de suivi complet", () => {
     await tickRun(deps(model), run.id, new Date("2026-11-09T09:00:00Z"));
     expect(suivi.act).not.toHaveBeenCalled();
     expect(mem.steps.map((s) => s.line)).toEqual(expect.arrayContaining([expect.stringMatching(/Appui\(s\) inconnu\(s\) : A999/)]));
+  });
+
+  it("le lundi, fait préparer de nouvelles créas — et le journal le dit", async () => {
+    const run = await start("hebdomadaire", "Passage renouvellement");
+    const { model } = scripted({
+      "Passage renouvellement": [
+        reply("tool_use", toolCall("a", "demander_creas", { raison: "C19 porte 99 % de la dépense, rien pour la remplacer", angles: ["Le planning météo"], nombre: 2, appuis: [] })),
+        reply("tool_use", toolCall("b", "terminer", { resume: "Deux créas demandées." })),
+      ],
+    });
+    await tickRun(deps(model), run.id, new Date("2026-11-09T09:00:00Z"));
+    expect(suivi.renew).toHaveBeenCalledWith(77, { reason: "C19 porte 99 % de la dépense, rien pour la remplacer", angles: ["Le planning météo"], count: 2 }, { run: run.id, agent: expect.anything() });
+    expect(mem.decisions).toEqual([expect.objectContaining({ kind: "renouvellement", status: "executee", after: expect.objectContaining({ preparation: 55 }) })]);
+  });
+});
+
+describe("un renouvellement ne touche pas à ce qui est publié", () => {
+  it("plan de diffusion et répartition sont refusés dans une préparation sur campagne en ligne", async () => {
+    const { TOOLS } = await import("@/modules/ads/agent/registry");
+    const ctx = { run: { id: 1, campaign: 7, renewal: true }, agent: { role: "stratege" } } as never;
+    for (const name of ["proposer_plan_diffusion", "repartir_budget"]) {
+      const out = await TOOLS[name].run(ctx, {});
+      expect(out).toMatchObject({ kind: "ok", isError: true, output: { refus: expect.stringMatching(/^Campagne en ligne/) } });
+    }
   });
 });

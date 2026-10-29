@@ -38,6 +38,8 @@ export type RunRow = {
   learningsRead?: unknown;
   /** Le rythme du passage : la préparation d'un brouillon, ou le suivi d'une campagne en ligne. */
   kind?: "preparation" | "quotidien" | "hebdomadaire" | "mensuel";
+  /** Une préparation sur une campagne EN LIGNE : plan de diffusion et répartition n'y changent pas. */
+  renewal?: boolean;
 };
 
 export type AgentRow = {
@@ -234,6 +236,8 @@ export interface SuiviPort {
   openTest(campaign: Id, t: { hypothesis: string; dimension: string; metric: string; variants: { label: string; ads: string[] }[] }, run: Id): Promise<Id>;
   /** L'interprétation d'un test clos de la campagne, par l'analyste. */
   interpret(campaign: Id, test: Id, text: string): Promise<void>;
+  /** Fait préparer de nouvelles créas pour la campagne en ligne (une préparation, validée ensuite par Charlie). */
+  renew(campaign: Id, req: { reason: string; angles: string[]; count: number }, origin: { run: Id; agent: Id }): Promise<{ run: Id; budgetEur: number }>;
   /** Un apprentissage de la campagne, né d'un résultat ; « global » le propose seulement (Charlie valide). */
   learn(campaign: Id, l: { statement: string; confidence: "faible" | "moyenne" | "forte"; global: boolean; decision: Id | null }): Promise<Id>;
 }

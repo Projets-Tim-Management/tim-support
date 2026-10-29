@@ -237,4 +237,51 @@ const interpreterTest: AgentTool = {
   },
 };
 
-export const SUIVI_TOOLS: AgentTool[] = [lireResultats, lireJournal, agir, attendre, noterApprentissage, lireTests, ouvrirTest, interpreterTest];
+const demanderCreas: AgentTool = {
+  definition: {
+    name: "demander_creas",
+    description:
+      "Fait préparer de nouvelles créas pour la campagne en ligne : une préparation part (stratège, rédacteur, directeur artistique, contrôleur), les créas vont « À valider », Charlie fait les visuels et valide, puis elles s'ajoutent SEULES à la campagne. Quand une pub s'use, qu'une seule pub porte toute la campagne, ou pour tester une idée. Refusé si des créas attendent déjà Charlie, ou si le quota de la semaine est atteint.",
+    input_schema: {
+      type: "object",
+      properties: {
+        raison: { type: "string", description: "Ce que tu as constaté, chiffres à l'appui : ce qui s'use, ce qui manque, ce qu'il faut tester." },
+        angles: { type: "array", items: { type: "string" }, description: "Pistes d'angles (facultatif) ; le stratège tranche." },
+        nombre: { type: "number", description: "Combien de créas (1 à 4, 2 par défaut)." },
+        appuis: { type: "array", items: { type: "string" } },
+      },
+      required: ["raison", "appuis"],
+    },
+  },
+  async run(ctx, input) {
+    if (ctx.run.kind === "quotidien") return refuse(ctx, "De nouvelles créas se demandent au passage du lundi.");
+    const appuis = resolveAppuis(notebookOf(ctx.run), input.appuis);
+    if ("error" in appuis) return refuse(ctx, appuis.error);
+    const raison = String(input.raison ?? "").trim();
+    try {
+      const r = await port(ctx).renew(
+        ctx.run.campaign,
+        { reason: raison, angles: Array.isArray(input.angles) ? input.angles.map(String) : [], count: Number(input.nombre) || 2 },
+        { run: ctx.run.id, agent: ctx.agent.id },
+      );
+      await ctx.deps.store.createDecision({
+        campaign: ctx.run.campaign,
+        run: ctx.run.id,
+        agent: ctx.agent.id,
+        step: ctx.step.id,
+        kind: "renouvellement",
+        status: "executee",
+        rationale: raison,
+        after: { preparation: r.run, angles: input.angles ?? [], nombre: input.nombre ?? 2, budgetEur: r.budgetEur },
+        instructions: appuis.instructions,
+        learnings: appuis.learnings,
+        citations: appuis.citations,
+      });
+      return { kind: "ok", output: { preparation: r.run, budget_eur: r.budgetEur }, line: `${who(ctx)} fait préparer de nouvelles créas : ${clip(raison, 90)}` };
+    } catch (e) {
+      return refuse(ctx, (e as Error).message);
+    }
+  },
+};
+
+export const SUIVI_TOOLS: AgentTool[] = [demanderCreas, lireResultats, lireJournal, agir, attendre, noterApprentissage, lireTests, ouvrirTest, interpreterTest];

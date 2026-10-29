@@ -195,6 +195,13 @@ export function payloadSuivi(payload: Payload, now: () => Date = () => new Date(
       await payload.update({ collection: "ad-tests", id: testId, data: { interpretation: text } as never, overrideAccess: true });
     },
 
+    async renew(campaignId, req, origin) {
+      // Import tardif : run.ts importe ce port (agentDeps).
+      const { launchRenewal } = await import("@/modules/ads/agent/run");
+      const r = await launchRenewal(payload, { campaign: campaignId, ...req, origin }, now());
+      return { run: r.id, budgetEur: r.budgetEur };
+    },
+
     async learn(campaignId, l) {
       const at = now();
       const doc = await payload.create({

@@ -34,6 +34,7 @@ const toRun = (d: Record<string, unknown>): RunRow => ({
   instructionsRead: d.instructionsRead ?? null,
   learningsRead: d.learningsRead ?? null,
   kind: (d.kind as RunRow["kind"]) ?? "preparation",
+  renewal: Boolean((d.limits as { renouvellement?: boolean } | null)?.renouvellement),
 });
 
 const toAgent = (d: Record<string, unknown>): AgentRow => ({

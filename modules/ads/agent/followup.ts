@@ -161,7 +161,7 @@ export async function launchFollowUp(payload: Payload, c: { id: Id; name: string
       status: "en-cours",
       mission,
       // Le matin, il lit ; il n'a pas l'outil pour agir (l'outil le refuserait aussi).
-      tools: ROLE_TOOLS.analyste.filter((t) => kind !== "quotidien" || (t !== "agir" && t !== "ouvrir_test")),
+      tools: ROLE_TOOLS.analyste.filter((t) => kind !== "quotidien" || !["agir", "ouvrir_test", "demander_creas"].includes(t)),
       model: ADS_FOLLOWUP_MODELS[kind],
       budgetEur,
       spentEur: 0,

@@ -2509,7 +2509,8 @@ export interface AdDecision {
     | 'pause'
     | 'activation'
     | 'attente'
-    | 'test';
+    | 'test'
+    | 'renouvellement';
   status: 'proposee' | 'executee' | 'bloquee';
   rationale: string;
   before?:

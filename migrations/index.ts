@@ -171,6 +171,7 @@ import * as migration_20261029_125211_suivi_mesure from './20261029_125211_suivi
 import * as migration_20261029_130118_suivi_alertes from './20261029_130118_suivi_alertes';
 import * as migration_20261029_141053_suivi_analyste from './20261029_141053_suivi_analyste';
 import * as migration_20261029_155312_suivi_tests from './20261029_155312_suivi_tests';
+import * as migration_20261029_160026_suivi_renouvellement from './20261029_160026_suivi_renouvellement';
 
 export const migrations = [
   {
@@ -1036,6 +1037,11 @@ export const migrations = [
   {
     up: migration_20261029_155312_suivi_tests.up,
     down: migration_20261029_155312_suivi_tests.down,
-    name: '20261029_155312_suivi_tests'
+    name: '20261029_155312_suivi_tests',
+  },
+  {
+    up: migration_20261029_160026_suivi_renouvellement.up,
+    down: migration_20261029_160026_suivi_renouvellement.down,
+    name: '20261029_160026_suivi_renouvellement'
   },
 ];
