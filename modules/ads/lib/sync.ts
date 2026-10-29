@@ -3,6 +3,7 @@ import type { Payload } from "payload";
 import { decryptSecret } from "@/core/lib/secrets";
 import { isSyncable, statusFromTokens, type AccountStatus } from "@/modules/ads/lib/accounts";
 import { isAllowedAccount } from "@/modules/ads/lib/allowlist";
+import { writeSiteLeads, type AdParent } from "@/modules/ads/lib/site-leads";
 import { MOCK_ACCOUNT_ID } from "@/modules/ads/platforms/meta-mock";
 import { AdTokenError, type AdPlatform, type Level, type MetricRow } from "@/modules/ads/platforms/types";
 
@@ -118,10 +119,15 @@ export type SyncResult = {
   campaigns?: number;
   written?: number;
   unchanged?: number;
+  /** Ensembles et pubs relus, lignes des leads du site réécrites. */
+  objects?: number;
+  siteLeads?: number;
   error?: string;
+  /** Ce qui a échoué sans arrêter la synchro (état des pubs, leads du site). */
+  warnings?: string[];
 };
 
-const METRIC_FIELDS = ["name", "campaignExternalId", "spend", "impressions", "clicks", "leads"] as const;
+const METRIC_FIELDS = ["name", "campaignExternalId", "spend", "impressions", "clicks", "leads", "reach", "linkClicks", "landingViews"] as const;
 
 /** Une colonne `numeric` revient parfois en chaîne : « 12.3 » et 12.3 sont la même valeur. */
 export const sameValue = (a: unknown, b: unknown): boolean =>
@@ -183,7 +189,17 @@ export async function syncAccount(payload: Payload, acc: RawAccount, platform: A
     let written = 0;
     let unchanged = 0;
     for (const r of rows) {
-      const data = { name: r.name, campaignExternalId: r.campaignExternalId, spend: r.spend, impressions: r.impressions, clicks: r.clicks, leads: r.leads };
+      const data = {
+        name: r.name,
+        campaignExternalId: r.campaignExternalId,
+        spend: r.spend,
+        impressions: r.impressions,
+        clicks: r.clicks,
+        leads: r.leads,
+        reach: r.reach,
+        linkClicks: r.linkClicks,
+        landingViews: r.landingViews,
+      };
       const prev = known.get(metricKey(r.level, r.externalId, r.day));
       if (prev) {
         if (METRIC_FIELDS.every((f) => sameValue(prev[f], data[f]))) {
@@ -221,12 +237,88 @@ export async function syncAccount(payload: Payload, acc: RawAccount, platform: A
       else await payload.create({ collection: "ad-campaigns", data, overrideAccess: true });
     }
 
+    // 4. L'état des ensembles et des pubs, puis les leads du site. Un échec ici ne fige pas les chiffres :
+    // il est dit dans le résultat, et le passage suivant réessaie.
+    const warnings: string[] = [];
+    const ads = new Map<string, AdParent>();
+    let objects = 0;
+    if (platform.listObjects) {
+      try {
+        objects = await syncObjects(payload, acc, platform, ctx, platformKey, window, now, ads);
+      } catch (e) {
+        if (e instanceof AdTokenError) throw e;
+        warnings.push(`État des pubs : ${(e as Error).message}`);
+      }
+    }
+    let siteLeads = 0;
+    try {
+      siteLeads = await writeSiteLeads(payload, acc, platformKey, ads, new Set(campaigns.map((c) => c.externalId)), now);
+    } catch (e) {
+      warnings.push(`Leads du site : ${(e as Error).message}`);
+    }
+
     await setAccount({ status: "connecte", lastSyncAt: now.toISOString(), lastError: null });
-    return { ...base, status: "connecte", campaigns: campaigns.length, written, unchanged };
+    return { ...base, status: "connecte", campaigns: campaigns.length, written, unchanged, objects, siteLeads, ...(warnings.length ? { warnings } : {}) };
   } catch (e) {
     const expired = e instanceof AdTokenError;
     const error = (e as Error).message || "Erreur inconnue";
     await setAccount({ status: expired ? "expire" : "erreur", lastError: error }).catch(() => null);
     return { ...base, status: expired ? "expire" : "erreur", error };
   }
+}
+
+/**
+ * Les ensembles et les pubs du compte, avec leur portée et leur répétition sur
+ * la fenêtre. Remplit `ads` (pub → ensemble, campagne) pour les leads du site.
+ * Rend le nombre d'objets écrits.
+ */
+async function syncObjects(
+  payload: Payload,
+  acc: RawAccount,
+  platform: AdPlatform,
+  ctx: { externalId: string; token: string; currency?: string | null; timezone?: string | null },
+  platformKey: string,
+  window: { since: string; until: string },
+  now: Date,
+  ads: Map<string, AdParent>,
+): Promise<number> {
+  const [snapshots, reachAdsets, reachAds] = await Promise.all([
+    platform.listObjects!(ctx),
+    platform.fetchReach ? platform.fetchReach(ctx, window, "adset") : Promise.resolve([]),
+    platform.fetchReach ? platform.fetchReach(ctx, window, "ad") : Promise.resolve([]),
+  ]);
+  const reach = new Map([...reachAdsets, ...reachAds].map((r) => [r.externalId, r]));
+  const existing = await payload.find({
+    collection: "ad-objects",
+    where: { and: [{ platform: { equals: platformKey } }, { externalId: { in: snapshots.map((o) => o.externalId) } }] },
+    pagination: false,
+    depth: 0,
+    overrideAccess: true,
+    select: { externalId: true } as never,
+  });
+  const ids = new Map((existing.docs as { id: number; externalId: string }[]).map((d) => [d.externalId, d.id]));
+  for (const o of snapshots) {
+    if (o.level === "ad") ads.set(o.externalId, { adsetExternalId: o.adsetExternalId, campaignExternalId: o.campaignExternalId });
+    const r = reach.get(o.externalId);
+    const data = {
+      account: acc.id as number,
+      platform: platformKey,
+      level: o.level,
+      externalId: o.externalId,
+      name: o.name,
+      campaignExternalId: o.campaignExternalId,
+      adsetExternalId: o.adsetExternalId,
+      status: o.status,
+      effectiveStatus: o.effectiveStatus,
+      dailyBudget: o.dailyBudget,
+      issues: o.issues,
+      reach7d: r?.reach ?? 0,
+      frequency7d: r ? round2(r.frequency) : 0,
+      syncedAt: now.toISOString(),
+    };
+    const id = ids.get(o.externalId);
+    if (id != null) await payload.update({ collection: "ad-objects", id, data, overrideAccess: true });
+    else await payload.create({ collection: "ad-objects", data, overrideAccess: true });
+  }
+  return snapshots.length;
 }

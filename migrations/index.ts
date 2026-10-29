@@ -167,6 +167,7 @@ import * as migration_20261023_095743_presentation_bookings from './20261023_095
 import * as migration_20261023_115605_mass_email_campaigns from './20261023_115605_mass_email_campaigns';
 import * as migration_20261026_142149_feature_profiles from './20261026_142149_feature_profiles';
 import * as migration_20261029_121256_parcours_profil_visuel from './20261029_121256_parcours_profil_visuel';
+import * as migration_20261029_125211_suivi_mesure from './20261029_125211_suivi_mesure';
 
 export const migrations = [
   {
@@ -1012,6 +1013,11 @@ export const migrations = [
   {
     up: migration_20261029_121256_parcours_profil_visuel.up,
     down: migration_20261029_121256_parcours_profil_visuel.down,
-    name: '20261029_121256_parcours_profil_visuel'
+    name: '20261029_121256_parcours_profil_visuel',
+  },
+  {
+    up: migration_20261029_125211_suivi_mesure.up,
+    down: migration_20261029_125211_suivi_mesure.down,
+    name: '20261029_125211_suivi_mesure'
   },
 ];

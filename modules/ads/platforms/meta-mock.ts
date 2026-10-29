@@ -14,6 +14,8 @@ import type {
   DateRange,
   Level,
   MetricRow,
+  ObjectSnapshot,
+  ReachRow,
 } from "@/modules/ads/platforms/types";
 
 /**
@@ -95,6 +97,12 @@ function split(total: number, n: number, key: string, decimals = 0): number[] {
   return parts;
 }
 
+/** Portée, clics vers le site et vues de la page, déduits des impressions et des clics d'une ligne. */
+const derived = (impressions: number, clicks: number) => {
+  const linkClicks = Math.round(clicks * 0.8);
+  return { reach: Math.round(impressions * 0.7), linkClicks, landingViews: Math.round(linkClicks * 0.7) };
+};
+
 export function createMockMetaPlatform(): AdPlatform {
   return {
     key: "meta",
@@ -157,7 +165,7 @@ export function createMockMetaPlatform(): AdPlatform {
         for (const c of CAMPAIGNS) {
           const m = campaignDay(c, day);
           if (level === "campaign") {
-            rows.push({ level, externalId: c.id, name: c.name, campaignExternalId: c.id, day, ...m });
+            rows.push({ level, externalId: c.id, name: c.name, campaignExternalId: c.id, day, ...m, ...derived(m.impressions, m.clicks) });
             continue;
           }
           const units = level === "adset" ? ADSETS_PER_CAMPAIGN : ADSETS_PER_CAMPAIGN * ADS_PER_ADSET;
@@ -171,11 +179,34 @@ export function createMockMetaPlatform(): AdPlatform {
           for (let i = 0; i < units; i++) {
             const id = `${c.id}${level === "adset" ? "-e" : "-a"}${i + 1}`;
             const label = level === "adset" ? `Ensemble ${i + 1}` : `Annonce ${i + 1}`;
-            rows.push({ level, externalId: id, name: `${c.name} · ${label}`, campaignExternalId: c.id, day, spend: spend[i], impressions: impressions[i], clicks: clicks[i], leads: leads[i] });
+            rows.push({ level, externalId: id, name: `${c.name} · ${label}`, campaignExternalId: c.id, day, spend: spend[i], impressions: impressions[i], clicks: clicks[i], leads: leads[i], ...derived(impressions[i], clicks[i]) });
           }
         }
       }
       return rows;
+    },
+
+    async listObjects(): Promise<ObjectSnapshot[]> {
+      const out: ObjectSnapshot[] = [];
+      for (const c of CAMPAIGNS) {
+        const status = c.status === "active" ? "ACTIVE" : "PAUSED";
+        for (let i = 0; i < ADSETS_PER_CAMPAIGN; i++) {
+          out.push({ level: "adset", externalId: `${c.id}-e${i + 1}`, name: `${c.name} · Ensemble ${i + 1}`, campaignExternalId: c.id, adsetExternalId: null, status, effectiveStatus: status, dailyBudget: c.budget / ADSETS_PER_CAMPAIGN, issues: [] });
+        }
+        for (let i = 0; i < ADSETS_PER_CAMPAIGN * ADS_PER_ADSET; i++) {
+          out.push({ level: "ad", externalId: `${c.id}-a${i + 1}`, name: `${c.name} · Annonce ${i + 1}`, campaignExternalId: c.id, adsetExternalId: `${c.id}-e${Math.floor(i / ADS_PER_ADSET) + 1}`, status, effectiveStatus: status, dailyBudget: null, issues: [] });
+        }
+      }
+      return out;
+    },
+
+    async fetchReach(acc: AccountContext, range: DateRange, level: Level): Promise<ReachRow[]> {
+      const days = daysBetween(range).length;
+      const totals = new Map<string, number>();
+      for (const r of await this.fetchMetrics(acc, range, level)) totals.set(r.externalId, (totals.get(r.externalId) ?? 0) + r.impressions);
+      // Une répétition qui monte avec la durée : ~1,1 par jour de diffusion, plafonnée à 4.
+      const frequency = Math.min(4, 1 + days * 0.1);
+      return [...totals].map(([externalId, impressions]) => ({ level, externalId, reach: Math.round(impressions / frequency), frequency: Math.round(frequency * 100) / 100 }));
     },
   };
 }

@@ -100,6 +100,7 @@ export interface Config {
     'ad-creatives': AdCreative;
     'ad-accounts': AdAccount;
     'ad-metrics-daily': AdMetricsDaily;
+    'ad-objects': AdObject;
     'ad-media': AdMedia;
     'ad-facts': AdFact;
     'ad-ai-usage': AdAiUsage;
@@ -187,6 +188,7 @@ export interface Config {
     'ad-creatives': AdCreativesSelect<false> | AdCreativesSelect<true>;
     'ad-accounts': AdAccountsSelect<false> | AdAccountsSelect<true>;
     'ad-metrics-daily': AdMetricsDailySelect<false> | AdMetricsDailySelect<true>;
+    'ad-objects': AdObjectsSelect<false> | AdObjectsSelect<true>;
     'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
     'ad-facts': AdFactsSelect<false> | AdFactsSelect<true>;
     'ad-ai-usage': AdAiUsageSelect<false> | AdAiUsageSelect<true>;
@@ -3035,8 +3037,43 @@ export interface AdMetricsDaily {
   impressions?: number | null;
   clicks?: number | null;
   leads?: number | null;
+  siteLeads?: number | null;
   qualifiedLeads?: number | null;
   won?: number | null;
+  reach?: number | null;
+  linkClicks?: number | null;
+  landingViews?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-objects".
+ */
+export interface AdObject {
+  id: number;
+  account: number | AdAccount;
+  platform: string;
+  level: 'adset' | 'ad';
+  externalId: string;
+  name?: string | null;
+  campaignExternalId?: string | null;
+  adsetExternalId?: string | null;
+  status?: string | null;
+  effectiveStatus?: string | null;
+  dailyBudget?: number | null;
+  issues?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  reach7d?: number | null;
+  frequency7d?: number | null;
+  syncedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3821,6 +3858,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-metrics-daily';
         value: number | AdMetricsDaily;
+      } | null)
+    | ({
+        relationTo: 'ad-objects';
+        value: number | AdObject;
       } | null)
     | ({
         relationTo: 'ad-media';
@@ -5231,8 +5272,34 @@ export interface AdMetricsDailySelect<T extends boolean = true> {
   impressions?: T;
   clicks?: T;
   leads?: T;
+  siteLeads?: T;
   qualifiedLeads?: T;
   won?: T;
+  reach?: T;
+  linkClicks?: T;
+  landingViews?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-objects_select".
+ */
+export interface AdObjectsSelect<T extends boolean = true> {
+  account?: T;
+  platform?: T;
+  level?: T;
+  externalId?: T;
+  name?: T;
+  campaignExternalId?: T;
+  adsetExternalId?: T;
+  status?: T;
+  effectiveStatus?: T;
+  dailyBudget?: T;
+  issues?: T;
+  reach7d?: T;
+  frequency7d?: T;
+  syncedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

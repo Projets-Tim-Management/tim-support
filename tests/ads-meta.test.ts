@@ -92,14 +92,14 @@ describe("adaptateur Meta (API Graph simulée)", () => {
         /act_42\/insights/,
         {
           data: [
-            { date_start: "2026-09-27", campaign_id: "c1", campaign_name: "Pointage", adset_id: "s1", adset_name: "BTP 11-50", spend: "12.34", impressions: "1500", clicks: "20", actions: [{ action_type: "lead", value: "2" }] },
+            { date_start: "2026-09-27", campaign_id: "c1", campaign_name: "Pointage", adset_id: "s1", adset_name: "BTP 11-50", spend: "12.34", impressions: "1500", clicks: "20", reach: "1200", inline_link_clicks: "15", actions: [{ action_type: "lead", value: "2" }, { action_type: "landing_page_view", value: "11" }] },
           ],
         },
       ],
     ]);
     const rows = await platform.fetchMetrics(acc, { since: "2026-09-27", until: "2026-09-27" }, "adset");
     expect(rows).toEqual([
-      { level: "adset", externalId: "s1", name: "BTP 11-50", campaignExternalId: "c1", day: "2026-09-27", spend: 12.34, impressions: 1500, clicks: 20, leads: 2 },
+      { level: "adset", externalId: "s1", name: "BTP 11-50", campaignExternalId: "c1", day: "2026-09-27", spend: 12.34, impressions: 1500, clicks: 20, leads: 2, reach: 1200, linkClicks: 15, landingViews: 11 },
     ]);
     const q = seen[0].searchParams;
     expect(q.get("level")).toBe("adset");

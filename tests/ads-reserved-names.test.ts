@@ -13,6 +13,7 @@ import { AdDecisions } from "@/modules/ads/collections/AdDecisions";
 import { AdFacts } from "@/modules/ads/collections/AdFacts";
 import { AdMedia } from "@/modules/ads/collections/AdMedia";
 import { AdMetricsDaily } from "@/modules/ads/collections/AdMetricsDaily";
+import { AdObjects } from "@/modules/ads/collections/AdObjects";
 import { AdsSettingsHistory } from "@/modules/ads/collections/AdsSettingsHistory";
 import { AdsBrandKit } from "@/modules/ads/globals/AdsBrandKit";
 import { AdsSettings } from "@/modules/ads/globals/AdsSettings";
@@ -51,6 +52,7 @@ const ALL: (CollectionConfig | GlobalConfig)[] = [
   AdFacts,
   AdMedia,
   AdMetricsDaily,
+  AdObjects,
   AdsBrandKit,
   AdsSettings,
   AdsSettingsHistory,
