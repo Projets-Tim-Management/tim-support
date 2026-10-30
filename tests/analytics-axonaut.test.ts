@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { matchAll, matchClient, parseAxonaut, profileOf, withCorrections } from "@/modules/analytics/lib/axonaut";
-import { buildRevenueHistory, monthKeys } from "@/modules/analytics/lib/revenue-history";
+import { buildRevenueHistory, comparePeriods, historySelection, monthKeys, periodLabel, shiftMonth } from "@/modules/analytics/lib/revenue-history";
 
 /**
  * L'historique Axonaut : lire une facture PDF (texte de `pdftotext -layout`),
@@ -199,5 +199,63 @@ describe("buildRevenueHistory", () => {
 
   it("monthKeys couvre le mois courant et change d'année", () => {
     expect(monthKeys("2025-11", new Date("2026-02-01T00:00:00Z"))).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
+  });
+});
+
+describe("périodes et comparaison", () => {
+  // A : 100/mois de janv. à juin 2025 ; B arrive en avril (50/mois) ; C part après février ; une mise en place en mai.
+  const legacy = [
+    ...["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06"].map((month) => ({ month, client: 1, clientName: "A", recurringHT: 100, servicesHT: 0 })),
+    ...["2025-04", "2025-05", "2025-06"].map((month) => ({ month, client: 2, clientName: "B", recurringHT: 50, servicesHT: 0 })),
+    ...["2025-01", "2025-02"].map((month) => ({ month, client: 3, clientName: "C", recurringHT: 30, servicesHT: 0 })),
+    { month: "2025-05", client: 2, clientName: "B", recurringHT: 0, servicesHT: 900 },
+  ];
+  const h = buildRevenueHistory(legacy, [], new Date("2025-07-02T00:00:00Z"));
+
+  it("décale les mois et nomme une période", () => {
+    expect(shiftMonth("2025-01", -1)).toBe("2024-12");
+    expect(shiftMonth("2025-11", 3)).toBe("2026-02");
+    expect(periodLabel("2025-06", 1)).toBe("juin 2025");
+    expect(periodLabel("2025-06", 3)).toBe("avr. – juin 2025");
+    expect(periodLabel("2026-02", 6)).toBe("sept. 2025 – févr. 2026");
+  });
+
+  it("compare 3 mois aux 3 d'avant : totaux, moyenne, clients nouveaux et partis", () => {
+    const c = comparePeriods(h, 3, "2025-06", "2025-03");
+    expect(c.a).toMatchObject({ label: "avr. – juin 2025", covered: 3, recurring: 450, services: 900, total: 1350, avgMonthly: 450, endRecurring: 150, clients: 2, gained: ["B"], lost: [] });
+    expect(c.b).toMatchObject({ covered: 3, recurring: 360, total: 360, endRecurring: 100, clients: 2, gained: [], lost: ["C"] });
+    expect(c.chart.map((m) => [m.label, m.aRecurring, m.aServices, m.b])).toEqual([
+      ["avr. 25", 150, 0, 130],
+      ["mai 25", 150, 900, 130],
+      ["juin 25", 150, 0, 100],
+    ]);
+    const by = Object.fromEntries(c.clients.map((x) => [x.name, x]));
+    expect(by.A).toMatchObject({ recurringA: 300, recurringB: 300, diff: 0, status: "stable" });
+    expect(by.B).toMatchObject({ recurringA: 150, recurringB: 0, servicesA: 900, status: "nouveau", pct: null });
+    expect(by.C).toMatchObject({ recurringA: 0, recurringB: 60, status: "parti" });
+  });
+
+  it("sans comparaison : la période seule, pas d'évolution", () => {
+    const c = comparePeriods(h, 1, "2025-06", null);
+    expect(c.b).toBeNull();
+    expect(c.clients.every((x) => x.status === null && x.diff === null)).toBe(true);
+    expect(c.clients.map((x) => x.name).sort()).toEqual(["A", "B"]);
+  });
+
+  it("une période qui commence avant janvier 2025 est partielle, sans mouvement inventé", () => {
+    const c = comparePeriods(h, 3, "2025-06", "2025-02");
+    expect(c.b).toMatchObject({ covered: 2, recurring: 260, avgMonthly: 130, gained: [], lost: [] });
+  });
+
+  it("lit le choix dans l'URL et le borne à l'historique", () => {
+    // Juillet n'est pas encore facturé : la période par défaut finit en juin.
+    expect(historySelection(h, {})).toMatchObject({ months: 3, end: "2025-06", compare: "prec", bEnd: "2025-03", bOutOfRange: false });
+    expect(historySelection(h, { hd: "1", hf: "2025-04", hc: "aucune" })).toMatchObject({ months: 1, end: "2025-04", bEnd: null });
+    expect(historySelection(h, { hd: "1", hc: "n1" })).toMatchObject({ bEnd: null, bOutOfRange: true });
+    expect(historySelection(h, { hd: "1", hc: "2025-02" })).toMatchObject({ compare: "2025-02", bEnd: "2025-02" });
+    // Durée inconnue → 3 mois ; fin hors de l'historique → la fin par défaut.
+    expect(historySelection(h, { hd: "24", hf: "2025-01" })).toMatchObject({ months: 3, end: "2025-06" });
+    // 6 mois ne tiennent qu'à partir de juin 2025.
+    expect(historySelection(h, { hd: "6" }).endOptions.map((o) => o.value)).toEqual(["2025-07", "2025-06"]);
   });
 });

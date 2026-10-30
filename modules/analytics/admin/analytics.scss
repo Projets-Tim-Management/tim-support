@@ -217,6 +217,46 @@
   }
 }
 
+/* Période de l'historique : durée, mois de fin, période comparée. */
+.an-period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  transition: opacity 0.12s ease;
+}
+.an-period--pending {
+  opacity: 0.6;
+}
+.an-period__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.an-period__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+.an-select {
+  max-width: 100%;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: var(--tim-primary);
+    box-shadow: 0 0 0 2px var(--tim-primary-light);
+  }
+}
+
 /* ─── Tuiles ──────────────────────────────────────────────────────────────── */
 @keyframes an-rise {
   from {

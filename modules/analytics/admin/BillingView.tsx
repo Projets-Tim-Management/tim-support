@@ -3,13 +3,25 @@ import type { AdminViewServerProps } from "payload";
 import { Icons } from "@/admin/dashboard/icons";
 import { hasAdminRole } from "@/core/access";
 import { AnalyticsPage } from "@/modules/analytics/admin/AnalyticsPage";
-import { AgingChart, MonthlyChart, PartnerChart, ProfileChart, RevenueChart, ShareBar } from "@/modules/analytics/admin/charts";
+import { AgingChart, PartnerChart, PeriodCompareChart, ProfileChart, RevenueChart, ShareBar } from "@/modules/analytics/admin/charts";
+import { HistoryControls } from "@/modules/analytics/admin/HistoryControls";
 import { ValidationStrip } from "@/modules/analytics/admin/ValidationStrip";
 import { DataTable, type Column, type Row } from "@/modules/analytics/admin/DataTable";
 import { Card, clientHref, fmtDay, Pct, PeriodFilter, periodFrom, Tile } from "@/modules/analytics/admin/ui";
 import { buildBillingAnalytics, type BillingAnalytics, type ClientDoc, type PartnerDoc } from "@/modules/analytics/lib/billing";
-import type { Delta } from "@/modules/analytics/lib/growth";
-import { buildRevenueHistory, type LegacyInvoice, type PennylaneInvoice, type RevenueHistory } from "@/modules/analytics/lib/revenue-history";
+import { delta, type Delta } from "@/modules/analytics/lib/growth";
+import {
+  buildRevenueHistory,
+  comparePeriods,
+  HISTORY_DURATIONS,
+  historySelection,
+  type LegacyInvoice,
+  type PennylaneInvoice,
+  type PeriodComparison,
+  type RevenueHistory,
+} from "@/modules/analytics/lib/revenue-history";
+
+type HistorySelection = ReturnType<typeof historySelection>;
 import type { BillingReport } from "@/modules/partner/lib/billing-check";
 import { loadBillingReport } from "@/modules/partner/lib/billing-report";
 import { eur } from "@/modules/partner/lib/format";
@@ -156,80 +168,160 @@ const MOVE_COLUMNS: Column[] = [
 
 const monthName = (k: string) => new Date(`${k}-01T00:00:00Z`).toLocaleDateString("fr-FR", { month: "short", year: "2-digit", timeZone: "UTC" });
 
+const STATUS_TONES = { nouveau: "ok", hausse: "ok", stable: "muted", baisse: "warn", parti: "bad", prestations: "muted" } as const;
+const STATUS_LABELS = { nouveau: "Nouveau", hausse: "Hausse", stable: "Stable", baisse: "Baisse", parti: "Parti", prestations: "Prestations seules" };
+
+const names = (list: string[]) => (list.length ? list.join(", ") : "aucun");
+
 /**
- * Le passé : le CA facturé mois par mois depuis janvier 2025, les mouvements
- * de clients, et le détail par client — toujours sur toute la période, quel
- * que soit le filtre (il vaut pour le reste de l'écran).
+ * Le passé, sur une période choisie (1, 3, 6 ou 12 mois) et comparée à une
+ * autre : CA facturé, moyenne, licences en fin de période, clients — puis le
+ * détail client par client, les mouvements et le pivot mois par mois.
+ * Le choix vit dans l'URL (`hd`, `hf`, `hc`), à part du filtre du haut.
  */
-function History({ h }: { h: RevenueHistory }) {
-  const years = h.years.map((y) => `${y.year} : ${eur.format(y.recurring)} de licences${y.services ? ` + ${eur.format(y.services)} de prestations` : ""}`).join(" · ");
-  const keys = h.months.map((m) => m.key);
-  const years2 = h.years.map((y) => y.year);
-  const clientColumns: Column[] = [
-    { key: "name", label: "Client" },
-    { key: "firstMonth", label: "Depuis" },
-    { key: "lastMonth", label: "Jusqu'à" },
-    { key: "monthsBilled", label: "Mois facturés", format: "int" },
-    { key: "lastRecurring", label: "Dernier mois (licences)", format: "eur" },
-    ...years2.map((y): Column => ({ key: `y${y}`, label: `Total ${y}`, format: "eur" })),
-    { key: "services", label: "Dont prestations", format: "eur" },
-  ];
-  const pivotColumns: Column[] = [{ key: "name", label: "Client" }, ...keys.map((k): Column => ({ key: `m${k}`, label: monthName(k), format: "eur" }))];
-  const clientRows: Row[] = h.clients.map((c) => ({
+function History({ h, sel, cmp }: { h: RevenueHistory; sel: HistorySelection; cmp: PeriodComparison }) {
+  const { a, b } = cmp;
+  const partial = b != null && b.covered < cmp.months;
+  // Un total ne se compare qu'à un total complet ; la moyenne par mois, toujours.
+  const vs = (cur: number, prev: number | undefined, evenIfPartial = true) => (b && prev != null && (evenIfPartial || !partial) ? delta(cur, prev) : undefined);
+  const vsTitle = b ? `face à ${b.label}` : undefined;
+
+  const note = sel.bOutOfRange
+    ? "Pas de période à comparer : l'historique commence en janvier 2025."
+    : partial
+      ? `${b!.label} n'est couverte que sur ${b!.covered} mois sur ${cmp.months} (l'historique commence en janvier 2025) : son total est partiel, comparez plutôt la moyenne par mois.`
+      : null;
+
+  const clientColumns: Column[] = b
+    ? [
+        { key: "name", label: "Client" },
+        { key: "since", label: "Client depuis" },
+        { key: "recurringA", label: `Licences ${a.label}`, format: "eur" },
+        { key: "recurringB", label: `Licences ${b.label}`, format: "eur" },
+        { key: "diff", label: "Écart", format: "eur" },
+        { key: "pct", label: "Écart %", format: "pct" },
+        { key: "status", label: "Évolution", format: "badge", tones: STATUS_TONES, labels: STATUS_LABELS },
+        { key: "servicesA", label: `Prestations ${a.label}`, format: "eur" },
+        { key: "servicesB", label: `Prestations ${b.label}`, format: "eur" },
+      ]
+    : [
+        { key: "name", label: "Client" },
+        { key: "since", label: "Client depuis" },
+        { key: "recurringA", label: "Licences HT", format: "eur" },
+        { key: "servicesA", label: "Prestations HT", format: "eur" },
+        { key: "totalA", label: "Total HT", format: "eur" },
+      ];
+  const clientRows: Row[] = cmp.clients.map((c) => ({
     id: c.id,
     name: c.name,
-    firstMonth: c.firstMonth ? monthName(c.firstMonth) : null,
-    lastMonth: c.lastMonth ? monthName(c.lastMonth) : null,
-    monthsBilled: c.monthsBilled,
-    lastRecurring: c.lastRecurring,
-    services: c.services,
-    ...Object.fromEntries(years2.map((y) => [`y${y}`, c.byYear[y] ?? 0])),
+    since: c.firstMonth ? monthName(c.firstMonth) : null,
+    recurringA: c.recurringA,
+    recurringB: c.recurringB,
+    diff: c.diff,
+    pct: c.pct,
+    status: c.status,
+    servicesA: c.servicesA,
+    servicesB: c.servicesB,
+    totalA: c.recurringA + c.servicesA,
     ...(c.clientId != null ? { href: clientHref(c.clientId) } : {}),
   }));
-  const pivotRows: Row[] = h.clients.map((c) => ({
-    id: c.id,
-    name: c.name,
-    ...Object.fromEntries(keys.map((k) => [`m${k}`, c.byMonth[k] ?? null])),
-    ...(c.clientId != null ? { href: clientHref(c.clientId) } : {}),
-  }));
-  const moveRows: Row[] = [...h.months].reverse().map((m) => ({ ...m, id: m.key, label: monthName(m.key) }));
-  const chart = h.months.map((m) => ({ month: m.month, recurring: m.recurring, services: m.services }));
+  const total: Row = b
+    ? { name: "Total", recurringA: a.recurring, recurringB: b.recurring, diff: a.recurring - b.recurring, servicesA: a.services, servicesB: b.services }
+    : { name: "Total", recurringA: a.recurring, servicesA: a.services, totalA: a.total };
+
+  // Le pivot couvre les deux périodes, dans l'ordre du calendrier.
+  const pivotKeys = [...new Set([...(b?.keys ?? []), ...a.keys])].filter((k) => h.months.some((m) => m.key === k)).sort();
+  const pivotColumns: Column[] = [{ key: "name", label: "Client" }, ...pivotKeys.map((k): Column => ({ key: `m${k}`, label: monthName(k), format: "eur" }))];
+  const pivotRows: Row[] = h.clients
+    .filter((c) => pivotKeys.some((k) => c.byMonth[k]))
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      ...Object.fromEntries(pivotKeys.map((k) => [`m${k}`, c.byMonth[k] ?? null])),
+      ...(c.clientId != null ? { href: clientHref(c.clientId) } : {}),
+    }));
+  const moveRows: Row[] = h.months
+    .filter((m) => a.keys.includes(m.key))
+    .reverse()
+    .map((m) => ({ ...m, id: m.key, label: monthName(m.key) }));
 
   return (
     <>
       <Card
         wide
-        title="CA facturé depuis janvier 2025"
-        sub={`Axonaut jusqu'en septembre 2026, Pennylane ensuite (ses factures comptent comme licences). Pro11 compté au prix régularisé (419,40 € par mois). ${years}.`}
+        title="CA facturé par période"
+        sub="Axonaut jusqu'en septembre 2026, Pennylane ensuite (ses factures comptent comme licences). Pro11 compté au prix régularisé (419,40 € par mois). Historique depuis janvier 2025."
       >
-        <MonthlyChart
-          data={chart}
-          series={[
-            { key: "recurring", label: "Licences (récurrent) HT" },
-            { key: "services", label: "Prestations ponctuelles HT" },
-          ]}
-          stacked
-          unit="eur"
-          height={280}
+        <HistoryControls
+          durations={HISTORY_DURATIONS}
+          months={sel.months}
+          end={sel.end}
+          compare={sel.compare}
+          endOptions={sel.endOptions}
+          compareOptions={sel.compareOptions}
         />
+        {note && <p className="an-note">{note}</p>}
+        <div className="an-tiles">
+          <Tile
+            icon={Icons.euro()}
+            label={`CA HT facturé · ${a.label}`}
+            value={eur.format(a.total)}
+            sub={a.services ? `dont ${eur.format(a.services)} de prestations` : "licences seules"}
+            delta={vs(a.total, b?.total, false)}
+            deltaTitle={vsTitle}
+          />
+          {cmp.months > 1 && <Tile icon={Icons.coins()} label="Moyenne par mois" value={eur.format(a.avgMonthly)} sub={b ? `${eur.format(b.avgMonthly)} sur ${b.label}` : undefined} delta={vs(a.avgMonthly, b?.avgMonthly)} deltaTitle={vsTitle} />}
+          <Tile
+            icon={Icons.clock()}
+            label="Licences du dernier mois"
+            value={eur.format(a.endRecurring)}
+            sub={b ? `${eur.format(b.endRecurring)} à la fin de ${b.label}` : "le récurrent en fin de période"}
+            delta={vs(a.endRecurring, b?.endRecurring)}
+            deltaTitle={vsTitle}
+          />
+          <Tile
+            icon={Icons.users()}
+            label="Clients facturés"
+            value={a.clients.toLocaleString("fr-FR")}
+            sub={`${a.gained.length} nouveau${a.gained.length > 1 ? "x" : ""} · ${a.lost.length} parti${a.lost.length > 1 ? "s" : ""}`}
+            delta={vs(a.clients, b?.clients, false)}
+            deltaTitle={vsTitle}
+          />
+        </div>
+        {(a.gained.length > 0 || a.lost.length > 0) && (
+          <p className="an-card__sub">
+            Nouveaux : {names(a.gained)} · Partis : {names(a.lost)}
+          </p>
+        )}
+        {cmp.months > 1 && <PeriodCompareChart data={cmp.chart} aLabel={a.label} bLabel={b?.label ?? null} />}
       </Card>
 
-      <Card wide title="Mouvements de clients" sub="Chaque mois face au précédent, sur les licences seules : clients nouveaux ou plus facturés, hausses et baisses chez les autres. Le plus récent en haut.">
-        <DataTable columns={MOVE_COLUMNS} rows={moveRows} csv="mouvements-clients" />
+      <Card
+        wide
+        title="CA par client"
+        sub={
+          b
+            ? `Licences de ${a.label} face à ${b.label}, client par client ; les prestations à part. Cliquez un nom pour ouvrir la fiche.`
+            : `Ce qui a été facturé sur ${a.label}, client par client. Cliquez un nom pour ouvrir la fiche.`
+        }
+      >
+        <DataTable columns={clientColumns} rows={clientRows} sort={{ key: "recurringA", dir: "desc" }} csv="ca-par-client" searchKeys={["name"]} total={total} />
       </Card>
 
-      <Card wide title="CA facturé par client" sub="Depuis janvier 2025, toutes sources. Cliquez un nom pour ouvrir la fiche.">
-        <DataTable columns={clientColumns} rows={clientRows} sort={{ key: "lastRecurring", dir: "desc" }} csv="ca-par-client" searchKeys={["name"]} />
-      </Card>
+      {cmp.months > 1 && (
+        <Card wide title="Mouvements de clients" sub="Chaque mois de la période face au précédent, sur les licences seules : clients nouveaux ou plus facturés, hausses et baisses chez les autres. Le plus récent en haut.">
+          <DataTable columns={MOVE_COLUMNS} rows={moveRows} csv="mouvements-clients" />
+        </Card>
+      )}
 
-      <Card wide title="CA par client, mois par mois" sub="HT facturé (licences et prestations), un mois par colonne. L'export CSV s'ouvre dans Excel.">
+      <Card wide title="CA par client, mois par mois" sub={`HT facturé (licences et prestations), un mois par colonne${b ? ", les deux périodes" : ""}. L'export CSV s'ouvre dans Excel.`}>
         <DataTable columns={pivotColumns} rows={pivotRows} csv="ca-par-client-par-mois" searchKeys={["name"]} />
       </Card>
     </>
   );
 }
 
-function Report({ a, h, months, pennylaneNote }: { a: BillingAnalytics; h: RevenueHistory; months: number; pennylaneNote: string | null }) {
+function Report({ a, h, sel, cmp, months, pennylaneNote }: { a: BillingAnalytics; h: RevenueHistory; sel: HistorySelection; cmp: PeriodComparison; months: number; pennylaneNote: string | null }) {
   const { kpis } = a;
   const clientRows: Row[] = a.clients.map((c) => ({ ...c, href: clientHref(c.id) }));
   const discountRows: Row[] = a.discounts.map((d, i) => ({ ...d, id: `${d.clientId}-${i}`, href: clientHref(d.clientId) }));
@@ -273,7 +365,7 @@ function Report({ a, h, months, pennylaneNote }: { a: BillingAnalytics; h: Reven
           <ValidationStrip months={a.series.map((m) => ({ month: m.month, billed: m.clients, validated: m.validated }))} />
         </Card>
 
-        <History h={h} />
+        <History h={h} sel={sel} cmp={cmp} />
 
         <Card wide title="Évolution" sub="Variation du CA, des licences et des clients facturés : sur un mois, un trimestre, un an. Survolez une case pour la valeur d'avant.">
           <GrowthTable a={a} />
@@ -326,10 +418,13 @@ function Report({ a, h, months, pennylaneNote }: { a: BillingAnalytics; h: Reven
 
 export default async function BillingView(view: AdminViewServerProps) {
   const { payload, user } = view.initPageResult.req;
-  const months = periodFrom(await view.searchParams);
+  const sp = await view.searchParams;
+  const months = periodFrom(sp);
 
   let analytics: BillingAnalytics | null = null;
   let history: RevenueHistory | null = null;
+  let selection: HistorySelection | null = null;
+  let comparison: PeriodComparison | null = null;
   let pennylaneNote: string | null = null;
 
   if (hasAdminRole(user)) {
@@ -395,11 +490,13 @@ export default async function BillingView(view: AdminViewServerProps) {
     const now = new Date();
     analytics = buildBillingAnalytics(clients.docs as ClientDoc[], partners.docs as PartnerDoc[], report, months, now, legacyInvoiced);
     history = buildRevenueHistory(legacy, pennylane, now);
+    selection = historySelection(history, sp);
+    comparison = comparePeriods(history, selection.months, selection.end, selection.bEnd);
   }
 
   return (
     <AnalyticsPage view={view} page="facturation" title="Facturation">
-      {analytics && history && <Report a={analytics} h={history} months={months} pennylaneNote={pennylaneNote} />}
+      {analytics && history && selection && comparison && <Report a={analytics} h={history} sel={selection} cmp={comparison} months={months} pennylaneNote={pennylaneNote} />}
     </AnalyticsPage>
   );
 }

@@ -85,6 +85,7 @@ export function Tile({
   sub,
   tone,
   delta,
+  deltaTitle = "vs période précédente",
   goodWhenUp,
 }: {
   icon: React.ReactNode;
@@ -94,6 +95,8 @@ export function Tile({
   tone?: "ok" | "warn" | "bad";
   /** Variation vs période précédente, affichée à côté de la valeur. */
   delta?: Delta;
+  /** Infobulle de la variation : face à quoi elle se mesure. */
+  deltaTitle?: string;
   /** false : une hausse est une mauvaise nouvelle (tickets, impayés). */
   goodWhenUp?: boolean;
 }) {
@@ -105,7 +108,7 @@ export function Tile({
       <span className="an-tile__text">
         <span className="an-tile__value">
           {value}
-          {delta && <Pct d={delta} title="vs période précédente" goodWhenUp={goodWhenUp} />}
+          {delta && <Pct d={delta} title={deltaTitle} goodWhenUp={goodWhenUp} />}
         </span>
         <span className="an-tile__label">{label}</span>
         {sub && <span className="an-tile__sub">{sub}</span>}

@@ -337,6 +337,50 @@ export function MonthlyChart({
   );
 }
 
+/* ─── CA d'une période face à une autre ─────────────────────────────────── */
+
+/**
+ * La période étudiée en bâtons empilés (licences, puis prestations par-dessus),
+ * et la période de comparaison en bâton gris à côté, mois de même rang face à
+ * face. Le gris : c'est le repère, pas le sujet.
+ */
+export function PeriodCompareChart({
+  data,
+  aLabel,
+  bLabel,
+  height = 260,
+}: {
+  data: { label: string; long: string; aRecurring: number; aServices: number; b: number | null }[];
+  aLabel: string;
+  bLabel: string | null;
+  height?: number;
+}) {
+  const c = useChartColors();
+  const hasServices = data.some((d) => d.aServices > 0);
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <ComposedChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }} barCategoryGap={data.length > 6 ? "25%" : "35%"} barGap={4}>
+        <Gradients entries={[{ id: gradientId("compare", "a"), color: c.series[1] }, { id: gradientId("compare", "s"), color: c.series[3] }]} />
+        <CartesianGrid {...gridProps(c)} />
+        <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} />
+        <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} allowDecimals={false} tickFormatter={compactEur} width={64} />
+        <Tooltip cursor={{ fill: c.grid, opacity: 0.6 }} content={(p) => <Tip {...p} title={p.payload?.[0]?.payload?.long} />} />
+        <Legend {...legendProps(c)} />
+        <Bar
+          name={`Licences · ${aLabel}`}
+          dataKey="aRecurring"
+          stackId="a"
+          fill={hasServices ? c.series[1] : gradientFill(gradientId("compare", "a"))}
+          radius={hasServices ? 0 : BAR_RADIUS}
+          maxBarSize={28}
+        />
+        {hasServices && <Bar name={`Prestations · ${aLabel}`} dataKey="aServices" stackId="a" fill={gradientFill(gradientId("compare", "s"))} radius={BAR_RADIUS} maxBarSize={28} />}
+        {bLabel && <Bar name={`Total · ${bLabel}`} dataKey="b" fill={c.muted} radius={BAR_RADIUS} maxBarSize={28} />}
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
 /* ─── Comptes par jour : une ligne par série (« AAAA-MM-JJ » de Paris) ───── */
 
 const dayLabel = (day: string, long = false) =>
