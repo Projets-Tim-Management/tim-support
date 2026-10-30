@@ -259,4 +259,13 @@ describe("évolution", () => {
     expect(g.month.ca).toEqual({ current: 50, previous: 0, pct: null });
     expect(g.year.clients).toEqual({ current: 1, previous: 0, pct: null });
   });
+
+  it("met le facturé Axonaut dans la série, au mois près", () => {
+    const series = buildBillingAnalytics([], PARTNERS, null, 3, NOW, new Map([["2026-08", 3569.3], ["2026-07", 3489.6]])).series;
+    expect(series.map((m) => [m.month.slice(0, 7), m.invoiced])).toEqual([
+      ["2026-07", 3489.6],
+      ["2026-08", 3569.3],
+      ["2026-09", 0],
+    ]);
+  });
 });

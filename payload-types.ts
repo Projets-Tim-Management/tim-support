@@ -96,6 +96,7 @@ export interface Config {
     'mass-email-campaigns': MassEmailCampaign;
     'ga4-sends': Ga4Send;
     'video-views': VideoView;
+    'axonaut-invoices': AxonautInvoice;
     'ad-campaigns': AdCampaign;
     'ad-creatives': AdCreative;
     'ad-accounts': AdAccount;
@@ -189,6 +190,7 @@ export interface Config {
     'mass-email-campaigns': MassEmailCampaignsSelect<false> | MassEmailCampaignsSelect<true>;
     'ga4-sends': Ga4SendsSelect<false> | Ga4SendsSelect<true>;
     'video-views': VideoViewsSelect<false> | VideoViewsSelect<true>;
+    'axonaut-invoices': AxonautInvoicesSelect<false> | AxonautInvoicesSelect<true>;
     'ad-campaigns': AdCampaignsSelect<false> | AdCampaignsSelect<true>;
     'ad-creatives': AdCreativesSelect<false> | AdCreativesSelect<true>;
     'ad-accounts': AdAccountsSelect<false> | AdAccountsSelect<true>;
@@ -2370,6 +2372,40 @@ export interface VideoView {
   createdAt: string;
 }
 /**
+ * Historique d'avant Pennylane (janvier 2025 à septembre 2026), importé des PDF d'Axonaut. Lecture seule.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "axonaut-invoices".
+ */
+export interface AxonautInvoice {
+  id: number;
+  number: string;
+  kind: 'facture' | 'avoir';
+  date: string;
+  month: string;
+  client?: (number | null) | PartnerClient;
+  clientName: string;
+  siren?: string | null;
+  totalHT: number;
+  totalTTC: number;
+  recurringHT: number;
+  servicesHT: number;
+  creditFor?: string | null;
+  note?: string | null;
+  lines?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  sourceFile?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Les campagnes : celles lues chez les régies (mises à jour chaque nuit, chiffres en lecture seule) et les brouillons préparés ici, avec leur brief.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3975,6 +4011,10 @@ export interface PayloadLockedDocument {
         value: number | VideoView;
       } | null)
     | ({
+        relationTo: 'axonaut-invoices';
+        value: number | AxonautInvoice;
+      } | null)
+    | ({
         relationTo: 'ad-campaigns';
         value: number | AdCampaign;
       } | null)
@@ -5231,6 +5271,29 @@ export interface VideoViewsSelect<T extends boolean = true> {
   appareil?: T;
   canal?: T;
   nombre?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "axonaut-invoices_select".
+ */
+export interface AxonautInvoicesSelect<T extends boolean = true> {
+  number?: T;
+  kind?: T;
+  date?: T;
+  month?: T;
+  client?: T;
+  clientName?: T;
+  siren?: T;
+  totalHT?: T;
+  totalTTC?: T;
+  recurringHT?: T;
+  servicesHT?: T;
+  creditFor?: T;
+  note?: T;
+  lines?: T;
+  sourceFile?: T;
   updatedAt?: T;
   createdAt?: T;
 }

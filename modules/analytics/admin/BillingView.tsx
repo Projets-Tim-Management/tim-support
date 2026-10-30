@@ -3,12 +3,13 @@ import type { AdminViewServerProps } from "payload";
 import { Icons } from "@/admin/dashboard/icons";
 import { hasAdminRole } from "@/core/access";
 import { AnalyticsPage } from "@/modules/analytics/admin/AnalyticsPage";
-import { AgingChart, PartnerChart, ProfileChart, RevenueChart, ShareBar } from "@/modules/analytics/admin/charts";
+import { AgingChart, MonthlyChart, PartnerChart, ProfileChart, RevenueChart, ShareBar } from "@/modules/analytics/admin/charts";
 import { ValidationStrip } from "@/modules/analytics/admin/ValidationStrip";
 import { DataTable, type Column, type Row } from "@/modules/analytics/admin/DataTable";
 import { Card, clientHref, fmtDay, Pct, PeriodFilter, periodFrom, Tile } from "@/modules/analytics/admin/ui";
 import { buildBillingAnalytics, type BillingAnalytics, type ClientDoc, type PartnerDoc } from "@/modules/analytics/lib/billing";
 import type { Delta } from "@/modules/analytics/lib/growth";
+import { buildRevenueHistory, type LegacyInvoice, type PennylaneInvoice, type RevenueHistory } from "@/modules/analytics/lib/revenue-history";
 import type { BillingReport } from "@/modules/partner/lib/billing-check";
 import { loadBillingReport } from "@/modules/partner/lib/billing-report";
 import { eur } from "@/modules/partner/lib/format";
@@ -17,9 +18,10 @@ import { isPennylaneConfigured, pennylaneErrorMessage } from "@/modules/partner/
 /**
  * Écran « Analyses → Facturation » (/admin/analyses/facturation).
  *
- * Ce que les fiches disent qu'on doit facturer chaque mois, ce que Pennylane a
- * réellement émis et encaissé, et comment ça se répartit : par profil de
- * licence, par partenaire apporteur, par mode de paiement, dans le temps.
+ * Ce que les fiches disent qu'on doit facturer chaque mois, ce qui a
+ * réellement été facturé (Axonaut jusqu'en septembre 2026, Pennylane ensuite)
+ * et encaissé, et comment ça se répartit : par profil de licence, par
+ * partenaire apporteur, par mode de paiement, dans le temps.
  *
  * Server component : la Local API pour les fiches et partenaires, le rapport
  * de rapprochement (Pennylane en cache) pour les factures et les écarts. Les
@@ -140,7 +142,94 @@ const LATE_COLUMNS: Column[] = [
   { key: "remaining", label: "Reste dû", format: "eur" },
 ];
 
-function Report({ a, months, pennylaneNote }: { a: BillingAnalytics; months: number; pennylaneNote: string | null }) {
+const MOVE_COLUMNS: Column[] = [
+  { key: "label", label: "Mois" },
+  { key: "source", label: "Source", format: "badge", tones: { axonaut: "muted", pennylane: "ok" }, labels: { axonaut: "Axonaut", pennylane: "Pennylane" } },
+  { key: "clients", label: "Clients", format: "int" },
+  { key: "recurring", label: "Licences HT", format: "eur" },
+  { key: "services", label: "Prestations HT", format: "eur" },
+  { key: "gainedNames", label: "Nouveaux" },
+  { key: "lostNames", label: "Plus facturés" },
+  { key: "expansion", label: "Hausses", format: "eur" },
+  { key: "contraction", label: "Baisses", format: "eur" },
+];
+
+const monthName = (k: string) => new Date(`${k}-01T00:00:00Z`).toLocaleDateString("fr-FR", { month: "short", year: "2-digit", timeZone: "UTC" });
+
+/**
+ * Le passé : le CA facturé mois par mois depuis janvier 2025, les mouvements
+ * de clients, et le détail par client — toujours sur toute la période, quel
+ * que soit le filtre (il vaut pour le reste de l'écran).
+ */
+function History({ h }: { h: RevenueHistory }) {
+  const years = h.years.map((y) => `${y.year} : ${eur.format(y.recurring)} de licences${y.services ? ` + ${eur.format(y.services)} de prestations` : ""}`).join(" · ");
+  const keys = h.months.map((m) => m.key);
+  const years2 = h.years.map((y) => y.year);
+  const clientColumns: Column[] = [
+    { key: "name", label: "Client" },
+    { key: "firstMonth", label: "Depuis" },
+    { key: "lastMonth", label: "Jusqu'à" },
+    { key: "monthsBilled", label: "Mois facturés", format: "int" },
+    { key: "lastRecurring", label: "Dernier mois (licences)", format: "eur" },
+    ...years2.map((y): Column => ({ key: `y${y}`, label: `Total ${y}`, format: "eur" })),
+    { key: "services", label: "Dont prestations", format: "eur" },
+  ];
+  const pivotColumns: Column[] = [{ key: "name", label: "Client" }, ...keys.map((k): Column => ({ key: `m${k}`, label: monthName(k), format: "eur" }))];
+  const clientRows: Row[] = h.clients.map((c) => ({
+    id: c.id,
+    name: c.name,
+    firstMonth: c.firstMonth ? monthName(c.firstMonth) : null,
+    lastMonth: c.lastMonth ? monthName(c.lastMonth) : null,
+    monthsBilled: c.monthsBilled,
+    lastRecurring: c.lastRecurring,
+    services: c.services,
+    ...Object.fromEntries(years2.map((y) => [`y${y}`, c.byYear[y] ?? 0])),
+    ...(c.clientId != null ? { href: clientHref(c.clientId) } : {}),
+  }));
+  const pivotRows: Row[] = h.clients.map((c) => ({
+    id: c.id,
+    name: c.name,
+    ...Object.fromEntries(keys.map((k) => [`m${k}`, c.byMonth[k] ?? null])),
+    ...(c.clientId != null ? { href: clientHref(c.clientId) } : {}),
+  }));
+  const moveRows: Row[] = [...h.months].reverse().map((m) => ({ ...m, id: m.key, label: monthName(m.key) }));
+  const chart = h.months.map((m) => ({ month: m.month, recurring: m.recurring, services: m.services }));
+
+  return (
+    <>
+      <Card
+        wide
+        title="CA facturé depuis janvier 2025"
+        sub={`Axonaut jusqu'en septembre 2026, Pennylane ensuite (ses factures comptent comme licences). Pro11 compté au prix régularisé (419,40 € par mois). ${years}.`}
+      >
+        <MonthlyChart
+          data={chart}
+          series={[
+            { key: "recurring", label: "Licences (récurrent) HT" },
+            { key: "services", label: "Prestations ponctuelles HT" },
+          ]}
+          stacked
+          unit="eur"
+          height={280}
+        />
+      </Card>
+
+      <Card wide title="Mouvements de clients" sub="Chaque mois face au précédent, sur les licences seules : clients nouveaux ou plus facturés, hausses et baisses chez les autres. Le plus récent en haut.">
+        <DataTable columns={MOVE_COLUMNS} rows={moveRows} csv="mouvements-clients" />
+      </Card>
+
+      <Card wide title="CA facturé par client" sub="Depuis janvier 2025, toutes sources. Cliquez un nom pour ouvrir la fiche.">
+        <DataTable columns={clientColumns} rows={clientRows} sort={{ key: "lastRecurring", dir: "desc" }} csv="ca-par-client" searchKeys={["name"]} />
+      </Card>
+
+      <Card wide title="CA par client, mois par mois" sub="HT facturé (licences et prestations), un mois par colonne. L'export CSV s'ouvre dans Excel.">
+        <DataTable columns={pivotColumns} rows={pivotRows} csv="ca-par-client-par-mois" searchKeys={["name"]} />
+      </Card>
+    </>
+  );
+}
+
+function Report({ a, h, months, pennylaneNote }: { a: BillingAnalytics; h: RevenueHistory; months: number; pennylaneNote: string | null }) {
   const { kpis } = a;
   const clientRows: Row[] = a.clients.map((c) => ({ ...c, href: clientHref(c.id) }));
   const discountRows: Row[] = a.discounts.map((d, i) => ({ ...d, id: `${d.clientId}-${i}`, href: clientHref(d.clientId) }));
@@ -178,11 +267,13 @@ function Report({ a, months, pennylaneNote }: { a: BillingAnalytics; months: num
         <Card
           wide
           title="Chiffre d'affaires mensuel"
-          sub="Ce que les fiches disent qu'on doit facturer chaque mois — à partir du démarrage de l'abonnement Pennylane de chaque client — face à ce que Pennylane a émis. Les deux en € HT, sur une seule échelle. Dessous : ce qui est signé sur le rapprochement, mois par mois — le reste n'est qu'un attendu."
+          sub="Ce que les fiches disent qu'on doit facturer chaque mois — à partir du démarrage de l'abonnement Pennylane de chaque client — face à ce qui a été facturé : Axonaut jusqu'en septembre 2026, Pennylane ensuite. Les deux en € HT, sur une seule échelle. Dessous : ce qui est signé sur le rapprochement, mois par mois — le reste n'est qu'un attendu."
         >
           <RevenueChart data={a.series} />
           <ValidationStrip months={a.series.map((m) => ({ month: m.month, billed: m.clients, validated: m.validated }))} />
         </Card>
+
+        <History h={h} />
 
         <Card wide title="Évolution" sub="Variation du CA, des licences et des clients facturés : sur un mois, un trimestre, un an. Survolez une case pour la valeur d'avant.">
           <GrowthTable a={a} />
@@ -238,10 +329,11 @@ export default async function BillingView(view: AdminViewServerProps) {
   const months = periodFrom(await view.searchParams);
 
   let analytics: BillingAnalytics | null = null;
+  let history: RevenueHistory | null = null;
   let pennylaneNote: string | null = null;
 
   if (hasAdminRole(user)) {
-    const [clients, partners] = await Promise.all([
+    const [clients, partners, axonaut] = await Promise.all([
       payload.find({
         collection: "partner-clients",
         limit: 5000,
@@ -267,6 +359,13 @@ export default async function BillingView(view: AdminViewServerProps) {
         overrideAccess: true,
         select: { displayName: true, commissionRate: true } as never,
       }),
+      payload.find({
+        collection: "axonaut-invoices",
+        pagination: false,
+        depth: 0,
+        overrideAccess: true,
+        select: { month: true, client: true, clientName: true, recurringHT: true, servicesHT: true } as never,
+      }),
     ]);
 
     // Pennylane est un plus : sans token ou en panne, l'écran vit sur les fiches.
@@ -281,12 +380,26 @@ export default async function BillingView(view: AdminViewServerProps) {
       }
     }
 
-    analytics = buildBillingAnalytics(clients.docs as ClientDoc[], partners.docs as PartnerDoc[], report, months, new Date());
+    // Le nom de la fiche plutôt que celui de la facture (« Pro11 » et « Groupe Viriate Services » sont un seul client).
+    const nameOf = new Map((clients.docs as ClientDoc[]).map((c) => [String(c.id), c.companyName ?? "—"]));
+    const legacy: LegacyInvoice[] = (axonaut.docs as unknown as LegacyInvoice[]).map((i) => ({
+      ...i,
+      clientName: (i.client != null && nameOf.get(String(i.client))) || i.clientName,
+    }));
+    const legacyInvoiced = new Map<string, number>();
+    for (const i of legacy) legacyInvoiced.set(i.month, (legacyInvoiced.get(i.month) ?? 0) + i.recurringHT + i.servicesHT);
+    const pennylane: PennylaneInvoice[] = (report?.checks ?? []).flatMap((c) =>
+      c.invoices.filter((i) => i.date && i.state !== "annulee").map((i) => ({ date: i.date, amountHT: i.amountHT, client: c.client.id, clientName: c.client.name })),
+    );
+
+    const now = new Date();
+    analytics = buildBillingAnalytics(clients.docs as ClientDoc[], partners.docs as PartnerDoc[], report, months, now, legacyInvoiced);
+    history = buildRevenueHistory(legacy, pennylane, now);
   }
 
   return (
     <AnalyticsPage view={view} page="facturation" title="Facturation">
-      {analytics && <Report a={analytics} months={months} pennylaneNote={pennylaneNote} />}
+      {analytics && history && <Report a={analytics} h={history} months={months} pennylaneNote={pennylaneNote} />}
     </AnalyticsPage>
   );
 }

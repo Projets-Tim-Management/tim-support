@@ -149,7 +149,7 @@ export const LINE_WIDTH = 2.25;
 /** Légende à puces rondes, en texte atténué. */
 export const legendProps = (c: Colors) => ({ iconType: "circle" as const, iconSize: 8, wrapperStyle: { fontSize: 12, color: c.textMuted, paddingTop: 8 } });
 
-/* ─── CA mensuel : attendu (fiches) vs facturé (Pennylane) ───────────────── */
+/* ─── CA mensuel : attendu (fiches) vs facturé (Axonaut puis Pennylane) ──── */
 
 export function RevenueChart({ data }: { data: MonthPoint[] }) {
   const c = useChartColors();
@@ -166,7 +166,7 @@ export function RevenueChart({ data }: { data: MonthPoint[] }) {
           content={(p) => <Tip {...p} title={p.payload?.[0]?.payload?.long} />}
         />
         <Legend {...legendProps(c)} />
-        <Bar name="Facturé par Pennylane (HT)" dataKey="invoiced" fill={gradientFill(gradientId("revenue", 1))} radius={BAR_RADIUS} maxBarSize={24} isAnimationActive />
+        <Bar name="Facturé (HT) : Axonaut, puis Pennylane" dataKey="invoiced" fill={gradientFill(gradientId("revenue", 1))} radius={BAR_RADIUS} maxBarSize={24} isAnimationActive />
         <Area
           name="Attendu d'après les fiches (HT / mois)"
           type="monotone"
@@ -289,8 +289,21 @@ export type Series = { key: string; label: string; kind?: "bar" | "line" };
 /**
  * Plusieurs comptes par mois sur un seul axe : barres (créés, résolus…) et
  * lignes. Couleur par ORDRE de déclaration des séries, fixe — jamais par rang.
+ * `unit="eur"` pour des montants (axe et infobulle en euros).
  */
-export function MonthlyChart({ data, series, stacked = false, height = 240 }: { data: ({ month: string } & Record<string, number | string>)[]; series: Series[]; stacked?: boolean; height?: number }) {
+export function MonthlyChart({
+  data,
+  series,
+  stacked = false,
+  height = 240,
+  unit = "int",
+}: {
+  data: ({ month: string } & Record<string, number | string>)[];
+  series: Series[];
+  stacked?: boolean;
+  height?: number;
+  unit?: "int" | "eur";
+}) {
   const c = useChartColors();
   const rows = data.map((p) => ({ ...p, label: monthLabel(p.month), long: monthLabel(p.month, true) }));
   return (
@@ -299,8 +312,8 @@ export function MonthlyChart({ data, series, stacked = false, height = 240 }: { 
         <Gradients entries={series.map((s, i) => ({ id: gradientId("monthly", s.key), color: c.series[i % 5] }))} />
         <CartesianGrid {...gridProps(c)} />
         <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} />
-        <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} allowDecimals={false} width={40} />
-        <Tooltip cursor={{ fill: c.grid, opacity: 0.6 }} content={(p) => <Tip {...p} unit="int" title={p.payload?.[0]?.payload?.long} />} />
+        <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} allowDecimals={false} {...(unit === "eur" ? { tickFormatter: compactEur, width: 64 } : { width: 40 })} />
+        <Tooltip cursor={{ fill: c.grid, opacity: 0.6 }} content={(p) => <Tip {...p} unit={unit} title={p.payload?.[0]?.payload?.long} />} />
         {series.length > 1 && <Legend {...legendProps(c)} />}
         {series.map((s, i) =>
           s.kind === "line" ? (
