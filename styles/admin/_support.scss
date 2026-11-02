@@ -145,6 +145,22 @@ $ticket-prio: (
   display: block;
 }
 
+.ticket-msg__doc {
+  display: flex;
+  align-items: center;
+  max-width: 12rem;
+  height: 72px;
+  padding: 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--tim-foreground);
+  border-radius: var(--tim-radius-sm);
+  border: 1px solid var(--tim-border);
+  background: var(--tim-white);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-all;
+}
+
 /* Zone de réponse au client */
 .ticket-reply {
   margin-top: 1.5rem;

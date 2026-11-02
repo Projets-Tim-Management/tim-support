@@ -72,4 +72,4 @@ export function ticketMeta(field: string, value: string): { label: string; fg: s
 export const ticketValues = (field: string): string[] => Object.keys(TICKET_LABELS[field] ?? {});
 
 /** Média (pièce jointe) tel que renvoyé peuplé par l'API Payload. */
-export type Media = { id: number; url?: string; alt?: string; filename?: string };
+export type Media = { id: number; url?: string; alt?: string; filename?: string; mimeType?: string };

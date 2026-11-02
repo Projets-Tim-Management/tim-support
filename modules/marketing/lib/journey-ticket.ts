@@ -29,7 +29,7 @@ export type TicketDoc = {
 export async function resolveJourney(
   payload: Awaited<ReturnType<typeof payloadClient>>,
   runId: number,
-  message: { text: string; subject?: string; fromEmail?: string; fromName?: string },
+  message: { text: string; subject?: string; fromEmail?: string; fromName?: string; attachments?: number[] },
 ): Promise<{
   ticket: TicketDoc;
   created: boolean;
@@ -81,7 +81,7 @@ export async function resolveJourney(
     data: {
       subject,
       description: message.text,
-      messages: [{ author: "client", body: message.text, sentAt: now }],
+      messages: [{ author: "client", body: message.text, sentAt: now, attachments: message.attachments ?? [] }],
       // L'adresse qui a écrit fait foi : c'est à elle qu'on répondra, même si
       // elle diffère du contact enregistré sur la fiche.
       email: replyAddress,

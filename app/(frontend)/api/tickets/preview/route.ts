@@ -33,12 +33,14 @@ export async function GET(req: Request) {
     subject?: string;
     email?: string;
     name?: string;
+    firstName?: string;
     messages?: { author?: string; body?: string }[];
   } | null;
   if (!ticket) return new Response("Ticket introuvable", { status: 404 });
 
   const common = {
     name: ticket.name,
+    firstName: ticket.firstName,
     email: ticket.email,
     subject: ticket.subject ?? "",
     number: ticket.number ?? 0,

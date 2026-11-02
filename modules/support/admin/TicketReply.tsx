@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 // dans le bundle client.
 import type { BrevoSender as Sender } from "../lib/brevo";
 import { ticketMeta } from "./ticket-meta";
+import { greeting } from "@/modules/support/lib/greeting";
 
 /**
  * Zone de réponse au client depuis la vue ticket. En plus d'envoyer un message
@@ -31,8 +32,8 @@ const NEXT: Record<string, string | null> = {
 };
 
 // Messages types pré-remplis selon le statut sélectionné.
-function template(status: string, name?: string): string {
-  const hello = name ? `Bonjour ${name},\n\n` : "Bonjour,\n\n";
+function template(status: string, name?: string, firstName?: string): string {
+  const hello = `${greeting(name, firstName)}\n\n`;
   switch (status) {
     case "acknowledged":
       return `${hello}Nous avons bien pris en compte votre demande et nous l'examinons. Nous revenons vers vous très rapidement.`;
@@ -53,6 +54,7 @@ export function TicketReply() {
 
   const { value: status, setValue: setStatus } = useField<string>({ path: "status" });
   const { value: clientName } = useField<string>({ path: "name" });
+  const { value: clientFirstName } = useField<string>({ path: "firstName" });
   const { value: clientEmail } = useField<string>({ path: "email" });
 
   const [body, setBody] = useState("");
@@ -113,7 +115,7 @@ export function TicketReply() {
     // Pré-remplit un message type si la zone est vide (ne remplace jamais un
     // texte déjà saisi).
     if (body.trim().length === 0) {
-      const tpl = template(target, clientName);
+      const tpl = template(target, clientName, clientFirstName);
       if (tpl) setBody(tpl);
     }
   }

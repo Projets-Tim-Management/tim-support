@@ -12,6 +12,7 @@ import { resolveJourney, type TicketDoc } from "@/modules/marketing/lib/journey-
 import { captureAddresses, captureEmail } from "@/modules/partner/lib/email-capture";
 import { supportAddress } from "@/core/lib/team-emails";
 import { ticketReplyNoticeEmail } from "@/modules/support/lib/email";
+import { cleanInlineImageRefs, selectInboundAttachments, storeInboundAttachments } from "@/modules/support/lib/inbound-attachments";
 
 // Webhook d'e-mails entrants (Brevo Inbound Parsing).
 //
@@ -198,15 +199,18 @@ export async function POST(req: Request) {
      *
      * Ce qui compte, c'est qu'elle ne reçoive plus les six messages suivants.
      */
-    const text = (
-      (item.ExtractedMarkdownMessage as string) ||
-      (item.RawTextBody as string) ||
-      (item.Text as string) ||
-      ""
-    )
-      .toString()
-      .trim()
-      .slice(0, 20000);
+    const text = cleanInlineImageRefs(
+      (
+        (item.ExtractedMarkdownMessage as string) ||
+        (item.RawTextBody as string) ||
+        (item.Text as string) ||
+        ""
+      )
+        .toString()
+        .trim()
+        .slice(0, 20000),
+      item.Attachments,
+    );
 
     const seqId = number || runId ? null : extractSequenceRunId(recips);
     if (seqId) {
@@ -259,15 +263,20 @@ export async function POST(req: Request) {
     }
 
     if (!number && !runId) continue;
-    if (!text) continue;
+    // Une capture d'écran envoyée sans un mot reste une réponse.
+    if (!text && !selectInboundAttachments(item.Attachments).length) continue;
 
     // Résolution du ticket destinataire : celui visé par l'adresse, ou celui du
     // parcours — quitte à le créer.
     const from: string[] = [];
     collectAddresses(item.From, from);
+    // Avant tout le reste : le jeton de téléchargement n'existe que dans ce
+    // webhook (voir inbound-attachments).
+    const attachments = await storeInboundAttachments(payload, item.Attachments);
     const journey = runId
       ? await resolveJourney(payload, runId, {
           text,
+          attachments,
           subject: typeof item.Subject === "string" ? item.Subject : undefined,
           fromEmail: from[0],
           fromName: senderName(item.From),
@@ -294,7 +303,7 @@ export async function POST(req: Request) {
     // dupliquerait dans le fil.
     if (!journey?.created) {
       const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
-      messages.push({ author: "client", body: text, sentAt: new Date().toISOString() });
+      messages.push({ author: "client", body: text, sentAt: new Date().toISOString(), attachments });
 
       await payload.update({
         collection: "tickets",
