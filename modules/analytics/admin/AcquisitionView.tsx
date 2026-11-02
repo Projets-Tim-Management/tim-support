@@ -7,7 +7,10 @@ import { AnalyticsPage } from "@/modules/analytics/admin/AnalyticsPage";
 import { MonthlyChart } from "@/modules/analytics/admin/charts";
 import { DataTable, type Column } from "@/modules/analytics/admin/DataTable";
 import { Card as AnCard, PeriodFilter, periodFrom, Tile } from "@/modules/analytics/admin/ui";
-import { buildAcquisitionAnalytics, type LeadClientRow, type LeadRow } from "@/modules/analytics/lib/acquisition";
+import { buildAcquisitionAnalytics, channelSpend, monthlyCosts, trackedMonths, type LeadClientRow, type LeadRow } from "@/modules/analytics/lib/acquisition";
+import { channelLabel } from "@/core/lib/channels";
+import { loadExpenses } from "@/modules/analytics/lib/expenses-load";
+import { eur } from "@/modules/partner/lib/format";
 import AcqBars from "@/modules/forms/admin/AcqBars";
 import AcqSegments, { type Segment } from "@/modules/forms/admin/AcqSegments";
 import { InfoTip } from "@/modules/forms/admin/InfoTip";
@@ -32,7 +35,39 @@ const CHANNEL_COLUMNS: Column[] = [
   { key: "won", label: "Gagnées", format: "int" },
   { key: "lost", label: "Perdues", format: "int" },
   { key: "conversion", label: "Conversion lead → gagnée", format: "pct" },
+  { key: "spend", label: "Dépense", format: "eur" },
+  { key: "costPerLead", label: "Coût par lead", format: "eur" },
+  { key: "costPerWon", label: "Coût par affaire gagnée", format: "eur" },
 ];
+
+/** Mois par mois, au total : chaque grandeur suivie de son évolution sur le mois d'avant. */
+const MONTH_COLUMNS: Column[] = [
+  { key: "label", label: "Mois" },
+  { key: "spend", label: "Dépense", format: "eur" },
+  { key: "spendPct", label: "Évol.", format: "delta", goodWhenUp: false },
+  { key: "leads", label: "Leads", format: "int" },
+  { key: "leadsPct", label: "Évol.", format: "delta" },
+  { key: "costPerLead", label: "Coût par lead", format: "eur" },
+  { key: "cplPct", label: "Évol.", format: "delta", goodWhenUp: false },
+  { key: "opportunities", label: "Opportunités", format: "int" },
+  { key: "won", label: "Clients gagnés", format: "int" },
+  { key: "costPerWon", label: "Coût par client gagné", format: "eur" },
+];
+
+/** Mois par mois et canal par canal. */
+const MONTH_CHANNEL_COLUMNS: Column[] = [
+  { key: "label", label: "Mois" },
+  { key: "channel", label: "Canal" },
+  { key: "spend", label: "Dépense", format: "eur" },
+  { key: "leads", label: "Leads", format: "int" },
+  { key: "costPerLead", label: "Coût par lead", format: "eur" },
+  { key: "opportunities", label: "Opportunités", format: "int" },
+  { key: "won", label: "Clients gagnés", format: "int" },
+  { key: "costPerWon", label: "Coût par client gagné", format: "eur" },
+];
+
+const pctVs = (cur: number | null, prev: number | null | undefined) => (cur != null && prev ? Math.round(((cur - prev) / prev) * 1000) / 10 : null);
+const monthLong = (k: string) => new Date(`${k}-01T00:00:00Z`).toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
 
 /** Couleurs des segments — jetons uniquement, jamais de valeur en dur. */
 const CANAL_COLORS: Record<string, string> = {
@@ -118,7 +153,71 @@ export default async function AcquisitionView(view: AdminViewServerProps) {
       subs.docs as SubmissionRow[],
       clients.docs as ClientRow[],
     );
-    const acq = buildAcquisitionAnalytics(all.docs as LeadRow[], clients.docs as LeadClientRow[], months, now);
+
+    // Ce que coûte chaque canal : les dépenses de la période (relevés Pennylane, par poste),
+    // et pour Meta la dépense relevée par son API (la banque ne la voit pas, ou en retard).
+    const [{ expenses, note: expenseNote }, metaRows] = await Promise.all([
+      loadExpenses(payload),
+      payload.find({
+        collection: "ad-metrics-daily",
+        where: { and: [{ platform: { equals: "meta" } }, { level: { equals: "campaign" } }] },
+        pagination: false,
+        depth: 0,
+        overrideAccess: true,
+        select: { day: true, spend: true } as never,
+      }),
+    ]);
+    const metaSpendByMonth: Record<string, number> = {};
+    for (const r of metaRows.docs as { day: string; spend?: number | null }[]) metaSpendByMonth[r.day.slice(0, 7)] = (metaSpendByMonth[r.day.slice(0, 7)] ?? 0) + (r.spend ?? 0);
+    const leadsByChannel: Record<string, number> = {};
+    for (const d of subs.docs as LeadRow[]) leadsByChannel[d.channel ?? ""] = (leadsByChannel[d.channel ?? ""] ?? 0) + 1;
+    // Le premier lead enregistré : la dépense ne s'impute qu'à partir de ce mois-là.
+    const trackedFrom = (all.docs as LeadRow[]).reduce<string | null>((min, d) => (d.createdAt && (!min || d.createdAt.slice(0, 7) < min) ? d.createdAt.slice(0, 7) : min), null);
+    const spendByChannel =
+      expenses.length || Object.keys(metaSpendByMonth).length ? channelSpend(expenses, metaSpendByMonth, leadsByChannel, months, now, trackedFrom) : undefined;
+    const periodStart = since.slice(0, 7);
+    const spendNote =
+      spendByChannel && trackedFrom && trackedFrom > periodStart
+        ? `Leads suivis depuis ${new Date(`${trackedFrom}-01T00:00:00Z`).toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" })} : la dépense n'est comptée qu'à partir de ce mois, pour que le coût par lead reste juste.`
+        : null;
+
+    const acq = buildAcquisitionAnalytics(all.docs as LeadRow[], clients.docs as LeadClientRow[], months, now, spendByChannel);
+
+    // Mois par mois (les mois suivis de la période) : au total et par canal.
+    // Tous les mois de la période : avant le suivi des leads, la dépense seule (leads « — »).
+    // Avant le premier relevé (janvier 2026), la dépense est inconnue : ces mois ne s'affichent pas.
+    const spentFrom = [...expenses.map((e) => e.month), ...Object.keys(metaSpendByMonth)].sort()[0] ?? null;
+    const monthly = spendByChannel
+      ? monthlyCosts(all.docs as LeadRow[], clients.docs as LeadClientRow[], expenses, metaSpendByMonth, trackedMonths(months, now, spentFrom), trackedFrom)
+      : [];
+    const monthRows = monthly.map((m, i) => {
+      const prev = monthly[i - 1];
+      return {
+        id: m.month,
+        label: monthLong(m.month),
+        spend: m.spend,
+        spendPct: pctVs(m.spend, prev?.spend),
+        leads: m.leads,
+        leadsPct: pctVs(m.leads, prev?.leads),
+        costPerLead: m.costPerLead,
+        cplPct: pctVs(m.costPerLead, prev?.costPerLead),
+        opportunities: m.opportunities,
+        won: m.won,
+        costPerWon: m.costPerWon,
+      };
+    });
+    const monthChannelRows = monthly.flatMap((m) =>
+      Object.entries(m.byChannel)
+        .filter(([, f]) => f.spend > 0 || (f.leads ?? 0) > 0)
+        .map(([ch, f]) => ({ id: `${m.month}-${ch}`, month: m.month, label: monthLong(m.month), channel: channelLabel(ch) ?? (ch || "Canal inconnu"), ...f })),
+    );
+    // Les graphiques reprennent l'ordre des canaux du graphique des leads : mêmes couleurs.
+    const chartRows = monthly.map((m) => ({
+      month: `${m.month}-01T00:00:00.000Z`,
+      ...Object.fromEntries(acq.channelKeys.map((c) => [`spend:${c.key}`, m.byChannel[c.key]?.spend ?? 0])),
+      ...Object.fromEntries(acq.channelKeys.map((c) => [`cpl:${c.key}`, m.byChannel[c.key]?.costPerLead ?? null])),
+    }));
+    const money = (n: number | null) => (n == null ? "—" : eur.format(n));
 
     const pct = (n: number | null) => (n === null ? "—" : `${Math.round(n * 100)} %`);
 
@@ -136,13 +235,51 @@ export default async function AcquisitionView(view: AdminViewServerProps) {
             sub={stats.fiabiliteSea == null ? "aucun lead payant reçu" : "part attribuée par un clic constaté (gclid…)"}
             tone={stats.fiabiliteSea != null && stats.fiabiliteSea < 0.8 ? "warn" : undefined}
           />
+          {acq.kpis.spend != null && (
+            <>
+              <Tile icon={Icons.euro()} label="Dépense d'acquisition" value={money(acq.kpis.spend)} sub="pub + SEO" />
+              <Tile icon={Icons.coins()} label="Coût par lead" value={money(acq.kpis.costPerLead)} sub="dépense ÷ leads reçus" />
+              <Tile
+                icon={Icons.target()}
+                label="Coût par affaire gagnée"
+                value={money(acq.kpis.costPerWon)}
+                sub={acq.kpis.won ? "dépense ÷ affaires gagnées" : "aucune encore"}
+              />
+            </>
+          )}
         </div>
+        {expenseNote && <p className="an-note">{expenseNote}</p>}
+        {spendNote && <p className="an-card__sub">{spendNote}</p>}
 
         <div className="an-grid">
           <AnCard wide title="Leads par mois et par canal" sub="Une couleur par canal, fixe : le SEO reste le même bleu quel que soit le filtre.">
             <MonthlyChart data={acq.monthly} series={acq.channelKeys.map((c) => ({ key: c.key, label: c.label }))} stacked />
           </AnCard>
-          <AnCard wide title="Ce que chaque canal rapporte" sub="Leads de la période, fiches nées de ces leads, et leur devenir. La conversion compte les affaires gagnées sur les leads reçus.">
+          {monthly.length > 0 && (
+            <AnCard
+              wide
+              title="Mois par mois : dépense, leads, coûts"
+              sub={`Ce qui a été dépensé chaque mois, les leads reçus, et le devenir des fiches nées de ces leads (une cohorte : un client gagné compte pour le mois de son lead, même signé plus tard). Une couleur par canal, la même que sur le graphique des leads.${trackedFrom ? ` Leads suivis depuis ${monthLong(trackedFrom)} : avant, la dépense seule.` : ""}`}
+            >
+              <div className="an-grid">
+                <div>
+                  <h3 className="an-fold__h">Dépense par canal</h3>
+                  <MonthlyChart data={chartRows} series={acq.channelKeys.map((c) => ({ key: `spend:${c.key}`, label: c.label }))} stacked unit="eur" />
+                </div>
+                <div>
+                  <h3 className="an-fold__h">Coût par lead, par canal</h3>
+                  <MonthlyChart data={chartRows} series={acq.channelKeys.map((c) => ({ key: `cpl:${c.key}`, label: c.label, kind: "line" as const }))} unit="eur" />
+                </div>
+              </div>
+              <DataTable columns={MONTH_COLUMNS} rows={monthRows} sort={{ key: "id", dir: "desc" }} csv="acquisition-mois-par-mois" />
+              <DataTable columns={MONTH_CHANNEL_COLUMNS} rows={monthChannelRows} sort={{ key: "id", dir: "desc" }} csv="acquisition-mois-par-canal" searchKeys={["channel"]} />
+            </AnCard>
+          )}
+          <AnCard
+            wide
+            title="Ce que chaque canal rapporte, et ce qu'il coûte"
+            sub="Leads de la période, fiches nées de ces leads, et leur devenir ; la conversion compte les affaires gagnées sur les leads reçus. La dépense est celle du poste du canal sur la période (relevés Pennylane, TTC) — Meta : la dépense relevée par son API, partagée entre Facebook et Instagram selon leurs leads. Le SEO ne compte que Linkuma (l'agence est dans « Autres »)."
+          >
             <DataTable columns={CHANNEL_COLUMNS} rows={acq.channels} sort={{ key: "leads", dir: "desc" }} csv="acquisition-par-canal" />
           </AnCard>
         </div>

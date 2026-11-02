@@ -11,6 +11,7 @@ import {
   LabelList,
   Legend,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Sankey,
   Tooltip,
@@ -80,7 +81,8 @@ type TipPayload = readonly { name?: string | number; value?: number | string | r
 /** Infobulle commune : le mois en titre, puis une ligne par série, la valeur en gras. */
 export function Tip({ active, label, payload, title, unit = "eur" }: { active?: boolean; label?: string | number; payload?: TipPayload; title?: string; unit?: "eur" | "int" | "days" }) {
   if (!active || !payload?.length) return null;
-  const rows: TipRow[] = payload.map((p) => ({ name: String(p.name ?? ""), value: Number(p.value ?? 0), color: p.color ?? p.fill ?? "" }));
+  // Une valeur absente (null) n'est pas un zéro : la ligne n'apparaît pas.
+  const rows: TipRow[] = payload.filter((p) => p.value != null).map((p) => ({ name: String(p.name ?? ""), value: Number(p.value), color: p.color ?? p.fill ?? "" }));
   const fmt = (v: number) => (unit === "eur" ? eur.format(v) : unit === "days" ? `${v.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} j` : v.toLocaleString("fr-FR"));
   return (
     <div className="an-tip">
@@ -250,8 +252,20 @@ export function AgingChart({ data }: { data: Bucket[] }) {
 
 /* ─── Part-à-tout à 2-4 segments : une barre empilée, pas un camembert ───── */
 
-export function ShareBar({ data, valueKey = "caHT", unit = "eur" }: { data: Bucket[]; valueKey?: "caHT" | "count"; unit?: "eur" | "int" }) {
+export function ShareBar({
+  data,
+  valueKey = "caHT",
+  unit = "eur",
+  colors,
+}: {
+  data: Bucket[];
+  valueKey?: "caHT" | "count";
+  unit?: "eur" | "int";
+  /** Couleurs CSS imposées (ex. nuances d'une même teinte) ; sinon la palette dans l'ordre. */
+  colors?: string[];
+}) {
   const c = useChartColors();
+  const colorOf = (i: number) => colors?.[i] ?? c.series[i % c.series.length];
   const total = data.reduce((s, b) => s + b[valueKey], 0);
   if (!total) return <p className="an-empty">Rien à répartir.</p>;
   const fmt = (v: number) => (unit === "eur" ? eur.format(v) : String(v));
@@ -262,7 +276,7 @@ export function ShareBar({ data, valueKey = "caHT", unit = "eur" }: { data: Buck
           <span
             key={b.key}
             className="an-share__seg"
-            style={{ width: `${(b[valueKey] / total) * 100}%`, background: c.series[i % c.series.length] }}
+            style={{ width: `${(b[valueKey] / total) * 100}%`, background: colorOf(i) }}
             title={`${b.label} · ${fmt(b[valueKey])}`}
           />
         ))}
@@ -270,7 +284,7 @@ export function ShareBar({ data, valueKey = "caHT", unit = "eur" }: { data: Buck
       <ul className="an-share__legend">
         {data.map((b, i) => (
           <li key={b.key}>
-            <span className="an-share__swatch" style={{ background: c.series[i % c.series.length] }} />
+            <span className="an-share__swatch" style={{ background: colorOf(i) }} />
             <span className="an-share__value">{fmt(b[valueKey])}</span>
             <span className="an-share__label">
               {b.label} · {Math.round((b[valueKey] / total) * 100)} %
@@ -284,7 +298,13 @@ export function ShareBar({ data, valueKey = "caHT", unit = "eur" }: { data: Buck
 
 /* ─── Séries mensuelles génériques (comptes) ─────────────────────────────── */
 
-export type Series = { key: string; label: string; kind?: "bar" | "line" };
+export type Series = {
+  key: string;
+  label: string;
+  kind?: "bar" | "line";
+  /** Case de la palette (0 = --tim-chart-1) ; sinon l'ordre de déclaration. Pour garder la couleur d'une entité ailleurs dans l'écran. */
+  slot?: number;
+};
 
 /**
  * Plusieurs comptes par mois sur un seul axe : barres (créés, résolus…) et
@@ -298,7 +318,8 @@ export function MonthlyChart({
   height = 240,
   unit = "int",
 }: {
-  data: ({ month: string } & Record<string, number | string>)[];
+  /** Une valeur null laisse un trou (une courbe sans point ce mois-là). */
+  data: ({ month: string } & Record<string, number | string | null>)[];
   series: Series[];
   stacked?: boolean;
   height?: number;
@@ -309,7 +330,7 @@ export function MonthlyChart({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart data={rows} margin={{ top: 12, right: 12, left: 0, bottom: 0 }} barCategoryGap="35%">
-        <Gradients entries={series.map((s, i) => ({ id: gradientId("monthly", s.key), color: c.series[i % 5] }))} />
+        <Gradients entries={series.map((s, i) => ({ id: gradientId("monthly", s.key), color: c.series[s.slot ?? i % 5] }))} />
         <CartesianGrid {...gridProps(c)} />
         <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} />
         <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} allowDecimals={false} {...(unit === "eur" ? { tickFormatter: compactEur, width: 64 } : { width: 40 })} />
@@ -317,7 +338,7 @@ export function MonthlyChart({
         {series.length > 1 && <Legend {...legendProps(c)} />}
         {series.map((s, i) =>
           s.kind === "line" ? (
-            <Line key={s.key} name={s.label} type="monotone" dataKey={s.key} stroke={c.series[i % 5]} strokeWidth={LINE_WIDTH} dot={lineDot(c, c.series[i % 5])} activeDot={lineActiveDot(c, c.series[i % 5])} />
+            <Line key={s.key} name={s.label} type="monotone" dataKey={s.key} stroke={c.series[s.slot ?? i % 5]} strokeWidth={LINE_WIDTH} dot={lineDot(c, c.series[s.slot ?? i % 5])} activeDot={lineActiveDot(c, c.series[s.slot ?? i % 5])} />
           ) : (
             // Empilé : le dégradé n'a de sens que sur le segment du haut, les
             // autres gardent leur aplat — sinon la pile se lit comme des trous.
@@ -325,7 +346,7 @@ export function MonthlyChart({
               key={s.key}
               name={s.label}
               dataKey={s.key}
-              fill={stacked && i < series.length - 1 ? c.series[i % 5] : gradientFill(gradientId("monthly", s.key))}
+              fill={stacked && i < series.length - 1 ? c.series[s.slot ?? i % 5] : gradientFill(gradientId("monthly", s.key))}
               stackId={stacked ? "s" : undefined}
               radius={stacked && i < series.length - 1 ? 0 : BAR_RADIUS}
               maxBarSize={24}
@@ -337,45 +358,61 @@ export function MonthlyChart({
   );
 }
 
-/* ─── CA d'une période face à une autre ─────────────────────────────────── */
+/* ─── Pourcentage signé des infobulles ───────────────────────────────────── */
+
+const pctText = (p: number) => `${p > 0 ? "+" : ""}${p.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} %`;
+
+/* ─── Une année sur l'autre : une courbe par année, de janvier à décembre ─ */
+
+function YearTip({ active, label, payload, years }: { active?: boolean; label?: string | number; payload?: readonly { payload?: Record<string, number | string | null> }[]; years: string[] }) {
+  const row = payload?.[0]?.payload;
+  if (!active || !row) return null;
+  const values = years.map((y) => ({ y, v: row[`y${y}`] as number | null })).filter((x) => x.v != null);
+  const [prev, last] = values.slice(-2);
+  const pct = values.length >= 2 && prev.v! > 0 ? ((last.v! - prev.v!) / prev.v!) * 100 : null;
+  return (
+    <div className="an-tip">
+      <div className="an-tip__title">{String(label ?? "")}</div>
+      {[...values].reverse().map((x) => (
+        <div key={x.y} className="an-tip__row">
+          <span className="an-tip__value">{eur.format(x.v!)}</span>
+          <span className="an-tip__name">{x.y}</span>
+        </div>
+      ))}
+      {pct != null && (
+        <div className="an-tip__trend">
+          <span className={`an-pct an-pct--${pct > 0 ? "up" : pct < 0 ? "down" : "flat"}`}>
+            {pct > 0 ? "▲" : pct < 0 ? "▼" : "•"} {pctText(pct)} face à {prev.y}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
- * La période étudiée en bâtons empilés (licences, puis prestations par-dessus),
- * et la période de comparaison en bâton gris à côté, mois de même rang face à
- * face. Le gris : c'est le repère, pas le sujet.
+ * Une courbe pleine par année, chacune sa couleur : on lit l'évolution mois
+ * par mois, d'une courbe à l'autre. Une année s'arrête à son dernier mois
+ * facturé.
  */
-export function PeriodCompareChart({
-  data,
-  aLabel,
-  bLabel,
-  height = 260,
-}: {
-  data: { label: string; long: string; aRecurring: number; aServices: number; b: number | null }[];
-  aLabel: string;
-  bLabel: string | null;
-  height?: number;
-}) {
+export function YearLinesChart({ rows, years, height = 280 }: { rows: Record<string, number | string | null>[]; years: string[]; height?: number }) {
   const c = useChartColors();
-  const hasServices = data.some((d) => d.aServices > 0);
+  // Une couleur FIXE par année (elle ne change pas quand l'année suivante arrive), en trait plein,
+  // hors du bleu, du rouge et du vert réservés au CA, aux dépenses et au bénéfice. Trois années au
+  // plus : au-delà, on ne lit plus rien.
+  const shown = years.slice(-3);
+  const colorOf = (y: string) => [c.series[3], c.series[4], c.series[5]][(((Number(y) - 2025) % 3) + 3) % 3];
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <ComposedChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }} barCategoryGap={data.length > 6 ? "25%" : "35%"} barGap={4}>
-        <Gradients entries={[{ id: gradientId("compare", "a"), color: c.series[1] }, { id: gradientId("compare", "s"), color: c.series[3] }]} />
+      <ComposedChart data={rows} margin={{ top: 12, right: 16, left: 0, bottom: 0 }}>
         <CartesianGrid {...gridProps(c)} />
         <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} />
         <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} allowDecimals={false} tickFormatter={compactEur} width={64} />
-        <Tooltip cursor={{ fill: c.grid, opacity: 0.6 }} content={(p) => <Tip {...p} title={p.payload?.[0]?.payload?.long} />} />
+        <Tooltip cursor={{ stroke: c.muted, strokeDasharray: "3 4" }} content={(p) => <YearTip active={p.active} label={p.label} payload={p.payload as never} years={shown} />} />
         <Legend {...legendProps(c)} />
-        <Bar
-          name={`Licences · ${aLabel}`}
-          dataKey="aRecurring"
-          stackId="a"
-          fill={hasServices ? c.series[1] : gradientFill(gradientId("compare", "a"))}
-          radius={hasServices ? 0 : BAR_RADIUS}
-          maxBarSize={28}
-        />
-        {hasServices && <Bar name={`Prestations · ${aLabel}`} dataKey="aServices" stackId="a" fill={gradientFill(gradientId("compare", "s"))} radius={BAR_RADIUS} maxBarSize={28} />}
-        {bLabel && <Bar name={`Total · ${bLabel}`} dataKey="b" fill={c.muted} radius={BAR_RADIUS} maxBarSize={28} />}
+        {shown.map((y) => (
+          <Line key={y} name={y} type="monotone" dataKey={`y${y}`} stroke={colorOf(y)} strokeWidth={LINE_WIDTH} dot={lineDot(c, colorOf(y))} activeDot={lineActiveDot(c, colorOf(y))} />
+        ))}
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -397,9 +434,10 @@ export function DailyChart({ data, series, height = 240 }: { data: ({ day: strin
         <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} allowDecimals={false} width={40} />
         <Tooltip cursor={{ stroke: c.grid }} content={(p) => <Tip {...p} unit="int" title={p.payload?.[0]?.payload?.long} />} />
         {series.length > 1 && <Legend {...legendProps(c)} />}
-        {series.map((s, i) => (
-          <Line key={s.key} name={s.label} type="monotone" dataKey={s.key} stroke={c.series[i % 5]} strokeWidth={LINE_WIDTH} dot={false} activeDot={lineActiveDot(c, c.series[i % 5])} />
-        ))}
+        {series.map((s, i) => {
+          const color = c.series[s.slot ?? i % 5];
+          return <Line key={s.key} name={s.label} type="monotone" dataKey={s.key} stroke={color} strokeWidth={LINE_WIDTH} dot={false} activeDot={lineActiveDot(c, color)} />;
+        })}
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -591,5 +629,139 @@ function FlowTip({ payload }: { payload?: FlowTipPayload }) {
         <span className="an-tip__name">{isLink ? "passage" : "fiche"}{(p.value ?? 0) > 1 ? "s" : ""}</span>
       </div>
     </div>
+  );
+}
+
+/* ─── Le résultat : ce qui entre, ce qui sort, ce qui reste ───────────────── */
+
+export type ResultPoint = { label: string; ca: number; expenses: number | null; profit: number | null };
+
+function ResultTip({ active, payload }: { active?: boolean; payload?: readonly { payload?: ResultPoint }[] }) {
+  const p = payload?.[0]?.payload;
+  if (!active || !p) return null;
+  const margin = p.profit != null && p.ca > 0 ? (p.profit / p.ca) * 100 : null;
+  return (
+    <div className="an-tip">
+      <div className="an-tip__title">{p.label}</div>
+      <div className="an-tip__row">
+        <span className="an-tip__value">{eur.format(p.ca)}</span>
+        <span className="an-tip__name">Chiffre d'affaires</span>
+      </div>
+      {p.expenses != null ? (
+        <>
+          <div className="an-tip__row">
+            <span className="an-tip__value">{eur.format(p.expenses)}</span>
+            <span className="an-tip__name">Dépenses</span>
+          </div>
+          <div className="an-tip__row">
+            <span className="an-tip__value">{eur.format(p.profit!)}</span>
+            <span className="an-tip__name">Bénéfice</span>
+          </div>
+          {margin != null && (
+            <div className="an-tip__trend">
+              <span className={`an-pct an-pct--${margin > 0 ? "up" : margin < 0 ? "down" : "flat"}`}>marge {pctText(margin).replace("+", "")}</span>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="an-tip__row">
+          <span className="an-tip__name">Dépenses non connues (avant les relevés Pennylane)</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Comme un tableau de trésorerie (Agicap, Qonto) : deux barres par période —
+ * ce qui est facturé en bleu, ce qui est dépensé en rouge — et le bénéfice en
+ * courbe verte par-dessus, sur la même échelle en euros. La ligne du zéro
+ * montre d'un coup les périodes à perte.
+ */
+export function ResultChart({ data, height = 300 }: { data: ResultPoint[]; height?: number }) {
+  const c = useChartColors();
+  const [red, blue, green] = [c.series[0], c.series[1], c.series[2]];
+  const withExpenses = data.some((d) => d.expenses != null);
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <ComposedChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 0 }} barGap={2} barCategoryGap="22%">
+        <CartesianGrid {...gridProps(c)} />
+        <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} />
+        <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} allowDecimals={false} tickFormatter={compactEur} width={64} />
+        <Tooltip cursor={{ fill: c.grid }} content={(p) => <ResultTip active={p.active} payload={p.payload as never} />} />
+        {withExpenses && <Legend {...legendProps(c)} />}
+        <ReferenceLine y={0} stroke={c.muted} />
+        <Bar name="Chiffre d'affaires" dataKey="ca" fill={blue} radius={BAR_RADIUS} maxBarSize={28} />
+        {withExpenses && <Bar name="Dépenses" dataKey="expenses" fill={red} radius={BAR_RADIUS} maxBarSize={28} />}
+        {withExpenses && (
+          <Line name="Bénéfice" type="monotone" dataKey="profit" stroke={green} strokeWidth={LINE_WIDTH} dot={lineDot(c, green)} activeDot={lineActiveDot(c, green)} />
+        )}
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+/* ─── Seuil d'équilibre : moyennes glissantes des rentrées et des dépenses ── */
+
+export type RollingChartPoint = { label: string; window: number; revenue: number; expenses: number; expensesCore: number };
+
+function RollingTip({ active, payload }: { active?: boolean; payload?: readonly { payload?: RollingChartPoint }[] }) {
+  const p = payload?.[0]?.payload;
+  if (!active || !p) return null;
+  const gap = p.revenue - p.expenses;
+  return (
+    <div className="an-tip">
+      <div className="an-tip__title">
+        {p.label} · moyenne sur {p.window} mois
+      </div>
+      <div className="an-tip__row">
+        <span className="an-tip__value">{eur.format(p.revenue)}</span>
+        <span className="an-tip__name">Rentrées / mois</span>
+      </div>
+      <div className="an-tip__row">
+        <span className="an-tip__value">{eur.format(p.expenses)}</span>
+        <span className="an-tip__name">Dépenses / mois</span>
+      </div>
+      {p.expensesCore !== p.expenses && (
+        <div className="an-tip__row">
+          <span className="an-tip__value">{eur.format(p.expensesCore)}</span>
+          <span className="an-tip__name">hors dépenses ponctuelles</span>
+        </div>
+      )}
+      <div className="an-tip__trend">
+        <span className={`an-pct an-pct--${gap >= 0 ? "up" : "down"}`}>
+          {gap >= 0 ? "▲ +" : "▼ "}
+          {eur.format(gap)} / mois
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Des courbes lissées sur 12 mois glissants : les rentrées (bleu), les
+ * dépenses (rouge) et les dépenses courantes, sans les ponctuelles
+ * (turquoise). Là où le bleu passe au-dessus, TIM est à l'équilibre.
+ */
+export function RollingChart({ data, height = 240 }: { data: RollingChartPoint[]; height?: number }) {
+  const c = useChartColors();
+  // Trois choses, trois couleurs pleines : rentrées bleu, dépenses rouge, dépenses courantes turquoise.
+  const [red, blue, teal] = [c.series[0], c.series[1], c.series[5]];
+  const withCore = data.some((d) => d.expensesCore !== d.expenses);
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <ComposedChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid {...gridProps(c)} />
+        <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} />
+        <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} allowDecimals={false} tickFormatter={compactEur} width={64} />
+        <Tooltip cursor={{ stroke: c.muted, strokeDasharray: "3 4" }} content={(p) => <RollingTip active={p.active} payload={p.payload as never} />} />
+        <Legend {...legendProps(c)} />
+        <Line name="Rentrées moyennes / mois" type="monotone" dataKey="revenue" stroke={blue} strokeWidth={LINE_WIDTH} dot={lineDot(c, blue)} activeDot={lineActiveDot(c, blue)} />
+        <Line name="Dépenses moyennes / mois" type="monotone" dataKey="expenses" stroke={red} strokeWidth={LINE_WIDTH} dot={lineDot(c, red)} activeDot={lineActiveDot(c, red)} />
+        {withCore && (
+          <Line name="Dépenses courantes (hors ponctuelles)" type="monotone" dataKey="expensesCore" stroke={teal} strokeWidth={LINE_WIDTH} dot={lineDot(c, teal)} activeDot={lineActiveDot(c, teal)} />
+        )}
+      </ComposedChart>
+    </ResponsiveContainer>
   );
 }

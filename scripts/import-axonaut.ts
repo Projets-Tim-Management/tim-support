@@ -9,6 +9,8 @@
  * Il faut `pdftotext` (poppler). La simulation affiche les totaux par mois,
  * les numéros manquants, et le rattachement de chaque client à sa fiche ;
  * une facture sans fiche est importée quand même, son nom suffit à l'analyse.
+ * Seules les factures de TIM entrent : celles de DELIGUME (même compte
+ * Axonaut, 2019–2022) sont écartées et comptées à part.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
@@ -34,15 +36,27 @@ if (!dir) {
 
 const { getPayload } = await import("payload");
 const { default: config } = await import("@payload-config");
-const { parseAxonaut, withCorrections, matchAll } = await import("@/modules/analytics/lib/axonaut");
+const { isTimInvoice, parseAxonaut, withCorrections, matchAll } = await import("@/modules/analytics/lib/axonaut");
 
 const files = readdirSync(resolve(dir))
   .filter((f) => f.toLowerCase().endsWith(".pdf"))
   .sort();
-const docs = files.map((f) => {
-  const text = execFileSync("pdftotext", ["-layout", join(resolve(dir), f), "-"], { encoding: "utf8" });
+const skipped: string[] = [];
+const unreadable: string[] = [];
+const docs = files.flatMap((f) => {
+  let text: string;
   try {
-    return { ...withCorrections(parseAxonaut(text)), sourceFile: f };
+    text = execFileSync("pdftotext", ["-layout", join(resolve(dir), f), "-"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  } catch {
+    unreadable.push(f); // PDF abîmé : signalé, pas importé
+    return [];
+  }
+  if (!isTimInvoice(text)) {
+    skipped.push(f);
+    return [];
+  }
+  try {
+    return [{ ...withCorrections(parseAxonaut(text)), sourceFile: f }];
   } catch (e) {
     throw new Error(`${f} : ${(e as Error).message}`);
   }
@@ -62,7 +76,10 @@ const nameOf = new Map((clients.docs as { id: number; companyName?: string }[]).
 
 /* ── Ce qui va être importé ── */
 const eur = (n: number) => n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-console.log(`${docs.length} PDF lus dans ${basename(resolve(dir))}\n`);
+console.log(`${docs.length} factures TIM lues dans ${basename(resolve(dir))}`);
+if (skipped.length) console.log(`${skipped.length} PDF écartés (pas TIM : DELIGUME) — de ${skipped[0]} à ${skipped.at(-1)}`);
+if (unreadable.length) console.log(`${unreadable.length} PDF illisibles (abîmés) : ${unreadable.join(", ")}`);
+console.log("");
 
 const byMonth = new Map<string, { total: number; recurring: number; services: number; n: number }>();
 for (const d of docs) {

@@ -81,6 +81,13 @@ export function videoVersion(videoId: string): { base: string; version: number }
   return m ? { base: m[1], version: Number(m[2]) } : { base: videoId, version: 1 };
 }
 
+/** Un nom lisible tiré de l'identifiant : « pointage-demo » → « Pointage demo ». Pure. */
+export function videoLabel(videoId: string): string {
+  const { base, version } = videoVersion(videoId);
+  const words = base.replace(/-/g, " ").trim();
+  return `${words.charAt(0).toUpperCase()}${words.slice(1)}${version > 1 ? ` (v${version})` : ""}`;
+}
+
 const PARIS_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" });
 
 /** Le jour, au fuseau de Paris : « 2026-10-19 ». Pure. */

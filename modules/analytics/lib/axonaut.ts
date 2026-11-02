@@ -1,8 +1,13 @@
 import type { ProfilKey } from "@/modules/partner/lib/pricing";
 
 /**
- * L'historique de facturation d'avant Pennylane : les factures Axonaut, de
- * janvier 2025 à septembre 2026 (Pennylane facture seul depuis octobre 2026).
+ * L'historique de facturation d'avant Pennylane : les factures Axonaut de TIM,
+ * de septembre 2021 (la première) à septembre 2026 (Pennylane facture seul
+ * depuis octobre 2026).
+ *
+ * Le compte Axonaut a d'abord servi à DELIGUME (paniers de fruits et légumes,
+ * 2019–2020) : ces factures ne sont pas du CA de TIM et ne s'importent jamais
+ * (isTimInvoice).
  *
  * Axonaut n'exporte que des PDF, un par facture. On les lit tels que
  * `pdftotext -layout` les rend : la mise en page est la même partout (numéro,
@@ -67,6 +72,20 @@ export const profileOf = (label: string): ProfilKey | null => PROFILE_WORDS.find
 
 // « Libellé   41,00 €   22   -25,00 %   676,50 € » — la remise est facultative.
 const LINE = /^\s*(\S.*?)\s{2,}(-?[\d\s ]+,\d\d) €\s+(-?\d+)\s+(?:(-?[\d\s]+,\d\d ?[€%])\s+)?(-?[\d\s ]+,\d\d) €/;
+
+/** SIREN de TIM Management (LC DEV) et de DELIGUME, tels qu'ils apparaissent sur les PDF. */
+const TIM_SIREN = /892\s?316\s?035/;
+const DELIGUME = /831\s?150\s?305|deligume|delibox|delifruit|delipanier/i;
+
+/**
+ * Une facture de TIM, et seulement de TIM : émise sous son SIREN, et sans
+ * produit DELIGUME. Cinq factures d'avril 2022, saisies sur le compte TIM,
+ * vendent encore des paniers DELIGUME (ramenés à 0 €) : elles sont écartées
+ * aussi (décision de Charlie, 31/10/2026 : « rien de DELIGUME »). Pure.
+ */
+export function isTimInvoice(text: string): boolean {
+  return TIM_SIREN.test(text) && !DELIGUME.test(text);
+}
 
 /**
  * Une facture ou un avoir Axonaut, depuis le texte de `pdftotext -layout`.
@@ -141,21 +160,67 @@ export function parseAxonaut(text: string): AxonautDoc {
 /**
  * Les corrections connues, appliquées après la lecture.
  *
- * Pro11 (Groupe Viriate Services) a été facturé 1 308,75 €/mois de juin 2024 à
- * juillet 2025 pour 80 licences de chef de chantier ; le vrai montant était
- * 419,40 €. Régularisé le 24/07/2025 : treize avoirs (n° 151 à 163, dont seul
- * le 154 figure dans l'export) et une facture de 5 652,20 € qui refacture les
- * treize mois au bon prix. On compte donc 419,40 € par mois réel, et la
- * régularisation à zéro — sinon 2025 paraît gonflé de 10 000 € (décision de
+ * Pro11 (Groupe Viriate Services) a été surfacturé (1 113 €, puis 1 308,75 €
+ * par mois) ; le vrai montant était 419,40 €. Régularisé le 24/07/2025 :
+ * treize avoirs (n° 151 à 163, dont seul le 154 figure dans l'export) et une
+ * facture de 5 652,20 € qui refacture au bon prix les treize factures qu'elle
+ * cite — juin 2024, août 2024, septembre 2024 à juillet 2025 (juillet 2024 n'y
+ * est pas : il reste tel que facturé). On compte donc 419,40 € pour chacune, et
+ * la régularisation à zéro — sinon 2024 et 2025 paraissent gonflés (décision de
  * Charlie, 30/10/2026). Le total comptable, lui, reste celui du PDF.
  */
-const PRO11_MONTHS = ["F20250103-102", "F20250203-110", "F20250303-117", "F20250403-124", "F20250503-131", "F20250603-138", "F20250703-145"];
-export const AXONAUT_CORRECTIONS: Record<string, { recurringHT: number; servicesHT: number; note: string }> = {
+const PRO11_MONTHS = [
+  "F20240603-126",
+  "F20240803-139",
+  "F20240903-145",
+  "F20241003-151",
+  "F20241103-157",
+  "F20241203-163",
+  "F20250103-102",
+  "F20250203-110",
+  "F20250303-117",
+  "F20250403-124",
+  "F20250503-131",
+  "F20250603-138",
+  "F20250703-145",
+];
+/**
+ * Les prestations d'une facture, en deux familles : la mise en place et la
+ * formation (« Mise en place / Formation », « Mise en place »), et les
+ * développements sur mesure (tout le reste : « Développement sur mesure »,
+ * « Ventilation des heures »…). Réparties au prorata des lignes, pour que la
+ * remise de la facture pèse sur chacune ; une facture sans ligne lisible
+ * range tout en développements.
+ */
+export function splitServices(lines: Pick<AxonautLine, "label" | "licence" | "amountHT">[], servicesHT: number): { setupHT: number; devHT: number } {
+  const others = lines.filter((l) => !l.licence);
+  const gross = others.reduce((s, l) => s + l.amountHT, 0);
+  if (!servicesHT || !gross) return { setupHT: 0, devHT: round2(servicesHT) };
+  const setupGross = others.filter((l) => /mise en place|formation/i.test(l.label)).reduce((s, l) => s + l.amountHT, 0);
+  const setupHT = round2((servicesHT * setupGross) / gross);
+  return { setupHT, devHT: round2(servicesHT - setupHT) };
+}
+
+/**
+ * CTSM est facturé le 29 pour le mois suivant (la facture du 29/05 couvre
+ * juin) ; tous les autres clients le sont en début de mois pour le mois en
+ * cours. Ses factures comptent donc pour le mois d'après : juin à septembre
+ * 2026, puis octobre chez Pennylane, sans trou.
+ */
+const CTSM_NEXT_MONTH: Record<string, string> = {
+  "F20260529-144": "2026-06",
+  "F20260629-158": "2026-07",
+  "F20260729-172": "2026-08",
+  "F20260829-188": "2026-09",
+};
+
+export const AXONAUT_CORRECTIONS: Record<string, { recurringHT?: number; servicesHT?: number; month?: string; note: string }> = {
   ...Object.fromEntries(
     PRO11_MONTHS.map((n) => [n, { recurringHT: 419.4, servicesHT: 0, note: "Facturé 1 308,75 € par erreur ; régularisé à 419,40 € le 24/07/2025." }]),
   ),
   "F20250724-154": { recurringHT: 0, servicesHT: 0, note: "Avoir de la régularisation Pro11 : le mois réel est déjà compté à 419,40 €." },
-  "F20250724-164": { recurringHT: 0, servicesHT: 0, note: "Régularisation Pro11 (juin 2024 à juillet 2025 au bon prix) : chaque mois réel est déjà compté." },
+  "F20250724-164": { recurringHT: 0, servicesHT: 0, note: "Régularisation Pro11 (13 factures de juin 2024 à juillet 2025 au bon prix) : chaque mois réel est déjà compté." },
+  ...Object.fromEntries(Object.entries(CTSM_NEXT_MONTH).map(([n, month]) => [n, { month, note: "Facturée le 29 pour le mois suivant." }])),
 };
 
 export function withCorrections(doc: AxonautDoc): AxonautDoc {
@@ -193,7 +258,8 @@ export function matchClient(doc: Pick<AxonautDoc, "siren" | "clientName">, clien
   const byName = clients.filter((c) =>
     [c.companyName, c.raisonSociale].some((n) => {
       const nk = nameKey(n);
-      return nk.length >= 3 && (nk === k || nk.includes(k) || k.includes(nk));
+      // Égaux, ou l'un contient l'autre — mais pas un nom court perdu dans un long (« erg » dans « solarenergy »).
+      return nk.length >= 3 && (nk === k || (Math.min(nk.length, k.length) >= 5 && (nk.includes(k) || k.includes(nk))));
     }),
   );
   return byName.length === 1 ? { id: byName[0].id, by: "nom" } : null;

@@ -228,6 +228,12 @@
 .an-period--pending {
   opacity: 0.6;
 }
+.an-period__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
 .an-period__field {
   display: flex;
   flex-direction: column;
@@ -393,6 +399,10 @@
 }
 
 /* ─── Infobulle des graphiques ────────────────────────────────────────────── */
+/* L'évolution sous les valeurs (graphique de tendance), en pastille comme dans les tuiles. */
+.an-tip__trend {
+  margin-top: 0.4rem;
+}
 .an-tip {
   min-width: 12rem;
   padding: 0.55rem 0.7rem;
@@ -757,27 +767,691 @@
 .an-valid__month--ok { background: var(--tim-green-bg); .an-valid__label, .an-valid__state { color: var(--tim-green); } }
 .an-valid__month--part { background: var(--tim-amber-bg); .an-valid__label, .an-valid__state { color: var(--tim-amber); } }
 
-/* ─── Vidéos : une section par vidéo ───────────────────────────────────────── */
-.an-video {
+/* ─── Tableau de bord Facturation : résultat d'abord, détail replié ──────── */
+
+/* Les réglages restent sous la main quand on descend dans la page. */
+.an-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: color-mix(in srgb, var(--tim-white) 92%, transparent);
+  backdrop-filter: blur(6px);
+}
+.an-toolbar .an-filter {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+.an-filters--small .an-filter {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+.an-hero {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+  gap: 0.9rem;
 }
-.an-video__title {
+/* Le résultat en une phrase, comme on le dirait. */
+.an-story {
   margin: 0;
+  max-width: 62rem;
   font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--tim-muted);
+
+  b {
+    color: var(--tim-foreground);
+    font-weight: 700;
+  }
+  .an-story__up {
+    color: var(--tim-green);
+  }
+  .an-story__down {
+    color: var(--tim-danger-text);
+  }
+}
+
+.an-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+@media (max-width: 960px) {
+  .an-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+/* Une teinte par grandeur, la même que sur les graphiques : CA bleu, dépenses rouge, bénéfice vert. */
+.an-kpi {
+  --an-kpi-color: var(--tim-chart-2);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 1rem 1.15rem 0.9rem;
+  overflow: hidden;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--an-kpi-color) 7%, var(--tim-white)), var(--tim-white) 70%);
+  animation: an-rise 0.35s ease both;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    background: var(--an-kpi-color);
+  }
+  &:nth-child(2) {
+    animation-delay: 60ms;
+  }
+  &:nth-child(3) {
+    animation-delay: 120ms;
+  }
+}
+.an-kpi--red {
+  --an-kpi-color: var(--tim-chart-1);
+}
+.an-kpi--green {
+  --an-kpi-color: var(--tim-chart-3);
+}
+.an-kpi--amber {
+  --an-kpi-color: var(--tim-chart-4);
+}
+.an-spark--amber {
+  --an-spark-color: var(--tim-chart-4);
+}
+.an-kpi--slate {
+  --an-kpi-color: var(--tim-slate);
+}
+.an-kpi__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+}
+.an-kpi__dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--an-kpi-color);
+}
+.an-kpi__value {
+  font-size: clamp(1.8rem, 3.2vw, 2.4rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--tim-foreground);
+  white-space: nowrap;
+}
+.an-kpi__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  min-height: 1.4rem;
+}
+.an-kpi--alert .an-kpi__value {
+  color: var(--tim-danger-text);
+}
+.an-kpi__sub {
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+}
+
+/* Mini-courbe : la forme de la période, sans axe. */
+.an-spark {
+  display: block;
+  width: 100%;
+  height: 34px;
+  margin-top: 0.15rem;
+  overflow: visible;
+
+  polyline {
+    fill: none;
+    stroke: var(--an-spark-color, var(--tim-chart-2));
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+}
+.an-spark__end {
+  stroke: var(--an-spark-color, var(--tim-chart-2));
+  stroke-width: 7;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.an-spark__zero {
+  stroke: var(--tim-chart-muted);
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+.an-spark--red {
+  --an-spark-color: var(--tim-chart-1);
+}
+.an-spark--green {
+  --an-spark-color: var(--tim-chart-3);
+}
+
+/* Jauge de marge. */
+.an-meter {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.an-meter__track {
+  flex: 1 1 auto;
+  height: 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--tim-chart-3) 15%, var(--tim-white));
+  overflow: hidden;
+}
+.an-meter__fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--tim-chart-3);
+  transform-origin: left center;
+  animation: an-grow 0.6s ease both;
+}
+.an-meter__label {
+  flex: 0 0 auto;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--tim-foreground);
 }
-.an-video__hint {
+
+.an-tiles--pulse {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+/* Barres horizontales : ce que pèse chaque poste, chaque client. */
+.an-bars {
+  --an-bar-color: var(--tim-chart-2);
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
   margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.an-bars--red {
+  --an-bar-color: var(--tim-chart-1);
+}
+.an-bars--green {
+  --an-bar-color: var(--tim-chart-3);
+}
+.an-bars__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.an-bars__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.86rem;
+}
+.an-bars__label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--tim-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+}
+a.an-bars__label:hover {
+  text-decoration: underline;
+}
+.an-bars__value {
+  flex: 0 0 auto;
+  font-weight: 700;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.an-bars__share {
+  margin-left: 0.45rem;
+  font-weight: 500;
+  color: var(--tim-muted);
+}
+.an-bars__track {
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--tim-surface);
+  overflow: hidden;
+}
+/* Le reste en teinte adoucie ; ce qui compte (`strong`) en teinte pleine. */
+.an-bars__fill {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--an-bar-color) 45%, var(--tim-white));
+  transform-origin: left center;
+  animation: an-grow 0.5s ease both;
+}
+.an-bars--blue .an-bars__fill,
+.an-bars__row--strong .an-bars__fill {
+  background: var(--an-bar-color);
+}
+.an-bars__row--strong .an-bars__label {
+  font-weight: 700;
+}
+.an-bars .an-bars__row--muted .an-bars__fill {
+  background: var(--tim-chart-muted);
+}
+.an-bars__row--muted .an-bars__label {
+  color: var(--tim-muted);
+}
+.an-bars__foot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.75rem;
   color: var(--tim-muted);
 }
-.an-video__version {
-  margin-left: 0.5rem;
+
+.an-callout {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--tim-radius-sm);
+  background: color-mix(in srgb, var(--tim-chart-1) 8%, var(--tim-white));
+  font-size: 0.86rem;
+  color: var(--tim-foreground);
+}
+/* Seuil d'équilibre : rentrées − dépenses = écart, comme une opération posée. */
+.an-even {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+.an-even__fig {
+  --an-even-color: var(--tim-chart-2);
+  display: flex;
+  flex: 1 1 10rem;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.75rem 1rem;
+  border-left: 4px solid var(--an-even-color);
+  border-radius: var(--tim-radius-sm);
+  background: color-mix(in srgb, var(--an-even-color) 7%, var(--tim-white));
+}
+.an-even__fig--red {
+  --an-even-color: var(--tim-chart-1);
+}
+.an-even__fig--green {
+  --an-even-color: var(--tim-chart-3);
+}
+.an-even__fig--bad {
+  --an-even-color: var(--tim-danger-text);
+
+  .an-even__value {
+    color: var(--tim-danger-text);
+  }
+}
+.an-even__label {
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--tim-muted);
+}
+.an-even__value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--tim-foreground);
+}
+.an-even__sub {
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+.an-even__op {
+  flex: 0 0 auto;
+  font-size: 1.6rem;
+  font-weight: 300;
+  color: var(--tim-muted);
+}
+@media (max-width: 720px) {
+  .an-even__op {
+    display: none;
+  }
+}
+.an-callout--even {
+  background: var(--tim-surface);
+  line-height: 1.5;
+}
+.an-card__foot {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+}
+
+/* Arrivées et départs de clients : des pastilles à lire d'un coup d'œil. */
+.an-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2rem;
+}
+.an-moves__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.an-moves__title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.an-moves__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.an-chip {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.an-chip--ok {
+  color: var(--tim-green);
+  background: var(--tim-green-bg);
+}
+.an-chip--bad {
+  color: var(--tim-danger-text);
+  background: var(--tim-red-bg);
+}
+
+/* Le détail, replié en bas : là quand on le cherche, invisible sinon. */
+.an-folds {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.an-fold {
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+
+  &[open] .an-fold__summary::after {
+    transform: rotate(180deg);
+  }
+}
+.an-fold__summary {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.85rem 2.75rem 0.85rem 1.1rem;
+  cursor: pointer;
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+  &::after {
+    content: "▾";
+    position: absolute;
+    top: 50%;
+    right: 1.1rem;
+    margin-top: -0.6rem;
+    color: var(--tim-muted);
+    transition: transform 0.15s ease;
+  }
+  &:hover .an-fold__title {
+    color: var(--tim-primary);
+  }
+}
+.an-fold__title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.an-fold__sub {
+  font-size: 0.8rem;
+  color: var(--tim-muted);
+}
+.an-fold__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0 1.1rem 1.1rem;
+}
+.an-fold__h {
+  margin: 0.5rem 0 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .an-kpi,
+  .an-meter__fill,
+  .an-bars__fill {
+    animation: none;
+  }
+}
+
+/* ─── Vidéos : comparer d'un coup d'œil, puis le détail de celle choisie ─── */
+
+.vd-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+@media (max-width: 1100px) {
+  .vd-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .vd-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* La pastille de couleur d'une vidéo : celle de sa courbe. */
+.vd-dot {
+  flex: 0 0 auto;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: var(--vd-color, var(--tim-chart-2));
+}
+
+.vd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* Une vidéo = une ligne cliquable : son nom, son parcours, ses demandes. */
+.vd-row {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(0, 3fr) 7rem;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-left: 4px solid var(--vd-color, var(--tim-chart-2));
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  color: inherit;
+  text-decoration: none;
+  transition: box-shadow 0.12s ease, background 0.12s ease;
+
+  &:hover {
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--tim-foreground) 8%, transparent);
+  }
+}
+.vd-row--on {
+  background: color-mix(in srgb, var(--vd-color, var(--tim-chart-2)) 6%, var(--tim-white));
+  box-shadow: 0 0 0 1px var(--vd-color, var(--tim-chart-2));
+}
+@media (max-width: 960px) {
+  .vd-row {
+    grid-template-columns: 1fr;
+  }
+}
+.vd-row__name {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.vd-row__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.vd-row__title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.vd-row__pages {
+  overflow: hidden;
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vd-row__leads {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+.vd-row__leads-n {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--tim-foreground);
+}
+.vd-row__leads-label {
+  font-size: 0.72rem;
+  color: var(--tim-muted);
+}
+
+/* Le parcours : des étapes reliées, le taux de passage au-dessus de chaque flèche. */
+.vd-journey {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+}
+.vd-journey__step {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 5.5rem;
+  padding: 1.1rem 0.4rem 0.2rem;
+
+  & + &::before {
+    content: "";
+    position: absolute;
+    top: 0.55rem;
+    left: -0.6rem;
+    width: 1.2rem;
+    border-top: 2px solid var(--tim-border);
+  }
+}
+.vd-journey__rate {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+.vd-journey__n {
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--tim-foreground);
+}
+.vd-journey__label {
+  font-size: 0.72rem;
+  color: var(--tim-muted);
+  text-align: center;
+}
+.vd-journey__step--weak {
+  .vd-journey__rate {
+    color: var(--tim-danger-text);
+    background: var(--tim-red-bg);
+  }
+}
+
+.vd-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.vd-detail__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.vd-detail__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.vd-detail__id {
+  font-size: 0.75rem;
+  color: var(--tim-muted);
+}
+.vd-callout {
+  background: var(--tim-amber-bg);
+}
+.vd-leads {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.vd-leads__n {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.vd-leads__label {
+  font-size: 0.85rem;
+  color: var(--tim-muted);
+}
+.vd-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  color: var(--tim-muted);
+
+  b {
+    color: var(--tim-foreground);
+  }
 }

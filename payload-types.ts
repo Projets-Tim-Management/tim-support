@@ -245,6 +245,8 @@ export interface Config {
     'dev-announce-email': DevAnnounceEmail;
     'ads-settings': AdsSetting;
     'ads-brand-kit': AdsBrandKit;
+    'expense-rules': ExpenseRule;
+    'team-emails': TeamEmail;
   };
   globalsSelect: {
     appearance: AppearanceSelect<false> | AppearanceSelect<true>;
@@ -255,6 +257,8 @@ export interface Config {
     'dev-announce-email': DevAnnounceEmailSelect<false> | DevAnnounceEmailSelect<true>;
     'ads-settings': AdsSettingsSelect<false> | AdsSettingsSelect<true>;
     'ads-brand-kit': AdsBrandKitSelect<false> | AdsBrandKitSelect<true>;
+    'expense-rules': ExpenseRulesSelect<false> | ExpenseRulesSelect<true>;
+    'team-emails': TeamEmailsSelect<false> | TeamEmailsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -395,6 +399,28 @@ export interface User {
   lastName?: string | null;
   name?: string | null;
   roles?: ('super-admin' | 'admin' | 'partner-metier' | 'partner-utilisateur' | 'support')[] | null;
+  teamEmailsMode?: ('role' | 'custom') | null;
+  /**
+   * Cochez ce que ce compte doit recevoir. Une alerte critique que personne ne reçoit part quand même au super-admin.
+   */
+  teamEmails?:
+    | (
+        | 'rapprochement-mois'
+        | 'rapprochement-dernier-appel'
+        | 'contrat-a-contresigner'
+        | 'parcours-go-nogo'
+        | 'parcours-devis'
+        | 'parcours-contrat'
+        | 'parcours-dossier'
+        | 'parcours-prise-en-main'
+        | 'parcours-acces-manquants'
+        | 'parcours-etapes'
+        | 'publicite-urgence'
+        | 'publicite-reconnexion'
+        | 'publicite-recap'
+        | 'agendas'
+      )[]
+    | null;
   /**
    * Fiche partenaire rattachée à ce compte (rôles partenaire uniquement).
    */
@@ -2372,7 +2398,7 @@ export interface VideoView {
   createdAt: string;
 }
 /**
- * Historique d'avant Pennylane (janvier 2025 à septembre 2026), importé des PDF d'Axonaut. Lecture seule.
+ * Historique d'avant Pennylane (septembre 2021 à septembre 2026), importé des PDF d'Axonaut — factures de TIM seulement, rien de DELIGUME. Lecture seule.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "axonaut-invoices".
@@ -6178,6 +6204,8 @@ export interface UsersSelect<T extends boolean = true> {
   lastName?: T;
   name?: T;
   roles?: T;
+  teamEmailsMode?: T;
+  teamEmails?: T;
   partner?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -6613,6 +6641,71 @@ export interface AdsBrandKit {
   createdAt?: string | null;
 }
 /**
+ * Chaque sortie du relevé bancaire Pennylane est rangée dans un poste d'après son libellé. Vos règles passent avant celles d'origine (Google Ads, ChatGPT Ads, SEO, IT…) : ajoutez ici un fournisseur resté « À classer », ou corrigez un classement. Le libellé exact se lit dans Analyses → Facturation, tableau « Détail des dépenses ».
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "expense-rules".
+ */
+export interface ExpenseRule {
+  id: number;
+  rules?:
+    | {
+        /**
+         * Majuscules indifférentes. Ex. : LINKUMA, GOOGLE ADS.
+         */
+        match: string;
+        /**
+         * Ex. : SEO, Google Ads, IT, Autres.
+         */
+        poste: string;
+        kind: 'depense' | 'impot' | 'ignore';
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * Qui reçoit chaque e-mail interne, selon son rôle. Une personne peut remplacer ce choix par sa propre liste, sur sa fiche (section « E-mails reçus »). Une alerte marquée critique part quand même au super-admin si personne ne la reçoit.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "team-emails".
+ */
+export interface TeamEmail {
+  id: number;
+  rules?:
+    | {
+        email:
+          | 'rapprochement-mois'
+          | 'rapprochement-dernier-appel'
+          | 'contrat-a-contresigner'
+          | 'parcours-go-nogo'
+          | 'parcours-devis'
+          | 'parcours-contrat'
+          | 'parcours-dossier'
+          | 'parcours-prise-en-main'
+          | 'parcours-acces-manquants'
+          | 'parcours-etapes'
+          | 'publicite-urgence'
+          | 'publicite-reconnexion'
+          | 'publicite-recap'
+          | 'agendas';
+        roles?: ('super-admin' | 'admin' | 'support' | 'partner-metier')[] | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Ajoutée au dernier appel du rapprochement. Vide : team@tim-management.co.
+   */
+  teamAddress?: string | null;
+  /**
+   * Reçoit les demandes du site et les tickets. Vide : support@tim-management.co.
+   */
+  supportAddress?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "appearance_select".
  */
@@ -6824,6 +6917,41 @@ export interface AdsBrandKitSelect<T extends boolean = true> {
       };
   advertiser?: T;
   legalNotice?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "expense-rules_select".
+ */
+export interface ExpenseRulesSelect<T extends boolean = true> {
+  rules?:
+    | T
+    | {
+        match?: T;
+        poste?: T;
+        kind?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "team-emails_select".
+ */
+export interface TeamEmailsSelect<T extends boolean = true> {
+  rules?:
+    | T
+    | {
+        email?: T;
+        roles?: T;
+        id?: T;
+      };
+  teamAddress?: T;
+  supportAddress?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

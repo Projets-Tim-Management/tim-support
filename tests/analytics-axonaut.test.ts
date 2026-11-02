@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { matchAll, matchClient, parseAxonaut, profileOf, withCorrections } from "@/modules/analytics/lib/axonaut";
-import { buildRevenueHistory, comparePeriods, historySelection, monthKeys, periodLabel, shiftMonth } from "@/modules/analytics/lib/revenue-history";
+import { isTimInvoice, matchAll, matchClient, parseAxonaut, profileOf, splitServices, withCorrections } from "@/modules/analytics/lib/axonaut";
+import { analyzeHistory, bucketLabel, bucketStart, buildRevenueHistory, lifetime, monthKeys, rangeLabel, shiftMonth } from "@/modules/analytics/lib/revenue-history";
 
 /**
  * L'historique Axonaut : lire une facture PDF (texte de `pdftotext -layout`),
@@ -111,12 +111,37 @@ describe("parseAxonaut", () => {
   });
 });
 
+describe("isTimInvoice", () => {
+  it("garde les factures de TIM et écarte tout ce qui est DELIGUME", () => {
+    expect(isTimInvoice("TIM MANAGEMENT - LC DEV … N° Siret : 89231603500013 … Licences / mois")).toBe(true);
+    expect(isTimInvoice("SIREN 892 316 035 · Licence TIM — Compagnon")).toBe(true);
+    // DELIGUME, 2019–2020 : son propre SIREN.
+    expect(isTimInvoice("DELIGUME - Société par actions simplifiée … R.C.S. ANSE 831150305")).toBe(false);
+    // Avril 2022 : saisie sur le compte TIM, mais un panier DELIGUME.
+    expect(isTimInvoice("N° Siret : 89231603500013 … DeliBox' DeliFruit' (10kg) … SAS DELIGUME")).toBe(false);
+    // Sans SIREN lisible : rien n'entre.
+    expect(isTimInvoice("Facture F20200111-10306")).toBe(false);
+  });
+});
+
 describe("withCorrections", () => {
+  it("compte au bon prix les factures Pro11 de 2024 citées par la régularisation, pas juillet 2024", () => {
+    const pro = { kind: "facture" as const, date: "2024-09-03", month: "2024-09", clientName: "Pro11", siren: null, vatNumber: null, totalTTC: 0, creditFor: null, lines: [], note: null };
+    expect(withCorrections({ ...pro, number: "F20240903-145", totalHT: 1308.75, recurringHT: 1308.75, servicesHT: 0 })).toMatchObject({ recurringHT: 419.4 });
+    expect(withCorrections({ ...pro, number: "F20240603-126", totalHT: 1113, recurringHT: 1113, servicesHT: 0 })).toMatchObject({ recurringHT: 419.4 });
+    expect(withCorrections({ ...pro, number: "F20240703-132", totalHT: 1113, recurringHT: 1113, servicesHT: 0 })).toMatchObject({ recurringHT: 1113, note: null });
+  });
+
   it("compte Pro11 au prix régularisé et neutralise la régularisation de juillet 2025", () => {
     const base = { kind: "facture" as const, date: "2025-01-03", month: "2025-01", clientName: "Pro11", siren: null, vatNumber: null, totalTTC: 0, creditFor: null, lines: [], note: null };
     expect(withCorrections({ ...base, number: "F20250103-102", totalHT: 1308.75, recurringHT: 1308.75, servicesHT: 0 })).toMatchObject({ totalHT: 1308.75, recurringHT: 419.4 });
     expect(withCorrections({ ...base, number: "F20250724-164", totalHT: 5652.2, recurringHT: 0, servicesHT: 5652.2 })).toMatchObject({ recurringHT: 0, servicesHT: 0 });
     expect(withCorrections({ ...base, number: "F20260103-102", totalHT: 436.5, recurringHT: 436.5, servicesHT: 0 }).note).toBeNull();
+  });
+
+  it("compte les factures CTSM du 29 pour le mois suivant", () => {
+    const ctsm = { kind: "facture" as const, number: "F20260829-188", date: "2026-08-29", month: "2026-08", clientName: "CTSM", siren: null, vatNumber: null, totalHT: 152, totalTTC: 152, creditFor: null, lines: [], recurringHT: 152, servicesHT: 0, note: null };
+    expect(withCorrections(ctsm)).toMatchObject({ date: "2026-08-29", month: "2026-09", recurringHT: 152 });
   });
 });
 
@@ -134,6 +159,10 @@ describe("rattachement aux fiches", () => {
     expect(matchClient({ clientName: "SARL E.N.F", siren: null }, clients)).toEqual({ id: 13, by: "nom" });
     expect(matchClient({ clientName: "Pro11", siren: null }, clients)).toEqual({ id: 5, by: "nom" });
     expect(matchClient({ clientName: "Groupe Viriate Services", siren: "820715332" }, clients)).toEqual({ id: 5, by: "nom" });
+  });
+
+  it("ne rattache pas un nom court perdu dans un nom long", () => {
+    expect(matchClient({ siren: null, clientName: "Steeleo Solar Energy" }, [{ id: 73, companyName: "Erg" }])).toBeNull();
   });
 
   it("ne devine pas quand le nom désigne plusieurs fiches", () => {
@@ -166,8 +195,11 @@ describe("buildRevenueHistory", () => {
     const by = Object.fromEntries(h.months.map((m) => [m.key, m]));
     expect(by["2026-09"]).toMatchObject({ source: "axonaut", recurring: 100, services: 50, total: 150 });
     expect(by["2026-10"]).toMatchObject({ source: "pennylane", recurring: 120, total: 120 });
-    expect(h.months[0].key).toBe("2025-01");
+    // L'historique commence à la première facture connue (ici septembre 2026), jamais avant le plancher.
+    expect(h.start).toBe("2026-09");
+    expect(h.months[0].key).toBe("2026-09");
     expect(h.months.at(-1)!.key).toBe("2026-11");
+    expect(buildRevenueHistory([{ month: "2020-05", client: 1, clientName: "A", recurringHT: 1, servicesHT: 0 }], [], now).start).toBe("2021-09");
   });
 
   it("lit les mouvements sur les licences : nouveaux, départs, hausses, baisses", () => {
@@ -197,65 +229,159 @@ describe("buildRevenueHistory", () => {
     expect(h.clients[0]).toMatchObject({ id: "nom:Inconnu", clientId: null, name: "Inconnu" });
   });
 
+  it("lisse une facture trimestrielle sur ses trois mois, sans montrer les mois à venir", () => {
+    const pl = [{ date: "2026-10-04", amountHT: 522, client: 9, clientName: "Demathieu Bard", months: 3 }];
+    const oct = buildRevenueHistory([], pl, new Date("2026-10-30T00:00:00Z"));
+    expect(oct.months.at(-1)).toMatchObject({ key: "2026-10", recurring: 174 });
+    const dec = buildRevenueHistory([], pl, new Date("2026-12-15T00:00:00Z"));
+    expect(dec.months.slice(-3).map((m) => m.recurring)).toEqual([174, 174, 174]);
+    expect(dec.clients[0]).toMatchObject({ monthsBilled: 3, lastMonth: "2026-12" });
+    const odd = buildRevenueHistory([], [{ ...pl[0], amountHT: 100 }], new Date("2026-12-15T00:00:00Z"));
+    expect(odd.months.slice(-3).map((m) => m.recurring)).toEqual([33.33, 33.33, 33.34]);
+  });
+
   it("monthKeys couvre le mois courant et change d'année", () => {
     expect(monthKeys("2025-11", new Date("2026-02-01T00:00:00Z"))).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
   });
 });
 
-describe("périodes et comparaison", () => {
-  // A : 100/mois de janv. à juin 2025 ; B arrive en avril (50/mois) ; C part après février ; une mise en place en mai.
+describe("vues et comparaison", () => {
+  // A : 100/mois de janv. 2025 à juin 2026 ; B arrive en avril 2026 (50/mois) ;
+  // C facturé jusqu'en février 2026 ; une mise en place chez B en mai 2026.
+  const months = monthKeys("2025-01", new Date("2026-06-01T00:00:00Z"));
   const legacy = [
-    ...["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06"].map((month) => ({ month, client: 1, clientName: "A", recurringHT: 100, servicesHT: 0 })),
-    ...["2025-04", "2025-05", "2025-06"].map((month) => ({ month, client: 2, clientName: "B", recurringHT: 50, servicesHT: 0 })),
-    ...["2025-01", "2025-02"].map((month) => ({ month, client: 3, clientName: "C", recurringHT: 30, servicesHT: 0 })),
-    { month: "2025-05", client: 2, clientName: "B", recurringHT: 0, servicesHT: 900 },
+    ...months.map((month) => ({ month, client: 1, clientName: "A", recurringHT: 100, servicesHT: 0 })),
+    ...["2026-04", "2026-05", "2026-06"].map((month) => ({ month, client: 2, clientName: "B", recurringHT: 50, servicesHT: 0 })),
+    ...months.filter((m) => m <= "2026-02").map((month) => ({ month, client: 3, clientName: "C", recurringHT: 30, servicesHT: 0 })),
+    { month: "2026-05", client: 2, clientName: "B", recurringHT: 0, servicesHT: 900 },
   ];
-  const h = buildRevenueHistory(legacy, [], new Date("2025-07-02T00:00:00Z"));
+  // Juillet 2026 est le mois en cours, pas encore facturé.
+  const h = buildRevenueHistory(legacy, [], new Date("2026-07-02T00:00:00Z"));
 
-  it("décale les mois et nomme une période", () => {
+  it("découpe et nomme les périodes de chaque vue", () => {
     expect(shiftMonth("2025-01", -1)).toBe("2024-12");
-    expect(shiftMonth("2025-11", 3)).toBe("2026-02");
-    expect(periodLabel("2025-06", 1)).toBe("juin 2025");
-    expect(periodLabel("2025-06", 3)).toBe("avr. – juin 2025");
-    expect(periodLabel("2026-02", 6)).toBe("sept. 2025 – févr. 2026");
+    expect(bucketStart("2026-08", "trimestre")).toBe("2026-07");
+    expect(bucketStart("2026-08", "semestre")).toBe("2026-07");
+    expect(bucketStart("2026-08", "annee")).toBe("2026-01");
+    expect(bucketLabel("2026-07", "trimestre")).toBe("T3 2026");
+    expect(bucketLabel("2026-01", "semestre")).toBe("S1 2026");
+    expect(bucketLabel("2026-01", "annee")).toBe("2026");
+    expect(rangeLabel("2025-11", "2026-02")).toBe("nov. 2025 – févr. 2026");
+    expect(rangeLabel("2026-04", "2026-06")).toBe("avr. – juin 2026");
   });
 
-  it("compare 3 mois aux 3 d'avant : totaux, moyenne, clients nouveaux et partis", () => {
-    const c = comparePeriods(h, 3, "2025-06", "2025-03");
-    expect(c.a).toMatchObject({ label: "avr. – juin 2025", covered: 3, recurring: 450, services: 900, total: 1350, avgMonthly: 450, endRecurring: 150, clients: 2, gained: ["B"], lost: [] });
-    expect(c.b).toMatchObject({ covered: 3, recurring: 360, total: 360, endRecurring: 100, clients: 2, gained: [], lost: ["C"] });
-    expect(c.chart.map((m) => [m.label, m.aRecurring, m.aServices, m.b])).toEqual([
-      ["avr. 25", 150, 0, 130],
-      ["mai 25", 150, 900, 130],
-      ["juin 25", 150, 0, 100],
+  it("par défaut : l'année en cours, par mois, face aux mêmes mois de l'an d'avant", () => {
+    const an = analyzeHistory(h, {});
+    expect([an.view, an.start, an.end, an.compareMode, an.bStart, an.bEnd]).toEqual(["mois", "2026-01", "2026-06", "n1", "2025-01", "2025-06"]);
+    expect(an.buckets).toHaveLength(6);
+    expect(an.b).toMatchObject({ covered: 6 });
+    expect(an.buckets[0]).toMatchObject({ label: "janv. 2026", compare: { label: "janv. 2025" }, pct: 0 });
+    expect(an.buckets[2]).toMatchObject({ label: "mars 2026", pct: -23.08 });
+  });
+
+  it("par trimestre, du… au…, face à la période précédente", () => {
+    const an = analyzeHistory(h, { hv: "trimestre", hd: "2026-02", hf: "2026-06", hc: "prec" });
+    expect(an.buckets.map((x) => [x.label, x.summary.total, x.compare?.label, x.compare?.total, x.pct])).toEqual([
+      // Février–mars : le trimestre est coupé par la plage, comparé à date (les mêmes mois du trimestre d'avant).
+      ["T1 2026 (2 mois)", 230, "nov. – déc. 2025", 260, -11.54],
+      ["T2 2026", 1350, "T1 2026", 360, 275],
     ]);
-    const by = Object.fromEntries(c.clients.map((x) => [x.name, x]));
-    expect(by.A).toMatchObject({ recurringA: 300, recurringB: 300, diff: 0, status: "stable" });
-    expect(by.B).toMatchObject({ recurringA: 150, recurringB: 0, servicesA: 900, status: "nouveau", pct: null });
-    expect(by.C).toMatchObject({ recurringA: 0, recurringB: 60, status: "parti" });
+    expect(an.a).toMatchObject({ label: "févr. – juin 2026", total: 1580, gained: ["B"], lost: ["C"] });
+    expect(an.b).toMatchObject({ label: "sept. 2025 – janv. 2026", total: 650 });
+    const by = Object.fromEntries(an.clients.map((x) => [x.name, x]));
+    expect(by.B).toMatchObject({ recurringA: 150, recurringB: 0, servicesA: 900, status: "nouveau" });
+    expect(by.C).toMatchObject({ recurringA: 30, recurringB: 150, status: "baisse" });
   });
 
-  it("sans comparaison : la période seule, pas d'évolution", () => {
-    const c = comparePeriods(h, 1, "2025-06", null);
-    expect(c.b).toBeNull();
-    expect(c.clients.every((x) => x.status === null && x.diff === null)).toBe(true);
-    expect(c.clients.map((x) => x.name).sort()).toEqual(["A", "B"]);
+  it("un an avant, et une comparaison choisie avec son début et sa fin", () => {
+    const n1 = analyzeHistory(h, { hv: "trimestre", hd: "2026-04", hf: "2026-06", hc: "n1" });
+    expect([n1.bStart, n1.bEnd, n1.buckets[0].compare?.label]).toEqual(["2025-04", "2025-06", "T2 2025"]);
+    const perso = analyzeHistory(h, { hd: "2026-04", hf: "2026-06", hc: "perso", hcd: "2025-01", hcf: "2025-06" });
+    expect([perso.bStart, perso.bEnd]).toEqual(["2025-01", "2025-06"]);
+    // Durées différentes : pas de % sur les totaux.
+    expect(perso.b).toMatchObject({ covered: 6 });
+    const none = analyzeHistory(h, { hc: "aucune" });
+    expect(none.b).toBeNull();
+    expect(none.clients.every((x) => x.status === null)).toBe(true);
   });
 
-  it("une période qui commence avant janvier 2025 est partielle, sans mouvement inventé", () => {
-    const c = comparePeriods(h, 3, "2025-06", "2025-02");
-    expect(c.b).toMatchObject({ covered: 2, recurring: 260, avgMonthly: 130, gained: [], lost: [] });
+  it("par année : 2025 et 2026, l'année en cours face aux mêmes mois de l'an d'avant", () => {
+    const an = analyzeHistory(h, { hv: "annee" });
+    expect(an.buckets.map((x) => [x.label, x.summary.total, x.compare?.label ?? null, x.compare?.total ?? null, x.pct])).toEqual([
+      ["2025", 1560, null, null, null],
+      ["2026 (6 mois)", 1710, "janv. – juin 2025", 780, 119.23],
+    ]);
   });
 
-  it("lit le choix dans l'URL et le borne à l'historique", () => {
-    // Juillet n'est pas encore facturé : la période par défaut finit en juin.
-    expect(historySelection(h, {})).toMatchObject({ months: 3, end: "2025-06", compare: "prec", bEnd: "2025-03", bOutOfRange: false });
-    expect(historySelection(h, { hd: "1", hf: "2025-04", hc: "aucune" })).toMatchObject({ months: 1, end: "2025-04", bEnd: null });
-    expect(historySelection(h, { hd: "1", hc: "n1" })).toMatchObject({ bEnd: null, bOutOfRange: true });
-    expect(historySelection(h, { hd: "1", hc: "2025-02" })).toMatchObject({ compare: "2025-02", bEnd: "2025-02" });
-    // Durée inconnue → 3 mois ; fin hors de l'historique → la fin par défaut.
-    expect(historySelection(h, { hd: "24", hf: "2025-01" })).toMatchObject({ months: 3, end: "2025-06" });
-    // 6 mois ne tiennent qu'à partir de juin 2025.
-    expect(historySelection(h, { hd: "6" }).endOptions.map((o) => o.value)).toEqual(["2025-07", "2025-06"]);
+  it("par année : une courbe par année, de janvier à décembre, arrêtée au dernier mois facturé", () => {
+    const an = analyzeHistory(h, { hv: "annee", hm: "licences" });
+    expect(an.yearLines!.years).toEqual(["2025", "2026"]);
+    const row = (m: number) => an.yearLines!.rows[m - 1];
+    expect(row(1)).toMatchObject({ label: "janv.", y2025: 130, y2026: 130 });
+    expect(row(5)).toMatchObject({ y2025: 130, y2026: 150 });
+    expect(row(12)).toMatchObject({ label: "déc.", y2025: 130, y2026: null });
+    // Sur tout l'historique, quelle que soit la vue ou la plage.
+    expect(analyzeHistory(h, { hv: "mois", hd: "2026-05", hf: "2026-06" }).yearLines.rows[0]).toMatchObject({ y2025: 130, y2026: 130 });
+  });
+
+  it("ignore un choix invalide et remet la plage dans l'ordre", () => {
+    const an = analyzeHistory(h, { hv: "semaine", hd: "2026-06", hf: "2026-03", hc: "n2" });
+    expect([an.view, an.start, an.end, an.compareMode]).toEqual(["mois", "2026-03", "2026-06", "n1"]);
+    expect(analyzeHistory(h, { hd: "2024-01" }).start).toBe("2026-01");
+    expect(analyzeHistory(h, { hv: "annee" }).start).toBe("2025-01");
+  });
+});
+
+describe("prestations : mise en place / formation et développements", () => {
+  it("répartit au prorata des lignes, remise comprise", () => {
+    const lines = [
+      { label: "Mise en place / Formation", licence: false, amountHT: 300 },
+      { label: "Développement sur mesure", licence: false, amountHT: 1020 },
+      { label: "Licences / mois ADMINISTRATION", licence: true, amountHT: 27 },
+    ];
+    // 1 320 € de lignes, 924 € facturés après remise : 30 % de moins sur chacune.
+    expect(splitServices(lines, 924)).toEqual({ setupHT: 210, devHT: 714 });
+    expect(splitServices([{ label: "Ventilation des heures", licence: false, amountHT: 2520 }], 2520)).toEqual({ setupHT: 0, devHT: 2520 });
+    expect(splitServices([], 0)).toEqual({ setupHT: 0, devHT: 0 });
+  });
+
+  it("la courbe et le tableau montrent le montant choisi", () => {
+    const h = buildRevenueHistory(
+      [
+        { month: "2025-01", client: 1, clientName: "A", recurringHT: 100, servicesHT: 0 },
+        { month: "2025-02", client: 1, clientName: "A", recurringHT: 100, servicesHT: 900, setupHT: 300 },
+      ],
+      [],
+      new Date("2025-02-10T00:00:00Z"),
+    );
+    const pick = (hm: string) => analyzeHistory(h, { hm, hc: "prec" }).buckets.map((x) => [x.label, x.value, x.pct]);
+    expect(pick("tout")).toEqual([["janv. 2025", 100, null], ["févr. 2025", 1000, 900]]);
+    expect(pick("licences")).toEqual([["janv. 2025", 100, null], ["févr. 2025", 100, 0]]);
+    expect(pick("formation")).toEqual([["janv. 2025", 0, null], ["févr. 2025", 300, null]]);
+    expect(pick("developpement")).toEqual([["janv. 2025", 0, null], ["févr. 2025", 600, null]]);
+  });
+});
+
+describe("depuis le début", () => {
+  const legacy = [
+    { month: "2025-01", client: 1, clientName: "A", recurringHT: 100, servicesHT: 500 },
+    { month: "2025-02", client: 1, clientName: "A", recurringHT: 100, servicesHT: 0 },
+    { month: "2025-03", client: 1, clientName: "A", recurringHT: 120, servicesHT: 0 },
+    { month: "2025-01", client: 2, clientName: "B", recurringHT: 50, servicesHT: 0 },
+  ];
+  const h = buildRevenueHistory(legacy, [], new Date("2025-03-20T00:00:00Z"));
+
+  it("cumule le CA mois après mois et donne à chaque client son total, actif ou perdu", () => {
+    const l = lifetime(h, "2025-03");
+    expect(l.cumulative.map((c) => [c.key, c.cumul])).toEqual([
+      ["2025-01", 650],
+      ["2025-02", 750],
+      ["2025-03", 870],
+    ]);
+    expect(l.total).toBe(870);
+    expect(l.clients.map((c) => [c.name, c.total, c.active, c.currentRecurring, c.firstMonth, c.lastMonth])).toEqual([
+      ["A", 820, true, 120, "2025-01", "2025-03"],
+      ["B", 50, false, 0, "2025-01", "2025-01"],
+    ]);
   });
 });

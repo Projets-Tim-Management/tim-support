@@ -140,3 +140,170 @@ export const fmtDays = (days: number | null | undefined) => {
 };
 
 export const clientHref = (id: number | string) => `/admin/collections/partner-clients/${id}`;
+
+/* ─── Tableau de bord : grands chiffres, barres, sections repliées ───────── */
+
+export type Tone = "blue" | "red" | "green" | "slate" | "amber";
+
+/** Une mini-courbe sans axe : la forme de la période, d'un coup d'œil. Les trous (null) coupent la ligne. */
+export function Sparkline({ values, tone }: { values: (number | null)[]; tone: Tone }) {
+  const known = values.filter((v): v is number => v != null);
+  if (known.length < 2) return null;
+  const [w, h, pad] = [120, 32, 3];
+  const min = Math.min(0, ...known);
+  const max = Math.max(...known);
+  const x = (i: number) => (values.length === 1 ? w / 2 : (i / (values.length - 1)) * w);
+  const y = (v: number) => h - pad - ((v - min) / (max - min || 1)) * (h - pad * 2);
+  const segments: string[] = [];
+  let cur: string[] = [];
+  values.forEach((v, i) => {
+    if (v == null) {
+      if (cur.length) segments.push(cur.join(" "));
+      cur = [];
+    } else cur.push(`${x(i).toFixed(1)},${y(v).toFixed(1)}`);
+  });
+  if (cur.length) segments.push(cur.join(" "));
+  const lastI = values.findLastIndex((v) => v != null);
+  return (
+    <svg className={`an-spark an-spark--${tone}`} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden>
+      {min < 0 && <line className="an-spark__zero" x1={0} x2={w} y1={y(0)} y2={y(0)} />}
+      {segments.map((pts) => (
+        <polyline key={pts} points={pts} />
+      ))}
+      {/* Un trait de longueur nulle à bout rond : un point qui reste rond quand le dessin s'étire. */}
+      <line className="an-spark__end" x1={x(lastI)} x2={x(lastI)} y1={y(values[lastI]!)} y2={y(values[lastI]!)} />
+    </svg>
+  );
+}
+
+/** Un grand chiffre : son nom, sa valeur, sa variation, sa forme dans le temps. */
+export function Kpi({
+  tone,
+  label,
+  value,
+  delta,
+  deltaTitle,
+  goodWhenUp,
+  sub,
+  spark,
+  alert,
+  children,
+}: {
+  tone: Tone;
+  /** Valeur à surveiller (une perte) : le chiffre passe en rouge. */
+  alert?: boolean;
+  label: string;
+  value: string;
+  delta?: Delta;
+  deltaTitle?: string;
+  goodWhenUp?: boolean;
+  sub?: string;
+  spark?: (number | null)[];
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className={`an-kpi an-kpi--${tone}${alert ? " an-kpi--alert" : ""}`}>
+      <span className="an-kpi__label">
+        <span className="an-kpi__dot" aria-hidden />
+        {label}
+      </span>
+      <span className="an-kpi__value">{value}</span>
+      <span className="an-kpi__meta">
+        {delta && delta.pct != null && <Pct d={delta} title={deltaTitle} goodWhenUp={goodWhenUp} />}
+        {sub && <span className="an-kpi__sub">{sub}</span>}
+      </span>
+      {children}
+      {spark && <Sparkline values={spark} tone={tone} />}
+    </div>
+  );
+}
+
+/** Une jauge 0–100 % : la marge, un taux. */
+export function Meter({ pct, label }: { pct: number; label: string }) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  return (
+    <span className="an-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)} aria-label={label}>
+      <span className="an-meter__track">
+        <span className="an-meter__fill" style={{ width: `${clamped}%` }} />
+      </span>
+      <span className="an-meter__label">{label}</span>
+    </span>
+  );
+}
+
+export type BarItem = { key: string; label: string; value: number; sub?: string; delta?: Delta; href?: string; strong?: boolean; /** Un regroupement (« Autres ») : en gris, il ne doit pas attirer l'œil. */ muted?: boolean };
+
+/**
+ * Des barres horizontales, de la plus grosse à la plus petite : ce que pèse
+ * chaque poste, chaque client. Une seule couleur (c'est une grandeur, pas une
+ * identité) ; `strong` met en avant ce qui compte (l'acquisition).
+ */
+export function BarList({
+  items,
+  tone,
+  goodWhenUp = true,
+  deltaTitle,
+  empty,
+  unit = "eur",
+  showShare = true,
+}: {
+  items: BarItem[];
+  tone: Tone;
+  goodWhenUp?: boolean;
+  deltaTitle?: string;
+  empty?: string;
+  /** Des euros (défaut) ou un nombre (lectures, demandes…). */
+  unit?: "eur" | "int";
+  /** La part de chaque barre dans le total ; à masquer quand les barres ne s'additionnent pas (une rétention). */
+  showShare?: boolean;
+}) {
+  const fmt = (v: number) => (unit === "eur" ? eurFormat(v) : v.toLocaleString("fr-FR"));
+  const max = Math.max(0, ...items.map((i) => i.value));
+  const total = items.reduce((s, i) => s + i.value, 0);
+  if (!items.length || !max) return <p className="an-empty">{empty ?? "Rien sur cette période."}</p>;
+  return (
+    <ul className={`an-bars an-bars--${tone}`}>
+      {items.map((i) => (
+        <li key={i.key} className={`an-bars__row${i.strong ? " an-bars__row--strong" : ""}${i.muted ? " an-bars__row--muted" : ""}`}>
+          <span className="an-bars__head">
+            {i.href ? (
+              <Link href={i.href} prefetch={false} className="an-bars__label">
+                {i.label}
+              </Link>
+            ) : (
+              <span className="an-bars__label">{i.label}</span>
+            )}
+            <span className="an-bars__value">
+              {fmt(i.value)}
+              {showShare && <span className="an-bars__share">{Math.round((i.value / total) * 100)} %</span>}
+            </span>
+          </span>
+          <span className="an-bars__track" title={`${i.label} · ${fmt(i.value)}`}>
+            <span className="an-bars__fill" style={{ width: `${(i.value / max) * 100}%` }} />
+          </span>
+          {(i.sub || (i.delta && i.delta.pct != null)) && (
+            <span className="an-bars__foot">
+              {i.sub && <span>{i.sub}</span>}
+              {i.delta && i.delta.pct != null && <Pct d={i.delta} title={deltaTitle} goodWhenUp={goodWhenUp} />}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const eurFormat = (v: number) => v.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+
+/** Une section repliée : le détail est là, mais ne prend pas la place. */
+export function Fold({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
+  return (
+    <details className="an-fold">
+      <summary className="an-fold__summary">
+        <span className="an-fold__title">{title}</span>
+        {sub && <span className="an-fold__sub">{sub}</span>}
+      </summary>
+      <div className="an-fold__body">{children}</div>
+    </details>
+  );
+}

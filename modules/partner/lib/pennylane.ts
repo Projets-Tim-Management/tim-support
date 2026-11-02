@@ -273,3 +273,40 @@ export function peekPennylane(): PennylaneSnapshot | null {
   void loadPennylane().catch(() => {});
   return null;
 }
+
+/* ─── Relevés bancaires (les dépenses) ─────────────────────────────────────── */
+
+/** Une ligne de relevé, réduite à ce que lisent les analyses (scope « transactions:readonly »). */
+export type PlTransaction = {
+  id: number;
+  date: string;
+  /** Signé, en texte : négatif = sortie. */
+  amount: string;
+  label: string;
+  archived_at?: string | null;
+  categories?: { label: string }[] | null;
+};
+
+let txCache: { at: number; data: PlTransaction[] } | null = null;
+let txInflight: Promise<PlTransaction[]> | null = null;
+
+/**
+ * Les transactions de tous les comptes bancaires, lues au plus une fois par
+ * heure — à part de l'instantané, pour que le rapprochement ne paie pas ces
+ * quelques pages de plus. Les lignes archivées sont écartées.
+ */
+export async function loadPennylaneTransactions(opts: { refresh?: boolean } = {}): Promise<PlTransaction[]> {
+  if (!opts.refresh && txCache && Date.now() - txCache.at < TTL_MS) return txCache.data;
+  if (!txInflight) {
+    txInflight = listAll<PlTransaction>("/transactions")
+      .then((all) => {
+        const data = all.filter((t) => !t.archived_at);
+        txCache = { at: Date.now(), data };
+        return data;
+      })
+      .finally(() => {
+        txInflight = null;
+      });
+  }
+  return txInflight;
+}

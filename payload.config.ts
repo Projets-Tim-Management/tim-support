@@ -56,6 +56,7 @@ import { AdLearnings } from "./modules/ads/collections/AdLearnings";
 import { AdsSettingsHistory } from "./modules/ads/collections/AdsSettingsHistory";
 import { AdCreatives } from "./modules/ads/collections/AdCreatives";
 import { SupportConnectionsGlobal } from "./core/globals/SupportConnections";
+import { ExpenseRules } from "./modules/analytics/globals/ExpenseRules";
 import { Forms } from "./modules/forms/collections/Forms";
 import { FormSubmissions } from "./modules/forms/collections/FormSubmissions";
 import { Ga4Sends } from "./modules/analytics/collections/Ga4Sends";
@@ -629,7 +630,7 @@ export default buildConfig({
        */
     }),
   ],
-  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, TrainingSettings, DevAnnounceEmail, AdsSettings, AdsBrandKit],
+  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, TrainingSettings, DevAnnounceEmail, AdsSettings, AdsBrandKit, ExpenseRules],
 
   db: postgresAdapter({
     // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :

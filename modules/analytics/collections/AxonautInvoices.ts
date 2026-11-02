@@ -3,7 +3,7 @@ import type { CollectionConfig } from "payload";
 import { isAdmin } from "@/core/access";
 
 /**
- * Les factures Axonaut, de janvier 2025 à septembre 2026 : le passé de la
+ * Les factures Axonaut de TIM, de septembre 2021 à septembre 2026 : le passé de la
  * facturation, avant que Pennylane ne facture seul (octobre 2026). Lues dans
  * « Analyses → Facturation » pour tracer le CA mois par mois et client par
  * client sur toute la période.
@@ -19,7 +19,7 @@ export const AxonautInvoices: CollectionConfig = {
     useAsTitle: "number",
     defaultColumns: ["number", "date", "clientName", "client", "totalHT", "recurringHT", "servicesHT"],
     group: "Analyses",
-    description: "Historique d'avant Pennylane (janvier 2025 à septembre 2026), importé des PDF d'Axonaut. Lecture seule.",
+    description: "Historique d'avant Pennylane (septembre 2021 à septembre 2026), importé des PDF d'Axonaut — factures de TIM seulement, rien de DELIGUME. Lecture seule.",
   },
   access: { read: isAdmin, create: () => false, update: () => false, delete: () => false },
   disableDuplicate: true,

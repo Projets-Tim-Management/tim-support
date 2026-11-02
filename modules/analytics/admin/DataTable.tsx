@@ -14,7 +14,7 @@ import { eur } from "@/modules/partner/lib/format";
  * (`href`), un badge se colore par sa valeur (`tone`).
  */
 
-export type Format = "text" | "eur" | "int" | "date" | "pct" | "badge";
+export type Format = "text" | "eur" | "int" | "date" | "pct" | "delta" | "badge";
 
 export type Column = {
   key: string;
@@ -25,6 +25,8 @@ export type Column = {
   tones?: Record<string, "ok" | "warn" | "bad" | "muted">;
   /** Pour `badge` : le libellé par valeur. */
   labels?: Record<string, string>;
+  /** Pour `delta` : false quand une hausse est une mauvaise nouvelle (une dépense, un coût). */
+  goodWhenUp?: boolean;
 };
 
 export type Row = Record<string, string | number | null | undefined> & { href?: string };
@@ -44,7 +46,7 @@ type Props = {
 };
 
 /** Les formats qui se lisent à droite, comme des nombres. */
-const NUMERIC: ReadonlySet<Format> = new Set<Format>(["eur", "int", "pct"]);
+const NUMERIC: ReadonlySet<Format> = new Set<Format>(["eur", "int", "pct", "delta"]);
 const isNumeric = (col: Column) => col.align === "right" || (col.format != null && NUMERIC.has(col.format));
 
 const fmtDate = (v: string) => new Date(v).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
@@ -58,6 +60,17 @@ function render(value: Row[string], col: Column) {
       return Number(value).toLocaleString("fr-FR");
     case "pct":
       return `${Number(value).toLocaleString("fr-FR")} %`;
+    case "delta": {
+      // Une évolution : signée, fléchée, verte quand c'est une bonne nouvelle, rouge sinon.
+      const n = Number(value);
+      const good = col.goodWhenUp === false ? n < 0 : n > 0;
+      return (
+        <span className={`an-pct an-pct--${n === 0 ? "flat" : good ? "up" : "down"}`}>
+          {n > 0 ? "▲ +" : n < 0 ? "▼ " : "• "}
+          {n.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %
+        </span>
+      );
+    }
     case "date":
       return fmtDate(String(value));
     case "badge": {
@@ -72,7 +85,7 @@ function render(value: Row[string], col: Column) {
 /** Valeur brute pour le CSV : nombres en virgule française, dates au jour, badges par libellé. */
 function csvCell(value: Row[string], col: Column): string {
   if (value == null) return "";
-  if (col.format === "eur" || col.format === "int" || col.format === "pct") return String(value).replace(".", ",");
+  if (col.format === "eur" || col.format === "int" || col.format === "pct" || col.format === "delta") return String(value).replace(".", ",");
   if (col.format === "date") return fmtDate(String(value));
   if (col.format === "badge") return col.labels?.[String(value)] ?? String(value);
   return String(value);

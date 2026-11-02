@@ -176,6 +176,7 @@ import * as migration_20261029_161326_suivi_conversions from './20261029_161326_
 import * as migration_20261029_162202_suivi_ecrans from './20261029_162202_suivi_ecrans';
 import * as migration_20261029_174309_feature_profil_admin from './20261029_174309_feature_profil_admin';
 import * as migration_20261030_084858_axonaut_invoices from './20261030_084858_axonaut_invoices';
+import * as migration_20261030_142449_expense_rules from './20261030_142449_expense_rules';
 
 export const migrations = [
   {
@@ -1066,6 +1067,11 @@ export const migrations = [
   {
     up: migration_20261030_084858_axonaut_invoices.up,
     down: migration_20261030_084858_axonaut_invoices.down,
-    name: '20261030_084858_axonaut_invoices'
+    name: '20261030_084858_axonaut_invoices',
+  },
+  {
+    up: migration_20261030_142449_expense_rules.up,
+    down: migration_20261030_142449_expense_rules.down,
+    name: '20261030_142449_expense_rules'
   },
 ];
