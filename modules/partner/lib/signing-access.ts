@@ -3,6 +3,7 @@ import type { Payload, PayloadRequest } from "payload";
 import { readEmailTexts } from "@/modules/marketing/lib/email-overrides";
 import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
 import { PHASE_DE_TEST_KEY } from "@/modules/marketing/lib/journey";
+import { signingMail } from "@/modules/marketing/lib/run-mail-log";
 
 /**
  * L'accès à l'espace client d'une affaire qu'on vient de SIGNER.
@@ -132,12 +133,14 @@ export async function ensureSigningAccess(
     texts: await templateTexts(payload, "invitation-signature", req),
   });
 
+  const mail = await signingMail(payload, clientId, req);
   try {
-    await payload.sendEmail({ to: email, subject: built.subject, html: built.html, text: built.text });
+    await payload.sendEmail({ to: email, subject: built.subject, html: built.html, text: built.text, ...mail.mailHeaders });
   } catch (err) {
     payload.logger.error(`[signature] invitation à ${email} échouée : ${err}`);
     return { ok: false, reason: "send_failed" };
   }
+  await mail.record("invitation-signature", built.subject, email);
 
   // Même trace que l'invitation isolée : l'encart la relit pour dire quand
   // l'invitation est partie. Un marquage raté ne fait pas croire l'envoi perdu.

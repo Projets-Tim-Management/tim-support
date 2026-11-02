@@ -1530,8 +1530,9 @@ export const JourneyRuns: CollectionConfig = {
           ],
         },
         {
+          // Phase de test : la séquence programmée. Mise en production : les
+          // e-mails de signature partis au client, et le conseil de relance.
           label: "E-mails",
-          admin: { condition: isTestRun },
           fields: [
             {
               name: "emailActivity",

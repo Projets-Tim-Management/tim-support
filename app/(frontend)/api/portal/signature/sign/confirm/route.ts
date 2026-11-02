@@ -29,6 +29,7 @@ import {
 import { recordClientSignature } from "@/modules/partner/lib/contract-lifecycle";
 import { consumeCode, moveContractStatus, spendAttempt } from "@/modules/partner/lib/sign-guards";
 import { templateTexts } from "@/modules/partner/lib/signing-access";
+import { signingMail } from "@/modules/marketing/lib/run-mail-log";
 
 /**
  * POST /api/portal/signature/sign/confirm — le client saisit son code : c'est
@@ -262,7 +263,9 @@ export async function POST(req: Request) {
         documentUrl: media.url ?? null,
         texts,
       });
-      await payload.sendEmail({ to: sig.signerEmail, subject: built.subject, html: built.html, text: built.text });
+      const mail = await signingMail(payload, client.id);
+      await payload.sendEmail({ to: sig.signerEmail, subject: built.subject, html: built.html, text: built.text, ...mail.mailHeaders });
+      await mail.record("document-signe", built.subject, sig.signerEmail!);
     }, (e) => payload.logger.error(`[signature] copie signée non envoyée : ${e}`));
 
     return NextResponse.json({ ok: true, url: media.url ?? null, filename: media.filename ?? null, reference });

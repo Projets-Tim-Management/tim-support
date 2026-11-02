@@ -6665,7 +6665,7 @@ export interface TeamEmail {
           | 'publicite-reconnexion'
           | 'publicite-recap'
           | 'agendas';
-        roles?: ('super-admin' | 'admin' | 'support' | 'partner-metier')[] | null;
+        roles?: ('super-admin' | 'admin' | 'support')[] | null;
         id?: string | null;
       }[]
     | null;

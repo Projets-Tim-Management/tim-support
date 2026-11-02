@@ -12,6 +12,7 @@ import { SIGN_MAX_ATTEMPTS, buildCountersignedPdf, fileSlug, isSignatureStyle, s
 import { clientIp, fetchMediaBytes, loadSignatureFont } from "@/modules/partner/lib/e-signature-server";
 import { consumeCode, moveContractStatus, spendAttempt } from "@/modules/partner/lib/sign-guards";
 import { templateTexts } from "@/modules/partner/lib/signing-access";
+import { signingMail } from "@/modules/marketing/lib/run-mail-log";
 
 /**
  * POST { code, style } — TIM saisit son code : c'est la contresignature.
@@ -178,7 +179,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           documentUrl: media.url ?? null,
           texts,
         });
-        await payload.sendEmail({ to: proof.signerEmail, subject: built.subject, html: built.html, text: built.text });
+        const mail = await signingMail(payload, client.id);
+        await payload.sendEmail({ to: proof.signerEmail!, subject: built.subject, html: built.html, text: built.text, ...mail.mailHeaders });
+        // Même modèle que la copie signée par le client : même clé, l'aperçu s'ouvre.
+        await mail.record("document-signe", built.subject, proof.signerEmail!);
       }, (e) => payload.logger.error(`[contresignature] exemplaire client non envoyé : ${e}`));
     }
 

@@ -23,6 +23,7 @@ import {
   signableDocOf,
 } from "@/modules/partner/lib/e-signature-server";
 import { templateTexts } from "@/modules/partner/lib/signing-access";
+import { signingMail } from "@/modules/marketing/lib/run-mail-log";
 
 /**
  * POST /api/portal/signature/sign/start — le client demande son code de
@@ -150,8 +151,10 @@ export async function POST(req: Request) {
     documentNoun: SIGNABLE[kind].noun,
     texts: await templateTexts(payload, "code-signature"),
   });
+  const mail = await signingMail(payload, client.id);
   try {
-    await payload.sendEmail({ to: email, subject: built.subject, html: built.html, text: built.text });
+    await payload.sendEmail({ to: email, subject: built.subject, html: built.html, text: built.text, ...mail.mailHeaders });
+    await mail.record("code-signature", built.subject, email);
   } catch (err) {
     payload.logger.error(`[signature] envoi du code à ${email} échoué : ${err}`);
     return NextResponse.json({ error: "send_failed", message: "L'e-mail n'est pas parti. Réessayez." }, { status: 502 });

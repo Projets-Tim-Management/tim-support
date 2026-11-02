@@ -5,6 +5,7 @@ import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
 import { SIGNABLE, isSignableKind, type SignableKind } from "@/modules/partner/lib/e-signature";
 import { SIGNING_DOC_FIELDS } from "@/modules/partner/lib/signing";
 import { templateTexts } from "@/modules/partner/lib/signing-access";
+import { signingMail } from "@/modules/marketing/lib/run-mail-log";
 
 /**
  * Relancer le client sur un devis ou un contrat qu'il n'a pas encore signé.
@@ -156,6 +157,7 @@ export async function POST(req: Request) {
   }
 
   const replyTo = ctx.user.email?.trim() || undefined;
+  const mail = await signingMail(ctx.payload, ctx.client.id);
   try {
     await ctx.payload.sendEmail({
       to: account.email,
@@ -163,6 +165,7 @@ export async function POST(req: Request) {
       html: built.html,
       text: built.text,
       ...(replyTo ? { replyTo } : {}),
+      ...mail.mailHeaders,
     });
   } catch (e) {
     ctx.payload.logger.error(`[signature] relance ${kind} vers ${account.email} non partie : ${e}`);
@@ -171,6 +174,7 @@ export async function POST(req: Request) {
 
   // Envoyé d'abord, tracé ensuite (voir client-email) : une trace sans envoi
   // ferait croire à une relance que le client n'a jamais reçue.
+  await mail.record("relance-signature", built.subject, account.email);
   try {
     await ctx.payload.create({
       collection: "client-activities",

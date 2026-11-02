@@ -43,6 +43,7 @@ import { journalEntries, logActivity } from "@/modules/partner/lib/journal";
 import { ensureSigningAccess, templateTexts } from "@/modules/partner/lib/signing-access";
 import { afterResponse } from "@/core/lib/after-response";
 import { notifyClientWon } from "@/modules/marketing/lib/notify";
+import { signingMail } from "@/modules/marketing/lib/run-mail-log";
 import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
 import { startProductionJourney } from "@/modules/marketing/lib/production";
 import { openTraining } from "@/modules/training/lib/open";
@@ -460,7 +461,10 @@ const notifyDocumentAvailable: CollectionAfterChangeHook = async ({ doc, previou
       documentNoun: noun,
       texts,
     });
-    await payload.sendEmail({ to: account.email, subject: built.subject, html: built.html, text: built.text });
+    // Hors de la requête (afterResponse) : sans `req`, une lecture neuve voit le parcours.
+    const mail = await signingMail(payload, doc.id);
+    await payload.sendEmail({ to: account.email, subject: built.subject, html: built.html, text: built.text, ...mail.mailHeaders });
+    await mail.record("document-disponible", built.subject, account.email!);
   }, (e) => payload.logger.error(`[signature] avis « ${noun} disponible » non envoyé : ${e}`));
   return doc;
 };
@@ -1240,6 +1244,16 @@ export const PartnerClients: CollectionConfig = {
               type: "ui",
               admin: {
                 components: { Field: "/modules/partner/admin/SigningChecklist#SigningChecklist" },
+              },
+            },
+            {
+              // Les e-mails de signature partis au client, quand, ce qu'il en a
+              // fait (Brevo), et s'il faut le relancer : le même historique que
+              // l'onglet « E-mails » du parcours de mise en production.
+              name: "signingEmails",
+              type: "ui",
+              admin: {
+                components: { Field: "/modules/marketing/admin/JourneyEmails#ClientSigningEmails" },
               },
             },
             {
