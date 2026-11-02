@@ -106,7 +106,7 @@ export async function POST(req: Request) {
           ...(ticketReplyTo(number) ? { replyTo: ticketReplyTo(number) } : {}),
           // Tag Brevo → l'onglet « E-mails » du ticket retrouve cet envoi.
           ...ticketMailHeaders(number),
-          ...ticketConfirmationEmail({ name, email, subject, number }),
+          ...ticketConfirmationEmail({ name, firstName, email, subject, number }),
         });
       } catch (e) {
         console.warn("[tickets] e-mail confirmation échoué:", e);

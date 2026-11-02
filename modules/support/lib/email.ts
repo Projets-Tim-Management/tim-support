@@ -14,17 +14,19 @@ import {
   refBox,
   shell,
 } from "@/core/lib/email-template";
+import { greeting } from "@/modules/support/lib/greeting";
 
 // ─── Templates ───────────────────────────────────────────────────────────────
 
 export function ticketConfirmationEmail(args: {
   name?: string;
+  firstName?: string;
   email?: string;
   subject: string;
   number: number;
 }) {
-  const { name, email, subject, number } = args;
-  const hello = name ? `Bonjour ${escape(name)},` : "Bonjour,";
+  const { name, firstName, email, subject, number } = args;
+  const hello = escape(greeting(name, firstName));
   return {
     subject: `Votre demande #${number} a bien été reçue`,
     html: shell({
