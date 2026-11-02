@@ -12,10 +12,31 @@ import {
 } from "@/modules/marketing/lib/journey-mail-status";
 import type { SendFacts } from "@/modules/marketing/lib/due-emails";
 import { getEmailActivity, journeyTag } from "@/modules/support/lib/brevo";
-import { PRODUCTION_KEY } from "@/modules/marketing/lib/journey";
+import { baseEmailKey, PRODUCTION_EMAILS, PRODUCTION_KEY } from "@/modules/marketing/lib/journey";
 import { productionRunOf } from "@/modules/marketing/lib/run-mail-log";
 import { hasContractPhase } from "@/modules/partner/lib/clientStatus";
 import { ASKS_TO_SIGN, signingAdvice } from "@/modules/partner/lib/signing-advice";
+
+/** Un message reçu, résumé : son objet, sa date d'envoi, ce qu'il en est advenu. */
+type Message = { subject: string; date: string; sort: string; clics: number };
+
+const cle = (s?: string | null) => (s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+
+/** Les évènements Brevo regroupés par message (envoyé, remis, ouvert… ne font qu'une ligne), du plus récent au plus ancien. */
+function messagesOf(evenements: EvenementBrevo[]): Message[] {
+  const par = new Map<string, EvenementBrevo[]>();
+  for (const e of evenements) {
+    const k = e.messageId ?? `${e.subject}-${e.date}`;
+    par.set(k, [...(par.get(k) ?? []), e]);
+  }
+  return [...par.values()]
+    .flatMap((evs) => {
+      const sort = sortDesEvenements(evs);
+      const envoi = evs.reduce((min, e) => (e.date < min ? e.date : min), evs[0].date);
+      return sort ? [{ subject: evs[0].subject ?? "", date: envoi, sort: sort.sort as string, clics: sort.clics }] : [];
+    })
+    .sort((a, b) => Date.parse(b.date) - Date.parse(a.date));
+}
 
 /**
  * GET /api/marketing/journey-emails?run=<id>  (ou ?client=<id> : son parcours de mise en production)
@@ -115,32 +136,29 @@ export async function GET(req: Request) {
   const prevus = Array.isArray(run.emails) ? run.emails : [];
 
   const envois = ordonnerEnvois(croiserEnvois(prevus, evenements, Date.now(), faits));
+  const autresEvenements = evenementsOrphelins(prevus, evenements);
 
   // Mise en production : faut-il relancer ? D'après le dernier e-mail qui demandait de signer.
   let conseil = null;
   if (run.journeyKey === PRODUCTION_KEY) {
     const signed = hasContractPhase(fiche?.clientStatus) || Boolean(fiche?.signatureDate);
     const inscrits = envois
-      .filter((e) => ASKS_TO_SIGN.includes(e.key) && e.date && e.sort !== "a-venir" && e.sort !== "non-programme")
+      .filter((e) => ASKS_TO_SIGN.includes(baseEmailKey(e.key)) && e.date && e.sort !== "a-venir" && e.sort !== "non-programme")
       .map((e) => ({ at: e.date!, sort: e.sort as string }));
     // Les e-mails partis AVANT leur inscription sur le parcours (fiches déjà en
-    // signature) : ceux reçus à l'adresse du client depuis le lancement du
-    // parcours, hors codes de signature — ils ne demandent pas de signer.
-    const parMessage = new Map<string, EvenementBrevo[]>();
-    for (const e of evenementsOrphelins(prevus, evenements)) {
-      if (run.createdAt && e.date < run.createdAt) continue;
-      if (/\bcode\b/i.test(e.subject ?? "")) continue;
-      const k = e.messageId ?? `${e.subject}-${e.date}`;
-      parMessage.set(k, [...(parMessage.get(k) ?? []), e]);
-    }
-    const anciens = [...parMessage.values()].flatMap((evs) => {
-      const sort = sortDesEvenements(evs);
-      const envoi = evs.reduce((min, e) => (e.date < min ? e.date : min), evs[0].date);
-      return sort ? [{ at: envoi, sort: sort.sort as string }] : [];
-    });
+    // signature) : seuls ceux qui demandent de signer comptent — reconnus à leur
+    // objet, depuis le lancement du parcours.
+    const asksSubjects = new Set(PRODUCTION_EMAILS.filter((m) => ASKS_TO_SIGN.includes(baseEmailKey(m.key))).map((m) => cle(m.subject)));
+    const anciens = messagesOf(autresEvenements)
+      .filter((m) => (!run.createdAt || m.date >= run.createdAt) && asksSubjects.has(cle(m.subject)))
+      .map((m) => ({ at: m.date, sort: m.sort as string }));
     const last = [...inscrits, ...anciens].sort((x, y) => Date.parse(y.at) - Date.parse(x.at))[0] ?? null;
     conseil = signingAdvice(signed, last);
   }
+
+  // Les autres messages, UN PAR MESSAGE (pas un par évènement Brevo) ; depuis la
+  // fiche (onglet « Signature »), seulement ceux reçus depuis le lancement du parcours.
+  const autres = messagesOf(autresEvenements).filter((m) => !forClient || !run.createdAt || m.date >= run.createdAt);
 
   return NextResponse.json({
     runId: run.id,
@@ -149,6 +167,6 @@ export async function GET(req: Request) {
     adresse,
     conseil,
     envois,
-    autres: evenementsOrphelins(prevus, evenements),
+    autres,
   });
 }

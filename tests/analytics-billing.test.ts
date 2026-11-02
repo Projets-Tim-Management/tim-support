@@ -134,7 +134,7 @@ describe("KPI et répartitions", () => {
       ["Sans partenaire", 100, 0],
     ]);
     expect(a.kpis.commissions).toBe(30);
-    expect(a.byPaymentMethod).toEqual([{ key: "prelevement-gocardless", label: "Prélèvement GoCardless", count: 3, caHT: 300 }]);
+    expect(a.byPaymentMethod).toEqual([{ key: "prelevement-gocardless", label: "Prélèvement SEPA", count: 3, caHT: 300 }]);
   });
 
   it("classe les impayés par ancienneté et les remonte sur le client", () => {

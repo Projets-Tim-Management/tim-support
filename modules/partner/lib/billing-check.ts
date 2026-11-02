@@ -248,11 +248,21 @@ const PL_PAYMENT_LABELS: Record<string, string> = {
   gocardless_direct_debit: "Prélèvement GoCardless",
   offline: "Virement",
   pennylane_direct_debit: "Prélèvement Pennylane",
+  pro_account_sepa_core: "Prélèvement SEPA",
 };
 
-/** Mode de paiement du support → ce qu'on attend côté Pennylane. */
+/**
+ * Mode de paiement du support → ce qu'on attend côté Pennylane.
+ *
+ * Un prélèvement s'y nomme de plusieurs façons : GoCardless jusqu'en octobre
+ * 2026, puis le prélèvement SEPA du compte Pennylane à partir de novembre
+ * (`pro_account_sepa_core`, déjà posé sur les 13 abonnements en prélèvement).
+ * Ce qui compte ici, c'est prélèvement ou virement — pas le prestataire. Qu'un
+ * client ait bien signé son mandat SEPA Pennylane est une autre question (droit
+ * « Mandats clients » du jeton).
+ */
 const PAYMENT_METHOD_MAP: Record<string, string[]> = {
-  "prelevement-gocardless": ["gocardless_direct_debit"],
+  "prelevement-gocardless": ["gocardless_direct_debit", "pro_account_sepa_core", "pennylane_direct_debit"],
   virement: ["offline"],
 };
 

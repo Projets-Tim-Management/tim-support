@@ -28,7 +28,7 @@ const dayLabel = (d: Date) => d.toLocaleDateString("fr-FR", { weekday: "long", d
 
 export function signingAdvice(signed: boolean, last: SignedMailState | null, now: Date = new Date()): SigningAdvice {
   if (signed) return { tone: "ok", text: "Le contrat est signé : rien à relancer." };
-  if (!last) return { tone: "warn", text: "Aucun e-mail de signature n'est encore parti : ouvrez l'accès du client et invitez-le (onglet « Signature »)." };
+  if (!last) return { tone: "warn", text: "Aucun e-mail de signature n'est encore parti : invitez le client (étape 1, bouton « Envoyer l'e-mail »)." };
   if (last.sort === "echec") {
     return { tone: "bad", text: "Le dernier e-mail a été rejeté par la messagerie du client : vérifiez son adresse, puis renvoyez l'invitation." };
   }
@@ -42,6 +42,6 @@ export function signingAdvice(signed: boolean, last: SignedMailState | null, now
   }
   const opened = last.sort === "ouvert" || last.sort === "clique";
   return opened
-    ? { tone: "warn", text: `Ouvert, mais pas signé depuis ${days} jours : une relance avec un mot personnel peut débloquer (onglet « Signature » → Relancer).` }
-    : { tone: "warn", text: `Pas ouvert depuis ${days} jours : relancez le client (onglet « Signature » → Relancer), ou appelez-le — l'e-mail est peut-être en indésirables.` };
+    ? { tone: "warn", text: `Ouvert, mais pas signé depuis ${days} jours : une relance avec un mot personnel peut débloquer (bouton « Relancer » de l'étape).` }
+    : { tone: "warn", text: `Pas ouvert depuis ${days} jours : relancez le client (bouton « Relancer » de l'étape), ou appelez-le — l'e-mail est peut-être en indésirables.` };
 }

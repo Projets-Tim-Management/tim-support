@@ -40,11 +40,11 @@ import { requireContractStart } from "@/modules/partner/hooks/requireContractSta
 import { requireLossReason } from "@/modules/partner/hooks/requireLossReason";
 import { LOSS_REASON_OPTIONS, needsLossReason } from "@/modules/partner/lib/lossReason";
 import { journalEntries, logActivity } from "@/modules/partner/lib/journal";
-import { ensureSigningAccess, templateTexts } from "@/modules/partner/lib/signing-access";
+import { ensureSigningAccess } from "@/modules/partner/lib/signing-access";
 import { afterResponse } from "@/core/lib/after-response";
 import { notifyClientWon } from "@/modules/marketing/lib/notify";
-import { signingMail } from "@/modules/marketing/lib/run-mail-log";
-import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
+import { sendDocumentNotice } from "@/modules/partner/lib/document-notice";
+import type { SignableKind } from "@/modules/partner/lib/e-signature";
 import { startProductionJourney } from "@/modules/marketing/lib/production";
 import { openTraining } from "@/modules/training/lib/open";
 import { signingStarted, signingSteps, stampDocumentDates } from "@/modules/partner/lib/signing";
@@ -450,21 +450,14 @@ const notifyDocumentAvailable: CollectionAfterChangeHook = async ({ doc, previou
     return doc;
   }
 
-  const texts = await templateTexts(req.payload, "document-disponible", req);
   const payload = req.payload;
   // Le contrat seul si les deux arrivent ensemble : c'est la dernière étape.
-  const noun = arrived[arrived.length - 1].noun;
+  const noun = arrived[arrived.length - 1].noun as SignableKind;
+  // Hors de la requête (afterResponse) : sans `req`, une lecture neuve voit le parcours. Même envoi
+  // que le bouton de l'onglet « Signature » (voir document-notice).
   afterResponse(async () => {
-    const built = JOURNEY_EMAILS["document-disponible"]({
-      clientName: doc.companyName ?? null,
-      contactFirstName: account.firstName ?? null,
-      documentNoun: noun,
-      texts,
-    });
-    // Hors de la requête (afterResponse) : sans `req`, une lecture neuve voit le parcours.
-    const mail = await signingMail(payload, doc.id);
-    await payload.sendEmail({ to: account.email, subject: built.subject, html: built.html, text: built.text, ...mail.mailHeaders });
-    await mail.record("document-disponible", built.subject, account.email!);
+    const result = await sendDocumentNotice(payload, doc as never, noun);
+    if (!result.ok) payload.logger.info(`[signature] avis « ${noun} disponible » pour ${doc.id} non envoyé : ${result.reason}`);
   }, (e) => payload.logger.error(`[signature] avis « ${noun} disponible » non envoyé : ${e}`));
   return doc;
 };
@@ -1240,61 +1233,77 @@ export const PartnerClients: CollectionConfig = {
             "Du « oui » au contrat signé. Chaque étape se coche quand son document est déposé — ici, ou par le client dans son espace. Passé par e-mail ? Cochez « Fait par e-mail ».",
           fields: [
             {
-              name: "signingChecklist",
-              type: "ui",
-              admin: {
-                components: { Field: "/modules/partner/admin/SigningChecklist#SigningChecklist" },
-              },
-            },
-            {
-              // Les e-mails de signature partis au client, quand, ce qu'il en a
-              // fait (Brevo), et s'il faut le relancer : le même historique que
-              // l'onglet « E-mails » du parcours de mise en production.
-              name: "signingEmails",
-              type: "ui",
-              admin: {
-                components: { Field: "/modules/marketing/admin/JourneyEmails#ClientSigningEmails" },
-              },
-            },
-            {
-              // Le contrat généré depuis le modèle : aperçu, personnalisation,
-              // envoi au client, historique des versions.
-              name: "contractBox",
-              type: "ui",
-              admin: { components: { Field: "/modules/partner/admin/ContractBox#ContractBox" } },
-            },
-            /**
-             * Anciens « Paramètres du contrat » : les conditions commerciales se
-             * saisissent désormais dans la préparation du contrat (étape
-             * « Informations »), sur le contrat lui-même. Ces colonnes restent
-             * en base, masquées : elles préremplissent le premier contrat des
-             * fiches déjà renseignées.
-             */
-            { name: "engagementMonths", type: "select", options: ENGAGEMENT_OPTIONS, admin: { hidden: true } },
-            { name: "preferentialYears", type: "number", admin: { hidden: true } },
-            { name: "contractTerritory", type: "text", admin: { hidden: true } },
-            { name: "integrationFee", type: "number", admin: { hidden: true } },
-            { name: "integrationOffered", type: "checkbox", admin: { hidden: true } },
-            signingDocGroup("Devis", [
-              signingDocRow({ name: "quoteDocument", label: "À signer" }, { name: "quoteSentAt", label: "Envoyé le" }),
-              signingDocRow({ name: "quoteSignedDocument", label: "Signé" }, { name: "quoteSignedAt", label: "Signé le" }),
-            ]),
-            signingDocGroup("Contrat", [
-              signingDocRow({ name: "contractToSignDocument", label: "À signer" }, { name: "contractSentAt", label: "Envoyé le" }),
-              signingDocRow({ name: "contractDocument", label: "Signé" }, { name: "signatureDate", label: "Signé le" }),
-            ]),
-            {
-              // Le dossier de preuve des signatures faites en ligne (code par
-              // e-mail) : qui, quand, d'où, empreinte du document. En lecture.
-              name: "electronicSignatures",
-              type: "join",
-              collection: "electronic-signatures",
-              on: "client",
-              label: "Signatures en ligne",
-              admin: {
-                allowCreate: false,
-                defaultColumns: ["kind", "status", "signerLastName", "signedAt", "signedDocument"],
-              },
+              // Deux sous-onglets : les étapes et leurs documents, puis les e-mails —
+              // la liste des envois ne noie plus les étapes qu'on vient travailler.
+              type: "tabs",
+              tabs: [
+                {
+                  label: "Étapes",
+                  fields: [
+                    {
+                      name: "signingChecklist",
+                      type: "ui",
+                      admin: {
+                        components: { Field: "/modules/partner/admin/SigningChecklist#SigningChecklist" },
+                      },
+                    },
+                    {
+                      // Le contrat généré depuis le modèle : aperçu, personnalisation,
+                      // envoi au client, historique des versions.
+                      name: "contractBox",
+                      type: "ui",
+                      admin: { components: { Field: "/modules/partner/admin/ContractBox#ContractBox" } },
+                    },
+                    /**
+                     * Anciens « Paramètres du contrat » : les conditions commerciales se
+                     * saisissent désormais dans la préparation du contrat (étape
+                     * « Informations »), sur le contrat lui-même. Ces colonnes restent
+                     * en base, masquées : elles préremplissent le premier contrat des
+                     * fiches déjà renseignées.
+                     */
+                    { name: "engagementMonths", type: "select", options: ENGAGEMENT_OPTIONS, admin: { hidden: true } },
+                    { name: "preferentialYears", type: "number", admin: { hidden: true } },
+                    { name: "contractTerritory", type: "text", admin: { hidden: true } },
+                    { name: "integrationFee", type: "number", admin: { hidden: true } },
+                    { name: "integrationOffered", type: "checkbox", admin: { hidden: true } },
+                    signingDocGroup("Devis", [
+                      signingDocRow({ name: "quoteDocument", label: "À signer" }, { name: "quoteSentAt", label: "Envoyé le" }),
+                      signingDocRow({ name: "quoteSignedDocument", label: "Signé" }, { name: "quoteSignedAt", label: "Signé le" }),
+                    ]),
+                    signingDocGroup("Contrat", [
+                      signingDocRow({ name: "contractToSignDocument", label: "À signer" }, { name: "contractSentAt", label: "Envoyé le" }),
+                      signingDocRow({ name: "contractDocument", label: "Signé" }, { name: "signatureDate", label: "Signé le" }),
+                    ]),
+                    {
+                      // Le dossier de preuve des signatures faites en ligne (code par
+                      // e-mail) : qui, quand, d'où, empreinte du document. En lecture.
+                      name: "electronicSignatures",
+                      type: "join",
+                      collection: "electronic-signatures",
+                      on: "client",
+                      label: "Signatures en ligne",
+                      admin: {
+                        allowCreate: false,
+                        defaultColumns: ["kind", "status", "signerLastName", "signedAt", "signedDocument"],
+                      },
+                    },
+                  ],
+                },
+                {
+                  label: "E-mails",
+                  description: "Les e-mails de signature : ce qui partira, après quel geste, ce que le client a fait de ce qui est parti, et s'il faut le relancer.",
+                  fields: [
+                    {
+                      // Le même historique que l'onglet « E-mails » du parcours de mise en production.
+                      name: "signingEmails",
+                      type: "ui",
+                      admin: {
+                        components: { Field: "/modules/marketing/admin/JourneyEmails#ClientSigningEmails" },
+                      },
+                    },
+                  ],
+                },
+              ],
             },
           ],
         },
@@ -1314,7 +1323,7 @@ export const PartnerClients: CollectionConfig = {
                   label: "Mode de paiement",
                   admin: { width: "50%" },
                   options: [
-                    { label: "Prélèvement (GoCardless)", value: "prelevement-gocardless" },
+                    { label: "Prélèvement SEPA (Pennylane)", value: "prelevement-gocardless" },
                     { label: "Virement", value: "virement" },
                   ],
                 },

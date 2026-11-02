@@ -1366,6 +1366,42 @@
   cursor: help;
 }
 
+/* Étape 1 de la mise en production : envoyer l'invitation, le geste principal — bouton plein. */
+.jr-step__invite {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.5rem;
+}
+.jr-step__invite-btn {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--tim-primary);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--tim-primary-dark);
+  }
+  &:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+}
+.jr-step__invite-msg {
+  margin-left: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--tim-green);
+}
+.jr-step__invite-msg--error {
+  color: var(--tim-danger-text);
+}
+
 .jr-step__todo-tag--wait {
   font-weight: 500;
   font-style: italic;

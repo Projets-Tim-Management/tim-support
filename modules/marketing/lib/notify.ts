@@ -471,7 +471,7 @@ export type ClientWonContext = {
 };
 
 const PERIOD_LABELS: Record<string, string> = { mensuelle: "Mensuelle", trimestrielle: "Trimestrielle", annuelle: "Annuelle" };
-const PAYMENT_LABELS: Record<string, string> = { "prelevement-gocardless": "Prélèvement (GoCardless)", virement: "Virement" };
+const PAYMENT_LABELS: Record<string, string> = { "prelevement-gocardless": "Prélèvement SEPA (Pennylane)", virement: "Virement" };
 
 /** Un nouveau client : qui, apporté par qui, combien par mois, quelles licences, à partir de quand. */
 export function buildClientWonEmail(ctx: ClientWonContext): BuiltEmail {

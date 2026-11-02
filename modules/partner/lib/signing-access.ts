@@ -3,7 +3,8 @@ import type { Payload, PayloadRequest } from "payload";
 import { readEmailTexts } from "@/modules/marketing/lib/email-overrides";
 import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
 import { PHASE_DE_TEST_KEY } from "@/modules/marketing/lib/journey";
-import { signingMail } from "@/modules/marketing/lib/run-mail-log";
+import { SIGNING_STEP, signingMail } from "@/modules/marketing/lib/run-mail-log";
+import { missingCompanyInfo } from "@/modules/partner/lib/signing";
 
 /**
  * L'accès à l'espace client d'une affaire qu'on vient de SIGNER.
@@ -86,7 +87,7 @@ export async function ensureSigningAccess(
 ): Promise<SigningAccessResult> {
   const client = (await payload
     .findByID({ collection: "partner-clients", id: clientId, depth: 0, overrideAccess: true, req })
-    .catch(() => null)) as { companyName?: string | null; email?: string | null } | null;
+    .catch(() => null)) as ({ companyName?: string | null; email?: string | null } & Record<string, unknown>) | null;
   if (!client) return { ok: false, reason: "no_client" };
 
   const context = { [SIGNING_INVITE_CONTEXT]: true };
@@ -130,6 +131,8 @@ export async function ensureSigningAccess(
   const built = template({
     clientName: client.companyName ?? null,
     contactFirstName: account.firstName ?? null,
+    // Ce qui manque encore sur la fiche : listé dans l'e-mail, avec le lien pour le compléter.
+    missingInfo: missingCompanyInfo(client),
     texts: await templateTexts(payload, "invitation-signature", req),
   });
 
@@ -140,7 +143,7 @@ export async function ensureSigningAccess(
     payload.logger.error(`[signature] invitation à ${email} échouée : ${err}`);
     return { ok: false, reason: "send_failed" };
   }
-  await mail.record("invitation-signature", built.subject, email);
+  await mail.record("invitation-signature", built.subject, email, SIGNING_STEP.invitation);
 
   // Même trace que l'invitation isolée : l'encart la relit pour dire quand
   // l'invitation est partie. Un marquage raté ne fait pas croire l'envoi perdu.

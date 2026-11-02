@@ -13,6 +13,7 @@ import {
   buildQuoteEmail,
   buildTestRequestEmail,
 } from "@/modules/marketing/lib/notify";
+import { missingCompanyInfo } from "@/modules/partner/lib/signing";
 
 /**
  * Aperçu d'un e-mail du parcours, tel qu'il partira.
@@ -158,7 +159,9 @@ export async function GET(req: Request) {
     default: {
       // Messages au client et au partenaire : gabarits rédigés, alimentés par
       // les données réelles du parcours.
-      const template = JOURNEY_EMAILS[key];
+      // `document-disponible:contrat` : le gabarit `document-disponible`, pour le contrat.
+      const [templateKey, documentNoun] = key.split(":");
+      const template = JOURNEY_EMAILS[templateKey];
       if (!template) return NextResponse.json({ ...meta, pending: true });
 
       // L'échéance annoncée au client EST celle de l'étape « Dossier de
@@ -170,7 +173,7 @@ export async function GET(req: Request) {
 
       // Les mêmes reprises qu'à l'envoi : un aperçu qui ignore ce qui a été
       // réécrit dans le modèle montre un message que personne ne recevra.
-      const texts = await readEmailTexts(payload, (run as { journey?: unknown }).journey, key);
+      const texts = await readEmailTexts(payload, (run as { journey?: unknown }).journey, templateKey);
 
       // Ce qui manque dans « Utilisateurs TIM », comme à l'envoi (voir
       // buildJourneyContext) : seule la relance du dossier s'en sert.
@@ -194,7 +197,9 @@ export async function GET(req: Request) {
         licenceGaps: NEEDS_LICENCE_GAPS.has(key) ? licenceGaps(c, declared) : null,
         // Le vrai code est tiré au hasard à l'envoi et n'est jamais conservé en
         // clair : l'aperçu en montre un d'exemple, et le dit.
-        code: key === "code-connexion" ? "123456" : undefined,
+        code: templateKey === "code-connexion" || templateKey === "code-signature" ? "123456" : undefined,
+        documentNoun,
+        missingInfo: templateKey === "invitation-signature" && c ? missingCompanyInfo(c) : null,
       });
       return NextResponse.json({
         ...meta,

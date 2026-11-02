@@ -7,6 +7,7 @@ import {
   PHASE_DE_TEST_EMAILS,
   PHASE_DE_TEST_KEY,
   PHASE_DE_TEST_STEPS,
+  PRODUCTION_EMAILS,
   PRODUCTION_KEY,
   PRODUCTION_STEPS,
   RETIRED_EMAIL_KEYS,
@@ -128,6 +129,17 @@ export async function seedJourneys(payload: Payload): Promise<void> {
  * avec le code à chaque version (même règle que la phase de test).
  */
 async function seedProductionJourney(payload: Payload): Promise<void> {
+  const productionEmails = () =>
+    PRODUCTION_EMAILS.map((e) => ({
+      key: e.key,
+      subject: e.subject,
+      audience: e.audience,
+      anchor: e.anchor,
+      offsetDays: e.offsetDays ?? 0,
+      trigger: e.trigger,
+      stepKey: e.stepKey,
+      detail: e.detail,
+    }));
   const steps = () =>
     PRODUCTION_STEPS.map((s) => ({
       key: s.key,
@@ -148,7 +160,7 @@ async function seedProductionJourney(payload: Payload): Promise<void> {
         depth: 0,
         overrideAccess: true,
       })
-    ).docs[0] as { id: number | string; seedVersion?: number; steps?: StoredStep[] } | undefined;
+    ).docs[0] as { id: number | string; seedVersion?: number; steps?: StoredStep[]; emails?: { key?: string | null }[] } | undefined;
 
     if (!existing) {
       await payload.create({
@@ -164,11 +176,25 @@ async function seedProductionJourney(payload: Payload): Promise<void> {
           active: true,
           seedVersion: SEED_VERSION,
           steps: steps(),
-          emails: [],
+          emails: productionEmails(),
         } as never,
       });
       payload.logger.info(`[parcours] modèle « Mise en production » créé (${PRODUCTION_STEPS.length} étapes).`);
       return;
+    }
+
+    // Les e-mails déclarés dans le code et absents du modèle s'ajoutent, sans
+    // toucher à ceux qui y sont (hors version : la liste ne fait que s'allonger).
+    const known = new Set((existing.emails ?? []).map((e) => e.key));
+    const missing = productionEmails().filter((e) => !known.has(e.key));
+    if (missing.length) {
+      await payload.update({
+        collection: "marketing-journeys",
+        id: existing.id,
+        overrideAccess: true,
+        data: { emails: [...(existing.emails ?? []), ...missing] } as never,
+      });
+      payload.logger.info(`[parcours] « Mise en production » : ${missing.length} e-mail(s) ajouté(s) au modèle.`);
     }
     if ((existing.seedVersion ?? 0) >= SEED_VERSION) return;
 

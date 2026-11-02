@@ -89,8 +89,8 @@ import { PrestationsMemo as PrestationsMemo_ea3de1057e93d0a5100f15554d34ebf5 } f
 import { PennylaneCompare as PennylaneCompare_15129f9dfdba74a12c4653c08d159168 } from '../../../modules/partner/admin/PennylaneCompare'
 import { PartnerClientHistory as PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2 } from '../../../modules/partner/admin/PartnerClientHistory'
 import { SigningChecklist as SigningChecklist_400eec951102b3f782c7a6407a3dac35 } from '../../../modules/partner/admin/SigningChecklist'
-import { ClientSigningEmails as ClientSigningEmails_13babaa236c41674a7dac5ec2af32ca3 } from '../../../modules/marketing/admin/JourneyEmails'
 import { ContractBox as ContractBox_bb71f8890865c8a70d69e400c7499081 } from '../../../modules/partner/admin/ContractBox'
+import { ClientSigningEmails as ClientSigningEmails_13babaa236c41674a7dac5ec2af32ca3 } from '../../../modules/marketing/admin/JourneyEmails'
 import { OnboardingRecap as OnboardingRecap_d713ec8857fdf2ef0b320360e45593af } from '../../../modules/marketing/admin/OnboardingRecap'
 import { PreparationConsole as PreparationConsole_9e99600200a0e8a19593b41642fef9dc } from '../../../modules/marketing/admin/PreparationConsole'
 import { PortalAccessBox as PortalAccessBox_fc683d39455978ed93c806cafc5e09d9 } from '../../../modules/marketing/admin/PortalAccessBox'
@@ -272,8 +272,8 @@ export const importMap = {
   "/modules/partner/admin/PennylaneCompare#PennylaneCompare": PennylaneCompare_15129f9dfdba74a12c4653c08d159168,
   "/modules/partner/admin/PartnerClientHistory#PartnerClientHistory": PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2,
   "/modules/partner/admin/SigningChecklist#SigningChecklist": SigningChecklist_400eec951102b3f782c7a6407a3dac35,
-  "/modules/marketing/admin/JourneyEmails#ClientSigningEmails": ClientSigningEmails_13babaa236c41674a7dac5ec2af32ca3,
   "/modules/partner/admin/ContractBox#ContractBox": ContractBox_bb71f8890865c8a70d69e400c7499081,
+  "/modules/marketing/admin/JourneyEmails#ClientSigningEmails": ClientSigningEmails_13babaa236c41674a7dac5ec2af32ca3,
   "/modules/marketing/admin/OnboardingRecap#OnboardingRecap": OnboardingRecap_d713ec8857fdf2ef0b320360e45593af,
   "/modules/marketing/admin/PreparationConsole#PreparationConsole": PreparationConsole_9e99600200a0e8a19593b41642fef9dc,
   "/modules/marketing/admin/PortalAccessBox#PortalAccessBox": PortalAccessBox_fc683d39455978ed93c806cafc5e09d9,

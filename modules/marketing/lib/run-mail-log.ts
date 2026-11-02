@@ -1,6 +1,6 @@
 import type { Payload, PayloadRequest } from "payload";
 
-import { PRODUCTION_KEY } from "@/modules/marketing/lib/journey";
+import { baseEmailKey, PRODUCTION_KEY } from "@/modules/marketing/lib/journey";
 import { withSystemWrite } from "@/modules/marketing/lib/system-write";
 import { journeyMailHeaders } from "@/modules/support/lib/brevo";
 
@@ -22,6 +22,19 @@ import { journeyMailHeaders } from "@/modules/support/lib/brevo";
  */
 
 type RunEmailLine = { key?: string | null; subject?: string | null; [k: string]: unknown };
+
+/** L'étape de la mise en production qu'un e-mail sert : il s'affiche sous elle, avec son heure d'envoi. */
+export const SIGNING_STEP = {
+  invitation: "entreprise",
+  devisDisponible: "devis-envoye",
+  devisASigner: "devis-signe",
+  contratDisponible: "contrat-envoye",
+  contratASigner: "contrat-signe",
+} as const;
+
+/** L'étape qui attend la signature d'un document : relance, code et copie signée s'y rangent. */
+export const signStepOf = (kind: string) => (kind === "contrat" ? SIGNING_STEP.contratASigner : SIGNING_STEP.devisASigner);
+
 type Run = { id: number | string; emails?: RunEmailLine[] | null };
 
 /** Le parcours de mise en production le plus récent de la fiche, s'il existe. */
@@ -55,21 +68,32 @@ export async function signingMail(payload: Payload, clientId: number | string, r
   const run = await productionRunOf(payload, clientId, req);
   return {
     mailHeaders: journeyMailHeaders(run?.id),
-    /** Inscrit l'envoi sur le parcours (après qu'il est parti). Ne lève jamais. */
-    async record(key: string, subject: string, to: string): Promise<void> {
+    /**
+     * Inscrit l'envoi sur le parcours (après qu'il est parti), sous son étape :
+     * la ligne PRÉVUE par le modèle (même gabarit, même étape, pas encore
+     * partie) est datée ; sinon (une deuxième relance, un code) une ligne s'ajoute.
+     * Ne lève jamais.
+     */
+    async record(key: string, subject: string, to: string, stepKey: string): Promise<void> {
       if (!run) return;
-      const line = { key, subject, audience: "client", trigger: "evenement", sentAt: new Date().toISOString(), detail: `Envoyé à ${to}` };
+      const sentAt = new Date().toISOString();
+      const lines = run.emails ?? [];
+      const planned = lines.findIndex((l) => baseEmailKey(l.key) === key && l.stepKey === stepKey && !l.sentAt);
+      const emails =
+        planned >= 0
+          ? lines.map((l, i) => (i === planned ? { ...l, subject, sentAt, detail: `Envoyé à ${to}` } : l))
+          : [...lines, { key, subject, audience: "client", trigger: "evenement", stepKey, sentAt, detail: `Envoyé à ${to}` }];
       try {
         await withSystemWrite(req, () =>
           payload.update({
             collection: "journey-runs",
             id: run.id,
-            data: { emails: [...(run.emails ?? []), line] } as never,
+            data: { emails } as never,
             overrideAccess: true,
             ...(req ? { req } : {}),
           }),
         );
-        run.emails = [...(run.emails ?? []), line];
+        run.emails = emails;
       } catch (err) {
         payload.logger.error(`[signature] « ${key} » parti mais non inscrit sur le parcours ${run.id} : ${err}`);
       }

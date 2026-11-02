@@ -4,7 +4,7 @@ import { useDocumentInfo } from "@payloadcms/ui";
 import { useEffect, useState } from "react";
 
 import { EmailPreview } from "@/modules/marketing/admin/EmailPreview";
-import type { EnvoiCroise, EvenementBrevo, Sort } from "@/modules/marketing/lib/journey-mail-status";
+import type { EnvoiCroise, Sort } from "@/modules/marketing/lib/journey-mail-status";
 
 /**
  * Onglet « E-mails » d'un parcours (phase de test ou mise en production) — et,
@@ -77,7 +77,8 @@ type Reponse = {
   adresse: string | null;
   conseil: Conseil | null;
   envois: EnvoiCroise[];
-  autres: EvenementBrevo[];
+  /** Les autres messages reçus à l'adresse, un par message (pas un par évènement). */
+  autres: { subject: string; date: string; sort: Sort; clics: number }[];
 };
 
 const CONSEIL_TONE: Record<Conseil["tone"], { color: string; bg: string }> = {
@@ -97,10 +98,17 @@ export function JourneyEmails() {
 /** Onglet « Signature » de la fiche : les e-mails de son parcours de mise en production. */
 export function ClientSigningEmails() {
   const { id } = useDocumentInfo();
-  return id == null ? null : <EmailsPanel query={`client=${id}`} missing="Pas encore de parcours de mise en production : il démarre quand la fiche passe « En signature »." />;
+  return id == null ? null : (
+    <EmailsPanel query={`client=${id}`} compact missing="Pas encore de parcours de mise en production : il démarre quand la fiche passe « En signature »." />
+  );
 }
 
-function EmailsPanel({ query, missing }: { query: string; missing?: string }) {
+/**
+ * `compact` (onglet « Signature » de la fiche) : le conseil et les e-mails de
+ * signature d'abord ; les autres messages repliés — la fiche n'est pas une
+ * boîte de réception.
+ */
+function EmailsPanel({ query, missing, compact = false }: { query: string; missing?: string; compact?: boolean }) {
   const [data, setData] = useState<Reponse | null>(null);
   const [echec, setEchec] = useState<"absent" | "erreur" | null>(null);
   const [apercu, setApercu] = useState<string | null>(null);
@@ -136,8 +144,9 @@ function EmailsPanel({ query, missing }: { query: string; missing?: string }) {
           <strong>Relance :</strong> {data.conseil.text}
         </p>
       )}
+      {compact && <h3 className="jmail__titre">E-mails de signature</h3>}
       <p className="jmail__intro">
-        Ce que la séquence prévoit, et ce que le destinataire en a réellement fait.
+        {compact ? "Ce qui partira, après quel geste, et ce que le client a fait de ce qui est parti." : "Ce que la séquence prévoit, et ce que le destinataire en a réellement fait."}
         {data.adresse && (
           <>
             {" "}
@@ -192,25 +201,33 @@ function EmailsPanel({ query, missing }: { query: string; missing?: string }) {
       </ul>
 
       {data.autres.length > 0 && (
-        <>
-          {/* Un code de connexion porte un objet variable (« 004851 — votre
-              code… ») : il ne correspondra jamais à une ligne de la séquence,
-              mais le client l'a bien reçu et c'est souvent ce qu'on cherche. */}
-          <p className="jmail__autres-titre">Autres messages reçus à cette adresse</p>
+        // Les autres messages reçus à cette adresse — codes de connexion, rappels
+        // de la phase de test… — utiles pour répondre à « je n'ai rien reçu »,
+        // mais repliés : ce n'est pas ce qu'on vient lire.
+        <details className="jmail__autres" open={!compact && data.autres.length <= 6}>
+          <summary className="jmail__autres-titre">
+            Autres messages reçus à cette adresse ({data.autres.length}){compact ? " depuis le début de la signature" : ""}
+          </summary>
           <ul className="jmail__list">
-            {data.autres.map((e, i) => (
-              <li key={`${e.messageId ?? e.date}-${i}`} className="jmail__row jmail__row--autre">
-                <span className="jmail__body">
-                  <span className="jmail__subject">{e.subject || "(sans objet)"}</span>
-                  <span className="jmail__meta">
-                    {quand(e.date)} · {e.event}
-                    {e.reason ? ` · ${e.reason}` : ""}
+            {data.autres.map((e, i) => {
+              const m = META[e.sort] ?? META.envoye;
+              return (
+                <li key={`${e.date}-${i}`} className="jmail__row jmail__row--autre">
+                  <span className="jmail__badge" style={{ color: m.color, background: m.bg }}>
+                    {m.label}
                   </span>
-                </span>
-              </li>
-            ))}
+                  <span className="jmail__body">
+                    <span className="jmail__subject">{e.subject || "(sans objet)"}</span>
+                    <span className="jmail__meta">
+                      {quand(e.date)}
+                      {e.clics > 0 && ` · ${e.clics} clic${e.clics > 1 ? "s" : ""}`}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
           </ul>
-        </>
+        </details>
       )}
 
       {/* Même aperçu que la barre d'étapes : un seul rendu à maintenir, et le

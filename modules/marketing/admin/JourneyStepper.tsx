@@ -88,6 +88,10 @@ const ACTOR_LABEL: Record<string, string> = Object.fromEntries(
 const fmtDate = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" }) : null;
 
+/** « 02 nov. à 08:01 » — pour un e-mail parti sur un geste, l'heure dit QUAND le client l'a reçu. */
+const fmtSent = (iso: string) =>
+  `${new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", timeZone: "Europe/Paris" })} à ${new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })}`;
+
 /**
  * « 1h26 » / « 26 min » — compact à dessein : ce texte partage une colonne
  * étroite avec les dates, et « auto dans 1 h 26 » débordait sur les boutons.
@@ -350,6 +354,43 @@ export function JourneyStepper() {
   );
 
   /**
+   * Mise en production, étape 1 : le bouton qui envoie au client l'invitation à
+   * son espace — le premier e-mail, celui qui lui demande les informations de
+   * son entreprise (puis devis et contrat). Même envoi que l'onglet
+   * « Signature » de la fiche (/api/admin/signing-invite) : il ouvre l'accès
+   * s'il est fermé, envoie, et date la ligne sur le parcours.
+   *
+   * La ligne est aussi datée DANS le formulaire, puis enregistrée : sans ça, un
+   * « Sauvegarder » juste après réécrirait la ligne sans son heure d'envoi.
+   */
+  const [invite, setInvite] = useState<{ state: "idle" | "sending" | "sent" | "error"; message?: string }>({ state: "idle" });
+  const sendInvitation = useCallback(
+    async (mailIndex: number) => {
+      if (clientId == null) return;
+      setInvite({ state: "sending" });
+      try {
+        const res = await fetch("/api/admin/signing-invite", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId }),
+        });
+        const body = (await res.json().catch(() => ({}))) as { email?: string; message?: string };
+        if (!res.ok) {
+          setInvite({ state: "error", message: body.message ?? "L'invitation n'est pas partie. Réessayez dans un instant." });
+          return;
+        }
+        dispatchFields({ type: "UPDATE", path: `emails.${mailIndex}.sentAt`, value: new Date().toISOString() });
+        saveNow();
+        setInvite({ state: "sent", message: body.email ? `Invitation envoyée à ${body.email}.` : "Invitation envoyée." });
+      } catch {
+        setInvite({ state: "error", message: "L'invitation n'est pas partie. Réessayez dans un instant." });
+      }
+    },
+    [clientId, dispatchFields, saveNow],
+  );
+
+  /**
    * Change la date d'un envoi. Fixer une date la détache du calendrier : sans
    * ça, la reprise en main ne survivrait pas au premier changement de durée.
    */
@@ -525,6 +566,27 @@ export function JourneyStepper() {
                           )}
                         </Tooltip>
                       )}
+                      {/* Le premier e-mail de la mise en production, en un clic : tant que
+                          l'invitation n'est pas partie, c'est le geste qui fait avancer l'étape 1. */}
+                      {(() => {
+                        const line = step.key === "entreprise" ? mails.find((m) => m.key === "invitation-signature") : undefined;
+                        if (!line || line.sentAt || closed || isDone || clientId == null) return null;
+                        return (
+                          <span className="jr-step__invite">
+                            <button
+                              type="button"
+                              className="jr-step__invite-btn"
+                              disabled={invite.state === "sending"}
+                              onClick={() => sendInvitation(line.index)}
+                              title="Ouvre l'accès du client à son espace et lui envoie l'invitation : il y renseigne son entreprise, puis signe devis et contrat."
+                            >
+                              {invite.state === "sending" ? "Envoi…" : "Envoyer l'invitation au client"}
+                            </button>
+                            {invite.state === "error" && <span className="jr-step__invite-msg jr-step__invite-msg--error">{invite.message}</span>}
+                          </span>
+                        );
+                      })()}
+                      {step.key === "entreprise" && invite.state === "sent" && <span className="jr-step__invite-msg">✓ {invite.message}</span>}
                     </span>
 
                     <span className="jr-step__who">
@@ -734,7 +796,8 @@ export function JourneyStepper() {
 
                           return (
                             <li
-                              key={m.key}
+                              // Une relance peut partir deux fois : la position la distingue.
+                              key={`${m.key}-${m.index}`}
                               className={[
                                 "jr-mailrow",
                                 m.sentAt && "jr-mailrow--sent",
@@ -791,9 +854,7 @@ export function JourneyStepper() {
                                     onChange={(at, ov) => setMailDate(m.index, at, ov)}
                                   />
                                 ) : m.sentAt ? (
-                                  <span className="jr-maildate jr-maildate--sent">
-                                    envoyé {fmtDate(m.sentAt)}
-                                  </span>
+                                  <span className="jr-maildate jr-maildate--sent">envoyé le {fmtSent(m.sentAt)}</span>
                                 ) : (
                                   // Pas de date à régler : c'est un FAIT qui le
                                   // déclenche. Une colonne vide se lirait

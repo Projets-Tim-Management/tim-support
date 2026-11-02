@@ -1415,10 +1415,16 @@ export const EMAIL_KIND: Record<string, string> = {
   "dernier-jour": "Rappel",
   decision: "Décision",
   "recap-partenaire": "Récapitulatif",
+  // Mise en production : les e-mails de signature, inscrits à leur envoi (run-mail-log).
+  "invitation-signature": "Invitation à signer",
+  "document-disponible": "Document disponible",
+  "relance-signature": "Relance",
+  "code-signature": "Code de signature",
+  "document-signe": "Copie signée",
 };
 
 export const emailKind = (key: string | null | undefined): string =>
-  (key && EMAIL_KIND[key]) || "E-mail";
+  (key && (EMAIL_KIND[key] ?? EMAIL_KIND[key.split(":")[0]])) || "E-mail";
 
 /** « 9 h », « 17 h 30 » — l'heure telle qu'on la dit, pas telle qu'on la stocke. */
 const heureParlee = (hhmm?: string | null): string => {
@@ -1553,8 +1559,85 @@ export const PRODUCTION_STEPS: JourneyStepDef[] = [
   },
 ];
 
-/** Aucun envoi programmé : les alertes à TIM partent sur évènement (voir JourneyRuns). */
-export const PRODUCTION_EMAILS: JourneyEmailDef[] = [];
+/**
+ * Les e-mails au CLIENT de la mise en production — aucun n'est programmé : chacun
+ * part sur un geste (accès ouvert, document déposé, signature). Déclarés ici
+ * pour que la barre d'étapes les annonce AVANT de partir (« partira quand… »),
+ * puis les date une fois partis (« envoyé le … à … », voir run-mail-log).
+ *
+ * Une clé suffixée (`document-disponible:contrat`) distingue deux envois du
+ * même gabarit : `baseEmailKey` rend le gabarit (aperçu, libellé). Les alertes
+ * à TIM (devis à rédiger, contrat à établir) restent hors liste : elles ne se
+ * marquent pas comme parties.
+ */
+export const PRODUCTION_EMAILS: JourneyEmailDef[] = [
+  {
+    key: "invitation-signature",
+    subject: "Bienvenue chez TIM — votre espace client est ouvert",
+    audience: "client",
+    anchor: "aucun",
+    stepKey: "entreprise",
+    trigger: "Quand vous cliquez « Envoyer l'invitation au client » (ici, ou dans l'onglet « Signature » de la fiche)",
+    detail: "Invite le client dans son espace : il y complète ses informations et y signera devis et contrat.",
+  },
+  {
+    key: "document-disponible:devis",
+    subject: "Un document vous attend dans votre espace TIM",
+    audience: "client",
+    anchor: "aucun",
+    stepKey: "devis-envoye",
+    trigger: "Dès que le devis est déposé sur la fiche (accès du client ouvert)",
+    detail: "Prévient le client que son devis l'attend dans son espace, à signer en ligne.",
+  },
+  {
+    key: "relance-signature:devis",
+    subject: "Rappel : un document attend votre signature",
+    audience: "client",
+    anchor: "aucun",
+    stepKey: "devis-signe",
+    trigger: "À la main, depuis l'onglet « Signature » — conseillée 3 jours après l'envoi si le devis n'est pas signé",
+    detail: "Relance le client sur son devis, avec un mot personnel si vous le souhaitez.",
+  },
+  {
+    key: "document-signe:devis",
+    subject: "C'est signé — votre copie signée",
+    audience: "client",
+    anchor: "aucun",
+    stepKey: "devis-signe",
+    trigger: "Quand le client signe le devis en ligne",
+    detail: "Envoie au client sa copie du devis signé.",
+  },
+  {
+    key: "document-disponible:contrat",
+    subject: "Un document vous attend dans votre espace TIM",
+    audience: "client",
+    anchor: "aucun",
+    stepKey: "contrat-envoye",
+    trigger: "Dès que le contrat est déposé sur la fiche (accès du client ouvert)",
+    detail: "Prévient le client que son contrat l'attend dans son espace, à signer en ligne.",
+  },
+  {
+    key: "relance-signature:contrat",
+    subject: "Rappel : un document attend votre signature",
+    audience: "client",
+    anchor: "aucun",
+    stepKey: "contrat-signe",
+    trigger: "À la main, depuis l'onglet « Signature » — conseillée 3 jours après l'envoi si le contrat n'est pas signé",
+    detail: "Relance le client sur son contrat, avec un mot personnel si vous le souhaitez.",
+  },
+  {
+    key: "document-signe:contrat",
+    subject: "C'est signé — votre copie signée",
+    audience: "client",
+    anchor: "aucun",
+    stepKey: "contrat-signe",
+    trigger: "Quand le client signe le contrat en ligne, puis à la contresignature de TIM",
+    detail: "Envoie au client sa copie du contrat signé, puis l'exemplaire contresigné par TIM.",
+  },
+];
+
+/** Le gabarit d'un envoi : la clé sans son suffixe (`document-disponible:contrat` → `document-disponible`). */
+export const baseEmailKey = (key: string | null | undefined): string => (key ?? "").split(":")[0];
 
 /**
  * Les actions du PARTENAIRE dans la mise en production, et ce qui les ouvre.

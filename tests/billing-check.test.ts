@@ -286,6 +286,17 @@ describe("état de l'abonnement et paiement", () => {
     );
     expect(rep2.checks[0].issues.map((i) => i.code)).toEqual(["payment-method"]);
   });
+
+  it("un prélèvement SEPA Pennylane (pro_account_sepa_core) est bien un prélèvement ; un virement, non", () => {
+    const prelev = (pm: string) =>
+      buildBillingReport(
+        [client({ id: 7, name: "CTSM", siren: "898999166", paymentMethod: "prelevement-gocardless", licences: { adminQty: 1, adminPrice: 39 } })],
+        snapshot([sub(1, 10, [line(1, 1, 39)], { payment_method: pm })]),
+      ).checks[0].issues.map((i) => i.code);
+    expect(prelev("pro_account_sepa_core")).not.toContain("payment-method");
+    expect(prelev("gocardless_direct_debit")).not.toContain("payment-method");
+    expect(prelev("offline")).toContain("payment-method");
+  });
 });
 
 describe("abonnements orphelins et tri", () => {

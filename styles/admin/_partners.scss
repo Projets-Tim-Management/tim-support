@@ -2408,6 +2408,19 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
   color: var(--tim-muted);
   font-size: 0.72rem;
 }
+.jmail__titre {
+  margin: 1.4rem 0 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.jmail__autres {
+  margin-top: 0.6rem;
+
+  > summary {
+    cursor: pointer;
+  }
+}
 .jmail__autres-titre {
   margin: 1.2rem 0 0.2rem;
   color: var(--tim-muted);

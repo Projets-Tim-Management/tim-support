@@ -159,7 +159,7 @@ export type BillingAnalytics = {
 /* ─── Libellés ────────────────────────────────────────────────────────────── */
 
 const PAYMENT_LABELS: Record<string, string> = {
-  "prelevement-gocardless": "Prélèvement GoCardless",
+  "prelevement-gocardless": "Prélèvement SEPA",
   virement: "Virement",
 };
 const PERIOD_LABELS: Record<string, string> = {
