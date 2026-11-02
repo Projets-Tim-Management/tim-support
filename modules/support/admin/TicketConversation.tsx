@@ -61,8 +61,13 @@ function Files({ items }: { items?: Media[] }) {
     <div className="ticket-msg__files">
       {files.map((m) => (
         <a key={m.id} href={m.url} target="_blank" rel="noreferrer" className="ticket-msg__file">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={m.url} alt={m.alt || m.filename || "pièce jointe"} />
+          {!m.mimeType || m.mimeType.startsWith("image/") ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={m.url} alt={m.alt || m.filename || "pièce jointe"} />
+          ) : (
+            // Un PDF, un tableur : pas d'aperçu, son nom — il s'ouvre au clic.
+            <span className="ticket-msg__doc">{m.filename || m.alt || "Document"}</span>
+          )}
         </a>
       ))}
     </div>
