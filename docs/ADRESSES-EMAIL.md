@@ -11,9 +11,9 @@ adresse citée ici ne se renomme pas sans regarder la colonne « utilisée par �
 | Adresse | Accès | Utilisée par le code |
 |---|---|---|
 | `suivi@` | **Public** | **Capture des échanges** — mise en Cci par un commercial, l'e-mail remonte dans l'historique de l'opportunité. Voir plus bas. |
-| `support@` | Personnalisé | Expéditeur par défaut (`EMAIL_FROM`), notifications internes de tickets (`SUPPORT_NOTIFY_EMAIL`). |
+| `support@` | Personnalisé | Expéditeur par défaut (`EMAIL_FROM`), notifications internes de tickets et des demandes du site (réglable dans Système → E-mails de l'équipe, « Adresse du support » ; à défaut `TICKETS_NOTIFY_EMAIL`, puis `EMAIL_FROM`). |
 | `info@` | Personnalisé | — (à ne pas confondre avec `info@tim-management.fr`, voir plus bas) |
-| `team@` | Personnalisé | **Dernier appel du rapprochement** (cron `billing-validation`, à J-2 d'une facture non signée), en plus des admins. `BILLING_REMINDER_TEAM_EMAIL` pour changer l'adresse. |
+| `team@` | Personnalisé | **Dernier appel du rapprochement** (cron `billing-validation`, à J-2 d'une facture non signée), en plus des admins. « Adresse d'équipe » dans Système → E-mails de l'équipe (à défaut `BILLING_REMINDER_TEAM_EMAIL`) pour changer l'adresse. |
 | `contact@` `direction@` `dsi@` `finance@` `partenariat@` `sales@` `service@` | Personnalisé | Aucun usage dans le code à ce jour. |
 
 ## Adresses citées ailleurs

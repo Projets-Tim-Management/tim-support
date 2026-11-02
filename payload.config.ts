@@ -56,9 +56,11 @@ import { AdLearnings } from "./modules/ads/collections/AdLearnings";
 import { AdsSettingsHistory } from "./modules/ads/collections/AdsSettingsHistory";
 import { AdCreatives } from "./modules/ads/collections/AdCreatives";
 import { SupportConnectionsGlobal } from "./core/globals/SupportConnections";
+import { TeamEmails, seedTeamEmails } from "./core/globals/TeamEmails";
 import { Forms } from "./modules/forms/collections/Forms";
 import { FormSubmissions } from "./modules/forms/collections/FormSubmissions";
 import { Ga4Sends } from "./modules/analytics/collections/Ga4Sends";
+import { AxonautInvoices } from "./modules/analytics/collections/AxonautInvoices";
 import { VideoViews } from "./modules/analytics/collections/VideoViews";
 import { MarketingJourneys } from "./modules/marketing/collections/MarketingJourneys";
 import { JourneyRuns } from "./modules/marketing/collections/JourneyRuns";
@@ -393,6 +395,8 @@ export default buildConfig({
       // Les étapes commerciales renvoyées à GA4 (plan de mesure) : une ligne par opportunité et par étape
       Ga4Sends,
       VideoViews,
+      // Les factures Axonaut (janvier 2025 à septembre 2026), le passé de « Analyses → Facturation »
+      AxonautInvoices,
       // Publicité : comptes connectés, campagnes lues chez les régies, chiffres du jour
       AdCampaigns,
       AdCreatives,
@@ -584,6 +588,8 @@ export default buildConfig({
     await seedTrainingSettings(payload);
     // L'identité de la société (page Système → Entreprise), si elle est vide.
     await seedCompanySettings(payload);
+    // Les e-mails d'équipe du registre absents du réglage, avec leurs rôles par défaut.
+    await seedTeamEmails(payload);
 
     // Idem pour les formulaires du site vitrine (cf. seedForms).
     await seedForms(payload);
@@ -626,7 +632,7 @@ export default buildConfig({
        */
     }),
   ],
-  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, TrainingSettings, DevAnnounceEmail, AdsSettings, AdsBrandKit],
+  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, TrainingSettings, DevAnnounceEmail, AdsSettings, AdsBrandKit, TeamEmails],
 
   db: postgresAdapter({
     // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :

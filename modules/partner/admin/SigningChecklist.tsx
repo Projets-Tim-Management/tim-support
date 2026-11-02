@@ -31,6 +31,13 @@ import {
  * de rappel, vu en aperçu avant de partir (voir ReminderDrawer). Proposé
  * seulement quand le document est dans l'espace du client — l'état vient du
  * serveur, donc d'une fiche enregistrée.
+ *
+ * Sur chaque étape qui attend le CLIENT, tant qu'elle n'est pas faite :
+ * « Envoyer l'e-mail » si son e-mail n'est jamais parti (l'invitation pour
+ * l'étape 1 ; « Un document vous attend » pour un devis ou un contrat déposé
+ * pendant que l'accès était fermé), puis « Relancer ». Les étapes du
+ * partenaire (déposer) n'ont pas d'e-mail à envoyer : l'avis part tout seul au
+ * dépôt.
  */
 
 type Access = {
@@ -42,6 +49,13 @@ type Access = {
 };
 
 type ReminderKind = SignableKind;
+type Notices = Record<SignableKind, { sentAt: string | null; deposited: boolean }>;
+
+/** L'étape « envoyé » (partenaire) dont le dépôt prévient le client tout seul. */
+const AUTO_NOTICE: Partial<Record<SigningDocKey, string>> = {
+  "devis-envoye": "le devis",
+  "contrat-envoye": "le contrat",
+};
 type ReminderState = {
   available: boolean;
   reason: string | null;
@@ -139,6 +153,38 @@ export function SigningChecklist() {
   // dépôt rend la relance possible, une signature la retire.
   useEffect(() => loadReminders(), [loadReminders, lastUpdateTime]);
 
+  // ── Avis « Un document vous attend » ──────────────────────────────────────
+  const [notices, setNotices] = useState<Notices | null>(null);
+  const [noticing, setNoticing] = useState<SignableKind | null>(null);
+  const loadNotices = useCallback(() => {
+    if (id == null) return;
+    fetch(`/api/admin/signing-document-notice?clientId=${id}`, { credentials: "include" })
+      .then((r) => (r.ok ? (r.json() as Promise<Notices>) : null))
+      .then(setNotices)
+      .catch(() => setNotices(null));
+  }, [id]);
+  useEffect(() => loadNotices(), [loadNotices, lastUpdateTime]);
+
+  const sendNotice = async (kind: SignableKind) => {
+    setNoticing(kind);
+    try {
+      const res = await fetch("/api/admin/signing-document-notice", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: id, kind }),
+      });
+      const data = (await res.json().catch(() => null)) as { email?: string; message?: string } | null;
+      if (!res.ok) throw new Error(data?.message || "L'e-mail n'est pas parti.");
+      toast.success(`E-mail envoyé à ${data?.email ?? "votre client"}.`);
+      loadNotices();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setNoticing(null);
+    }
+  };
+
   const invite = async () => {
     setSending(true);
     try {
@@ -162,6 +208,8 @@ export function SigningChecklist() {
   if (id == null) return null;
 
   const invited = Boolean(access?.active && access.invitationSentAt);
+  // L'invitation se gère depuis l'étape 1 tant qu'elle n'est pas faite : le bouton du bandeau ne servirait qu'en double.
+  const companyStepDone = steps.find((s) => s.key === "entreprise")?.done ?? false;
 
   return (
     <div className="field-type sig-box">
@@ -198,7 +246,7 @@ export function SigningChecklist() {
                       }.`}
           </p>
         </div>
-        {access && (
+        {access && companyStepDone && (
           <button type="button" className="sig-btn" disabled={sending} onClick={() => void invite()}>
             {sending
               ? "Envoi…"
@@ -229,9 +277,28 @@ export function SigningChecklist() {
                 {step.key === "entreprise" && !step.done && (
                   <p className="sig-step__hint">
                     À compléter dans l&apos;onglet « Facturation client », ou par le client dans son espace.
+                    {access?.invitationSentAt ? ` Invitation envoyée le ${frDate(access.invitationSentAt)}.` : " L'invitation lui demande ces informations."}
                   </p>
                 )}
+                {docKey && AUTO_NOTICE[docKey] && !step.done && (
+                  <p className="sig-step__hint">L&apos;e-mail « Un document vous attend » part tout seul quand {AUTO_NOTICE[docKey]} est déposé.</p>
+                )}
+                {remindKind && notices?.[remindKind]?.sentAt && (
+                  <p className="sig-step__hint">« Un document vous attend » envoyé le {frDate(notices[remindKind].sentAt)}.</p>
+                )}
               </div>
+              {/* Étape 1 : l'invitation, puis sa relance — tant que les informations ne sont pas complètes. */}
+              {step.key === "entreprise" && !step.done && access && (
+                <button type="button" className="sig-btn" disabled={sending} onClick={() => void invite()}>
+                  {sending ? "Envoi…" : invited ? "Relancer" : "Envoyer l'e-mail"}
+                </button>
+              )}
+              {/* Devis / contrat déposé, client jamais prévenu (accès fermé au dépôt) : l'avis à la main. */}
+              {remindKind && notices?.[remindKind]?.deposited && !notices[remindKind].sentAt && (
+                <button type="button" className="sig-btn" disabled={noticing === remindKind} onClick={() => void sendNotice(remindKind)}>
+                  {noticing === remindKind ? "Envoi…" : "Envoyer l'e-mail"}
+                </button>
+              )}
               {remindKind && reminders?.[remindKind]?.available && (
                 <button type="button" className="sig-btn" onClick={() => setReminding(remindKind)}>
                   Relancer

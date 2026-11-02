@@ -2308,6 +2308,14 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
 /* Onglet « E-mails » d'une phase de test : la séquence prévue, face à ce que
    Brevo a constaté. Reprend la mise en forme de l'onglet des tickets — c'est la
    même information, elle ne doit pas se lire de deux façons. */
+/* Le conseil de relance (mise en production) : en tête, la couleur dit l'urgence. */
+.jmail__conseil {
+  margin: 0 0 0.9rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
 .jmail__intro,
 .jmail__vide {
   margin: 0 0 0.9rem;
@@ -2399,6 +2407,19 @@ body.tim-not-admin .collection-list--partner-clients .pill-selector #partner {
 .jmail__meta {
   color: var(--tim-muted);
   font-size: 0.72rem;
+}
+.jmail__titre {
+  margin: 1.4rem 0 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.jmail__autres {
+  margin-top: 0.6rem;
+
+  > summary {
+    cursor: pointer;
+  }
 }
 .jmail__autres-titre {
   margin: 1.2rem 0 0.2rem;

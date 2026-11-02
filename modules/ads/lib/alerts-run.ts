@@ -4,7 +4,7 @@ import { adminUrl, internalNotice } from "@/core/lib/email-template";
 import { submitAction } from "@/modules/ads/lib/actions-run";
 import { ALERT_KINDS, alertKey, CONFIRM_AFTER_MS, detectAlerts, needsConfirmation, URGENT_KINDS, type CampaignIn, type DayIn, type Detected, type ObjectIn } from "@/modules/ads/lib/alerts";
 import { dayInTz } from "@/modules/ads/lib/sync";
-import { adminEmails } from "@/modules/marketing/lib/notify";
+import { teamRecipients } from "@/core/lib/team-emails";
 
 /**
  * Les alertes, après chaque synchro (plan Publicité, §9 nonies, étape 2) :
@@ -165,7 +165,7 @@ export async function runAlerts(payload: Payload, now = new Date(), deps: { fetc
 
 /** Un e-mail pour toutes les urgences du passage ; chaque alerte le note pour ne jamais le renvoyer. */
 async function notify(payload: Payload, alerts: { id: number; d: Detected }[], now: Date): Promise<number> {
-  const to = await adminEmails(payload);
+  const to = await teamRecipients(payload, "publicite-urgence");
   if (!to.length) return 0;
   const first = alerts[0].d;
   const subject = alerts.length === 1 ? `Publicité — ${label(first.kind)} : « ${first.name} »` : `Publicité — ${alerts.length} urgences sur vos campagnes`;

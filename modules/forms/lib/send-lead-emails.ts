@@ -1,6 +1,6 @@
 import type { Payload } from "payload";
 
-import { SUPPORT_NOTIFY_EMAIL } from "@/modules/support/lib/email";
+import { supportAddress } from "@/core/lib/team-emails";
 import type { Attribution } from "@/modules/forms/lib/ingest";
 import type { Channel } from "@/modules/forms/lib/form-schema";
 import type { PublicForm } from "@/modules/forms/lib/public-schema";
@@ -81,7 +81,7 @@ export async function sendLeadEmails(
 
   await payload
     .sendEmail({
-      to: SUPPORT_NOTIFY_EMAIL,
+      to: await supportAddress(payload),
       subject: notice.subject,
       html: notice.html,
       text: notice.text,

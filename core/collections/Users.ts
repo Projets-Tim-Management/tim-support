@@ -11,6 +11,7 @@ import {
   superAdminOnlyField,
 } from "@/core/access";
 import { guardSuperAdminOnChange, guardSuperAdminOnDelete } from "@/core/hooks/superAdmin";
+import { TEAM_EMAIL_OPTIONS, TEAM_ROLES } from "@/core/lib/team-emails";
 
 /** Libellés FR des rôles pour le champ select. */
 const ROLE_LABELS: Record<(typeof ALL_ROLES)[number], string> = {
@@ -131,6 +132,42 @@ export const Users: CollectionConfig = {
         create: superAdminOnlyField,
         update: superAdminOnlyField,
       },
+    },
+    {
+      // Les e-mails d'équipe que reçoit ce compte (core/lib/team-emails.ts) :
+      // ceux de ses rôles (Système → « E-mails de l'équipe »), ou sa propre liste.
+      // Chacun règle le sien depuis « Mon compte » ; le super-admin, tous.
+      type: "collapsible",
+      label: "E-mails reçus",
+      admin: {
+        initCollapsed: true,
+        description: "Les e-mails internes de l'équipe (rapprochement, parcours client, publicité, agendas). Les e-mails aux clients ne passent pas par ici.",
+        // Seulement pour les comptes internes à TIM : un partenaire utilisateur ne reçoit pas d'e-mail d'équipe.
+        condition: (data) => ((data?.roles as string[] | undefined) ?? []).some((r) => (TEAM_ROLES as string[]).includes(r)),
+      },
+      fields: [
+        {
+          name: "teamEmailsMode",
+          type: "radio",
+          label: "Ce que reçoit ce compte",
+          defaultValue: "role",
+          options: [
+            { label: "Les e-mails de ses rôles (réglage Système → E-mails de l'équipe)", value: "role" },
+            { label: "Une liste personnelle", value: "custom" },
+          ],
+        },
+        {
+          name: "teamEmails",
+          type: "select",
+          hasMany: true,
+          label: "E-mails reçus",
+          options: TEAM_EMAIL_OPTIONS,
+          admin: {
+            description: "Cochez ce que ce compte doit recevoir. Une alerte critique que personne ne reçoit part quand même au super-admin.",
+            condition: (_data, siblingData) => siblingData?.teamEmailsMode === "custom",
+          },
+        },
+      ],
     },
     {
       // LIEN User ↔ Partenaire — la « clé de scoping » (voir docs/RBAC-PLAN.md §2).

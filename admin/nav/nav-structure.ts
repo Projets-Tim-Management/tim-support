@@ -144,7 +144,7 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
   Facturation: [{ label: "Rapprochement", href: "/admin/facturation", adminOnly: true }],
   /**
    * Les chiffres : une page par sujet, des tableaux et des graphiques. Réservé
-   * aux admins. Aucune collection derrière : ce sont des vues calculées.
+   * aux admins. Des vues calculées, et l'historique Axonaut en lecture.
    */
   Analyses: [
     { label: "Facturation", href: "/admin/analyses/facturation", adminOnly: true },
@@ -189,6 +189,8 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     "contract-settings",
     // Le programme type des formations (par profil).
     "training-settings",
+    // Qui reçoit chaque e-mail interne (par rôle ; chacun peut le remplacer sur sa fiche).
+    "team-emails",
     "mailbox-connections",
     "media",
     { label: "Connexions du support", href: "/admin/connexions-support", adminOnly: true },

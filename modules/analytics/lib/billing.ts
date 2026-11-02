@@ -43,7 +43,7 @@ export type MonthPoint = {
   month: string;
   /** Σ CA HT/mois attendu d'après les fiches en vigueur ce mois-là. */
   expected: number;
-  /** Σ HT des factures Pennylane émises ce mois-là. */
+  /** Σ HT facturé ce mois-là : Axonaut jusqu'en septembre 2026, Pennylane ensuite. */
   invoiced: number;
   /** Σ TTC encaissé (factures de ce mois payées). */
   paid: number;
@@ -159,7 +159,7 @@ export type BillingAnalytics = {
 /* ─── Libellés ────────────────────────────────────────────────────────────── */
 
 const PAYMENT_LABELS: Record<string, string> = {
-  "prelevement-gocardless": "Prélèvement GoCardless",
+  "prelevement-gocardless": "Prélèvement SEPA",
   virement: "Virement",
 };
 const PERIOD_LABELS: Record<string, string> = {
@@ -209,6 +209,8 @@ export function buildBillingAnalytics(
   report: BillingReport | null,
   months: number,
   now: Date,
+  /** Le facturé d'avant Pennylane (Axonaut), HT par mois « AAAA-MM » — récurrent et prestations. */
+  legacyInvoiced: Map<string, number> = new Map(),
 ): BillingAnalytics {
   const partnersById = new Map(partners.map((p) => [String(p.id), p]));
   const checksById = new Map((report?.checks ?? []).map((c) => [String(c.client.id), c]));
@@ -359,8 +361,8 @@ export function buildBillingAnalytics(
   }));
 
   /* ── Série mensuelle, et l'évolution sur 25 mois quel que soit le filtre ── */
-  const series = monthlySeries(clients, starts, report, months, now);
-  const growth = computeGrowth(monthlySeries(clients, starts, report, 25, now));
+  const series = monthlySeries(clients, starts, report, months, now, legacyInvoiced);
+  const growth = computeGrowth(monthlySeries(clients, starts, report, 25, now, legacyInvoiced));
 
   const controlled = report?.checks.length ?? 0;
   const conformes = report?.checks.filter((c) => c.verdict === "ok").length ?? 0;
@@ -401,8 +403,8 @@ export function buildBillingAnalytics(
 /**
  * Mois par mois sur `months` mois : le CA attendu d'après l'historique des
  * fiches (la ligne en vigueur ce mois-là, pour les clients dont la facturation
- * a commencé à cette date — `starts`), face à ce que Pennylane a émis et
- * encaissé.
+ * a commencé à cette date — `starts`), face à ce qui a été facturé : Axonaut
+ * avant la bascule (`legacy`), puis ce que Pennylane a émis et encaissé.
  */
 function monthlySeries(
   clients: ClientDoc[],
@@ -410,8 +412,11 @@ function monthlySeries(
   report: BillingReport | null,
   months: number,
   now: Date,
+  legacy: Map<string, number>,
 ): MonthPoint[] {
   const invoicesByMonth = new Map<string, { invoiced: number; paid: number }>();
+  // « AAAA-MM » → la clé de mois d'ici (« AAAA-M », mois 0-indexé).
+  for (const [ym, ht] of legacy) invoicesByMonth.set(monthKey(`${ym}-01T00:00:00Z`), { invoiced: ht, paid: 0 });
   for (const check of report?.checks ?? []) {
     for (const inv of check.invoices) {
       if (!inv.date || inv.state === "annulee") continue;

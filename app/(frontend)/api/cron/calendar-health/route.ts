@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { accessTokenFor } from "@/modules/marketing/lib/calendar";
-import { adminEmails } from "@/modules/marketing/lib/notify";
+import { teamRecipients } from "@/core/lib/team-emails";
 
 /**
  * Contrôle quotidien des agendas connectés.
@@ -101,7 +101,7 @@ export async function GET(req: Request) {
   // On n'alerte que s'il y a matière : une connexion morte, ou un rendez-vous
   // qui arrive sans lien. Un rapport quotidien « tout va bien » ne se lit pas.
   if (!dry && (cassees.length || sessionsSansLien.length)) {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "agendas");
     if (to.length) {
       const lignes = [
         cassees.length ? "AGENDAS À RECONNECTER" : null,

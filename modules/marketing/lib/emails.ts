@@ -98,6 +98,12 @@ export type JourneyEmailContext = {
   code?: string | null;
   /** Signature en ligne : le document concerné (« devis », « contrat »). */
   documentNoun?: string | null;
+  /**
+   * Invitation à signer : les informations de l'entreprise qui manquent encore
+   * sur la fiche (« SIREN ou SIRET », « Adresse de facturation »…). Listées dans
+   * l'e-mail avec le lien pour les compléter ; vide = rien à demander.
+   */
+  missingInfo?: string[] | null;
   /** Lien vers le document signé, pour la copie envoyée au signataire. */
   documentUrl?: string | null;
   /** Relance de signature : date d'envoi du document, rappelée au client. */
@@ -366,6 +372,19 @@ const invitationSignature = (ctx: JourneyEmailContext): BuiltEmail => {
   const intro = bloc(ctx, key, "intro");
   const listeIntro = bloc(ctx, key, "liste_intro");
   const encadre = bloc(ctx, key, "encadre");
+  // Ce qui manque VRAIMENT sur la fiche, dit tel quel : le client sait quoi
+  // préparer, et le lien l'y mène directement.
+  const missing = (ctx.missingInfo ?? []).filter(Boolean);
+  const missingText = missing.length
+    ? ["Pour commencer, il nous manque encore :", ...missing.map((m) => `  • ${m}`), `Complétez-les ici : ${PORTAL_SIGNATURE}`, ""]
+    : [];
+  const missingHtml = missing.length
+    ? callout(
+        `<strong>Pour commencer, il nous manque encore :</strong>` +
+          bullets(missing.map((m) => escape(m))) +
+          `<a href="${PORTAL_SIGNATURE}">Compléter mes informations</a>`,
+      )
+    : "";
   return {
     subject: sujet(ctx, key),
     text: [
@@ -373,6 +392,7 @@ const invitationSignature = (ctx: JourneyEmailContext): BuiltEmail => {
       "",
       intro.text,
       "",
+      ...missingText,
       listeIntro.text,
       "  • les informations de votre entreprise pour la facturation (SIREN, adresse)",
       "  • votre devis, à télécharger et à nous retourner signé",
@@ -389,6 +409,7 @@ const invitationSignature = (ctx: JourneyEmailContext): BuiltEmail => {
       bodyHtml:
         paragraph(hello(ctx)) +
         paragraph(intro.html) +
+        missingHtml +
         paragraph(listeIntro.html) +
         bullets([
           "les <strong>informations de votre entreprise</strong> pour la facturation (SIREN, adresse)",

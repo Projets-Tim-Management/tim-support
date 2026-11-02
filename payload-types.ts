@@ -96,6 +96,7 @@ export interface Config {
     'mass-email-campaigns': MassEmailCampaign;
     'ga4-sends': Ga4Send;
     'video-views': VideoView;
+    'axonaut-invoices': AxonautInvoice;
     'ad-campaigns': AdCampaign;
     'ad-creatives': AdCreative;
     'ad-accounts': AdAccount;
@@ -189,6 +190,7 @@ export interface Config {
     'mass-email-campaigns': MassEmailCampaignsSelect<false> | MassEmailCampaignsSelect<true>;
     'ga4-sends': Ga4SendsSelect<false> | Ga4SendsSelect<true>;
     'video-views': VideoViewsSelect<false> | VideoViewsSelect<true>;
+    'axonaut-invoices': AxonautInvoicesSelect<false> | AxonautInvoicesSelect<true>;
     'ad-campaigns': AdCampaignsSelect<false> | AdCampaignsSelect<true>;
     'ad-creatives': AdCreativesSelect<false> | AdCreativesSelect<true>;
     'ad-accounts': AdAccountsSelect<false> | AdAccountsSelect<true>;
@@ -243,6 +245,7 @@ export interface Config {
     'dev-announce-email': DevAnnounceEmail;
     'ads-settings': AdsSetting;
     'ads-brand-kit': AdsBrandKit;
+    'team-emails': TeamEmail;
   };
   globalsSelect: {
     appearance: AppearanceSelect<false> | AppearanceSelect<true>;
@@ -253,6 +256,7 @@ export interface Config {
     'dev-announce-email': DevAnnounceEmailSelect<false> | DevAnnounceEmailSelect<true>;
     'ads-settings': AdsSettingsSelect<false> | AdsSettingsSelect<true>;
     'ads-brand-kit': AdsBrandKitSelect<false> | AdsBrandKitSelect<true>;
+    'team-emails': TeamEmailsSelect<false> | TeamEmailsSelect<true>;
   };
   locale: null;
   widgets: {
@@ -393,6 +397,29 @@ export interface User {
   lastName?: string | null;
   name?: string | null;
   roles?: ('super-admin' | 'admin' | 'partner-metier' | 'partner-utilisateur' | 'support')[] | null;
+  teamEmailsMode?: ('role' | 'custom') | null;
+  /**
+   * Cochez ce que ce compte doit recevoir. Une alerte critique que personne ne reçoit part quand même au super-admin.
+   */
+  teamEmails?:
+    | (
+        | 'rapprochement-mois'
+        | 'rapprochement-dernier-appel'
+        | 'contrat-a-contresigner'
+        | 'client-gagne'
+        | 'parcours-go-nogo'
+        | 'parcours-devis'
+        | 'parcours-contrat'
+        | 'parcours-dossier'
+        | 'parcours-prise-en-main'
+        | 'parcours-acces-manquants'
+        | 'parcours-etapes'
+        | 'publicite-urgence'
+        | 'publicite-reconnexion'
+        | 'publicite-recap'
+        | 'agendas'
+      )[]
+    | null;
   /**
    * Fiche partenaire rattachée à ce compte (rôles partenaire uniquement).
    */
@@ -2370,6 +2397,40 @@ export interface VideoView {
   createdAt: string;
 }
 /**
+ * Historique d'avant Pennylane (septembre 2021 à septembre 2026), importé des PDF d'Axonaut — factures de TIM seulement, rien de DELIGUME. Lecture seule.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "axonaut-invoices".
+ */
+export interface AxonautInvoice {
+  id: number;
+  number: string;
+  kind: 'facture' | 'avoir';
+  date: string;
+  month: string;
+  client?: (number | null) | PartnerClient;
+  clientName: string;
+  siren?: string | null;
+  totalHT: number;
+  totalTTC: number;
+  recurringHT: number;
+  servicesHT: number;
+  creditFor?: string | null;
+  note?: string | null;
+  lines?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  sourceFile?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Les campagnes : celles lues chez les régies (mises à jour chaque nuit, chiffres en lecture seule) et les brouillons préparés ici, avec leur brief.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3975,6 +4036,10 @@ export interface PayloadLockedDocument {
         value: number | VideoView;
       } | null)
     | ({
+        relationTo: 'axonaut-invoices';
+        value: number | AxonautInvoice;
+      } | null)
+    | ({
         relationTo: 'ad-campaigns';
         value: number | AdCampaign;
       } | null)
@@ -5236,6 +5301,29 @@ export interface VideoViewsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "axonaut-invoices_select".
+ */
+export interface AxonautInvoicesSelect<T extends boolean = true> {
+  number?: T;
+  kind?: T;
+  date?: T;
+  month?: T;
+  client?: T;
+  clientName?: T;
+  siren?: T;
+  totalHT?: T;
+  totalTTC?: T;
+  recurringHT?: T;
+  servicesHT?: T;
+  creditFor?: T;
+  note?: T;
+  lines?: T;
+  sourceFile?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ad-campaigns_select".
  */
 export interface AdCampaignsSelect<T extends boolean = true> {
@@ -6115,6 +6203,8 @@ export interface UsersSelect<T extends boolean = true> {
   lastName?: T;
   name?: T;
   roles?: T;
+  teamEmailsMode?: T;
+  teamEmails?: T;
   partner?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -6550,6 +6640,47 @@ export interface AdsBrandKit {
   createdAt?: string | null;
 }
 /**
+ * Qui reçoit chaque e-mail interne, selon son rôle. Une personne peut remplacer ce choix par sa propre liste, sur sa fiche (section « E-mails reçus »). Une alerte marquée critique part quand même au super-admin si personne ne la reçoit.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "team-emails".
+ */
+export interface TeamEmail {
+  id: number;
+  rules?:
+    | {
+        email:
+          | 'rapprochement-mois'
+          | 'rapprochement-dernier-appel'
+          | 'contrat-a-contresigner'
+          | 'client-gagne'
+          | 'parcours-go-nogo'
+          | 'parcours-devis'
+          | 'parcours-contrat'
+          | 'parcours-dossier'
+          | 'parcours-prise-en-main'
+          | 'parcours-acces-manquants'
+          | 'parcours-etapes'
+          | 'publicite-urgence'
+          | 'publicite-reconnexion'
+          | 'publicite-recap'
+          | 'agendas';
+        roles?: ('super-admin' | 'admin' | 'support')[] | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Ajoutée au dernier appel du rapprochement. Vide : team@tim-management.co.
+   */
+  teamAddress?: string | null;
+  /**
+   * Reçoit les demandes du site et les tickets. Vide : support@tim-management.co.
+   */
+  supportAddress?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "appearance_select".
  */
@@ -6761,6 +6892,24 @@ export interface AdsBrandKitSelect<T extends boolean = true> {
       };
   advertiser?: T;
   legalNotice?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "team-emails_select".
+ */
+export interface TeamEmailsSelect<T extends boolean = true> {
+  rules?:
+    | T
+    | {
+        email?: T;
+        roles?: T;
+        id?: T;
+      };
+  teamAddress?: T;
+  supportAddress?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

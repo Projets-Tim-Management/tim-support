@@ -134,7 +134,7 @@ describe("KPI et répartitions", () => {
       ["Sans partenaire", 100, 0],
     ]);
     expect(a.kpis.commissions).toBe(30);
-    expect(a.byPaymentMethod).toEqual([{ key: "prelevement-gocardless", label: "Prélèvement GoCardless", count: 3, caHT: 300 }]);
+    expect(a.byPaymentMethod).toEqual([{ key: "prelevement-gocardless", label: "Prélèvement SEPA", count: 3, caHT: 300 }]);
   });
 
   it("classe les impayés par ancienneté et les remonte sur le client", () => {
@@ -258,5 +258,14 @@ describe("évolution", () => {
     ).growth;
     expect(g.month.ca).toEqual({ current: 50, previous: 0, pct: null });
     expect(g.year.clients).toEqual({ current: 1, previous: 0, pct: null });
+  });
+
+  it("met le facturé Axonaut dans la série, au mois près", () => {
+    const series = buildBillingAnalytics([], PARTNERS, null, 3, NOW, new Map([["2026-08", 3569.3], ["2026-07", 3489.6]])).series;
+    expect(series.map((m) => [m.month.slice(0, 7), m.invoiced])).toEqual([
+      ["2026-07", 3489.6],
+      ["2026-08", 3569.3],
+      ["2026-09", 0],
+    ]);
   });
 });

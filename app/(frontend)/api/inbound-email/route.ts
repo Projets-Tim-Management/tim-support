@@ -10,7 +10,8 @@ import {
 } from "@/modules/marketing/lib/reply-routing";
 import { resolveJourney, type TicketDoc } from "@/modules/marketing/lib/journey-ticket";
 import { captureAddresses, captureEmail } from "@/modules/partner/lib/email-capture";
-import { SUPPORT_NOTIFY_EMAIL, ticketReplyNoticeEmail } from "@/modules/support/lib/email";
+import { supportAddress } from "@/core/lib/team-emails";
+import { ticketReplyNoticeEmail } from "@/modules/support/lib/email";
 
 // Webhook d'e-mails entrants (Brevo Inbound Parsing).
 //
@@ -315,7 +316,7 @@ export async function POST(req: Request) {
     // enregistré dans le ticket ; un échec d'envoi ne doit pas casser le webhook).
     try {
       await payload.sendEmail({
-        to: SUPPORT_NOTIFY_EMAIL,
+        to: await supportAddress(payload),
         ...ticketReplyNoticeEmail({
           id: ticket.id,
           number: ticket.number ?? 0,

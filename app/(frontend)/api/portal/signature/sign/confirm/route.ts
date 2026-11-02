@@ -6,7 +6,7 @@ import { afterResponse } from "@/core/lib/after-response";
 import { adminUrl, internalNotice } from "@/core/lib/email-template";
 import { payloadClient } from "@/core/payload-client";
 import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
-import { adminEmails } from "@/modules/marketing/lib/notify";
+import { teamRecipients } from "@/core/lib/team-emails";
 import { relId } from "@/core/lib/relations";
 import { codeMatches } from "@/modules/marketing/lib/portal-auth";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
@@ -29,6 +29,7 @@ import {
 import { recordClientSignature } from "@/modules/partner/lib/contract-lifecycle";
 import { consumeCode, moveContractStatus, spendAttempt } from "@/modules/partner/lib/sign-guards";
 import { templateTexts } from "@/modules/partner/lib/signing-access";
+import { signingMail, signStepOf } from "@/modules/marketing/lib/run-mail-log";
 
 /**
  * POST /api/portal/signature/sign/confirm — le client saisit son code : c'est
@@ -229,7 +230,7 @@ export async function POST(req: Request) {
       // Pas de copie au client : il recevra le contrat signé par les DEUX
       // parties, après la contresignature. TIM est prévenu, sur le moment.
       afterResponse(async () => {
-        const to = await adminEmails(payload);
+        const to = await teamRecipients(payload, "contrat-a-contresigner");
         if (!to.length) return;
         const url = adminUrl(`/collections/partner-clients/${client.id}`);
         await payload.sendEmail({
@@ -262,7 +263,9 @@ export async function POST(req: Request) {
         documentUrl: media.url ?? null,
         texts,
       });
-      await payload.sendEmail({ to: sig.signerEmail, subject: built.subject, html: built.html, text: built.text });
+      const mail = await signingMail(payload, client.id);
+      await payload.sendEmail({ to: sig.signerEmail, subject: built.subject, html: built.html, text: built.text, ...mail.mailHeaders });
+      await mail.record("document-signe", built.subject, sig.signerEmail!, signStepOf(kind));
     }, (e) => payload.logger.error(`[signature] copie signée non envoyée : ${e}`));
 
     return NextResponse.json({ ok: true, url: media.url ?? null, filename: media.filename ?? null, reference });

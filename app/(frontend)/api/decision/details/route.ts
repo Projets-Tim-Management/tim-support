@@ -11,7 +11,8 @@ import {
 } from "@/modules/marketing/lib/journey";
 import { resolveJourney } from "@/modules/marketing/lib/journey-ticket";
 import { readRunToken } from "@/modules/marketing/lib/run-token";
-import { SUPPORT_NOTIFY_EMAIL, ticketReplyNoticeEmail } from "@/modules/support/lib/email";
+import { supportAddress } from "@/core/lib/team-emails";
+import { ticketReplyNoticeEmail } from "@/modules/support/lib/email";
 
 /**
  * La seconde étape de « Votre décision » : combien de temps, ou ce qui a manqué.
@@ -111,9 +112,9 @@ export async function POST(req: Request) {
 
     // Celui qui a cliqué attend son écran, pas l'envoi d'un e-mail interne.
     afterResponse(
-      () =>
+      async () =>
         payload.sendEmail({
-          to: SUPPORT_NOTIFY_EMAIL,
+          to: await supportAddress(payload),
           ...ticketReplyNoticeEmail({
             id: ticket.id,
             number: ticket.number ?? 0,

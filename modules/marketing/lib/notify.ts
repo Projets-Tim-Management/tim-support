@@ -1,6 +1,6 @@
 import type { Payload } from "payload";
 
-import { ROLES } from "@/core/access";
+import { teamRecipients } from "@/core/lib/team-emails";
 import { eur } from "@/modules/partner/lib/format";
 import { effectiveUnitPrice, licenceLinesOf } from "@/modules/partner/lib/pricing";
 import { TIMEZONE as PARIS } from "@/modules/marketing/lib/scheduling";
@@ -41,40 +41,6 @@ import {
 export type BuiltEmail = { subject: string; text: string; html: string };
 
 
-/**
- * Adresses de tous les admins et super-admins, SANS DOUBLON.
- *
- * Le dédoublonnage n'est pas une précaution : `roles` est un select `hasMany`,
- * donc une table à part, et une recherche « roles in (admin, super-admin) »
- * renvoie une ligne PAR RÔLE correspondant. Un compte qui porte les deux — le
- * cas normal d'un super-admin, puisque le rôle `admin` est la valeur par défaut
- * — ressort donc deux fois, son adresse figure deux fois dans le `to`, et il
- * reçoit chaque alerte en double.
- *
- * Comparaison en minuscules et sans espaces : deux comptes distincts écrits
- * « Jean@… » et « jean@… » sont la même boîte aux lettres.
- */
-export async function adminEmails(payload: Payload): Promise<string[]> {
-  const res = await payload.find({
-    collection: "users",
-    where: { roles: { in: [ROLES.admin, ROLES.superAdmin] } },
-    limit: 50,
-    depth: 0,
-    overrideAccess: true,
-  });
-
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const doc of res.docs) {
-    const email = (doc as { email?: string }).email?.trim();
-    if (!email) continue;
-    const key = email.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(email);
-  }
-  return out;
-}
 
 /**
  * Même règle que pour les gabarits client : le fuseau est explicite, toujours.
@@ -220,7 +186,7 @@ export async function notifyAdminsTestRequested(
   ctx: TestRequestContext,
 ): Promise<void> {
   try {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "parcours-go-nogo");
     if (to.length === 0) {
       payload.logger.warn("[parcours] aucune adresse admin : demande de phase de test non notifiée.");
       return;
@@ -372,7 +338,7 @@ export async function notifyAdminsQuoteNeeded(
   ctx: QuoteContext,
 ): Promise<void> {
   try {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "parcours-devis");
     if (to.length === 0) {
       payload.logger.warn("[parcours] aucune adresse admin : devis à rédiger non notifié.");
       return;
@@ -479,7 +445,7 @@ export async function notifyAdminsContractNeeded(
   ctx: SimpleNoticeContext,
 ): Promise<void> {
   try {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "parcours-contrat");
     if (to.length === 0) {
       payload.logger.warn("[parcours] aucune adresse admin : demande de contrat non notifiée.");
       return;
@@ -488,6 +454,65 @@ export async function notifyAdminsContractNeeded(
     payload.logger.info(`[parcours] demande de contrat notifiée à ${to.length} admin(s).`);
   } catch (err) {
     payload.logger.error(`[parcours] notification « contrat à établir » échouée : ${err}`);
+  }
+}
+
+/** Ce que dit l'e-mail « nouveau client signé ». */
+export type ClientWonContext = {
+  clientId: number | string;
+  clientName: string;
+  partnerName: string | null;
+  /** CA HT par mois, remises déduites (le `caPaye` de la fiche). */
+  monthlyHT: number;
+  licences: Record<string, number | null | undefined> | null;
+  billingStart: string | null;
+  billingPeriod: string | null;
+  paymentMethod: string | null;
+};
+
+const PERIOD_LABELS: Record<string, string> = { mensuelle: "Mensuelle", trimestrielle: "Trimestrielle", annuelle: "Annuelle" };
+const PAYMENT_LABELS: Record<string, string> = { "prelevement-gocardless": "Prélèvement SEPA (Pennylane)", virement: "Virement" };
+
+/** Un nouveau client : qui, apporté par qui, combien par mois, quelles licences, à partir de quand. */
+export function buildClientWonEmail(ctx: ClientWonContext): BuiltEmail {
+  const lines = licenceLinesOf(ctx.licences)
+    .map((l) => ({ label: l.label, qty: l.qty, price: effectiveUnitPrice(l) }))
+    .filter((l) => l.qty > 0);
+  const detail = lines.map((l) => `${l.qty} × ${l.label} à ${eur.format(l.price)}`).join(" · ");
+  const start = ctx.billingStart ? new Date(ctx.billingStart).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: PARIS }) : null;
+  const url = adminUrl(`/collections/partner-clients/${ctx.clientId}`);
+  const rows: [string, string][] = [
+    ["Client", ctx.clientName],
+    ["Montant mensuel", `${eur.format(ctx.monthlyHT)} HT / mois`],
+    ...(detail ? ([["Licences", detail]] as [string, string][]) : []),
+    ...(ctx.partnerName ? ([["Apporté par", ctx.partnerName]] as [string, string][]) : []),
+    ...(start ? ([["Facturation à partir du", start]] as [string, string][]) : []),
+    ...(ctx.billingPeriod ? ([["Périodicité", PERIOD_LABELS[ctx.billingPeriod] ?? ctx.billingPeriod]] as [string, string][]) : []),
+    ...(ctx.paymentMethod ? ([["Paiement", PAYMENT_LABELS[ctx.paymentMethod] ?? ctx.paymentMethod]] as [string, string][]) : []),
+  ];
+  return {
+    subject: `Nouveau client signé — ${ctx.clientName} (${eur.format(ctx.monthlyHT)} HT / mois)`,
+    text: [`Nouveau client signé : ${ctx.clientName}.`, "", ...rows.map(([k, v]) => `${k} : ${v}`), "", url].join("\n"),
+    html: internalNotice({
+      kicker: "Nouveau client",
+      heading: `${ctx.clientName} est signé`,
+      rows,
+      message: "La fiche est passée en « Gagnée ». Le montant est celui des licences de la fiche, remises déduites.",
+      cta: { label: "Ouvrir la fiche", url },
+      links: [],
+    }),
+  };
+}
+
+/** Une fiche vient de passer en « Gagnée » : l'équipe l'apprend, avec le montant mensuel. */
+export async function notifyClientWon(payload: Payload, ctx: ClientWonContext): Promise<void> {
+  try {
+    const to = await teamRecipients(payload, "client-gagne");
+    if (to.length === 0) return;
+    await payload.sendEmail({ to: to.join(","), ...buildClientWonEmail(ctx) });
+    payload.logger.info(`[client gagné] ${ctx.clientName} annoncé à ${to.length} personne(s).`);
+  } catch (err) {
+    payload.logger.error(`[client gagné] annonce de ${ctx.clientName} échouée : ${err}`);
   }
 }
 
@@ -501,7 +526,7 @@ export async function notifyAdminsDossierToCheck(
   ctx: SimpleNoticeContext,
 ): Promise<void> {
   try {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "parcours-dossier");
     if (to.length === 0) {
       payload.logger.warn("[parcours] aucune adresse admin : dossier à vérifier non notifié.");
       return;
@@ -530,7 +555,7 @@ export async function notifyAdminsSessionBooked(
   },
 ): Promise<void> {
   try {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "parcours-prise-en-main");
     if (to.length === 0) {
       payload.logger.warn("[parcours] aucune adresse admin : créneau réservé non notifié.");
       return;
@@ -593,7 +618,7 @@ export async function notifyAdminsAccessMissing(
   clientName?: string | null,
 ): Promise<void> {
   try {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "parcours-acces-manquants");
     if (to.length === 0) return;
 
     const url = adminUrl(`/collections/journey-runs/${run.id}`);
@@ -720,7 +745,7 @@ export async function notifyProductionStep(
     }
     // Contrat à contresigner : TIM a déjà son alerte, pas de « Activez le compte ».
     if (MILESTONE_NEXT[ctx.milestone].tim && !ctx.awaitingCountersign) {
-      const to = await adminEmails(payload);
+      const to = await teamRecipients(payload, "parcours-etapes");
       if (to.length) await payload.sendEmail({ to: to.join(","), ...buildProductionStepEmail(ctx, "tim") });
     }
   } catch (err) {
