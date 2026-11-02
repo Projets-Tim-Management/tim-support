@@ -22,7 +22,8 @@ const fakePayload = (docs: Array<{ email?: string }>) =>
     sendEmail: async (m: Record<string, unknown>) => {
       envoyes.push(m);
     },
-    find: async () => ({ docs }),
+    // Des comptes admin, comme la base les renvoie pour « roles in (admin, super-admin) ».
+    find: async () => ({ docs: docs.map((d) => ({ roles: ["admin"], ...d })) }),
   }) as never;
 
 const run = { id: 7, startDate: null, endDate: null };

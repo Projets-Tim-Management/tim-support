@@ -2,10 +2,10 @@ import { after, NextResponse } from "next/server";
 
 import {
   newTicketNoticeEmail,
-  SUPPORT_NOTIFY_EMAIL,
   ticketConfirmationEmail,
 } from "@/modules/support/lib/email";
 import { payloadClient } from "@/core/payload-client";
+import { supportAddress } from "@/core/lib/team-emails";
 import { attachmentsFromForm, uploadImages } from "@/core/lib/uploads";
 import { ticketValues } from "@/modules/support/admin/ticket-meta";
 import { ticketMailHeaders } from "@/modules/support/lib/brevo";
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
 
       try {
         await payload.sendEmail({
-          to: SUPPORT_NOTIFY_EMAIL,
+          to: await supportAddress(payload),
           ...ticketMailHeaders(number),
           ...newTicketNoticeEmail({ id: created.id, number, subject, type, name, email, service, url, description }),
         });

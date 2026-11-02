@@ -149,6 +149,7 @@ import { SpendSummary as SpendSummary_d6210025cd211b2c2ea880e5a46bff95 } from '.
 import { LogoPreview as LogoPreview_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
 import { PaletteCheck as PaletteCheck_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
 import { FontPreview as FontPreview_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
+import { TeamEmailRowLabel as TeamEmailRowLabel_fe4e3de0c8d06bd60498ae61b540f761 } from '../../../core/globals/TeamEmailRowLabel'
 import { default as default_5599fe28f2b3157f52fea861e6ba12e6 } from '../../../admin/graphics/Avatar'
 import { default as default_8224f9d0d872abe7f15fe4a0b0d49bd9 } from '../../../admin/nav/CustomNav'
 import { default as default_bd65fe58e0079c6c4581354ef4ec3555 } from '../../../admin/header/PartnerSwitcher'
@@ -330,6 +331,7 @@ export const importMap = {
   "/modules/ads/admin/BrandKitPreview#LogoPreview": LogoPreview_f97f8060092912987144671ff9edb2ae,
   "/modules/ads/admin/BrandKitPreview#PaletteCheck": PaletteCheck_f97f8060092912987144671ff9edb2ae,
   "/modules/ads/admin/BrandKitPreview#FontPreview": FontPreview_f97f8060092912987144671ff9edb2ae,
+  "/core/globals/TeamEmailRowLabel#TeamEmailRowLabel": TeamEmailRowLabel_fe4e3de0c8d06bd60498ae61b540f761,
   "/admin/graphics/Avatar#default": default_5599fe28f2b3157f52fea861e6ba12e6,
   "/admin/nav/CustomNav#default": default_8224f9d0d872abe7f15fe4a0b0d49bd9,
   "/admin/header/PartnerSwitcher#default": default_bd65fe58e0079c6c4581354ef4ec3555,

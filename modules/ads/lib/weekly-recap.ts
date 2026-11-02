@@ -4,7 +4,7 @@ import { adminUrl, internalNotice } from "@/core/lib/email-template";
 import { parisNow, periodKey } from "@/modules/ads/agent/followup";
 import { payloadSuivi } from "@/modules/ads/agent/suivi-port";
 import { ALERT_KINDS } from "@/modules/ads/lib/alerts";
-import { adminEmails } from "@/modules/marketing/lib/notify";
+import { teamRecipients } from "@/core/lib/team-emails";
 
 /**
  * Le récapitulatif du lundi (plan Publicité, §9 nonies, étape 7 — décision du
@@ -117,7 +117,7 @@ export async function maybeSendWeeklyRecap(payload: Payload, now = new Date()): 
   }
   if (!recaps.length) return "vide";
 
-  const to = await adminEmails(payload);
+  const to = await teamRecipients(payload, "publicite-recap");
   const waiting = recaps.flatMap((r) => r.waiting.map((w) => `${r.name} : ${w}`));
   const text = [
     `Publicité — semaine du ${week.split("-").reverse().join("/")}`,

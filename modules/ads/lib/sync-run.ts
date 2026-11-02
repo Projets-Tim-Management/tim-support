@@ -5,7 +5,7 @@ import { platformLabel } from "@/modules/ads/lib/platforms";
 import { syncAccount, syncDecision, tokenAlertDue, type RawAccount, type SyncResult } from "@/modules/ads/lib/sync";
 import { getPlatform, isMetaMock } from "@/modules/ads/platforms";
 import type { AdPlatform } from "@/modules/ads/platforms/types";
-import { adminEmails } from "@/modules/marketing/lib/notify";
+import { teamRecipients } from "@/core/lib/team-emails";
 
 /**
  * Un passage de synchro : tous les comptes, un par un (cron quotidien), ou un
@@ -77,7 +77,7 @@ export async function runAdsSync(payload: Payload, opts: Options = {}): Promise<
   const due = res.docs.filter((a) => syncDecision(a, mock, env) === "ok" && tokenAlertDue(a, now));
   const alerted: string[] = [];
   if (due.length && !opts.dry) {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "publicite-reconnexion");
     if (to.length) {
       const lignes = due.map((a) => `• ${a.name} (${platformLabel(a.platform)}, ${a.externalId}) — jeton valable jusqu'au ${new Date(a.tokenExpiresAt!).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`);
       const sent = await payload
@@ -112,7 +112,7 @@ export async function runAdsSync(payload: Payload, opts: Options = {}): Promise<
   if (opts.only == null && !opts.dry) {
     const settings = (await payload.findGlobal({ slug: "ads-settings", overrideAccess: true })) as { adLibraryTokenExpiresAt?: string | null };
     if (libraryTokenReminderDue(settings.adLibraryTokenExpiresAt, now)) {
-      const to = await adminEmails(payload);
+      const to = await teamRecipients(payload, "publicite-reconnexion");
       const until = new Date(settings.adLibraryTokenExpiresAt!).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" });
       const sent =
         to.length > 0 &&

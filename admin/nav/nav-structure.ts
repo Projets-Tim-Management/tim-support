@@ -191,6 +191,8 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     "contract-settings",
     // Le programme type des formations (par profil).
     "training-settings",
+    // Qui reçoit chaque e-mail interne (par rôle ; chacun peut le remplacer sur sa fiche).
+    "team-emails",
     "mailbox-connections",
     "media",
     { label: "Connexions du support", href: "/admin/connexions-support", adminOnly: true },

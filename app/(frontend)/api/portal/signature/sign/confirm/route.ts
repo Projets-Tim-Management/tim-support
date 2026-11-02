@@ -6,7 +6,7 @@ import { afterResponse } from "@/core/lib/after-response";
 import { adminUrl, internalNotice } from "@/core/lib/email-template";
 import { payloadClient } from "@/core/payload-client";
 import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
-import { adminEmails } from "@/modules/marketing/lib/notify";
+import { teamRecipients } from "@/core/lib/team-emails";
 import { relId } from "@/core/lib/relations";
 import { codeMatches } from "@/modules/marketing/lib/portal-auth";
 import { getPortalClient } from "@/modules/marketing/lib/portal-server";
@@ -229,7 +229,7 @@ export async function POST(req: Request) {
       // Pas de copie au client : il recevra le contrat signé par les DEUX
       // parties, après la contresignature. TIM est prévenu, sur le moment.
       afterResponse(async () => {
-        const to = await adminEmails(payload);
+        const to = await teamRecipients(payload, "contrat-a-contresigner");
         if (!to.length) return;
         const url = adminUrl(`/collections/partner-clients/${client.id}`);
         await payload.sendEmail({

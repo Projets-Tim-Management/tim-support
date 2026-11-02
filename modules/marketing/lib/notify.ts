@@ -1,5 +1,7 @@
 import type { Payload } from "payload";
 
+import { teamRecipients } from "@/core/lib/team-emails";
+
 import { ROLES } from "@/core/access";
 import { eur } from "@/modules/partner/lib/format";
 import { effectiveUnitPrice, licenceLinesOf } from "@/modules/partner/lib/pricing";
@@ -220,7 +222,7 @@ export async function notifyAdminsTestRequested(
   ctx: TestRequestContext,
 ): Promise<void> {
   try {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "parcours-go-nogo");
     if (to.length === 0) {
       payload.logger.warn("[parcours] aucune adresse admin : demande de phase de test non notifiée.");
       return;
@@ -372,7 +374,7 @@ export async function notifyAdminsQuoteNeeded(
   ctx: QuoteContext,
 ): Promise<void> {
   try {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "parcours-devis");
     if (to.length === 0) {
       payload.logger.warn("[parcours] aucune adresse admin : devis à rédiger non notifié.");
       return;
@@ -479,7 +481,7 @@ export async function notifyAdminsContractNeeded(
   ctx: SimpleNoticeContext,
 ): Promise<void> {
   try {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "parcours-contrat");
     if (to.length === 0) {
       payload.logger.warn("[parcours] aucune adresse admin : demande de contrat non notifiée.");
       return;
@@ -501,7 +503,7 @@ export async function notifyAdminsDossierToCheck(
   ctx: SimpleNoticeContext,
 ): Promise<void> {
   try {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "parcours-dossier");
     if (to.length === 0) {
       payload.logger.warn("[parcours] aucune adresse admin : dossier à vérifier non notifié.");
       return;
@@ -530,7 +532,7 @@ export async function notifyAdminsSessionBooked(
   },
 ): Promise<void> {
   try {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "parcours-prise-en-main");
     if (to.length === 0) {
       payload.logger.warn("[parcours] aucune adresse admin : créneau réservé non notifié.");
       return;
@@ -593,7 +595,7 @@ export async function notifyAdminsAccessMissing(
   clientName?: string | null,
 ): Promise<void> {
   try {
-    const to = await adminEmails(payload);
+    const to = await teamRecipients(payload, "parcours-acces-manquants");
     if (to.length === 0) return;
 
     const url = adminUrl(`/collections/journey-runs/${run.id}`);
@@ -720,7 +722,7 @@ export async function notifyProductionStep(
     }
     // Contrat à contresigner : TIM a déjà son alerte, pas de « Activez le compte ».
     if (MILESTONE_NEXT[ctx.milestone].tim && !ctx.awaitingCountersign) {
-      const to = await adminEmails(payload);
+      const to = await teamRecipients(payload, "parcours-etapes");
       if (to.length) await payload.sendEmail({ to: to.join(","), ...buildProductionStepEmail(ctx, "tim") });
     }
   } catch (err) {
