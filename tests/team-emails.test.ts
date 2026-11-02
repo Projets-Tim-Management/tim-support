@@ -46,3 +46,27 @@ describe("e-mails d'équipe", () => {
     expect(new Set(TEAM_EMAILS.map((e) => e.key)).size).toBe(TEAM_EMAILS.length);
   });
 });
+
+describe("nouveau client signé", () => {
+  it("annonce le client, son montant mensuel et ses licences", async () => {
+    const { buildClientWonEmail } = await import("@/modules/marketing/lib/notify");
+    const mail = buildClientWonEmail({
+      clientId: 42,
+      clientName: "Berthouly Construction",
+      partnerName: "Mathieu",
+      monthlyHT: 471,
+      licences: { adminQty: 1, adminPrice: 29, conducteurQty: 2, conducteurPrice: 19 },
+      billingStart: "2026-11-01T00:00:00.000Z",
+      billingPeriod: "mensuelle",
+      paymentMethod: "prelevement-gocardless",
+    });
+    // Le format monétaire français met une espace insécable avant « € ».
+    const plain = (t: string) => t.replace(/[\u00a0\u202f]/g, " ");
+    expect(plain(mail.subject)).toBe("Nouveau client signé — Berthouly Construction (471,00 € HT / mois)");
+    expect(plain(mail.text)).toContain("Montant mensuel : 471,00 € HT / mois");
+    expect(mail.text).toContain("1 × ");
+    expect(mail.text).toContain("Apporté par : Mathieu");
+    expect(mail.text).toContain("Facturation à partir du : 1 novembre 2026");
+    expect(mail.text).toContain("/collections/partner-clients/42");
+  });
+});

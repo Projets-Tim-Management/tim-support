@@ -49,6 +49,7 @@ export const TEAM_EMAILS = [
     critical: true,
   },
   { key: "contrat-a-contresigner", group: "Facturation", label: "Contrat à contresigner", when: "Dès qu'un client signe son contrat.", defaultRoles: ADMINS, critical: true },
+  { key: "client-gagne", group: "Parcours client", label: "Nouveau client signé", when: "Quand une fiche passe en « Gagnée », avec son montant mensuel.", defaultRoles: ADMINS },
   { key: "parcours-go-nogo", group: "Parcours client", label: "Go / No-Go de la phase de test", when: "Quand un parcours arrive à la validation de fin de test.", defaultRoles: ADMINS },
   { key: "parcours-devis", group: "Parcours client", label: "Devis à rédiger", when: "Quand un client demande un devis dans son parcours.", defaultRoles: ADMINS },
   { key: "parcours-contrat", group: "Parcours client", label: "Contrat à établir", when: "Quand un parcours arrive à l'étape du contrat.", defaultRoles: ADMINS },

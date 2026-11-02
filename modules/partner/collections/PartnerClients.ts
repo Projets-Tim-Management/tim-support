@@ -41,6 +41,7 @@ import { LOSS_REASON_OPTIONS, needsLossReason } from "@/modules/partner/lib/loss
 import { journalEntries, logActivity } from "@/modules/partner/lib/journal";
 import { ensureSigningAccess, templateTexts } from "@/modules/partner/lib/signing-access";
 import { afterResponse } from "@/core/lib/after-response";
+import { notifyClientWon } from "@/modules/marketing/lib/notify";
 import { JOURNEY_EMAILS } from "@/modules/marketing/lib/emails";
 import { startProductionJourney } from "@/modules/marketing/lib/production";
 import { openTraining } from "@/modules/training/lib/open";
@@ -496,6 +497,37 @@ const openProduction: CollectionAfterChangeHook = async ({ doc, previousDoc, req
 };
 
 /**
+ * Une affaire passe en « Gagnée » : l'équipe l'apprend, avec le montant mensuel
+ * (voir notifyClientWon ; qui le reçoit se règle dans « E-mails de l'équipe »).
+ *
+ * Seulement depuis un statut de prospect, et par une PERSONNE : un import, un
+ * script ou un client qui revient de « Résiliée » n'est pas une signature. Le
+ * montant est relu sur la fiche enregistrée (`caPaye`, calculé avant
+ * l'écriture). Après la réponse : celui qui a cliqué attend son écran.
+ */
+const notifyWon: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
+  const won = doc?.clientStatus === "actif" && isPipelineStatus(previousDoc?.clientStatus ?? DEFAULT_CLIENT_STATUS);
+  if (!won || doc?._status === "draft" || !req.user) return doc;
+  const partnerId = typeof doc.partner === "object" ? doc.partner?.id : doc.partner;
+  afterResponse(async () => {
+    const partner = partnerId
+      ? ((await req.payload.findByID({ collection: "partners", id: partnerId, depth: 0, overrideAccess: true }).catch(() => null)) as { displayName?: string } | null)
+      : null;
+    await notifyClientWon(req.payload, {
+      clientId: doc.id,
+      clientName: doc.companyName ?? "Un client",
+      partnerName: partner?.displayName ?? null,
+      monthlyHT: Number(doc.caPaye ?? 0),
+      licences: doc.licences ?? null,
+      billingStart: doc.contractStartDate ?? null,
+      billingPeriod: doc.billingPeriod ?? null,
+      paymentMethod: doc.paymentMethod ?? null,
+    });
+  });
+  return doc;
+};
+
+/**
  * « Formation incluse » cochée : le parcours « Formation » s'ouvre. Réservé à
  * TIM, qui seul bâtit le plan — la case n'est proposée qu'à un admin, et le
  * serveur ne l'honore que pour lui. Un échec ne bloque pas l'enregistrement :
@@ -714,6 +746,8 @@ export const PartnerClients: CollectionConfig = {
       sendGa4Steps,
       // Le % de signature suit le statut : les développements demandés aussi.
       refreshPotentialOnStatus,
+      // « Gagnée » : l'équipe l'apprend, avec le montant mensuel.
+      notifyWon,
     ],
     // Vide ce qui n'existe que par ce client avant de le supprimer, sans quoi
     // Postgres refuse la suppression (cf. deleteClientChildren).

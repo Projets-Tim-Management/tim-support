@@ -493,6 +493,65 @@ export async function notifyAdminsContractNeeded(
   }
 }
 
+/** Ce que dit l'e-mail « nouveau client signé ». */
+export type ClientWonContext = {
+  clientId: number | string;
+  clientName: string;
+  partnerName: string | null;
+  /** CA HT par mois, remises déduites (le `caPaye` de la fiche). */
+  monthlyHT: number;
+  licences: Record<string, number | null | undefined> | null;
+  billingStart: string | null;
+  billingPeriod: string | null;
+  paymentMethod: string | null;
+};
+
+const PERIOD_LABELS: Record<string, string> = { mensuelle: "Mensuelle", trimestrielle: "Trimestrielle", annuelle: "Annuelle" };
+const PAYMENT_LABELS: Record<string, string> = { "prelevement-gocardless": "Prélèvement (GoCardless)", virement: "Virement" };
+
+/** Un nouveau client : qui, apporté par qui, combien par mois, quelles licences, à partir de quand. */
+export function buildClientWonEmail(ctx: ClientWonContext): BuiltEmail {
+  const lines = licenceLinesOf(ctx.licences)
+    .map((l) => ({ label: l.label, qty: l.qty, price: effectiveUnitPrice(l) }))
+    .filter((l) => l.qty > 0);
+  const detail = lines.map((l) => `${l.qty} × ${l.label} à ${eur.format(l.price)}`).join(" · ");
+  const start = ctx.billingStart ? new Date(ctx.billingStart).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: PARIS }) : null;
+  const url = adminUrl(`/collections/partner-clients/${ctx.clientId}`);
+  const rows: [string, string][] = [
+    ["Client", ctx.clientName],
+    ["Montant mensuel", `${eur.format(ctx.monthlyHT)} HT / mois`],
+    ...(detail ? ([["Licences", detail]] as [string, string][]) : []),
+    ...(ctx.partnerName ? ([["Apporté par", ctx.partnerName]] as [string, string][]) : []),
+    ...(start ? ([["Facturation à partir du", start]] as [string, string][]) : []),
+    ...(ctx.billingPeriod ? ([["Périodicité", PERIOD_LABELS[ctx.billingPeriod] ?? ctx.billingPeriod]] as [string, string][]) : []),
+    ...(ctx.paymentMethod ? ([["Paiement", PAYMENT_LABELS[ctx.paymentMethod] ?? ctx.paymentMethod]] as [string, string][]) : []),
+  ];
+  return {
+    subject: `Nouveau client signé — ${ctx.clientName} (${eur.format(ctx.monthlyHT)} HT / mois)`,
+    text: [`Nouveau client signé : ${ctx.clientName}.`, "", ...rows.map(([k, v]) => `${k} : ${v}`), "", url].join("\n"),
+    html: internalNotice({
+      kicker: "Nouveau client",
+      heading: `${ctx.clientName} est signé`,
+      rows,
+      message: "La fiche est passée en « Gagnée ». Le montant est celui des licences de la fiche, remises déduites.",
+      cta: { label: "Ouvrir la fiche", url },
+      links: [],
+    }),
+  };
+}
+
+/** Une fiche vient de passer en « Gagnée » : l'équipe l'apprend, avec le montant mensuel. */
+export async function notifyClientWon(payload: Payload, ctx: ClientWonContext): Promise<void> {
+  try {
+    const to = await teamRecipients(payload, "client-gagne");
+    if (to.length === 0) return;
+    await payload.sendEmail({ to: to.join(","), ...buildClientWonEmail(ctx) });
+    payload.logger.info(`[client gagné] ${ctx.clientName} annoncé à ${to.length} personne(s).`);
+  } catch (err) {
+    payload.logger.error(`[client gagné] annonce de ${ctx.clientName} échouée : ${err}`);
+  }
+}
+
 /**
  * Le client vient de transmettre son dossier : TIM doit le contrôler avant de
  * créer les comptes. L'accusé de réception part au client, celui-ci à TIM.
