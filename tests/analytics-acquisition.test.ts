@@ -54,6 +54,12 @@ describe("coût de chaque canal", () => {
     expect(spend).toEqual({ seo: 156, sea: 600, chatgpt: 0, "meta-facebook": 60, "meta-instagram": 30 });
   });
 
+  it("Meta : l'API quand elle a un chiffre ce mois-là, sinon la banque — mois par mois", () => {
+    const withMetaBank = [...expenses, ...classifyExpenses([tx("9", "2026-08-12", -200, "X1946 FACEBK ADS")])];
+    // Août : 200 € à la banque, rien à l'API ; septembre : 90 € à l'API.
+    expect(channelSpend(withMetaBank, { "2026-09": 90 }, { "meta-facebook": 1 }, 3, NOW)["meta-facebook"]).toBe(290);
+  });
+
   it("n'impute rien avant le premier mois où les leads sont suivis", () => {
     // Leads suivis depuis septembre : la dépense Linkuma d'août ne compte pas.
     expect(channelSpend(expenses, {}, {}, 3, NOW, "2026-09")).toMatchObject({ seo: 0, sea: 600 });

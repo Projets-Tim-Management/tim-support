@@ -92,6 +92,8 @@ export type HistoryClient = {
 export type RevenueHistory = {
   /** Premier mois de l'historique (« AAAA-MM ») : la première facture connue. */
   start: string;
+  /** Dernier mois qui porte une facture (sa date, pas son lissage) ; null sans facture. */
+  lastBilledMonth: string | null;
   months: HistoryMonth[];
   /** Premier mois dont on connaît les dépenses (null : aucune). */
   expensesFrom: string | null;
@@ -139,13 +141,22 @@ export function buildRevenueHistory(legacy: LegacyInvoice[], pennylane: Pennylan
     acc.set(id, c);
   };
 
+  // Le dernier mois réellement FACTURÉ (date des factures, pas leur lissage) : une
+  // trimestrielle étalée sur les mois suivants ne doit pas faire passer le mois
+  // en cours pour facturé — les clients mensuels y paraîtraient partis.
+  let lastBilledMonth: string | null = null;
+  const billedIn = (k: string) => {
+    if (!lastBilledMonth || k > lastBilledMonth) lastBilledMonth = k;
+  };
   for (const i of legacy) {
     if (i.month > AXONAUT_LAST_MONTH || i.month < start) continue;
+    billedIn(i.month);
     add(i.client != null ? String(i.client) : `nom:${i.clientName}`, i.client, i.clientName, i.month, i.recurringHT, i.servicesHT, i.setupHT ?? 0);
   }
   for (const i of pennylane) {
     const month = i.date.slice(0, 7);
     if (month <= AXONAUT_LAST_MONTH) continue;
+    billedIn(month);
     // Un tiers par mois pour une trimestrielle ; le dernier mois prend l'arrondi.
     const n = Math.max(1, Math.round(i.months ?? 1));
     const share = round2(i.amountHT / n);
@@ -206,8 +217,9 @@ export function buildRevenueHistory(legacy: LegacyInvoice[], pennylane: Pennylan
     prev = cur;
   }
 
+  const keySet = new Set(keys);
   const clients: HistoryClient[] = [...acc.entries()].map(([id, c]) => {
-    const billed = [...c.byMonth.entries()].filter(([k]) => keys.includes(k)).sort(([a], [b]) => a.localeCompare(b));
+    const billed = [...c.byMonth.entries()].filter(([k]) => keySet.has(k)).sort(([a], [b]) => a.localeCompare(b));
     const withRecurring = billed.filter(([, m]) => m.r > 0.005);
     const byYear: Record<string, number> = {};
     const byMonth: Record<string, number> = {};
@@ -247,7 +259,7 @@ export function buildRevenueHistory(legacy: LegacyInvoice[], pennylane: Pennylan
   for (const m of months) for (const [p, v] of Object.entries(m.byPoste)) posteTotals.set(p, (posteTotals.get(p) ?? 0) + v);
   const postes = [...posteTotals].sort((a, b) => b[1] - a[1]).map(([p]) => p);
 
-  return { start, months, expensesFrom, postes, clients, years };
+  return { start, lastBilledMonth, months, expensesFrom, postes, clients, years };
 }
 
 /* ─── Vues : par mois, trimestre, semestre, année — et comparaison ─────────
@@ -336,8 +348,8 @@ export type PeriodSummary = {
   lost: string[];
 };
 
-function summarize(h: RevenueHistory, keys: string[], label: string): PeriodSummary {
-  const inHistory = new Map(h.months.map((m) => [m.key, m]));
+function summarize(h: RevenueHistory, keys: string[], label: string, byKey?: Map<string, HistoryMonth>): PeriodSummary {
+  const inHistory = byKey ?? new Map(h.months.map((m) => [m.key, m]));
   const ms = keys.map((k) => inHistory.get(k)).filter((m): m is HistoryMonth => m != null);
   const recurring = round2(ms.reduce((s, m) => s + m.recurring, 0));
   const services = round2(ms.reduce((s, m) => s + m.services, 0));
@@ -440,11 +452,15 @@ export type HistoryBucket = {
   pct: number | null;
 };
 
-/** Le montant d'une période pour ce qu'on affiche (null : dépenses inconnues sur cette période). */
-export const measureOf = (p: PeriodSummary, m: HistoryMeasure): number | null => {
-  if (m === "depenses" || m === "benefice") return p.expenseMonths === p.covered ? (m === "depenses" ? p.expenses : p.profit) : null;
-  return m === "licences" ? p.recurring : m === "formation" ? p.setup : m === "developpement" ? p.dev : p.total;
-};
+type Amounts = { recurring: number; setup: number; dev: number; total: number; expenses: number | null; profit: number | null };
+
+/** Le montant choisi, sur un mois comme sur une période : une seule correspondance mesure → champ. */
+const pickMeasure = (x: Amounts, m: HistoryMeasure): number | null =>
+  m === "depenses" ? x.expenses : m === "benefice" ? x.profit : m === "licences" ? x.recurring : m === "formation" ? x.setup : m === "developpement" ? x.dev : x.total;
+
+/** Le montant d'une période pour ce qu'on affiche (null : dépenses inconnues sur une partie de la période). */
+export const measureOf = (p: PeriodSummary, m: HistoryMeasure): number | null =>
+  (m === "depenses" || m === "benefice") && p.expenseMonths !== p.covered ? null : pickMeasure(p, m);
 
 export type HistoryAnalysis = {
   view: HistoryView;
@@ -511,7 +527,9 @@ export function analyzeHistory(h: RevenueHistory, sp: Record<string, string | st
   const compareMode: HistoryCompare = HISTORY_COMPARES.find((c) => c.value === one("hc"))?.value ?? "n1";
 
   // Les données s'arrêtent au dernier mois facturé : le mois en cours ne l'est pas les premiers jours.
-  const dataEnd = [...h.months].reverse().find((m) => m.total > 0)?.key ?? h.months.at(-1)!.key;
+  // Le dernier mois facturé (date des factures) : le mois en cours ne l'est pas les premiers jours,
+  // même quand une trimestrielle y a déjà sa part lissée.
+  const dataEnd = h.lastBilledMonth ?? [...h.months].reverse().find((m) => m.total > 0)?.key ?? h.months.at(-1)!.key;
   const months = h.months.map((m) => m.key).filter((k) => k <= dataEnd);
   const valid = (k: string | undefined) => (k && months.includes(k) ? k : null);
   // Sans choix : l'année en cours (janvier → dernier mois facturé) ; la vue « Année », tout l'historique.
@@ -535,8 +553,10 @@ export function analyzeHistory(h: RevenueHistory, sp: Record<string, string | st
   if (bEnd != null && bEnd < h.start) [bStart, bEnd] = [null, null];
 
   const aKeys = range(start, end);
-  const a = summarize(h, aKeys, rangeLabel(start, end));
-  const b = bStart && bEnd ? summarize(h, range(bStart, bEnd), rangeLabel(bStart, bEnd)) : null;
+  // Les mois indexés une fois : chaque colonne et chaque comparaison s'en servent.
+  const byKey = new Map(h.months.map((m) => [m.key, m]));
+  const a = summarize(h, aKeys, rangeLabel(start, end), byKey);
+  const b = bStart && bEnd ? summarize(h, range(bStart, bEnd), rangeLabel(bStart, bEnd), byKey) : null;
   const offset = bStart ? span(start, bStart) - 1 : 0;
   const pctOf = (x: PeriodSummary, y: PeriodSummary | null) => {
     if (y == null || y.covered !== x.covered) return null;
@@ -550,7 +570,7 @@ export function analyzeHistory(h: RevenueHistory, sp: Record<string, string | st
     const own = aKeys.filter((k) => bucketStart(k, view) === bs);
     // Une colonne coupée par la plage le dit : « T1 2026 (2 mois) ».
     const label = bucketLabel(bs, view) + (own.length < len1 ? ` (${own.length} mois)` : "");
-    const summary = summarize(h, own, label);
+    const summary = summarize(h, own, label, byKey);
     // Chaque colonne face à son vis-à-vis, à mois égaux (une colonne entamée se compare à date) :
     // la colonne d'avant (« prec » : 2026 face à 2025, T3 face à T2), la même un an avant,
     // ou, pour une plage choisie, le mois de même rang.
@@ -562,19 +582,15 @@ export function analyzeHistory(h: RevenueHistory, sp: Record<string, string | st
     if (cKeys.length && cKeys.some((k) => k >= h.start)) {
       // Un vis-à-vis qui tombe pile sur une période de la vue en prend le nom : « T1 2025 ».
       const whole = cKeys.length === len1 && bucketStart(cKeys[0], view) === cKeys[0];
-      compare = summarize(h, cKeys, whole ? bucketLabel(cKeys[0], view) : rangeLabel(cKeys[0], cKeys.at(-1)!));
+      compare = summarize(h, cKeys, whole ? bucketLabel(cKeys[0], view) : rangeLabel(cKeys[0], cKeys.at(-1)!), byKey);
     }
     return { id: bs, label, summary, compare, value: measureOf(summary, measure), compareValue: compare ? measureOf(compare, measure) : null, pct: pctOf(summary, compare) };
   });
 
   const years = [...new Set(months.map((k) => k.slice(0, 4)))];
-  const byKey = new Map(h.months.map((m) => [m.key, m]));
   const monthValue = (k: string) => {
     const m = byKey.get(k);
-    if (!m || k > dataEnd) return null;
-    if (measure === "depenses") return m.expenses;
-    if (measure === "benefice") return m.profit;
-    return measure === "licences" ? m.recurring : measure === "formation" ? m.setup : measure === "developpement" ? m.dev : m.total;
+    return m && k <= dataEnd ? pickMeasure(m, measure) : null;
   };
   const yearLines = {
     years,
@@ -729,7 +745,8 @@ export function lifetime(h: RevenueHistory, end: string): Lifetime {
         monthsBilled: c.monthsBilled,
         total: round2(keys.reduce((s, k) => s + c.byMonth[k], 0)),
         byYear: c.byYear,
-        currentRecurring: active ? round2(c.recurringByMonth[end] ?? c.recurringByMonth[recent] ?? 0) : 0,
+        // Les licences du dernier mois qui en porte : un mois de prestations seules ne les remet pas à zéro.
+        currentRecurring: active ? round2(c.recurringByMonth[lastRecurringMonth!] ?? 0) : 0,
       };
     })
     .filter((c) => c.total > 0)

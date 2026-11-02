@@ -15,16 +15,6 @@ import {
   shell,
 } from "@/core/lib/email-template";
 
-/**
- * Destinataire des alertes internes (nouveau ticket / réponse client). Par
- * défaut on notifie l'adresse d'envoi (support@…) ; surchargeable via
- * TICKETS_NOTIFY_EMAIL si l'équipe veut router ailleurs.
- */
-export const SUPPORT_NOTIFY_EMAIL =
-  process.env.TICKETS_NOTIFY_EMAIL ||
-  process.env.EMAIL_FROM ||
-  "support@tim-management.co";
-
 // ─── Templates ───────────────────────────────────────────────────────────────
 
 export function ticketConfirmationEmail(args: {
@@ -87,7 +77,7 @@ export function ticketReplyEmail(args: {
 // ─── Alertes internes (équipe support) ──────────────────────────────────────
 // E-mails volontairement simples (pas d'habillage marketing) : ils préviennent
 // l'équipe qu'un ticket demande une action et offrent un lien direct vers la
-// fiche dans le back-office. Envoyés à SUPPORT_NOTIFY_EMAIL.
+// fiche dans le back-office. Envoyés à l'adresse du support (supportAddress, core/lib/team-emails).
 
 
 

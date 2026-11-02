@@ -144,7 +144,7 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
   Facturation: [{ label: "Rapprochement", href: "/admin/facturation", adminOnly: true }],
   /**
    * Les chiffres : une page par sujet, des tableaux et des graphiques. Réservé
-   * aux admins. Des vues calculées, plus un réglage : les postes de dépenses.
+   * aux admins. Des vues calculées, et l'historique Axonaut en lecture.
    */
   Analyses: [
     { label: "Facturation", href: "/admin/analyses/facturation", adminOnly: true },
@@ -154,8 +154,6 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     { label: "Support", href: "/admin/analyses/support", adminOnly: true },
     { label: "Développements", href: "/admin/analyses/developpements", adminOnly: true },
     { label: "Partenaires", href: "/admin/analyses/partenaires", adminOnly: true },
-    // Le classement des dépenses (relevés Pennylane) lu par « Facturation ».
-    "expense-rules",
   ],
   Utilisateurs: [
     { label: "Missions", slugs: ["missions", "mission-submissions"] },

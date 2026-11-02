@@ -385,3 +385,36 @@ describe("depuis le début", () => {
     ]);
   });
 });
+
+describe("corrections de la revue (02/11/2026)", () => {
+  it("le mois en cours ne passe pas pour facturé parce qu'une trimestrielle y est lissée", () => {
+    const h = buildRevenueHistory(
+      [{ month: "2026-09", client: 1, clientName: "A", recurringHT: 300, servicesHT: 0 }],
+      [
+        { date: "2026-10-04", amountHT: 300, client: 1, clientName: "A" },
+        { date: "2026-10-01", amountHT: 300, client: 2, clientName: "B", months: 3 },
+      ],
+      new Date("2026-11-02T00:00:00Z"),
+    );
+    expect(h.lastBilledMonth).toBe("2026-10");
+    const an = analyzeHistory(h, {});
+    expect(an.end).toBe("2026-10");
+    expect(an.a.lost).toEqual([]);
+  });
+
+  it("les licences du moment d'un client actif ne tombent pas à zéro un mois de prestations seules", () => {
+    const h = buildRevenueHistory(
+      [
+        { month: "2026-08", client: 1, clientName: "A", recurringHT: 300, servicesHT: 0 },
+        { month: "2026-09", client: 1, clientName: "A", recurringHT: 0, servicesHT: 500 },
+      ],
+      [],
+      new Date("2026-09-20T00:00:00Z"),
+    );
+    expect(lifetime(h, "2026-09").clients[0]).toMatchObject({ active: true, currentRecurring: 300 });
+  });
+
+  it("un SIREN contradictoire empêche le rattachement par nom", () => {
+    expect(matchClient({ siren: "111111111", clientName: "Martin BTP" }, [{ id: 1, companyName: "Martin BTP SAS", siren: "222222222" }])).toBeNull();
+  });
+});

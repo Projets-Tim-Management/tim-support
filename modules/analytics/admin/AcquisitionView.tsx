@@ -44,11 +44,11 @@ const CHANNEL_COLUMNS: Column[] = [
 const MONTH_COLUMNS: Column[] = [
   { key: "label", label: "Mois" },
   { key: "spend", label: "Dépense", format: "eur" },
-  { key: "spendPct", label: "Évol.", format: "delta", goodWhenUp: false },
+  { key: "spendPct", label: "Évol. dépense", format: "delta", goodWhenUp: false },
   { key: "leads", label: "Leads", format: "int" },
-  { key: "leadsPct", label: "Évol.", format: "delta" },
+  { key: "leadsPct", label: "Évol. leads", format: "delta" },
   { key: "costPerLead", label: "Coût par lead", format: "eur" },
-  { key: "cplPct", label: "Évol.", format: "delta", goodWhenUp: false },
+  { key: "cplPct", label: "Évol. coût / lead", format: "delta", goodWhenUp: false },
   { key: "opportunities", label: "Opportunités", format: "int" },
   { key: "won", label: "Clients gagnés", format: "int" },
   { key: "costPerWon", label: "Coût par client gagné", format: "eur" },
@@ -120,7 +120,9 @@ export default async function AcquisitionView(view: AdminViewServerProps) {
 
     // Toutes les soumissions (la tendance mensuelle et la variation ont besoin
     // de la période précédente) ; les répartitions se limitent à la période.
-    const all = await payload.find({
+    // Les quatre lectures sont indépendantes : elles partent ensemble.
+    const [all, clients, { expenses, note: expenseNote }, metaRows] = await Promise.all([
+      payload.find({
       collection: "form-submissions",
       limit: 10000,
       depth: 0,
@@ -134,39 +136,37 @@ export default async function AcquisitionView(view: AdminViewServerProps) {
         lpVariant: true,
         createdAt: true,
       } as never,
-    });
-    const subs = { docs: all.docs.filter((d) => (d as { createdAt?: string }).createdAt! >= since) };
-
-    // Les opportunités NÉES d'un formulaire : c'est leur devenir qui dit si un
-    // canal rapporte, et pas seulement s'il fait du volume.
-    const clients = await payload.find({
-      collection: "partner-clients",
-      where: { formSubmission: { exists: true } },
-      limit: 5000,
-      depth: 0,
-      draft: true,
-      overrideAccess: true,
-      select: { clientStatus: true, lossReason: true, formSubmission: true } as never,
-    });
-
-    const stats = buildStats(
-      subs.docs as SubmissionRow[],
-      clients.docs as ClientRow[],
-    );
-
-    // Ce que coûte chaque canal : les dépenses de la période (relevés Pennylane, par poste),
-    // et pour Meta la dépense relevée par son API (la banque ne la voit pas, ou en retard).
-    const [{ expenses, note: expenseNote }, metaRows] = await Promise.all([
-      loadExpenses(payload),
+      }),
+      // Les opportunités NÉES d'un formulaire : c'est leur devenir qui dit si un
+      // canal rapporte, et pas seulement s'il fait du volume.
+      payload.find({
+        collection: "partner-clients",
+        where: { formSubmission: { exists: true } },
+        limit: 5000,
+        depth: 0,
+        draft: true,
+        overrideAccess: true,
+        select: { clientStatus: true, lossReason: true, formSubmission: true } as never,
+      }),
+      // Ce que coûte chaque canal : les dépenses (relevés Pennylane, par poste),
+      // et pour Meta la dépense relevée par son API sur la période (la banque ne la voit pas, ou en retard).
+      loadExpenses(),
       payload.find({
         collection: "ad-metrics-daily",
-        where: { and: [{ platform: { equals: "meta" } }, { level: { equals: "campaign" } }] },
+        where: { and: [{ platform: { equals: "meta" } }, { level: { equals: "campaign" } }, { day: { greater_than_equal: since.slice(0, 10) } }] },
         pagination: false,
         depth: 0,
         overrideAccess: true,
         select: { day: true, spend: true } as never,
       }),
     ]);
+    const subs = { docs: all.docs.filter((d) => (d as { createdAt?: string }).createdAt! >= since) };
+
+    const stats = buildStats(
+      subs.docs as SubmissionRow[],
+      clients.docs as ClientRow[],
+    );
+
     const metaSpendByMonth: Record<string, number> = {};
     for (const r of metaRows.docs as { day: string; spend?: number | null }[]) metaSpendByMonth[r.day.slice(0, 7)] = (metaSpendByMonth[r.day.slice(0, 7)] ?? 0) + (r.spend ?? 0);
     const leadsByChannel: Record<string, number> = {};

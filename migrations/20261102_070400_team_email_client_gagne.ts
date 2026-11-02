@@ -9,7 +9,9 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
   await db.execute(sql`
-   ALTER TABLE "users_team_emails" ALTER COLUMN "value" SET DATA TYPE text;
+   DELETE FROM "users_team_emails" WHERE "value" = 'client-gagne';
+  DELETE FROM "team_emails_rules" WHERE "email" = 'client-gagne';
+  ALTER TABLE "users_team_emails" ALTER COLUMN "value" SET DATA TYPE text;
   DROP TYPE "public"."enum_users_team_emails";
   CREATE TYPE "public"."enum_users_team_emails" AS ENUM('rapprochement-mois', 'rapprochement-dernier-appel', 'contrat-a-contresigner', 'parcours-go-nogo', 'parcours-devis', 'parcours-contrat', 'parcours-dossier', 'parcours-prise-en-main', 'parcours-acces-manquants', 'parcours-etapes', 'publicite-urgence', 'publicite-reconnexion', 'publicite-recap', 'agendas');
   ALTER TABLE "users_team_emails" ALTER COLUMN "value" SET DATA TYPE "public"."enum_users_team_emails" USING "value"::"public"."enum_users_team_emails";

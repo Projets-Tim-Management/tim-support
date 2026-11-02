@@ -14,9 +14,10 @@ import { round2 } from "@/modules/partner/lib/format";
  *  - la TVA reversée, qui ne fait que transiter.
  * Les impôts (CFE, IS…) sont un poste à part : le bénéfice se lit avant impôts.
  *
- * Les règles de TIM (réglage « Postes de dépenses ») passent avant celles
- * d'ici ; une sortie sans règle prend la catégorie posée dans Pennylane, sinon
- * elle va dans « À classer ». Pur : l'écran passe les transactions.
+ * Une sortie sans règle prend la catégorie posée dans Pennylane, sinon elle va
+ * dans « À classer » : un fournisseur à ranger s'ajoute dans
+ * DEFAULT_EXPENSE_RULES (l'écran de réglage, resté vide, a été retiré le
+ * 02/11/2026). `custom` sert aux tests. Pur : l'écran passe les transactions.
  */
 
 export type ExpenseKind = "depense" | "impot" | "ignore";
@@ -27,12 +28,6 @@ export type ExpenseRule = {
   poste: string;
   kind: ExpenseKind;
 };
-
-export const EXPENSE_KINDS: { value: ExpenseKind; label: string }[] = [
-  { value: "depense", label: "Dépense" },
-  { value: "impot", label: "Impôt (hors bénéfice avant impôts)" },
-  { value: "ignore", label: "Pas une dépense (transfert, TVA)" },
-];
 
 export const UNCLASSIFIED = "À classer";
 export const TAXES = "Impôts";
@@ -57,6 +52,8 @@ export const DEFAULT_EXPENSE_RULES: ExpenseRule[] = [
   ...rules("ignore", "Remboursement d'emprunt (capital)", "CAPITAL"),
   ...rules("impot", TAXES, "DGFIP", "DIRECTION GENERALE DES FIN", "SIE ", "CFE", "URSSAF"),
   ...rules("depense", "Google Ads", "GOOGLE ADS"),
+  // Un abonnement ChatGPT ou l'API n'est pas de la publicité : il passe avant la règle des annonces.
+  ...rules("depense", IT, "CHATGPT SUBSCR", "CHATGPT PLUS", "OPENAI *API", "OPENAI API"),
   ...rules("depense", "ChatGPT Ads", "OPENAI", "CHATGPT"),
   ...rules("depense", "Meta Ads", "FACEBK", "FACEBOOK", "META PLATFORMS"),
   ...rules("depense", "SEO", "LINKU"),

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
-import { teamAddress, teamRecipients } from "@/core/lib/team-emails";
+import { loadTeamEmails } from "@/core/lib/team-emails";
 import { buildValidationReminder, parisDay, reminderDue, type ReminderItem } from "@/modules/partner/lib/billing-reminder";
 import { loadBillingReport } from "@/modules/partner/lib/billing-report";
 import { monthValidation } from "@/modules/partner/lib/billing-validation";
@@ -80,10 +80,11 @@ export async function GET(req: Request) {
 
   const sent: string[] = [];
   if (!dry && messages.length) {
-    const team = await teamAddress(payload);
+    const teamEmails = await loadTeamEmails(payload);
+    const team = teamEmails.teamAddress;
     for (const { mail, key, team: withTeam } of messages) {
       // Dédoublonné : quelqu'un qui est aussi dans le groupe d'équipe ne reçoit qu'une fois.
-      const to = [...new Set([...(await teamRecipients(payload, key)), ...(withTeam && team ? [team] : [])].map((e) => e.toLowerCase()))];
+      const to = [...new Set([...teamEmails.recipients(key), ...(withTeam && team ? [team] : [])].map((e) => e.toLowerCase()))];
       if (!to.length) continue;
       try {
         await payload.sendEmail({ to: to.join(","), ...mail });

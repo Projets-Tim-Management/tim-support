@@ -8,7 +8,7 @@ import { AgingChart, MonthlyChart, PartnerChart, ProfileChart, ResultChart, Reve
 import { HistoryControls, ParamChips } from "@/modules/analytics/admin/HistoryControls";
 import { ValidationStrip } from "@/modules/analytics/admin/ValidationStrip";
 import { DataTable, type Column, type Row } from "@/modules/analytics/admin/DataTable";
-import { BarList, Card, clientHref, Fold, Kpi, Meter, Tile, type BarItem } from "@/modules/analytics/admin/ui";
+import { BarList, Card, clientHref, eur0, Fold, Kpi, Meter, monthYear, Tile, type BarItem } from "@/modules/analytics/admin/ui";
 import { buildBillingAnalytics, type BillingAnalytics, type ClientDoc, type PartnerDoc } from "@/modules/analytics/lib/billing";
 import { splitServices, type AxonautLine } from "@/modules/analytics/lib/axonaut";
 import { ACQUISITION_POSTES, ONE_OFF_POSTES, UNCLASSIFIED, type Expense } from "@/modules/analytics/lib/expenses";
@@ -19,6 +19,7 @@ import {
   analyzeHistory,
   breakEven,
   lifetime,
+  HISTORY_MEASURES,
   HISTORY_VIEWS,
   type HistoryAnalysis,
   type LegacyInvoice,
@@ -48,9 +49,8 @@ import { isPennylaneConfigured, pennylaneErrorMessage } from "@/modules/partner/
  * alimentés en données déjà calculées.
  */
 
-const eur0 = (v: number) => v.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 const pct0 = (v: number) => `${Math.round(v).toLocaleString("fr-FR")} %`;
-const monthName = (k: string) => new Date(`${k}-01T00:00:00Z`).toLocaleDateString("fr-FR", { month: "short", year: "numeric", timeZone: "UTC" });
+const monthName = monthYear;
 
 /** Les dépenses d'une période ne se montrent que si on les connaît sur tous ses mois. */
 const spentKnown = (p: PeriodSummary) => p.covered > 0 && p.expenseMonths === p.covered;
@@ -139,22 +139,25 @@ const EXPENSE_COLUMNS: Column[] = [
 const STATUS_TONES = { nouveau: "ok", hausse: "ok", stable: "muted", baisse: "warn", parti: "bad", prestations: "muted" } as const;
 const STATUS_LABELS = { nouveau: "Nouveau", hausse: "Hausse", stable: "Stable", baisse: "Baisse", parti: "Parti", prestations: "Prestations seules" };
 
-/** Ce que montre la courbe « une année sur l'autre ». */
+/** Ce que montre la courbe « une année sur l'autre » : chaque montant que l'écran sait lire. */
 const YEAR_MEASURES = [
   { value: "tout", label: "Chiffre d'affaires" },
   { value: "licences", label: "Licences" },
+  { value: "formation", label: "Mise en place" },
+  { value: "developpement", label: "Développements" },
   { value: "depenses", label: "Dépenses" },
   { value: "benefice", label: "Bénéfice" },
-] as const;
+] as const satisfies readonly { value: (typeof HISTORY_MEASURES)[number]["value"]; label: string }[];
 
 /** La phrase du haut : le résultat de la période, dit en clair. */
 function Story({ a, b, expensesFrom }: { a: PeriodSummary; b: PeriodSummary | null; expensesFrom: string | null }) {
-  const caDelta = b && b.covered === a.covered && b.total > 0 ? ((a.total - b.total) / b.total) * 100 : null;
+  const caDelta = b && b.covered === a.covered ? delta(a.total, b.total).pct : null;
+  const trend = caDelta == null ? null : Math.round(caDelta) === 0 ? "stable" : caDelta > 0 ? `en hausse de ${pct0(caDelta)}` : `en baisse de ${pct0(-caDelta)}`;
   const evolution =
     caDelta != null ? (
       <>
         {" "}
-        Le chiffre d'affaires est <b className={caDelta >= 0 ? "an-story__up" : "an-story__down"}>{caDelta >= 0 ? `en hausse de ${pct0(caDelta)}` : `en baisse de ${pct0(-caDelta)}`}</b> face à {b!.label}.
+        Le chiffre d&apos;affaires est <b className={caDelta > 0 ? "an-story__up" : caDelta < 0 ? "an-story__down" : undefined}>{trend}</b> face à {b!.label}.
       </>
     ) : null;
   const result = (expenses: number, profit: number) => (
@@ -238,7 +241,8 @@ function Dashboard({
         },
       ]
     : shownPostes;
-  const toClassify = expenses.filter((e) => a.keys.includes(e.month) && e.poste === UNCLASSIFIED).length;
+  const inA = new Set(a.keys);
+  const toClassify = expenses.filter((e) => inA.has(e.month) && e.poste === UNCLASSIFIED).length;
 
   /* ── D'où vient l'argent ── */
   const sources = [
@@ -265,7 +269,7 @@ function Dashboard({
         { key: "recurringA", label: `Licences ${a.label}`, format: "eur" },
         { key: "recurringB", label: `Licences ${b.label}`, format: "eur" },
         { key: "pct", label: "Évolution", format: "delta" },
-        { key: "status", label: "", format: "badge", tones: STATUS_TONES, labels: STATUS_LABELS },
+        { key: "status", label: "Statut", format: "badge", tones: STATUS_TONES, labels: STATUS_LABELS },
         { key: "servicesA", label: `Prestations ${a.label}`, format: "eur" },
       ]
     : [
@@ -327,7 +331,7 @@ function Dashboard({
       margin: known && s.profit != null && s.total > 0 ? (s.profit / s.total) * 100 : null,
       compareLabel: c?.label ?? null,
       compareTotal: c?.total ?? null,
-      caPct: c && c.covered === s.covered && c.total > 0 ? ((s.total - c.total) / c.total) * 100 : null,
+      caPct: c && c.covered === s.covered ? delta(s.total, c.total).pct : null,
       clients: s.clients,
     };
   });
@@ -340,7 +344,7 @@ function Dashboard({
   const posteRows: Row[] = an.buckets
     .filter((x) => spentKnown(x.summary))
     .map((x) => ({ id: x.id, label: x.label, ...Object.fromEntries(postes.map((p) => [`p:${p}`, x.summary.byPoste[p] ?? null])), expenses: x.summary.expenses }));
-  const expenseRows: Row[] = expenses.filter((e) => a.keys.includes(e.month)).map((e) => ({ ...e }));
+  const expenseRows: Row[] = expenses.filter((e) => inA.has(e.month)).map((e) => ({ ...e }));
   const pivotColumns: Column[] = [{ key: "name", label: "Client" }, ...an.buckets.map((x): Column => ({ key: `b${x.id}`, label: x.label, format: "eur" }))];
   const pivotRows: Row[] = h.clients
     .map((c): Row => ({
@@ -351,7 +355,7 @@ function Dashboard({
     }))
     .filter((r) => an.buckets.some((x) => r[`b${x.id}`]));
   const moveRows: Row[] = h.months
-    .filter((m) => a.keys.includes(m.key))
+    .filter((m) => inA.has(m.key))
     .reverse()
     // Le détail par poste est un objet : il a son propre tableau.
     .map((m) => ({ ...m, byPoste: undefined, id: m.key, label: monthName(m.key) }));
@@ -363,7 +367,7 @@ function Dashboard({
   const lt = lifetime(h, an.monthOptions[0]?.value ?? an.end);
   const ltColumns: Column[] = [
     { key: "name", label: "Client" },
-    { key: "status", label: "", format: "badge", tones: { actif: "ok", perdu: "bad" }, labels: { actif: "Actif", perdu: "Perdu" } },
+    { key: "status", label: "Statut", format: "badge", tones: { actif: "ok", perdu: "bad" }, labels: { actif: "Actif", perdu: "Perdu" } },
     { key: "since", label: "Client depuis" },
     { key: "last", label: "Dernière facture" },
     { key: "total", label: "CA total", format: "eur" },
@@ -562,7 +566,7 @@ function Dashboard({
           />
           {toClassify > 0 && (
             <p className="an-card__foot">
-              {toClassify} dépense{toClassify > 1 ? "s" : ""} « À classer » — <Link href="/admin/globals/expense-rules">ranger dans un poste →</Link>
+              {toClassify} dépense{toClassify > 1 ? "s" : ""} « À classer » : le détail est dans « Détail des dépenses », plus bas.
             </p>
           )}
         </Card>
@@ -574,8 +578,9 @@ function Dashboard({
         </Card>
 
         <Card wide title="Une année sur l'autre" sub="Une courbe par année, de janvier à décembre, chacune sa couleur. Survolez un mois pour l'écart.">
-          <ParamChips param="hm" value={YEAR_MEASURES.some((m) => m.value === an.measure) ? an.measure : "tout"} options={YEAR_MEASURES} label="Montant affiché" />
-          <YearLinesChart rows={an.yearLines.rows} years={an.yearLines.years} />
+          <ParamChips param="hm" value={an.measure} options={YEAR_MEASURES} label="Montant affiché" />
+          {/* Des dépenses qui montent sont une mauvaise nouvelle : l'infobulle le dit en rouge. */}
+          <YearLinesChart rows={an.yearLines.rows} years={an.yearLines.years} goodWhenUp={an.measure !== "depenses"} />
         </Card>
 
         <Card wide title="Clients" sub={b ? `Les licences de chaque client sur ${a.label}, face à ${b.label}. Cliquez un nom pour ouvrir la fiche.` : `Ce que chaque client a payé sur ${a.label}.`}>
@@ -585,8 +590,8 @@ function Dashboard({
                 <div className="an-moves__group">
                   <span className="an-moves__title">Arrivés ({a.gained.length})</span>
                   <span className="an-moves__list">
-                    {a.gained.map((n) => (
-                      <span key={n} className="an-chip an-chip--ok">
+                    {a.gained.map((n, i) => (
+                      <span key={`${n}-${i}`} className="an-chip an-chip--ok">
                         {n}
                       </span>
                     ))}
@@ -597,8 +602,8 @@ function Dashboard({
                 <div className="an-moves__group">
                   <span className="an-moves__title">Partis ({a.lost.length})</span>
                   <span className="an-moves__list">
-                    {a.lost.map((n) => (
-                      <span key={n} className="an-chip an-chip--bad">
+                    {a.lost.map((n, i) => (
+                      <span key={`${n}-${i}`} className="an-chip an-chip--bad">
                         {n}
                       </span>
                     ))}
@@ -656,8 +661,7 @@ function Dashboard({
         {expenseRows.length > 0 && (
           <Fold title="Détail des dépenses" sub={`Chaque sortie des comptes bancaires Pennylane sur ${a.label}, et son poste.`}>
             <p className="an-card__sub">
-              Transferts entre nos comptes, TVA et capital d'emprunt ne comptent pas ; les impôts sont à part (bénéfice avant impôts). Un classement à corriger :{" "}
-              <Link href="/admin/globals/expense-rules">postes de dépenses →</Link>
+              Transferts entre nos comptes, TVA et capital d&apos;emprunt ne comptent pas ; les impôts sont à part (bénéfice avant impôts).
             </p>
             <DataTable columns={EXPENSE_COLUMNS} rows={expenseRows} sort={{ key: "date", dir: "desc" }} csv="depenses" searchKeys={["label", "poste"]} />
           </Fold>
@@ -670,10 +674,10 @@ function Dashboard({
 
         <Fold title="Contrats et licences" sub="Ce que les fiches disent qu'on doit facturer chaque mois : licences, profils, partenaires, remises, conformité Pennylane.">
           <div className="an-tiles">
-            <Tile icon={Icons.euro()} label="CA / mois sous contrat" value={eur.format(kpis.mrr)} sub={`${kpis.clients} clients`} />
+            <Tile icon={Icons.euro()} label="CA / mois sous contrat" value={eur0(kpis.mrr)} sub={`${kpis.clients} clients`} />
             <Tile icon={Icons.users()} label="Licences facturées" value={kpis.licences.toLocaleString("fr-FR")} sub={`${eur.format(kpis.avgPricePerLicence)} en moyenne`} />
-            <Tile icon={Icons.coins()} label="Commissions / mois" value={eur.format(kpis.commissions)} sub="dues aux partenaires" />
-            <Tile icon={Icons.gift()} label="Remises / mois" value={eur.format(kpis.discounts)} sub="manque à gagner consenti" />
+            <Tile icon={Icons.coins()} label="Commissions / mois" value={eur0(kpis.commissions)} sub="dues aux partenaires" />
+            <Tile icon={Icons.gift()} label="Remises / mois" value={eur0(kpis.discounts)} sub="manque à gagner consenti" />
             <Tile
               icon={Icons.checkCircle()}
               label="Conformité Pennylane"
@@ -806,7 +810,7 @@ export default async function BillingView(view: AdminViewServerProps) {
     );
 
     // Les dépenses : les relevés bancaires Pennylane, rangés par poste (règles de TIM d'abord).
-    ({ expenses, note: expenseNote } = await loadExpenses(payload));
+    ({ expenses, note: expenseNote } = await loadExpenses());
 
     const now = new Date();
     analytics = buildBillingAnalytics(clients.docs as ClientDoc[], partners.docs as PartnerDoc[], report, months, now, legacyInvoiced);

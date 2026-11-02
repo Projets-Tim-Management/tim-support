@@ -1,8 +1,6 @@
 import type { Payload } from "payload";
 
 import { teamRecipients } from "@/core/lib/team-emails";
-
-import { ROLES } from "@/core/access";
 import { eur } from "@/modules/partner/lib/format";
 import { effectiveUnitPrice, licenceLinesOf } from "@/modules/partner/lib/pricing";
 import { TIMEZONE as PARIS } from "@/modules/marketing/lib/scheduling";
@@ -43,40 +41,6 @@ import {
 export type BuiltEmail = { subject: string; text: string; html: string };
 
 
-/**
- * Adresses de tous les admins et super-admins, SANS DOUBLON.
- *
- * Le dédoublonnage n'est pas une précaution : `roles` est un select `hasMany`,
- * donc une table à part, et une recherche « roles in (admin, super-admin) »
- * renvoie une ligne PAR RÔLE correspondant. Un compte qui porte les deux — le
- * cas normal d'un super-admin, puisque le rôle `admin` est la valeur par défaut
- * — ressort donc deux fois, son adresse figure deux fois dans le `to`, et il
- * reçoit chaque alerte en double.
- *
- * Comparaison en minuscules et sans espaces : deux comptes distincts écrits
- * « Jean@… » et « jean@… » sont la même boîte aux lettres.
- */
-export async function adminEmails(payload: Payload): Promise<string[]> {
-  const res = await payload.find({
-    collection: "users",
-    where: { roles: { in: [ROLES.admin, ROLES.superAdmin] } },
-    limit: 50,
-    depth: 0,
-    overrideAccess: true,
-  });
-
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const doc of res.docs) {
-    const email = (doc as { email?: string }).email?.trim();
-    if (!email) continue;
-    const key = email.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(email);
-  }
-  return out;
-}
 
 /**
  * Même règle que pour les gabarits client : le fuseau est explicite, toujours.

@@ -2,6 +2,7 @@ import { countByMonth, delta, periodBounds, type Delta } from "@/modules/analyti
 import type { Expense } from "@/modules/analytics/lib/expenses";
 import { CHANNELS, channelLabel as registryLabel } from "@/core/lib/channels";
 import { round2 } from "@/modules/partner/lib/format";
+import { shiftMonth } from "@/modules/analytics/lib/revenue-history";
 
 /**
  * Ce que l'écran Acquisition ajoute aux répartitions de `forms/lib/stats` :
@@ -45,9 +46,14 @@ export const CHANNEL_POSTES: Record<string, string> = {
 /** La dépense de chaque canal sur un ensemble de mois (« AAAA-MM »). */
 function spendOver(expenses: Expense[], metaSpendByMonth: Record<string, number>, leadsByChannel: Record<string, number>, keys: Set<string>): Record<string, number> {
   const byPoste: Record<string, number> = {};
-  for (const e of expenses) if (e.kind === "depense" && keys.has(e.month)) byPoste[e.poste] = (byPoste[e.poste] ?? 0) + e.amount;
-  const metaApi = Object.entries(metaSpendByMonth).filter(([k]) => keys.has(k)).reduce((s, [, v]) => s + v, 0);
-  const meta = metaApi > 0 ? metaApi : (byPoste["Meta Ads"] ?? 0);
+  const metaBank: Record<string, number> = {};
+  for (const e of expenses) {
+    if (e.kind !== "depense" || !keys.has(e.month)) continue;
+    byPoste[e.poste] = (byPoste[e.poste] ?? 0) + e.amount;
+    if (e.poste === "Meta Ads") metaBank[e.month] = (metaBank[e.month] ?? 0) + e.amount;
+  }
+  // Mois par mois : la dépense de l'API Meta quand elle existe ce mois-là, sinon la banque.
+  const meta = [...keys].reduce((s, k) => s + ((metaSpendByMonth[k] ?? 0) > 0 ? metaSpendByMonth[k] : (metaBank[k] ?? 0)), 0);
   const metaKeys = Object.keys(CHANNEL_POSTES).filter((k) => CHANNEL_POSTES[k] === "Meta Ads");
   const metaLeads = metaKeys.reduce((s, k) => s + (leadsByChannel[k] ?? 0), 0);
   const out: Record<string, number> = {};
@@ -62,13 +68,8 @@ function spendOver(expenses: Expense[], metaSpendByMonth: Record<string, number>
 
 /** Les mois « AAAA-MM » de la période, à partir du premier où les leads sont suivis. */
 export function trackedMonths(months: number, now: Date, trackedFrom?: string | null): string[] {
-  const { from } = periodBounds(months, now);
-  const out: string[] = [];
-  for (let i = 0; i < months; i++) {
-    const k = new Date(Date.UTC(new Date(from).getUTCFullYear(), new Date(from).getUTCMonth() + i, 1)).toISOString().slice(0, 7);
-    if (!trackedFrom || k >= trackedFrom) out.push(k);
-  }
-  return out;
+  const first = new Date(periodBounds(months, now).from).toISOString().slice(0, 7);
+  return Array.from({ length: months }, (_, i) => shiftMonth(first, i)).filter((k) => !trackedFrom || k >= trackedFrom);
 }
 
 /**
@@ -122,27 +123,33 @@ export function monthlyCosts(
   keys: string[],
   trackedFrom?: string | null,
 ): MonthCost[] {
-  const monthOf = new Map(leads.map((l) => [String(l.id), l.createdAt?.slice(0, 7) ?? ""]));
-  const channelOf = new Map(leads.map((l) => [String(l.id), l.channel ?? ""]));
+  // Tout est rangé par mois une seule fois : chaque mois lit ensuite ses propres paniers.
+  const lead = new Map(leads.map((l) => [String(l.id), { month: l.createdAt?.slice(0, 7) ?? "", channel: l.channel ?? "" }]));
+  const count = () => new Map<string, Record<string, number>>(keys.map((k) => [k, {}]));
+  const [leadsByMonth, oppByMonth, wonByMonth] = [count(), count(), count()];
+  const bump = (by: Map<string, Record<string, number>>, month: string, ch: string) => {
+    const r = by.get(month);
+    if (r) r[ch] = (r[ch] ?? 0) + 1;
+  };
+  for (const l of lead.values()) bump(leadsByMonth, l.month, l.channel);
+  for (const c of clients) {
+    const l = lead.get(relId(c.formSubmission) ?? "");
+    if (!l) continue;
+    bump(oppByMonth, l.month, l.channel);
+    if (c.clientStatus === "actif" || c.clientStatus === "resilie" || c.clientStatus === "archive") bump(wonByMonth, l.month, l.channel);
+  }
+  const expensesByMonth = new Map<string, Expense[]>(keys.map((k) => [k, []]));
+  for (const e of expenses) expensesByMonth.get(e.month)?.push(e);
   return keys.map((month) => {
-    const ofMonth = leads.filter((l) => l.createdAt?.slice(0, 7) === month);
-    const leadsBy: Record<string, number> = {};
-    for (const l of ofMonth) leadsBy[l.channel ?? ""] = (leadsBy[l.channel ?? ""] ?? 0) + 1;
-    const opp: Record<string, number> = {};
-    const won: Record<string, number> = {};
-    for (const c of clients) {
-      const sid = relId(c.formSubmission);
-      if (!sid || monthOf.get(sid) !== month) continue;
-      const ch = channelOf.get(sid) ?? "";
-      opp[ch] = (opp[ch] ?? 0) + 1;
-      if (c.clientStatus === "actif" || c.clientStatus === "resilie" || c.clientStatus === "archive") won[ch] = (won[ch] ?? 0) + 1;
-    }
-    const spend = spendOver(expenses, metaSpendByMonth, leadsBy, new Set([month]));
+    const leadsBy = leadsByMonth.get(month)!;
+    const opp = oppByMonth.get(month)!;
+    const won = wonByMonth.get(month)!;
+    const spend = spendOver(expensesByMonth.get(month)!, metaSpendByMonth, leadsBy, new Set([month]));
     const channels = [...new Set([...Object.keys(spend), ...Object.keys(leadsBy)])];
     const tracked = !trackedFrom || month >= trackedFrom;
     const byChannel = Object.fromEntries(channels.map((ch) => [ch, figures(spend[ch] ?? 0, leadsBy[ch] ?? 0, opp[ch] ?? 0, won[ch] ?? 0, tracked)]));
     const sum = (r: Record<string, number>) => Object.values(r).reduce((a, b) => a + b, 0);
-    return { month, ...figures(sum(spend), ofMonth.length, sum(opp), sum(won), tracked), byChannel };
+    return { month, ...figures(sum(spend), sum(leadsBy), sum(opp), sum(won), tracked), byChannel };
   });
 }
 

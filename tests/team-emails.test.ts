@@ -70,3 +70,25 @@ describe("nouveau client signé", () => {
     expect(mail.text).toContain("/collections/partner-clients/42");
   });
 });
+
+describe("garde-fous", () => {
+  it("un partenaire (métier ou utilisateur) ne reçoit jamais d'e-mail d'équipe, même avec une liste", () => {
+    const partners = [
+      { email: "metier@partenaire.fr", roles: ["partner-metier"], teamEmailsMode: "custom", teamEmails: ["client-gagne"] },
+      { email: "util@partenaire.fr", roles: ["partner-utilisateur"], teamEmailsMode: "custom", teamEmails: ["client-gagne"] },
+      { email: "direction@tim-management.co", roles: ["super-admin", "admin"] },
+    ];
+    expect(resolveTeamRecipients("client-gagne", partners, { "client-gagne": ["admin"] })).toEqual(["direction@tim-management.co"]);
+  });
+
+  it("« nouveau client signé » : seulement une affaire qui passe en Gagnée sans contrat avant", async () => {
+    const { isNewSignature } = await import("@/modules/partner/lib/clientStatus");
+    expect(isNewSignature("update", "en-signature", "actif")).toBe(true);
+    expect(isNewSignature("update", "en-test", "actif")).toBe(true);
+    expect(isNewSignature("update", "nouvelle", "actif")).toBe(true);
+    expect(isNewSignature("create", undefined, "actif")).toBe(false);
+    expect(isNewSignature("update", "resilie", "actif")).toBe(false);
+    expect(isNewSignature("update", "actif", "actif")).toBe(false);
+    expect(isNewSignature("update", "en-signature", "perdue")).toBe(false);
+  });
+});

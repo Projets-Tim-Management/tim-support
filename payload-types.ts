@@ -245,7 +245,6 @@ export interface Config {
     'dev-announce-email': DevAnnounceEmail;
     'ads-settings': AdsSetting;
     'ads-brand-kit': AdsBrandKit;
-    'expense-rules': ExpenseRule;
     'team-emails': TeamEmail;
   };
   globalsSelect: {
@@ -257,7 +256,6 @@ export interface Config {
     'dev-announce-email': DevAnnounceEmailSelect<false> | DevAnnounceEmailSelect<true>;
     'ads-settings': AdsSettingsSelect<false> | AdsSettingsSelect<true>;
     'ads-brand-kit': AdsBrandKitSelect<false> | AdsBrandKitSelect<true>;
-    'expense-rules': ExpenseRulesSelect<false> | ExpenseRulesSelect<true>;
     'team-emails': TeamEmailsSelect<false> | TeamEmailsSelect<true>;
   };
   locale: null;
@@ -6642,31 +6640,6 @@ export interface AdsBrandKit {
   createdAt?: string | null;
 }
 /**
- * Chaque sortie du relevé bancaire Pennylane est rangée dans un poste d'après son libellé. Vos règles passent avant celles d'origine (Google Ads, ChatGPT Ads, SEO, IT…) : ajoutez ici un fournisseur resté « À classer », ou corrigez un classement. Le libellé exact se lit dans Analyses → Facturation, tableau « Détail des dépenses ».
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "expense-rules".
- */
-export interface ExpenseRule {
-  id: number;
-  rules?:
-    | {
-        /**
-         * Majuscules indifférentes. Ex. : LINKUMA, GOOGLE ADS.
-         */
-        match: string;
-        /**
-         * Ex. : SEO, Google Ads, IT, Autres.
-         */
-        poste: string;
-        kind: 'depense' | 'impot' | 'ignore';
-        id?: string | null;
-      }[]
-    | null;
-  updatedAt?: string | null;
-  createdAt?: string | null;
-}
-/**
  * Qui reçoit chaque e-mail interne, selon son rôle. Une personne peut remplacer ce choix par sa propre liste, sur sa fiche (section « E-mails reçus »). Une alerte marquée critique part quand même au super-admin si personne ne la reçoit.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -6919,23 +6892,6 @@ export interface AdsBrandKitSelect<T extends boolean = true> {
       };
   advertiser?: T;
   legalNotice?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "expense-rules_select".
- */
-export interface ExpenseRulesSelect<T extends boolean = true> {
-  rules?:
-    | T
-    | {
-        match?: T;
-        poste?: T;
-        kind?: T;
-        id?: T;
-      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

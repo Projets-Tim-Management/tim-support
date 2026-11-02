@@ -95,6 +95,15 @@ export const isEndedStatus = (value?: string | null): boolean => clientPhase(val
 export const hasContractPhase = (value?: string | null): boolean =>
   value === "actif" || value === "resilie" || value === "archive";
 
+/**
+ * Une NOUVELLE signature : une affaire existante qui passe en « Gagnée » sans
+ * avoir déjà eu de contrat (prospect, en test, en signature). Pas une fiche
+ * créée directement « Gagnée » (un client qu'on enregistre), ni un retour de
+ * « Résiliée » ou « Archivée ».
+ */
+export const isNewSignature = (operation: string, previous?: string | null, next?: string | null): boolean =>
+  operation === "update" && next === "actif" && !hasContractPhase(previous);
+
 /** Fins de CONTRAT (résilié / archivé) : elles exigent une date de fin. */
 export const needsEndDate = (value?: string | null): boolean =>
   value === "resilie" || value === "archive";

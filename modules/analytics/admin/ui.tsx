@@ -293,7 +293,12 @@ export function BarList({
   );
 }
 
-const eurFormat = (v: number) => v.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+/** Des euros sans centimes : « 3 918 € » — les montants d'un tableau de bord. */
+export const eur0 = (v: number) => v.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+const eurFormat = eur0;
+
+/** « oct. 2026 » depuis une clé « AAAA-MM ». */
+export const monthYear = (k: string) => new Date(`${k}-01T00:00:00Z`).toLocaleDateString("fr-FR", { month: "short", year: "numeric", timeZone: "UTC" });
 
 /** Une section repliée : le détail est là, mais ne prend pas la place. */
 export function Fold({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {

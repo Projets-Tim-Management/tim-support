@@ -1,10 +1,10 @@
 import type { GlobalConfig, Payload } from "payload";
 
 import { isAdmin, isSuperAdminAccess } from "@/core/access";
-import { TEAM_EMAILS, TEAM_ROLES, rulesOf, type TeamEmailSettings } from "@/core/lib/team-emails";
+import { TEAM_EMAIL_OPTIONS, TEAM_EMAILS, TEAM_ROLES, rulesOf, type TeamEmailSettings } from "@/core/lib/team-emails";
 
 /** Libellés des rôles qui peuvent recevoir un e-mail d'équipe (jamais un partenaire utilisateur). */
-const ROLE_LABELS: Record<string, string> = { "super-admin": "Super-admin", admin: "Admin", support: "Support", "partner-metier": "Partenaire — Métier" };
+const ROLE_LABELS: Record<string, string> = { "super-admin": "Super-admin", admin: "Admin", support: "Support" };
 const ROLE_OPTIONS = TEAM_ROLES.map((value) => ({ value, label: ROLE_LABELS[value] ?? value }));
 
 /**
@@ -45,7 +45,7 @@ export const TeamEmails: GlobalConfig = {
               type: "select",
               label: "E-mail",
               required: true,
-              options: TEAM_EMAILS.map((e) => ({ value: e.key, label: `${e.group} — ${e.label}` })),
+              options: TEAM_EMAIL_OPTIONS,
               admin: {
                 width: "50%",
                 // La liste suit le registre : on ne choisit pas l'e-mail, on règle ses destinataires.

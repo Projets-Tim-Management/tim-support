@@ -86,17 +86,20 @@ function Journey({ steps }: { steps: Step[] }) {
   const weak = weakest(steps);
   return (
     <ol className="vd-journey" aria-label="Parcours des spectateurs">
-      {steps.map((s) => (
-        <li key={s.key} className={`vd-journey__step${weak?.key === s.key && (s.rate ?? 100) < 50 ? " vd-journey__step--weak" : ""}`}>
+      {steps.map((s) => {
+        const isWeak = weak?.key === s.key && (s.rate ?? 100) < 50;
+        return (
+        <li key={s.key} className={`vd-journey__step${isWeak ? " vd-journey__step--weak" : ""}`}>
           {s.rate != null && (
-            <span className="vd-journey__rate" title="part de l'étape d'avant">
-              {s.rate} %
+            <span className="vd-journey__rate" title={isWeak ? "l'étape qui perd le plus — part de l'étape d'avant" : "part de l'étape d'avant"}>
+              {s.rate} %{isWeak && <span className="vd-sr"> — l&apos;étape qui perd le plus</span>}
             </span>
           )}
           <span className="vd-journey__n">{int(s.n)}</span>
           <span className="vd-journey__label">{s.label}</span>
         </li>
-      ))}
+        );
+      })}
     </ol>
   );
 }
@@ -149,6 +152,8 @@ function Detail({ v, lead, index, days }: { v: VideoReport; lead: VideoLeads | u
                   {lectures ? ` · ${Math.round((lead.demandes / lectures) * 1000) / 10} pour 100 lectures` : ""}
                 </span>
               </div>
+              {/* Deux découpages des MÊMES demandes : chacun sa liste, sinon chaque demande compterait deux fois. */}
+              <h3 className="an-fold__h">D&apos;où la demande a été ouverte</h3>
               <BarList
                 tone="green"
                 unit="int"
@@ -156,14 +161,18 @@ function Detail({ v, lead, index, days }: { v: VideoReport; lead: VideoLeads | u
                   { key: "fin", label: "Depuis l'écran de fin de la vidéo", value: lead.depuisFin },
                   { key: "pause", label: "Depuis la pause", value: lead.depuisPause },
                   { key: "ailleurs", label: "Ailleurs sur la page", value: lead.demandes - lead.depuisFin - lead.depuisPause },
-                  ...VIDEO_POURCENTAGES.filter((p) => lead.parPourcentage[p]).map((p) => ({
-                    key: `p${p}`,
-                    label: `Vidéo vue : ${VIDEO_POURCENTAGE_LABELS[p].toLowerCase()}`,
-                    value: lead.parPourcentage[p],
-                    muted: true,
-                  })),
                 ].filter((i) => i.value > 0)}
               />
+              {VIDEO_POURCENTAGES.some((p) => lead.parPourcentage[p]) && (
+                <>
+                  <h3 className="an-fold__h">Jusqu&apos;où la vidéo avait été vue</h3>
+                  <BarList
+                    tone="green"
+                    unit="int"
+                    items={VIDEO_POURCENTAGES.filter((p) => lead.parPourcentage[p]).map((p) => ({ key: `p${p}`, label: VIDEO_POURCENTAGE_LABELS[p], value: lead.parPourcentage[p] }))}
+                  />
+                </>
+              )}
               <p className="an-card__foot">
                 {lead.clientes
                   ? `${lead.clientes} devenue${lead.clientes > 1 ? "s" : ""} cliente${lead.clientes > 1 ? "s" : ""} · ${eur.format(lead.caPaye)} HT par mois.`
@@ -208,29 +217,30 @@ export default async function VideosView(view: AdminViewServerProps) {
     const now = new Date();
     // La période et celle d'avant, pour comparer.
     const since = parisDay(new Date(now.getTime() - (2 * days - 1) * 86_400_000));
-    const found = await payload.find({
-      collection: "video-views",
-      where: { jour: { greater_than_equal: since } },
-      limit: 20000,
-      pagination: false,
-      depth: 0,
-      overrideAccess: true,
-      select: { videoId: true, page: true, etape: true, jour: true, appareil: true, canal: true, nombre: true },
-    });
-    const report = buildVideosAnalytics(found.docs as VueRow[], days, now);
-
-    // Les demandes de démo de la période qui portent une vidéo, et ce qu'elles
-    // sont devenues (l'opportunité née de chacune).
+    // Les lectures, et les demandes de démo de la période qui portent une vidéo
+    // (puis ce qu'elles sont devenues) : deux lectures indépendantes, en parallèle.
     const fromIso = new Date(now.getTime() - days * 86_400_000).toISOString();
-    const subs = await payload.find({
-      collection: "form-submissions",
-      where: { and: [{ videoId: { exists: true } }, { createdAt: { greater_than_equal: fromIso } }] },
-      limit: 5000,
-      pagination: false,
-      depth: 0,
-      overrideAccess: true,
-      select: { videoId: true, videoPourcentage: true, videoCta: true, createdAt: true },
-    });
+    const [found, subs] = await Promise.all([
+      payload.find({
+        collection: "video-views",
+        where: { jour: { greater_than_equal: since } },
+        limit: 20000,
+        pagination: false,
+        depth: 0,
+        overrideAccess: true,
+        select: { videoId: true, page: true, etape: true, jour: true, appareil: true, canal: true, nombre: true },
+      }),
+      payload.find({
+        collection: "form-submissions",
+        where: { and: [{ videoId: { exists: true } }, { createdAt: { greater_than_equal: fromIso } }] },
+        limit: 5000,
+        pagination: false,
+        depth: 0,
+        overrideAccess: true,
+        select: { videoId: true, videoPourcentage: true, videoCta: true, createdAt: true },
+      }),
+    ]);
+    const report = buildVideosAnalytics(found.docs as VueRow[], days, now);
     const subIds = subs.docs.map((d) => d.id);
     const clients = subIds.length
       ? await payload.find({

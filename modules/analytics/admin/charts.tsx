@@ -364,7 +364,19 @@ const pctText = (p: number) => `${p > 0 ? "+" : ""}${p.toLocaleString("fr-FR", {
 
 /* ─── Une année sur l'autre : une courbe par année, de janvier à décembre ─ */
 
-function YearTip({ active, label, payload, years }: { active?: boolean; label?: string | number; payload?: readonly { payload?: Record<string, number | string | null> }[]; years: string[] }) {
+function YearTip({
+  active,
+  label,
+  payload,
+  years,
+  goodWhenUp,
+}: {
+  active?: boolean;
+  label?: string | number;
+  payload?: readonly { payload?: Record<string, number | string | null> }[];
+  years: string[];
+  goodWhenUp: boolean;
+}) {
   const row = payload?.[0]?.payload;
   if (!active || !row) return null;
   const values = years.map((y) => ({ y, v: row[`y${y}`] as number | null })).filter((x) => x.v != null);
@@ -381,7 +393,7 @@ function YearTip({ active, label, payload, years }: { active?: boolean; label?: 
       ))}
       {pct != null && (
         <div className="an-tip__trend">
-          <span className={`an-pct an-pct--${pct > 0 ? "up" : pct < 0 ? "down" : "flat"}`}>
+          <span className={`an-pct an-pct--${pct === 0 ? "flat" : pct > 0 === goodWhenUp ? "up" : "down"}`}>
             {pct > 0 ? "▲" : pct < 0 ? "▼" : "•"} {pctText(pct)} face à {prev.y}
           </span>
         </div>
@@ -395,7 +407,18 @@ function YearTip({ active, label, payload, years }: { active?: boolean; label?: 
  * par mois, d'une courbe à l'autre. Une année s'arrête à son dernier mois
  * facturé.
  */
-export function YearLinesChart({ rows, years, height = 280 }: { rows: Record<string, number | string | null>[]; years: string[]; height?: number }) {
+export function YearLinesChart({
+  rows,
+  years,
+  height = 280,
+  goodWhenUp = true,
+}: {
+  rows: Record<string, number | string | null>[];
+  years: string[];
+  height?: number;
+  /** false : une hausse est une mauvaise nouvelle (des dépenses), l'écart passe au rouge. */
+  goodWhenUp?: boolean;
+}) {
   const c = useChartColors();
   // Une couleur FIXE par année (elle ne change pas quand l'année suivante arrive), en trait plein,
   // hors du bleu, du rouge et du vert réservés au CA, aux dépenses et au bénéfice. Trois années au
@@ -408,7 +431,7 @@ export function YearLinesChart({ rows, years, height = 280 }: { rows: Record<str
         <CartesianGrid {...gridProps(c)} />
         <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} />
         <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} allowDecimals={false} tickFormatter={compactEur} width={64} />
-        <Tooltip cursor={{ stroke: c.muted, strokeDasharray: "3 4" }} content={(p) => <YearTip active={p.active} label={p.label} payload={p.payload as never} years={shown} />} />
+        <Tooltip cursor={{ stroke: c.muted, strokeDasharray: "3 4" }} content={(p) => <YearTip active={p.active} label={p.label} payload={p.payload as never} years={shown} goodWhenUp={goodWhenUp} />} />
         <Legend {...legendProps(c)} />
         {shown.map((y) => (
           <Line key={y} name={y} type="monotone" dataKey={`y${y}`} stroke={colorOf(y)} strokeWidth={LINE_WIDTH} dot={lineDot(c, colorOf(y))} activeDot={lineActiveDot(c, colorOf(y))} />

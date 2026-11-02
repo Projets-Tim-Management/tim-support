@@ -1,3 +1,4 @@
+import { round2 } from "@/modules/partner/lib/format";
 import type { ProfilKey } from "@/modules/partner/lib/pricing";
 
 /**
@@ -58,7 +59,6 @@ export type AxonautDoc = {
 };
 
 const amount = (s: string): number => Number(s.replace(/[\s  €]/g, "").replace(",", "."));
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const PROFILE_WORDS: [RegExp, ProfilKey][] = [
   [/ADMINISTRATION/i, "admin"],
@@ -136,7 +136,8 @@ export function parseAxonaut(text: string): AxonautDoc {
   const totalHT = amount(ht[1]);
   const licencesHT = round2(lines.filter((l) => l.licence).reduce((s, l) => s + l.amountHT, 0));
   const onlyLicences = lines.length > 0 && lines.every((l) => l.licence);
-  const recurringHT = onlyLicences ? totalHT : Math.min(licencesHT, totalHT);
+  // Le récurrent ne dépasse pas le total, en valeur absolue : sur un avoir (montants négatifs), c'est le max.
+  const recurringHT = onlyLicences ? totalHT : totalHT >= 0 ? Math.min(licencesHT, totalHT) : Math.max(licencesHT, totalHT);
   const date = `${day[3]}-${day[2]}-${day[1]}`;
 
   return {
@@ -258,6 +259,9 @@ export function matchClient(doc: Pick<AxonautDoc, "siren" | "clientName">, clien
   const byName = clients.filter((c) =>
     [c.companyName, c.raisonSociale].some((n) => {
       const nk = nameKey(n);
+      // Une fiche dont le SIREN contredit celui de la facture n'est pas ce client, même au nom proche.
+      const own = (c.siren ?? "").replace(/\D/g, "").slice(0, 9);
+      if (doc.siren && own && own !== doc.siren) return false;
       // Égaux, ou l'un contient l'autre — mais pas un nom court perdu dans un long (« erg » dans « solarenergy »).
       return nk.length >= 3 && (nk === k || (Math.min(nk.length, k.length) >= 5 && (nk.includes(k) || k.includes(nk))));
     }),

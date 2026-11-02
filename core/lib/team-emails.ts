@@ -65,8 +65,14 @@ export const TEAM_EMAILS = [
 
 export type TeamEmailKey = (typeof TEAM_EMAILS)[number]["key"];
 
-/** Les rôles internes à TIM : seuls eux reçoivent des e-mails d'équipe (jamais un partenaire utilisateur). */
-export const TEAM_ROLES: Role[] = [ROLES.superAdmin, ROLES.admin, ROLES.support, ROLES.partnerMetier];
+/**
+ * Les rôles INTERNES à TIM : seuls eux reçoivent des e-mails d'équipe. Les
+ * rôles partenaire (métier comme utilisateur) sont des comptes EXTERNES
+ * (docs/RBAC-PLAN.md) : ces e-mails citent les clients de tous les partenaires
+ * et leurs montants. Un salarié de TIM qui porte aussi un rôle partenaire les
+ * reçoit par son rôle Admin ou Support.
+ */
+export const TEAM_ROLES: Role[] = [ROLES.superAdmin, ROLES.admin, ROLES.support];
 
 export const teamEmail = (key: string): TeamEmail | undefined => (TEAM_EMAILS as readonly TeamEmail[]).find((e) => e.key === key);
 
@@ -130,8 +136,11 @@ export async function loadTeamEmailSettings(payload: Payload): Promise<TeamEmail
   }
 }
 
-/** Les destinataires d'un e-mail d'équipe, d'après les réglages et les fiches utilisateurs. */
-export async function teamRecipients(payload: Payload, key: TeamEmailKey): Promise<string[]> {
+/**
+ * Réglages et comptes lus UNE fois, pour plusieurs envois d'un même passage
+ * (un cron qui envoie deux messages ne relit pas tout deux fois).
+ */
+export async function loadTeamEmails(payload: Payload): Promise<{ recipients: (key: TeamEmailKey) => string[]; teamAddress: string; supportAddress: string }> {
   const [settings, users] = await Promise.all([
     loadTeamEmailSettings(payload),
     payload.find({
@@ -143,17 +152,27 @@ export async function teamRecipients(payload: Payload, key: TeamEmailKey): Promi
       select: { email: true, roles: true, teamEmailsMode: true, teamEmails: true } as never,
     }),
   ]);
-  return resolveTeamRecipients(key, users.docs as TeamUser[], rulesOf(settings));
+  const rules = rulesOf(settings);
+  return {
+    recipients: (key) => resolveTeamRecipients(key, users.docs as TeamUser[], rules),
+    teamAddress: teamAddressOf(settings),
+    supportAddress: supportAddressOf(settings),
+  };
 }
 
-/** L'adresse d'équipe (réglage, sinon BILLING_REMINDER_TEAM_EMAIL, sinon team@). */
-export async function teamAddress(payload: Payload): Promise<string> {
-  const s = await loadTeamEmailSettings(payload);
-  return (s?.teamAddress || process.env.BILLING_REMINDER_TEAM_EMAIL || "team@tim-management.co").trim();
+/** Les destinataires d'un e-mail d'équipe, d'après les réglages et les fiches utilisateurs. */
+export async function teamRecipients(payload: Payload, key: TeamEmailKey): Promise<string[]> {
+  return (await loadTeamEmails(payload)).recipients(key);
 }
 
-/** Où arrivent les demandes du site et les tickets (réglage, sinon TICKETS_NOTIFY_EMAIL, sinon l'adresse d'envoi). */
+/** L'adresse d'équipe : le réglage, sinon BILLING_REMINDER_TEAM_EMAIL, sinon team@. */
+const teamAddressOf = (s: TeamEmailSettings | null) => (s?.teamAddress || process.env.BILLING_REMINDER_TEAM_EMAIL || "team@tim-management.co").trim();
+
+/** L'adresse du support : le réglage, sinon TICKETS_NOTIFY_EMAIL, sinon l'adresse d'envoi. */
+const supportAddressOf = (s: TeamEmailSettings | null) => (s?.supportAddress || process.env.TICKETS_NOTIFY_EMAIL || process.env.EMAIL_FROM || "support@tim-management.co").trim();
+
+
+/** Où arrivent les demandes du site et les tickets. */
 export async function supportAddress(payload: Payload): Promise<string> {
-  const s = await loadTeamEmailSettings(payload);
-  return (s?.supportAddress || process.env.TICKETS_NOTIFY_EMAIL || process.env.EMAIL_FROM || "support@tim-management.co").trim();
+  return supportAddressOf(await loadTeamEmailSettings(payload));
 }

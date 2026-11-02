@@ -30,6 +30,7 @@ import {
   CLIENT_STATUS_RANK,
   DEFAULT_CLIENT_STATUS,
   hasContractPhase,
+  isNewSignature,
   isPipelineStatus,
   needsEndDate,
 } from "@/modules/partner/lib/clientStatus";
@@ -500,14 +501,17 @@ const openProduction: CollectionAfterChangeHook = async ({ doc, previousDoc, req
  * Une affaire passe en « Gagnée » : l'équipe l'apprend, avec le montant mensuel
  * (voir notifyClientWon ; qui le reçoit se règle dans « E-mails de l'équipe »).
  *
- * Seulement depuis un statut de prospect, et par une PERSONNE : un import, un
- * script ou un client qui revient de « Résiliée » n'est pas une signature. Le
- * montant est relu sur la fiche enregistrée (`caPaye`, calculé avant
- * l'écriture). Après la réponse : celui qui a cliqué attend son écran.
+ * À la MODIFICATION d'une affaire qui n'avait pas encore de contrat (prospect,
+ * en test, en signature — le chemin normal finit par « En signature » →
+ * « Gagnée », parcours compris) et par une PERSONNE, ou par la synchro d'un
+ * parcours qu'une personne a fait avancer. Pas à la création (une fiche saisie
+ * directement « Gagnée » est un client existant qu'on enregistre), pas au
+ * retour d'une « Résiliée » ou « Archivée ». Le montant est relu sur la fiche
+ * enregistrée (`caPaye`, calculé avant l'écriture). Après la réponse : celui
+ * qui a cliqué attend son écran.
  */
-const notifyWon: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
-  const won = doc?.clientStatus === "actif" && isPipelineStatus(previousDoc?.clientStatus ?? DEFAULT_CLIENT_STATUS);
-  if (!won || doc?._status === "draft" || !req.user) return doc;
+const notifyWon: CollectionAfterChangeHook = async ({ doc, previousDoc, operation, req }) => {
+  if (!isNewSignature(operation, previousDoc?.clientStatus, doc?.clientStatus) || doc?._status === "draft") return doc;
   const partnerId = typeof doc.partner === "object" ? doc.partner?.id : doc.partner;
   afterResponse(async () => {
     const partner = partnerId

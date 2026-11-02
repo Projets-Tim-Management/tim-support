@@ -689,38 +689,6 @@
   color: var(--tim-slate);
   background: var(--tim-slate-bg);
 }
-.an-growth th {
-  vertical-align: bottom;
-}
-/* Un en-tête qui ne trie pas : même graphie, sans curseur ni survol. */
-.an-th--static {
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.1rem;
-  cursor: default;
-
-  &:hover {
-    color: var(--tim-muted);
-  }
-}
-.an-growth__sub {
-  font-size: 0.66rem;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--tim-muted-light);
-}
-.an-growth__label {
-  font-weight: 700;
-}
-.an-growth__cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-}
-.an-growth__value {
-  font-weight: 600;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .an-tile,
@@ -1403,6 +1371,16 @@ a.an-bars__label:hover {
     color: var(--tim-danger-text);
     background: var(--tim-red-bg);
   }
+}
+
+/* Lu par les lecteurs d'écran, invisible à l'œil : l'étape la plus faible ne se dit pas qu'en rouge. */
+.vd-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .vd-detail {
