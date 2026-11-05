@@ -281,14 +281,15 @@ export function DevBoard() {
       }
 
       // Arrivée dans « Terminé » (un statut qui prévient les demandeurs), avec
-      // des clients qui attendaient et pas encore prévenus : on propose
-      // l'envoi tout de suite, statut déjà enregistré.
+      // des clients qui attendaient : on propose l'envoi tout de suite, statut
+      // déjà enregistré. MÊME s'ils ont déjà été prévenus : redéposer la carte
+      // est le geste pour écrire à une adresse oubliée (la fenêtre le signale).
       const requesters = Array.isArray(moved.opportunities)
         ? moved.opportunities.length
         : moved.opportunities == null
           ? 0
           : 1;
-      if (changedColumn && statusHasRole(status, "annonce") && !moved.announcedAt && requesters > 0) {
+      if (changedColumn && statusHasRole(status, "annonce") && requesters > 0) {
         setAnnouncing({ id: moved.id, title: moved.title ?? "" });
       }
     },

@@ -92,9 +92,11 @@ export default function MonthlyOverview({ months }: { months: MonthRow[] }) {
   const vide = shown.every((m) => m.ca === 0 && m.prospects === 0 && m.clients === 0);
 
   const ink = axisStyle(c);
-  const bar = c.series[0];
-  const green = c.series[2];
-  const swatches = { ca: bar, prospects: c.violet, clients: green };
+  // CA = la couleur du chiffre d'affaires partout ; prospects et clients signés : deux couleurs de la palette, validées avec elle.
+  const bar = c.revenue;
+  const green = c.series[1];
+  const prospects = c.series[2];
+  const swatches = { ca: bar, prospects, clients: green };
   const dot = (color: string) => lineDot(c, color);
   const activeDot = (color: string) => lineActiveDot(c, color);
 
@@ -143,7 +145,7 @@ export default function MonthlyOverview({ months }: { months: MonthRow[] }) {
               />
               <Legend {...legendProps(c)} />
               <Bar yAxisId="eur" name="CA HT / mois" dataKey="ca" fill={gradientFill(GRADIENT)} radius={BAR_RADIUS} maxBarSize={period === 3 ? 44 : 22} />
-              <Line yAxisId="nb" name="Nouveaux prospects" type="monotone" dataKey="prospects" stroke={c.violet} strokeWidth={LINE_WIDTH} dot={dot(c.violet)} activeDot={activeDot(c.violet)} />
+              <Line yAxisId="nb" name="Nouveaux prospects" type="monotone" dataKey="prospects" stroke={prospects} strokeWidth={LINE_WIDTH} dot={dot(prospects)} activeDot={activeDot(prospects)} />
               <Line yAxisId="nb" name="Clients signés" type="monotone" dataKey="clients" stroke={green} strokeWidth={LINE_WIDTH} dot={dot(green)} activeDot={activeDot(green)} />
             </ComposedChart>
           </ResponsiveContainer>

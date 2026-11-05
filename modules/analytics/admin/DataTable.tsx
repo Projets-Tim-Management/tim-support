@@ -43,6 +43,10 @@ type Props = {
   emptyText?: string;
   /** Ligne de total : formatée comme les colonnes, texte libre dans la première. */
   total?: Row;
+  /** Les lignes où `key` vaut `value` passent en bas, sous un séparateur (« label (n) »), quel que soit le tri. */
+  bottom?: { key: string; value: string; label: string };
+  /** Hauteur maximale (CSS) : au-delà, le tableau défile, l'en-tête et le total restent visibles. */
+  maxHeight?: string;
 };
 
 /** Les formats qui se lisent à droite, comme des nombres. */
@@ -99,19 +103,19 @@ function toCsv(columns: Column[], rows: Row[]): string {
   return "\uFEFF" + [head, ...body].join("\n");
 }
 
-export function DataTable({ columns, rows, sort, csv, searchKeys = [], emptyText = "Rien à afficher.", total }: Props) {
+export function DataTable({ columns, rows, sort, csv, searchKeys = [], emptyText = "Rien à afficher.", total, bottom, maxHeight }: Props) {
   const [sortKey, setSortKey] = useState(sort?.key ?? columns[0]?.key);
   const [dir, setDir] = useState<"asc" | "desc">(sort?.dir ?? "asc");
   const [q, setQ] = useState("");
 
-  const shown = useMemo(() => {
+  const groups = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const filtered = needle
       ? rows.filter((r) => searchKeys.some((k) => String(r[k] ?? "").toLowerCase().includes(needle)))
       : rows;
     const col = columns.find((c) => c.key === sortKey);
     const numeric = col?.format != null && NUMERIC.has(col.format);
-    return [...filtered].sort((a, b) => {
+    const sorted = [...filtered].sort((a, b) => {
       const va = a[sortKey];
       const vb = b[sortKey];
       if (va == null && vb == null) return 0;
@@ -120,7 +124,11 @@ export function DataTable({ columns, rows, sort, csv, searchKeys = [], emptyText
       const cmp = numeric ? Number(va) - Number(vb) : String(va).localeCompare(String(vb), "fr", { numeric: true });
       return dir === "asc" ? cmp : -cmp;
     });
-  }, [rows, q, searchKeys, sortKey, dir, columns]);
+    if (!bottom) return { top: sorted, below: [] as Row[] };
+    const isBelow = (r: Row) => r[bottom.key] === bottom.value;
+    return { top: sorted.filter((r) => !isBelow(r)), below: sorted.filter(isBelow) };
+  }, [rows, q, searchKeys, sortKey, dir, columns, bottom]);
+  const shown = [...groups.top, ...groups.below];
 
   const onSort = (key: string) => {
     if (key === sortKey) setDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -141,6 +149,26 @@ export function DataTable({ columns, rows, sort, csv, searchKeys = [], emptyText
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const renderRow = (r: Row, i: number) => (
+    <tr key={String(r.id ?? i)} className="an-row" style={{ animationDelay: `${Math.min(i, 20) * 25}ms` }}>
+      {columns.map((c, ci) => {
+        const right = isNumeric(c);
+        const cell = render(r[c.key], c);
+        return (
+          <td key={c.key} className={right ? "an-num" : ""}>
+            {ci === 0 && r.href ? (
+              <Link href={r.href} prefetch={false} className="an-link">
+                {cell}
+              </Link>
+            ) : (
+              cell
+            )}
+          </td>
+        );
+      })}
+    </tr>
+  );
 
   return (
     <div className="an-table-wrap">
@@ -166,7 +194,7 @@ export function DataTable({ columns, rows, sort, csv, searchKeys = [], emptyText
           )}
         </div>
       )}
-      <div className="an-scroll">
+      <div className={`an-scroll${maxHeight ? " an-scroll--capped" : ""}`} style={maxHeight ? { maxHeight } : undefined}>
         <table className="an-table">
           <thead>
             <tr>
@@ -194,25 +222,17 @@ export function DataTable({ columns, rows, sort, csv, searchKeys = [], emptyText
                 </td>
               </tr>
             ) : (
-              shown.map((r, i) => (
-                <tr key={String(r.id ?? i)} className="an-row" style={{ animationDelay: `${Math.min(i, 20) * 25}ms` }}>
-                  {columns.map((c, ci) => {
-                    const right = isNumeric(c);
-                    const cell = render(r[c.key], c);
-                    return (
-                      <td key={c.key} className={right ? "an-num" : ""}>
-                        {ci === 0 && r.href ? (
-                          <Link href={r.href} prefetch={false} className="an-link">
-                            {cell}
-                          </Link>
-                        ) : (
-                          cell
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))
+              <>
+                {groups.top.map(renderRow)}
+                {bottom && groups.below.length > 0 && (
+                  <tr className="an-split">
+                    <td colSpan={columns.length}>
+                      {bottom.label} ({groups.below.length})
+                    </td>
+                  </tr>
+                )}
+                {groups.below.map((r, i) => renderRow(r, groups.top.length + i))}
+              </>
             )}
           </tbody>
           {total && shown.length > 0 && (

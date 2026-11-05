@@ -343,7 +343,7 @@ export type PeriodSummary = {
   taxes: number | null;
   profit: number | null;
   byPoste: Record<string, number>;
-  /** Arrivées et départs mois après mois (un client parti puis revenu compte dans les deux). */
+  /** Arrivées et départs (deux mois sans licences d'affilée ; un client parti puis revenu compte dans les deux). */
   gained: string[];
   lost: string[];
 };
@@ -361,13 +361,17 @@ function summarize(h: RevenueHistory, keys: string[], label: string, byKey?: Map
   const has = (c: HistoryClient, k: string) => (c.recurringByMonth[k] ?? 0) > 0.005;
   const gained: string[] = [];
   const lost: string[] = [];
+  // Un mois sans licences ne fait ni un départ ni un retour (une facture pas encore
+  // émise, une en retard) : comme pour « perdu », il en faut deux d'affilée.
   for (const k of keys) {
     const before = shiftMonth(k, -1);
+    const next = shiftMonth(k, 1);
     // Pas de « mois d'avant » dans l'historique : pas de mouvement inventé.
     if (!inHistory.has(k) || !inHistory.has(before)) continue;
     for (const c of h.clients) {
-      if (has(c, k) && !has(c, before)) gained.push(c.name);
-      if (!has(c, k) && has(c, before)) lost.push(c.name);
+      if (has(c, k) && !has(c, before) && !has(c, shiftMonth(k, -2))) gained.push(c.name);
+      // Le départ se confirme le mois d'après : pas encore facturé, ce n'est pas encore un départ.
+      if (!has(c, k) && has(c, before) && h.lastBilledMonth != null && next <= h.lastBilledMonth && !has(c, next)) lost.push(c.name);
     }
   }
   return {
@@ -690,8 +694,8 @@ export function breakEven(h: RevenueHistory, end: string, oneOffPostes: string[]
 }
 
 /* ─── Depuis le début : le CA cumulé, et ce que chaque client a rapporté ───
-   Toute l'histoire de TIM, sans plage : la somme qui monte mois après mois, et
-   par client son total, son total par année, et s'il est encore là. */
+   Toute l'histoire de TIM, sans plage : le total, et par client son total, son
+   total par année, et s'il est encore là. */
 
 export type LifetimeClient = {
   id: string;
@@ -713,18 +717,11 @@ export type Lifetime = {
   end: string;
   total: number;
   years: string[];
-  /** CA cumulé, mois après mois (1er du mois en ISO, pour les graphiques). */
-  cumulative: { month: string; key: string; cumul: number }[];
   clients: LifetimeClient[];
 };
 
 export function lifetime(h: RevenueHistory, end: string): Lifetime {
-  const months = h.months.filter((m) => m.key <= end);
-  let running = 0;
-  const cumulative = months.map((m) => {
-    running = round2(running + m.total);
-    return { month: m.month, key: m.key, cumul: running };
-  });
+  const total = round2(h.months.filter((m) => m.key <= end).reduce((s, m) => s + m.total, 0));
   // Un client facturé le dernier mois, ou celui d'avant (une facture en retard), est encore là.
   const recent = shiftMonth(end, -1);
   const clients = h.clients
@@ -751,5 +748,5 @@ export function lifetime(h: RevenueHistory, end: string): Lifetime {
     })
     .filter((c) => c.total > 0)
     .sort((a, b) => b.total - a.total);
-  return { start: h.start, end, total: running, years: h.years.map((y) => y.year), cumulative, clients };
+  return { start: h.start, end, total, years: h.years.map((y) => y.year), clients };
 }

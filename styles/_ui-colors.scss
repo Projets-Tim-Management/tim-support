@@ -1,0 +1,49 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   COULEURS DES GRAPHIQUES — LA BASE UNIQUE (« UI colors »)
+   ═══════════════════════════════════════════════════════════════════════════
+   👉 Toutes les couleurs de données du back-office sont ICI : graphiques,
+   barres, pastilles de KPI, mini-courbes, jauges. Partout ailleurs, on les
+   référence par leur rôle (var(--tim-chart-…)), jamais en #hex.
+
+   Esprit : une palette de logiciel récent (Pennylane, Linear, Stripe) — des
+   teintes franches mais posées, aucune saturée « fluo », le rouge réservé aux
+   dépenses. Aucune couleur de marque TIM dans les données : le rouge TIM sert
+   aux actions (boutons, liens), pas aux séries.
+
+   Validée le 04/11/2026 avec le validateur du skill dataviz, sur fond blanc :
+   les 7 couleurs dans le bon ordre passent tout (contraste ≥ 3:1, séparation
+   daltonienne ΔE ≥ 9,8 entre voisines, vision normale ≥ 17,5) ; les trois
+   premières se distinguent toutes entre elles (graphiques à points, années).
+   Pour changer une couleur : relancer le validateur, et ne garder qu'un ordre
+   qui passe.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* ─── Palette catégorielle, ordre FIXE ────────────────────────────────────
+     Une série garde sa couleur quel que soit le filtre (une couleur suit
+     l'entité, jamais son rang). Au-delà de 7 séries : « Autres », pas une
+     8ᵉ couleur. Profils : Admin = 1, Conducteur = 2, Chef de chantier = 3,
+     Chef d'équipe = 4, Compagnon = 5, Visuel = 6, Bureau = 7. */
+  --tim-chart-1: #4c5fd5; /* indigo  */
+  --tim-chart-2: #14998c; /* sarcelle */
+  --tim-chart-3: #c98204; /* ambre   */
+  --tim-chart-4: #d9467a; /* rose    */
+  --tim-chart-5: #7c5cd6; /* violet  */
+  --tim-chart-6: #0a8fb3; /* cyan    */
+  --tim-chart-7: #b7742f; /* sable   */
+
+  /* ─── Rôles financiers : le même sens sur tous les écrans ─────────────────
+     Chiffre d'affaires, rentrées = indigo ; dépenses = rouge ; bénéfice,
+     marge = sarcelle. Validés ensemble (vision normale ≥ 22, daltonien ≥ 11). */
+  --tim-chart-revenue: var(--tim-chart-1);
+  --tim-chart-expense: #e5484d;
+  --tim-chart-profit:  var(--tim-chart-2);
+
+  /* ─── Habillage ───────────────────────────────────────────────────────────*/
+  --tim-chart-muted: #cfd3da; /* le reste, quand une série est mise en avant ; « sans catégorie » */
+  --tim-chart-other: #9aa1ad; /* « Autres » : ce qui n'a pas sa propre couleur */
+  /* Encre des étiquettes de couleur : la couleur de la série, foncée vers celle-ci, pour se lire sur son fond pâle. */
+  --tim-chart-ink:   #1b1f2a;
+  --tim-chart-grid:  #eef0f3; /* grille : un cran au-dessus du fond, trait fin */
+  /* Fond teinté d'un encart lié aux données (callout) : la teinte du CA, à peine. */
+  --tim-chart-wash:  color-mix(in srgb, var(--tim-chart-revenue) 7%, var(--tim-white));
+}

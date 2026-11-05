@@ -49,18 +49,20 @@ export const Users: CollectionConfig = {
   },
   auth: {
     /**
-     * 24 heures, au lieu des 2 heures par défaut de Payload.
+     * 30 jours (demandé le 05/11/2026 : se reconnecter chaque matin était
+     * pénible). Avant : 24 heures, et à l'origine les 2 heures par défaut de Payload.
      *
      * Le jeton n'est renouvelé qu'au CHANGEMENT DE PAGE dans le back-office, et
      * seulement dans les quatre dernières minutes avant son terme. Une fiche
      * laissée ouverte pendant une réunion, un long e-mail en cours de rédaction,
      * et l'enregistrement renvoyait vers l'écran de connexion — travail perdu.
      *
-     * Une journée de travail tient désormais dans une session. Le compromis est
+     * Un mois de travail tient désormais dans une session. Le compromis est
      * assumé : un poste laissé déverrouillé reste connecté plus longtemps, ce
-     * qui pour un back-office interne pèse moins que la perte de saisie.
+     * qui pour un back-office interne pèse moins que la perte de saisie et les
+     * reconnexions quotidiennes. « Se déconnecter » reste le geste sur un poste partagé.
      */
-    tokenExpiration: 24 * 60 * 60,
+    tokenExpiration: 30 * 24 * 60 * 60,
   },
   access: {
     // `admin` (droit d'entrer dans /admin) doit renvoyer un booléen strict.

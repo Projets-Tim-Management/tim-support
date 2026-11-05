@@ -105,22 +105,29 @@
   50%      { translate: 0 -14px; }
 }
 
-/* Cadre de téléphone dessiné : bord, reflet, ombre portée. */
+/*
+ * Cadre de téléphone dessiné : bord fin, reflet, ombre portée — un iPhone
+ * récent, pas un 3GS (Charlie, 05/11/2026 — variante « E » validée sur
+ * planche) : l'arrondi d'origine, mais une bordure deux fois plus fine (1,6 %).
+ * Les rayons sont en « % largeur / % hauteur » (ratio 9 / 19,5) ; celui de
+ * l'écran = celui du cadre moins la bordure, pour que les deux courbes restent
+ * concentriques.
+ */
 .v2-phone {
   position: relative;
   aspect-ratio: 9 / 19.5;
-  border-radius: 14% / 6.5%;
-  padding: 3.2%;
+  border-radius: 14% / 6.46%;
+  padding: 1.6%;
   background: linear-gradient(150deg, var(--color-ink-line), var(--color-ink) 45%);
   box-shadow:
-    inset 0 0 0 1.5px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 14%, transparent),
     0 40px 80px -30px color-mix(in srgb, var(--color-ink) 70%, transparent);
 }
 .v2-phone-screen {
   position: relative;
   height: 100%;
   overflow: hidden;
-  border-radius: 11.5% / 5.4%;
+  border-radius: 12.8% / 5.81%;
   background: white;
 }
 

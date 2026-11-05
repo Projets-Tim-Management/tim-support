@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "@payloadcms/ui";
+import { toast, useConfig } from "@payloadcms/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -16,7 +16,9 @@ import { createPortal } from "react-dom";
  *    jour quand on corrige l'intitulé ;
  *  - à droite, ce qu'on règle : l'INTITULÉ du développement dans l'e-mail (le
  *    titre interne — « Fix export CSV » — n'est pas celui qu'on montre à un
- *    client), les ADRESSES, une par opportunité « Demandé par », qu'on retire
+ *    client), les FICHES DE LA DOC jointes (la « Fiche de documentation » du
+ *    développement d'office ; on en retire, on en cherche d'autres parmi les
+ *    publiées), les ADRESSES, une par opportunité « Demandé par », qu'on retire
  *    ou complète, et le bouton. Chaque adresse reçoit SON message : jamais de
  *    copie.
  *
@@ -29,6 +31,13 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Recipient = { email: string; companyName?: string };
 type Preview = { subject: string; html: string };
+type Doc = { id: number | string; title: string };
+
+/** Ce que montre un aperçu : l'intitulé et les fiches jointes. */
+const keyOf = (t: string, d: Doc[]) => `${t}\u0000${d.map((x) => x.id).join(",")}`;
+
+/** Comparaison sans accents ni casse, pour la recherche de fiches. */
+const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 export type AnnounceTarget = { id: number | string; title: string };
 
@@ -45,12 +54,26 @@ export function AnnounceDrawer({
   /** À faire AVANT d'envoyer — enregistrer la fiche, par exemple. Une erreur annule l'envoi. */
   beforeSend?: () => Promise<void>;
 }) {
+  const {
+    config: {
+      routes: { api },
+    },
+  } = useConfig();
   const [title, setTitle] = useState("");
+  const [docs, setDocs] = useState<Doc[]>([]);
+  /** Toutes les fiches publiées, pour la recherche ; chargées à l'ouverture. */
+  const [published, setPublished] = useState<Doc[]>([]);
+  const [docQuery, setDocQuery] = useState("");
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [draft, setDraft] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [loading, setLoading] = useState(false);
+  /** Date d'un envoi précédent : la fenêtre rouverte le dit, pour ne pas écrire deux fois au même client. */
+  const [already, setAlready] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+
+  /** L'intitulé et les fiches pour lesquels l'aperçu affiché a été demandé. */
+  const shownFor = useRef<string | null>(null);
 
   /**
    * Chaque chargement porte un numéro ; seule la réponse du DERNIER lancé
@@ -58,13 +81,12 @@ export function AnnounceDrawer({
    * pouvait écraser l'aperçu d'un intitulé déjà corrigé — et on relisait un
    * message qui n'était pas celui qui allait partir.
    */
-  /** L'intitulé pour lequel l'aperçu affiché a été demandé. */
-  const shownFor = useRef<string | null>(null);
-
   const seq = useRef(0);
-  const load = useCallback(async (id: number | string, forTitle: string, withRecipients: boolean) => {
+  /** `forDocs` absent (ouverture) : le serveur prend la fiche du développement et la renvoie. */
+  const load = useCallback(async (id: number | string, forTitle: string, withRecipients: boolean, forDocs?: Doc[]) => {
     const mine = ++seq.current;
     const q = new URLSearchParams({ id: String(id), title: forTitle });
+    if (forDocs) q.set("features", forDocs.map((d) => d.id).join(","));
     const res = await fetch(`/api/dev/announce?${q}`, { credentials: "include" });
     const j = res.ok ? await res.json() : null;
     if (!j || mine !== seq.current) return;
@@ -75,10 +97,12 @@ export function AnnounceDrawer({
           .filter((r) => r.email)
           .map((r) => ({ email: r.email, companyName: r.companyName })),
       );
-      if (!forTitle.trim() && j.title) {
-        setTitle(j.title);
-        shownFor.current = j.title;
-      }
+      setAlready(j.announcedAt ?? null);
+      const got = ((j.features ?? []) as Doc[]).map((d) => ({ id: d.id, title: d.title }));
+      setDocs(got);
+      const t = !forTitle.trim() && j.title ? j.title : forTitle;
+      if (t !== forTitle) setTitle(t);
+      shownFor.current = keyOf(t, got);
     }
   }, []);
 
@@ -90,11 +114,14 @@ export function AnnounceDrawer({
     }
     let active = true;
     setTitle(dev.title);
+    setDocs([]);
+    setDocQuery("");
+    setAlready(null);
     setRecipients([]);
     setDraft("");
     setPreview(null);
     setLoading(true);
-    shownFor.current = dev.title;
+    shownFor.current = keyOf(dev.title, []);
     load(dev.id, dev.title, true)
       .catch(() => undefined)
       .finally(() => active && setLoading(false));
@@ -103,16 +130,31 @@ export function AnnounceDrawer({
     };
   }, [dev, load]);
 
-  // L'intitulé change → l'aperçu suit, un peu après la dernière frappe. Rien
-  // tant qu'il est celui déjà affiché : l'ouverture ne recharge pas deux fois.
+  // Les fiches publiées, pour la recherche (titre seul : c'est ce qu'on cherche).
   useEffect(() => {
-    if (!dev || title === shownFor.current) return;
+    if (!dev) return;
+    const q = "where[_status][equals]=published&limit=1000&depth=0&sort=title&select[title]=true";
+    fetch(`${api}/features?${q}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { docs: [] }))
+      .then((j: { docs?: { id: number | string; title?: string }[] }) => setPublished((j.docs ?? []).map((d) => ({ id: d.id, title: d.title ?? "" }))))
+      .catch(() => setPublished([]));
+  }, [api, dev]);
+
+  // L'intitulé ou les fiches changent → l'aperçu suit, un peu après la
+  // dernière frappe. Rien tant que c'est ce qui est déjà affiché : l'ouverture
+  // ne recharge pas deux fois.
+  useEffect(() => {
+    if (!dev || loading || keyOf(title, docs) === shownFor.current) return;
     const t = setTimeout(() => {
-      shownFor.current = title;
-      void load(dev.id, title, false).catch(() => undefined);
+      shownFor.current = keyOf(title, docs);
+      void load(dev.id, title, false, docs).catch(() => undefined);
     }, 350);
     return () => clearTimeout(t);
-  }, [dev, load, title]);
+  }, [dev, docs, load, loading, title]);
+
+  const docMatches = docQuery.trim()
+    ? published.filter((d) => !docs.some((x) => String(x.id) === String(d.id)) && norm(d.title).includes(norm(docQuery.trim()))).slice(0, 6)
+    : [];
 
   // Échap ferme.
   useEffect(() => {
@@ -148,7 +190,7 @@ export function AnnounceDrawer({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: dev.id, title: clean, emails: recipients.map((r) => r.email) }),
+        body: JSON.stringify({ id: dev.id, title: clean, emails: recipients.map((r) => r.email), featureIds: docs.map((d) => d.id) }),
       });
       const j = await res.json().catch(() => null);
       if (!res.ok) {
@@ -212,6 +254,12 @@ export function AnnounceDrawer({
 
           {/* ── Les réglages ───────────────────────────────────────────── */}
           <aside className="dev-popup__side">
+            {already && (
+              <p className="dev-announce__already" role="status">
+                <strong>Déjà envoyé le {new Date(already).toLocaleString("fr-FR", { day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit" })}.</strong> Retirez les clients déjà prévenus et
+                ajoutez l&apos;adresse oubliée : seules les adresses de la liste recevront l&apos;e-mail.
+              </p>
+            )}
             <label className="dev-need__label">
               Intitulé dans l'e-mail
               <input
@@ -221,6 +269,52 @@ export function AnnounceDrawer({
                 placeholder="Ce que le client reconnaîtra — ex. Export des heures par chantier"
               />
             </label>
+
+            {/* Les fiches du site support jointes : une carte cliquable chacune dans l'e-mail. */}
+            <div className="dev-need__label">
+              Fiches de la doc dans l&apos;e-mail ({docs.length})
+              {docs.length === 0 ? (
+                <span className="dev-cfield__hint">{loading ? "Chargement…" : "Aucune : cherchez une fiche publiée ci-dessous."}</span>
+              ) : (
+                <ul className="dev-announce__list">
+                  {docs.map((d) => (
+                    <li key={d.id} className="dev-announce__item">
+                      <span className="dev-announce__who">
+                        <span className="dev-announce__email">📄 {d.title}</span>
+                      </span>
+                      <button type="button" className="dev-announce__remove" aria-label={`Retirer la fiche ${d.title}`} onClick={() => setDocs((list) => list.filter((x) => x.id !== d.id))}>
+                        ✕
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="dev-announce__docsearch">
+                <input type="search" value={docQuery} placeholder="Chercher une fiche à ajouter…" onChange={(e) => setDocQuery(e.target.value)} />
+                {docQuery.trim() && (
+                  <ul className="dev-announce__matches" role="listbox" aria-label="Fiches trouvées">
+                    {docMatches.length === 0 ? (
+                      <li className="dev-announce__nomatch">Aucune fiche publiée ne correspond.</li>
+                    ) : (
+                      docMatches.map((d) => (
+                        <li key={d.id}>
+                          <button
+                            type="button"
+                            className="dev-announce__match"
+                            onClick={() => {
+                              setDocs((list) => [...list, d]);
+                              setDocQuery("");
+                            }}
+                          >
+                            + {d.title}
+                          </button>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                )}
+              </div>
+            </div>
 
             <div className="dev-need__label">
               Destinataires ({recipients.length})

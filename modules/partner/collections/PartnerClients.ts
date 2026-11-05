@@ -56,6 +56,8 @@ import { pennylaneStampFor } from "@/modules/partner/lib/billing-check";
 import { BILLING_PERIOD_OPTIONS } from "@/modules/partner/lib/billing-period";
 import { buildHistoryEntry, nextHistory, type HistoryEntry } from "@/modules/partner/lib/history";
 import { peekPennylane } from "@/modules/partner/lib/pennylane";
+import { billingPeriodMonths } from "@/modules/partner/lib/billing-period";
+import { nextLicenceMoves, type LicenceMoveDay } from "@/modules/partner/lib/regularisation";
 import { isBillableClient, LICENCE_BASE_PRICES, PRESTATIONS, PROFILS } from "@/modules/partner/lib/pricing";
 import { geocodeClient } from "@/core/hooks/geocodeClient";
 import { setPhoneDigits } from "@/core/hooks/phoneDigits";
@@ -164,9 +166,19 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
     freshStamp: Boolean(snap),
   });
 
+  // Mouvements de licences (client gagné) : la date de chaque changement de
+  // quantité, d'où se calcule la régularisation d'un client facturé au
+  // trimestre (lib/regularisation.ts). Un mois d'historique ne suffit pas :
+  // il ne garde que le dernier état du mois, ni le jour ni le plus haut.
+  const movesIn = data?.licenceMoves ?? originalDoc?.licenceMoves;
+  const licenceMoves =
+    clientStatus === "actif" && originalDoc?.licences
+      ? nextLicenceMoves(Array.isArray(movesIn) ? (movesIn as LicenceMoveDay[]) : [], originalDoc.licences as Record<string, number | undefined>, lic, new Date())
+      : undefined;
+
   // Le partenaire fixe les prix → le CA HT est directement Σ(qté × prix), sans
   // remise appliquée. `discountPct` reste stocké à titre indicatif.
-  return { ...data, totalLicences, caBrut: caHT, caPaye: caHT, discountPct: suggestedDiscountPct, history: cleanHistory };
+  return { ...data, totalLicences, caBrut: caHT, caPaye: caHT, discountPct: suggestedDiscountPct, history: cleanHistory, ...(licenceMoves && { licenceMoves }) };
 };
 
 /**
@@ -1187,6 +1199,27 @@ export const PartnerClients: CollectionConfig = {
                 // nombres plutôt qu'un type + une valeur : pas d'enum en base).
                 ...PROFILS.flatMap((p) => [hiddenNum(`${p.key}DiscountPct`, 0), hiddenNum(`${p.key}DiscountAmount`, 0)]),
               ],
+            },
+            /**
+             * Mouvements de licences — client facturé sur plusieurs mois
+             * (trimestre…), payé d'avance. Notés seuls à chaque enregistrement
+             * qui change une quantité (fiche gagnée) ; la date se corrige si le
+             * changement a pris effet un autre jour. La régularisation à
+             * ajouter à la prochaine facture s'en calcule (encart Facturation
+             * Pennylane, Analyses → Facturation, rappels du rapprochement).
+             */
+            {
+              // JSON : un tableau compact maison (une ligne par licence) plutôt que l'éditeur de
+              // tableaux de Payload, trop encombrant pour quelques chiffres (Charlie, 05/11/2026).
+              // Forme : [{ at, lines: [{ profile, before, after, price }] }] — voir lib/regularisation.ts.
+              name: "licenceMoves",
+              type: "json",
+              label: "Mouvements de licences",
+              admin: {
+                // Une fois le client signé seulement (avant, les licences sont un devis), et au-dessus du mémo des prestations.
+                condition: (data, sibling, ctx) => adminOnlyTab(data, sibling, ctx) && hasContractPhase(data?.clientStatus) && billingPeriodMonths(data?.billingPeriod) > 1,
+                components: { Field: "/modules/partner/admin/LicenceMovesField#LicenceMovesField" },
+              },
             },
             {
               // Le MÉMO des prestations ponctuelles évoquées avec le prospect (formation, développement, mise en

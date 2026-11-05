@@ -100,9 +100,16 @@ export type BankTransaction = {
   date: string; // ISO jour
   label: string;
   amount: number;
-  /** Catégories posées dans Pennylane, s'il y en a. */
+  /** Catégories posées dans Pennylane, s'il y en a (leurs libellés). */
   categories: string[];
+  /** Les mêmes, avec leur identifiant Pennylane et leur part de la transaction. */
+  categoryRefs?: CategoryRef[];
+  /** Part de TVA dans le montant TTC (0 : pas de TVA, 0,1667 : TVA à 20 %). */
+  vatShare?: number;
 };
+
+/** Une catégorie Pennylane posée sur une dépense, et la part de la dépense qui lui revient (1 : tout). */
+export type CategoryRef = { id: string; label: string; weight: number };
 
 export type Expense = {
   id: string;
@@ -110,10 +117,16 @@ export type Expense = {
   month: string;
   /** Première ligne du libellé, sans la référence bancaire. */
   label: string;
-  /** Montant sorti, positif. */
+  /** Montant HT, positif : ce que compte tout l'écran. */
   amount: number;
+  /** Ce qui est sorti du compte (TTC), positif. */
+  amountTTC: number;
+  /** La TVA de la sortie (TTC − HT). */
+  vat: number;
   poste: string;
   kind: ExpenseKind;
+  /** Les catégories Pennylane de la dépense (vide : pas encore catégorisée). */
+  categories: CategoryRef[];
 };
 
 /** Le libellé lisible : la première ligne, sans « (REF: …) ». */
@@ -151,7 +164,10 @@ export function classifyExpenses(tx: BankTransaction[], custom: ExpenseRule[] = 
       date: t.date,
       month: t.date.slice(0, 7),
       label: cleanLabel(t.label),
-      amount: round2(-t.amount),
+      amount: round2(-t.amount * (1 - (t.vatShare ?? 0))),
+      amountTTC: round2(-t.amount),
+      vat: round2(-t.amount * (t.vatShare ?? 0)),
+      categories: t.categoryRefs ?? [],
       ...classify(t.label, t.categories, custom),
     }))
     .sort((a, b) => b.date.localeCompare(a.date));

@@ -9,12 +9,17 @@ import { logActivity } from "@/modules/partner/lib/journal";
 /**
  * Prévenir les clients qui ont demandé un développement : c'est disponible.
  *
- * GET  ?id=…&title=…                → destinataires proposés (un par
+ * GET  ?id=…&title=…[&features=1,2] → destinataires proposés (un par
  *                                      opportunité « Demandé par »), intitulé,
- *                                      et l'APERÇU du message tel qu'il partira
- *                                      au premier destinataire
- * POST { id, title, emails: [...] } → UN e-mail par adresse — jamais de copie :
- *                                      un client ne doit pas voir les autres.
+ *                                      fiches de doc jointes, et l'APERÇU du
+ *                                      message tel qu'il partira au premier
+ *                                      destinataire
+ * POST { id, title, emails, featureIds } → UN e-mail par adresse — jamais de
+ *                                      copie : un client ne doit pas voir les autres.
+ *
+ * Fiches de doc : celles choisies dans la fenêtre ; sans choix transmis, la
+ * « Fiche de documentation » du développement. Seules les fiches PUBLIÉES
+ * partent : un lien vers un brouillon mènerait le client sur une page vide.
  *
  * L'envoi est un GESTE, fait depuis la fenêtre de la fiche (AnnounceField), et
  * non un effet de bord du changement de statut : l'équipe relit l'intitulé,
@@ -53,15 +58,30 @@ async function requesters(payload: Awaited<ReturnType<typeof payloadClient>>, de
   return clients.filter((c): c is Client => c != null);
 }
 
-type Feature = { slug?: string; title?: string } | null;
+type Feature = { id: number | string; slug: string; title?: string; shortDescription?: string };
 
-async function featureOf(payload: Awaited<ReturnType<typeof payloadClient>>, dev: { feature?: Ref }): Promise<Feature> {
-  const featureId = idOf(dev.feature);
-  if (featureId == null) return null;
-  return (await payload
-    .findByID({ collection: "features", id: featureId, depth: 0, overrideAccess: true })
-    .catch(() => null)) as Feature;
+/** Les fiches demandées (ids), publiées seulement, dans l'ordre donné. */
+async function featuresOf(payload: Awaited<ReturnType<typeof payloadClient>>, ids: (number | string)[]): Promise<Feature[]> {
+  const docs = await Promise.all(
+    [...new Set(ids.map(String))].slice(0, 10).map(
+      (id) =>
+        payload
+          .findByID({ collection: "features", id, depth: 0, overrideAccess: true })
+          .catch(() => null) as Promise<{ id: number | string; slug?: string; title?: string; shortDescription?: string; _status?: string } | null>,
+    ),
+  );
+  return docs
+    .filter((d): d is NonNullable<typeof d> => d != null && d._status === "published" && Boolean(d.slug))
+    .map((d) => ({ id: d.id, slug: d.slug!, title: d.title, shortDescription: d.shortDescription }));
 }
+
+/** Le choix transmis (liste, éventuellement vide), sinon la fiche du développement. */
+const chosenIds = (raw: unknown, dev: { feature?: Ref }): (number | string)[] => {
+  if (Array.isArray(raw)) return raw.map((v) => String(v)).filter(Boolean);
+  if (typeof raw === "string") return raw.split(",").map((v) => v.trim()).filter(Boolean);
+  const own = idOf(dev.feature);
+  return own == null ? [] : [own];
+};
 
 /**
  * Le message pour UNE adresse, avec ce qu'on sait du client qui la porte :
@@ -71,7 +91,7 @@ async function featureOf(payload: Awaited<ReturnType<typeof payloadClient>>, dev
  */
 async function messageFor(
   payload: Awaited<ReturnType<typeof payloadClient>>,
-  args: { email: string; title: string; client: Client | null; feature: Feature },
+  args: { email: string; title: string; client: Client | null; features: Feature[] },
 ) {
   const settings = await readAnnounceSettings(payload);
   const { client } = args;
@@ -106,8 +126,7 @@ async function messageFor(
       p?.scheduling?.enabled && p.scheduling.mode === "lien" && p.scheduling.bookingUrl?.trim()
         ? p.scheduling.bookingUrl.trim()
         : null,
-    featureSlug: args.feature?.slug ?? null,
-    featureTitle: args.feature?.title ?? null,
+    features: args.features,
     recipientEmail: args.email,
     ...settings,
   });
@@ -117,7 +136,8 @@ async function messageFor(
 export async function GET(req: Request) {
   const { payload, ok } = await guard(req);
   if (!ok) return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  const id = new URL(req.url).searchParams.get("id");
+  const params = new URL(req.url).searchParams;
+  const id = params.get("id");
   if (!id) return NextResponse.json({ error: "bad_request" }, { status: 400 });
 
   const dev = (await payload
@@ -131,7 +151,8 @@ export async function GET(req: Request) {
   if (!dev) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
   const clients = await requesters(payload, dev);
-  const title = (new URL(req.url).searchParams.get("title") ?? "").trim() || dev.title?.trim() || "";
+  const title = (params.get("title") ?? "").trim() || dev.title?.trim() || "";
+  const features = await featuresOf(payload, chosenIds(params.has("features") ? params.get("features") : undefined, dev));
 
   // L'aperçu : le message du PREMIER destinataire — c'est ce que verra un
   // vrai client, prénom compris. Sans destinataire, un message
@@ -141,7 +162,7 @@ export async function GET(req: Request) {
     email: first?.email?.trim() ?? "",
     title: title || "votre demande",
     client: first,
-    feature: await featureOf(payload, dev),
+    features,
   });
 
   return NextResponse.json({
@@ -152,6 +173,7 @@ export async function GET(req: Request) {
       companyName: c.companyName ?? "",
       email: c.email?.trim() ?? "",
     })),
+    features: features.map((f) => ({ id: f.id, title: f.title ?? "", slug: f.slug })),
     preview: { subject: built.subject, html: built.html },
   });
 }
@@ -160,7 +182,7 @@ export async function POST(req: Request) {
   const { payload, ok } = await guard(req);
   if (!ok) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
-  let body: { id?: number | string; title?: string; emails?: unknown } = {};
+  let body: { id?: number | string; title?: string; emails?: unknown; featureIds?: unknown } = {};
   try {
     body = await req.json();
   } catch {
@@ -187,12 +209,12 @@ export async function POST(req: Request) {
 
   const clients = await requesters(payload, dev);
   const byEmail = new Map(clients.filter((c) => c.email).map((c) => [c.email!.trim().toLowerCase(), c]));
-  const feature = await featureOf(payload, dev);
+  const features = await featuresOf(payload, chosenIds(body.featureIds, dev));
 
   const results: { email: string; sent: boolean }[] = [];
   for (const email of emails) {
     const client = byEmail.get(email) ?? null;
-    const { built, replyTo } = await messageFor(payload, { email, title, client, feature });
+    const { built, replyTo } = await messageFor(payload, { email, title, client, features });
 
     try {
       await payload.sendEmail({

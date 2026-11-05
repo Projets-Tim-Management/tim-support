@@ -4,9 +4,11 @@ import type { AdminViewServerProps } from "payload";
 import { Icons } from "@/admin/dashboard/icons";
 import { hasAdminRole } from "@/core/access";
 import { AnalyticsPage } from "@/modules/analytics/admin/AnalyticsPage";
-import { AgingChart, MonthlyChart, PartnerChart, ProfileChart, ResultChart, RevenueChart, RollingChart, ShareBar, YearLinesChart } from "@/modules/analytics/admin/charts";
+import { AgingChart, MonthlyChart, type Series, PartnerChart, ProfileChart, ResultChart, RevenueChart, RollingChart, ShareBar, YearLinesChart } from "@/modules/analytics/admin/charts";
 import { HistoryControls, ParamChips } from "@/modules/analytics/admin/HistoryControls";
 import { ValidationStrip } from "@/modules/analytics/admin/ValidationStrip";
+import { CategoryTable } from "@/modules/analytics/admin/CategoryTable";
+import { categoryPivot, NONE_ID, resolveCategories, ROOT_SLOTS, unattachedOf, type CategoryNode, type CategoryParents } from "@/modules/analytics/lib/expense-categories";
 import { DataTable, type Column, type Row } from "@/modules/analytics/admin/DataTable";
 import { BarList, Card, clientHref, eur0, Fold, Kpi, Meter, monthYear, Tile, type BarItem } from "@/modules/analytics/admin/ui";
 import { buildBillingAnalytics, type BillingAnalytics, type ClientDoc, type PartnerDoc } from "@/modules/analytics/lib/billing";
@@ -19,6 +21,7 @@ import {
   analyzeHistory,
   breakEven,
   lifetime,
+  shiftMonth,
   HISTORY_MEASURES,
   HISTORY_VIEWS,
   type HistoryAnalysis,
@@ -32,7 +35,7 @@ import type { BillingReport } from "@/modules/partner/lib/billing-check";
 import { billingPeriodMonths } from "@/modules/partner/lib/billing-period";
 import { loadBillingReport } from "@/modules/partner/lib/billing-report";
 import { eur } from "@/modules/partner/lib/format";
-import { isPennylaneConfigured, pennylaneErrorMessage } from "@/modules/partner/lib/pennylane";
+import { isPennylaneConfigured, loadPennylaneCategories, pennylaneErrorMessage } from "@/modules/partner/lib/pennylane";
 
 /**
  * Écran « Analyses → Facturation » (/admin/analyses/facturation).
@@ -64,20 +67,20 @@ const CLIENT_COLUMNS: Column[] = [
   { key: "contractStart", label: "Facturé dès le", format: "date" },
   { key: "licences", label: "Licences", format: "int" },
   { key: "caHT", label: "CA HT / mois", format: "eur" },
-  { key: "discount", label: "Remises / mois", format: "eur" },
-  { key: "commission", label: "Commission", format: "eur" },
+  { key: "discount", label: "Remises HT / mois", format: "eur" },
+  { key: "commission", label: "Commission HT", format: "eur" },
   { key: "billingPeriod", label: "Périodicité" },
   { key: "paymentMethod", label: "Paiement" },
   { key: "verdict", label: "Pennylane", format: "badge", tones: VERDICT_TONES, labels: VERDICT_LABELS },
-  { key: "lateAmount", label: "Impayé", format: "eur" },
+  { key: "lateAmount", label: "Impayé HT", format: "eur" },
 ];
 
 const PROFILE_COLUMNS: Column[] = [
   { key: "label", label: "Profil" },
   { key: "clients", label: "Clients", format: "int" },
   { key: "licences", label: "Licences", format: "int" },
-  { key: "avgListPrice", label: "Prix catalogue moyen", format: "eur" },
-  { key: "avgPrice", label: "Prix facturé moyen", format: "eur" },
+  { key: "avgListPrice", label: "Prix catalogue moyen HT", format: "eur" },
+  { key: "avgPrice", label: "Prix facturé moyen HT", format: "eur" },
   { key: "caHT", label: "CA HT / mois", format: "eur" },
 ];
 
@@ -87,17 +90,17 @@ const PARTNER_COLUMNS: Column[] = [
   { key: "licences", label: "Licences", format: "int" },
   { key: "caHT", label: "CA HT / mois apporté", format: "eur" },
   { key: "commissionRate", label: "Taux", format: "pct" },
-  { key: "commission", label: "Commission / mois", format: "eur" },
+  { key: "commission", label: "Commission HT / mois", format: "eur" },
 ];
 
 const DISCOUNT_COLUMNS: Column[] = [
   { key: "client", label: "Client" },
   { key: "profile", label: "Profil" },
   { key: "qty", label: "Licences", format: "int" },
-  { key: "listPrice", label: "Prix catalogue", format: "eur" },
+  { key: "listPrice", label: "Prix catalogue HT", format: "eur" },
   { key: "label", label: "Remise" },
-  { key: "price", label: "Prix facturé", format: "eur" },
-  { key: "lossPerMonth", label: "Manque à gagner / mois", format: "eur" },
+  { key: "price", label: "Prix facturé HT", format: "eur" },
+  { key: "lossPerMonth", label: "Manque à gagner HT / mois", format: "eur" },
 ];
 
 const LATE_COLUMNS: Column[] = [
@@ -107,7 +110,7 @@ const LATE_COLUMNS: Column[] = [
   { key: "deadline", label: "Échéance", format: "date" },
   { key: "lateDays", label: "Retard (j)", format: "int" },
   { key: "amountTTC", label: "Montant TTC", format: "eur" },
-  { key: "remaining", label: "Reste dû", format: "eur" },
+  { key: "remaining", label: "Reste dû TTC", format: "eur" },
 ];
 
 const MOVE_COLUMNS: Column[] = [
@@ -118,14 +121,15 @@ const MOVE_COLUMNS: Column[] = [
   { key: "services", label: "Prestations HT", format: "eur" },
   { key: "gainedNames", label: "Nouveaux" },
   { key: "lostNames", label: "Plus facturés" },
-  { key: "expansion", label: "Hausses", format: "eur" },
-  { key: "contraction", label: "Baisses", format: "eur" },
+  { key: "expansion", label: "Hausses HT", format: "eur" },
+  { key: "contraction", label: "Baisses HT", format: "eur" },
 ];
 
 const EXPENSE_COLUMNS: Column[] = [
   { key: "date", label: "Date", format: "date" },
   { key: "label", label: "Libellé bancaire" },
   { key: "poste", label: "Poste" },
+  { key: "category", label: "Catégorie Pennylane" },
   {
     key: "kind",
     label: "Type",
@@ -133,11 +137,18 @@ const EXPENSE_COLUMNS: Column[] = [
     tones: { depense: "muted", impot: "warn", ignore: "muted" },
     labels: { depense: "Dépense", impot: "Impôt", ignore: "Pas une dépense" },
   },
-  { key: "amount", label: "Montant", format: "eur" },
+  { key: "amount", label: "Montant HT", format: "eur" },
+  { key: "vat", label: "TVA", format: "eur" },
 ];
 
 const STATUS_TONES = { nouveau: "ok", hausse: "ok", stable: "muted", baisse: "warn", parti: "bad", prestations: "muted" } as const;
 const STATUS_LABELS = { nouveau: "Nouveau", hausse: "Hausse", stable: "Stable", baisse: "Baisse", parti: "Parti", prestations: "Prestations seules" };
+
+/** « Où va l'argent » et « D'où vient l'argent » : des listes courtes, le reste au défilement. */
+const BARS_MAX_HEIGHT = "15rem";
+
+/** Les clients perdus restent en bas du tableau, quel que soit le tri. */
+const CLIENTS_LOST = { key: "status", value: "perdu", label: "Clients perdus" };
 
 /** Ce que montre la courbe « une année sur l'autre » : chaque montant que l'écran sait lire. */
 const YEAR_MEASURES = [
@@ -162,14 +173,14 @@ function Story({ a, b, expensesFrom }: { a: PeriodSummary; b: PeriodSummary | nu
     ) : null;
   const result = (expenses: number, profit: number) => (
     <>
-      <b>{eur0(expenses)}</b> dépensés, {profit >= 0 ? "il reste " : "soit une perte de "}
+      <b>{eur0(expenses)} HT</b> dépensés, {profit >= 0 ? "il reste " : "soit une perte de "}
       <b className={profit >= 0 ? "an-story__up" : "an-story__down"}>{eur0(Math.abs(profit))}</b>
       {profit >= 0 && expenses + profit > 0 ? ` (marge ${pct0((profit / (expenses + profit)) * 100)})` : ""}.
     </>
   );
   return (
     <p className="an-story">
-      Sur <b>{a.label}</b>, TIM a facturé <b>{eur0(a.total)}</b>
+      Sur <b>{a.label}</b>, TIM a facturé <b>{eur0(a.total)} HT</b>
       {a.expenses != null && a.profit != null && spentKnown(a) ? (
         <> et {result(a.expenses, a.profit)}</>
       ) : a.expenses != null && a.profit != null ? (
@@ -189,12 +200,15 @@ function Dashboard({
   h,
   an,
   expenses,
+  categories,
   notes,
 }: {
   bill: BillingAnalytics;
   h: RevenueHistory;
   an: HistoryAnalysis;
   expenses: Expense[];
+  /** L'arbre des catégories Pennylane ; null : catégories illisibles. */
+  categories: CategoryNode[] | null;
   notes: string[];
 }) {
   const { a, b } = an;
@@ -244,6 +258,30 @@ function Dashboard({
   const inA = new Set(a.keys);
   const toClassify = expenses.filter((e) => inA.has(e.month) && e.poste === UNCLASSIFIED).length;
 
+  /* ── Dépenses par catégorie Pennylane, mois par mois (les mois dont on connaît les dépenses) ── */
+  const spentMonths = h.months.filter((m) => inA.has(m.key) && m.expenses != null).map((m) => ({ key: m.key, month: m.month, label: monthName(m.key) }));
+  const catRows = categories && spentMonths.length ? categoryPivot(expenses, categories, spentMonths.map((m) => m.key)) : [];
+  const toAttach = categories ? unattachedOf(categories) : [];
+  // Chaque famille garde SA couleur (ROOT_SLOTS) dans le graphique et les étiquettes ; empilées dans
+  // l'ordre de la palette (l'ordre validé), le reste en gris : « Autres », puis « Sans catégorie ».
+  const catRoots = catRows.filter((r) => r.depth === 0);
+  const colored = catRoots.filter((r) => !r.muted && ROOT_SLOTS[r.label] != null).sort((x, y) => ROOT_SLOTS[x.label] - ROOT_SLOTS[y.label]);
+  const catNone = catRoots.find((r) => r.id === NONE_ID);
+  const catRest = catRoots.filter((r) => r !== catNone && !colored.includes(r));
+  const catSeries: Series[] = [
+    ...colored.map((r) => ({ key: `r${r.id}`, label: r.label, slot: ROOT_SLOTS[r.label] })),
+    ...(catRest.length ? [{ key: "rest", label: "Autres", tone: "other" as const }] : []),
+    ...(catNone ? [{ key: "none", label: "Sans catégorie", tone: "muted" as const }] : []),
+  ];
+  const catChart = spentMonths.map((m, i) => ({
+    month: m.month,
+    ...Object.fromEntries(colored.map((r) => [`r${r.id}`, r.values[i]])),
+    ...(catRest.length ? { rest: Math.round(catRest.reduce((s, r) => s + r.values[i], 0) * 100) / 100 } : {}),
+    ...(catNone ? { none: catNone.values[i] } : {}),
+  }));
+  // La couleur de chaque famille pour les étiquettes du tableau (le reste : gris).
+  const catColors = Object.fromEntries(colored.map((r) => [r.id, `var(--tim-chart-${ROOT_SLOTS[r.label] + 1})`]));
+
   /* ── D'où vient l'argent ── */
   const sources = [
     { key: "licences", label: "Licences (abonnements)", caHT: a.recurring, count: 0 },
@@ -261,56 +299,25 @@ function Dashboard({
   const rest = byClient.slice(TOP);
   if (rest.length) clientItems.push({ key: "autres", label: `Les ${rest.length} autres clients`, value: rest.reduce((s, x) => s + x.total, 0), muted: true });
 
-  /* ── Clients : arrivées, départs, et le détail ── */
-  const clientColumns: Column[] = b
-    ? [
-        { key: "name", label: "Client" },
-        { key: "since", label: "Client depuis" },
-        { key: "recurringA", label: `Licences ${a.label}`, format: "eur" },
-        { key: "recurringB", label: `Licences ${b.label}`, format: "eur" },
-        { key: "pct", label: "Évolution", format: "delta" },
-        { key: "status", label: "Statut", format: "badge", tones: STATUS_TONES, labels: STATUS_LABELS },
-        { key: "servicesA", label: `Prestations ${a.label}`, format: "eur" },
-      ]
-    : [
-        { key: "name", label: "Client" },
-        { key: "since", label: "Client depuis" },
-        { key: "recurringA", label: "Licences", format: "eur" },
-        { key: "servicesA", label: "Prestations", format: "eur" },
-        { key: "totalA", label: "Total", format: "eur" },
-      ];
-  const clientRows: Row[] = an.clients.map((c) => ({
-    id: c.id,
-    name: c.name,
-    since: c.firstMonth ? monthName(c.firstMonth) : null,
-    recurringA: c.recurringA,
-    recurringB: c.recurringB,
-    pct: c.pct,
-    status: c.status,
-    servicesA: c.servicesA,
-    totalA: c.recurringA + c.servicesA,
-    ...(c.clientId != null ? { href: clientHref(c.clientId) } : {}),
-  }));
-
   /* ── Les tableaux repliés ── */
   const periodColumns: Column[] = [
     { key: "label", label: "Période" },
-    { key: "total", label: "CA", format: "eur" },
+    { key: "total", label: "CA HT", format: "eur" },
     { key: "recurring", label: "dont licences", format: "eur" },
     { key: "setup", label: "dont mise en place / formation", format: "eur" },
     { key: "dev", label: "dont développements", format: "eur" },
     ...(h.expensesFrom
       ? ([
-          { key: "expenses", label: "Dépenses", format: "eur" },
+          { key: "expenses", label: "Dépenses HT", format: "eur" },
           { key: "taxes", label: "Impôts", format: "eur" },
-          { key: "profit", label: "Bénéfice", format: "eur" },
+          { key: "profit", label: "Bénéfice HT", format: "eur" },
           { key: "margin", label: "Marge", format: "pct" },
         ] satisfies Column[])
       : []),
     ...(an.compareMode !== "aucune"
       ? ([
           { key: "compareLabel", label: "Face à" },
-          { key: "compareTotal", label: "CA", format: "eur" },
+          { key: "compareTotal", label: "CA HT", format: "eur" },
           { key: "caPct", label: "Évolution du CA", format: "delta" },
         ] satisfies Column[])
       : []),
@@ -339,12 +346,12 @@ function Dashboard({
   const posteColumns: Column[] = [
     { key: "label", label: "Période" },
     ...postes.map((p): Column => ({ key: `p:${p}`, label: p, format: "eur" })),
-    { key: "expenses", label: "Total", format: "eur" },
+    { key: "expenses", label: "Total HT", format: "eur" },
   ];
   const posteRows: Row[] = an.buckets
     .filter((x) => spentKnown(x.summary))
     .map((x) => ({ id: x.id, label: x.label, ...Object.fromEntries(postes.map((p) => [`p:${p}`, x.summary.byPoste[p] ?? null])), expenses: x.summary.expenses }));
-  const expenseRows: Row[] = expenses.filter((e) => inA.has(e.month)).map((e) => ({ ...e }));
+  const expenseRows: Row[] = expenses.filter((e) => inA.has(e.month)).map(({ categories: cats, ...e }) => ({ ...e, category: cats.map((c) => c.label).join(", ") || null }));
   const pivotColumns: Column[] = [{ key: "name", label: "Client" }, ...an.buckets.map((x): Column => ({ key: `b${x.id}`, label: x.label, format: "eur" }))];
   const pivotRows: Row[] = h.clients
     .map((c): Row => ({
@@ -363,37 +370,66 @@ function Dashboard({
   // Le seuil d'équilibre, lu à la fin de la plage choisie.
   const be = breakEven(h, an.end, ONE_OFF_POSTES);
 
-  // Depuis le début : le CA cumulé, et ce que chaque client a rapporté, jusqu'au dernier mois facturé.
+  /* ── Clients : la période choisie et tout l'historique, dans un seul tableau ──
+     Tous les clients jamais facturés (jusqu'au dernier mois facturé) ; les colonnes
+     de la période sont vides pour ceux qui n'y ont rien payé. */
   const lt = lifetime(h, an.monthOptions[0]?.value ?? an.end);
-  const ltColumns: Column[] = [
+  const ltActive = lt.clients.filter((c) => c.active).length;
+  // Le portefeuille mois par mois, jusqu'au dernier mois complet : le mois en cours se remplit
+  // au fil des factures, il ferait croire à une chute.
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const portfolioEnd = lt.end >= thisMonth ? shiftMonth(thisMonth, -1) : lt.end;
+  const portfolio = h.months.filter((m) => m.key <= portfolioEnd).map((m) => ({ month: m.month, clients: m.clients }));
+  const periodOf = new Map(an.clients.map((c) => [c.id, c]));
+  const clientColumns: Column[] = [
     { key: "name", label: "Client" },
     { key: "status", label: "Statut", format: "badge", tones: { actif: "ok", perdu: "bad" }, labels: { actif: "Actif", perdu: "Perdu" } },
     { key: "since", label: "Client depuis" },
     { key: "last", label: "Dernière facture" },
-    { key: "total", label: "CA total", format: "eur" },
+    ...(b
+      ? ([
+          { key: "recurringA", label: `Licences HT ${a.label}`, format: "eur" },
+          { key: "recurringB", label: `Licences HT ${b.label}`, format: "eur" },
+          { key: "pct", label: "Évolution", format: "delta" },
+          { key: "move", label: "Tendance", format: "badge", tones: STATUS_TONES, labels: STATUS_LABELS },
+          { key: "servicesA", label: `Prestations HT ${a.label}`, format: "eur" },
+        ] satisfies Column[])
+      : ([
+          { key: "recurringA", label: `Licences HT ${a.label}`, format: "eur" },
+          { key: "servicesA", label: `Prestations HT ${a.label}`, format: "eur" },
+          { key: "totalA", label: `Total HT ${a.label}`, format: "eur" },
+        ] satisfies Column[])),
+    { key: "total", label: "CA HT depuis le début", format: "eur" },
     { key: "share", label: "Part", format: "pct" },
     ...lt.years.map((y): Column => ({ key: `y${y}`, label: y, format: "eur" })),
-    { key: "current", label: "Licences / mois aujourd'hui", format: "eur" },
+    { key: "current", label: "Licences HT / mois aujourd'hui", format: "eur" },
   ];
-  const ltRows: Row[] = lt.clients.map((c) => ({
-    id: c.id,
-    name: c.name,
-    status: c.active ? "actif" : "perdu",
-    since: monthName(c.firstMonth),
-    last: monthName(c.lastMonth),
-    total: c.total,
-    share: lt.total ? Math.round((c.total / lt.total) * 1000) / 10 : null,
-    ...Object.fromEntries(lt.years.map((y) => [`y${y}`, c.byYear[y] || null])),
-    current: c.currentRecurring || null,
-    ...(c.clientId != null ? { href: clientHref(c.clientId) } : {}),
-  }));
-  const ltTotal: Row = {
+  const clientRows: Row[] = lt.clients.map((c) => {
+    const p = periodOf.get(c.id);
+    return {
+      id: c.id,
+      name: c.name,
+      status: c.active ? "actif" : "perdu",
+      since: monthName(c.firstMonth),
+      last: monthName(c.lastMonth),
+      recurringA: p?.recurringA ?? null,
+      recurringB: p?.recurringB ?? null,
+      pct: p?.pct ?? null,
+      move: p?.status ?? null,
+      servicesA: p?.servicesA ?? null,
+      totalA: p ? p.recurringA + p.servicesA : null,
+      total: c.total,
+      share: lt.total ? Math.round((c.total / lt.total) * 1000) / 10 : null,
+      ...Object.fromEntries(lt.years.map((y) => [`y${y}`, c.byYear[y] || null])),
+      current: c.currentRecurring || null,
+      ...(c.clientId != null ? { href: clientHref(c.clientId) } : {}),
+    };
+  });
+  const sumRows = (key: string) => clientRows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+  const clientTotal: Row = {
     name: "Total",
-    total: lt.total,
-    ...Object.fromEntries(lt.years.map((y) => [`y${y}`, lt.clients.reduce((s, c) => s + (c.byYear[y] ?? 0), 0)])),
-    current: lt.clients.reduce((s, c) => s + c.currentRecurring, 0),
+    ...Object.fromEntries(["recurringA", "recurringB", "servicesA", "totalA", "total", "current", ...lt.years.map((y) => `y${y}`)].map((k) => [k, sumRows(k)])),
   };
-  const ltActive = lt.clients.filter((c) => c.active).length;
 
   const { kpis } = bill;
   const contractRows: Row[] = bill.clients.map((c) => ({ ...c, href: clientHref(c.id) }));
@@ -427,7 +463,7 @@ function Dashboard({
         <div className="an-kpis">
           <Kpi
             tone="blue"
-            label="Chiffre d'affaires"
+            label="Chiffre d'affaires HT"
             value={eur0(a.total)}
             delta={sameLength ? delta(a.total, b!.total) : undefined}
             deltaTitle={vsTitle}
@@ -436,7 +472,7 @@ function Dashboard({
           />
           <Kpi
             tone="red"
-            label="Dépenses"
+            label="Dépenses HT"
             value={a.expenses != null ? eur0(a.expenses) : "—"}
             delta={spentComparable ? delta(a.expenses!, b!.expenses!) : undefined}
             deltaTitle={vsTitle}
@@ -446,7 +482,7 @@ function Dashboard({
           />
           <Kpi
             tone="green"
-            label="Bénéfice avant impôts"
+            label="Bénéfice HT avant impôts"
             value={a.profit != null ? eur0(a.profit) : "—"}
             alert={a.profit != null && a.profit < 0}
             delta={spentComparable ? delta(a.profit!, b!.profit!) : undefined}
@@ -460,20 +496,20 @@ function Dashboard({
         <div className="an-tiles an-tiles--pulse">
           <Tile
             icon={Icons.clock()}
-            label="Licences par mois"
+            label="Licences HT par mois"
             value={eur0(a.endRecurring)}
             sub={`le récurrent en ${monthName(a.keys.at(-1)!)}`}
             delta={b ? delta(a.endRecurring, b.endRecurring) : undefined}
             deltaTitle={vsTitle}
           />
-          <Tile icon={Icons.euro()} label={`CA total depuis ${monthName(lt.start)}`} value={eur0(lt.total)} sub={`${lt.clients.length} clients, dont ${ltActive} actifs`} />
+          <Tile icon={Icons.euro()} label={`CA HT total depuis ${monthName(lt.start)}`} value={eur0(lt.total)} sub={`${lt.clients.length} clients, dont ${ltActive} actifs`} />
           <Tile icon={Icons.users()} label="Clients facturés" value={a.clients.toLocaleString("fr-FR")} sub={`${a.gained.length} nouveau${a.gained.length > 1 ? "x" : ""} · ${a.lost.length} parti${a.lost.length > 1 ? "s" : ""}`} />
           {a.expenseMonths > 0 && (
             <Tile icon={Icons.target()} label="Acquisition par mois" value={eur0(acquisition / a.expenseMonths)} sub="publicité + SEO" />
           )}
           <Tile
             icon={Icons.alert()}
-            label="Impayés"
+            label="Impayés HT"
             value={eur0(kpis.lateAmount)}
             sub={kpis.lateCount ? `${kpis.lateCount} facture${kpis.lateCount > 1 ? "s" : ""} en retard` : "aucun retard"}
             tone={kpis.lateCount ? "bad" : "ok"}
@@ -482,7 +518,7 @@ function Dashboard({
       </section>
 
       <div className="an-grid">
-        <Card wide title={`Résultat par ${viewLabel}`} sub="Ce qui est facturé (bleu), ce qui est dépensé (rouge) et ce qui reste (vert). Survolez une période pour le détail.">
+        <Card wide title={`Résultat par ${viewLabel}`} sub="Ce qui est facturé (indigo), ce qui est dépensé (rouge) et ce qui reste (sarcelle), en HT. Survolez une période pour le détail.">
           <ResultChart data={an.buckets.map((x) => ({ label: x.label, ca: x.summary.total, expenses: spentKnown(x.summary) ? x.summary.expenses : null, profit: spentKnown(x.summary) ? x.summary.profit : null }))} />
         </Card>
 
@@ -490,11 +526,11 @@ function Dashboard({
           <Card
             wide
             title="Seuil d'équilibre"
-            sub={`Rentrées et dépenses moyennes par mois, sur ${be.window === 12 ? "12 mois glissants" : `les ${be.window} mois connus (12 dès que possible)`} jusqu'à ${monthName(be.end)}. Les dépenses sont lues TTC sur la banque : légèrement surestimées.`}
+            sub={`Rentrées et dépenses moyennes par mois, sur ${be.window === 12 ? "12 mois glissants" : `les ${be.window} mois connus (12 dès que possible)`} jusqu'à ${monthName(be.end)}, en HT.`}
           >
             <div className="an-even">
               <div className="an-even__fig an-even__fig--blue">
-                <span className="an-even__label">Rentrées moyennes</span>
+                <span className="an-even__label">Rentrées moyennes HT</span>
                 <span className="an-even__value">{eur0(be.revenue)}</span>
                 <span className="an-even__sub">par mois</span>
               </div>
@@ -502,7 +538,7 @@ function Dashboard({
                 −
               </span>
               <div className="an-even__fig an-even__fig--red">
-                <span className="an-even__label">Dépenses moyennes</span>
+                <span className="an-even__label">Dépenses moyennes HT</span>
                 <span className="an-even__value">{eur0(be.expenses)}</span>
                 <span className="an-even__sub">par mois</span>
               </div>
@@ -550,7 +586,7 @@ function Dashboard({
 
         <Card
           title="Où va l'argent"
-          sub={a.expenseMonths ? `Les dépenses ${spentA ? `de ${a.label}` : `depuis ${monthName(h.expensesFrom!)}`}, par poste. En gras : ce qui fait venir des clients.` : undefined}
+          sub={a.expenseMonths ? `Les dépenses HT ${spentA ? `de ${a.label}` : `depuis ${monthName(h.expensesFrom!)}`}, par poste. En gras : ce qui fait venir des clients.` : undefined}
         >
           {a.expenseMonths > 0 && acquisition > 0 && a.expenses ? (
             <p className="an-callout">
@@ -560,6 +596,7 @@ function Dashboard({
           <BarList
             items={posteItems}
             tone="red"
+            maxHeight={BARS_MAX_HEIGHT}
             goodWhenUp={false}
             deltaTitle={vsTitle}
             empty={h.expensesFrom ? `Dépenses connues à partir de ${monthName(h.expensesFrom)}.` : "Dépenses indisponibles."}
@@ -571,11 +608,31 @@ function Dashboard({
           )}
         </Card>
 
-        <Card title="D'où vient l'argent" sub={`Le chiffre d'affaires de ${a.label}, par nature puis par client.`}>
+        <Card title="D'où vient l'argent" sub={`Le chiffre d'affaires HT de ${a.label}, par nature puis par client.`}>
           {/* Une seule teinte, du plus foncé au plus clair : c'est du CA, le bleu de l'écran. */}
-          <ShareBar data={sources} colors={["var(--tim-chart-2)", "color-mix(in srgb, var(--tim-chart-2) 60%, var(--tim-white))", "color-mix(in srgb, var(--tim-chart-2) 32%, var(--tim-white))"]} />
-          <BarList items={clientItems} tone="blue" />
+          <ShareBar data={sources} colors={["var(--tim-chart-revenue)", "color-mix(in srgb, var(--tim-chart-revenue) 60%, var(--tim-white))", "color-mix(in srgb, var(--tim-chart-revenue) 32%, var(--tim-white))"]} />
+          <BarList items={clientItems} tone="blue" maxHeight={BARS_MAX_HEIGHT} />
         </Card>
+
+        {categories && catRows.length > 0 && (
+          <Card
+            wide
+            title="Dépenses par catégorie"
+            sub="Les catégories et sous-catégories posées dans Pennylane, mois par mois, en HT. Impôts compris ; transferts entre nos comptes, TVA et capital d'emprunt exclus. Cliquez une catégorie pour voir ses sous-catégories."
+          >
+            {toAttach.length > 0 && (
+              <p className="an-callout an-callout--warn">
+                {toAttach.length} catégorie{toAttach.length > 1 ? "s" : ""} Pennylane sans catégorie parente : <b>{toAttach.map((c) => c.label).join(", ")}</b>. Leurs dépenses sont comptées dans « À rattacher ».{" "}
+                <Link href="/admin/globals/expense-categories">Les rattacher</Link>
+              </p>
+            )}
+            <MonthlyChart data={catChart} series={catSeries} stacked unit="eur" />
+            <CategoryTable rows={catRows} months={spentMonths} colors={catColors} maxHeight="32rem" />
+            <p className="an-card__foot">
+              La place de chaque catégorie se règle dans <Link href="/admin/globals/expense-categories">Analyses → Paramètres → Catégories de dépenses</Link>.
+            </p>
+          </Card>
+        )}
 
         <Card wide title="Une année sur l'autre" sub="Une courbe par année, de janvier à décembre, chacune sa couleur. Survolez un mois pour l'écart.">
           <ParamChips param="hm" value={an.measure} options={YEAR_MEASURES} label="Montant affiché" />
@@ -583,42 +640,10 @@ function Dashboard({
           <YearLinesChart rows={an.yearLines.rows} years={an.yearLines.years} goodWhenUp={an.measure !== "depenses"} />
         </Card>
 
-        <Card wide title="Clients" sub={b ? `Les licences de chaque client sur ${a.label}, face à ${b.label}. Cliquez un nom pour ouvrir la fiche.` : `Ce que chaque client a payé sur ${a.label}.`}>
-          {(a.gained.length > 0 || a.lost.length > 0) && (
-            <div className="an-moves">
-              {a.gained.length > 0 && (
-                <div className="an-moves__group">
-                  <span className="an-moves__title">Arrivés ({a.gained.length})</span>
-                  <span className="an-moves__list">
-                    {a.gained.map((n, i) => (
-                      <span key={`${n}-${i}`} className="an-chip an-chip--ok">
-                        {n}
-                      </span>
-                    ))}
-                  </span>
-                </div>
-              )}
-              {a.lost.length > 0 && (
-                <div className="an-moves__group">
-                  <span className="an-moves__title">Partis ({a.lost.length})</span>
-                  <span className="an-moves__list">
-                    {a.lost.map((n, i) => (
-                      <span key={`${n}-${i}`} className="an-chip an-chip--bad">
-                        {n}
-                      </span>
-                    ))}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-          <DataTable columns={clientColumns} rows={clientRows} sort={{ key: "recurringA", dir: "desc" }} csv="ca-par-client" searchKeys={["name"]} />
-        </Card>
-
         <Card
           wide
-          title="Depuis le début"
-          sub={`Tout ce que TIM a facturé depuis sa première facture (${monthName(lt.start)}) : la somme qui monte mois après mois, puis ce que chaque client a rapporté en tout, année par année. Un client est « perdu » quand il n'est plus facturé depuis deux mois.`}
+          title="Clients"
+          sub={`Chaque client, sur ${a.label}${b ? ` face à ${b.label}` : ""}, puis depuis la première facture de TIM (${monthName(lt.start)}) : son CA total, année par année. Un client est « perdu » quand il n'est plus facturé en licences depuis deux mois ; les perdus sont rangés en bas. Cliquez un nom pour ouvrir la fiche.`}
         >
           <div className="an-even">
             <div className="an-even__fig an-even__fig--blue">
@@ -629,10 +654,10 @@ function Dashboard({
               </span>
             </div>
             <div className="an-even__fig an-even__fig--green">
-              <span className="an-even__label">Clients</span>
-              <span className="an-even__value">{lt.clients.length}</span>
+              <span className="an-even__label">Clients actifs</span>
+              <span className="an-even__value">{ltActive}</span>
               <span className="an-even__sub">
-                {ltActive} actifs · {lt.clients.length - ltActive} perdus
+                {lt.clients.length - ltActive} perdu{lt.clients.length - ltActive > 1 ? "s" : ""}
               </span>
             </div>
             <div className="an-even__fig an-even__fig--blue">
@@ -641,12 +666,47 @@ function Dashboard({
               <span className="an-even__sub">depuis le début</span>
             </div>
           </div>
-          <MonthlyChart data={lt.cumulative} series={[{ key: "cumul", label: "CA cumulé", kind: "line", slot: 1 }]} unit="eur" />
-          <DataTable columns={ltColumns} rows={ltRows} sort={{ key: "total", dir: "desc" }} csv="ca-par-client-depuis-le-debut" searchKeys={["name"]} total={ltTotal} />
+          <h3 className="an-fold__h">Clients facturés en licences, mois par mois</h3>
+          <MonthlyChart data={portfolio} series={[{ key: "clients", label: "Clients facturés", kind: "line", slot: 1 }]} />
+          {(a.gained.length > 0 || a.lost.length > 0) && (
+            <div className="an-moves">
+              {(
+                [
+                  ["Arrivés", a.gained, "ok"],
+                  ["Partis", a.lost, "bad"],
+                ] as const
+              )
+                .filter(([, names]) => names.length > 0)
+                .map(([title, names, tone]) => (
+                  <div key={title} className="an-moves__group">
+                    <span className="an-moves__title">
+                      {title} sur {a.label} ({names.length})
+                    </span>
+                    <span className="an-moves__list">
+                      {names.map((n, i) => (
+                        <span key={`${n}-${i}`} className={`an-chip an-chip--${tone}`}>
+                          {n}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          )}
+          <DataTable
+            columns={clientColumns}
+            rows={clientRows}
+            sort={{ key: "total", dir: "desc" }}
+            bottom={CLIENTS_LOST}
+            maxHeight="32rem"
+            csv="ca-par-client"
+            searchKeys={["name"]}
+            total={clientTotal}
+          />
         </Card>
 
         {kpis.lateCount > 0 && (
-          <Card wide title="À relancer" sub="Les factures en retard de paiement, les plus anciennes d'abord.">
+          <Card wide title="À relancer" sub="Les factures en retard de paiement, les plus anciennes d'abord. En TTC : ce que le client doit payer.">
             <DataTable columns={LATE_COLUMNS} rows={lateRows} sort={{ key: "lateDays", dir: "desc" }} csv="factures-en-retard" />
           </Card>
         )}
@@ -659,11 +719,11 @@ function Dashboard({
         </Fold>
 
         {expenseRows.length > 0 && (
-          <Fold title="Détail des dépenses" sub={`Chaque sortie des comptes bancaires Pennylane sur ${a.label}, et son poste.`}>
+          <Fold title="Détail des dépenses" sub={`Chaque sortie des comptes bancaires Pennylane sur ${a.label}, son poste, son montant HT et sa TVA (montant HT + TVA = ce qui est sorti du compte).`}>
             <p className="an-card__sub">
               Transferts entre nos comptes, TVA et capital d&apos;emprunt ne comptent pas ; les impôts sont à part (bénéfice avant impôts).
             </p>
-            <DataTable columns={EXPENSE_COLUMNS} rows={expenseRows} sort={{ key: "date", dir: "desc" }} csv="depenses" searchKeys={["label", "poste"]} />
+            <DataTable columns={EXPENSE_COLUMNS} rows={expenseRows} sort={{ key: "date", dir: "desc" }} csv="depenses" searchKeys={["label", "poste", "category"]} />
           </Fold>
         )}
 
@@ -674,10 +734,10 @@ function Dashboard({
 
         <Fold title="Contrats et licences" sub="Ce que les fiches disent qu'on doit facturer chaque mois : licences, profils, partenaires, remises, conformité Pennylane.">
           <div className="an-tiles">
-            <Tile icon={Icons.euro()} label="CA / mois sous contrat" value={eur0(kpis.mrr)} sub={`${kpis.clients} clients`} />
+            <Tile icon={Icons.euro()} label="CA HT / mois sous contrat" value={eur0(kpis.mrr)} sub={`${kpis.clients} clients`} />
             <Tile icon={Icons.users()} label="Licences facturées" value={kpis.licences.toLocaleString("fr-FR")} sub={`${eur.format(kpis.avgPricePerLicence)} en moyenne`} />
-            <Tile icon={Icons.coins()} label="Commissions / mois" value={eur0(kpis.commissions)} sub="dues aux partenaires" />
-            <Tile icon={Icons.gift()} label="Remises / mois" value={eur0(kpis.discounts)} sub="manque à gagner consenti" />
+            <Tile icon={Icons.coins()} label="Commissions HT / mois" value={eur0(kpis.commissions)} sub="dues aux partenaires" />
+            <Tile icon={Icons.gift()} label="Remises HT / mois" value={eur0(kpis.discounts)} sub="manque à gagner consenti" />
             <Tile
               icon={Icons.checkCircle()}
               label="Conformité Pennylane"
@@ -703,7 +763,7 @@ function Dashboard({
               <ProfileChart data={bill.byProfile} />
               <DataTable columns={PROFILE_COLUMNS} rows={bill.byProfile.filter((p) => p.licences > 0)} sort={{ key: "caHT", dir: "desc" }} />
             </Card>
-            <Card title="Par partenaire apporteur" sub="CA apporté et commission mensuelle due.">
+            <Card title="Par partenaire apporteur" sub="CA HT apporté et commission mensuelle due (HT).">
               <PartnerChart data={bill.byPartner} />
               <DataTable columns={PARTNER_COLUMNS} rows={bill.byPartner} sort={{ key: "caHT", dir: "desc" }} csv="ca-par-partenaire" />
             </Card>
@@ -743,6 +803,7 @@ export default async function BillingView(view: AdminViewServerProps) {
   let pennylaneNote: string | null = null;
   let expenses: Expense[] = [];
   let expenseNote: string | null = null;
+  let categories: CategoryNode[] | null = null;
 
   if (hasAdminRole(user)) {
     const [clients, partners, axonaut] = await Promise.all([
@@ -809,8 +870,19 @@ export default async function BillingView(view: AdminViewServerProps) {
         .map((i) => ({ date: i.date, amountHT: i.amountHT, client: c.client.id, clientName: c.client.name, months: periodOf.get(String(c.client.id)) ?? 1 })),
     );
 
-    // Les dépenses : les relevés bancaires Pennylane, rangés par poste (règles de TIM d'abord).
-    ({ expenses, note: expenseNote } = await loadExpenses());
+    // Les dépenses (relevés bancaires Pennylane), et l'arbre de leurs catégories.
+    const [loaded, liveCategories, categorySettings] = await Promise.all([
+      loadExpenses(),
+      isPennylaneConfigured() ? loadPennylaneCategories().catch(() => null) : Promise.resolve(null),
+      payload.findGlobal({ slug: "expense-categories", depth: 0, overrideAccess: true }).catch(() => null),
+    ]);
+    ({ expenses, note: expenseNote } = loaded);
+    categories = liveCategories
+      ? resolveCategories(
+          liveCategories.map((c) => ({ id: String(c.id), label: c.label, direction: c.direction })),
+          ((categorySettings as { parents?: CategoryParents | null } | null)?.parents ?? {}) as CategoryParents,
+        )
+      : null;
 
     const now = new Date();
     analytics = buildBillingAnalytics(clients.docs as ClientDoc[], partners.docs as PartnerDoc[], report, months, now, legacyInvoiced);
@@ -821,7 +893,7 @@ export default async function BillingView(view: AdminViewServerProps) {
   return (
     <AnalyticsPage view={view} page="facturation" title="Facturation">
       {analytics && history && historyAnalysis && (
-        <Dashboard bill={analytics} h={history} an={historyAnalysis} expenses={expenses} notes={[pennylaneNote, expenseNote].filter((n): n is string => n != null)} />
+        <Dashboard bill={analytics} h={history} an={historyAnalysis} expenses={expenses} categories={categories} notes={[pennylaneNote, expenseNote].filter((n): n is string => n != null)} />
       )}
     </AnalyticsPage>
   );

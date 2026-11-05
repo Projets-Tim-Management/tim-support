@@ -1814,6 +1814,42 @@ body.tim-dev-kanban .collection-list__list-selection {
   margin-top: 0.45rem;
 }
 .dev-announce__add input { flex: 1; min-width: 0; }
+/* Recherche d'une fiche de doc à joindre : les résultats juste sous le champ, un clic ajoute. */
+.dev-announce__already {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--tim-warning);
+  border-radius: var(--tim-radius-sm);
+  background: color-mix(in srgb, var(--tim-warning) 14%, var(--tim-white));
+  color: var(--tim-foreground);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+.dev-announce__docsearch { margin-top: 0.45rem; font-weight: 400; }
+.dev-announce__docsearch input { width: 100%; box-sizing: border-box; }
+.dev-announce__matches {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0.25rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+}
+.dev-announce__match {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: none;
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.86rem;
+  text-align: left;
+  cursor: pointer;
+  &:hover, &:focus-visible { background: var(--tim-primary-light); color: var(--tim-primary); }
+}
+.dev-announce__nomatch { padding: 0.4rem 0.5rem; font-size: 0.82rem; color: var(--tim-muted); }
 .dev-announce__send {
   padding: 0.5rem 1rem;
   border: 0;

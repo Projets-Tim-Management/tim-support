@@ -2,6 +2,7 @@ import type { Payload } from "payload";
 
 import { buildBillingReport, type BillingReport, type ClientCheck, type SupportClientFacts } from "./billing-check";
 import { loadPennylane } from "./pennylane";
+import { flattenMoves } from "./regularisation";
 
 /**
  * Le rapport de contrôle de facturation, prêt à afficher : les fiches clients
@@ -20,6 +21,7 @@ const SELECT = {
   paymentTerms: true,
   billingPeriod: true,
   licences: true,
+  licenceMoves: true,
 } as const;
 
 type ClientDoc = {
@@ -32,6 +34,8 @@ type ClientDoc = {
   paymentTerms?: string | null;
   billingPeriod?: string | null;
   licences?: Record<string, number | null | undefined> | null;
+  /** JSON de la fiche : un jour, ses licences (voir lib/regularisation). */
+  licenceMoves?: unknown;
 };
 
 const toFacts = (d: ClientDoc): SupportClientFacts => ({
@@ -44,6 +48,7 @@ const toFacts = (d: ClientDoc): SupportClientFacts => ({
   paymentTerms: d.paymentTerms,
   billingPeriod: d.billingPeriod,
   licences: d.licences,
+  licenceMoves: flattenMoves(d.licenceMoves),
 });
 
 /** Rapport complet — toutes les fiches (les prospects sans abonnement sont écartés par le rapport). */

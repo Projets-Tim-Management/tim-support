@@ -837,3 +837,54 @@
 .bil-validate--ecart .bil-validate__box {
   border-style: dashed;
 }
+
+/* Régularisation d'un client facturé sur plusieurs mois (RegulBox). */
+.bil-reguls { display: flex; flex-direction: column; gap: 0.6rem; }
+.bil-regul {
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--tim-border);
+  border-left: 4px solid var(--tim-amber);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+}
+.bil-regul--ok { border-left-color: var(--tim-green); }
+.bil-regul--error { border-left-color: var(--tim-red); }
+.bil-regul__head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.bil-regul__title { margin: 0; font-size: 0.92rem; font-weight: 700; color: var(--tim-foreground); }
+.bil-regul__state {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.bil-regul__state--warn { color: var(--tim-amber); background: var(--tim-amber-bg); }
+.bil-regul__state--error { color: var(--tim-red); background: var(--tim-red-bg); }
+.bil-regul__state--ok { color: var(--tim-green); background: var(--tim-green-bg); }
+.bil-regul__amount { margin-left: auto; font-size: 1rem; font-weight: 800; color: var(--tim-foreground); font-variant-numeric: tabular-nums; }
+.bil-regul__period { margin: 0.35rem 0 0.5rem; font-size: 0.83rem; color: var(--tim-muted); strong { color: var(--tim-foreground); } }
+.bil-regul__todo {
+  margin-top: 0.6rem;
+  font-size: 0.83rem;
+  p { margin: 0 0 0.4rem; color: var(--tim-foreground); }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: var(--tim-radius-sm);
+    background: var(--tim-surface);
+    span { flex: 1; min-width: 0; }
+  }
+}
+.bil-regul__copy {
+  flex: none;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  &:hover { border-color: var(--tim-primary); color: var(--tim-primary); }
+}

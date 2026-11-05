@@ -1,8 +1,11 @@
+import { frDate } from "@/core/lib/dates";
+
 import { billingPeriodMonths, monthsLabel, pennylaneMonths } from "./billing-period";
 import { round2 } from "./format";
 import { monthKey, monthStart } from "./month";
 import type { PennylaneSnapshot, PlCustomer, PlInvoice, PlInvoiceLine, PlProduct, PlSubscriptionFull } from "./pennylane";
 import { effectiveUnitPrice, licenceLinesOf, PROFILS, type ProfilKey } from "./pricing";
+import { clientRegularisations, isRegulLabel, type LicenceMove, type Regularisation } from "./regularisation";
 
 /**
  * Contrôle de facturation : ce que dit la fiche client du support (les
@@ -28,6 +31,8 @@ export type SupportClientFacts = {
   /** Périodicité de facturation de la fiche (mensuelle à défaut). */
   billingPeriod?: string | null;
   licences?: Record<string, number | null | undefined> | null;
+  /** Mouvements de licences datés (client facturé sur plusieurs mois) : voir lib/regularisation.ts. */
+  licenceMoves?: LicenceMove[] | null;
 };
 
 /** Référence produit Pennylane de chaque profil (catalogue TIM). */
@@ -71,7 +76,11 @@ export type IssueCode =
   | "billing-period"
   | "uneven-months"
   | "late-payment"
-  | "missing-invoice";
+  | "missing-invoice"
+  /** Période en cours : un complément de licences à ajouter sur la prochaine facture (rappel, pas un écart). */
+  | "regularisation"
+  /** Période écoulée : le complément dû n'a été retrouvé sur aucune facture. */
+  | "regularisation-missing";
 
 export type Severity = "error" | "warn";
 
@@ -174,6 +183,12 @@ export type ClientCheck = {
   latePayments: InvoiceSummary[];
   /** Mois par mois depuis le début de la facturation : facture(s) du mois ou manque. */
   months: MonthCheck[];
+  /**
+   * Client facturé sur plusieurs mois : le complément de licences de la
+   * période en cours (à mettre sur la prochaine facture) et celui de la
+   * période écoulée (l'a-t-on facturé ?). Null quand il n'y a rien.
+   */
+  regularisation: { current: Regularisation | null; previous: Regularisation | null };
 };
 
 /** Un abonnement Pennylane dont le client n'existe pas (ou plus) dans le support. */
@@ -389,10 +404,12 @@ export function buildBillingReport(clients: SupportClientFacts[], snap: Pennylan
   const now = new Date(snap.fetchedAt);
 
   const invoicesByCustomer = new Map<number, InvoiceSummary[]>();
+  const rawInvoicesByCustomer = new Map<number, PlInvoice[]>();
   for (const inv of snap.invoices) {
     const cid = inv.customer?.id;
     if (cid == null || inv.draft || inv.archived_at || NOT_A_SALE.has(inv.status ?? "")) continue;
     invoicesByCustomer.set(cid, [...(invoicesByCustomer.get(cid) ?? []), summarizeInvoice(inv, now)]);
+    rawInvoicesByCustomer.set(cid, [...(rawInvoicesByCustomer.get(cid) ?? []), inv]);
   }
   for (const list of invoicesByCustomer.values()) list.sort((a, b) => b.date.localeCompare(a.date));
 
@@ -496,7 +513,13 @@ export function buildBillingReport(clients: SupportClientFacts[], snap: Pennylan
       }
     >();
     const extraLines: ExtraLine[] = [];
+    /** Lignes « Régularisation » posées sur l'abonnement : la régularisation prévue, pas une ligne en trop. */
+    let plannedRegulHT: number | null = null;
     for (const line of sub?.lines ?? []) {
+      if (isRegulLabel(line.label)) {
+        plannedRegulHT = round2((plannedRegulHT ?? 0) + num(line.currency_amount_before_tax));
+        continue;
+      }
       const key = profileOfLine(line, products);
       const qty = num(line.quantity);
       const list = round2(num(line.raw_currency_unit_price));
@@ -566,7 +589,8 @@ export function buildBillingReport(clients: SupportClientFacts[], snap: Pennylan
 
     const supportHT = round2(rows.reduce((a, r) => a + r.supportQty * r.supportPrice, 0));
     const plQty = rows.reduce((a, r) => a + r.plQty, 0);
-    const plInvoiceHT = round2(num(sub?.customer_invoice_data?.currency_amount_before_tax));
+    // Sans la régularisation prévue : elle ne vaut que pour une facture, pas pour le montant habituel.
+    const plInvoiceHT = round2(num(sub?.customer_invoice_data?.currency_amount_before_tax) - (plannedRegulHT ?? 0));
     const plHT = round2(plInvoiceHT / months);
 
     const issues: Issue[] = [];
@@ -720,6 +744,43 @@ export function buildBillingReport(clients: SupportClientFacts[], snap: Pennylan
             : `${latePayments.length} factures en retard — ${fmtPrice(total)} TTC restant dus`,
       });
     }
+    // Régularisation (client facturé sur plusieurs mois, payé d'avance).
+    const regularisation = billingLive
+      ? clientRegularisations({
+          moves: cl.licenceMoves ?? [],
+          licences: cl.licences,
+          nextOccurrence: sub?.next_occurrence ?? null,
+          months: plMonths ?? supportMonths,
+          now,
+          invoices: (plCustomer ? (rawInvoicesByCustomer.get(plCustomer.id) ?? []) : []).map((i) => ({
+            date: i.date ?? "",
+            label: [i.label, i.invoice_number].filter(Boolean).join(" "),
+            amountHT: round2(num(i.currency_amount_before_tax)),
+            fromSubscription: i.billing_subscription?.id === sub?.id,
+            cancelled: i.status === "cancelled",
+          })),
+          subscriptionHT: plInvoiceHT,
+          plannedHT: plannedRegulHT,
+          subscriptionStart: sub?.start ?? null,
+        })
+      : { current: null, previous: null };
+    if (regularisation.current?.state === "a-facturer") {
+      const r = regularisation.current;
+      issues.push({
+        code: "regularisation",
+        severity: "warn",
+        label: `Régularisation à ajouter sur la facture du ${frDate(r.periodEnd, "long")} : ${fmtPrice(r.amountHT)} HT (${r.lines.map((l) => `${l.label} ${l.licenceMonths} licence${l.licenceMonths > 1 ? "s" : ""}-mois`).join(", ")})`,
+      });
+    }
+    if (regularisation.previous?.state === "manquante") {
+      const r = regularisation.previous;
+      issues.push({
+        code: "regularisation-missing",
+        severity: "error",
+        label: `Régularisation non facturée : ${fmtPrice(r.amountHT)} HT attendus avec la facture du ${frDate(r.periodEnd, "long")}`,
+      });
+    }
+
     const missing = monthChecks.filter((m) => m.missing);
     if (missing.length) {
       const names = missing.map((m) =>
@@ -736,7 +797,7 @@ export function buildBillingReport(clients: SupportClientFacts[], snap: Pennylan
       ? "non-rapproche"
       : !sub || sub.status === "stopped" || sub.status === "finished" || sub.status === "draft"
         ? "sans-abonnement"
-        : issues.length
+        : issues.some((i) => i.code !== "regularisation")
           ? "ecart"
           : "ok";
 
@@ -774,6 +835,7 @@ export function buildBillingReport(clients: SupportClientFacts[], snap: Pennylan
       invoices,
       latePayments,
       months: monthChecks,
+      regularisation,
     });
   }
 

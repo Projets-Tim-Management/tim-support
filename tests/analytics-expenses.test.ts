@@ -106,3 +106,25 @@ describe("seuil d'équilibre", () => {
     ]);
   });
 });
+
+describe("dépenses en HT (04/11/2026)", () => {
+  it("retire la TVA au taux des factures du fournisseur ; sans fournisseur, pas de TVA", async () => {
+    const { vatShareBySupplier } = await import("@/modules/analytics/lib/expenses-load");
+    const share = vatShareBySupplier([
+      { supplierId: "fr", date: "2026-01-05", amount: 120, tax: 20 },
+      { supplierId: "fr", date: "2026-02-05", amount: 240, tax: 40 },
+      { supplierId: "us", date: "2026-02-05", amount: 100, tax: 0 },
+      { supplierId: null, date: "2026-02-05", amount: 50, tax: 10 },
+    ]);
+    expect(share.get("fr")).toBeCloseTo(1 / 6);
+    expect(share.get("us")).toBe(0);
+    const [fr, us, bank] = classifyExpenses([
+      { ...tx("1", "2026-03-10", -120, "EXPERT COMPTABLE"), vatShare: share.get("fr") },
+      { ...tx("2", "2026-03-09", -100, "VERCEL"), vatShare: share.get("us") },
+      tx("3", "2026-03-08", -8.5, "COMMISSION D INTERVENTION"),
+    ]);
+    expect([fr.amount, fr.amountTTC, fr.vat]).toEqual([100, 120, 20]);
+    expect([us.amount, us.vat]).toEqual([100, 0]);
+    expect([bank.amount, bank.amountTTC]).toEqual([8.5, 8.5]);
+  });
+});

@@ -553,6 +553,35 @@
   width: 100%;
   overflow-x: auto;
 }
+/* Hauteur bornée : le tableau défile, l'en-tête et le total restent à l'écran. */
+.an-scroll--capped {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  thead th,
+  .an-total td {
+    position: sticky;
+    z-index: 1;
+    background: var(--tim-white);
+  }
+  thead th {
+    top: 0;
+  }
+  .an-total td {
+    bottom: 0;
+  }
+}
+/* Le séparateur d'un groupe rangé en bas (ex. les clients perdus). */
+.an-split td {
+  padding: 0.9rem 0.5rem 0.35rem;
+  border-top: 2px solid var(--tim-border);
+  border-bottom: 1px solid var(--tim-border);
+  color: var(--tim-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
 .an-table {
   width: 100%;
   border-collapse: collapse;
@@ -565,6 +594,8 @@
   white-space: nowrap;
 }
 .an-th {
+  /* Un titre en <span> (tableau non triable) a sa marge DANS sa largeur, comme le <button> des autres : sinon il déborde de sa colonne. */
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
@@ -794,7 +825,7 @@
 }
 /* Une teinte par grandeur, la même que sur les graphiques : CA bleu, dépenses rouge, bénéfice vert. */
 .an-kpi {
-  --an-kpi-color: var(--tim-chart-2);
+  --an-kpi-color: var(--tim-chart-revenue);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -822,16 +853,16 @@
   }
 }
 .an-kpi--red {
-  --an-kpi-color: var(--tim-chart-1);
+  --an-kpi-color: var(--tim-chart-expense);
 }
 .an-kpi--green {
-  --an-kpi-color: var(--tim-chart-3);
+  --an-kpi-color: var(--tim-chart-profit);
 }
 .an-kpi--amber {
-  --an-kpi-color: var(--tim-chart-4);
+  --an-kpi-color: var(--tim-chart-3);
 }
 .an-spark--amber {
-  --an-spark-color: var(--tim-chart-4);
+  --an-spark-color: var(--tim-chart-3);
 }
 .an-kpi--slate {
   --an-kpi-color: var(--tim-slate);
@@ -883,7 +914,7 @@
 
   polyline {
     fill: none;
-    stroke: var(--an-spark-color, var(--tim-chart-2));
+    stroke: var(--an-spark-color, var(--tim-chart-revenue));
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -891,7 +922,7 @@
   }
 }
 .an-spark__end {
-  stroke: var(--an-spark-color, var(--tim-chart-2));
+  stroke: var(--an-spark-color, var(--tim-chart-revenue));
   stroke-width: 7;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
@@ -902,10 +933,10 @@
   vector-effect: non-scaling-stroke;
 }
 .an-spark--red {
-  --an-spark-color: var(--tim-chart-1);
+  --an-spark-color: var(--tim-chart-expense);
 }
 .an-spark--green {
-  --an-spark-color: var(--tim-chart-3);
+  --an-spark-color: var(--tim-chart-profit);
 }
 
 /* Jauge de marge. */
@@ -918,14 +949,14 @@
   flex: 1 1 auto;
   height: 8px;
   border-radius: 4px;
-  background: color-mix(in srgb, var(--tim-chart-3) 15%, var(--tim-white));
+  background: color-mix(in srgb, var(--tim-chart-profit) 15%, var(--tim-white));
   overflow: hidden;
 }
 .an-meter__fill {
   display: block;
   height: 100%;
   border-radius: 4px;
-  background: var(--tim-chart-3);
+  background: var(--tim-chart-profit);
   transform-origin: left center;
   animation: an-grow 0.6s ease both;
 }
@@ -942,7 +973,7 @@
 
 /* Barres horizontales : ce que pèse chaque poste, chaque client. */
 .an-bars {
-  --an-bar-color: var(--tim-chart-2);
+  --an-bar-color: var(--tim-chart-revenue);
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
@@ -950,11 +981,17 @@
   padding: 0;
   list-style: none;
 }
+/* Hauteur bornée : la liste défile, la barre de défilement ne mord pas sur les montants. */
+.an-bars--capped {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.5rem;
+}
 .an-bars--red {
-  --an-bar-color: var(--tim-chart-1);
+  --an-bar-color: var(--tim-chart-expense);
 }
 .an-bars--green {
-  --an-bar-color: var(--tim-chart-3);
+  --an-bar-color: var(--tim-chart-profit);
 }
 .an-bars__row {
   display: flex;
@@ -1031,7 +1068,7 @@ a.an-bars__label:hover {
   margin: 0;
   padding: 0.6rem 0.8rem;
   border-radius: var(--tim-radius-sm);
-  background: color-mix(in srgb, var(--tim-chart-1) 8%, var(--tim-white));
+  background: var(--tim-chart-wash);
   font-size: 0.86rem;
   color: var(--tim-foreground);
 }
@@ -1043,7 +1080,7 @@ a.an-bars__label:hover {
   gap: 0.75rem 1rem;
 }
 .an-even__fig {
-  --an-even-color: var(--tim-chart-2);
+  --an-even-color: var(--tim-chart-revenue);
   display: flex;
   flex: 1 1 10rem;
   flex-direction: column;
@@ -1054,10 +1091,10 @@ a.an-bars__label:hover {
   background: color-mix(in srgb, var(--an-even-color) 7%, var(--tim-white));
 }
 .an-even__fig--red {
-  --an-even-color: var(--tim-chart-1);
+  --an-even-color: var(--tim-chart-expense);
 }
 .an-even__fig--green {
-  --an-even-color: var(--tim-chart-3);
+  --an-even-color: var(--tim-chart-profit);
 }
 .an-even__fig--bad {
   --an-even-color: var(--tim-danger-text);
@@ -1234,7 +1271,7 @@ a.an-bars__label:hover {
   width: 0.75rem;
   height: 0.75rem;
   border-radius: 50%;
-  background: var(--vd-color, var(--tim-chart-2));
+  background: var(--vd-color, var(--tim-chart-1));
 }
 
 .vd-list {
@@ -1253,7 +1290,7 @@ a.an-bars__label:hover {
   gap: 1rem;
   padding: 0.85rem 1rem;
   border: 1px solid var(--tim-border);
-  border-left: 4px solid var(--vd-color, var(--tim-chart-2));
+  border-left: 4px solid var(--vd-color, var(--tim-chart-1));
   border-radius: var(--tim-radius);
   background: var(--tim-white);
   color: inherit;
@@ -1265,8 +1302,8 @@ a.an-bars__label:hover {
   }
 }
 .vd-row--on {
-  background: color-mix(in srgb, var(--vd-color, var(--tim-chart-2)) 6%, var(--tim-white));
-  box-shadow: 0 0 0 1px var(--vd-color, var(--tim-chart-2));
+  background: color-mix(in srgb, var(--vd-color, var(--tim-chart-1)) 6%, var(--tim-white));
+  box-shadow: 0 0 0 1px var(--vd-color, var(--tim-chart-1));
 }
 @media (max-width: 960px) {
   .vd-row {
@@ -1432,4 +1469,127 @@ a.an-bars__label:hover {
   b {
     color: var(--tim-foreground);
   }
+}
+
+/* ─── Dépenses par catégorie Pennylane ──────────────────────────────────────
+   Un avertissement (catégorie sans parente), le tableau dépliable, et l'écran
+   de rattachement (Analyses → Paramètres → Catégories de dépenses). */
+.an-callout--warn {
+  background: var(--tim-amber-bg);
+  color: var(--tim-foreground);
+
+  a {
+    color: var(--tim-primary);
+    font-weight: 700;
+  }
+}
+/* Le tableau : « Catégorie » et « Total » restent à l'écran pendant qu'on fait défiler les mois. */
+.an-cat-table th:first-child,
+.an-cat-table td:first-child,
+.an-cat-table th:last-child,
+.an-cat-table td:last-child {
+  position: sticky;
+  z-index: 1;
+  background: var(--tim-white);
+}
+.an-cat-table th:first-child,
+.an-cat-table td:first-child {
+  left: 0;
+  white-space: nowrap;
+  box-shadow: 1px 0 0 var(--tim-border);
+}
+.an-cat-table th:last-child,
+.an-cat-table td:last-child {
+  right: 0;
+  padding-left: 1rem;
+  font-weight: 800;
+  box-shadow: -1px 0 0 var(--tim-border);
+}
+/* Les coins (en-tête et total figés aussi en hauteur) passent au-dessus. */
+.an-scroll--capped .an-cat-table thead th:first-child,
+.an-scroll--capped .an-cat-table thead th:last-child,
+.an-scroll--capped .an-cat-table .an-total td:first-child,
+.an-scroll--capped .an-cat-table .an-total td:last-child {
+  z-index: 2;
+}
+/* Une famille ouvre un bloc : un trait plus marqué au-dessus, ses chiffres en gras. */
+.an-cat-table__row--d0 td {
+  border-top: 2px solid var(--tim-border);
+  font-weight: 700;
+  color: var(--tim-foreground);
+}
+.an-cat-table__row--d1 td,
+.an-cat-table__row--d2 td {
+  color: var(--tim-muted);
+}
+.an-cat-table__name {
+  display: inline-flex;
+  align-items: center;
+}
+.an-cat-table__toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+
+  &:hover .an-cat-chip {
+    filter: brightness(0.96);
+  }
+}
+.an-cat-table__caret {
+  display: inline-block;
+  width: 1rem;
+  color: var(--tim-muted);
+  font-size: 0.75rem;
+}
+/* L'étiquette : le nom sur un fond à la couleur de sa famille, comme dans Pennylane.
+   Le texte reste foncé (la couleur foncée vers le noir) pour se lire sur le fond clair. */
+.an-cat-chip {
+  --chip: var(--tim-chart-other);
+  display: inline-block;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chip) 16%, var(--tim-white));
+  color: color-mix(in srgb, var(--chip) 65%, var(--tim-chart-ink));
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.an-cat-chip--d0 {
+  background: color-mix(in srgb, var(--chip) 24%, var(--tim-white));
+  font-weight: 800;
+}
+.an-cat-chip--d2 {
+  background: color-mix(in srgb, var(--chip) 9%, var(--tim-white));
+  font-weight: 500;
+}
+.an-cat-chip--gray {
+  --chip: var(--tim-slate);
+  font-style: italic;
+}
+.an-cat-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.an-cat-edit__name {
+  display: inline-block;
+  margin-right: 0.5rem;
+}
+.an-cat-edit__select {
+  width: 100%;
+  max-width: 28rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.86rem;
+}
+.an-cat-edit__row--alert td {
+  background: var(--tim-amber-bg);
 }

@@ -85,6 +85,7 @@ import { SequenceState as SequenceState_76fc64c304fa617805830e30067a8b3b } from 
 import { ClientHistory as ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1 } from '../../../modules/partner/admin/ClientHistory'
 import { NeedFromOpportunity as NeedFromOpportunity_706b11bee372d49b265857d9536df99c } from '../../../modules/dev/admin/CreateDevelopment'
 import { LicencesTable as LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338 } from '../../../modules/partner/admin/LicencesTable'
+import { LicenceMovesField as LicenceMovesField_420786c95e4a886a5ba48d3e43c80838 } from '../../../modules/partner/admin/LicenceMovesField'
 import { PrestationsMemo as PrestationsMemo_ea3de1057e93d0a5100f15554d34ebf5 } from '../../../modules/partner/admin/PrestationsMemo'
 import { PennylaneCompare as PennylaneCompare_15129f9dfdba74a12c4653c08d159168 } from '../../../modules/partner/admin/PennylaneCompare'
 import { PartnerClientHistory as PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2 } from '../../../modules/partner/admin/PartnerClientHistory'
@@ -151,6 +152,7 @@ import { LogoPreview as LogoPreview_f97f8060092912987144671ff9edb2ae } from '../
 import { PaletteCheck as PaletteCheck_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
 import { FontPreview as FontPreview_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
 import { TeamEmailRowLabel as TeamEmailRowLabel_fe4e3de0c8d06bd60498ae61b540f761 } from '../../../core/globals/TeamEmailRowLabel'
+import { CategoryParentsField as CategoryParentsField_14711bdf579380bfdc58e1c2eab125d7 } from '../../../modules/analytics/admin/CategoryParentsField'
 import { default as default_5599fe28f2b3157f52fea861e6ba12e6 } from '../../../admin/graphics/Avatar'
 import { default as default_8224f9d0d872abe7f15fe4a0b0d49bd9 } from '../../../admin/nav/CustomNav'
 import { default as default_bd65fe58e0079c6c4581354ef4ec3555 } from '../../../admin/header/PartnerSwitcher'
@@ -268,6 +270,7 @@ export const importMap = {
   "/modules/partner/admin/ClientHistory#ClientHistory": ClientHistory_b49a3b3c3bcded2787e357cc17d7a4b1,
   "/modules/dev/admin/CreateDevelopment#NeedFromOpportunity": NeedFromOpportunity_706b11bee372d49b265857d9536df99c,
   "/modules/partner/admin/LicencesTable#LicencesTable": LicencesTable_79f5f6d4e6b12bf7c91057c4d2fc1338,
+  "/modules/partner/admin/LicenceMovesField#LicenceMovesField": LicenceMovesField_420786c95e4a886a5ba48d3e43c80838,
   "/modules/partner/admin/PrestationsMemo#PrestationsMemo": PrestationsMemo_ea3de1057e93d0a5100f15554d34ebf5,
   "/modules/partner/admin/PennylaneCompare#PennylaneCompare": PennylaneCompare_15129f9dfdba74a12c4653c08d159168,
   "/modules/partner/admin/PartnerClientHistory#PartnerClientHistory": PartnerClientHistory_e83e538b92f1bab9fca5d7b1816c3ae2,
@@ -334,6 +337,7 @@ export const importMap = {
   "/modules/ads/admin/BrandKitPreview#PaletteCheck": PaletteCheck_f97f8060092912987144671ff9edb2ae,
   "/modules/ads/admin/BrandKitPreview#FontPreview": FontPreview_f97f8060092912987144671ff9edb2ae,
   "/core/globals/TeamEmailRowLabel#TeamEmailRowLabel": TeamEmailRowLabel_fe4e3de0c8d06bd60498ae61b540f761,
+  "/modules/analytics/admin/CategoryParentsField#CategoryParentsField": CategoryParentsField_14711bdf579380bfdc58e1c2eab125d7,
   "/admin/graphics/Avatar#default": default_5599fe28f2b3157f52fea861e6ba12e6,
   "/admin/nav/CustomNav#default": default_8224f9d0d872abe7f15fe4a0b0d49bd9,
   "/admin/header/PartnerSwitcher#default": default_bd65fe58e0079c6c4581354ef4ec3555,

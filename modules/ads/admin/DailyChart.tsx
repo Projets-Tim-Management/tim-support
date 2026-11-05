@@ -31,7 +31,8 @@ const dayLong = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("fr
 export function DailyChart({ data }: { data: Point[] }) {
   const c = useChartColors();
   const rows = data.map((p) => ({ ...p, label: dayLabel(p.day), long: dayLong(p.day) }));
-  const spendColor = c.series[0];
+  // Ce qui est dépensé en publicité : la couleur des dépenses, comme sur Facturation.
+  const spendColor = c.expense;
   const leadsColor = c.series[1];
   return (
     <ResponsiveContainer width="100%" height={260}>
