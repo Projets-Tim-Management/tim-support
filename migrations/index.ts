@@ -179,6 +179,10 @@ import * as migration_20261030_084858_axonaut_invoices from './20261030_084858_a
 import * as migration_20261030_142449_expense_rules from './20261030_142449_expense_rules';
 import * as migration_20261102_064744_team_emails from './20261102_064744_team_emails';
 import * as migration_20261102_070400_team_email_client_gagne from './20261102_070400_team_email_client_gagne';
+import * as migration_20261104_075548_expense_categories from './20261104_075548_expense_categories';
+import * as migration_20261105_074523_licence_moves from './20261105_074523_licence_moves';
+import * as migration_20261105_075733_licence_moves_lines from './20261105_075733_licence_moves_lines';
+import * as migration_20261105_080201_licence_moves_json from './20261105_080201_licence_moves_json';
 
 export const migrations = [
   {
@@ -1084,6 +1088,26 @@ export const migrations = [
   {
     up: migration_20261102_070400_team_email_client_gagne.up,
     down: migration_20261102_070400_team_email_client_gagne.down,
-    name: '20261102_070400_team_email_client_gagne'
+    name: '20261102_070400_team_email_client_gagne',
+  },
+  {
+    up: migration_20261104_075548_expense_categories.up,
+    down: migration_20261104_075548_expense_categories.down,
+    name: '20261104_075548_expense_categories',
+  },
+  {
+    up: migration_20261105_074523_licence_moves.up,
+    down: migration_20261105_074523_licence_moves.down,
+    name: '20261105_074523_licence_moves',
+  },
+  {
+    up: migration_20261105_075733_licence_moves_lines.up,
+    down: migration_20261105_075733_licence_moves_lines.down,
+    name: '20261105_075733_licence_moves_lines',
+  },
+  {
+    up: migration_20261105_080201_licence_moves_json.up,
+    down: migration_20261105_080201_licence_moves_json.down,
+    name: '20261105_080201_licence_moves_json'
   },
 ];

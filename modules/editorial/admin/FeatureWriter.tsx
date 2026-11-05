@@ -89,7 +89,7 @@ export function FeatureWriter({
 
   const [notes, setNotes] = useState("");
   const [platformIds, setPlatformIds] = useState<string[]>([]);
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [profiles, setProfiles] = useState<string[]>([]);
   const [videos, setVideos] = useState<Step[]>([]);
 
@@ -149,7 +149,8 @@ export function FeatureWriter({
         if (!d) return;
         const idOf = (v: unknown) => String(v && typeof v === "object" ? (v as { id: unknown }).id : v);
         setPlatformIds((d.platforms ?? []).map(idOf));
-        setCategoryId(d.categories?.length ? idOf(d.categories[d.categories.length - 1]) : "");
+        // Toutes les sections de la fiche, pas seulement la dernière : rien ne se perd à la mise à jour.
+        setCategoryIds((d.categories ?? []).map(idOf));
         setProfiles(d.profiles ?? []);
       })
       .catch(() => undefined);
@@ -304,7 +305,7 @@ export function FeatureWriter({
           featureId,
           notes,
           platformIds,
-          categoryIds: categoryId ? [categoryId] : [],
+          categoryIds,
           profiles,
           steps,
           previous: previous ? withoutReused(previous) : undefined,
@@ -373,7 +374,7 @@ export function FeatureWriter({
           featureId,
           feature: draft,
           platformIds,
-          categoryIds: categoryId ? [categoryId] : [],
+          categoryIds,
           profiles,
           media,
         }),
@@ -534,17 +535,34 @@ export function FeatureWriter({
                       ))}
                     </div>
                   </div>
-                  <label className="ctr-field">
-                    <span className="ctr-field__label">Section</span>
-                    <select className="ctr-input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                      <option value="">Choisir une section…</option>
-                      {sections.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.label}
-                        </option>
-                      ))}
+                  {/* Plusieurs sections : la fiche apparaît dans chacune. Les choisies en étiquettes (× pour retirer), la liste pour en ajouter. */}
+                  <div className="ctr-field">
+                    <span className="ctr-field__label">Sections (la fiche apparaît dans chacune)</span>
+                    {categoryIds.some((id) => sections.some((s) => String(s.id) === id)) && (
+                      <div className="fw-tags">
+                        {sections
+                          .filter((s) => categoryIds.includes(String(s.id)))
+                          .map((s) => (
+                            <span key={s.id} className="fw-tag">
+                              {s.label}
+                              <button type="button" className="fw-tag__remove" aria-label={`Retirer la section ${s.label}`} onClick={() => setCategoryIds((l) => l.filter((x) => x !== String(s.id)))}>
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                      </div>
+                    )}
+                    <select className="ctr-input" value="" onChange={(e) => e.target.value && setCategoryIds((l) => [...l, e.target.value])}>
+                      <option value="">{categoryIds.length ? "Ajouter une autre section…" : "Choisir une section…"}</option>
+                      {sections
+                        .filter((s) => !categoryIds.includes(String(s.id)))
+                        .map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.label}
+                          </option>
+                        ))}
                     </select>
-                  </label>
+                  </div>
                 </div>
                 <div className="ctr-field fw-profiles">
                   <span className="ctr-field__label">Pour qui ? (rien coché = tout le monde)</span>

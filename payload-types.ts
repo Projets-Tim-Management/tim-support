@@ -246,6 +246,7 @@ export interface Config {
     'ads-settings': AdsSetting;
     'ads-brand-kit': AdsBrandKit;
     'team-emails': TeamEmail;
+    'expense-categories': ExpenseCategory;
   };
   globalsSelect: {
     appearance: AppearanceSelect<false> | AppearanceSelect<true>;
@@ -257,6 +258,7 @@ export interface Config {
     'ads-settings': AdsSettingsSelect<false> | AdsSettingsSelect<true>;
     'ads-brand-kit': AdsBrandKitSelect<false> | AdsBrandKitSelect<true>;
     'team-emails': TeamEmailsSelect<false> | TeamEmailsSelect<true>;
+    'expense-categories': ExpenseCategoriesSelect<false> | ExpenseCategoriesSelect<true>;
   };
   locale: null;
   widgets: {
@@ -743,6 +745,15 @@ export interface PartnerClient {
     visuelDiscountPct?: number | null;
     visuelDiscountAmount?: number | null;
   };
+  licenceMoves?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   prestations?: {
     miseEnPlaceQty?: number | null;
     miseEnPlacePrice?: number | null;
@@ -4657,6 +4668,7 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         visuelDiscountPct?: T;
         visuelDiscountAmount?: T;
       };
+  licenceMoves?: T;
   prestations?:
     | T
     | {
@@ -6681,6 +6693,26 @@ export interface TeamEmail {
   createdAt?: string | null;
 }
 /**
+ * Pennylane ne donne pas, par son API, la catégorie parente de chaque catégorie : on la règle ici, une fois. Les catégories sont lues en direct sur Pennylane ; une nouvelle apparaît en haut, « à rattacher ».
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "expense-categories".
+ */
+export interface ExpenseCategory {
+  id: number;
+  parents?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "appearance_select".
  */
@@ -6910,6 +6942,16 @@ export interface TeamEmailsSelect<T extends boolean = true> {
       };
   teamAddress?: T;
   supportAddress?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "expense-categories_select".
+ */
+export interface ExpenseCategoriesSelect<T extends boolean = true> {
+  parents?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

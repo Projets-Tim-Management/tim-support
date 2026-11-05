@@ -58,15 +58,17 @@ export const AnnounceField = () => {
    * Ouverture AUTOMATIQUE : quand le statut passe, à l'écran, d'un statut qui
    * n'annonce pas à un statut qui annonce. Pas à l'ouverture de la fiche — une
    * fiche déjà « Terminée » qu'on rouvre pour corriger une note n'a pas à
-   * réclamer un envoi ; le bouton reste là pour ça.
+   * réclamer un envoi ; le bouton reste là pour ça. Rebasculer sur « Terminé »
+   * la rouvre même après un premier envoi : c'est le geste pour écrire à une
+   * adresse oubliée (la fenêtre rappelle la date du premier envoi).
    */
   const previousAnnounces = useRef<boolean | null>(null);
   useEffect(() => {
     if (statuses === null) return;
     const was = previousAnnounces.current;
     previousAnnounces.current = announces;
-    if (was === false && announces && !announcedAt && requesterCount > 0) open();
-  }, [announces, announcedAt, open, requesterCount, statuses]);
+    if (was === false && announces && requesterCount > 0) open();
+  }, [announces, open, requesterCount, statuses]);
 
   if (id == null) return null;
 
@@ -75,16 +77,12 @@ export const AnnounceField = () => {
       {announcedAt ? (
         <p className="dev-cfield__hint">
           Clients prévenus le {fmt(announcedAt)}.
-          {requesterCount > 0 && (
-            <>
-              {" "}
-              <button type="button" className="dev-announce__again" onClick={open}>
-                Renvoyer…
-              </button>
-            </>
-          )}
+          {/* Toujours proposé : une adresse oubliée s'ajoute à la main, demandeur rattaché ou non. */}{" "}
+          <button type="button" className="dev-announce__again" onClick={open}>
+            Envoyer à d&apos;autres adresses…
+          </button>
         </p>
-      ) : announces && requesterCount > 0 ? (
+      ) : announces ? (
         <button type="button" className="dev-announce__open" onClick={open}>
           Prévenir les demandeurs…
         </button>

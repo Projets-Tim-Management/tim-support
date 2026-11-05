@@ -1061,6 +1061,37 @@
 }
 .fw-checks { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
 .fw-profiles { margin-top: 0.875rem; }
+/* Sections choisies dans le rédacteur : étiquettes retirables, au-dessus de la liste d'ajout. */
+.fw-tags { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-bottom: 0.5rem; }
+.fw-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.625rem;
+  border: 1px solid var(--tim-primary);
+  border-radius: 999px;
+  background: var(--tim-primary-light);
+  color: var(--tim-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.fw-tag__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  &:hover { background: var(--tim-white); }
+}
 .fw-video {
   display: grid;
   grid-template-columns: 10rem minmax(0, 1fr) auto;

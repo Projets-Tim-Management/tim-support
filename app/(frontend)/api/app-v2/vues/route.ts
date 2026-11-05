@@ -6,7 +6,7 @@ import { clientIp } from "@/modules/forms/lib/ingest";
 import { APP_V2_PATH, APP_V2_VIDEO_ID } from "@/modules/marketing/lib/app-v2";
 
 /**
- * POST /api/app-v2/vues  { etape, appareil? }  → +1 sur le compteur du jour.
+ * POST /api/app-v2/vues  { etape, appareil?, page? }  → +1 sur le compteur du jour.
  *
  * Même compteur anonyme que les vidéos de la vitrine (analyses → vidéos), mais
  * appelé directement par le navigateur : la page est sur le support lui-même,
@@ -25,7 +25,9 @@ export async function POST(req: Request) {
   } catch {
     /* corps illisible */
   }
-  const vue = parseVue({ ...body, video_id: APP_V2_VIDEO_ID, page: APP_V2_PATH, canal: "direct" });
+  // La vidéo vit sur deux pages : la page V2, et l'accueil du support (« / »). Aucune autre.
+  const page = body.page === "/" ? "/" : APP_V2_PATH;
+  const vue = parseVue({ ...body, video_id: APP_V2_VIDEO_ID, page, canal: "direct" });
   if (!vue) return NextResponse.json({ error: "invalid" }, { status: 400 });
 
   const payload = await payloadClient();

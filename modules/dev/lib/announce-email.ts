@@ -1,4 +1,4 @@
-import { BRAND, FONT, SITE_URL, escape, paragraph, shell } from "@/core/lib/email-template";
+import { BORDER, BRAND, FONT, INK, MUTED, OUTER, SITE_URL, escape, paragraph, shell } from "@/core/lib/email-template";
 
 /**
  * « C'est disponible » — l'e-mail au client qui avait demandé un développement.
@@ -61,6 +61,8 @@ export const DEFAULT_ANNOUNCE_TEXTS: Required<{ [K in keyof AnnounceTexts]: stri
  */
 export const DEFAULT_ANNOUNCE_HERO = `${SITE_URL}/email/annonce-dev.png`;
 
+export type AnnounceFeature = { slug: string; title?: string | null; shortDescription?: string | null };
+
 export type AnnounceContext = {
   /** Titre du développement, tel que saisi — c'est ce que le client reconnaîtra. */
   title: string;
@@ -68,14 +70,31 @@ export type AnnounceContext = {
   contactFirstName?: string | null;
   /** Lien de réservation du partenaire (réglage « lien externe »), s'il en a un. */
   bookingUrl?: string | null;
-  /** Fiche du site support qui documente la fonctionnalité, s'il y en a une. */
-  featureSlug?: string | null;
-  featureTitle?: string | null;
+  /**
+   * Les fiches du site support à joindre, dans l'ordre choisi dans la fenêtre
+   * d'envoi (par défaut la « Fiche de documentation » du développement).
+   * Chacune devient une carte cliquable : titre, courte description, lien.
+   */
+  features?: AnnounceFeature[] | null;
   recipientEmail?: string;
   /** Textes repris en back-office ; vides ou absents = texte d'origine. */
   texts?: AnnounceTexts | null;
   /** Image du bandeau choisie en back-office (URL absolue) ; absente = la fusée. */
   heroImageUrl?: string | null;
+};
+
+/** Une fiche de la doc en carte : tout le bloc est le lien, le client voit ce qu'il va ouvrir. */
+const featureCard = (f: AnnounceFeature, url: string, fallbackTitle: string) => {
+  const desc = f.shortDescription?.trim();
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 10px;border-collapse:separate;"><tr>
+     <td style="padding:14px 18px;background:${OUTER};border:1px solid ${BORDER};border-left:4px solid ${BRAND};border-radius:10px;">
+       <a href="${url}" style="text-decoration:none;display:block;">
+         <span style="display:block;font-family:${FONT};font-size:16px;font-weight:700;color:${INK};">${escape(f.title?.trim() || fallbackTitle)}</span>
+         ${desc ? `<span style="display:block;margin-top:4px;font-family:${FONT};font-size:14px;line-height:1.5;color:${MUTED};">${escape(desc)}</span>` : ""}
+         <span style="display:block;margin-top:8px;font-family:${FONT};font-size:14px;font-weight:700;color:${BRAND};">Voir la fiche &rarr;</span>
+       </a>
+     </td>
+   </tr></table>`;
 };
 
 const button = (label: string, url: string) =>
@@ -93,7 +112,7 @@ export function buildAnnounceEmail(ctx: AnnounceContext): BuiltEmail {
   const oneLine = (s: string) => plain(s).replace(/\s*\n\s*/g, " ").trim();
 
   const hello = ctx.contactFirstName?.trim() ? `Bonjour ${ctx.contactFirstName.trim()},` : "Bonjour,";
-  const featureUrl = ctx.featureSlug ? `${SITE_URL}/features/${ctx.featureSlug}` : null;
+  const docs = (ctx.features ?? []).filter((f) => f.slug?.trim()).map((f) => ({ f, url: `${SITE_URL}/features/${encodeURIComponent(f.slug.trim())}` }));
 
   // Le corps, en deux temps : la bonne nouvelle, puis la proposition — avec
   // un bouton de réservation si le partenaire en a un, sinon la réponse.
@@ -109,7 +128,7 @@ export function buildAnnounceEmail(ctx: AnnounceContext): BuiltEmail {
     hello,
     "",
     plain(intro),
-    ...(featureUrl ? ["", `${plain(featureLead)} ${featureUrl}`] : []),
+    ...(docs.length ? ["", plain(featureLead), ...docs.map(({ f, url }) => `- ${f.title?.trim() || ctx.title} : ${url}`)] : []),
     "",
     plain(proposition),
     ...(ctx.bookingUrl ? ["", `${ctaLabel} : ${ctx.bookingUrl}`] : []),
@@ -126,13 +145,7 @@ export function buildAnnounceEmail(ctx: AnnounceContext): BuiltEmail {
     bodyHtml:
       paragraph(escape(hello)) +
       paragraph(richHtml(intro)) +
-      (featureUrl
-        ? paragraph(
-            `${richHtml(featureLead)} <a href="${featureUrl}" style="color:${BRAND};font-weight:700;text-decoration:none;">${escape(
-              ctx.featureTitle?.trim() || ctx.title,
-            )}</a>.`,
-          )
-        : "") +
+      (docs.length ? paragraph(richHtml(featureLead)) + docs.map(({ f, url }) => featureCard(f, url, ctx.title)).join("") + `<div style="height:8px;"></div>` : "") +
       paragraph(richHtml(proposition)) +
       (ctx.bookingUrl ? button(ctaLabel, ctx.bookingUrl) : "") +
       `<p style="margin:18px 0 0;font-family:${FONT};font-size:15px;color:#4a4d57;">${richHtml(signoff)}</p>`,

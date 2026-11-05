@@ -278,7 +278,7 @@ export default async function AcquisitionView(view: AdminViewServerProps) {
           <AnCard
             wide
             title="Ce que chaque canal rapporte, et ce qu'il coûte"
-            sub="Leads de la période, fiches nées de ces leads, et leur devenir ; la conversion compte les affaires gagnées sur les leads reçus. La dépense est celle du poste du canal sur la période (relevés Pennylane, TTC) — Meta : la dépense relevée par son API, partagée entre Facebook et Instagram selon leurs leads. Le SEO ne compte que Linkuma (l'agence est dans « Autres »)."
+            sub="Leads de la période, fiches nées de ces leads, et leur devenir ; la conversion compte les affaires gagnées sur les leads reçus. La dépense est celle du poste du canal sur la période (relevés Pennylane, ramenés en HT) — Meta : la dépense relevée par son API, partagée entre Facebook et Instagram selon leurs leads. Le SEO ne compte que Linkuma (l'agence est dans « Autres »)."
           >
             <DataTable columns={CHANNEL_COLUMNS} rows={acq.channels} sort={{ key: "leads", dir: "desc" }} csv="acquisition-par-canal" />
           </AnCard>

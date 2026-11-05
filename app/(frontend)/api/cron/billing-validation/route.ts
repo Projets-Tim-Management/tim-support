@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { loadTeamEmails } from "@/core/lib/team-emails";
-import { buildValidationReminder, parisDay, reminderDue, type ReminderItem } from "@/modules/partner/lib/billing-reminder";
+import { buildValidationReminder, parisDay, regulDue, reminderDue, type ReminderItem } from "@/modules/partner/lib/billing-reminder";
 import { loadBillingReport } from "@/modules/partner/lib/billing-report";
 import { monthValidation } from "@/modules/partner/lib/billing-validation";
 import type { HistoryEntry } from "@/modules/partner/lib/history";
@@ -67,9 +67,12 @@ export async function GET(req: Request) {
   for (const c of report.checks) {
     if (c.client.clientStatus !== "actif") continue;
     const validation = monthValidation(histories.get(String(c.client.id)) ?? [], c, now);
-    const due = reminderDue(validation, today);
+    // La validation du mois, et la régularisation d'un client trimestriel : la plus urgente décide du message.
+    const regul = regulDue(c, today);
+    const kinds = [reminderDue(validation, today), regul?.kind];
+    const due = kinds.includes("dernier-appel") ? "dernier-appel" : kinds.includes("mois") ? "mois" : null;
     if (!due) continue;
-    (due === "mois" ? mois : dernierAppel).push({ clientId: c.client.id, client: c.client.name, validation });
+    (due === "mois" ? mois : dernierAppel).push({ clientId: c.client.id, client: c.client.name, validation, regul: regul?.text ?? null });
   }
 
   // Les destinataires de chacun : Système → « E-mails de l'équipe » et les fiches utilisateurs.

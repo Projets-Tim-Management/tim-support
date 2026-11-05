@@ -1,6 +1,8 @@
 import { adminUrl, internalNotice } from "@/core/lib/email-template";
 
+import type { ClientCheck } from "./billing-check";
 import type { MonthValidation } from "./billing-validation";
+import { eur } from "./format";
 
 /**
  * Le rappel du rapprochement : « il reste des factures à signer ».
@@ -19,6 +21,8 @@ export type ReminderItem = {
   clientId: number | string;
   client: string;
   validation: MonthValidation;
+  /** Régularisation de licences à facturer (client au trimestre…), en une phrase. */
+  regul?: string | null;
 };
 
 const PARIS = "Europe/Paris";
@@ -50,6 +54,23 @@ export const reminderDue = (v: MonthValidation, today: string): "mois" | "dernie
 const frDate = (iso: string) =>
   new Date(iso.slice(0, 10)).toLocaleDateString("fr-FR", { timeZone: "UTC", day: "numeric", month: "long" });
 
+/**
+ * La régularisation d'un client facturé sur plusieurs mois, quand il faut en
+ * parler : le 1er du mois tant qu'elle attend (ou qu'elle manque sur une
+ * facture passée), et à J-2 de la facture qui doit la porter.
+ */
+export const regulDue = (check: Pick<ClientCheck, "regularisation">, today: string): { kind: "mois" | "dernier-appel"; text: string } | null => {
+  const { current, previous } = check.regularisation;
+  if (previous?.state === "manquante" && today.endsWith("-01")) {
+    return { kind: "mois", text: `régularisation de ${eur.format(previous.amountHT)} HT non retrouvée sur la facture du ${frDate(previous.periodEnd)}` };
+  }
+  if (current?.state !== "a-facturer") return null;
+  const text = `régularisation de ${eur.format(current.amountHT)} HT à ajouter sur la facture du ${frDate(current.periodEnd)}`;
+  if (today.endsWith("-01")) return { kind: "mois", text };
+  if (daysUntil(current.periodEnd, today) === 2) return { kind: "dernier-appel", text };
+  return null;
+};
+
 const etat = (v: MonthValidation): string =>
   v.state === "ecart"
     ? `écart à corriger : ${v.blockers.map((b) => b.label).join(" · ")}`
@@ -77,7 +98,12 @@ export function buildValidationReminder(
 
   const rows: [string, string][] = items.map((i) => [
     i.client,
-    `${i.validation.invoiceDate ? `facture le ${frDate(i.validation.invoiceDate)} — ` : ""}${etat(i.validation)}`,
+    [
+      needsAction(i.validation) ? `${i.validation.invoiceDate ? `facture le ${frDate(i.validation.invoiceDate)} — ` : ""}${etat(i.validation)}` : null,
+      i.regul ?? null,
+    ]
+      .filter(Boolean)
+      .join(" · "),
   ]);
   const url = adminUrl("/facturation?f=a-valider");
 
@@ -89,8 +115,8 @@ export function buildValidationReminder(
       rows,
       message:
         kind === "dernier-appel"
-          ? "Ces factures partent dans deux jours. Vérifiez que la fiche et l'abonnement Pennylane disent la même chose, corrigez le côté qui a oublié, puis signez."
-          : "Pour chaque fiche, vérifiez que les licences de la fiche et celles de l'abonnement Pennylane sont alignées, puis signez le mois. Une licence ajoutée ou retirée se modifie le même jour des deux côtés.",
+          ? `Ces factures partent dans deux jours. Vérifiez que la fiche et l'abonnement Pennylane disent la même chose, corrigez le côté qui a oublié, puis signez.${items.some((i) => i.regul) ? " Une régularisation indiquée s'ajoute dans Pennylane sur cette facture, libellé « Régularisation… » (le détail est sur la fiche)." : ""}`
+          : `Pour chaque fiche, vérifiez que les licences de la fiche et celles de l'abonnement Pennylane sont alignées, puis signez le mois. Une licence ajoutée ou retirée se modifie le même jour des deux côtés.${items.some((i) => i.regul) ? " Une régularisation indiquée (client facturé au trimestre) s'ajoute dans Pennylane sur la facture citée, libellé « Régularisation… »." : ""}`,
       cta: { label: "Ouvrir le rapprochement", url },
     }),
     text: [

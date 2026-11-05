@@ -371,13 +371,8 @@ describe("depuis le début", () => {
   ];
   const h = buildRevenueHistory(legacy, [], new Date("2025-03-20T00:00:00Z"));
 
-  it("cumule le CA mois après mois et donne à chaque client son total, actif ou perdu", () => {
+  it("totalise le CA depuis le début et donne à chaque client son total, actif ou perdu", () => {
     const l = lifetime(h, "2025-03");
-    expect(l.cumulative.map((c) => [c.key, c.cumul])).toEqual([
-      ["2025-01", 650],
-      ["2025-02", 750],
-      ["2025-03", 870],
-    ]);
     expect(l.total).toBe(870);
     expect(l.clients.map((c) => [c.name, c.total, c.active, c.currentRecurring, c.firstMonth, c.lastMonth])).toEqual([
       ["A", 820, true, 120, "2025-01", "2025-03"],
@@ -416,5 +411,43 @@ describe("corrections de la revue (02/11/2026)", () => {
 
   it("un SIREN contradictoire empêche le rattachement par nom", () => {
     expect(matchClient({ siren: "111111111", clientName: "Martin BTP" }, [{ id: 1, companyName: "Martin BTP SAS", siren: "222222222" }])).toBeNull();
+  });
+});
+
+describe("arrivés et partis : deux mois sans licences d'affilée (04/11/2026)", () => {
+  const inv = (month: string, client: number, name: string) => ({ month, client, clientName: name, recurringHT: 100, servicesHT: 0 });
+  const months = ["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06"];
+
+  it("un mois sans facture ne fait ni un départ ni un retour ; deux, si", () => {
+    const h = buildRevenueHistory(
+      [
+        ...months.map((m) => inv(m, 1, "A")),
+        // B saute avril (une facture en retard) : toujours client.
+        ...months.filter((m) => m !== "2026-04").map((m) => inv(m, 2, "B")),
+        // C n'est plus facturé à partir de mars : parti.
+        inv("2026-01", 3, "C"),
+        inv("2026-02", 3, "C"),
+      ],
+      [],
+      new Date("2026-07-05T00:00:00Z"),
+    );
+    const an = analyzeHistory(h, { hd: "2026-02", hf: "2026-06" });
+    expect(an.a.lost).toEqual(["C"]);
+    expect(an.a.gained).toEqual([]);
+  });
+
+  it("le dernier mois facturé, une facture pas encore émise ne fait pas un départ", () => {
+    const h = buildRevenueHistory(
+      [inv("2026-09", 1, "A"), inv("2026-09", 2, "Toffolo")],
+      [
+        { date: "2026-10-04", amountHT: 100, client: 1, clientName: "A" },
+        { date: "2026-10-15", amountHT: 100, client: 2, clientName: "Toffolo" },
+        { date: "2026-11-02", amountHT: 100, client: 1, clientName: "A" },
+      ],
+      new Date("2026-11-04T00:00:00Z"),
+    );
+    const an = analyzeHistory(h, {});
+    expect(an.end).toBe("2026-11");
+    expect(an.a.lost).toEqual([]);
   });
 });

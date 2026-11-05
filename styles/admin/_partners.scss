@@ -68,6 +68,37 @@
   padding-top: 0.55rem;
   color: var(--tim-foreground);
 }
+
+/* Mouvements de licences (fiche client, LicenceMovesField) : la graphie du tableau des licences, sur un fond, hauteur bornée. */
+.lic-moves {
+  margin: 0.25rem 0 1.25rem;
+  padding: 0.6rem 0.75rem 0.5rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+}
+.lic-moves__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; margin-bottom: 0.35rem; }
+.lic-moves__title { font-size: 0.92rem; font-weight: 700; color: var(--tim-foreground); }
+.lic-moves__hint { font-size: 0.78rem; color: var(--tim-muted); }
+.lic-moves__scroll { max-height: 16rem; overflow: auto; border-radius: var(--tim-radius-sm); background: var(--tim-white); }
+.lic-moves__table th { position: sticky; top: 0; z-index: 1; background: var(--tim-white); }
+.lic-moves__table td { padding: 0.25rem 0.5rem; }
+.lic-moves__row--first td { border-top: 1px solid var(--tim-border); }
+.lic-moves__table .lic-input { width: 64px; padding: 0.25rem 0.4rem; }
+.lic-moves__table .lic-moves__date { width: 9.5rem; text-align: left; }
+.lic-moves__table .lic-moves__profile { width: 11rem; text-align: left; }
+.lic-moves__delta { font-weight: 700; color: var(--tim-muted); font-variant-numeric: tabular-nums; }
+.lic-moves__delta.is-up { color: var(--tim-green); }
+.lic-moves__delta.is-down { color: var(--tim-red); }
+.lic-moves__actions { white-space: nowrap; text-align: right; }
+.lic-moves__icon,
+.lic-moves__link,
+.lic-moves__add { border: 0; background: none; font: inherit; cursor: pointer; }
+.lic-moves__icon { padding: 0 0.3rem; font-size: 0.8rem; color: var(--tim-muted); &:hover { color: var(--tim-red); } }
+.lic-moves__link { margin-left: 0.25rem; font-size: 0.78rem; font-weight: 600; color: var(--tim-primary); }
+.lic-moves__empty { padding: 0.75rem 0.5rem !important; font-size: 0.82rem; color: var(--tim-muted); }
+.lic-moves__foot { display: flex; align-items: center; gap: 0.75rem; padding-top: 0.4rem; }
+.lic-moves__add { padding: 0.2rem 0; font-size: 0.82rem; font-weight: 600; color: var(--tim-primary); &:hover { text-decoration: underline; } }
 .lic-total .lic-num:last-child {
   color: var(--tim-primary);
 }

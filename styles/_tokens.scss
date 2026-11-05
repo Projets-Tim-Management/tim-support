@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   TOKENS DE COULEUR — SOURCE UNIQUE DE VÉRITÉ (le SEUL fichier avec des #hex)
+   TOKENS DE COULEUR — SOURCE UNIQUE DE VÉRITÉ (avec _ui-colors.scss, les SEULS fichiers avec des #hex)
    ═══════════════════════════════════════════════════════════════════════════
-   👉 Pour changer une couleur dans TOUT le back-office, modifie-la ICI.
+   👉 Pour changer une couleur dans TOUT le back-office, modifie-la ICI —
+   sauf les couleurs des graphiques, qui ont leur fichier : _ui-colors.scss.
    Partout ailleurs (admin-theme.scss), les couleurs sont référencées via
    var(--tim-…) — aucun code couleur en dur.
 
@@ -49,19 +50,7 @@
   --tim-rose:      #9f1239;  --tim-rose-bg:   #fce7ef; /* perdue             */
   --tim-sky:       #0369a1;  --tim-sky-bg:    #e0f2fe; /* en signature       */
 
-  /* ─── Séries des graphiques (écrans Analyses) ─────────────────────────────
-     Palette catégorielle à ordre FIXE, validée (contraste ≥ 3:1 sur blanc,
-     séparation daltonienne ΔE ≥ 9, vision normale ≥ 22) par le validateur du
-     skill dataviz. Une série garde sa couleur quel que soit le filtre :
-     Admin = 1, Conducteur = 2, Chef de chantier = 3, Chef d'équipe = 4,
-     Compagnon = 5. Une seule série ? La 1 (rouge TIM). */
-  --tim-chart-1: #fe5464;
-  --tim-chart-2: #2a78d6;
-  --tim-chart-3: #1baf7a;
-  --tim-chart-4: #eda100;
-  --tim-chart-5: #4a3aa7;
-  --tim-chart-6: #0e9fb3; /* licences Visuel */
-  --tim-chart-7: #8a6d3b; /* licences Bureau */
+  /* Séries des graphiques : voir styles/_ui-colors.scss (la base des couleurs de données). */
   /* Chaleur d'un % de signature / potentiel (5 crans, du gris au rouge) :
      plus c'est chaud, plus il faut s'en occuper. Texte ≥ 4,5:1 sur son fond. */
   --tim-heat-1: var(--tim-slate);  --tim-heat-1-bg: var(--tim-slate-bg);
@@ -81,11 +70,6 @@
   --tim-person-8: #5a7a1c;
   --tim-person-9: #ad4810;
   --tim-person-10: #6b5bd6;
-  --tim-chart-muted: #c9ccd3; /* le reste, quand une série est mise en avant */
-  /* Accueil, graphique des mois : le violet des prospects, validé avec le
-     rouge marque des bâtons et le vert des clients signés (ΔE ≥ 16 en CVD). */
-  --tim-chart-violet: #5b5bd6;
-  --tim-chart-grid:  #eef0f3; /* grille : un cran au-dessus du fond, trait fin */
 
   /* ─── Plateformes (badge bleu identique au front) ─────────────────────────*/
   /* Infobulle : fond sombre volontairement hors palette claire — une bulle qui

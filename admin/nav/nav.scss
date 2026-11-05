@@ -115,6 +115,8 @@ $nav-icons: (
   "analyses-developpements": "<path d='M8.5 7L3.5 12l5 5'/><path d='M15.5 7l5 5-5 5'/>",
   /* Factures Axonaut : une pile de factures — l'historique d'avant Pennylane. */
   "axonaut-invoices":        "<path d='M8 3h9l3 3v13a2 2 0 01-2 2H8a2 2 0 01-2-2V5a2 2 0 012-2z'/><path d='M17 3v3h3'/><path d='M3 7v12a2 2 0 002 2h1'/><path d='M10 10h6M10 13h6M10 16h4'/>",
+  /* Catégories de dépenses (global) : une arborescence — chaque catégorie et ses sous-catégories. */
+  "global-expense-categories": "<rect x='3' y='3' width='7' height='5' rx='1'/><rect x='14' y='10' width='7' height='5' rx='1'/><rect x='14' y='17' width='7' height='5' rx='1'/><path d='M6.5 8v11.5H14M6.5 12.5H14'/>",
   "analyses-partenaires":    "<circle cx='9' cy='8' r='3'/><path d='M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5'/><path d='M16 5.5a3 3 0 010 5.8M21.5 20c0-2.2-1.2-3.7-3.2-4.4'/>",
 
   /* ─── Publicité : une icône par entrée, distincte de la cible du groupe ─── */

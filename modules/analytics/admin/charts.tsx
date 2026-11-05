@@ -35,12 +35,17 @@ import type { ProfilKey } from "@/modules/partner/lib/pricing";
  * `var()`.
  */
 
-export type Colors = { series: string[]; violet: string; muted: string; grid: string; text: string; textMuted: string; surface: string };
+/** Les couleurs des données, lues sur styles/_ui-colors.scss : la palette, puis les rôles financiers. */
+export type Colors = { series: string[]; revenue: string; expense: string; profit: string; other: string; muted: string; grid: string; text: string; textMuted: string; surface: string };
 
+// Avant la lecture des jetons (premier rendu) : les mêmes valeurs que _ui-colors.scss.
 const FALLBACK: Colors = {
-  series: ["#fe5464", "#2a78d6", "#1baf7a", "#eda100", "#4a3aa7", "#0e9fb3", "#8a6d3b"],
-  violet: "#5b5bd6",
-  muted: "#c9ccd3",
+  series: ["#4c5fd5", "#14998c", "#c98204", "#d9467a", "#7c5cd6", "#0a8fb3", "#b7742f"],
+  revenue: "#4c5fd5",
+  expense: "#e5484d",
+  profit: "#14998c",
+  other: "#9aa1ad",
+  muted: "#cfd3da",
   grid: "#eef0f3",
   text: "#505050",
   textMuted: "#8a8f98",
@@ -55,7 +60,10 @@ export function useChartColors(): Colors {
     const read = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
     setColors({
       series: [1, 2, 3, 4, 5, 6, 7].map((i) => read(`--tim-chart-${i}`, FALLBACK.series[i - 1])),
-      violet: read("--tim-chart-violet", FALLBACK.violet),
+      revenue: read("--tim-chart-revenue", FALLBACK.revenue),
+      expense: read("--tim-chart-expense", FALLBACK.expense),
+      profit: read("--tim-chart-profit", FALLBACK.profit),
+      other: read("--tim-chart-other", FALLBACK.other),
       muted: read("--tim-chart-muted", FALLBACK.muted),
       grid: read("--tim-chart-grid", FALLBACK.grid),
       text: read("--tim-foreground", FALLBACK.text),
@@ -149,7 +157,18 @@ export const lineActiveDot = (c: Colors, color: string) => ({ r: 6, fill: color,
 export const LINE_WIDTH = 2.25;
 
 /** Légende à puces rondes, en texte atténué. */
-export const legendProps = (c: Colors) => ({ iconType: "circle" as const, iconSize: 8, wrapperStyle: { fontSize: 12, color: c.textMuted, paddingTop: 8 } });
+/**
+ * La légende : une pastille de couleur, le nom en encre neutre (le texte ne prend
+ * jamais la couleur de la série), dans l'ordre des séries — Recharts les trie
+ * par ordre alphabétique sinon.
+ */
+export const legendProps = (c: Colors) => ({
+  iconType: "circle" as const,
+  iconSize: 8,
+  itemSorter: null,
+  wrapperStyle: { fontSize: 12, paddingTop: 8 },
+  formatter: (value: string) => <span style={{ color: c.text }}>{value}</span>,
+});
 
 /* ─── CA mensuel : attendu (fiches) vs facturé (Axonaut puis Pennylane) ──── */
 
@@ -159,7 +178,7 @@ export function RevenueChart({ data }: { data: MonthPoint[] }) {
   return (
     <ResponsiveContainer width="100%" height={280}>
       <ComposedChart data={rows} margin={{ top: 12, right: 12, left: 0, bottom: 0 }} barCategoryGap="35%">
-        <Gradients entries={[{ id: gradientId("revenue", 1), color: c.series[1] }]} />
+        <Gradients entries={[{ id: gradientId("revenue", 1), color: c.revenue }]} />
         <CartesianGrid {...gridProps(c)} />
         <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} />
         <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} tickFormatter={compactEur} width={64} />
@@ -173,12 +192,12 @@ export function RevenueChart({ data }: { data: MonthPoint[] }) {
           name="Attendu d'après les fiches (HT / mois)"
           type="monotone"
           dataKey="expected"
-          stroke={c.series[0]}
+          stroke={c.series[1]}
           strokeWidth={LINE_WIDTH}
-          fill={c.series[0]}
+          fill={c.series[1]}
           fillOpacity={0.08}
-          dot={lineDot(c, c.series[0])}
-          activeDot={lineActiveDot(c, c.series[0])}
+          dot={lineDot(c, c.series[1])}
+          activeDot={lineActiveDot(c, c.series[1])}
         />
       </ComposedChart>
     </ResponsiveContainer>
@@ -242,7 +261,7 @@ export function AgingChart({ data }: { data: Bucket[] }) {
         <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} />
         <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} tickFormatter={compactEur} width={64} />
         <Tooltip cursor={{ fill: c.grid, opacity: 0.6 }} content={(p) => <Tip {...p} />} />
-        <Bar name="Reste dû TTC" dataKey="caHT" fill={gradientFill(gradientId("aging", 0))} radius={BAR_RADIUS} maxBarSize={24}>
+        <Bar name="Reste dû HT" dataKey="caHT" fill={gradientFill(gradientId("aging", 0))} radius={BAR_RADIUS} maxBarSize={24}>
           <LabelList dataKey="count" position="top" formatter={(v: unknown) => (Number(v) ? `${v} fact.` : "")} style={{ fontSize: 11, fill: c.textMuted }} />
         </Bar>
       </BarChart>
@@ -304,6 +323,8 @@ export type Series = {
   kind?: "bar" | "line";
   /** Case de la palette (0 = --tim-chart-1) ; sinon l'ordre de déclaration. Pour garder la couleur d'une entité ailleurs dans l'écran. */
   slot?: number;
+  /** Un gris plutôt qu'une couleur : « Autres » (other) ou « Sans catégorie » (muted). */
+  tone?: "other" | "muted";
 };
 
 /**
@@ -327,10 +348,11 @@ export function MonthlyChart({
 }) {
   const c = useChartColors();
   const rows = data.map((p) => ({ ...p, label: monthLabel(p.month), long: monthLabel(p.month, true) }));
+  const colorOf = (s: Series, i: number) => (s.tone ? c[s.tone] : c.series[s.slot ?? i % c.series.length]);
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart data={rows} margin={{ top: 12, right: 12, left: 0, bottom: 0 }} barCategoryGap="35%">
-        <Gradients entries={series.map((s, i) => ({ id: gradientId("monthly", s.key), color: c.series[s.slot ?? i % 5] }))} />
+        <Gradients entries={series.map((s, i) => ({ id: gradientId("monthly", s.key), color: colorOf(s, i) }))} />
         <CartesianGrid {...gridProps(c)} />
         <XAxis dataKey="label" tick={axisStyle(c)} axisLine={false} tickLine={false} dy={6} />
         <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} allowDecimals={false} {...(unit === "eur" ? { tickFormatter: compactEur, width: 64 } : { width: 40 })} />
@@ -338,7 +360,7 @@ export function MonthlyChart({
         {series.length > 1 && <Legend {...legendProps(c)} />}
         {series.map((s, i) =>
           s.kind === "line" ? (
-            <Line key={s.key} name={s.label} type="monotone" dataKey={s.key} stroke={c.series[s.slot ?? i % 5]} strokeWidth={LINE_WIDTH} dot={lineDot(c, c.series[s.slot ?? i % 5])} activeDot={lineActiveDot(c, c.series[s.slot ?? i % 5])} />
+            <Line key={s.key} name={s.label} type="monotone" dataKey={s.key} stroke={colorOf(s, i)} strokeWidth={LINE_WIDTH} dot={lineDot(c, colorOf(s, i))} activeDot={lineActiveDot(c, colorOf(s, i))} />
           ) : (
             // Empilé : le dégradé n'a de sens que sur le segment du haut, les
             // autres gardent leur aplat — sinon la pile se lit comme des trous.
@@ -346,8 +368,10 @@ export function MonthlyChart({
               key={s.key}
               name={s.label}
               dataKey={s.key}
-              fill={stacked && i < series.length - 1 ? c.series[s.slot ?? i % 5] : gradientFill(gradientId("monthly", s.key))}
+              fill={stacked && i < series.length - 1 ? colorOf(s, i) : gradientFill(gradientId("monthly", s.key))}
               stackId={stacked ? "s" : undefined}
+              // Empilé : un fin liseré du fond entre deux segments, pour que les couleurs ne se touchent pas.
+              {...(stacked ? { stroke: c.surface, strokeWidth: 1.5 } : {})}
               radius={stacked && i < series.length - 1 ? 0 : BAR_RADIUS}
               maxBarSize={24}
             />
@@ -424,7 +448,7 @@ export function YearLinesChart({
   // hors du bleu, du rouge et du vert réservés au CA, aux dépenses et au bénéfice. Trois années au
   // plus : au-delà, on ne lit plus rien.
   const shown = years.slice(-3);
-  const colorOf = (y: string) => [c.series[3], c.series[4], c.series[5]][(((Number(y) - 2025) % 3) + 3) % 3];
+  const colorOf = (y: string) => [c.series[0], c.series[1], c.series[2]][(((Number(y) - 2025) % 3) + 3) % 3];
   return (
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart data={rows} margin={{ top: 12, right: 16, left: 0, bottom: 0 }}>
@@ -458,7 +482,7 @@ export function DailyChart({ data, series, height = 240 }: { data: ({ day: strin
         <Tooltip cursor={{ stroke: c.grid }} content={(p) => <Tip {...p} unit="int" title={p.payload?.[0]?.payload?.long} />} />
         {series.length > 1 && <Legend {...legendProps(c)} />}
         {series.map((s, i) => {
-          const color = c.series[s.slot ?? i % 5];
+          const color = c.series[s.slot ?? i % c.series.length];
           return <Line key={s.key} name={s.label} type="monotone" dataKey={s.key} stroke={color} strokeWidth={LINE_WIDTH} dot={false} activeDot={lineActiveDot(c, color)} />;
         })}
       </ComposedChart>
@@ -703,7 +727,7 @@ function ResultTip({ active, payload }: { active?: boolean; payload?: readonly {
  */
 export function ResultChart({ data, height = 300 }: { data: ResultPoint[]; height?: number }) {
   const c = useChartColors();
-  const [red, blue, green] = [c.series[0], c.series[1], c.series[2]];
+  const [red, blue, green] = [c.expense, c.revenue, c.profit];
   const withExpenses = data.some((d) => d.expenses != null);
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -714,8 +738,8 @@ export function ResultChart({ data, height = 300 }: { data: ResultPoint[]; heigh
         <Tooltip cursor={{ fill: c.grid }} content={(p) => <ResultTip active={p.active} payload={p.payload as never} />} />
         {withExpenses && <Legend {...legendProps(c)} />}
         <ReferenceLine y={0} stroke={c.muted} />
-        <Bar name="Chiffre d'affaires" dataKey="ca" fill={blue} radius={BAR_RADIUS} maxBarSize={28} />
-        {withExpenses && <Bar name="Dépenses" dataKey="expenses" fill={red} radius={BAR_RADIUS} maxBarSize={28} />}
+        <Bar name="CA HT" dataKey="ca" fill={blue} radius={BAR_RADIUS} maxBarSize={28} />
+        {withExpenses && <Bar name="Dépenses HT" dataKey="expenses" fill={red} radius={BAR_RADIUS} maxBarSize={28} />}
         {withExpenses && (
           <Line name="Bénéfice" type="monotone" dataKey="profit" stroke={green} strokeWidth={LINE_WIDTH} dot={lineDot(c, green)} activeDot={lineActiveDot(c, green)} />
         )}
@@ -769,7 +793,7 @@ function RollingTip({ active, payload }: { active?: boolean; payload?: readonly 
 export function RollingChart({ data, height = 240 }: { data: RollingChartPoint[]; height?: number }) {
   const c = useChartColors();
   // Trois choses, trois couleurs pleines : rentrées bleu, dépenses rouge, dépenses courantes turquoise.
-  const [red, blue, teal] = [c.series[0], c.series[1], c.series[5]];
+  const [red, blue] = [c.expense, c.revenue];
   const withCore = data.some((d) => d.expensesCore !== d.expenses);
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -779,10 +803,10 @@ export function RollingChart({ data, height = 240 }: { data: RollingChartPoint[]
         <YAxis tick={axisStyle(c)} axisLine={false} tickLine={false} allowDecimals={false} tickFormatter={compactEur} width={64} />
         <Tooltip cursor={{ stroke: c.muted, strokeDasharray: "3 4" }} content={(p) => <RollingTip active={p.active} payload={p.payload as never} />} />
         <Legend {...legendProps(c)} />
-        <Line name="Rentrées moyennes / mois" type="monotone" dataKey="revenue" stroke={blue} strokeWidth={LINE_WIDTH} dot={lineDot(c, blue)} activeDot={lineActiveDot(c, blue)} />
-        <Line name="Dépenses moyennes / mois" type="monotone" dataKey="expenses" stroke={red} strokeWidth={LINE_WIDTH} dot={lineDot(c, red)} activeDot={lineActiveDot(c, red)} />
+        <Line name="Rentrées moyennes HT / mois" type="monotone" dataKey="revenue" stroke={blue} strokeWidth={LINE_WIDTH} dot={lineDot(c, blue)} activeDot={lineActiveDot(c, blue)} />
+        <Line name="Dépenses moyennes HT / mois" type="monotone" dataKey="expenses" stroke={red} strokeWidth={LINE_WIDTH} dot={lineDot(c, red)} activeDot={lineActiveDot(c, red)} />
         {withCore && (
-          <Line name="Dépenses courantes (hors ponctuelles)" type="monotone" dataKey="expensesCore" stroke={teal} strokeWidth={LINE_WIDTH} dot={lineDot(c, teal)} activeDot={lineActiveDot(c, teal)} />
+          <Line name="Dépenses courantes HT (hors ponctuelles)" type="monotone" dataKey="expensesCore" stroke={red} strokeWidth={LINE_WIDTH} strokeDasharray="5 4" strokeOpacity={0.7} dot={lineDot(c, red)} activeDot={lineActiveDot(c, red)} />
         )}
       </ComposedChart>
     </ResponsiveContainer>

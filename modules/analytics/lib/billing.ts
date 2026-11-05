@@ -126,6 +126,13 @@ export type Growth = {
   year: { ca: Delta; licences: Delta; clients: Delta };
 };
 
+/**
+ * Le reste dû d'une facture, en HT : Pennylane le donne TTC ; on le ramène au
+ * prorata HT/TTC de la facture, pour qu'il se lise avec le CA (HT). La liste
+ * « À relancer », elle, garde le TTC : c'est ce que le client doit payer.
+ */
+export const remainingHT = (i: { remaining: number; amountHT: number; amountTTC: number }) => (i.amountTTC > 0 ? round2((i.remaining * i.amountHT) / i.amountTTC) : i.remaining);
+
 export type BillingAnalytics = {
   period: { months: number; from: string; to: string };
   kpis: {
@@ -327,7 +334,7 @@ export function buildBillingAnalytics(
       paymentMethod: c.paymentMethod ? (PAYMENT_LABELS[c.paymentMethod] ?? c.paymentMethod) : null,
       verdict: check?.verdict ?? null,
       lateCount: late.length,
-      lateAmount: round2(late.reduce((s, i) => s + i.remaining, 0)),
+      lateAmount: round2(late.reduce((s, i) => s + remainingHT(i), 0)),
       commission,
     });
   }
@@ -357,7 +364,7 @@ export function buildBillingAnalytics(
     key: b.key,
     label: b.label,
     count: late.filter((l) => l.bucket === b.key).length,
-    caHT: round2(late.filter((l) => l.bucket === b.key).reduce((s, l) => s + l.remaining, 0)),
+    caHT: round2(late.filter((l) => l.bucket === b.key).reduce((s, l) => s + remainingHT(l), 0)),
   }));
 
   /* ── Série mensuelle, et l'évolution sur 25 mois quel que soit le filtre ── */
@@ -381,7 +388,7 @@ export function buildBillingAnalytics(
       discounts: round2(discountTotal),
       commissions: round2(commissionTotal),
       lateCount: late.length,
-      lateAmount: round2(late.reduce((s, l) => s + l.remaining, 0)),
+      lateAmount: round2(late.reduce((s, l) => s + remainingHT(l), 0)),
       conformes,
       controlled,
       startingSoon: startingSoon.length,

@@ -149,15 +149,17 @@ describe("KPI et répartitions", () => {
       6,
       NOW,
     );
-    expect(a.kpis).toMatchObject({ lateCount: 2, lateAmount: 150, conformes: 0, controlled: 1 });
+    // Les impayés se lisent en HT (au prorata HT/TTC de la facture) ; la liste « À relancer » garde le TTC.
+    expect(a.kpis).toMatchObject({ lateCount: 2, lateAmount: 125, conformes: 0, controlled: 1 });
     expect(a.aging.map((b) => [b.key, b.count, b.caHT])).toEqual([
-      ["1-30", 1, 100],
+      ["1-30", 1, 83.33],
       ["31-60", 0, 0],
-      ["61-90", 1, 50],
+      ["61-90", 1, 41.67],
       ["90+", 0, 0],
     ]);
     expect(a.late.map((l) => l.number)).toEqual(["F2", "F1"]);
-    expect(a.clients[0]).toMatchObject({ verdict: "ecart", lateCount: 2, lateAmount: 150 });
+    expect(a.late.map((l) => l.remaining)).toEqual([50, 100]);
+    expect(a.clients[0]).toMatchObject({ verdict: "ecart", lateCount: 2, lateAmount: 125 });
   });
 });
 

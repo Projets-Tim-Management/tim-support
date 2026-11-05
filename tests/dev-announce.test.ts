@@ -41,11 +41,22 @@ describe("buildAnnounceEmail", () => {
     expect(m.text).toContain("Réserver une démo : https://cal.example/luis");
   });
 
-  it("renvoie vers la fiche du site support quand elle existe", () => {
-    const m = buildAnnounceEmail({ ...base, featureSlug: "export-heures", featureTitle: "Exporter les heures" });
+  it("renvoie vers les fiches du site support choisies, une carte chacune", () => {
+    const m = buildAnnounceEmail({
+      ...base,
+      features: [
+        { slug: "export-heures", title: "Exporter les heures", shortDescription: "Pour la paie <b>vite</b>" },
+        { slug: "absences", title: "Saisir une absence" },
+      ],
+    });
     expect(m.html).toContain("/features/export-heures");
+    expect(m.html).toContain("/features/absences");
     expect(m.html).toContain("Exporter les heures");
+    expect(m.html).toContain("Pour la paie &lt;b&gt;vite&lt;/b&gt;");
+    expect(m.html.match(/Voir la fiche/g)).toHaveLength(2);
+    expect(m.text).toContain("- Saisir une absence : ");
     expect(buildAnnounceEmail(base).html).not.toContain("/features/");
+    expect(buildAnnounceEmail({ ...base, features: [] }).text).not.toContain("site support");
   });
 
   it("reste poli sans prénom", () => {

@@ -246,6 +246,7 @@ export function BarList({
   empty,
   unit = "eur",
   showShare = true,
+  maxHeight,
 }: {
   items: BarItem[];
   tone: Tone;
@@ -256,13 +257,15 @@ export function BarList({
   unit?: "eur" | "int";
   /** La part de chaque barre dans le total ; à masquer quand les barres ne s'additionnent pas (une rétention). */
   showShare?: boolean;
+  /** Hauteur maximale (CSS) : au-delà, la liste défile. */
+  maxHeight?: string;
 }) {
   const fmt = (v: number) => (unit === "eur" ? eurFormat(v) : v.toLocaleString("fr-FR"));
   const max = Math.max(0, ...items.map((i) => i.value));
   const total = items.reduce((s, i) => s + i.value, 0);
   if (!items.length || !max) return <p className="an-empty">{empty ?? "Rien sur cette période."}</p>;
   return (
-    <ul className={`an-bars an-bars--${tone}`}>
+    <ul className={`an-bars an-bars--${tone}${maxHeight ? " an-bars--capped" : ""}`} style={maxHeight ? { maxHeight } : undefined}>
       {items.map((i) => (
         <li key={i.key} className={`an-bars__row${i.strong ? " an-bars__row--strong" : ""}${i.muted ? " an-bars__row--muted" : ""}`}>
           <span className="an-bars__head">

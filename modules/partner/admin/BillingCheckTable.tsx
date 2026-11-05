@@ -1,5 +1,6 @@
 import { PaymentBadge } from "@/modules/partner/admin/BillingCells";
 import { BillingRows } from "@/modules/partner/admin/BillingRows";
+import { RegulBox } from "@/modules/partner/admin/RegulBox";
 import type { ClientCheck } from "@/modules/partner/lib/billing-check";
 import { plPaymentLabel, plStatusLabel } from "@/modules/partner/lib/billing-check";
 import { monthsLabel } from "@/modules/partner/lib/billing-period";
@@ -33,11 +34,13 @@ const fmtDate = (v?: string | null) =>
  */
 export function BillingCheckDetail({ check, editable = false }: { check: ClientCheck; editable?: boolean }) {
   const pl = check.pennylane;
+  // La régularisation à venir a son encadré (RegulBox) : pas de doublon dans les constats.
+  const issues = check.issues.filter((i) => i.code !== "regularisation");
   return (
     <div className="bil-detail">
-      {check.issues.length > 0 && (
+      {issues.length > 0 && (
         <ul className="bil-issues">
-          {check.issues.map((i, n) => (
+          {issues.map((i, n) => (
             <li key={n} className={`bil-issue bil-issue--${i.severity}`}>
               {i.label}
             </li>
@@ -94,6 +97,8 @@ export function BillingCheckDetail({ check, editable = false }: { check: ClientC
       {(editable || pl?.subscriptionId || check.totals.supportQty > 0) && (
         <BillingRows key={check.client.id} check={check} editable={editable} />
       )}
+
+      <RegulBox check={check} />
 
       {check.invoices.length > 0 && <Invoices check={check} />}
     </div>

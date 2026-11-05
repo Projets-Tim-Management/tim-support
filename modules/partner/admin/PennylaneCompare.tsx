@@ -44,6 +44,7 @@ export function PennylaneCompare() {
       licences[`${p.key}DiscountPct`] = Number(fields[`licences.${p.key}DiscountPct`]?.value ?? 0);
       licences[`${p.key}DiscountAmount`] = Number(fields[`licences.${p.key}DiscountAmount`]?.value ?? 0);
     }
+    // Mouvements de licences (lignes du tableau) : la régularisation d'un client trimestriel en dépend.
     return JSON.stringify({
       name: fields.companyName?.value ?? "",
       siren: fields.siren?.value ?? "",
@@ -53,6 +54,8 @@ export function PennylaneCompare() {
       paymentTerms: fields.paymentTerms?.value ?? "",
       billingPeriod: fields.billingPeriod?.value ?? "",
       licences,
+      // Mouvements de licences tels que saisis : le serveur les met à plat (lib/regularisation).
+      licenceMoves: fields.licenceMoves?.value ?? [],
     });
   });
 

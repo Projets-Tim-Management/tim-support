@@ -20,8 +20,7 @@ export async function GET(req: Request) {
     title: "Export des heures & absences",
     contactFirstName: "Karim",
     bookingUrl: "https://exemple.fr/reserver",
-    featureSlug: "exemple",
-    featureTitle: "Exporter les heures",
+    features: [{ slug: "exemple", title: "Exporter les heures", shortDescription: "Exportez les heures pointées par salarié et par chantier, prêtes pour la paie." }],
     recipientEmail: "karim@exemple.fr",
     ...settings,
   });

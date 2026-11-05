@@ -154,6 +154,10 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     { label: "Support", href: "/admin/analyses/support", adminOnly: true },
     { label: "Développements", href: "/admin/analyses/developpements", adminOnly: true },
     { label: "Partenaires", href: "/admin/analyses/partenaires", adminOnly: true },
+    // Ce que lisent les analyses et qui se règle ou se consulte à part : l'historique
+    // Axonaut (avant Pennylane), et la catégorie parente de chaque catégorie Pennylane
+    // (l'API ne la donne pas).
+    { label: "Paramètres", slugs: ["axonaut-invoices", "expense-categories"] },
   ],
   Utilisateurs: [
     { label: "Missions", slugs: ["missions", "mission-submissions"] },

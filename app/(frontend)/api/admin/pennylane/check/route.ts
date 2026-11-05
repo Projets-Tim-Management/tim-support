@@ -6,12 +6,13 @@ import type { SupportClientFacts } from "@/modules/partner/lib/billing-check";
 import { checkOneClient } from "@/modules/partner/lib/billing-report";
 import { hasContractPhase } from "@/modules/partner/lib/clientStatus";
 import { isPennylaneConfigured, pennylaneErrorMessage } from "@/modules/partner/lib/pennylane";
+import { flattenMoves } from "@/modules/partner/lib/regularisation";
 
 /**
  * Contrôle de facturation d'UNE fiche client, pour l'encart de la fiche.
  *
  * POST { id, name, siren, raisonSociale, clientStatus, paymentMethod,
- *        paymentTerms, licences }   → { fetchedAt, check }
+ *        paymentTerms, licences, licenceMoves }   → { fetchedAt, check }
  *
  * Le corps est l'état du FORMULAIRE, pas de la base : l'encart compare ce
  * qu'on est en train de saisir, avant même d'enregistrer. `?refresh=1` force
@@ -60,6 +61,7 @@ export async function POST(req: Request) {
     paymentTerms: str(body.paymentTerms),
     billingPeriod: str(body.billingPeriod),
     licences,
+    licenceMoves: flattenMoves(body.licenceMoves),
   };
 
   // Avant la signature, rien à contrôler (voir PennylaneCompare) : on ne lit

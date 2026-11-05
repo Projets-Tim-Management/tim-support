@@ -284,8 +284,49 @@ export type PlTransaction = {
   amount: string;
   label: string;
   archived_at?: string | null;
-  categories?: { label: string }[] | null;
+  /** Une transaction peut être répartie sur plusieurs catégories (`weight` : la part, « 1.0 » pour tout). */
+  categories?: { id: number; label: string; weight?: string | null }[] | null;
+  /** Le fournisseur rattaché à la ligne, s'il y en a un. */
+  supplier?: { id: number } | null;
 };
+
+/** Une facture fournisseur, réduite à ce qui donne sa TVA (montants en euros). */
+export type PlSupplierInvoice = { supplierId: string | null; date: string; amount: number; tax: number };
+
+let supCache: { at: number; data: PlSupplierInvoice[] } | null = null;
+
+/**
+ * Les factures fournisseurs (scope « supplier_invoices:readonly »), lues au plus
+ * une fois par heure : elles donnent le taux de TVA de chaque fournisseur, qui
+ * ramène ses sorties bancaires (TTC) en HT.
+ */
+export async function loadPennylaneSupplierInvoices(opts: { refresh?: boolean } = {}): Promise<PlSupplierInvoice[]> {
+  if (!opts.refresh && supCache && Date.now() - supCache.at < TTL_MS) return supCache.data;
+  const all = await listAll<{ supplier?: { id: number } | null; date: string; amount?: string | null; tax?: string | null; archived_at?: string | null }>("/supplier_invoices");
+  const data = all
+    .filter((i) => !i.archived_at)
+    .map((i) => ({ supplierId: i.supplier?.id != null ? String(i.supplier.id) : null, date: i.date, amount: Number(i.amount ?? 0) || 0, tax: Number(i.tax ?? 0) || 0 }));
+  supCache = { at: Date.now(), data };
+  return data;
+}
+
+/** Une catégorie analytique Pennylane. L'API la donne à plat : la catégorie parente n'y figure pas. */
+export type PlCategory = {
+  id: number;
+  label: string;
+  direction: "cash_in" | "cash_out" | null;
+};
+
+let catCache: { at: number; data: PlCategory[] } | null = null;
+
+/** Les catégories analytiques (toutes les familles), lues au plus une fois par heure. */
+export async function loadPennylaneCategories(opts: { refresh?: boolean } = {}): Promise<PlCategory[]> {
+  if (!opts.refresh && catCache && Date.now() - catCache.at < TTL_MS) return catCache.data;
+  const all = await listAll<PlCategory>("/categories");
+  const data = all.map(({ id, label, direction }) => ({ id, label, direction: direction ?? null }));
+  catCache = { at: Date.now(), data };
+  return data;
+}
 
 let txCache: { at: number; data: PlTransaction[] } | null = null;
 let txInflight: Promise<PlTransaction[]> | null = null;
