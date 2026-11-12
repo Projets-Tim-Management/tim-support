@@ -183,6 +183,12 @@ import * as migration_20261104_075548_expense_categories from './20261104_075548
 import * as migration_20261105_074523_licence_moves from './20261105_074523_licence_moves';
 import * as migration_20261105_075733_licence_moves_lines from './20261105_075733_licence_moves_lines';
 import * as migration_20261105_080201_licence_moves_json from './20261105_080201_licence_moves_json';
+import * as migration_20261112_092912_equipe_ia from './20261112_092912_equipe_ia';
+import * as migration_20261112_095248_equipe_ia_en_service from './20261112_095248_equipe_ia_en_service';
+import * as migration_20261112_101903_equipe_ia_conversation from './20261112_101903_equipe_ia_conversation';
+import * as migration_20261112_103831_equipe_ia_budget_chef from './20261112_103831_equipe_ia_budget_chef';
+import * as migration_20261112_105621_equipe_ia_demandes from './20261112_105621_equipe_ia_demandes';
+import * as migration_20261112_112838_equipe_ia_organisation_sea from './20261112_112838_equipe_ia_organisation_sea';
 
 export const migrations = [
   {
@@ -1108,6 +1114,36 @@ export const migrations = [
   {
     up: migration_20261105_080201_licence_moves_json.up,
     down: migration_20261105_080201_licence_moves_json.down,
-    name: '20261105_080201_licence_moves_json'
+    name: '20261105_080201_licence_moves_json',
+  },
+  {
+    up: migration_20261112_092912_equipe_ia.up,
+    down: migration_20261112_092912_equipe_ia.down,
+    name: '20261112_092912_equipe_ia',
+  },
+  {
+    up: migration_20261112_095248_equipe_ia_en_service.up,
+    down: migration_20261112_095248_equipe_ia_en_service.down,
+    name: '20261112_095248_equipe_ia_en_service',
+  },
+  {
+    up: migration_20261112_101903_equipe_ia_conversation.up,
+    down: migration_20261112_101903_equipe_ia_conversation.down,
+    name: '20261112_101903_equipe_ia_conversation',
+  },
+  {
+    up: migration_20261112_103831_equipe_ia_budget_chef.up,
+    down: migration_20261112_103831_equipe_ia_budget_chef.down,
+    name: '20261112_103831_equipe_ia_budget_chef',
+  },
+  {
+    up: migration_20261112_105621_equipe_ia_demandes.up,
+    down: migration_20261112_105621_equipe_ia_demandes.down,
+    name: '20261112_105621_equipe_ia_demandes',
+  },
+  {
+    up: migration_20261112_112838_equipe_ia_organisation_sea.up,
+    down: migration_20261112_112838_equipe_ia_organisation_sea.down,
+    name: '20261112_112838_equipe_ia_organisation_sea'
   },
 ];

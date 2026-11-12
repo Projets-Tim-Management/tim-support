@@ -181,7 +181,8 @@ export const AdCampaigns: CollectionConfig = {
             {
               name: "agentPanel",
               type: "ui",
-              admin: { components: { Field: "/modules/ads/admin/AgentPanel#AgentPanel" } },
+              // Les agents se pilotent depuis Équipe IA (direction) : ici, un renvoi.
+              admin: { components: { Field: "/modules/ads/admin/AgentTeamLink#AgentTeamLink" } },
             },
             {
               // D5 : ce que l'agent a le droit de faire seul sur la campagne en ligne (plan, §6).

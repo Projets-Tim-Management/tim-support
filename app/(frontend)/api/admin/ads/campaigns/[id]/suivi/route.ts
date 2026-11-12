@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { askAgent, QuestionError } from "@/modules/ads/agent/question";
 import { followUpView } from "@/modules/ads/agent/followup-view";
+import { isDirection } from "@/core/access";
 import { adminRequest } from "@/modules/ads/lib/route-auth";
 
 /**
@@ -20,14 +21,14 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function GET(req: Request, { params }: Params) {
   const { id } = await params;
-  const auth = await adminRequest(req);
+  const auth = await adminRequest(req, isDirection, "reserve-direction");
   if ("response" in auth) return auth.response;
   return NextResponse.json(await followUpView(auth.payload, id));
 }
 
 export async function POST(req: Request, { params }: Params) {
   const { id } = await params;
-  const auth = await adminRequest(req);
+  const auth = await adminRequest(req, isDirection, "reserve-direction");
   if ("response" in auth) return auth.response;
   const { payload, user } = auth;
   const body = (await req.json().catch(() => ({}))) as { question?: unknown };

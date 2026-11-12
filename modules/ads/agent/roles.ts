@@ -29,7 +29,7 @@ export const finishTool = (role: AgentRole): string => (role === "orchestrateur"
 
 /** Les outils de chaque rôle (plan, §9 quater, point 2). Un parent peut en donner moins, jamais plus. */
 export const ROLE_TOOLS: Record<AgentRole, readonly string[]> = {
-  orchestrateur: [...ORCHESTRATION, "lire_brief", "repartir_budget", "deposer_a_valider"],
+  orchestrateur: [...ORCHESTRATION, "lire_brief", "repartir_budget", "lire_reponses_direction", "demander_a_la_direction", "deposer_a_valider"],
   stratege: [
     ...ORCHESTRATION,
     "lire_brief",
@@ -47,7 +47,7 @@ export const ROLE_TOOLS: Record<AgentRole, readonly string[]> = {
   redacteur: ["lire_brief", "generer_textes", "terminer"],
   "directeur-artistique": [...ORCHESTRATION, "lire_brief", "verifier_crea", "lire_rushes", "ecrire_brief_design", "terminer"],
   controleur: ["verifier_crea", "juger_crea", "terminer"],
-  analyste: ["lire_resultats", "lire_journal", "lire_tests", "agir", "attendre", "ouvrir_test", "interpreter_test", "demander_creas", "preparer_campagne_prospects", "noter_apprentissage", "terminer"],
+  analyste: ["lire_resultats", "lire_journal", "lire_tests", "agir", "attendre", "ouvrir_test", "interpreter_test", "demander_creas", "preparer_campagne_prospects", "noter_apprentissage", "lire_reponses_direction", "demander_a_la_direction", "terminer"],
 };
 
 const ROLE_BRIEF: Record<AgentRole, string> = {

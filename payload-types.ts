@@ -106,6 +106,9 @@ export interface Config {
     'ad-tests': AdTest;
     'ad-conversions': AdConversion;
     'ad-questions': AdQuestion;
+    'ai-team-members': AiTeamMember;
+    'ai-team-messages': AiTeamMessage;
+    'ai-team-requests': AiTeamRequest;
     'ad-recaps': AdRecap;
     'ad-media': AdMedia;
     'ad-facts': AdFact;
@@ -200,6 +203,9 @@ export interface Config {
     'ad-tests': AdTestsSelect<false> | AdTestsSelect<true>;
     'ad-conversions': AdConversionsSelect<false> | AdConversionsSelect<true>;
     'ad-questions': AdQuestionsSelect<false> | AdQuestionsSelect<true>;
+    'ai-team-members': AiTeamMembersSelect<false> | AiTeamMembersSelect<true>;
+    'ai-team-messages': AiTeamMessagesSelect<false> | AiTeamMessagesSelect<true>;
+    'ai-team-requests': AiTeamRequestsSelect<false> | AiTeamRequestsSelect<true>;
     'ad-recaps': AdRecapsSelect<false> | AdRecapsSelect<true>;
     'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
     'ad-facts': AdFactsSelect<false> | AdFactsSelect<true>;
@@ -3268,6 +3274,96 @@ export interface AdQuestion {
   createdAt: string;
 }
 /**
+ * Les agents IA, leur nom, leur visage et leur chef. La direction ne parle qu'aux chefs ; un sous-agent répond à son chef.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-members".
+ */
+export interface AiTeamMember {
+  id: number;
+  /**
+   * Décochée : l'agent est en pause, le moteur ne l'emploie plus.
+   */
+  active?: boolean | null;
+  /**
+   * Toute son équipe : passages, missions, conversations. Le plafond global des agents (Publicité › Garde-fous) reste au-dessus.
+   */
+  monthlyAiBudgetEur?: number | null;
+  name: string;
+  jobTitle: string;
+  level: 'chef' | 'sous-agent';
+  domain: 'sea';
+  chief?: (number | null) | AiTeamMember;
+  portrait:
+    | 'chef-sea'
+    | 'stratege'
+    | 'redacteur'
+    | 'directeur-artistique'
+    | 'controleur'
+    | 'meta-ads'
+    | 'google-ads'
+    | 'chatgpt-ads'
+    | 'mesure';
+  /**
+   * Facultatif : remplace le portrait illustré.
+   */
+  photo?: (number | null) | Media;
+  specialty: string;
+  /**
+   * Utilisée quand il s'adresse à la direction (chefs) ou dans le fil d'activité.
+   */
+  personality?: string | null;
+  key: string;
+  engineRoles?:
+    ('orchestrateur' | 'stratege' | 'redacteur' | 'directeur-artistique' | 'controleur' | 'analyste')[] | null;
+  order?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-messages".
+ */
+export interface AiTeamMessage {
+  id: number;
+  member: number | AiTeamMember;
+  from: 'direction' | 'agent';
+  text: string;
+  author?: (number | null) | User;
+  costEur?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-requests".
+ */
+export interface AiTeamRequest {
+  id: number;
+  member: number | AiTeamMember;
+  kind: 'a-faire' | 'question';
+  status: 'ouverte' | 'faite' | 'repondue' | 'retiree';
+  title: string;
+  why: string;
+  url?: string | null;
+  steps?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  question?: string | null;
+  answer?: string | null;
+  closedAt?: string | null;
+  run?: (number | null) | AdAgentRun;
+  campaign?: (number | null) | AdCampaign;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ad-recaps".
  */
@@ -4085,6 +4181,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ad-questions';
         value: number | AdQuestion;
+      } | null)
+    | ({
+        relationTo: 'ai-team-members';
+        value: number | AiTeamMember;
+      } | null)
+    | ({
+        relationTo: 'ai-team-messages';
+        value: number | AiTeamMessage;
+      } | null)
+    | ({
+        relationTo: 'ai-team-requests';
+        value: number | AiTeamRequest;
       } | null)
     | ({
         relationTo: 'ad-recaps';
@@ -5630,6 +5738,61 @@ export interface AdQuestionsSelect<T extends boolean = true> {
   askedBy?: T;
   costEur?: T;
   askedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-members_select".
+ */
+export interface AiTeamMembersSelect<T extends boolean = true> {
+  active?: T;
+  monthlyAiBudgetEur?: T;
+  name?: T;
+  jobTitle?: T;
+  level?: T;
+  domain?: T;
+  chief?: T;
+  portrait?: T;
+  photo?: T;
+  specialty?: T;
+  personality?: T;
+  key?: T;
+  engineRoles?: T;
+  order?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-messages_select".
+ */
+export interface AiTeamMessagesSelect<T extends boolean = true> {
+  member?: T;
+  from?: T;
+  text?: T;
+  author?: T;
+  costEur?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-requests_select".
+ */
+export interface AiTeamRequestsSelect<T extends boolean = true> {
+  member?: T;
+  kind?: T;
+  status?: T;
+  title?: T;
+  why?: T;
+  url?: T;
+  steps?: T;
+  question?: T;
+  answer?: T;
+  closedAt?: T;
+  run?: T;
+  campaign?: T;
   updatedAt?: T;
   createdAt?: T;
 }

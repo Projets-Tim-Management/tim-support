@@ -55,6 +55,18 @@ export const partnerIdOf = (user: unknown): string | number | null => {
 // ─── Prédicats de rôle (booléens purs) ───────────────────────────────────────
 export const isSuperAdmin = (user: unknown): boolean => hasRole(user, ROLES.superAdmin);
 
+/**
+ * La DIRECTION : le seul compte qui parle à l'équipe d'agents IA (décision du
+ * 12/11/2026). Deux conditions, voulues ensemble : le rôle super-admin ET cette
+ * adresse précise — un autre super-admin ne voit pas l'équipe, et cette adresse
+ * sans le rôle non plus.
+ */
+export const DIRECTION_EMAIL = "direction@tim-management.co";
+export const isDirection = (user: unknown): boolean =>
+  isSuperAdmin(user) &&
+  typeof (user as { email?: unknown } | null)?.email === "string" &&
+  ((user as { email: string }).email.trim().toLowerCase() === DIRECTION_EMAIL);
+
 /** Vrai pour admin ET super-admin (le super-admin peut tout ce que l'admin peut). */
 export const hasAdminRole = (user: unknown): boolean =>
   hasRole(user, ROLES.admin) || isSuperAdmin(user);
@@ -94,6 +106,8 @@ export const isAdminOrSelf: Access = ({ req: { user } }) => {
  * peut toujours lire et modifier sa propre fiche (mot de passe, avatar).
  */
 export const isSuperAdminAccess: Access = ({ req: { user } }) => isSuperAdmin(user);
+/** Accès réservé à la direction (super-admin ET direction@) — l'équipe d'agents IA. */
+export const isDirectionAccess: Access = ({ req: { user } }) => isDirection(user);
 export const isSuperAdminOrSelf: Access = ({ req: { user } }) => {
   if (isSuperAdmin(user)) return true;
   if (user) return { id: { equals: (user as { id: string | number }).id } };
@@ -121,6 +135,7 @@ export const canSupport: Access = ({ req: { user } }) => hasAdminRole(user) || i
 type HiddenArg = { user?: unknown };
 export const hideUnlessAdmin = ({ user }: HiddenArg): boolean => !hasAdminRole(user);
 export const hideUnlessSuperAdmin = ({ user }: HiddenArg): boolean => !isSuperAdmin(user);
+export const hideUnlessDirection = ({ user }: HiddenArg): boolean => !isDirection(user);
 export const hideUnlessAdminOrPartner = ({ user }: HiddenArg): boolean =>
   !(hasAdminRole(user) || isPartner(user));
 export const hideUnlessMetier = ({ user }: HiddenArg): boolean =>

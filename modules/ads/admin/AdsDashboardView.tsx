@@ -7,7 +7,7 @@ import Link from "next/link";
 import { compact } from "@/admin/dashboard/format";
 import { Icons } from "@/admin/dashboard/icons";
 import StatTile from "@/admin/dashboard/StatTile";
-import { hasAdminRole } from "@/core/access";
+import { hasAdminRole, isDirection } from "@/core/access";
 import { agentsOverview, type AgentsOverview } from "@/modules/ads/agent/overview";
 import { CAMPAIGN_STATUSES } from "@/modules/ads/collections/AdCampaigns";
 import { OBJECTIVES } from "@/modules/ads/lib/campaign-options";
@@ -85,40 +85,30 @@ function Filters({ d, platform }: { d: AdsDashboard; platform: string | null }) 
   );
 }
 
-const RUN_STATUS: Record<string, string> = { "en-cours": "En cours", "en-pause-budget": "En pause (plafond du jour)", "a-valider": "Terminé — à valider", termine: "Terminé", arrete: "Arrêté", echoue: "Échoué" };
 
-/** La carte « Agents » : chaque campagne, son passage en cours ou le dernier, et le coût IA du jour. */
+/**
+ * Les agents ne se pilotent plus d'ici (décision du 12/11/2026) : ils ont leur
+ * page, Équipe IA, réservée à la direction. Il en reste ce qui sert à lire ce
+ * tableau de bord — la dépense IA du jour face au plafond — et le chemin.
+ */
 function AgentsCard({ o }: { o: AgentsOverview }) {
   const pct = o.jour.plafond ? Math.min(100, Math.round((o.jour.depense / o.jour.plafond) * 100)) : 0;
+  const running = o.campagnes.filter((c) => c.enCours).length;
   return (
     <section className="ads-dash__agents">
       <header className="ads-dash__agents-head">
-        <strong>Agents</strong>
+        <strong>Équipe IA</strong>
+        <span>{running ? `${running} passage${running > 1 ? "s" : ""} en cours` : "Aucun passage en cours"}</span>
         <span>
           IA aujourd&apos;hui : {eur(o.jour.depense)} sur {eur(o.jour.plafond)}
         </span>
         <span className={`ads-room__bar${pct >= 90 ? " ads-room__bar--high" : ""}`} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Plafond du jour des agents">
           <span style={{ width: `${pct}%` }} />
         </span>
+        <Link href="/admin/equipe-ia" prefetch={false}>
+          Voir l&apos;équipe →
+        </Link>
       </header>
-      {o.campagnes.length ? (
-        <ul className="ads-dash__agents-list">
-          {o.campagnes.map((c) => (
-            <li key={String(c.id)}>
-              <Link href={`/admin/collections/ad-campaigns/${c.id}`} prefetch={false}>
-                {c.nom}
-              </Link>
-              <span className={`ads-badge ${c.enCours ? "ads-badge--test" : c.statut === "a-valider" || c.statut === "termine" ? "ads-badge--ok" : c.statut === "echoue" ? "ads-badge--bad" : ""}`}>{RUN_STATUS[c.statut] ?? c.statut}</span>
-              <span className="ads-dash__agents-meta">
-                {c.enCours ? `${c.agentsActifs} agent${c.agentsActifs > 1 ? "s" : ""} actif${c.agentsActifs > 1 ? "s" : ""} · ` : ""}
-                passage {eur(c.depensePassage)} sur {eur(c.budgetPassage)} · aujourd&apos;hui {eur(c.coutJour)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="ads-dash__agents-meta">Aucun passage pour l&apos;instant. L&apos;agent se lance depuis l&apos;onglet « Agent » d&apos;une campagne en brouillon.</p>
-      )}
     </section>
   );
 }
@@ -283,7 +273,8 @@ export default async function AdsDashboardView(view: AdminViewServerProps) {
       }),
       payload.count({ collection: "ad-creatives", where: { status: { equals: "a-valider" } }, overrideAccess: true }),
       payload.count({ collection: "ad-instructions", where: { status: { equals: "proposee" } }, overrideAccess: true }),
-      agentsOverview(payload, now),
+      // La carte « Équipe IA » n'est montrée qu'à la direction : inutile de la calculer pour les autres.
+      isDirection(user) ? agentsOverview(payload, now) : Promise.resolve(undefined),
     ]);
     const d = buildAdsDashboard({
       accounts: accounts.docs as DashAccount[],

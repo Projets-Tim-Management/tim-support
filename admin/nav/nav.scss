@@ -106,6 +106,10 @@ $nav-icons: (
   /* Vues custom (liens libres de nav-structure.ts), même mécanisme. */
   /* Rapprochement : deux colonnes mises en regard, la coche entre les deux. */
   "facturation":             "<rect x='3' y='4' width='7' height='16' rx='1.5'/><rect x='14' y='4' width='7' height='16' rx='1.5'/><path d='M10 12h4'/><path d='M5.5 9h2M5.5 12h2M5.5 15h2M16.5 9h2M16.5 12h2M16.5 15h2'/>",
+  /* Équipe IA › Organigramme : la page — un chef, ses sous-agents. */
+  "equipe-ia":               "<circle cx='12' cy='5' r='2.5'/><circle cx='5' cy='18' r='2.5'/><circle cx='12' cy='18' r='2.5'/><circle cx='19' cy='18' r='2.5'/><path d='M12 7.5v8M12 11.5H5v4M12 11.5h7v4'/>",
+  /* Équipe IA › Fiches : une carte d'identité. */
+  "ai-team-members":         "<rect x='3' y='5' width='18' height='14' rx='2'/><circle cx='9' cy='11' r='2.2'/><path d='M5.8 16.5c0-1.9 1.4-3 3.2-3s3.2 1.1 3.2 3'/><path d='M15 10h3.5M15 13.5h3.5'/>",
   /* Analyses : une icône par page. */
   "analyses-facturation":    "<path d='M3 3v18h18'/><path d='M7 15v-4M12 15V8M17 15v-6'/>",
   "analyses-pipeline":       "<path d='M4 4h16l-6 7v6l-4 2v-8z'/>",
@@ -903,6 +907,8 @@ $nav-icons: (
     "Facturation":  "<path d='M6 2h9l5 5v15H6z'/><path d='M15 2v5h5'/><path d='M9 12h7M9 16h7M9 8h2'/>",
     /* Publicité : une cible — on vise quelqu'un, on mesure si on l'atteint. */
     "Publicité":    "<circle cx='12' cy='12' r='9'/><circle cx='12' cy='12' r='5'/><circle cx='12' cy='12' r='1'/>",
+    /* Équipe IA : une tête de robot — les agents, incarnés. */
+    "Équipe IA":    "<rect x='5' y='7' width='14' height='12' rx='4'/><path d='M12 7V4'/><circle cx='12' cy='3' r='1'/><circle cx='9.5' cy='12.5' r='1'/><circle cx='14.5' cy='12.5' r='1'/><path d='M10 16h4'/>",
     "Système":      "<circle cx='12' cy='12' r='3'/><path d='M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.6 1.6 0 008 19.4a1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H2a2 2 0 110-4h.1A1.6 1.6 0 003.6 8a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H8a1.6 1.6 0 001-1.5V2a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V8a1.6 1.6 0 001.5 1H22a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z'/>",
   );
   @each $label, $paths in $group-icons {

@@ -123,3 +123,33 @@ describe("contrôle avant l'appel", () => {
     expect(created[0]).toMatchObject({ kind: "texte", usd: 0.11, eur: 0.1, campaign: 4 });
   });
 });
+
+describe("le budget IA du mois de l'équipe, fixé sur la carte de la cheffe (Équipe IA)", () => {
+  const NOW = new Date("2026-11-12T10:00:00Z");
+  /** Le registre, plus la fiche de la cheffe SEA et son budget. */
+  function withChief(budget: number | null, rows: Row[]) {
+    const base = fakePayload({ enabled: true, agentDailyEur: 100, agentMonthlyEur: 200 }, rows).payload as unknown as { find: (a: unknown) => Promise<unknown> };
+    const payload = {
+      ...base,
+      find: async (args: { collection?: string; where?: unknown }) =>
+        args.collection === "ai-team-members" ? { docs: [{ name: "Margaux", monthlyAiBudgetEur: budget }] } : base.find(args),
+    };
+    return payload as never;
+  }
+  const spentThisMonth: Row[] = [{ kind: "agent", eur: 14.5, createdAt: "2026-11-05T08:00:00.000Z" }];
+
+  it("refuse l'appel qui ferait dépasser le budget de l'équipe, même sous le plafond global", async () => {
+    const payload = withChief(15, spentThisMonth);
+    await expect(assertAdsBudget(payload, "agent", 1, NOW)).rejects.toThrow(AdsBudgetError);
+    await expect(assertAdsBudget(payload, "agent", 1, NOW)).rejects.toThrow(/Budget IA du mois de l'équipe de Margaux atteint/);
+    await expect(assertAdsBudget(payload, "agent", 0.4, NOW)).resolves.toMatchObject({ ok: true });
+  });
+
+  it("sans budget d'équipe, seul le plafond global joue", async () => {
+    await expect(assertAdsBudget(withChief(null, spentThisMonth), "agent", 1, NOW)).resolves.toMatchObject({ ok: true });
+  });
+
+  it("ne concerne que la dépense des agents", async () => {
+    await expect(assertAdsBudget(withChief(1, spentThisMonth), "texte", 0.5, NOW)).resolves.toBeTruthy();
+  });
+});

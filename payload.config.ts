@@ -39,6 +39,9 @@ import { AdAlerts } from "./modules/ads/collections/AdAlerts";
 import { AdTests } from "./modules/ads/collections/AdTests";
 import { AdConversions } from "./modules/ads/collections/AdConversions";
 import { AdQuestions } from "./modules/ads/collections/AdQuestions";
+import { AiTeamMembers } from "./modules/ai-team/collections/AiTeamMembers";
+import { AiTeamMessages } from "./modules/ai-team/collections/AiTeamMessages";
+import { AiTeamRequests } from "./modules/ai-team/collections/AiTeamRequests";
 import { AdRecaps } from "./modules/ads/collections/AdRecaps";
 import { AdsSettings } from "./modules/ads/globals/AdsSettings";
 import { AdsBrandKit } from "./modules/ads/globals/AdsBrandKit";
@@ -88,6 +91,7 @@ import { CompanySettings, seedCompanySettings } from "./core/globals/CompanySett
 import { seedForms } from "./modules/forms/lib/seed";
 import { seedSequences } from "./modules/marketing/lib/sequence-seed";
 import { seedDevStatuses } from "./modules/dev/lib/seed";
+import { seedAiTeam } from "./modules/ai-team/lib/seed";
 import {
   hideUnlessAdmin,
   hideUnlessMetier,
@@ -318,6 +322,13 @@ export default buildConfig({
           exact: true,
           meta: { title: "Analyses · Acquisition" },
         },
+        // Équipe IA : l'organigramme des agents, réservé à la direction (modules/ai-team).
+        equipeIa: {
+          Component: "/modules/ai-team/admin/TeamView#default",
+          path: "/equipe-ia",
+          exact: true,
+          meta: { title: "Équipe IA" },
+        },
         analysesSeoGeo: {
           Component: "/modules/analytics/admin/SeoView#default",
           path: "/analyses/seo-geo",
@@ -414,6 +425,12 @@ export default buildConfig({
       AdTests,
       AdConversions,
       AdQuestions,
+      // Équipe IA : les agents incarnés (nom, visage, chef) — réservée à la direction.
+      AiTeamMembers,
+      // La conversation de la direction avec les chefs (écrite par le serveur seul).
+      AiTeamMessages,
+      // Les demandes des chefs à la direction (« à faire » ou « question »).
+      AiTeamRequests,
       AdRecaps,
       AdMedia,
       AdFacts,
@@ -607,6 +624,8 @@ export default buildConfig({
     // Colonnes de départ du suivi des développements — créées une seule fois,
     // dans une base vide (cf. modules/dev/lib/seed).
     await seedDevStatuses(payload);
+    // L'équipe d'agents IA de départ — une seule fois, dans une base vide (cf. modules/ai-team/lib/seed).
+    await seedAiTeam(payload);
   },
 
   secret: process.env.PAYLOAD_SECRET || "",

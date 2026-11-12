@@ -1,4 +1,5 @@
 import type { Payload } from "payload";
+import { pausedReason, pausedRoles, teamPort } from "@/modules/ai-team/lib/availability";
 
 import { payloadAtelier } from "@/modules/ads/agent/atelier-port";
 import { prepBudget } from "@/modules/ads/agent/budget";
@@ -40,6 +41,7 @@ export function agentDeps(payload: Payload): AgentDeps {
     atelier: payloadAtelier(payload),
     sources: createSourcesPort(payload),
     suivi: payloadSuivi(payload),
+    team: teamPort(payload),
     now: () => new Date(),
   };
 }
@@ -170,6 +172,8 @@ export async function launchRun(payload: Payload, input: { campaign: Id; objecti
   if (await activeRun(payload, campaignId)) throw new LaunchError("Un passage est déjà en cours sur cette campagne.");
   const b = await runBudget(payload, input.capEur, now);
   if (!b.enabled) throw new LaunchError("Interrupteur général coupé (Publicité › Paramètres › Garde-fous).");
+  const chief = (await pausedRoles(payload)).get("orchestrateur");
+  if (chief) throw new LaunchError(pausedReason(chief));
   if (!b.prep.ok) throw new LaunchError(b.prep.reason);
   const blocked = libraryBlocker((await createSourcesPort(payload).competitors()).length, process.env);
   if (blocked) throw new LaunchError(blocked);
@@ -241,6 +245,8 @@ export async function launchRenewal(
   const campaign = ctx.campaign as Campaign & { publicationStatus?: string | null };
   const campaignId = campaign.id;
   if (campaign.publicationStatus !== "active") throw new LaunchError("Le renouvellement vaut pour une campagne en diffusion.");
+  const chief = (await pausedRoles(payload)).get("orchestrateur");
+  if (chief) throw new LaunchError(pausedReason(chief));
   const missing = missingBrief(campaign as never);
   if (missing.length) throw new LaunchError(`Brief incomplet : il manque ${missing.join(", ")}.`);
   const left = ctx.weeklyLimit - (await weeklyUsed(payload, campaignId, now));

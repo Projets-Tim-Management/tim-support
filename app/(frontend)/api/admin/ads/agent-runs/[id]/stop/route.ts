@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { LaunchError, stopRun } from "@/modules/ads/agent/run";
+import { isDirection } from "@/core/access";
 import { adminRequest } from "@/modules/ads/lib/route-auth";
 
 /**
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const auth = await adminRequest(req);
+  const auth = await adminRequest(req, isDirection, "reserve-direction");
   if ("response" in auth) return auth.response;
   const { payload, user } = auth;
   try {

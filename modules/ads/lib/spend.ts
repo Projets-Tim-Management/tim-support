@@ -1,4 +1,5 @@
 import type { Payload, Where } from "payload";
+import { seaMonthlyBudget } from "@/modules/ai-team/lib/availability";
 
 import { usdToEur } from "@/core/lib/ai-pricing";
 import { PARIS_TZ } from "@/core/lib/dates";
@@ -106,8 +107,19 @@ export async function assertAdsBudget(payload: Payload, kind: AdSpendKind, maxEu
   if (settings?.enabled === false) {
     throw new AdsBudgetError("Interrupteur général coupé (Publicité › Paramètres › Garde-fous) : aucune génération ne part.");
   }
-  const check = checkBudget(limitsFor(kind, settings), await spentOf(payload, kind, now), maxEur);
+  const spent = await spentOf(payload, kind, now);
+  const check = checkBudget(limitsFor(kind, settings), spent, maxEur);
   if (!check.ok) throw new AdsBudgetError(check.reason);
+  // Le budget IA du mois de l'équipe, fixé par la direction sur la carte de la cheffe (Équipe IA) :
+  // en plus du plafond global des agents — le plus strict des deux l'emporte.
+  if (kind === "agent") {
+    const team = await seaMonthlyBudget(payload);
+    if (team && spent.month + maxEur > team.budgetEur) {
+      throw new AdsBudgetError(
+        `Budget IA du mois de l'équipe de ${team.name} atteint : ${eur(spent.month)} dépensés sur ${eur(team.budgetEur)} (Équipe IA › carte de ${team.name}), et cet appel peut coûter jusqu'à ${eur(maxEur)}.`,
+      );
+    }
+  }
   return check;
 }
 

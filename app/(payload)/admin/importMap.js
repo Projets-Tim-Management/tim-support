@@ -132,7 +132,7 @@ import { SequenceThemeRowLabel as SequenceThemeRowLabel_f78827f64ca8974d62621135
 import { FormOptionRowLabel as FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b } from '../../../modules/forms/admin/FormOptionRowLabel'
 import { FormFieldRowLabel as FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3 } from '../../../modules/forms/admin/FormFieldRowLabel'
 import { LaunchTrack as LaunchTrack_f98aede5c8cdf4ba78c59bf556604594 } from '../../../modules/ads/admin/LaunchTrack'
-import { AgentPanel as AgentPanel_35a1e979f04c9e33500ed20b629a4bc2 } from '../../../modules/ads/admin/AgentPanel'
+import { AgentTeamLink as AgentTeamLink_729c8c7a2634880a1a6bd9697e62a9d0 } from '../../../modules/ads/admin/AgentTeamLink'
 import { PublishPanel as PublishPanel_0b56d77730197393cc2744e5eef1a5ba } from '../../../modules/ads/admin/PublishPanel'
 import { CampaignResults as CampaignResults_d5392f32e5024388768850e56d85ed5c } from '../../../modules/ads/admin/CampaignResults'
 import { CampaignKpisCell as CampaignKpisCell_17973b2b589d2f9fcdba067f516b0a98 } from '../../../modules/ads/admin/CampaignKpisCell'
@@ -175,6 +175,7 @@ import { default as default_3125f72c9cf5e6cdd1ecf6cff4f3fd8c } from '../../../mo
 import { default as default_8e6317c196aa90c5c449f01aad526c7f } from '../../../modules/ads/admin/ValidationQueueView'
 import { default as default_1c3d467279591bbf05bba5b4228f8e57 } from '../../../modules/ads/admin/AdsDashboardView'
 import { default as default_8052050c666bd08f67a59ad1c2e0cc41 } from '../../../modules/analytics/admin/AcquisitionView'
+import { default as default_e424d3f558f23151dc38caefd5fde3c3 } from '../../../modules/ai-team/admin/TeamView'
 import { default as default_87f30d4380616a0c579052b8e8e0f5be } from '../../../modules/analytics/admin/SeoView'
 import { default as default_5200a101958b5383ac3b8ff93e5777dc } from '../../../modules/analytics/admin/VideosView'
 import { default as default_c44913679fe220161a8e8e8eb237e954 } from '../../../modules/analytics/admin/SupportView'
@@ -318,7 +319,7 @@ export const importMap = {
   "/modules/forms/admin/FormOptionRowLabel#FormOptionRowLabel": FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b,
   "/modules/forms/admin/FormFieldRowLabel#FormFieldRowLabel": FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3,
   "/modules/ads/admin/LaunchTrack#LaunchTrack": LaunchTrack_f98aede5c8cdf4ba78c59bf556604594,
-  "/modules/ads/admin/AgentPanel#AgentPanel": AgentPanel_35a1e979f04c9e33500ed20b629a4bc2,
+  "/modules/ads/admin/AgentTeamLink#AgentTeamLink": AgentTeamLink_729c8c7a2634880a1a6bd9697e62a9d0,
   "/modules/ads/admin/PublishPanel#PublishPanel": PublishPanel_0b56d77730197393cc2744e5eef1a5ba,
   "/modules/ads/admin/CampaignResults#CampaignResults": CampaignResults_d5392f32e5024388768850e56d85ed5c,
   "/modules/ads/admin/CampaignKpisCell#CampaignKpisCell": CampaignKpisCell_17973b2b589d2f9fcdba067f516b0a98,
@@ -361,6 +362,7 @@ export const importMap = {
   "/modules/ads/admin/ValidationQueueView#default": default_8e6317c196aa90c5c449f01aad526c7f,
   "/modules/ads/admin/AdsDashboardView#default": default_1c3d467279591bbf05bba5b4228f8e57,
   "/modules/analytics/admin/AcquisitionView#default": default_8052050c666bd08f67a59ad1c2e0cc41,
+  "/modules/ai-team/admin/TeamView#default": default_e424d3f558f23151dc38caefd5fde3c3,
   "/modules/analytics/admin/SeoView#default": default_87f30d4380616a0c579052b8e8e0f5be,
   "/modules/analytics/admin/VideosView#default": default_5200a101958b5383ac3b8ff93e5777dc,
   "/modules/analytics/admin/SupportView#default": default_c44913679fe220161a8e8e8eb237e954,

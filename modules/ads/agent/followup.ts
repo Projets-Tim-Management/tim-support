@@ -1,4 +1,5 @@
 import type { Payload } from "payload";
+import { pausedRoles } from "@/modules/ai-team/lib/availability";
 
 import { prepBudget } from "@/modules/ads/agent/budget";
 import { ROLE_TOOLS } from "@/modules/ads/agent/roles";
@@ -94,6 +95,8 @@ type RawCampaign = { id: Id; name: string; publicationStatus?: string | null; st
 export async function scheduleFollowUps(payload: Payload, now = new Date()): Promise<{ campaign: Id; kind: FollowUpKind; run?: Id; skipped?: string }[]> {
   const settings = (await payload.findGlobal({ slug: "ads-settings", overrideAccess: true })) as { enabled?: boolean | null; agentDailyEur?: number | null; agentMonthlyEur?: number | null };
   if (settings.enabled === false) return [];
+  // L'analyste en pause dans l'équipe IA : aucun suivi ne démarre (décision du 12/11/2026).
+  if ((await pausedRoles(payload)).has("analyste")) return [];
   const p = parisNow(now);
   // Avant 7 h, rien n'est dû : on ne lit même pas la base.
   if (p.hour < HOUR.quotidien) return [];

@@ -1,0 +1,1302 @@
+/* Écran « Équipe IA » (modules/ai-team/admin/TeamView). Aucune couleur en
+   dur : tout vient des jetons de styles/_tokens.scss. */
+
+.ait {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-bottom: 2rem;
+}
+.ait-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.ait-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.9rem;
+  color: var(--tim-muted);
+}
+.ait-empty {
+  margin: 0;
+  padding: 1.25rem;
+  border: 1px dashed var(--tim-border);
+  border-radius: var(--tim-radius);
+  text-align: center;
+  color: var(--tim-muted);
+  font-size: 0.88rem;
+}
+
+/* ─── Organigramme ─────────────────────────────────────────────────────── */
+.ait-org {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.25rem 1rem 1.5rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+}
+.ait-org__direction {
+  padding: 0.4rem 1.6rem;
+  border-radius: 999px;
+  background: var(--tim-foreground);
+  color: var(--tim-white);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+.ait-org__line {
+  width: 2px;
+  height: 1.1rem;
+  background: var(--tim-border);
+}
+.ait-org__subs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 62rem;
+  padding-top: 0.9rem;
+  border-top: 2px solid var(--tim-border);
+}
+@media (max-width: 900px) {
+  .ait-org__subs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ait-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.9rem 0.75rem 0.75rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+
+  &:hover {
+    border-color: var(--tim-muted-light);
+    transform: translateY(-1px);
+  }
+}
+.ait-card__link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  color: var(--tim-foreground);
+}
+.ait-card--off {
+  background: var(--tim-surface);
+}
+.ait-card--chef {
+  width: min(100%, 22rem);
+  padding: 1.1rem 1rem;
+}
+.ait-card--on {
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px var(--tim-primary-light);
+}
+.ait-card__name {
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+.ait-card--chef .ait-card__name {
+  font-size: 1.2rem;
+}
+.ait-card__job {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--tim-muted);
+}
+.ait-card__line {
+  font-size: 0.74rem;
+  line-height: 1.35;
+  color: var(--tim-muted);
+  overflow-wrap: anywhere;
+}
+.ait-photo {
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Pastille d'état : vert au travail (qui pulse), ambre si la direction est attendue, gris au repos. */
+.ait-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.ait-state__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ait-state--travail {
+  color: var(--tim-green);
+  background: var(--tim-green-bg);
+
+  .ait-state__dot {
+    animation: ait-pulse 1.4s ease-in-out infinite;
+  }
+}
+.ait-state--validation {
+  color: var(--tim-amber);
+  background: var(--tim-amber-bg);
+}
+.ait-state--pause {
+  color: var(--tim-muted);
+  background: var(--tim-gray-bg);
+}
+.ait-state--repos {
+  color: var(--tim-slate);
+  background: var(--tim-slate-bg);
+}
+@keyframes ait-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ait-state--travail .ait-state__dot {
+    animation: none;
+  }
+}
+
+/* ─── Fiche du membre choisi ───────────────────────────────────────────── */
+.ait-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.1rem 1.25rem 1.25rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.ait-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+.ait-panel__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+
+  span {
+    font-weight: 600;
+    color: var(--tim-muted);
+  }
+}
+.ait-cta {
+  align-self: flex-start;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+.ait-reports {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--tim-muted);
+}
+.ait-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+@media (max-width: 1000px) {
+  .ait-cols {
+    grid-template-columns: 1fr;
+  }
+}
+.ait-h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.ait-text {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--tim-foreground);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+/* Fil d'activité */
+.ait-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 0.82rem;
+  }
+}
+.ait-feed__line {
+  color: var(--tim-foreground);
+  overflow-wrap: anywhere;
+}
+.ait-feed__at {
+  font-size: 0.72rem;
+  color: var(--tim-muted-light);
+  white-space: nowrap;
+}
+.ait-feed__dot {
+  justify-self: center;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--tim-border);
+}
+
+/* ─── Visage : grisé quand l'agent est en pause ─────────────────────────── */
+.ait-face {
+  display: inline-flex;
+  flex: 0 0 auto;
+  line-height: 0;
+}
+.ait-face--off {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+/* ─── La case « en service » ───────────────────────────────────────────── */
+.ait-toggle-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.ait-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.2rem 0.3rem;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.7;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--tim-primary);
+    outline-offset: 2px;
+  }
+}
+.ait-toggle__track {
+  position: relative;
+  width: 2.1rem;
+  height: 1.2rem;
+  border-radius: 999px;
+  background: var(--tim-border);
+  transition: background 0.15s ease;
+}
+.ait-toggle__thumb {
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: var(--tim-white);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--tim-foreground) 25%, transparent);
+  transition: transform 0.15s ease;
+}
+.ait-toggle--on {
+  .ait-toggle__track {
+    background: var(--tim-green);
+  }
+  .ait-toggle__thumb {
+    transform: translateX(0.9rem);
+  }
+}
+.ait-toggle__label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+}
+.ait-toggle--on .ait-toggle__label {
+  color: var(--tim-green);
+}
+.ait-toggle__error {
+  font-size: 0.72rem;
+  color: var(--tim-red);
+}
+
+/* ─── Ton : un mot d'accueil, des pastilles ─────────────────────────────── */
+.ait-hello {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--tim-foreground);
+}
+.ait-panel__who {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ait-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.35rem 0 0;
+
+  span {
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: var(--tim-surface);
+    font-size: 0.76rem;
+    color: var(--tim-muted);
+  }
+}
+.ait-paused {
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-gray-bg);
+  font-size: 0.84rem;
+  color: var(--tim-foreground);
+}
+
+/* ─── Messagerie : bulles ───────────────────────────────────────────────── */
+.ait-msgs,
+.ait-threads {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ait-msg {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  list-style: none;
+}
+.ait-msg--reply {
+  justify-content: flex-end;
+}
+.ait-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  max-width: 34rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 1rem 1rem 1rem 0.25rem;
+  background: var(--tim-surface);
+  border: 1px solid var(--tim-border);
+}
+.ait-bubble--reply {
+  border-radius: 1rem 1rem 0.25rem 1rem;
+  background: var(--tim-primary-light);
+  border-color: transparent;
+}
+.ait-bubble--error {
+  background: var(--tim-red-bg);
+}
+.ait-bubble__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+  color: var(--tim-foreground);
+}
+.ait-bubble__when {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  color: var(--tim-muted-light);
+}
+.ait-bubble__tag {
+  font-size: 0.74rem;
+  color: var(--tim-muted);
+}
+.ait-bubble__from {
+  font-size: 0.76rem;
+  color: var(--tim-muted);
+}
+.ait-bubble__text {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--tim-foreground);
+  overflow-wrap: anywhere;
+}
+.ait-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+}
+.ait-thread__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.76rem;
+  color: var(--tim-muted);
+}
+.ait-thread__status {
+  margin-left: auto;
+  font-weight: 700;
+}
+.ait-thread__status--termine {
+  color: var(--tim-green);
+}
+.ait-thread__status--echoue {
+  color: var(--tim-red);
+}
+
+/* « Voir le détail » : replié par défaut */
+.ait-detail {
+  font-size: 0.82rem;
+
+  summary {
+    width: fit-content;
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--tim-primary);
+  }
+}
+.ait-detail__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+}
+.ait-meta {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--tim-muted);
+}
+.ait-more-link {
+  display: inline-block;
+  margin-top: 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--tim-primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ─── Ses campagnes : les pastilles, et le pilotage de celle qu'on ouvre ── */
+.ait-campaigns {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.ait-campaigns__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ait-campaign {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  text-decoration: none;
+  color: var(--tim-foreground);
+  font-size: 0.85rem;
+
+  span {
+    font-size: 0.76rem;
+    color: var(--tim-muted);
+  }
+  &:hover {
+    border-color: var(--tim-muted-light);
+  }
+}
+.ait-campaign--on {
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px var(--tim-primary-light);
+}
+.ait-campaign__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+}
+.ait-campaign__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+
+  strong {
+    font-size: 1rem;
+    color: var(--tim-foreground);
+  }
+  a {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--tim-primary);
+  }
+}
+
+/* ─── Conversation avec le chef ─────────────────────────────────────────── */
+.ait-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.ait-chat__thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 26rem;
+  overflow-y: auto;
+  padding: 0.25rem 0.1rem;
+}
+.ait-bubble__text--long {
+  white-space: pre-line;
+}
+.ait-chat__starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.ait-starter {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 999px;
+  background: var(--tim-surface);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--tim-primary);
+    color: var(--tim-primary);
+  }
+}
+.ait-chat__form {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+.ait-chat__input {
+  flex: 1 1 auto;
+  min-height: 2.6rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.88rem;
+  resize: vertical;
+
+  &:focus {
+    outline: 2px solid var(--tim-primary-light);
+    border-color: var(--tim-primary);
+  }
+}
+.ait-chat__send {
+  padding: 0.6rem 1rem;
+  border: 0;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+.ait-chat__error {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--tim-red);
+}
+/* « Margaux écrit… » : trois points qui sautillent */
+.ait-typing {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+}
+.ait-typing__dots {
+  display: inline-flex;
+  gap: 0.2rem;
+
+  i {
+    width: 0.32rem;
+    height: 0.32rem;
+    border-radius: 50%;
+    background: var(--tim-muted-light);
+    animation: ait-dot 1.1s ease-in-out infinite;
+  }
+  i:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  i:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+}
+@keyframes ait-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-0.25rem);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ait-typing__dots i {
+    animation: none;
+  }
+}
+
+/* ─── Budget IA de l'équipe ─────────────────────────────────────────────── */
+.ait-budget {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.ait-budget__total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+
+  strong {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--tim-foreground);
+  }
+  span {
+    font-size: 0.84rem;
+    color: var(--tim-muted);
+  }
+}
+.ait-budget__cap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+}
+.ait-budget__track {
+  flex: 0 1 14rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  overflow: hidden;
+}
+.ait-budget__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--tim-green);
+}
+.ait-budget__fill--high {
+  background: var(--tim-amber);
+}
+.ait-budget__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+}
+.ait-budget__who {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.ait-budget__name {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+  color: var(--tim-foreground);
+}
+.ait-budget__bar {
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--tim-primary);
+  }
+}
+.ait-budget__sub {
+  font-size: 0.74rem;
+  color: var(--tim-muted);
+}
+.ait-budget__mine {
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 0.84rem;
+  color: var(--tim-foreground);
+}
+.ait-hints {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ait-hint {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--tim-radius-sm);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--tim-foreground);
+}
+.ait-hint--info {
+  background: var(--tim-blue-bg);
+}
+.ait-hint--save {
+  background: var(--tim-green-bg);
+}
+.ait-hint--warn {
+  background: var(--tim-amber-bg);
+}
+.ait-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+
+  th,
+  td {
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--tim-border);
+    text-align: right;
+    white-space: nowrap;
+  }
+  th:first-child,
+  td:first-child {
+    text-align: left;
+  }
+  th {
+    font-weight: 700;
+    color: var(--tim-muted);
+  }
+}
+.ait-detail__body {
+  overflow-x: auto;
+}
+
+/* Le coût sur la carte : le mois, la moyenne par jour, et pour un chef son budget */
+.ait-card__spend {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  text-align: center;
+}
+.ait-card__spend-main {
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+
+  strong {
+    color: var(--tim-foreground);
+  }
+}
+.ait-card__spend-sub {
+  font-size: 0.72rem;
+  color: var(--tim-muted);
+}
+.ait-card__gauge {
+  width: 100%;
+  max-width: 14rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--tim-white);
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--tim-green);
+  }
+}
+.ait-card__gauge--high span {
+  background: var(--tim-amber);
+}
+.ait-card__gauge--over span {
+  background: var(--tim-red);
+}
+
+/* Le budget du chef, modifiable sur sa carte */
+.ait-budget-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 0.6rem;
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+
+  strong {
+    color: var(--tim-foreground);
+  }
+  label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: 600;
+  }
+  input {
+    width: 7rem;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--tim-border);
+    border-radius: var(--tim-radius-sm);
+    font: inherit;
+    font-size: 0.9rem;
+    text-align: center;
+    color: var(--tim-foreground);
+    background: var(--tim-white);
+  }
+}
+.ait-budget-edit--on {
+  flex-direction: column;
+}
+.ait-budget-edit__actions {
+  display: flex;
+  gap: 0.4rem;
+}
+.ait-budget-edit__btn,
+.ait-budget-edit__save {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 999px;
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--tim-primary);
+    color: var(--tim-primary);
+  }
+}
+.ait-budget-edit__save {
+  border-color: var(--tim-primary);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+
+  &:hover {
+    color: var(--tim-white);
+  }
+}
+.ait-budget-edit__note {
+  font-size: 0.72rem;
+  color: var(--tim-amber);
+}
+.ait-budget-edit__error {
+  font-size: 0.72rem;
+  color: var(--tim-red);
+}
+
+/* ─── Vos demandes ──────────────────────────────────────────────────────── */
+.ait-inbox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.ait-inbox__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+}
+.ait-inbox__count {
+  padding: 0.05rem 0.55rem;
+  border-radius: 999px;
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.78rem;
+}
+.ait-inbox__empty {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--tim-muted);
+}
+.ait-inbox__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ait-inbox__closed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.82rem;
+  color: var(--tim-foreground);
+}
+.ait-inbox__answer {
+  color: var(--tim-muted);
+}
+.ait-req {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid var(--tim-border);
+  border-left: 4px solid var(--tim-primary);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+}
+.ait-req--question {
+  border-left-color: var(--tim-indigo);
+}
+.ait-req__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.ait-req__who {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.ait-req__tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+}
+.ait-req__title {
+  font-size: 0.95rem;
+  color: var(--tim-foreground);
+  overflow-wrap: anywhere;
+}
+.ait-req__meta {
+  font-size: 0.74rem;
+  color: var(--tim-muted-light);
+}
+.ait-req__why,
+.ait-req__question {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--tim-foreground);
+}
+.ait-req__question {
+  padding: 0.5rem 0.7rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-indigo-bg);
+  font-weight: 600;
+}
+.ait-req__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0;
+  padding-left: 1.3rem;
+  font-size: 0.85rem;
+  color: var(--tim-foreground);
+}
+.ait-req__actions,
+.ait-req__answer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ait-req__answer textarea {
+  flex: 1 1 18rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  font: inherit;
+  font-size: 0.86rem;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+  resize: vertical;
+}
+.ait-req__note {
+  flex: 1 1 12rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  font: inherit;
+  font-size: 0.84rem;
+  color: var(--tim-foreground);
+  background: var(--tim-white);
+}
+.ait-req__go {
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.ait-req__done {
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--tim-green);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-green-bg);
+  color: var(--tim-green);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+.ait-req__dismiss {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--tim-muted);
+  font: inherit;
+  font-size: 0.76rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.ait-req__hint {
+  font-size: 0.78rem;
+  color: var(--tim-muted);
+}
+.ait-req__error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--tim-red);
+}
+
+/* Organigramme en rangées : chefs de canal, mesure, studio */
+.ait-org__group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: 0.8rem;
+}
+.ait-org__label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+.ait-org__group .ait-org__subs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+
+  > .ait-card {
+    flex: 0 1 13.5rem;
+  }
+}
+.ait-state--bientot {
+  color: var(--tim-indigo);
+  background: var(--tim-indigo-bg);
+}
+
+/* ─── La fiche des canaux ───────────────────────────────────────────────── */
+.ait-score {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.ait-score__headlines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.6rem 0.9rem 0.6rem 1.8rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 0.86rem;
+  color: var(--tim-foreground);
+}
+.ait-score__scroll {
+  overflow-x: auto;
+}
+.ait-score__table td {
+  font-variant-numeric: tabular-nums;
+}
+.ait-score__channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.ait-score__rate {
+  color: var(--tim-muted);
+}
+.ait-score__best td {
+  background: var(--tim-green-bg);
+}
+.ait-score__trend--good {
+  color: var(--tim-green);
+  font-weight: 700;
+}
+.ait-score__trend--bad {
+  color: var(--tim-red);
+  font-weight: 700;
+}
+.ait-score__budgets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.84rem;
+  color: var(--tim-foreground);
+
+  a {
+    color: var(--tim-primary);
+    font-weight: 700;
+  }
+}
+
+/* La revue du lundi : le rendez-vous, et le bouton pour la lancer tout de suite */
+.ait-review {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.9rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 0.86rem;
+  color: var(--tim-foreground);
+}
+.ait-review__btn {
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--tim-primary);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+  color: var(--tim-primary);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.7;
+  }
+}
+.ait-review__msg {
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+}

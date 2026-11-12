@@ -722,3 +722,8 @@
 .ads-followup__q { margin: 0; font-weight: 600; }
 .ads-followup__a { margin: 0.35rem 0 0; white-space: pre-line; line-height: 1.5; }
 
+
+/* Onglet « Agent » d'une campagne : le renvoi vers Équipe IA (les agents se pilotent là-bas). */
+.ads-agent-link { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 1rem; padding: 0.85rem 1rem; border: 1px solid var(--tim-border); border-radius: 0.75rem; background: var(--tim-surface); font-size: 0.88rem; color: var(--tim-muted); }
+.ads-agent-link strong { color: var(--tim-foreground); }
+.ads-agent-link a { color: var(--tim-primary-dark); font-weight: 700; }

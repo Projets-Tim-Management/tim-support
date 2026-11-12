@@ -5,6 +5,7 @@ import { payloadClient } from "@/core/payload-client";
 import { scheduleFollowUps } from "@/modules/ads/agent/followup";
 import { tickDueRuns } from "@/modules/ads/agent/run";
 import { maybeSendWeeklyRecap } from "@/modules/ads/lib/weekly-recap";
+import { runWeeklyReview } from "@/modules/ai-team/lib/review";
 
 /**
  * Chaque minute : lance les passages de SUIVI dus sur les campagnes en ligne
@@ -35,7 +36,10 @@ export async function GET(req: Request) {
   // Le récapitulatif du lundi, une fois les passages du lundi finis (décision du 29/10/2026).
   const recap = await maybeSendWeeklyRecap(payload).catch((e) => (payload.logger.error(`[publicité] récap du lundi : ${(e as Error).message}`), "echec" as const));
   if (recap === "envoye" || recap === "echec") payload.logger.info(`[publicité] récap du lundi : ${recap}.`);
+  // La revue du lundi de Margaux (directrice SEA), après les passages du lundi de Camille (Équipe IA, 12/11/2026).
+  const review = await runWeeklyReview(payload).catch((e) => ({ status: "echec" as const, message: (e as Error).message }));
+  if (review.status === "faite" || review.status === "echec") payload.logger.info(`[équipe IA] revue du lundi : ${review.status}${review.message ? ` (${review.message})` : ""}.`);
   const done = await tickDueRuns(payload, new Date(start + (maxDuration - 20) * 1000));
   if (done.length) payload.logger.info(`[cron] agents de campagne : ${done.map((d) => `${d.run} → ${typeof d.result === "string" ? d.result : d.result.outcome}`).join(", ")}`);
-  return NextResponse.json({ ok: true, scheduled, recap, done });
+  return NextResponse.json({ ok: true, scheduled, recap, review: review.status, done });
 }
