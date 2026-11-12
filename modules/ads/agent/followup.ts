@@ -141,7 +141,8 @@ export async function scheduleFollowUps(payload: Payload, now = new Date()): Pro
  */
 export async function launchFollowUp(payload: Payload, c: { id: Id; name: string }, kind: FollowUpKind, budgetEur: number, now: Date): Promise<Id | null> {
   const { loadNotebook } = await import("@/modules/ads/agent/run");
-  const notebook = await loadNotebook(payload, c.id, now);
+  const { loadMethodsPhoto } = await import("@/modules/ai-team/lib/methods-photo");
+  const [notebook, methods] = await Promise.all([loadNotebook(payload, c.id, now), loadMethodsPhoto(payload)]);
   const mission = missionOf(kind, c.name);
   const run = await payload.create({
     collection: "ad-agent-runs",
@@ -152,6 +153,7 @@ export async function launchFollowUp(payload: Payload, c: { id: Id; name: string
       status: "en-cours",
       instructionsRead: notebook.instructions,
       learningsRead: notebook.learnings,
+      methodsRead: methods,
       budgetEur,
       costEur: 0,
       startedAt: now.toISOString(),

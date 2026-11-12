@@ -13,7 +13,7 @@ import { cached, httpError, missingEnv, type SourceResult } from "@/modules/anal
  * Une clé d'API gratuite (Google Cloud → « PageSpeed Insights API ») suffit.
  */
 
-export const PSI_ENV = ["PAGESPEED_API_KEY"];
+const PSI_ENV = ["PAGESPEED_API_KEY"];
 const TTL = 24 * 3600_000;
 
 /** Les pages auditées : `SEO_KEY_URLS` (virgules), sinon l'accueil du site Search Console. */

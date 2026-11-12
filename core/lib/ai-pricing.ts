@@ -24,6 +24,9 @@ export const CLAUDE_PRICES = {
 
 export type ClaudeModel = keyof typeof CLAUDE_PRICES;
 
+/** La recherche web de Claude : 10 $ les 1 000 recherches (grille publique relevée le 12/11/2026), en plus des tokens des pages lues. */
+export const WEB_SEARCH_USD = 0.01;
+
 export type Usage = { input: number; output: number; cacheRead: number; cacheWrite: number };
 
 export function claudeCostUsd(model: ClaudeModel, u: Usage): number {

@@ -1,7 +1,7 @@
-import { cached, httpError, missingEnv, type SourceResult } from "@/modules/analytics/lib/seo-cache";
-import { googleAccessToken } from "@/modules/analytics/lib/seo-google-auth";
-import { delta, lastMonths, type Delta } from "@/modules/analytics/lib/growth";
-import { ENGINES, type Engine } from "@/modules/analytics/lib/seo-sources";
+import { loadSource, type SourceResult } from "@/modules/analytics/lib/seo-cache";
+import { googlePost } from "@/modules/analytics/lib/seo-google-auth";
+import { delta, lastMonths, periodBounds, type Delta } from "@/modules/analytics/lib/growth";
+import { ENGINE_ORDER, ENGINES, engineOf, hostMatches, type Engine } from "@/modules/analytics/lib/seo-sources";
 
 /**
  * GA4 en LECTURE (Data API) — ce que les formulaires ne voient pas : toutes
@@ -20,7 +20,7 @@ import { ENGINES, type Engine } from "@/modules/analytics/lib/seo-sources";
  * Le classement (`classifyGa4Source`) et l'agrégation (`buildGa4`) sont purs.
  */
 
-export const GA4_ENV = ["GA4_PROPERTY_ID"];
+const GA4_ENV = ["GA4_PROPERTY_ID", "GSC_SERVICE_ACCOUNT_JSON"];
 const TTL = 6 * 3600_000;
 
 /** Les mediums d'un clic acheté : jamais du SEO ni du GEO (chatgpt / cpc, c'est ChatGPT Ads). */
@@ -43,7 +43,7 @@ export function classifyGa4Source(source: string, medium: string): Engine | null
       e.utm?.includes(host) ||
       e.hosts.some(
         (h) =>
-          (h.endsWith(".") ? host === h.slice(0, -1) || host.startsWith(h) || host.includes(`.${h}`) : host === h || host.endsWith(`.${h}`)) ||
+          hostMatches(host, h) ||
           // GA4 nomme les moteurs sans domaine (« bing », « duckduckgo ») — raccourci réservé aux moteurs :
           // pour une IA, « x » (x.ai) ou « meta » (meta.ai) désigneraient à tort un réseau social.
           (e.kind === "search" && host === h.split(".")[0]),
@@ -52,7 +52,7 @@ export function classifyGa4Source(source: string, medium: string): Engine | null
   if (hit) {
     // Un moteur n'est du SEO qu'en organique ou en référent ; une IA, quel que soit le medium non payant.
     if (hit.kind === "search" && med !== "organic" && med !== "referral") return null;
-    return { key: hit.key, label: hit.label, kind: hit.kind };
+    return engineOf(hit);
   }
   if (med === "ai-assistant") return { key: host, label: host, kind: "ai" };
   if (med === "organic") return { key: host, label: host, kind: "search" };
@@ -122,7 +122,6 @@ export function buildGa4(rows: Ga4Row[], pages: Ga4PageRow[], months: number, no
   };
 
   const totals = (t: { s: number; e: number; k: number; p: number }): Totals => ({ sessions: delta(t.s, t.p), engagedRate: rate(t.e, t.s), keyEvents: t.k });
-  const order = new Map(ENGINES.map((e, i) => [e.key, i]));
   return {
     search: totals(sum.search),
     ai: totals(sum.ai),
@@ -130,7 +129,7 @@ export function buildGa4(rows: Ga4Row[], pages: Ga4PageRow[], months: number, no
     sources: [...stats.values()]
       .filter((s) => s.sessions || s.prev)
       .map(({ prev, ...s }) => ({ ...s, label: byKey.get(s.key)?.label ?? s.label, delta: delta(s.sessions, prev) }))
-      .sort((a, b) => b.sessions - a.sessions || (order.get(a.key) ?? 99) - (order.get(b.key) ?? 99)),
+      .sort((a, b) => b.sessions - a.sessions || (ENGINE_ORDER.get(a.key) ?? 99) - (ENGINE_ORDER.get(b.key) ?? 99)),
     aiPages: pageStats("ai"),
     searchPages: pageStats("search"),
   };
@@ -138,66 +137,43 @@ export function buildGa4(rows: Ga4Row[], pages: Ga4PageRow[], months: number, no
 
 /* ─── Appels ──────────────────────────────────────────────────────────────── */
 
-type ReportJson = { rows?: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }[] };
+type ReportJson = { rowCount?: number; rows?: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }[] };
 
-async function runReport(body: Record<string, unknown>): Promise<ReportJson> {
-  const id = process.env.GA4_PROPERTY_ID!.trim();
-  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${encodeURIComponent(id)}:runReport`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${await googleAccessToken()}`, "content-type": "application/json" },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
-  if (!res.ok) throw await httpError(res, "GA4");
-  return (await res.json()) as ReportJson;
+const runReport = (body: Record<string, unknown>) =>
+  googlePost<ReportJson>(`https://analyticsdata.googleapis.com/v1beta/properties/${encodeURIComponent(process.env.GA4_PROPERTY_ID!.trim())}:runReport`, body, "GA4");
+
+const PAGE = 10_000;
+/** Au-delà, on s'arrête : 50 000 lignes couvrent largement le site, et une boucle sans fin coûterait le quota. */
+const MAX_ROWS = 50_000;
+
+/** Un rapport en entier : GA4 rend 10 000 lignes par page, et dit combien il y en a (`rowCount`). */
+async function runFullReport(body: Record<string, unknown>): Promise<NonNullable<ReportJson["rows"]>> {
+  const rows: NonNullable<ReportJson["rows"]> = [];
+  for (let offset = 0; offset < MAX_ROWS; offset += PAGE) {
+    const j = await runReport({ ...body, limit: PAGE, offset });
+    rows.push(...(j.rows ?? []));
+    if (!j.rows?.length || rows.length >= (j.rowCount ?? 0)) break;
+  }
+  return rows;
 }
 
 const METRICS = [{ name: "sessions" }, { name: "engagedSessions" }, { name: "keyEvents" }];
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const iso = (t: number | Date) => new Date(t).toISOString().slice(0, 10);
 const num = (v: string) => Math.round(Number(v) || 0);
+type Row = NonNullable<ReportJson["rows"]>[number];
+const metricsOf = (r: Row) => ({ sessions: num(r.metricValues[0].value), engaged: num(r.metricValues[1].value), keyEvents: num(r.metricValues[2].value) });
 
 export async function loadGa4(months: number, now: Date): Promise<SourceResult<Ga4Analytics>> {
-  const missing = missingEnv([...GA4_ENV, "GSC_SERVICE_ACCOUNT_JSON"]);
-  if (missing.length) return { status: "missing", missing };
-  try {
-    return await cached(`ga4:${process.env.GA4_PROPERTY_ID}:${months}:${iso(now)}`, TTL, async () => {
-      const prevFrom = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2 * months + 1, 1));
-      const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months + 1, 1));
-      const [bySource, byPage] = await Promise.all([
-        runReport({
-          dateRanges: [{ startDate: iso(prevFrom), endDate: "yesterday" }],
-          dimensions: [{ name: "yearMonth" }, { name: "sessionSource" }, { name: "sessionMedium" }],
-          metrics: METRICS,
-          limit: 10000,
-        }),
-        runReport({
-          dateRanges: [{ startDate: iso(from), endDate: "yesterday" }],
-          dimensions: [{ name: "landingPage" }, { name: "sessionSource" }, { name: "sessionMedium" }],
-          metrics: METRICS,
-          limit: 10000,
-        }),
-      ]);
-      const rows: Ga4Row[] = (bySource.rows ?? []).map((r) => ({
-        month: r.dimensionValues[0].value,
-        source: r.dimensionValues[1].value,
-        medium: r.dimensionValues[2].value,
-        sessions: num(r.metricValues[0].value),
-        engaged: num(r.metricValues[1].value),
-        keyEvents: num(r.metricValues[2].value),
-      }));
-      const pages: Ga4PageRow[] = (byPage.rows ?? []).map((r) => ({
-        page: r.dimensionValues[0].value || "/",
-        source: r.dimensionValues[1].value,
-        medium: r.dimensionValues[2].value,
-        sessions: num(r.metricValues[0].value),
-        engaged: num(r.metricValues[1].value),
-        keyEvents: num(r.metricValues[2].value),
-      }));
-      return { status: "ok" as const, data: buildGa4(rows, pages, months, now), fetchedAt: new Date().toISOString() };
-    });
-  } catch (e) {
-    return { status: "error", message: e instanceof Error ? e.message : String(e) };
-  }
+  return loadSource(GA4_ENV, `ga4:${process.env.GA4_PROPERTY_ID}:${months}:${iso(now)}`, TTL, async () => {
+    const { from, prevFrom } = periodBounds(months, now);
+    const [bySource, byPage] = await Promise.all([
+      runFullReport({ dateRanges: [{ startDate: iso(prevFrom), endDate: "yesterday" }], dimensions: [{ name: "yearMonth" }, { name: "sessionSource" }, { name: "sessionMedium" }], metrics: METRICS }),
+      runFullReport({ dateRanges: [{ startDate: iso(from), endDate: "yesterday" }], dimensions: [{ name: "landingPage" }, { name: "sessionSource" }, { name: "sessionMedium" }], metrics: METRICS }),
+    ]);
+    const rows: Ga4Row[] = bySource.map((r) => ({ month: r.dimensionValues[0].value, source: r.dimensionValues[1].value, medium: r.dimensionValues[2].value, ...metricsOf(r) }));
+    const pages: Ga4PageRow[] = byPage.map((r) => ({ page: r.dimensionValues[0].value || "/", source: r.dimensionValues[1].value, medium: r.dimensionValues[2].value, ...metricsOf(r) }));
+    return buildGa4(rows, pages, months, now);
+  });
 }
 
 /** Le test de la page Connexions : les visites d'hier, la requête la plus légère. */

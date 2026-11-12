@@ -1,5 +1,6 @@
 import type { Payload } from "payload";
 
+import { idOf } from "@/core/lib/relations";
 import { decisionSummary } from "@/modules/ads/agent/control-room";
 import { cleanSteps, type RequestKind } from "@/modules/ai-team/lib/requests";
 
@@ -17,8 +18,6 @@ import { cleanSteps, type RequestKind } from "@/modules/ai-team/lib/requests";
  */
 
 type Raw = Record<string, unknown>;
-type Id = number | string;
-const idOf = (v: unknown): Id | null => (v && typeof v === "object" ? ((v as { id?: Id }).id ?? null) : ((v as Id | null) ?? null));
 
 export type InboxItem = {
   id: string;

@@ -1,5 +1,8 @@
-import { cached, httpError, missingEnv, type SourceResult } from "@/modules/analytics/lib/seo-cache";
-import { googleAccessToken } from "@/modules/analytics/lib/seo-google-auth";
+import { dayKey } from "@/core/lib/dates";
+import { escapeRegExp, money, num, round2 as r2 } from "@/core/lib/numbers";
+import { periodBounds } from "@/modules/analytics/lib/growth";
+import { loadSource, type SourceResult } from "@/modules/analytics/lib/seo-cache";
+import { googlePost } from "@/modules/analytics/lib/seo-google-auth";
 
 /**
  * Google Ads en LECTURE — ce que lit Thomas, chef Google Ads de l'équipe IA
@@ -18,34 +21,23 @@ import { googleAccessToken } from "@/modules/analytics/lib/seo-google-auth";
  * `buildGoogleAds` est pur (testé) ; `loadGoogleAds` interroge l'API.
  */
 
-export const GOOGLE_ADS_ENV = ["GOOGLE_ADS_CUSTOMER_ID"];
+const GOOGLE_ADS_ENV = ["GOOGLE_ADS_CUSTOMER_ID", "GSC_SERVICE_ACCOUNT_JSON"];
 const VERSION_DEFAULT = "v24";
 const TTL = 3 * 3600_000;
 
 type Row = Record<string, Record<string, unknown> | undefined>;
-const num = (v: unknown) => (typeof v === "number" ? v : typeof v === "string" ? Number(v) || 0 : 0);
 const micros = (v: unknown) => Math.round(num(v) / 10_000) / 100;
-const r2 = (n: number) => Math.round(n * 100) / 100;
 
 const customerId = () => (process.env.GOOGLE_ADS_CUSTOMER_ID ?? "").replace(/\D/g, "");
 
 async function search(query: string): Promise<Row[]> {
   const version = process.env.GOOGLE_ADS_API_VERSION?.trim() || VERSION_DEFAULT;
-  const headers: Record<string, string> = { authorization: `Bearer ${await googleAccessToken()}`, "content-type": "application/json" };
   const login = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/\D/g, "");
-  if (login) headers["login-customer-id"] = login;
+  const url = `https://googleads.googleapis.com/${version}/customers/${customerId()}/googleAds:search`;
   const out: Row[] = [];
   let pageToken: string | undefined;
   do {
-    const res = await fetch(`https://googleads.googleapis.com/${version}/customers/${customerId()}/googleAds:search`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ query, ...(pageToken ? { pageToken } : {}) }),
-      cache: "no-store",
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!res.ok) throw await httpError(res, "Google Ads");
-    const j = (await res.json()) as { results?: Row[]; nextPageToken?: string };
+    const j = await googlePost<{ results?: Row[]; nextPageToken?: string }>(url, { query, ...(pageToken ? { pageToken } : {}) }, "Google Ads", login ? { headers: { "login-customer-id": login } } : {});
     out.push(...(j.results ?? []));
     pageToken = j.nextPageToken;
   } while (pageToken && out.length < 5000);
@@ -72,14 +64,19 @@ export type GoogleAdsView = {
   findings: string[];
 };
 
-const eur = (n: number) => `${n.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €`;
+const eur = (n: number) => money(n);
 
 /** Le concurrent suivi dont le nom figure dans la recherche (insensible à la casse et aux accents). */
 const fold = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-export const competitorIn = (term: string, competitors: string[]): string | null => {
-  const t = ` ${fold(term)} `;
-  return competitors.find((c) => c.trim().length >= 3 && new RegExp(`[^a-z0-9]${fold(c).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^a-z0-9]`).test(t)) ?? null;
+/** Les expressions des concurrents, compilées une fois (et non par recherche × concurrent). */
+const competitorMatcher = (competitors: string[]) => {
+  const res = competitors.filter((c) => c.trim().length >= 3).map((c) => ({ c, re: new RegExp(`[^a-z0-9]${escapeRegExp(fold(c))}[^a-z0-9]`) }));
+  return (term: string): string | null => {
+    const t = ` ${fold(term)} `;
+    return res.find((x) => x.re.test(t))?.c ?? null;
+  };
 };
+export const competitorIn = (term: string, competitors: string[]): string | null => competitorMatcher(competitors)(term);
 
 export function buildGoogleAds(raw: { monthly: Row[]; campaigns: Row[]; terms: Row[]; keywords: Row[]; conversionActions: Row[]; competitors: string[] }): GoogleAdsView {
   const spendByMonth: Record<string, number> = {};
@@ -108,10 +105,11 @@ export function buildGoogleAds(raw: { monthly: Row[]; campaigns: Row[]; terms: R
     .filter((c) => c.status !== "Supprimée" || c.cost > 0)
     .sort((a, b) => b.cost - a.cost);
 
+  const competitorOf = competitorMatcher(raw.competitors);
   const searchTerms: GaTerm[] = raw.terms
     .map((r) => {
       const term = String(r.searchTermView?.searchTerm ?? "");
-      return { term, cost: micros(r.metrics?.costMicros), clicks: num(r.metrics?.clicks), conversions: num(r.metrics?.conversions), competitor: competitorIn(term, raw.competitors) };
+      return { term, cost: micros(r.metrics?.costMicros), clicks: num(r.metrics?.clicks), conversions: num(r.metrics?.conversions), competitor: competitorOf(term) };
     })
     .filter((t) => t.term)
     .sort((a, b) => b.cost - a.cost);
@@ -163,28 +161,29 @@ export function buildGoogleAds(raw: { monthly: Row[]; campaigns: Row[]; terms: R
   return { spendByMonth, last30, campaigns, searchTerms: searchTerms.slice(0, 40), keywords: keywords.slice(0, 30), activeConversionActions, findings };
 }
 
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
 
-/** Le compte Google Ads : 30 derniers jours en détail, et la dépense mois par mois sur `months` × 2 mois. */
+/**
+ * Le compte Google Ads : 30 derniers jours en détail, et la dépense mois par
+ * mois sur `months` × 2 mois. Ce qui se lit chez Google est gardé 3 heures ;
+ * les concurrents s'appliquent APRÈS le cache — une liste modifiée compte tout
+ * de suite (relecture du 12/11/2026).
+ */
 export async function loadGoogleAds(competitors: string[], months = 3, now = new Date()): Promise<SourceResult<GoogleAdsView>> {
-  const missing = missingEnv([...GOOGLE_ADS_ENV, "GSC_SERVICE_ACCOUNT_JSON"]);
-  if (missing.length) return { status: "missing", missing };
-  try {
-    return await cached(`gads:${customerId()}:${months}:${iso(now)}:${now.getUTCHours() >> 2}`, TTL, async () => {
-      const from = iso(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2 * months + 1, 1)));
-      const to = iso(now);
-      const [monthly, campaigns, terms, keywords, conversionActions] = await Promise.all([
-        search(`SELECT segments.month, metrics.cost_micros FROM customer WHERE segments.date BETWEEN '${from}' AND '${to}'`),
-        search("SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, campaign_budget.amount_micros, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions FROM campaign WHERE segments.date DURING LAST_30_DAYS"),
-        search("SELECT search_term_view.search_term, metrics.cost_micros, metrics.clicks, metrics.conversions FROM search_term_view WHERE segments.date DURING LAST_30_DAYS ORDER BY metrics.cost_micros DESC LIMIT 200"),
-        search("SELECT ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status, ad_group_criterion.quality_info.quality_score, metrics.cost_micros, metrics.clicks, metrics.conversions FROM keyword_view WHERE segments.date DURING LAST_30_DAYS ORDER BY metrics.cost_micros DESC LIMIT 100"),
-        search("SELECT conversion_action.name, conversion_action.status FROM conversion_action"),
-      ]);
-      return { status: "ok" as const, data: buildGoogleAds({ monthly, campaigns, terms, keywords, conversionActions, competitors }), fetchedAt: new Date().toISOString() };
-    });
-  } catch (e) {
-    return { status: "error", message: e instanceof Error ? e.message : String(e) };
-  }
+  // Le jour de fin est celui de Paris (le fuseau du compte) : entre minuit et 2 h, le jour UTC serait la veille.
+  const to = dayKey(now);
+  const raw = await loadSource(GOOGLE_ADS_ENV, `gads:${customerId()}:${months}:${to}`, TTL, async () => {
+    const from = iso(periodBounds(months, now).prevFrom);
+    const [monthly, campaigns, terms, keywords, conversionActions] = await Promise.all([
+      search(`SELECT segments.month, metrics.cost_micros FROM customer WHERE segments.date BETWEEN '${from}' AND '${to}'`),
+      search("SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, campaign_budget.amount_micros, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions FROM campaign WHERE segments.date DURING LAST_30_DAYS"),
+      search("SELECT search_term_view.search_term, metrics.cost_micros, metrics.clicks, metrics.conversions FROM search_term_view WHERE segments.date DURING LAST_30_DAYS ORDER BY metrics.cost_micros DESC LIMIT 200"),
+      search("SELECT ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status, ad_group_criterion.quality_info.quality_score, metrics.cost_micros, metrics.clicks, metrics.conversions FROM keyword_view WHERE segments.date DURING LAST_30_DAYS ORDER BY metrics.cost_micros DESC LIMIT 100"),
+      search("SELECT conversion_action.name, conversion_action.status FROM conversion_action"),
+    ]);
+    return { monthly, campaigns, terms, keywords, conversionActions };
+  });
+  return raw.status === "ok" ? { ...raw, data: buildGoogleAds({ ...raw.data, competitors }) } : raw;
 }
 
 /** Le test de la page Connexions : le nom du compte, la requête la plus légère. */

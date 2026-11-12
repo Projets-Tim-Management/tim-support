@@ -55,7 +55,7 @@ const hostOf = (url: string | null | undefined): string | null => {
 };
 
 /** « google. » correspond à google.fr, google.com… ; « bing.com » à bing.com et cn.bing.com. */
-const hostMatches = (host: string, pattern: string) =>
+export const hostMatches = (host: string, pattern: string) =>
   pattern.endsWith(".") ? host === pattern.slice(0, -1) || host.startsWith(pattern) || host.includes(`.${pattern}`) : host === pattern || host.endsWith(`.${pattern}`);
 
 export type SourceRow = {
@@ -73,6 +73,12 @@ export type SourceRow = {
   sourcePagePath?: string | null;
 };
 
+/** Un moteur tel qu'on le rend (sans ses domaines ni ses étiquettes de lien). */
+export const engineOf = (e: { key: string; label: string; kind: Engine["kind"] }): Engine => ({ key: e.key, label: e.label, kind: e.kind });
+
+/** L'ordre d'affichage des moteurs, pour départager à égalité. */
+export const ENGINE_ORDER = new Map(ENGINES.map((e, i) => [e.key, i]));
+
 /** Le moteur ou l'assistant d'un lead non payé — null s'il ne vient ni de l'un ni de l'autre. */
 export function classifySource(r: SourceRow): Engine | null {
   if (PAID_CHANNELS.has(r.channel ?? "") || r.gclid || r.msclkid || r.oaiclid || r.fbclid) return null;
@@ -81,12 +87,12 @@ export function classifySource(r: SourceRow): Engine | null {
   const utm = r.utmSource?.trim().toLowerCase();
   if (utm) {
     const hit = ENGINES.find((e) => e.utm?.includes(utm));
-    if (hit) return { key: hit.key, label: hit.label, kind: hit.kind };
+    if (hit) return engineOf(hit);
   }
   const host = hostOf(r.referrer);
   if (!host) return null;
   const hit = ENGINES.find((e) => e.hosts.some((h) => hostMatches(host, h)));
-  return hit ? { key: hit.key, label: hit.label, kind: hit.kind } : null;
+  return hit ? engineOf(hit) : null;
 }
 
 export type LeadClient = { formSubmission?: number | string | { id: number | string } | null; clientStatus?: string | null };
@@ -152,11 +158,10 @@ export function buildOrganicAnalytics(rows: SourceRow[], clients: LeadClient[], 
     pages.set(path, p);
   }
 
-  const order = new Map(ENGINES.map((e, i) => [e.key, i]));
   const engines = [...stats.values()]
     .filter((s) => s.leads || s.prev)
     .map(({ prev: p, ...s }) => ({ ...s, conversion: s.leads ? Math.round((s.won / s.leads) * 1000) / 10 : null, delta: delta(s.leads, p) }))
-    .sort((a, b) => b.leads - a.leads || order.get(a.key)! - order.get(b.key)!);
+    .sort((a, b) => b.leads - a.leads || ENGINE_ORDER.get(a.key)! - ENGINE_ORDER.get(b.key)!);
   const organic = cur.search + cur.ai;
 
   return {

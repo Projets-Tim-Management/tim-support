@@ -1,4 +1,5 @@
 import type { Tone } from "@/modules/ads/lib/dimensions";
+import { escapeRegExp } from "@/core/lib/numbers";
 
 /**
  * Les garde-fous des textes publicitaires (plan Publicité, D9 et §9 ter).
@@ -36,7 +37,6 @@ export function checkLength(kind: TextKind, text: string): string | null {
   return n > max ? `${n} caractères, au-delà de la limite de ${max}.` : null;
 }
 
-const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export function checkForbidden(text: string, terms: string[]): string | null {
   const t = normalize(text);
@@ -44,7 +44,7 @@ export function checkForbidden(text: string, terms: string[]): string | null {
     const n = normalize(term.trim());
     if (!n) continue;
     // Bornes de mot, pour que « top » n'attrape pas « stop ».
-    if (new RegExp(`(^|[^\\p{L}\\p{N}])${escape(n)}($|[^\\p{L}\\p{N}])`, "u").test(t)) return `Mention interdite : « ${term.trim()} ».`;
+    if (new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(n)}($|[^\\p{L}\\p{N}])`, "u").test(t)) return `Mention interdite : « ${term.trim()} ».`;
   }
   return null;
 }

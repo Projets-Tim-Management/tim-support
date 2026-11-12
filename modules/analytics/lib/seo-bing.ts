@@ -1,5 +1,5 @@
-import { cached, httpError, missingEnv, type SourceResult } from "@/modules/analytics/lib/seo-cache";
-import { lastMonths } from "@/modules/analytics/lib/growth";
+import { httpError, loadSource, missingEnv, type SourceResult } from "@/modules/analytics/lib/seo-cache";
+import { lastMonths, periodBounds } from "@/modules/analytics/lib/growth";
 import { monthStart } from "@/modules/partner/lib/month";
 
 /**
@@ -15,7 +15,7 @@ import { monthStart } from "@/modules/partner/lib/month";
  * qu'elle se branche.
  */
 
-export const BING_ENV = ["BING_WEBMASTER_API_KEY"];
+const BING_ENV = ["BING_WEBMASTER_API_KEY"];
 const TTL = 6 * 3600_000;
 const BASE = "https://ssl.bing.com/webmaster/api.svc/json";
 
@@ -47,15 +47,16 @@ export type BingAnalytics = {
 };
 
 export function buildBing(traffic: Traffic[], rows: QueryRow[], months: number, now: Date): BingAnalytics {
-  const from = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months + 1, 1);
+  const { from } = periodBounds(months, now);
   const monthly = new Map(lastMonths(months, now).map((m) => [m, { month: m, clicks: 0, impressions: 0 }]));
   let clicks = 0;
   let impressions = 0;
   let periodDays = 0;
-  const known = traffic.map((t) => bingDate(t.Date)).filter((d) => Number.isFinite(d));
+  // Chaque date lue une fois.
+  const dated = traffic.map((t) => ({ t, d: bingDate(t.Date) }));
+  const known = dated.map((x) => x.d).filter((d) => Number.isFinite(d));
   const last = known.length ? Math.max(...known) : null;
-  for (const t of traffic) {
-    const d = bingDate(t.Date);
+  for (const { t, d } of dated) {
     if (!(d >= from)) continue;
     periodDays += 1;
     clicks += t.Clicks;
@@ -91,17 +92,12 @@ export function buildBing(traffic: Traffic[], rows: QueryRow[], months: number, 
 }
 
 export async function loadBing(months: number, now: Date): Promise<SourceResult<BingAnalytics>> {
-  const missing = missingEnv(BING_ENV);
-  if (!siteUrl()) missing.push("BING_SITE_URL");
-  if (missing.length) return { status: "missing", missing };
-  try {
-    return await cached(`bing:${siteUrl()}:${months}:${now.toISOString().slice(0, 10)}`, TTL, async () => {
-      const [traffic, rows] = await Promise.all([call<Traffic>("GetRankAndTrafficStats"), call<QueryRow>("GetQueryStats")]);
-      return { status: "ok" as const, data: buildBing(traffic, rows, months, now), fetchedAt: new Date().toISOString() };
-    });
-  } catch (e) {
-    return { status: "error", message: e instanceof Error ? e.message : String(e) };
-  }
+  // L'adresse du site peut venir d'une autre variable (siteUrl) : elle se vérifie à part.
+  if (!siteUrl()) return { status: "missing", missing: [...missingEnv(BING_ENV), "BING_SITE_URL"] };
+  return loadSource(BING_ENV, `bing:${siteUrl()}:${months}:${now.toISOString().slice(0, 10)}`, TTL, async () => {
+    const [traffic, rows] = await Promise.all([call<Traffic>("GetRankAndTrafficStats"), call<QueryRow>("GetQueryStats")]);
+    return buildBing(traffic, rows, months, now);
+  });
 }
 
 export async function pingBing(): Promise<string> {

@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { RunNowButton } from "@/modules/ai-team/admin/RunNowButton";
 
 /**
  * « Lancer la revue maintenant » : la revue du lundi de la directrice SEA, à la
@@ -9,33 +8,18 @@ import { useState } from "react";
  * recommandations dans « Vos demandes ».
  */
 export function ReviewButton({ name }: { name: string }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const run = async () => {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/admin/ai-team/review", { method: "POST", credentials: "include" });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; created?: number };
-      if (!res.ok) throw new Error(data.error ?? "La revue n'a pas pu être faite.");
-      setMsg(data.created ? `${data.created} recommandation${data.created > 1 ? "s" : ""} dans « Vos demandes ».` : "Revue faite : rien à vous demander cette fois.");
-      router.refresh();
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "La revue n'a pas pu être faite.");
-    } finally {
-      setBusy(false);
-    }
-  };
   return (
-    <div className="ait-review">
-      <span>
-        📅 <strong>Revue du lundi</strong> : chaque lundi vers 10 h, {name} lit la fiche des canaux et vous dépose ses recommandations.
-      </span>
-      <button type="button" className="ait-review__btn" onClick={run} disabled={busy}>
-        {busy ? `${name} prépare sa revue… (une minute environ)` : "Lancer la revue maintenant"}
-      </button>
-      {msg && <span className="ait-review__msg">{msg}</span>}
-    </div>
+    <RunNowButton<{ created?: number }>
+      url="/api/admin/ai-team/review"
+      intro={
+        <>
+          📅 <strong>Revue du lundi</strong> : chaque lundi vers 10 h, {name} lit la fiche des canaux et vous dépose ses recommandations.
+        </>
+      }
+      label="Lancer la revue maintenant"
+      busyLabel={`${name} prépare sa revue… (une minute environ)`}
+      done={(d) => (d.created ? `${d.created} recommandation${d.created > 1 ? "s" : ""} dans « Vos demandes ».` : "Revue faite : rien à vous demander cette fois.")}
+      failed="La revue n'a pas pu être faite."
+    />
   );
 }

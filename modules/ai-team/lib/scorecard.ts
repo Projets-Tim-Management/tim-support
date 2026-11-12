@@ -4,6 +4,9 @@ import { channelSpend } from "@/modules/analytics/lib/acquisition";
 import { loadExpenses } from "@/modules/analytics/lib/expenses-load";
 import { clientStatusMeta } from "@/modules/partner/lib/clientStatus";
 import { platformLabel } from "@/modules/ads/lib/platforms";
+import { idOf } from "@/core/lib/relations";
+import { r2 } from "@/modules/ai-team/lib/format";
+import { loadCompetitorNames } from "@/modules/ai-team/lib/shared-data";
 import { loadGoogleAds } from "@/modules/analytics/lib/google-ads";
 import { loadOpenAiAds } from "@/modules/analytics/lib/openai-ads";
 
@@ -31,8 +34,6 @@ import { loadOpenAiAds } from "@/modules/analytics/lib/openai-ads";
 
 type Raw = Record<string, unknown>;
 type Id = number | string;
-const idOf = (v: unknown): Id | null => (v && typeof v === "object" ? ((v as { id?: Id }).id ?? null) : ((v as Id | null) ?? null));
-const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Les étapes qui valent « lead qualifié » : la démo, et tout ce qui la suit. */
 export const QUALIFIED_STATUSES = ["demo-programmee", "attente-engagement", "en-test", "en-signature", "actif", "resilie"] as const;
@@ -42,7 +43,7 @@ const QUALIFIED = new Set<string>(QUALIFIED_STATUSES);
 const QUALIFIED_LABELS = new Set(QUALIFIED_STATUSES.map((s) => clientStatusMeta(s)?.label ?? s));
 
 /** Les canaux de la fiche, et les canaux de formulaire qu'ils regroupent. */
-export const SCORE_CHANNELS = [
+const SCORE_CHANNELS = [
   { key: "meta", label: "Meta Ads", paid: true, channels: ["meta-facebook", "meta-instagram"], owner: "sea-meta" },
   { key: "google", label: "Google Ads", paid: true, channels: ["sea"], owner: "sea-google" },
   { key: "chatgpt", label: "ChatGPT Ads", paid: true, channels: ["chatgpt"], owner: "sea-chatgpt" },
@@ -178,10 +179,7 @@ export function buildScorecard(input: {
 export async function loadScorecard(payload: Payload, months = 3, now = new Date()): Promise<Scorecard> {
   const common = { pagination: false, depth: 0, overrideAccess: true } as const;
   const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2 * months + 1, 1)).toISOString();
-  const competitors = await payload
-    .find({ collection: "ad-competitors", ...common, select: { name: true } as never })
-    .then((r) => (r.docs as unknown as { name?: string }[]).map((c) => String(c.name ?? "")).filter(Boolean))
-    .catch(() => [] as string[]);
+  const competitors = await loadCompetitorNames(payload);
   const [leads, clients, journal, campaigns, meta, exp, gads, oads] = await Promise.all([
     payload.find({ collection: "form-submissions", where: { createdAt: { greater_than_equal: since } }, ...common, select: { channel: true, createdAt: true } as never }),
     payload.find({ collection: "partner-clients", where: { formSubmission: { exists: true } }, ...common, draft: true, select: { formSubmission: true, clientStatus: true } as never }),

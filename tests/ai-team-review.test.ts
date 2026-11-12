@@ -8,7 +8,7 @@ vi.mock("@/modules/ads/lib/spend", async (orig) => ({
 }));
 
 import { AdsBudgetError, assertAdsBudget } from "@/modules/ads/lib/spend";
-import { recoToRequest, runWeeklyReview, type ReviewOutput } from "@/modules/ai-team/lib/review";
+import { isToJudge, recoToRequest, runWeeklyReview, type ReviewOutput } from "@/modules/ai-team/lib/review";
 
 /**
  * La revue du lundi de Margaux : le lundi après 10 h, une fois par semaine,
@@ -18,12 +18,13 @@ import { recoToRequest, runWeeklyReview, type ReviewOutput } from "@/modules/ai-
 const MONDAY_11H = new Date("2026-11-16T10:00:00Z"); // lundi, 11 h à Paris
 const TUESDAY = new Date("2026-11-17T10:00:00Z");
 
-function fakePayload(over: { active?: boolean; busy?: number; done?: number } = {}) {
+function fakePayload(over: { active?: boolean; busy?: number; done?: number; past?: Record<string, unknown>[] } = {}) {
   const created: { collection: string; data: Record<string, unknown> }[] = [];
   const updated: Record<string, unknown>[] = [];
   let id = 1;
   const payload = {
     find: vi.fn(async ({ collection }: { collection: string }) => {
+      if (collection === "ai-team-requests") return { docs: over.past ?? [] };
       if (collection === "ai-team-members") return { docs: [{ id: 1, name: "Margaux", active: over.active ?? true }] };
       if (collection === "ai-team-messages") return { docs: created.filter((c) => c.collection === "ai-team-messages").map((c, i) => ({ id: i + 100, ...c.data })) };
       return { docs: [] };
@@ -37,7 +38,7 @@ function fakePayload(over: { active?: boolean; busy?: number; done?: number } = 
       created.push({ collection, data });
       return { id: collection === "ai-team-messages" ? 100 : id++, ...data };
     }),
-    update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => (updated.push(data), data)),
+    update: vi.fn(async ({ collection, id: target, data }: { collection: string; id: unknown; data: Record<string, unknown> }) => (updated.push({ ...data, _collection: collection, _id: target }), data)),
     delete: vi.fn(async () => ({})),
     logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
   };
@@ -74,8 +75,10 @@ describe("ce que la revue produit", () => {
   it("dépose les recommandations dans « Vos demandes » et la synthèse dans la conversation", async () => {
     const { payload, created, updated } = fakePayload();
     const r = await runWeeklyReview(payload, { now: MONDAY_11H, model: model(), scorecard });
-    expect(r).toEqual({ status: "faite", created: 3 });
+    expect(r).toEqual({ status: "faite", created: 3, judged: 0 });
     const requests = created.filter((c) => c.collection === "ai-team-requests").map((c) => c.data);
+    // Chaque recommandation est suivie : son origine, son canal, et les chiffres du moment (l'« avant »).
+    expect(requests[1]).toMatchObject({ origin: "revue", channel: "google", baseline: { fiche: [] } });
     expect(requests.map((x) => x.kind)).toEqual(["question", "a-faire", "a-faire"]);
     expect(requests[1]).toMatchObject({ url: "https://ads.google.com/aw/keywords/negative", why: "Google Ads — 11 clics sans démo sur « logiciel gratuit »." });
     // Un lien hors liste ne passe pas : la recommandation part sans lien.
@@ -92,6 +95,42 @@ describe("ce que la revue produit", () => {
     const r = await runWeeklyReview(payload, { now: MONDAY_11H, model: model(), scorecard });
     expect(r.status).toBe("echec");
     expect(String(updated.at(-1)!.text)).toMatch(/je n'ai pas pu faire ma revue \(Budget IA du mois/);
+  });
+});
+
+describe("Margaux juge ses recommandations passées", () => {
+  const DAY = 86_400_000;
+  const past = (over: Record<string, unknown>) => ({ id: 41, title: "Exclure « gratuit »", channel: "google", status: "faite", closedAt: new Date(MONDAY_11H.getTime() - 20 * DAY).toISOString(), createdAt: "2026-10-20T10:00:00Z", baseline: { fiche: [] }, ...over });
+
+  it("à juger : appliquée ou répondue depuis 14 jours, sans verdict", () => {
+    expect(isToJudge(past({}), MONDAY_11H)).toBe(true);
+    expect(isToJudge(past({ closedAt: new Date(MONDAY_11H.getTime() - 5 * DAY).toISOString() }), MONDAY_11H)).toBe(false);
+    expect(isToJudge(past({ status: "ouverte", closedAt: null }), MONDAY_11H)).toBe(false);
+    expect(isToJudge(past({ status: "retiree" }), MONDAY_11H)).toBe(false);
+    expect(isToJudge(past({ outcome: "a-marche" }), MONDAY_11H)).toBe(false);
+  });
+
+  it("écrit le verdict d'une recommandation à juger, jamais « trop tôt », jamais sur une autre", async () => {
+    const { payload, updated } = fakePayload({ past: [past({}), past({ id: 42, closedAt: new Date(MONDAY_11H.getTime() - 3 * DAY).toISOString() }), past({ id: 43 })] });
+    const judging = vi.fn(async () => ({
+      output: {
+        ...output,
+        recommandations: [],
+        verdicts: [
+          { id: "41", resultat: "a-marche" as const, lecon: "Le coût du clic a baissé de 18 % : exclure les recherches « gratuit » paie chez TIM." },
+          { id: "42", resultat: "a-empire" as const, lecon: "Trop récent, ne doit pas être écrit." },
+          { id: "43", resultat: "trop-tot" as const, lecon: "Trois leads : on rejugera." },
+        ],
+      },
+      usage: { input: 5000, output: 800, cacheRead: 0, cacheWrite: 0 },
+      stopReason: "end_turn",
+    }));
+    const r = await runWeeklyReview(payload, { now: MONDAY_11H, model: judging, scorecard });
+    expect(r).toMatchObject({ status: "faite", judged: 1 });
+    const verdicts = updated.filter((u) => u._collection === "ai-team-requests");
+    expect(verdicts).toHaveLength(1);
+    expect(verdicts[0]).toMatchObject({ _id: "41", outcome: "a-marche" });
+    expect(String(updated.at(-1)!.text)).toContain("1 recommandation passée jugée sur ses résultats");
   });
 });
 

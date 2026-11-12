@@ -33,6 +33,7 @@ const toRun = (d: Record<string, unknown>): RunRow => ({
   error: (d.error as string | null) ?? null,
   instructionsRead: d.instructionsRead ?? null,
   learningsRead: d.learningsRead ?? null,
+  methodsRead: d.methodsRead ?? null,
   kind: (d.kind as RunRow["kind"]) ?? "preparation",
   renewal: Boolean((d.limits as { renouvellement?: boolean } | null)?.renouvellement),
 });

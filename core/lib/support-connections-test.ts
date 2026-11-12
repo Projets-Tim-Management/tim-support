@@ -162,11 +162,39 @@ async function testMeta(payload: Payload): Promise<Omit<TestResult, "at">> {
 }
 
 /** Les trois sources SEO : leur `ping` fait un vrai appel minimal et dit ce qu'il a lu. */
-async function testSeo(ping: () => Promise<string>): Promise<Omit<TestResult, "at">> {
+/**
+ * Les connecteurs de lecture (analyses, équipe IA) : chacun a son « ping », la
+ * lecture la plus légère. Une limite de temps les borne tous — PageSpeed
+ * audite vraiment une page, il a donc plus de temps que les autres.
+ */
+const PINGS = {
+  "search-console": { ping: pingGsc, timeoutMs: 15_000 },
+  pagespeed: { ping: pingPageSpeed, timeoutMs: 60_000 },
+  "bing-webmaster": { ping: pingBing, timeoutMs: 15_000 },
+  "ga4-data": { ping: pingGa4, timeoutMs: 15_000 },
+  "google-ads": { ping: pingGoogleAds, timeoutMs: 15_000 },
+  "openai-ads": { ping: pingOpenAiAds, timeoutMs: 15_000 },
+} satisfies Partial<Record<SupportConnection["key"], { ping: () => Promise<string>; timeoutMs: number }>>;
+
+/**
+ * Un ping, borné. Le message dit ce qui s'est passé : pas de réponse à temps,
+ * service injoignable (réseau), ou la réponse du service — déjà mise en une
+ * phrase par le connecteur (« accès refusé… », « quota dépassé »).
+ */
+async function testPing({ ping, timeoutMs }: { ping: () => Promise<string>; timeoutMs: number }): Promise<Omit<TestResult, "at">> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(Object.assign(new Error("délai dépassé"), { name: "TimeoutError" })), timeoutMs);
+  });
   try {
-    return { ok: true, message: await ping() };
+    return { ok: true, message: await Promise.race([ping(), late]) };
   } catch (e) {
-    return { ok: false, message: failure(e) };
+    const err = e as Error;
+    const message =
+      err.name === "TimeoutError" || err.name === "AbortError" ? `Aucune réponse en ${Math.round(timeoutMs / 1000)} s.` : err.name === "TypeError" ? `Injoignable : ${err.message}` : err.message;
+    return { ok: false, message };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -189,18 +217,8 @@ export async function testConnection(key: SupportConnection["key"], payload: Pay
             ? await testGoogle(payload)
             : key === "meta"
               ? await testMeta(payload)
-              : key === "search-console"
-                ? await testSeo(pingGsc)
-                : key === "pagespeed"
-                  ? await testSeo(pingPageSpeed)
-                  : key === "bing-webmaster"
-                    ? await testSeo(pingBing)
-                    : key === "ga4-data"
-                      ? await testSeo(pingGa4)
-                      : key === "google-ads"
-                        ? await testSeo(pingGoogleAds)
-                        : key === "openai-ads"
-                          ? await testSeo(pingOpenAiAds)
-                          : await testAnthropic();
+              : key in PINGS
+                ? await testPing(PINGS[key as keyof typeof PINGS])
+                : await testAnthropic();
   return { ...r, at };
 }

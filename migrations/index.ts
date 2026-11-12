@@ -189,6 +189,10 @@ import * as migration_20261112_101903_equipe_ia_conversation from './20261112_10
 import * as migration_20261112_103831_equipe_ia_budget_chef from './20261112_103831_equipe_ia_budget_chef';
 import * as migration_20261112_105621_equipe_ia_demandes from './20261112_105621_equipe_ia_demandes';
 import * as migration_20261112_112838_equipe_ia_organisation_sea from './20261112_112838_equipe_ia_organisation_sea';
+import * as migration_20261112_142127_equipe_ia_methodes from './20261112_142127_equipe_ia_methodes';
+import * as migration_20261112_143812_equipe_ia_boucle_de_preuve from './20261112_143812_equipe_ia_boucle_de_preuve';
+import * as migration_20261112_144552_equipe_ia_objectifs from './20261112_144552_equipe_ia_objectifs';
+import * as migration_20261112_145742_equipe_ia_maitrise from './20261112_145742_equipe_ia_maitrise';
 
 export const migrations = [
   {
@@ -1144,6 +1148,26 @@ export const migrations = [
   {
     up: migration_20261112_112838_equipe_ia_organisation_sea.up,
     down: migration_20261112_112838_equipe_ia_organisation_sea.down,
-    name: '20261112_112838_equipe_ia_organisation_sea'
+    name: '20261112_112838_equipe_ia_organisation_sea',
+  },
+  {
+    up: migration_20261112_142127_equipe_ia_methodes.up,
+    down: migration_20261112_142127_equipe_ia_methodes.down,
+    name: '20261112_142127_equipe_ia_methodes',
+  },
+  {
+    up: migration_20261112_143812_equipe_ia_boucle_de_preuve.up,
+    down: migration_20261112_143812_equipe_ia_boucle_de_preuve.down,
+    name: '20261112_143812_equipe_ia_boucle_de_preuve',
+  },
+  {
+    up: migration_20261112_144552_equipe_ia_objectifs.up,
+    down: migration_20261112_144552_equipe_ia_objectifs.down,
+    name: '20261112_144552_equipe_ia_objectifs',
+  },
+  {
+    up: migration_20261112_145742_equipe_ia_maitrise.up,
+    down: migration_20261112_145742_equipe_ia_maitrise.down,
+    name: '20261112_145742_equipe_ia_maitrise'
   },
 ];

@@ -60,6 +60,14 @@ export const AiTeamMembers: CollectionConfig = {
       },
     },
     {
+      // Plus utilisée : la cible fixée par la direction (essai du 12/11/2026) a laissé place au score de
+      // maîtrise (cible 100 pour tous). Colonne gardée — base partagée dev/prod, jamais de suppression.
+      name: "targetValue",
+      type: "number",
+      label: "Cible (ancienne)",
+      admin: { hidden: true },
+    },
+    {
       type: "row",
       fields: [
         { name: "name", type: "text", label: "Prénom", required: true, admin: { width: "34%" } },

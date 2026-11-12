@@ -16,7 +16,7 @@ export const eur = new Intl.NumberFormat("fr-FR", {
 export const nf = new Intl.NumberFormat("fr-FR");
 
 /** Arrondi à 2 décimales. */
-export const round2 = (n: number): number => Math.round(n * 100) / 100;
+export { round2 } from "@/core/lib/numbers";
 
 /**
  * id d'un champ relation DANS L'ÉTAT DU FORMULAIRE (valeur = id brut, ou

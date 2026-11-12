@@ -1,4 +1,7 @@
-import { cached, httpError, missingEnv, type SourceResult } from "@/modules/analytics/lib/seo-cache";
+import { dayKey } from "@/core/lib/dates";
+import { money, num, round2 as r2 } from "@/core/lib/numbers";
+import { periodBounds } from "@/modules/analytics/lib/growth";
+import { httpError, loadSource, type SourceResult } from "@/modules/analytics/lib/seo-cache";
 
 /**
  * ChatGPT Ads en LECTURE — ce que lit Sarah, cheffe ChatGPT Ads de l'équipe IA
@@ -17,13 +20,11 @@ import { cached, httpError, missingEnv, type SourceResult } from "@/modules/anal
  * Lu en direct, gardé 3 heures. `buildOpenAiAds` est pur (testé).
  */
 
-export const OPENAI_ADS_ENV = ["OPENAI_ADS_API_KEY"];
+const OPENAI_ADS_ENV = ["OPENAI_ADS_API_KEY"];
 const BASE = "https://api.ads.openai.com/v1";
 const TTL = 3 * 3600_000;
 
 type Row = Record<string, unknown>;
-const num = (v: unknown) => (typeof v === "number" ? v : typeof v === "string" ? Number(v) || 0 : 0);
-const r2 = (n: number) => Math.round(n * 100) / 100;
 
 async function get(path: string, params: [string, string][] = []): Promise<Record<string, unknown>> {
   const q = new URLSearchParams(params);
@@ -58,10 +59,10 @@ export type OpenAiAdsView = {
   findings: string[];
 };
 
-const eur = (n: number) => `${n.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €`;
-const eur2 = (n: number) => `${n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+const eur = (n: number) => money(n);
+const eur2 = (n: number) => money(n, 2);
 /** Le mois (« AAAA-MM ») d'un début de période, en heure de Paris (le fuseau du compte). */
-const monthOf = (unixSeconds: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit" }).format(new Date(unixSeconds * 1000)).slice(0, 7);
+const monthOf = (unixSeconds: number) => dayKey(new Date(unixSeconds * 1000)).slice(0, 7);
 
 export function buildOpenAiAds(raw: { account: Row; monthly: Row[]; campaigns: Row[] }): OpenAiAdsView {
   const spendByMonth: Record<string, number> = {};
@@ -105,28 +106,22 @@ export function buildOpenAiAds(raw: { account: Row; monthly: Row[]; campaigns: R
   return { account: { name: String(raw.account.name ?? "—"), status: String(raw.account.status ?? ""), review }, spendByMonth, last30, campaigns, findings };
 }
 
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
 
 export async function loadOpenAiAds(months = 3, now = new Date()): Promise<SourceResult<OpenAiAdsView>> {
-  const missing = missingEnv(OPENAI_ADS_ENV);
-  if (missing.length) return { status: "missing", missing };
-  try {
-    return await cached(`oaads:${months}:${iso(now)}:${now.getUTCHours() >> 2}`, TTL, async () => {
-      const from = iso(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2 * months + 1, 1)));
-      const until = iso(now);
-      const since30 = iso(new Date(now.getTime() - 29 * 86_400_000));
-      const [account, monthly, campaigns] = await Promise.all([
-        get("ad_account"),
-        // Par mois, l'API refuse les conversions : seule la dépense sert ici.
-        insights(from, until, "ad_account", "monthly", ["spend"]),
-        insights(since30, until, "campaign", "none", ["campaign_id", "campaign_name", "spend", "impressions", "clicks", "conversions", "cpc"]),
-      ]);
-      const data = buildOpenAiAds({ account, monthly: (monthly.data as Row[] | undefined) ?? [], campaigns: (campaigns.data as Row[] | undefined) ?? [] });
-      return { status: "ok" as const, data, fetchedAt: new Date().toISOString() };
-    });
-  } catch (e) {
-    return { status: "error", message: e instanceof Error ? e.message : String(e) };
-  }
+  // Le jour de fin est celui de Paris (le fuseau du compte).
+  const until = dayKey(now);
+  return loadSource(OPENAI_ADS_ENV, `oaads:${months}:${until}`, TTL, async () => {
+    const from = iso(periodBounds(months, now).prevFrom);
+    const since30 = dayKey(new Date(now.getTime() - 29 * 86_400_000));
+    const [account, monthly, campaigns] = await Promise.all([
+      get("ad_account"),
+      // Par mois, l'API refuse les conversions : seule la dépense sert ici.
+      insights(from, until, "ad_account", "monthly", ["spend"]),
+      insights(since30, until, "campaign", "none", ["campaign_id", "campaign_name", "spend", "impressions", "clicks", "conversions", "cpc"]),
+    ]);
+    return buildOpenAiAds({ account, monthly: (monthly.data as Row[] | undefined) ?? [], campaigns: (campaigns.data as Row[] | undefined) ?? [] });
+  });
 }
 
 /** Le test de la page Connexions : le compte, la lecture la plus légère. */

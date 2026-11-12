@@ -115,6 +115,9 @@ export async function assertAdsBudget(payload: Payload, kind: AdSpendKind, maxEu
   if (kind === "agent") {
     const team = await seaMonthlyBudget(payload);
     if (team && spent.month + maxEur > team.budgetEur) {
+      // La direction est prévenue (une fois par mois) : sans ça, l'équipe s'arrêterait sans pouvoir le dire.
+      const { watchTeamBudget } = await import("@/modules/ai-team/lib/budget-watch");
+      await watchTeamBudget(payload, { now, blocked: true });
       throw new AdsBudgetError(
         `Budget IA du mois de l'équipe de ${team.name} atteint : ${eur(spent.month)} dépensés sur ${eur(team.budgetEur)} (Équipe IA › carte de ${team.name}), et cet appel peut coûter jusqu'à ${eur(maxEur)}.`,
       );
@@ -140,7 +143,7 @@ export async function recordAdsUsage(
     usage?: unknown;
   },
 ) {
-  return payload.create({
+  const doc = await payload.create({
     collection: "ad-ai-usage",
     data: {
       kind: entry.kind,
@@ -157,4 +160,10 @@ export async function recordAdsUsage(
     },
     overrideAccess: true,
   });
+  // Une dépense des agents : à 80 % du budget IA de l'équipe, la direction est prévenue (une fois par mois).
+  if (entry.kind === "agent" || entry.run != null) {
+    const { watchTeamBudget } = await import("@/modules/ai-team/lib/budget-watch");
+    await watchTeamBudget(payload);
+  }
+  return doc;
 }

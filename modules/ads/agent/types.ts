@@ -36,6 +36,8 @@ export type RunRow = {
   /** La photo des consignes et du carnet prise au lancement (agent/notebook.ts). */
   instructionsRead?: unknown;
   learningsRead?: unknown;
+  /** La photo des méthodes de l'équipe IA prise au lancement (ai-team/lib/methods-photo.ts). */
+  methodsRead?: unknown;
   /** Le rythme du passage : la préparation d'un brouillon, ou le suivi d'une campagne en ligne. */
   kind?: "preparation" | "quotidien" | "hebdomadaire" | "mensuel";
   /** Une préparation sur une campagne EN LIGNE : plan de diffusion et répartition n'y changent pas. */

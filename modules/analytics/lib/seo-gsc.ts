@@ -1,5 +1,6 @@
-import { cached, httpError, missingEnv, type SourceResult } from "@/modules/analytics/lib/seo-cache";
-import { googleAccessToken as accessToken } from "@/modules/analytics/lib/seo-google-auth";
+import { escapeRegExp, round2 as r2 } from "@/core/lib/numbers";
+import { loadSource, type SourceResult } from "@/modules/analytics/lib/seo-cache";
+import { googlePost } from "@/modules/analytics/lib/seo-google-auth";
 import { delta, lastMonths, type Delta } from "@/modules/analytics/lib/growth";
 import { monthStart } from "@/modules/partner/lib/month";
 
@@ -20,7 +21,7 @@ import { monthStart } from "@/modules/partner/lib/month";
  * Les appels vivent ici ; l'agrégation (`buildGsc`) est pure et testée.
  */
 
-export const GSC_ENV = ["GSC_SERVICE_ACCOUNT_JSON", "GSC_SITE_URL"];
+const GSC_ENV = ["GSC_SERVICE_ACCOUNT_JSON", "GSC_SITE_URL"];
 /** Search Console ne garde que 16 mois. */
 const MAX_DAYS = 486;
 const TTL = 6 * 3600_000;
@@ -30,14 +31,8 @@ export type GscRow = { keys: string[]; clicks: number; impressions: number; ctr:
 const day = (t: number) => new Date(t).toISOString().slice(0, 10);
 
 async function query(site: string, body: Record<string, unknown>): Promise<GscRow[]> {
-  const res = await fetch(`https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(site)}/searchAnalytics/query`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${await accessToken()}`, "content-type": "application/json" },
-    body: JSON.stringify({ type: "web", dataState: "final", ...body }),
-    cache: "no-store",
-  });
-  if (!res.ok) throw await httpError(res, "Search Console");
-  return ((await res.json()) as { rows?: GscRow[] }).rows ?? [];
+  const url = `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(site)}/searchAnalytics/query`;
+  return (await googlePost<{ rows?: GscRow[] }>(url, { type: "web", dataState: "final", ...body }, "Search Console")).rows ?? [];
 }
 
 /** Les bornes de la période et de la précédente, plafonnées aux 16 mois que garde Google. */
@@ -53,43 +48,37 @@ export function gscRanges(months: number, now: Date) {
   };
 }
 
-export type GscRaw = { byDate: GscRow[]; queries: GscRow[]; prevQueries: GscRow[]; pages: GscRow[]; prevPages: GscRow[]; devices: GscRow[]; countries: GscRow[]; prevTotals: GscRow[]; truncated: boolean };
+type GscRaw = { byDate: GscRow[]; queries: GscRow[]; prevQueries: GscRow[]; pages: GscRow[]; prevPages: GscRow[]; devices: GscRow[]; countries: GscRow[]; prevTotals: GscRow[]; truncated: boolean };
 
 export async function loadGsc(months: number, now: Date): Promise<SourceResult<GscAnalytics>> {
-  const missing = missingEnv(GSC_ENV);
-  if (missing.length) return { status: "missing", missing };
-  const site = process.env.GSC_SITE_URL!.trim();
-  try {
-    return await cached(`gsc:${site}:${months}:${day(now.getTime())}`, TTL, async () => {
-      const r = gscRanges(months, now);
-      const none = async () => [] as GscRow[];
-      const [byDate, queries, prevQueries, pages, prevPages, devices, countries, prevTotals] = await Promise.all([
-        query(site, { ...r.cur, dimensions: ["date"], rowLimit: 600 }),
-        query(site, { ...r.cur, dimensions: ["query"], rowLimit: 2000 }),
-        r.prev ? query(site, { ...r.prev, dimensions: ["query"], rowLimit: 2000 }) : none(),
-        query(site, { ...r.cur, dimensions: ["page"], rowLimit: 500 }),
-        r.prev ? query(site, { ...r.prev, dimensions: ["page"], rowLimit: 500 }) : none(),
-        query(site, { ...r.cur, dimensions: ["device"] }),
-        query(site, { ...r.cur, dimensions: ["country"], rowLimit: 10 }),
-        r.prev ? query(site, { ...r.prev }) : none(),
-      ]);
-      const data = buildGsc({ byDate, queries, prevQueries, pages, prevPages, devices, countries, prevTotals, truncated: r.truncated }, months, now, brandTerms());
-      return { status: "ok" as const, data, fetchedAt: new Date().toISOString() };
-    });
-  } catch (e) {
-    return { status: "error", message: e instanceof Error ? e.message : String(e) };
-  }
+  const site = process.env.GSC_SITE_URL?.trim() ?? "";
+  return loadSource(GSC_ENV, `gsc:${site}:${months}:${day(now.getTime())}`, TTL, async () => {
+    const r = gscRanges(months, now);
+    const none = async () => [] as GscRow[];
+    const [byDate, queries, prevQueries, pages, prevPages, devices, countries, prevTotals] = await Promise.all([
+      query(site, { ...r.cur, dimensions: ["date"], rowLimit: 600 }),
+      query(site, { ...r.cur, dimensions: ["query"], rowLimit: 2000 }),
+      r.prev ? query(site, { ...r.prev, dimensions: ["query"], rowLimit: 2000 }) : none(),
+      query(site, { ...r.cur, dimensions: ["page"], rowLimit: 500 }),
+      r.prev ? query(site, { ...r.prev, dimensions: ["page"], rowLimit: 500 }) : none(),
+      query(site, { ...r.cur, dimensions: ["device"] }),
+      query(site, { ...r.cur, dimensions: ["country"], rowLimit: 10 }),
+      r.prev ? query(site, { ...r.prev }) : none(),
+    ]);
+    return buildGsc({ byDate, queries, prevQueries, pages, prevPages, devices, countries, prevTotals, truncated: r.truncated }, months, now, brandTerms());
+  });
 }
 
 /** Les mots de la marque, pour séparer la demande qu'on a créée de celle qu'on capte. */
-export const brandTerms = (env: Record<string, string | undefined> = process.env) =>
-  (env.SEO_BRAND_TERMS ?? "tim management,tim-management,timmanagement")
+const brandTerms = () =>
+  (process.env.SEO_BRAND_TERMS ?? "tim management,tim-management,timmanagement")
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
 
-const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-export const isBranded = (q: string, terms: string[]) => terms.some((t) => new RegExp(`(^|[^a-z0-9])${escapeRe(t)}($|[^a-z0-9])`, "i").test(q));
+/** UNE expression pour tous les mots de la marque, compilée une fois par analyse (et non par requête × mot). */
+const brandRegExp = (terms: string[]) => (terms.length ? new RegExp(`(^|[^a-z0-9])(${terms.map(escapeRegExp).join("|")})($|[^a-z0-9])`, "i") : null);
+export const isBranded = (q: string, terms: string[]) => brandRegExp(terms)?.test(q) ?? false;
 
 /**
  * CTR attendu par position (moyennes publiées du marché, résultats organiques
@@ -97,7 +86,7 @@ export const isBranded = (q: string, terms: string[]) => terms.some((t) => new R
  * clic : un titre ou une description à retravailler.
  */
 const EXPECTED_CTR = [0, 27.6, 15.8, 11, 8.4, 6.3, 4.9, 3.9, 3.3, 2.7, 2.4];
-export const expectedCtr = (pos: number) => (pos < 1 ? EXPECTED_CTR[1] : pos <= 10 ? EXPECTED_CTR[Math.round(pos)] : pos <= 20 ? 1 : 0.3);
+const expectedCtr = (pos: number) => (pos < 1 ? EXPECTED_CTR[1] : pos <= 10 ? EXPECTED_CTR[Math.round(pos)] : pos <= 20 ? 1 : 0.3);
 
 export type Totals = { clicks: number; impressions: number; ctr: number | null; position: number | null };
 const totalsOf = (rows: GscRow[]): Totals => {
@@ -139,7 +128,6 @@ const pathOf = (url: string) => {
   }
 };
 const pctChange = (cur: number, prev: number | undefined) => (prev ? Math.round(((cur - prev) / prev) * 1000) / 10 : null);
-const r2 = (n: number) => Math.round(n * 100) / 100;
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
 export function buildGsc(raw: GscRaw, months: number, now: Date, terms: string[]): GscAnalytics {
@@ -157,6 +145,7 @@ export function buildGsc(raw: GscRaw, months: number, now: Date, terms: string[]
   }
 
   const prevQ = new Map(raw.prevQueries.map((r) => [r.keys[0], r]));
+  const brand = brandRegExp(terms);
   const queries: QueryStat[] = raw.queries.map((r) => {
     const p = prevQ.get(r.keys[0]);
     return {
@@ -165,7 +154,7 @@ export function buildGsc(raw: GscRaw, months: number, now: Date, terms: string[]
       impressions: r.impressions,
       ctr: r2(r.ctr * 100),
       position: r1(r.position),
-      branded: isBranded(r.keys[0], terms),
+      branded: brand?.test(r.keys[0]) ?? false,
       clicksDelta: p ? pctChange(r.clicks, p.clicks) : null,
       // Positif = on est remonté (la position 3 est meilleure que la 8).
       positionChange: p ? r1(p.position - r.position) : null,
@@ -185,12 +174,11 @@ export function buildGsc(raw: GscRaw, months: number, now: Date, terms: string[]
   const nonBrandedClicks = queries.filter((q) => !q.branded).reduce((s, q) => s + q.clicks, 0);
 
   // Assez vue pour compter (10 impressions), sur la 1re ou 2e page, et sous le CTR de son rang.
+  // La cible : le CTR d'une 3e place.
+  const target = expectedCtr(3);
   const opportunities: Opportunity[] = queries
     .filter((q) => q.position >= 3.5 && q.position <= 20.5 && q.impressions >= 10 && !q.branded)
-    .map((q) => {
-      const target = expectedCtr(3);
-      return { query: q.query, impressions: q.impressions, clicks: q.clicks, ctr: q.ctr, position: q.position, expectedCtr: expectedCtr(q.position), potentialClicks: Math.max(0, Math.round((q.impressions * target) / 100 - q.clicks)) };
-    })
+    .map((q) => ({ query: q.query, impressions: q.impressions, clicks: q.clicks, ctr: q.ctr, position: q.position, expectedCtr: expectedCtr(q.position), potentialClicks: Math.max(0, Math.round((q.impressions * target) / 100 - q.clicks)) }))
     .filter((o) => o.potentialClicks > 0)
     .sort((a, b) => b.potentialClicks - a.potentialClicks)
     .slice(0, 50);

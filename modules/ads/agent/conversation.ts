@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 
 import { notebookOf, notebookText } from "@/modules/ads/agent/notebook";
 import { finishTool } from "@/modules/ads/agent/roles";
+import { methodsOf, methodsText } from "@/modules/ai-team/lib/methods-photo";
 import type { AgentRow, RunRow, StepRow } from "@/modules/ads/agent/types";
 import { eur } from "@/modules/ads/lib/spend";
 
@@ -35,6 +36,8 @@ function firstMessage(run: RunRow, agent: AgentRow): string {
     // La photo du lancement : la même à chaque reprise, pour chaque agent du passage.
     "",
     notebookText(notebookOf(run)),
+    // Les méthodes de l'équipe IA (veille de la semaine), photographiées au lancement elles aussi.
+    ...(methodsText(methodsOf(run), agent.role) ? ["", methodsText(methodsOf(run), agent.role)] : []),
   ].join("\n");
 }
 

@@ -1,4 +1,5 @@
 import { minAgentBudgetEur } from "@/modules/ads/agent/tools";
+import { num, parisMonthDays, parisMonthStart, r2, r3 } from "@/modules/ai-team/lib/format";
 import { CREATABLE_ROLES, type CreatableRole } from "@/modules/ads/agent/roles";
 
 /**
@@ -24,9 +25,6 @@ import { CREATABLE_ROLES, type CreatableRole } from "@/modules/ads/agent/roles";
  */
 
 type Raw = Record<string, unknown>;
-const num = (v: unknown) => (typeof v === "number" ? v : typeof v === "string" ? Number(v) || 0 : 0);
-const r2 = (n: number) => Math.round(n * 100) / 100;
-const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
 export type SpendLine = {
   /** Missions de la période. */
@@ -106,7 +104,7 @@ export function buildTeamSpend(input: {
    */
   registryMonthEur?: number;
 }): TeamSpend {
-  const from = Date.UTC(input.now.getUTCFullYear(), input.now.getUTCMonth(), 1);
+  const from = parisMonthStart(input.now);
   const inMonth = (iso: unknown) => Date.parse(String(iso ?? "")) >= from;
   const chief = input.members.find((m) => m.level === "chef") ?? null;
 
@@ -162,8 +160,9 @@ export function buildTeamSpend(input: {
     teamMonthEur: input.registryMonthEur != null ? r2(input.registryMonthEur) : totalOf("month"),
     teamAllEur: totalOf("all"),
     capMonthEur: input.capMonthEur,
-    daysElapsed: input.now.getUTCDate(),
-    daysInMonth: new Date(Date.UTC(input.now.getUTCFullYear(), input.now.getUTCMonth() + 1, 0)).getUTCDate(),
+    // Les jours de Paris, comme les plafonds : le 1er à 0 h 30, c'est déjà le jour 1.
+    daysElapsed: parisMonthDays(input.now).day,
+    daysInMonth: parisMonthDays(input.now).daysInMonth,
     budgetEur: chief && typeof chief.monthlyAiBudgetEur === "number" ? (chief.monthlyAiBudgetEur as number) : null,
     hints,
   };

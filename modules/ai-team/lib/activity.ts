@@ -1,6 +1,8 @@
 import type { Payload } from "payload";
 
+import { idOf } from "@/core/lib/relations";
 import { ROLE_SUBJECT } from "@/modules/ads/agent/roles";
+import { num, parisMonthStart, r2 } from "@/modules/ai-team/lib/format";
 import { spentOf } from "@/modules/ads/lib/spend";
 import { buildTeamSpend, type TeamSpend } from "@/modules/ai-team/lib/spend";
 import { groupOf, type TeamGroup } from "@/modules/ai-team/lib/team";
@@ -20,9 +22,6 @@ import { groupOf, type TeamGroup } from "@/modules/ai-team/lib/team";
 
 type Raw = Record<string, unknown>;
 type Id = number | string;
-const idOf = (v: unknown): Id | null => (v && typeof v === "object" ? ((v as { id?: Id }).id ?? null) : ((v as Id | null) ?? null));
-const num = (v: unknown) => (typeof v === "number" ? v : typeof v === "string" ? Number(v) || 0 : 0);
-const r2 = (n: number) => Math.round(n * 100) / 100;
 
 export type MemberState = "pause" | "bientot" | "travail" | "validation" | "repos";
 
@@ -96,7 +95,7 @@ export type TeamView = {
   feed: { at: string; memberKey: string | null; line: string }[];
 };
 
-export const RUN_KIND_LABELS: Record<string, string> = { preparation: "Préparation de campagne", quotidien: "Suivi (tous les 2 jours)", hebdomadaire: "Suivi du lundi", mensuel: "Bilan du mois" };
+const RUN_KIND_LABELS: Record<string, string> = { preparation: "Préparation de campagne", quotidien: "Suivi (tous les 2 jours)", hebdomadaire: "Suivi du lundi", mensuel: "Bilan du mois" };
 export const STATUS_LABELS: Record<string, string> = {
   "en-attente": "En attente",
   "en-cours": "En cours",
@@ -131,8 +130,6 @@ export function personalize(line: string, nameByRole: Map<string, string>): { li
 }
 
 /** Le 1er du mois (UTC) : à une ou deux heures près, c'est le mois vu de Paris — assez pour un compte de missions. */
-const monthStart = (now: Date) => Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
-
 const sinceLine = (iso: string | null, now: Date) => {
   if (!iso) return "Pas encore de mission";
   const days = Math.floor((now.getTime() - Date.parse(iso)) / 86400_000);
@@ -161,7 +158,7 @@ export function buildTeamView(input: { members: Raw[]; agents: Raw[]; runs: Raw[
     const r = runById.get(String(idOf(runId)));
     return r ? (campaignName.get(String(idOf(r.campaign))) ?? "—") : "—";
   };
-  const monthFrom = monthStart(input.now);
+  const monthFrom = parisMonthStart(input.now);
 
   const roleOwner = new Map<string, Raw>();
   for (const m of input.members) for (const role of (m.engineRoles as string[] | undefined) ?? []) roleOwner.set(role, m);

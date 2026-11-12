@@ -108,7 +108,9 @@ export interface Config {
     'ad-questions': AdQuestion;
     'ai-team-members': AiTeamMember;
     'ai-team-messages': AiTeamMessage;
+    'ai-team-methods': AiTeamMethod;
     'ai-team-requests': AiTeamRequest;
+    'ai-team-snapshots': AiTeamSnapshot;
     'ad-recaps': AdRecap;
     'ad-media': AdMedia;
     'ad-facts': AdFact;
@@ -205,7 +207,9 @@ export interface Config {
     'ad-questions': AdQuestionsSelect<false> | AdQuestionsSelect<true>;
     'ai-team-members': AiTeamMembersSelect<false> | AiTeamMembersSelect<true>;
     'ai-team-messages': AiTeamMessagesSelect<false> | AiTeamMessagesSelect<true>;
+    'ai-team-methods': AiTeamMethodsSelect<false> | AiTeamMethodsSelect<true>;
     'ai-team-requests': AiTeamRequestsSelect<false> | AiTeamRequestsSelect<true>;
+    'ai-team-snapshots': AiTeamSnapshotsSelect<false> | AiTeamSnapshotsSelect<true>;
     'ad-recaps': AdRecapsSelect<false> | AdRecapsSelect<true>;
     'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
     'ad-facts': AdFactsSelect<false> | AdFactsSelect<true>;
@@ -2694,6 +2698,18 @@ export interface AdAgentRun {
     | boolean
     | null;
   /**
+   * Les méthodes des agents (réécrites après leur veille) au lancement, texte copié.
+   */
+  methodsRead?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
    * Profondeur, simultanés, rejets, budget : la photo de ce qui s'appliquait.
    */
   limits?:
@@ -3289,6 +3305,7 @@ export interface AiTeamMember {
    * Toute son équipe : passages, missions, conversations. Le plafond global des agents (Publicité › Garde-fous) reste au-dessus.
    */
   monthlyAiBudgetEur?: number | null;
+  targetValue?: number | null;
   name: string;
   jobTitle: string;
   level: 'chef' | 'sous-agent';
@@ -3336,6 +3353,51 @@ export interface AiTeamMessage {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-methods".
+ */
+export interface AiTeamMethod {
+  id: number;
+  member: number | AiTeamMember;
+  week: string;
+  status: 'en-cours' | 'faite' | 'echec';
+  trigger?: ('semaine' | 'direction') | null;
+  method?: string | null;
+  changes?: string | null;
+  ideas?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  sources?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  benchmark?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  searches?: number | null;
+  costEur?: number | null;
+  error?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ai-team-requests".
  */
 export interface AiTeamRequest {
@@ -3360,6 +3422,79 @@ export interface AiTeamRequest {
   closedAt?: string | null;
   run?: (number | null) | AdAgentRun;
   campaign?: (number | null) | AdCampaign;
+  origin?: ('revue' | 'agent' | 'alerte') | null;
+  channel?: ('meta' | 'google' | 'chatgpt' | 'seo' | 'tous') | null;
+  baseline?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * La clé de l'agent dont l'idée est testée (son score d'apprentissage).
+   */
+  proposedBy?: string | null;
+  outcome?: ('a-marche' | 'sans-effet' | 'a-empire') | null;
+  verdictAt?: string | null;
+  verdict?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-snapshots".
+ */
+export interface AiTeamSnapshot {
+  id: number;
+  week: string;
+  channels?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  google?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  chatgpt?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  tracking?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  mastery?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -4191,8 +4326,16 @@ export interface PayloadLockedDocument {
         value: number | AiTeamMessage;
       } | null)
     | ({
+        relationTo: 'ai-team-methods';
+        value: number | AiTeamMethod;
+      } | null)
+    | ({
         relationTo: 'ai-team-requests';
         value: number | AiTeamRequest;
+      } | null)
+    | ({
+        relationTo: 'ai-team-snapshots';
+        value: number | AiTeamSnapshot;
       } | null)
     | ({
         relationTo: 'ad-recaps';
@@ -5748,6 +5891,7 @@ export interface AdQuestionsSelect<T extends boolean = true> {
 export interface AiTeamMembersSelect<T extends boolean = true> {
   active?: T;
   monthlyAiBudgetEur?: T;
+  targetValue?: T;
   name?: T;
   jobTitle?: T;
   level?: T;
@@ -5778,6 +5922,26 @@ export interface AiTeamMessagesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-methods_select".
+ */
+export interface AiTeamMethodsSelect<T extends boolean = true> {
+  member?: T;
+  week?: T;
+  status?: T;
+  trigger?: T;
+  method?: T;
+  changes?: T;
+  ideas?: T;
+  sources?: T;
+  benchmark?: T;
+  searches?: T;
+  costEur?: T;
+  error?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ai-team-requests_select".
  */
 export interface AiTeamRequestsSelect<T extends boolean = true> {
@@ -5793,6 +5957,27 @@ export interface AiTeamRequestsSelect<T extends boolean = true> {
   closedAt?: T;
   run?: T;
   campaign?: T;
+  origin?: T;
+  channel?: T;
+  baseline?: T;
+  proposedBy?: T;
+  outcome?: T;
+  verdictAt?: T;
+  verdict?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-snapshots_select".
+ */
+export interface AiTeamSnapshotsSelect<T extends boolean = true> {
+  week?: T;
+  channels?: T;
+  google?: T;
+  chatgpt?: T;
+  tracking?: T;
+  mastery?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -5884,6 +6069,7 @@ export interface AdAgentRunsSelect<T extends boolean = true> {
   finishedAt?: T;
   instructionsRead?: T;
   learningsRead?: T;
+  methodsRead?: T;
   limits?: T;
   leaseUntil?: T;
   summary?: T;

@@ -41,7 +41,9 @@ import { AdConversions } from "./modules/ads/collections/AdConversions";
 import { AdQuestions } from "./modules/ads/collections/AdQuestions";
 import { AiTeamMembers } from "./modules/ai-team/collections/AiTeamMembers";
 import { AiTeamMessages } from "./modules/ai-team/collections/AiTeamMessages";
+import { AiTeamMethods } from "./modules/ai-team/collections/AiTeamMethods";
 import { AiTeamRequests } from "./modules/ai-team/collections/AiTeamRequests";
+import { AiTeamSnapshots } from "./modules/ai-team/collections/AiTeamSnapshots";
 import { AdRecaps } from "./modules/ads/collections/AdRecaps";
 import { AdsSettings } from "./modules/ads/globals/AdsSettings";
 import { AdsBrandKit } from "./modules/ads/globals/AdsBrandKit";
@@ -429,8 +431,12 @@ export default buildConfig({
       AiTeamMembers,
       // La conversation de la direction avec les chefs (écrite par le serveur seul).
       AiTeamMessages,
+      // La méthode de chaque agent, réécrite après sa veille web de la semaine.
+      AiTeamMethods,
       // Les demandes des chefs à la direction (« à faire » ou « question »).
       AiTeamRequests,
+      // La photo des chiffres de chaque lundi (tendances, avant / après des recommandations).
+      AiTeamSnapshots,
       AdRecaps,
       AdMedia,
       AdFacts,

@@ -1,7 +1,7 @@
 import type { CollectionConfig } from "payload";
 
 import { hideUnlessDirection, isDirectionAccess } from "@/core/access";
-import { REQUEST_KINDS, REQUEST_STATUSES } from "@/modules/ai-team/lib/requests";
+import { REQUEST_CHANNELS, REQUEST_KINDS, REQUEST_ORIGINS, REQUEST_OUTCOMES, REQUEST_STATUSES } from "@/modules/ai-team/lib/requests";
 
 /**
  * Les demandes des chefs de l'équipe IA à la direction (modules/ai-team/lib/requests) :
@@ -36,5 +36,24 @@ export const AiTeamRequests: CollectionConfig = {
     { name: "closedAt", type: "date", label: "Close le", admin: { date: { pickerAppearance: "dayAndTime" } } },
     { name: "run", type: "relationship", relationTo: "ad-agent-runs", label: "Passage" },
     { name: "campaign", type: "relationship", relationTo: "ad-campaigns", label: "Campagne" },
+    // Le suivi d'une recommandation (B2 de l'apprentissage) : d'où elle vient, sur quel canal, les chiffres
+    // au moment où elle a été faite, et ce qu'elle a donné — le verdict que Margaux rend quelques semaines après.
+    {
+      type: "row",
+      fields: [
+        { name: "origin", type: "select", label: "Origine", options: [...REQUEST_ORIGINS], admin: { width: "50%" } },
+        { name: "channel", type: "select", label: "Canal", options: [...REQUEST_CHANNELS], admin: { width: "50%" } },
+      ],
+    },
+    { name: "baseline", type: "json", label: "Chiffres au moment de la recommandation" },
+    { name: "proposedBy", type: "text", label: "Idée de (agent)", admin: { description: "La clé de l'agent dont l'idée est testée (son score d'apprentissage)." } },
+    {
+      type: "row",
+      fields: [
+        { name: "outcome", type: "select", label: "Ce qu'elle a donné", options: [...REQUEST_OUTCOMES], admin: { width: "50%" } },
+        { name: "verdictAt", type: "date", label: "Jugée le", admin: { width: "50%", date: { pickerAppearance: "dayOnly" } } },
+      ],
+    },
+    { name: "verdict", type: "textarea", label: "Le verdict et la leçon" },
   ],
 };

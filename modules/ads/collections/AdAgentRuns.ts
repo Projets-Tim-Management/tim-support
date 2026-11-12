@@ -88,6 +88,8 @@ export const AdAgentRuns: CollectionConfig = {
     // La photo prise au lancement (agent/notebook.ts) : ce que l'agent avait sous les yeux, même si la ligne a changé depuis.
     { name: "instructionsRead", type: "json", label: "Consignes lues", admin: { description: "Les consignes actives au lancement, texte copié." } },
     { name: "learningsRead", type: "json", label: "Apprentissages lus", admin: { description: "Le carnet au lancement, texte copié." } },
+    // Les méthodes de l'équipe IA au lancement (ai-team/lib/methods-photo.ts), texte copié.
+    { name: "methodsRead", type: "json", label: "Méthodes lues", admin: { description: "Les méthodes des agents (réécrites après leur veille) au lancement, texte copié." } },
     { name: "limits", type: "json", label: "Bornes au lancement", admin: { description: "Profondeur, simultanés, rejets, budget : la photo de ce qui s'appliquait." } },
     { name: "leaseUntil", type: "date", label: "Verrou jusqu'à", index: true, admin: { condition: () => false } },
     { name: "summary", type: "textarea", label: "Bilan", admin: { description: "Ce que l'orchestrateur a déposé dans « À valider »." } },

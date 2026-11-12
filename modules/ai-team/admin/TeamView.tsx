@@ -1,4 +1,4 @@
-import type { AdminViewServerProps } from "payload";
+import type { AdminViewServerProps, Payload } from "payload";
 import Link from "next/link";
 
 import { DefaultTemplate } from "@payloadcms/next/templates";
@@ -9,18 +9,26 @@ import { AgentPanel } from "@/modules/ads/admin/AgentPanel";
 import { ActiveToggle } from "@/modules/ai-team/admin/ActiveToggle";
 import { BudgetEditor } from "@/modules/ai-team/admin/BudgetEditor";
 import { ChatBox, type ChatMessage } from "@/modules/ai-team/admin/ChatBox";
+import { Drawer } from "@/modules/ai-team/admin/Drawer";
 import { Inbox } from "@/modules/ai-team/admin/Inbox";
+import { ProgressChart } from "@/modules/ai-team/admin/ProgressChart";
 import { ReviewButton } from "@/modules/ai-team/admin/ReviewButton";
-import { loadInbox } from "@/modules/ai-team/lib/inbox";
+import { VeilleButton } from "@/modules/ai-team/admin/VeilleButton";
 import { loadTeamView, type MemberView, type MissionView, type RunView, type TeamView } from "@/modules/ai-team/lib/activity";
+import { euro } from "@/modules/ai-team/lib/format";
+import { loadInbox } from "@/modules/ai-team/lib/inbox";
+import { loadTeamMastery, type MemberMastery, type TeamMastery } from "@/modules/ai-team/lib/mastery";
 import { Portrait } from "@/modules/ai-team/lib/portraits";
+import { REQUEST_CHANNELS, REQUEST_OUTCOMES } from "@/modules/ai-team/lib/requests";
+import type { Scorecard } from "@/modules/ai-team/lib/scorecard";
+import { cachedScorecard, loadCompetitorNames } from "@/modules/ai-team/lib/shared-data";
+import { adsTrends, loadSnapshots } from "@/modules/ai-team/lib/snapshots";
+import { monthTotal, perDay, type MemberSpend, type TeamSpend } from "@/modules/ai-team/lib/spend";
 import { TEAM_GROUPS } from "@/modules/ai-team/lib/team";
-import { cached } from "@/modules/analytics/lib/seo-cache";
-import { loadScorecard, type Scorecard } from "@/modules/ai-team/lib/scorecard";
+import { VEILLE_DOMAINS } from "@/modules/ai-team/lib/veille-domains";
 import { loadGoogleAds, type GoogleAdsView } from "@/modules/analytics/lib/google-ads";
 import { loadOpenAiAds, type OpenAiAdsView } from "@/modules/analytics/lib/openai-ads";
 import type { SourceResult } from "@/modules/analytics/lib/seo-cache";
-import { monthTotal, perDay, type MemberSpend, type TeamSpend } from "@/modules/ai-team/lib/spend";
 
 /**
  * Écran « Équipe IA » (/admin/equipe-ia) — réservé à la DIRECTION
@@ -70,7 +78,7 @@ const campaignPhase = (c: CampaignChip): string =>
 
 /* ─── Petits outils ─────────────────────────────────────────────────────── */
 
-const eur = (n: number) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2 });
+const eur = (n: number) => euro(n, 2);
 const lcFirst = (s: string) => (s ? s[0].toLowerCase() + s.slice(1) : s);
 
 /** « à l'instant », « il y a 3 h », « hier », « il y a 5 jours », puis la date. */
@@ -159,15 +167,16 @@ function CardSpend({ m, spend }: { m: MemberView; spend: TeamSpend }) {
   );
 }
 
-function MemberCard({ m, on, big, spend }: { m: MemberView; on: boolean; big?: boolean; spend: TeamSpend }) {
+function MemberCard({ m, on, big, spend, mastery }: { m: MemberView; on: boolean; big?: boolean; spend: TeamSpend; mastery?: MemberMastery }) {
   return (
     <div className={`ait-card${big ? " ait-card--chef" : ""}${on ? " ait-card--on" : ""}${m.active ? "" : " ait-card--off"}`}>
-      <Link href={`${BASE}?membre=${m.key}`} prefetch={false} className="ait-card__link" aria-current={on ? "true" : undefined}>
+      <Link href={`${BASE}?membre=${m.key}`} prefetch={false} scroll={false} className="ait-card__link" aria-current={on ? "true" : undefined}>
         <Face m={m} size={big ? 104 : 76} />
         <span className="ait-card__name">{m.name}</span>
         <span className="ait-card__job">{m.jobTitle}</span>
         <StateChip m={m} />
         <span className="ait-card__line">{m.stateLine}</span>
+        {mastery && <CardMastery x={mastery} />}
       </Link>
       {m.engineRoles.length > 0 && <CardSpend m={m} spend={spend} />}
       {m.engineRoles.length > 0 && <ActiveToggle id={m.id} name={m.name} active={m.active} />}
@@ -178,7 +187,7 @@ function MemberCard({ m, on, big, spend }: { m: MemberView; on: boolean; big?: b
 /* ─── Budget IA ─────────────────────────────────────────────────────────── */
 
 const HINT_ICONS = { info: "ℹ️", save: "💡", warn: "⚠️" } as const;
-const eur3 = (n: number) => n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 3 });
+const eur3 = (n: number) => euro(n, 2, 3);
 
 /**
  * Ce que coûte l'équipe du chef : le total du mois face au plafond des agents,
@@ -281,7 +290,7 @@ function Budget({ spend, members }: { spend: TeamSpend; members: MemberView[] })
 
 /* ─── La fiche des canaux (Yanis) ───────────────────────────────────────── */
 
-const eur0 = (n: number | null) => (n == null ? "—" : n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }));
+const eur0 = (n: number | null) => euro(n);
 
 /**
  * Ce que coûte un lead qualifié, canal par canal : d'abord les phrases à
@@ -383,7 +392,22 @@ function ScorecardView({ card, members }: { card: Scorecard; members: MemberView
 
 /* ─── Ce que lit Thomas (Google Ads) ────────────────────────────────────── */
 
-const eur2 = (n: number | null) => (n == null ? "—" : n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const eur2 = (n: number | null) => euro(n, 2);
+
+/** Les tendances lues dans les photos du lundi (vide : pas encore assez de photos). */
+function Trends({ lines }: { lines: string[] }) {
+  if (!lines.length) return <p className="ait-meta">📈 Les tendances apparaîtront après deux photos du lundi (une par semaine).</p>;
+  return (
+    <section className="ait-score">
+      <h3 className="ait-h3">📈 Les tendances, semaine après semaine</h3>
+      <ul className="ait-score__headlines">
+        {lines.map((l) => (
+          <li key={l}>{l}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 function GoogleAdsPanel({ gads, chief }: { gads: SourceResult<GoogleAdsView>; chief: MemberView | undefined }) {
   if (gads.status === "missing") return <p className="ait-paused">🔌 Le connecteur Google Ads n&apos;est pas branché : variable(s) {gads.missing.join(", ")} (Système › Connexions du support).</p>;
@@ -561,9 +585,230 @@ function OpenAiAdsPanel({ oads, chief }: { oads: SourceResult<OpenAiAdsView>; ch
   );
 }
 
+/* ─── Sa maîtrise, sur 100 ──────────────────────────────────────────────── */
+
+const deltaOf = (x: MemberMastery) => (x.history.length >= 2 ? x.mastery.score - x.history[x.history.length - 2].score : null);
+const deltaText = (d: number | null) => (d == null ? null : d === 0 ? "= depuis lundi dernier" : `${d > 0 ? "▲ +" : "▼ "}${d} depuis lundi dernier`);
+
+/** La jauge : le score sur 100, sans couleur d'état (le chiffre dit tout). */
+function MasteryBar({ score, label }: { score: number; label: string }) {
+  return (
+    <span className="ait-mastery__bar" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={score} aria-label={label}>
+      <span style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
+    </span>
+  );
+}
+
+/** Sur la carte de l'organigramme : « Maîtrise 42/100 ▲ +5 ». */
+function CardMastery({ x }: { x: MemberMastery }) {
+  const d = deltaOf(x);
+  return (
+    <span className="ait-card__mastery" title="Score de maîtrise : résultats, à jour, preuves, apprentissage — la cible est 100">
+      <span>
+        🎓 Maîtrise <strong>{x.mastery.score}</strong>/100
+        {d != null && d !== 0 ? <span className="ait-card__mastery-delta">{d > 0 ? ` ▲ +${d}` : ` ▼ ${d}`}</span> : null}
+      </span>
+      <MasteryBar score={x.mastery.score} label={`Maîtrise de ${x.name} : ${x.mastery.score} sur 100`} />
+    </span>
+  );
+}
+
+/** Dans la fiche : le score, ses quatre parts (constat, et comment gagner des points), la courbe. */
+function MasteryView({ m, x }: { m: MemberView; x: MemberMastery | undefined }) {
+  if (!x) return null;
+  const d = deltaText(deltaOf(x));
+  return (
+    <section className="ait-score ait-mastery">
+      <h3 className="ait-h3">🎓 Maîtrise de {m.name}</h3>
+      <div className="ait-mastery__head">
+        <span className="ait-mastery__score">
+          {x.mastery.score}
+          <span>/100</span>
+        </span>
+        {d && <span className="ait-mastery__delta">{d}</span>}
+      </div>
+      <MasteryBar score={x.mastery.score} label={`Maîtrise de ${m.name} : ${x.mastery.score} sur 100`} />
+      <p className="ait-mastery__why">
+        La cible est 100 pour toute l&apos;équipe. Personne ne l&apos;atteint pour de bon : les plateformes et les méthodes changent chaque semaine, alors {m.name} doit sans cesse apprendre pour s&apos;en approcher — et redescend s&apos;il s&apos;arrête.
+      </p>
+      <ul className="ait-mastery__parts">
+        {x.mastery.parts.map((p) => (
+          <li key={p.key} className="ait-mastery__part">
+            <span className="ait-mastery__part-top">
+              <strong>{p.label}</strong>
+              <span>
+                {p.points}/{p.max}
+              </span>
+            </span>
+            <MasteryBar score={(p.points / p.max) * 100} label={`${p.label} : ${p.points} sur ${p.max}`} />
+            <span className="ait-mastery__detail">{p.detail}</span>
+            {p.next && <span className="ait-mastery__next">Pour gagner des points : {p.next.charAt(0).toLowerCase() + p.next.slice(1)}</span>}
+          </li>
+        ))}
+      </ul>
+      {x.history.length > 1 ? (
+        <ProgressChart points={x.history.map((h) => ({ week: h.week, value: h.score }))} unit="pts" target={100} benchmark={null} label={`Maîtrise de ${m.name}, semaine après semaine`} />
+      ) : (
+        <p className="ait-mastery__hint">La courbe semaine après semaine apparaîtra après deux lundis (le score est photographié chaque lundi matin).</p>
+      )}
+    </section>
+  );
+}
+
+/* ─── Sa méthode (veille de la semaine) ─────────────────────────────────── */
+
+type MethodDoc = { id: string; week: string; status: string; method: string | null; changes: string | null; ideas: { titre: string; pourquoi: string; source: string; test: string }[]; sources: { url: string; title: string }[]; searches: number | null; costEur: number | null; error: string | null; at: string };
+export type MethodState = { current: MethodDoc | null; latest: MethodDoc | null; versions: number; running: boolean };
+
+const dateFr = (iso: string) => new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+};
+
+/** Un Markdown simple (titres, puces, paragraphes), sans HTML injecté. */
+function MethodText({ text }: { text: string }) {
+  const blocks: React.ReactNode[] = [];
+  let list: string[] = [];
+  const flush = () => {
+    if (list.length) blocks.push(<ul key={`l${blocks.length}`}>{list.map((li, i) => <li key={i}>{li}</li>)}</ul>);
+    list = [];
+  };
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) {
+      flush();
+      continue;
+    }
+    if (/^#{1,4}\s/.test(line)) {
+      flush();
+      blocks.push(<h4 key={`h${blocks.length}`} className="ait-method__h">{line.replace(/^#{1,4}\s/, "")}</h4>);
+    } else if (/^[-*•]\s/.test(line)) list.push(line.replace(/^[-*•]\s/, "").replace(/\*\*/g, ""));
+    else {
+      flush();
+      blocks.push(<p key={`p${blocks.length}`}>{line.replace(/\*\*/g, "")}</p>);
+    }
+  }
+  flush();
+  return <div className="ait-method__text">{blocks}</div>;
+}
+
+function MethodView({ m, state }: { m: MemberView; state: MethodState | null }) {
+  const domain = VEILLE_DOMAINS[m.key];
+  if (!domain) return null;
+  const cur = state?.current ?? null;
+  const latest = state?.latest ?? null;
+  const running = Boolean(state?.running);
+  const failed = latest?.status === "echec" && (!cur || Date.parse(latest.at) > Date.parse(cur.at)) ? latest : null;
+  return (
+    <section className="ait-score ait-method">
+      <h3 className="ait-h3">📘 {domain.title} — pour TIM</h3>
+      {m.active && <VeilleButton memberKey={m.key} name={m.name} />}
+      {running && <p className="ait-meta">🔎 Veille en cours depuis le {dateFr(latest!.at)}…</p>}
+      {failed && <p className="ait-paused">⚠️ La dernière veille n&apos;a pas abouti ({dateFr(failed.at)}) : {failed.error ?? "incident technique"}</p>}
+      {cur ? (
+        <>
+          <p className="ait-meta">
+            Version du {dateFr(cur.at)} · {state!.versions} version{state!.versions > 1 ? "s" : ""}
+            {cur.searches != null ? ` · ${cur.searches} recherche${cur.searches > 1 ? "s" : ""} web` : ""}
+            {cur.costEur != null ? ` · ${eur3(cur.costEur)}` : ""}
+          </p>
+          {cur.changes && (
+            <>
+              <h4 className="ait-method__h">Ce qui a changé cette semaine</h4>
+              <MethodText text={cur.changes} />
+            </>
+          )}
+          {cur.ideas.length > 0 && (
+            <>
+              <h4 className="ait-method__h">💡 Ses idées à tester chez TIM</h4>
+              <ul className="ait-score__headlines">
+                {cur.ideas.map((i) => (
+                  <li key={i.titre}>
+                    <strong>{i.titre}</strong> — {i.test}
+                    {i.pourquoi ? <span className="ait-score__rate"> · {i.pourquoi}</span> : null}
+                    {i.source ? (
+                      <>
+                        {" "}
+                        <a href={i.source} target="_blank" rel="noopener noreferrer nofollow">
+                          ({hostOf(i.source)})
+                        </a>
+                      </>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              <p className="ait-meta">Margaux choisit lesquelles tester, dans sa revue du lundi.</p>
+            </>
+          )}
+          <Detail label="Lire sa méthode complète">{cur.method ? <MethodText text={cur.method} /> : null}</Detail>
+          {cur.sources.length > 0 && (
+            <Detail label={`Ses sources (${cur.sources.length})`}>
+              <ul className="ait-method__sources">
+                {cur.sources.map((x) => (
+                  <li key={x.url}>
+                    <a href={x.url} target="_blank" rel="noopener noreferrer nofollow">
+                      {x.title}
+                    </a>{" "}
+                    <span className="ait-score__rate">· {hostOf(x.url)}</span>
+                  </li>
+                ))}
+              </ul>
+            </Detail>
+          )}
+        </>
+      ) : (
+        !running && <p className="ait-empty">Pas encore de méthode : sa première veille aura lieu dimanche soir, ou maintenant avec le bouton.</p>
+      )}
+    </section>
+  );
+}
+
+/* ─── Ses recommandations, et ce qu'elles ont donné ─────────────────────── */
+
+export type RecoView = { id: string; at: string; title: string; channel: string | null; status: string; outcome: string | null; verdict: string | null };
+const OUTCOME_LABEL: Record<string, string> = Object.fromEntries(REQUEST_OUTCOMES.map((o) => [o.value, o.label]));
+const CHANNEL_LABEL: Record<string, string> = Object.fromEntries(REQUEST_CHANNELS.map((c) => [c.value, c.label]));
+const RECO_STATE: Record<string, string> = { ouverte: "⏳ attend votre décision", faite: "👍 appliquée", repondue: "💬 répondue", retiree: "🚫 retirée" };
+
+function Recos({ recos, name }: { recos: RecoView[]; name: string }) {
+  const judged = recos.filter((r) => r.outcome);
+  const worked = judged.filter((r) => r.outcome === "a-marche").length;
+  return (
+    <section className="ait-score">
+      <h3 className="ait-h3">📏 Ses recommandations, et ce qu&apos;elles ont donné</h3>
+      {recos.length ? (
+        <>
+          <p className="ait-meta">
+            {judged.length ? `${worked} sur ${judged.length} jugée${judged.length > 1 ? "s" : ""} ont marché` : "Aucune encore jugée"} · {name} juge chaque recommandation appliquée deux semaines après, chiffres avant / après à l&apos;appui
+          </p>
+          <ul className="ait-score__headlines">
+            {recos.map((r) => (
+              <li key={r.id}>
+                <strong>{r.title}</strong>
+                <span className="ait-score__rate">
+                  {" "}
+                  · {CHANNEL_LABEL[r.channel ?? "tous"] ?? "Tous canaux"} · {new Date(r.at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "Europe/Paris" })} · {r.outcome ? OUTCOME_LABEL[r.outcome] : (RECO_STATE[r.status] ?? r.status)}
+                </span>
+                {r.verdict ? <span className="ait-text"> — {r.verdict}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="ait-empty">Pas encore de recommandation suivie : elles arrivent avec sa revue du lundi.</p>
+      )}
+    </section>
+  );
+}
+
 /* ─── Fiches ────────────────────────────────────────────────────────────── */
 
-function Head({ m }: { m: MemberView }) {
+/** L'en-tête de la fiche — figé en haut du panneau ; `note` : la phrase qui dit comment il travaille. */
+function Head({ m, note }: { m: MemberView; note?: React.ReactNode }) {
   return (
     <header className="ait-panel__head">
       <Face m={m} size={64} />
@@ -580,6 +825,7 @@ function Head({ m }: { m: MemberView }) {
       <Detail label="Son rôle">
         <p className="ait-text">{m.specialty}</p>
       </Detail>
+      {note ? <div className="ait-panel__note">{note}</div> : null}
     </header>
   );
 }
@@ -722,7 +968,7 @@ function Campaigns({ m, campaigns, open }: { m: MemberView; campaigns: CampaignC
   );
 }
 
-function ChiefPanel({ m, team, all, campaigns, campaign, chat, spend, scorecard }: { m: MemberView; team: TeamView; all: boolean; campaigns: CampaignChip[]; campaign: string | null; chat: ChatMessage[]; spend: TeamSpend; scorecard: Scorecard | null }) {
+function ChiefPanel({ m, team, all, campaigns, campaign, chat, spend, scorecard, method, recos, mastery }: { m: MemberView; team: TeamView; all: boolean; campaigns: CampaignChip[]; campaign: string | null; chat: ChatMessage[]; spend: TeamSpend; scorecard: Scorecard | null; method: MethodState | null; recos: RecoView[]; mastery: TeamMastery }) {
   const now = new Date();
   const byKey = new Map(team.members.map((x) => [x.key, x]));
   const runs = all ? m.runs : m.runs.slice(0, SHORT);
@@ -740,6 +986,12 @@ function ChiefPanel({ m, team, all, campaigns, campaign, chat, spend, scorecard 
       {m.active ? <ChatBox memberKey={m.key} name={m.name} portrait={m.portrait} initial={chat} /> : null}
 
       {scorecard && <ScorecardView card={scorecard} members={team.members} />}
+
+      <MasteryView m={m} x={mastery[m.key]} />
+
+      {m.key === "chef-sea" && <Recos recos={recos} name={m.name} />}
+
+      <MethodView m={m} state={method} />
 
       <Campaigns m={m} campaigns={campaigns} open={campaign} />
 
@@ -784,43 +1036,62 @@ function ChiefPanel({ m, team, all, campaigns, campaign, chat, spend, scorecard 
   );
 }
 
-function SubPanel({ m, chief, all, spend, scorecard, members, gads, oads }: { m: MemberView; chief: MemberView | undefined; all: boolean; spend: MemberSpend | undefined; scorecard: Scorecard | null; members: MemberView[]; gads: SourceResult<GoogleAdsView> | null; oads: SourceResult<OpenAiAdsView> | null }) {
+function SubPanel({ m, chief, all, spend, scorecard, members, gads, oads, method, trends, mastery }: { m: MemberView; chief: MemberView | undefined; all: boolean; spend: MemberSpend | undefined; scorecard: Scorecard | null; members: MemberView[]; gads: SourceResult<GoogleAdsView> | null; oads: SourceResult<OpenAiAdsView> | null; method: MethodState | null; trends: string[]; mastery: TeamMastery }) {
   if (m.key === "sea-chatgpt") {
     return (
       <div className="ait-panel">
-        <Head m={m} />
-        {chief && (
-          <p className="ait-reports">
-            <Face m={chief} size={22} /> Sarah lit le compte ChatGPT Ads en lecture seule et remet ses constats à {chief.name} ; les changements passent par vous, dans le Gestionnaire de publicités.
-          </p>
-        )}
+        <Head
+          m={m}
+          note={
+            chief && (
+              <p className="ait-reports">
+                <Face m={chief} size={22} /> Sarah lit le compte ChatGPT Ads en lecture seule et remet ses constats à {chief.name} ; les changements passent par vous, dans le Gestionnaire de publicités.
+              </p>
+            )
+          }
+        />
+        <MasteryView m={m} x={mastery[m.key]} />
         {oads ? <OpenAiAdsPanel oads={oads} chief={chief} /> : <p className="ait-empty">ChatGPT Ads n&apos;a pas pu être lu pour l&apos;instant.</p>}
+        <Trends lines={trends} />
+        <MethodView m={m} state={method} />
       </div>
     );
   }
   if (m.key === "sea-google") {
     return (
       <div className="ait-panel">
-        <Head m={m} />
-        {chief && (
-          <p className="ait-reports">
-            <Face m={chief} size={22} /> Thomas lit le compte Google Ads en lecture seule et remet ses constats à {chief.name} ; les changements passent par vous, dans la console Google Ads.
-          </p>
-        )}
+        <Head
+          m={m}
+          note={
+            chief && (
+              <p className="ait-reports">
+                <Face m={chief} size={22} /> Thomas lit le compte Google Ads en lecture seule et remet ses constats à {chief.name} ; les changements passent par vous, dans la console Google Ads.
+              </p>
+            )
+          }
+        />
+        <MasteryView m={m} x={mastery[m.key]} />
         {gads ? <GoogleAdsPanel gads={gads} chief={chief} /> : <p className="ait-empty">Google Ads n&apos;a pas pu être lu pour l&apos;instant.</p>}
+        <Trends lines={trends} />
+        <MethodView m={m} state={method} />
       </div>
     );
   }
   if (m.key === "sea-mesure") {
     return (
       <div className="ait-panel">
-        <Head m={m} />
+        <Head
+          m={m}
+          note={
+            chief && (
+              <p className="ait-reports">
+                <Face m={chief} size={22} /> {chief.name} lit cette fiche pour vous recommander où déplacer le budget.
+              </p>
+            )
+          }
+        />
         <PausedNote m={m} chief={chief} />
-        {chief && (
-          <p className="ait-reports">
-            <Face m={chief} size={22} /> {chief.name} lit cette fiche pour vous recommander où déplacer le budget.
-          </p>
-        )}
+        <MasteryView m={m} x={mastery[m.key]} />
         {scorecard ? <ScorecardView card={scorecard} members={members} /> : <p className="ait-empty">La fiche n&apos;a pas pu être calculée pour l&apos;instant.</p>}
       </div>
     );
@@ -829,19 +1100,25 @@ function SubPanel({ m, chief, all, spend, scorecard, members, gads, oads }: { m:
   const missions = all ? m.missions : m.missions.slice(0, SHORT);
   return (
     <div className="ait-panel">
-      <Head m={m} />
+      <Head
+        m={m}
+        note={
+          chief && (
+            <p className="ait-reports">
+              <Face m={chief} size={22} /> Pas de conversation directe : les missions viennent de {chief.name}, et le travail lui est rendu.
+            </p>
+          )
+        }
+      />
       <PausedNote m={m} chief={chief} />
-      {chief && (
-        <p className="ait-reports">
-          <Face m={chief} size={22} /> Pas de conversation directe : les missions viennent de {chief.name}, et le travail lui est rendu.
-        </p>
-      )}
       {spend && (
         <p className="ait-budget__mine">
           💼 Ce mois, {chief?.name ?? "sa cheffe"} lui a confié <strong>{eur(spend.month.budgetEur)}</strong> pour {spend.month.missions} mission{spend.month.missions > 1 ? "s" : ""} : <strong>{eur3(spend.month.spentEur)}</strong> dépensés
           {spend.month.usedPct != null ? ` (${spend.month.usedPct} %)` : ""}.
         </p>
       )}
+      <MasteryView m={m} x={mastery[m.key]} />
+      <MethodView m={m} state={method} />
       <h3 className="ait-h3">Ses échanges avec {chief?.name ?? "sa cheffe"}</h3>
       {missions.length ? (
         <ol className="ait-threads">
@@ -868,6 +1145,10 @@ function Report({
   scorecard,
   gads,
   oads,
+  method,
+  trends,
+  recos,
+  mastery,
 }: {
   team: TeamView & { spend: TeamSpend };
   selected: string | null;
@@ -879,10 +1160,15 @@ function Report({
   scorecard: Scorecard | null;
   gads: SourceResult<GoogleAdsView> | null;
   oads: SourceResult<OpenAiAdsView> | null;
+  method: MethodState | null;
+  trends: string[];
+  recos: RecoView[];
+  mastery: TeamMastery;
 }) {
   const chief = team.members.find((m) => m.level === "chef");
   const subs = team.members.filter((m) => m.level === "sous-agent");
-  const current = team.members.find((m) => m.key === selected) ?? chief;
+  // La fiche ne s'ouvre (en panneau) que sur un agent choisi : sans choix, l'organigramme seul.
+  const current = team.members.find((m) => m.key === selected);
   const missions = team.members.reduce((n, m) => n + m.monthMissions, 0);
   const working = team.members.filter((m) => m.state === "travail");
   const people = Object.fromEntries(team.members.map((m) => [m.key, { name: m.name, portrait: m.portrait }]));
@@ -896,7 +1182,7 @@ function Report({
       <div className="ait-org" aria-label="Organigramme">
         <span className="ait-org__direction">Direction</span>
         <span className="ait-org__line" aria-hidden />
-        {chief && <MemberCard m={chief} on={current?.key === chief.key} big spend={team.spend} />}
+        {chief && <MemberCard m={chief} on={current?.key === chief.key} big spend={team.spend} mastery={mastery[chief.key]} />}
         {subs.length > 0 && <span className="ait-org__line" aria-hidden />}
         {TEAM_GROUPS.map((g) => {
           const row = subs.filter((m) => m.group === g.value);
@@ -906,16 +1192,93 @@ function Report({
               <span className="ait-org__label">{g.label}</span>
               <div className="ait-org__subs">
                 {row.map((m) => (
-                  <MemberCard key={m.key} m={m} on={current?.key === m.key} spend={team.spend} />
+                  <MemberCard key={m.key} m={m} on={current?.key === m.key} spend={team.spend} mastery={mastery[m.key]} />
                 ))}
               </div>
             </div>
           );
         })}
       </div>
-      {current && (current.level === "chef" ? <ChiefPanel m={current} team={team} all={all} campaigns={campaigns} campaign={campaign} chat={chat} spend={team.spend} scorecard={scorecard} /> : <SubPanel m={current} chief={team.members.find((x) => x.id === current.chiefId)} all={all} spend={team.spend.members.find((x) => x.key === current.key)} scorecard={scorecard} members={team.members} gads={gads} oads={oads} />)}
+      {current && (
+        <Drawer label={`Fiche de ${current.name}`} closeHref={BASE}>
+          {current.level === "chef" ? <ChiefPanel m={current} team={team} all={all} campaigns={campaigns} campaign={campaign} chat={chat} spend={team.spend} scorecard={scorecard} method={method} recos={recos} mastery={mastery} /> : <SubPanel m={current} chief={team.members.find((x) => x.id === current.chiefId)} all={all} spend={team.spend.members.find((x) => x.key === current.key)} scorecard={scorecard} members={team.members} gads={gads} oads={oads} method={method} trends={trends} mastery={mastery} />}
+        </Drawer>
+      )}
     </>
   );
+}
+
+/** Les campagnes, pour les puces de la fiche de Margaux. */
+const loadCampaignChips = (payload: Payload): Promise<CampaignChip[]> =>
+  payload
+    .find({ collection: "ad-campaigns", sort: "-updatedAt", limit: 40, depth: 0, overrideAccess: true, select: { name: true, status: true, publicationStatus: true } as never })
+    .then((r) =>
+      (r.docs as unknown as { id: number; name?: string; status?: string; publicationStatus?: string | null }[]).map((c) => ({
+        id: c.id,
+        name: c.name ?? "Sans nom",
+        status: c.status ?? "brouillon",
+        publication: c.publicationStatus ?? null,
+      })),
+    );
+
+/** Les recommandations suivies de Margaux (les 12 dernières). */
+const loadRecos = (payload: Payload): Promise<RecoView[]> =>
+  payload
+    .find({ collection: "ai-team-requests", where: { origin: { equals: "revue" } }, sort: "-createdAt", limit: 12, depth: 0, overrideAccess: true, select: { createdAt: true, title: true, channel: true, status: true, outcome: true, verdict: true } as never })
+    .then((r) =>
+      (r.docs as unknown as Record<string, unknown>[]).map((d) => ({
+        id: String(d.id),
+        at: String(d.createdAt),
+        title: String(d.title ?? ""),
+        channel: (d.channel as string | null) ?? null,
+        status: String(d.status ?? ""),
+        outcome: (d.outcome as string | null) ?? null,
+        verdict: (d.verdict as string | null) ?? null,
+      })),
+    )
+    .catch(() => []);
+
+/** La conversation d'un chef : ses 40 derniers messages, dans l'ordre. */
+const loadChat = (payload: Payload, memberId: number | string): Promise<ChatMessage[]> =>
+  payload
+    .find({ collection: "ai-team-messages", where: { member: { equals: memberId } }, sort: "-createdAt", limit: 40, depth: 0, overrideAccess: true, select: { from: true, text: true, createdAt: true } as never })
+    .then((r) =>
+      (r.docs as unknown as { id: number; from: "direction" | "agent"; text: string; createdAt: string }[])
+        .reverse()
+        .map((d) => ({ id: String(d.id), from: d.from, text: d.text, at: d.createdAt })),
+    );
+
+/** La méthode d'un agent : sa version du moment, sa dernière veille (en cours, en échec), combien de versions faites. */
+async function loadMethodState(payload: Payload, memberId: number | string): Promise<MethodState | null> {
+  const toDoc = (d: Record<string, unknown> | undefined): MethodDoc | null =>
+    d
+      ? {
+          id: String(d.id),
+          week: String(d.week ?? ""),
+          status: String(d.status ?? ""),
+          method: (d.method as string | null) ?? null,
+          changes: (d.changes as string | null) ?? null,
+          ideas: Array.isArray(d.ideas) ? (d.ideas as MethodDoc["ideas"]) : [],
+          sources: Array.isArray(d.sources) ? (d.sources as MethodDoc["sources"]) : [],
+          searches: typeof d.searches === "number" ? d.searches : null,
+          costEur: typeof d.costEur === "number" ? d.costEur : null,
+          error: (d.error as string | null) ?? null,
+          at: String(d.createdAt ?? ""),
+        }
+      : null;
+  try {
+    const common = { depth: 0, overrideAccess: true } as const;
+    const [latest, current] = await Promise.all([
+      payload.find({ collection: "ai-team-methods", where: { member: { equals: memberId } }, sort: "-createdAt", limit: 1, ...common }),
+      payload.find({ collection: "ai-team-methods", where: { and: [{ member: { equals: memberId } }, { status: { equals: "faite" } }] }, sort: "-createdAt", limit: 1, ...common }),
+    ]);
+    const last = toDoc(latest.docs[0] as unknown as Record<string, unknown>);
+    // Une veille « en cours » depuis plus de 15 minutes a été coupée : on ne l'affiche plus comme en cours.
+    const running = last?.status === "en-cours" && Date.now() - Date.parse(last.at) < 15 * 60_000;
+    return { latest: last, current: toDoc(current.docs[0] as unknown as Record<string, unknown>), versions: current.totalDocs, running };
+  } catch {
+    return null;
+  }
 }
 
 export default async function TeamPage({ initPageResult, params, searchParams }: AdminViewServerProps) {
@@ -925,49 +1288,26 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
   const selected = typeof sp?.membre === "string" ? sp.membre : null;
   const all = sp?.tout === "1";
   const campaign = typeof sp?.campagne === "string" ? sp.campagne : null;
-  const [team, campaigns] = allowed
-    ? await Promise.all([
-        loadTeamView(req.payload),
-        req.payload
-          .find({ collection: "ad-campaigns", sort: "-updatedAt", limit: 40, depth: 0, overrideAccess: true, select: { name: true, status: true, publicationStatus: true } as never })
-          .then((r) =>
-            (r.docs as unknown as { id: number; name?: string; status?: string; publicationStatus?: string | null }[]).map((c) => ({
-              id: c.id,
-              name: c.name ?? "Sans nom",
-              status: c.status ?? "brouillon",
-              publication: c.publicationStatus ?? null,
-            })),
-          ),
-      ])
-    : [null, [] as CampaignChip[]];
-  // La conversation du chef affiché (le chef par défaut) : ses 40 derniers messages, dans l'ordre.
-  const inbox = allowed ? await loadInbox(req.payload) : { open: [], closed: [] };
-  // Ce que lit Thomas, seulement quand on ouvre sa fiche (le compte Google Ads se lit en direct, gardé 3 h).
-  const gads =
-    allowed && selected === "sea-google"
-      ? await loadGoogleAds(
-          ((await req.payload.find({ collection: "ad-competitors", pagination: false, depth: 0, overrideAccess: true, select: { name: true } as never })).docs as unknown as { name?: string }[]).map((c) => String(c.name ?? "")).filter(Boolean),
-        )
-      : null;
-  // Ce que lit Sarah, seulement quand on ouvre sa fiche (ChatGPT Ads, lu en direct, gardé 3 h).
-  const oads = allowed && selected === "sea-chatgpt" ? await loadOpenAiAds() : null;
-  // La fiche des canaux lit Pennylane : gardée 30 minutes, et une erreur ne casse pas la page.
-  const scorecard = allowed
-    ? await cached(`scorecard:${new Date().toISOString().slice(0, 13)}`, 30 * 60_000, () => loadScorecard(req.payload)).catch((e) => {
-        req.payload.logger.warn(`[équipe IA] fiche des canaux : ${e instanceof Error ? e.message : String(e)}`);
-        return null;
-      })
-    : null;
-  const chiefOf = team ? (team.members.find((m) => m.key === selected && m.level === "chef") ?? team.members.find((m) => m.level === "chef")) : null;
-  const chat: ChatMessage[] = chiefOf
-    ? (
-        (
-          await req.payload.find({ collection: "ai-team-messages", where: { member: { equals: chiefOf.id } }, sort: "-createdAt", limit: 40, depth: 0, overrideAccess: true })
-        ).docs as unknown as { id: number; from: "direction" | "agent"; text: string; createdAt: string }[]
-      )
-        .reverse()
-        .map((d) => ({ id: String(d.id), from: d.from, text: d.text, at: d.createdAt }))
-    : [];
+  const only = (key: string) => allowed && selected === key;
+  // Première vague, en parallèle : l'équipe, les demandes, la fiche des canaux, les photos du lundi —
+  // et ce que lisent Thomas, Sarah, Margaux, seulement quand on ouvre leur fiche (chaque régie gardée 3 h).
+  const [[team, campaigns], inbox, gads, oads, recos, scorecard, snaps] = await Promise.all([
+    allowed ? Promise.all([loadTeamView(req.payload), loadCampaignChips(req.payload)]) : Promise.resolve([null, [] as CampaignChip[]] as const),
+    allowed ? loadInbox(req.payload) : { open: [], closed: [] },
+    only("sea-google") ? loadCompetitorNames(req.payload).then((names) => loadGoogleAds(names)) : null,
+    only("sea-chatgpt") ? loadOpenAiAds() : null,
+    only("chef-sea") ? loadRecos(req.payload) : ([] as RecoView[]),
+    allowed ? cachedScorecard(req.payload) : null,
+    allowed ? loadSnapshots(req.payload, 12) : [],
+  ]);
+  // Seconde vague : ce qui dépend de l'agent ouvert ou de la fiche.
+  const member = team?.members.find((x) => x.key === selected);
+  const [method, mastery, chat] = await Promise.all([
+    member && VEILLE_DOMAINS[member.key] ? loadMethodState(req.payload, member.id) : null,
+    allowed ? loadTeamMastery(req.payload, scorecard, new Date(), snaps) : ({} as TeamMastery),
+    member?.level === "chef" ? loadChat(req.payload, member.id) : ([] as ChatMessage[]),
+  ]);
+  const trends = only("sea-google") || only("sea-chatgpt") ? adsTrends(snaps, selected === "sea-google" ? "google" : "chatgpt") : [];
 
   return (
     <DefaultTemplate
@@ -986,7 +1326,7 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
             <h1 className="ait-title">Équipe IA</h1>
             <p className="ait-sub">Vous parlez aux chefs ; chaque sous-agent reçoit ses missions de son chef et lui rend son travail.</p>
           </header>
-          {team ? <Report team={team} selected={selected} all={all} campaigns={campaigns} campaign={campaign} chat={chat} inbox={inbox} scorecard={scorecard} gads={gads} oads={oads} /> : <p className="ait-empty">Cet écran est réservé à la direction.</p>}
+          {team ? <Report team={team} selected={selected} all={all} campaigns={campaigns} campaign={campaign} chat={chat} inbox={inbox} scorecard={scorecard} gads={gads} oads={oads} method={method} trends={trends} recos={recos} mastery={mastery} /> : <p className="ait-empty">Cet écran est réservé à la direction.</p>}
         </div>
       </Gutter>
     </DefaultTemplate>

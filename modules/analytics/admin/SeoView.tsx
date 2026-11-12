@@ -11,6 +11,7 @@ import { loadBing, type BingAnalytics } from "@/modules/analytics/lib/seo-bing";
 import type { SourceResult } from "@/modules/analytics/lib/seo-cache";
 import { loadGa4, type Ga4Analytics } from "@/modules/analytics/lib/seo-ga4";
 import { loadGsc, type GscAnalytics } from "@/modules/analytics/lib/seo-gsc";
+import { periodBounds } from "@/modules/analytics/lib/growth";
 import { loadPageSpeed, type PageSpeedData } from "@/modules/analytics/lib/seo-pagespeed";
 import { buildOrganicAnalytics, type LeadClient, type OrganicAnalytics, type SourceRow } from "@/modules/analytics/lib/seo-sources";
 
@@ -514,6 +515,8 @@ export default async function SeoView(view: AdminViewServerProps) {
       tab === "geo"
         ? payload.find({
             collection: "form-submissions",
+            // Seule la période et la précédente comptent (buildOrganicAnalytics) : on ne lit pas le reste.
+            where: { createdAt: { greater_than_equal: new Date(periodBounds(months, now).prevFrom).toISOString() } },
             limit: 20000,
             depth: 0,
             overrideAccess: true,
@@ -521,7 +524,8 @@ export default async function SeoView(view: AdminViewServerProps) {
             select: { createdAt: true, channel: true, referrer: true, utmSource: true, utmMedium: true, gclid: true, msclkid: true, oaiclid: true, fbclid: true, landingPath: true, sourcePagePath: true } as never,
           })
         : Promise.resolve({ docs: [] }),
-      tab === "geo" ? payload.find({ collection: "partner-clients", limit: 5000, depth: 0, draft: true, overrideAccess: true, select: { formSubmission: true, clientStatus: true } as never }) : Promise.resolve({ docs: [] }),
+      // Seules les opportunités nées d'un formulaire servent ici.
+      tab === "geo" ? payload.find({ collection: "partner-clients", where: { formSubmission: { exists: true } }, pagination: false, depth: 0, draft: true, overrideAccess: true, select: { formSubmission: true, clientStatus: true } as never }) : Promise.resolve({ docs: [] }),
     ]);
     data = { gsc, bing, ga4, organic: buildOrganicAnalytics(subs.docs as unknown as SourceRow[], clients.docs as LeadClient[], months, now) };
   }

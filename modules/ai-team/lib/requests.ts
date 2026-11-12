@@ -30,6 +30,29 @@ export const REQUEST_STATUSES = [
 ] as const;
 export type RequestStatus = (typeof REQUEST_STATUSES)[number]["value"];
 
+/** D'où vient une demande : la revue du lundi (une recommandation suivie), un agent au travail, ou une alerte du code. */
+export const REQUEST_ORIGINS = [
+  { label: "Revue du lundi", value: "revue" },
+  { label: "Un agent au travail", value: "agent" },
+  { label: "Alerte", value: "alerte" },
+] as const;
+
+export const REQUEST_CHANNELS = [
+  { label: "Meta Ads", value: "meta" },
+  { label: "Google Ads", value: "google" },
+  { label: "ChatGPT Ads", value: "chatgpt" },
+  { label: "SEO", value: "seo" },
+  { label: "Tous canaux", value: "tous" },
+] as const;
+
+/** Le verdict d'une recommandation appliquée, quelques semaines après. */
+export const REQUEST_OUTCOMES = [
+  { label: "✅ A marché", value: "a-marche" },
+  { label: "➖ Sans effet net", value: "sans-effet" },
+  { label: "❌ A empiré", value: "a-empire" },
+] as const;
+export type RequestOutcome = (typeof REQUEST_OUTCOMES)[number]["value"];
+
 /** Les consoles où un chef peut envoyer la direction (hôte exact ou sous-domaine). */
 export const ALLOWED_HOSTS = [
   "business.facebook.com",

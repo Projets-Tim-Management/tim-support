@@ -84,7 +84,7 @@ export const teamPort = (payload: Payload) => ({
     if (same.docs[0]) return same.docs[0].id as number | string;
     const doc = await payload.create({
       collection: "ai-team-requests",
-      data: { member: member.id, kind: r.kind, status: "ouverte", title: r.title, why: member.via ? `Soulevé par ${member.via} : ${r.why}` : r.why, url: r.url, steps: r.steps, question: r.question, run: origin.run, campaign: origin.campaign } as never,
+      data: { member: member.id, kind: r.kind, status: "ouverte", title: r.title, why: member.via ? `Soulevé par ${member.via} : ${r.why}` : r.why, url: r.url, steps: r.steps, question: r.question, run: origin.run, campaign: origin.campaign, origin: "agent" } as never,
       overrideAccess: true,
     });
     return doc.id as number | string;
