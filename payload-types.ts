@@ -899,6 +899,15 @@ export interface PartnerClient {
           | number
           | boolean
           | null;
+        pennylane?:
+          | {
+              [k: string]: unknown;
+            }
+          | unknown[]
+          | string
+          | number
+          | boolean
+          | null;
         validatedAt?: string | null;
         validatedBy?: (number | null) | User;
         invoiceDate?: string | null;
@@ -4996,6 +5005,7 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         commissionRate?: T;
         commission?: T;
         detail?: T;
+        pennylane?: T;
         validatedAt?: T;
         validatedBy?: T;
         invoiceDate?: T;

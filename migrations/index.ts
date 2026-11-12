@@ -183,6 +183,7 @@ import * as migration_20261104_075548_expense_categories from './20261104_075548
 import * as migration_20261105_074523_licence_moves from './20261105_074523_licence_moves';
 import * as migration_20261105_075733_licence_moves_lines from './20261105_075733_licence_moves_lines';
 import * as migration_20261105_080201_licence_moves_json from './20261105_080201_licence_moves_json';
+import * as migration_20261105_084407_history_pennylane_stamp from './20261105_084407_history_pennylane_stamp';
 import * as migration_20261112_092912_equipe_ia from './20261112_092912_equipe_ia';
 import * as migration_20261112_095248_equipe_ia_en_service from './20261112_095248_equipe_ia_en_service';
 import * as migration_20261112_101903_equipe_ia_conversation from './20261112_101903_equipe_ia_conversation';
@@ -1119,6 +1120,11 @@ export const migrations = [
     up: migration_20261105_080201_licence_moves_json.up,
     down: migration_20261105_080201_licence_moves_json.down,
     name: '20261105_080201_licence_moves_json',
+  },
+  {
+    up: migration_20261105_084407_history_pennylane_stamp.up,
+    down: migration_20261105_084407_history_pennylane_stamp.down,
+    name: '20261105_084407_history_pennylane_stamp',
   },
   {
     up: migration_20261112_092912_equipe_ia.up,

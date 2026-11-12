@@ -1737,6 +1737,15 @@ export const PartnerClients: CollectionConfig = {
         { name: "commission", type: "number" },
         { name: "detail", type: "json" }, // [{ key, label, qty, price, subtotal }]
         /**
+         * Tampon Pennylane du mois : début de l'abonnement, licences conformes,
+         * date du constat (PennylaneStamp, lib/billing-check). Écrit par le hook
+         * et la validation depuis le début, mais absent du schéma jusqu'au
+         * 05/11/2026 — Payload l'écartait donc à chaque enregistrement : le
+         * début de facturation retombait sur la date de contrat quand Pennylane
+         * n'était pas en cache, et l'historique n'affichait aucun constat passé.
+         */
+        { name: "pennylane", type: "json" },
+        /**
          * Validation mensuelle (écran Rapprochement) : quelqu'un a constaté
          * que la fiche et l'abonnement Pennylane disent la même chose pour la
          * facture de ce mois. Sans elle, la ligne n'est qu'un attendu.
