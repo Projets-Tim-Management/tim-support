@@ -1,6 +1,10 @@
 import type { Payload } from "payload";
 
 import { accessTokenFor } from "@/modules/marketing/lib/calendar";
+import { pingBing } from "@/modules/analytics/lib/seo-bing";
+import { pingGa4 } from "@/modules/analytics/lib/seo-ga4";
+import { pingGsc } from "@/modules/analytics/lib/seo-gsc";
+import { pingPageSpeed } from "@/modules/analytics/lib/seo-pagespeed";
 
 import { isConfigured, isSimulated, SUPPORT_CONNECTIONS, type SupportConnection } from "./support-connections";
 
@@ -155,6 +159,15 @@ async function testMeta(payload: Payload): Promise<Omit<TestResult, "at">> {
   }
 }
 
+/** Les trois sources SEO : leur `ping` fait un vrai appel minimal et dit ce qu'il a lu. */
+async function testSeo(ping: () => Promise<string>): Promise<Omit<TestResult, "at">> {
+  try {
+    return { ok: true, message: await ping() };
+  } catch (e) {
+    return { ok: false, message: failure(e) };
+  }
+}
+
 export async function testConnection(key: SupportConnection["key"], payload: Payload): Promise<TestResult> {
   const def = SUPPORT_CONNECTIONS.find((c) => c.key === key);
   const at = new Date().toISOString();
@@ -174,6 +187,14 @@ export async function testConnection(key: SupportConnection["key"], payload: Pay
             ? await testGoogle(payload)
             : key === "meta"
               ? await testMeta(payload)
-              : await testAnthropic();
+              : key === "search-console"
+                ? await testSeo(pingGsc)
+                : key === "pagespeed"
+                  ? await testSeo(pingPageSpeed)
+                  : key === "bing-webmaster"
+                    ? await testSeo(pingBing)
+                    : key === "ga4-data"
+                      ? await testSeo(pingGa4)
+                      : await testAnthropic();
   return { ...r, at };
 }

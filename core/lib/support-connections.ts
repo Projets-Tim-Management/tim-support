@@ -20,7 +20,7 @@ export type EnvVar = {
 };
 
 export type SupportConnection = {
-  key: "pennylane" | "brevo" | "insee" | "google" | "anthropic" | "meta";
+  key: "pennylane" | "brevo" | "insee" | "google" | "anthropic" | "meta" | "search-console" | "pagespeed" | "bing-webmaster" | "ga4-data";
   name: string;
   /** Pictogramme : une lettre, sans dépendre d'un logo externe. */
   mark: string;
@@ -149,6 +149,72 @@ export const SUPPORT_CONNECTIONS: SupportConnection[] = [
     ],
     testLabel: "Obtenir un jeton d'application auprès de Meta",
     simulatedBy: "ADS_META_MOCK",
+  },
+  {
+    key: "search-console",
+    name: "Google Search Console",
+    mark: "S",
+    purpose:
+      "Analyses → SEO & GEO : clics, impressions, CTR et position sur Google, par requête, par page, par appareil — et les opportunités (requêtes en 2e page). Sans elle, le bloc « Moteurs de recherche » reste vide.",
+    scope: [
+      "Search Analytics, lecture seule (webmasters.readonly)",
+      "Compte de service Google Cloud, ajouté comme utilisateur « Restreint » de la propriété",
+      "Le rapport « IA générative » (AI Overviews / AI Mode) n'est pas dans l'API : il se lit dans Search Console",
+    ],
+    docUrl: "https://developers.google.com/webmaster-tools/v1/how-tos/search_analytics",
+    consoleUrl: "https://search.google.com/search-console/users",
+    env: [
+      { name: "GSC_SERVICE_ACCOUNT_JSON", required: true, hint: "La clé JSON du compte de service (collée telle quelle ou en base64)." },
+      { name: "GSC_SITE_URL", required: true, hint: "La propriété, exactement comme dans Search Console : « sc-domain:exemple.fr » ou « https://www.exemple.fr/ »." },
+      { name: "SEO_BRAND_TERMS", required: false, hint: "Mots de la marque, séparés par des virgules — défaut « tim management,tim-management,timmanagement »." },
+    ],
+    testLabel: "Lire les clics d'un jour",
+  },
+  {
+    key: "pagespeed",
+    name: "PageSpeed Insights",
+    mark: "V",
+    purpose:
+      "Analyses → SEO & GEO, « Santé technique » : Core Web Vitals réels (LCP, INP, CLS) et scores Lighthouse des pages clés, sur mobile. Relu une fois par jour.",
+    scope: ["Audit public des pages listées (lecture)", "Données terrain CrUX quand le site a assez de trafic Chrome"],
+    docUrl: "https://developers.google.com/speed/docs/insights/v5/get-started",
+    consoleUrl: "https://console.cloud.google.com/apis/library/pagespeedonline.googleapis.com",
+    env: [
+      { name: "PAGESPEED_API_KEY", required: true, hint: "Clé d'API Google Cloud, restreinte à la PageSpeed Insights API (gratuite)." },
+      { name: "SEO_KEY_URLS", required: false, hint: "Pages à auditer, séparées par des virgules (12 au plus) — défaut : l'accueil de GSC_SITE_URL." },
+    ],
+    testLabel: "Auditer la première page clé",
+  },
+  {
+    key: "bing-webmaster",
+    name: "Bing Webmaster Tools",
+    mark: "W",
+    purpose:
+      "Analyses → SEO & GEO : clics et requêtes Bing. L'index de Bing nourrit Copilot et une partie de ChatGPT Search — y être bien indexé, c'est aussi du GEO.",
+    scope: ["Trafic et requêtes (lecture)", "Le rapport « AI Performance » (citations Copilot) n'a pas encore d'API : il se lit dans Bing Webmaster Tools"],
+    docUrl: "https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.iwebmasterapi",
+    consoleUrl: "https://www.bing.com/webmasters/apikey",
+    env: [
+      { name: "BING_WEBMASTER_API_KEY", required: true, hint: "Paramètres → Accès API → Clé API." },
+      { name: "BING_SITE_URL", required: false, hint: "Le site tel que déclaré dans Bing (https://www.exemple.fr/) — défaut : déduit de GSC_SITE_URL." },
+    ],
+    testLabel: "Lire le trafic Bing",
+  },
+  {
+    key: "ga4-data",
+    name: "Google Analytics 4 (lecture)",
+    mark: "4",
+    purpose:
+      "Analyses → SEO & GEO : toutes les visites envoyées par Google, Bing et les assistants IA (ChatGPT, Gemini, Perplexity…) — pas seulement celles qui deviennent des prospects — et ce qu'elles font sur le site. L'envoi des conversions vers GA4 (Measurement Protocol) est une autre chose, déjà branchée.",
+    scope: [
+      "Data API, lecture seule (analytics.readonly) : visites par source, page d'arrivée, engagement, conversions",
+      "Même compte de service que Search Console (GSC_SERVICE_ACCOUNT_JSON), ajouté en « Lecteur » sur la propriété",
+      "Ne voit que les visiteurs qui acceptent les cookies : un plancher, dont l'évolution reste juste",
+    ],
+    docUrl: "https://developers.google.com/analytics/devguides/reporting/data/v1",
+    consoleUrl: "https://analytics.google.com/analytics/web/",
+    env: [{ name: "GA4_PROPERTY_ID", required: true, hint: "L'ID de la propriété GA4 (un nombre, Administration → Détails de la propriété) — pas l'ID de mesure G-…" }],
+    testLabel: "Lire les visites des 7 derniers jours",
   },
 ];
 

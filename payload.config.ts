@@ -318,6 +318,12 @@ export default buildConfig({
           exact: true,
           meta: { title: "Analyses · Acquisition" },
         },
+        analysesSeoGeo: {
+          Component: "/modules/analytics/admin/SeoView#default",
+          path: "/analyses/seo-geo",
+          exact: true,
+          meta: { title: "Analyses · SEO & GEO" },
+        },
         analysesVideos: {
           Component: "/modules/analytics/admin/VideosView#default",
           path: "/analyses/videos",

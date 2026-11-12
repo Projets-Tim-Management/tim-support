@@ -175,6 +175,7 @@ import { default as default_3125f72c9cf5e6cdd1ecf6cff4f3fd8c } from '../../../mo
 import { default as default_8e6317c196aa90c5c449f01aad526c7f } from '../../../modules/ads/admin/ValidationQueueView'
 import { default as default_1c3d467279591bbf05bba5b4228f8e57 } from '../../../modules/ads/admin/AdsDashboardView'
 import { default as default_8052050c666bd08f67a59ad1c2e0cc41 } from '../../../modules/analytics/admin/AcquisitionView'
+import { default as default_87f30d4380616a0c579052b8e8e0f5be } from '../../../modules/analytics/admin/SeoView'
 import { default as default_5200a101958b5383ac3b8ff93e5777dc } from '../../../modules/analytics/admin/VideosView'
 import { default as default_c44913679fe220161a8e8e8eb237e954 } from '../../../modules/analytics/admin/SupportView'
 import { default as default_c9fb8c9feab8ca0ae0845a2ecdad7276 } from '../../../modules/analytics/admin/DevView'
@@ -360,6 +361,7 @@ export const importMap = {
   "/modules/ads/admin/ValidationQueueView#default": default_8e6317c196aa90c5c449f01aad526c7f,
   "/modules/ads/admin/AdsDashboardView#default": default_1c3d467279591bbf05bba5b4228f8e57,
   "/modules/analytics/admin/AcquisitionView#default": default_8052050c666bd08f67a59ad1c2e0cc41,
+  "/modules/analytics/admin/SeoView#default": default_87f30d4380616a0c579052b8e8e0f5be,
   "/modules/analytics/admin/VideosView#default": default_5200a101958b5383ac3b8ff93e5777dc,
   "/modules/analytics/admin/SupportView#default": default_c44913679fe220161a8e8e8eb237e954,
   "/modules/analytics/admin/DevView#default": default_c9fb8c9feab8ca0ae0845a2ecdad7276,
