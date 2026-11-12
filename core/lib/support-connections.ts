@@ -20,7 +20,7 @@ export type EnvVar = {
 };
 
 export type SupportConnection = {
-  key: "pennylane" | "brevo" | "insee" | "google" | "anthropic" | "meta" | "search-console" | "pagespeed" | "bing-webmaster" | "ga4-data";
+  key: "pennylane" | "brevo" | "insee" | "google" | "anthropic" | "meta" | "search-console" | "pagespeed" | "bing-webmaster" | "ga4-data" | "google-ads" | "openai-ads";
   name: string;
   /** Pictogramme : une lettre, sans dépendre d'un logo externe. */
   mark: string;
@@ -215,6 +215,42 @@ export const SUPPORT_CONNECTIONS: SupportConnection[] = [
     consoleUrl: "https://analytics.google.com/analytics/web/",
     env: [{ name: "GA4_PROPERTY_ID", required: true, hint: "L'ID de la propriété GA4 (un nombre, Administration → Détails de la propriété) — pas l'ID de mesure G-…" }],
     testLabel: "Lire les visites des 7 derniers jours",
+  },
+  {
+    key: "google-ads",
+    name: "Google Ads (lecture)",
+    mark: "A",
+    purpose:
+      "Équipe IA : ce que lit Thomas, chef Google Ads — campagnes, dépense, termes de recherche, mots-clés, conversions — et la vraie dépense Google de la fiche des canaux. Sans elle, Thomas reste « Arrive bientôt » et la fiche prend les relevés Pennylane.",
+    scope: [
+      "API Google Ads, lecture seule : le compte de service (GSC_SERVICE_ACCOUNT_JSON) est utilisateur « Lecture seule » du compte",
+      "Projet Google Cloud en accès « Explorer » (2 880 opérations par jour) ; plus de jeton développeur depuis le 09/09/2026",
+      "Aucune écriture : budgets et mots-clés négatifs se changent dans la console, via « Vos demandes »",
+    ],
+    docUrl: "https://developers.google.com/google-ads/api/docs/start",
+    consoleUrl: "https://ads.google.com/aw/accountsettings/accessandsecurity",
+    env: [
+      { name: "GOOGLE_ADS_CUSTOMER_ID", required: true, hint: "L'identifiant du compte Google Ads (335-848-3794), avec ou sans tirets." },
+      { name: "GOOGLE_ADS_LOGIN_CUSTOMER_ID", required: false, hint: "Seulement si l'accès passe par un compte administrateur (MCC) : son identifiant." },
+      { name: "GOOGLE_ADS_API_VERSION", required: false, hint: "Version de l'API — défaut v24." },
+    ],
+    testLabel: "Lire le nom du compte Google Ads",
+  },
+  {
+    key: "openai-ads",
+    name: "ChatGPT Ads (lecture)",
+    mark: "C",
+    purpose:
+      "Équipe IA : ce que lit Sarah, cheffe ChatGPT Ads — campagnes, dépense, clics, conversions du pixel — et la vraie dépense ChatGPT de la fiche des canaux. Sans elle, Sarah reste « Arrive bientôt » et la fiche prend les relevés Pennylane.",
+    scope: [
+      "API annonceur OpenAI (api.ads.openai.com), lectures seulement : le support ne fait que des GET",
+      "La clé d'API annonceur du Gestionnaire de publicités (Paramètres › Général) — pas une clé de conversion, qui ne lit rien",
+      "Aucune écriture : budgets et annonces se changent dans le Gestionnaire, via « Vos demandes »",
+    ],
+    docUrl: "https://developers.openai.com/ads",
+    consoleUrl: "https://ads.openai.com",
+    env: [{ name: "OPENAI_ADS_API_KEY", required: true, hint: "La clé d'API annonceur (Gestionnaire de publicités › Paramètres › Général). Elle peut aussi écrire : à garder en variable sensible." }],
+    testLabel: "Lire le compte ChatGPT Ads",
   },
 ];
 

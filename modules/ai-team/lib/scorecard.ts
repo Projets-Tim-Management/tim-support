@@ -4,6 +4,8 @@ import { channelSpend } from "@/modules/analytics/lib/acquisition";
 import { loadExpenses } from "@/modules/analytics/lib/expenses-load";
 import { clientStatusMeta } from "@/modules/partner/lib/clientStatus";
 import { platformLabel } from "@/modules/ads/lib/platforms";
+import { loadGoogleAds } from "@/modules/analytics/lib/google-ads";
+import { loadOpenAiAds } from "@/modules/analytics/lib/openai-ads";
 
 /**
  * La FICHE DES CANAUX — ce que Yanis (mesure & data) tient et ce que Margaux
@@ -176,13 +178,19 @@ export function buildScorecard(input: {
 export async function loadScorecard(payload: Payload, months = 3, now = new Date()): Promise<Scorecard> {
   const common = { pagination: false, depth: 0, overrideAccess: true } as const;
   const since = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 2 * months + 1, 1)).toISOString();
-  const [leads, clients, journal, campaigns, meta, exp] = await Promise.all([
+  const competitors = await payload
+    .find({ collection: "ad-competitors", ...common, select: { name: true } as never })
+    .then((r) => (r.docs as unknown as { name?: string }[]).map((c) => String(c.name ?? "")).filter(Boolean))
+    .catch(() => [] as string[]);
+  const [leads, clients, journal, campaigns, meta, exp, gads, oads] = await Promise.all([
     payload.find({ collection: "form-submissions", where: { createdAt: { greater_than_equal: since } }, ...common, select: { channel: true, createdAt: true } as never }),
     payload.find({ collection: "partner-clients", where: { formSubmission: { exists: true } }, ...common, draft: true, select: { formSubmission: true, clientStatus: true } as never }),
     payload.find({ collection: "client-activities", where: { and: [{ type: { equals: "systeme" } }, { title: { like: "Étape :" } }] }, ...common, select: { client: true, title: true } as never }),
     payload.find({ collection: "ad-campaigns", ...common, select: { name: true, platform: true, status: true, agentBudget: true } as never }),
     payload.find({ collection: "ad-metrics-daily", where: { and: [{ platform: { equals: "meta" } }, { level: { equals: "campaign" } }, { day: { greater_than_equal: since.slice(0, 10) } }] }, ...common, select: { day: true, spend: true } as never }),
     loadExpenses().catch(() => ({ expenses: [], note: "Dépenses Pennylane illisibles." })),
+    loadGoogleAds(competitors, months, now),
+    loadOpenAiAds(months, now),
   ]);
   const metaByMonth: Record<string, number> = {};
   for (const r of meta.docs as unknown as { day: string; spend?: number | null }[]) metaByMonth[r.day.slice(0, 7)] = (metaByMonth[r.day.slice(0, 7)] ?? 0) + (r.spend ?? 0);
@@ -191,9 +199,22 @@ export async function loadScorecard(payload: Payload, months = 3, now = new Date
   const before = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months, 15));
   const spendNow = channelSpend(exp.expenses, metaByMonth, leadsByChannel, months, now);
   const spendBefore = channelSpend(exp.expenses, metaByMonth, leadsByChannel, months, before);
+  // Régie branchée : la dépense de son API, au jour près, plutôt que les relevés bancaires.
+  const monthsOf = (end: Date) => Array.from({ length: months }, (_, i) => new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - i, 1)).toISOString().slice(0, 7));
+  const sumOf = (byMonth: Record<string, number>, keys: string[]) => Math.round(keys.reduce((s, k) => s + (byMonth[k] ?? 0), 0) * 100) / 100;
+  if (gads.status === "ok") {
+    spendNow.sea = sumOf(gads.data.spendByMonth, monthsOf(now));
+    spendBefore.sea = sumOf(gads.data.spendByMonth, monthsOf(before));
+  }
+  if (oads.status === "ok") {
+    spendNow.chatgpt = sumOf(oads.data.spendByMonth, monthsOf(now));
+    spendBefore.chatgpt = sumOf(oads.data.spendByMonth, monthsOf(before));
+  }
   const caveats = [
     "Le journal des étapes ne couvre que les opportunités suivies depuis sa mise en place : pour les plus anciennes, seul le statut actuel compte.",
     ...(exp.note ? [exp.note] : []),
+    gads.status === "ok" ? "Google Ads : dépense lue dans l'API Google Ads (au jour près)." : "Google Ads : dépense prise dans les relevés Pennylane (le connecteur n'est pas branché).",
+    oads.status === "ok" ? "ChatGPT Ads : dépense lue dans l'API ChatGPT Ads (au jour près)." : "ChatGPT Ads : dépense prise dans les relevés Pennylane (le connecteur n'est pas branché).",
   ];
   const budgets: CampaignBudget[] = (campaigns.docs as unknown as Raw[]).map((c) => ({
     id: c.id as Id,

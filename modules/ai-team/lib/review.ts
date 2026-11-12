@@ -8,6 +8,8 @@ import { AdsBudgetError, assertAdsBudget, recordAdsUsage, spentOf } from "@/modu
 import { firstSentence } from "@/modules/ai-team/lib/activity";
 import { ALLOWED_HOSTS, validateRequest, type RequestInput } from "@/modules/ai-team/lib/requests";
 import { loadScorecard, type Scorecard } from "@/modules/ai-team/lib/scorecard";
+import { loadGoogleAds, type GoogleAdsView } from "@/modules/analytics/lib/google-ads";
+import { loadOpenAiAds } from "@/modules/analytics/lib/openai-ads";
 
 /**
  * LA REVUE DU LUNDI de Margaux, directrice SEA (étape 4 de l'organisation
@@ -77,7 +79,9 @@ export type ReviewCall = (input: { system: string; user: string }) => Promise<{ 
 
 export const REVIEW_SYSTEM = [
   "Tu es Margaux, directrice SEA de TIM (logiciel de gestion pour le BTP). Tu es un agent IA. Tu fais ta revue du lundi pour la direction, comme la directrice d'une très bonne agence multi-canal.",
-  "Ton équipe : Camille (cheffe Meta Ads), Thomas (chef Google Ads, pas encore branché), Sarah (cheffe ChatGPT Ads, pas encore branchée), Yanis (mesure & data, il tient la fiche des canaux), et le studio créatif (Hugo stratège, Léa rédactrice, Noé directeur artistique, Inès contrôleuse).",
+  "Ton équipe : Camille (cheffe Meta Ads), Thomas (chef Google Ads : il lit le compte en lecture seule et te remet ses constats — la direction applique dans la console Google Ads), Sarah (cheffe ChatGPT Ads : elle lit le compte en lecture seule et te remet ses constats — la direction applique dans le Gestionnaire de publicités ChatGPT), Yanis (mesure & data, il tient la fiche des canaux), et le studio créatif (Hugo stratège, Léa rédactrice, Noé directeur artistique, Inès contrôleuse).",
+  "- Google Ads : lis les constats de Thomas (conversions qui ne remontent pas, recherches de concurrents, recherches qui coûtent sans conversion, niveau de qualité). Une recommandation Google donne le lien de la console (ads.google.com) et les étapes exactes dans l'interface Google Ads.",
+  "- ChatGPT Ads : lis les constats de Sarah. Une conversion du pixel ChatGPT n'est pas un lead qualifié : juge le canal sur la fiche des canaux (leads qualifiés, coût par lead qualifié). L'API ne dit rien des conversations où les annonces s'affichent. Une recommandation ChatGPT Ads donne le lien du Gestionnaire (ads.openai.com) et les étapes exactes.",
   "Les règles de la maison :",
   "- On juge un canal au coût par lead QUALIFIÉ (démo programmée ou plus) et au client signé, jamais au clic. Le budget va là où le prochain euro rapporte le plus de leads qualifiés.",
   "- C'est la direction qui répartit les budgets : tu RECOMMANDES, elle décide. Une recommandation de budget dit de quel canal vers quel canal, de combien (par paliers : au plus 20 % d'un canal par semaine), et pourquoi, chiffres de la fiche à l'appui.",
@@ -123,15 +127,30 @@ type Raw = Record<string, unknown>;
 const idOf = (v: unknown) => (v && typeof v === "object" ? (v as { id?: number | string }).id : v);
 
 /** Ce que Margaux lit pour sa revue. */
+/** Ce que Thomas remet à Margaux : ses constats et l'essentiel du compte, sans le détail. */
+const googleForReview = (g: GoogleAdsView) => ({
+  constatsDeThomas: g.findings,
+  trenteDerniersJours: g.last30,
+  campagnes: g.campaigns.slice(0, 6).map((c) => ({ nom: c.name, etat: c.status, budgetJour: c.dailyBudget, depense: c.cost, clics: c.clicks, conversions: c.conversions })),
+  recherchesQuiCoutent: g.searchTerms.slice(0, 15).map((t) => ({ recherche: t.term, depense: t.cost, clics: t.clicks, conversions: t.conversions, concurrent: t.competitor })),
+  actionsDeConversionActives: g.activeConversionActions,
+});
+
 async function reviewData(payload: Payload, now: Date, card: Scorecard | null) {
   const common = { depth: 0, overrideAccess: true } as const;
   const since = new Date(now.getTime() - 14 * 86_400_000).toISOString();
-  const [runs, campaigns, open, recent, spent] = await Promise.all([
+  const competitors = await payload
+    .find({ collection: "ad-competitors", pagination: false, ...common, select: { name: true } as never })
+    .then((r) => (r.docs as unknown as { name?: string }[]).map((c) => String(c.name ?? "")).filter(Boolean))
+    .catch(() => [] as string[]);
+  const [runs, campaigns, open, recent, spent, gads, oads] = await Promise.all([
     payload.find({ collection: "ad-agent-runs", where: { and: [{ kind: { in: ["quotidien", "hebdomadaire", "mensuel"] } }, { startedAt: { greater_than_equal: since } }] }, sort: "-startedAt", limit: 8, ...common }),
     payload.find({ collection: "ad-campaigns", pagination: false, ...common, select: { name: true } as never }),
     payload.find({ collection: "ai-team-requests", where: { status: { equals: "ouverte" } }, limit: 30, ...common }),
     payload.find({ collection: "ai-team-requests", where: { and: [{ status: { in: ["faite", "repondue", "retiree"] } }, { closedAt: { greater_than_equal: new Date(now.getTime() - 30 * 86_400_000).toISOString() } }] }, sort: "-closedAt", limit: 15, ...common }),
     spentOf(payload, "agent", now),
+    loadGoogleAds(competitors, 3, now).catch(() => null),
+    loadOpenAiAds(3, now).catch(() => null),
   ]);
   const name = new Map((campaigns.docs as unknown as Raw[]).map((c) => [String(c.id), String(c.name ?? "—")]));
   return {
@@ -143,6 +162,11 @@ async function reviewData(payload: Payload, now: Date, card: Scorecard | null) {
     attendDejaLaDirection: (open.docs as unknown as Raw[]).map((r) => ({ forme: r.kind, titre: r.title })),
     reponsesRecentesDeLaDirection: (recent.docs as unknown as Raw[]).map((r) => ({ titre: r.title, etat: r.status, reponseOuMot: r.answer ?? null })),
     depenseIaDesAgentsCeMoisEur: Math.round(spent.month * 100) / 100,
+    googleAdsLuParThomas: gads?.status === "ok" ? googleForReview(gads.data) : "non branché",
+    chatgptAdsLuParSarah:
+      oads?.status === "ok"
+        ? { constatsDeSarah: oads.data.findings, trenteDerniersJours: oads.data.last30, campagnes: oads.data.campaigns.slice(0, 6).map((c) => ({ nom: c.name, depense: c.spend, clics: c.clicks, conversionsDuPixel: c.conversions })) }
+        : "non branché",
   };
 }
 

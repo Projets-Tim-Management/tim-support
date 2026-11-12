@@ -7,10 +7,12 @@ import { QUESTION_MODEL } from "@/modules/ads/agent/question";
 import { payloadSuivi } from "@/modules/ads/agent/suivi-port";
 import type { AgentModelCall, Id } from "@/modules/ads/agent/types";
 import { AdsBudgetError, assertAdsBudget, recordAdsUsage } from "@/modules/ads/lib/spend";
-import { firstSentence, resultText } from "@/modules/ai-team/lib/activity";
+import { firstSentence, isPlugged, resultText } from "@/modules/ai-team/lib/activity";
 import { buildTeamSpend } from "@/modules/ai-team/lib/spend";
 import { loadScorecard } from "@/modules/ai-team/lib/scorecard";
 import { cached } from "@/modules/analytics/lib/seo-cache";
+import { loadGoogleAds } from "@/modules/analytics/lib/google-ads";
+import { loadOpenAiAds } from "@/modules/analytics/lib/openai-ads";
 
 /**
  * La conversation de la direction avec un CHEF de l'équipe IA (étape 4 du plan
@@ -103,7 +105,7 @@ async function chiefData(payload: Payload, now: Date) {
   const reports = await Promise.all(live.map(async (c) => ({ campagne: c.name, chiffres14Jours: await suivi.report(c.id as Id, 14).catch(() => null) })));
   const teamDocs = team.docs as unknown as Raw[];
   return {
-    team: teamDocs.map((m) => ({ name: String(m.name), jobTitle: String(m.jobTitle), active: m.active !== false, plugged: ((m.engineRoles as string[] | undefined) ?? []).length > 0 })),
+    team: teamDocs.map((m) => ({ name: String(m.name), jobTitle: String(m.jobTitle), active: m.active !== false, plugged: isPlugged(String(m.key), (m.engineRoles as string[] | undefined) ?? []) })),
     data: {
       aujourdhui: now.toISOString().slice(0, 10),
       creasQuiAttendentLaDirection: pending.totalDocs,
@@ -173,6 +175,11 @@ export async function askChief(
   const requests = await payload.find({ collection: "ai-team-requests", where: { member: { equals: chief.id } }, sort: "-createdAt", limit: 10, depth: 0, overrideAccess: true });
   // La fiche des canaux (Yanis) : ce qui fonde ses recommandations de budget.
   const card = await cached(`scorecard:${now.toISOString().slice(0, 13)}`, 30 * 60_000, () => loadScorecard(payload, 3, now)).catch(() => null);
+  const competitors = await payload
+    .find({ collection: "ad-competitors", pagination: false, depth: 0, overrideAccess: true, select: { name: true } as never })
+    .then((r) => (r.docs as unknown as { name?: string }[]).map((c) => String(c.name ?? "")).filter(Boolean))
+    .catch(() => [] as string[]);
+  const [gads, oads] = await Promise.all([loadGoogleAds(competitors, 3, now).catch(() => null), loadOpenAiAds(3, now).catch(() => null)]);
   const withRequests = {
     ...data,
     ficheDesCanaux: card
@@ -184,6 +191,12 @@ export async function askChief(
           limites: card.caveats,
         }
       : "indisponible pour l'instant",
+    googleAdsLuParThomas:
+      gads?.status === "ok"
+        ? { constats: gads.data.findings, trenteDerniersJours: gads.data.last30, campagnes: gads.data.campaigns.slice(0, 6), recherchesQuiCoutent: gads.data.searchTerms.slice(0, 10) }
+        : "non branché",
+    chatgptAdsLuParSarah:
+      oads?.status === "ok" ? { constats: oads.data.findings, trenteDerniersJours: oads.data.last30, campagnes: oads.data.campaigns.slice(0, 6) } : "non branché",
     mesDemandesALaDirection: (requests.docs as unknown as Raw[]).map((r) => ({
       le: String(r.createdAt ?? "").slice(0, 10),
       forme: r.kind,

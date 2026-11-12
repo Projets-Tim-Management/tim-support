@@ -139,6 +139,21 @@ const sinceLine = (iso: string | null, now: Date) => {
   return days <= 0 ? "Dernière mission aujourd'hui" : days === 1 ? "Dernière mission hier" : `Dernière mission il y a ${days} jours`;
 };
 
+/** Les chefs de canal qui lisent leur régie sans rôle moteur : branchés dès que leur variable est posée. */
+const READERS: Record<string, { env: string; line: string }> = {
+  "sea-google": { env: "GOOGLE_ADS_CUSTOMER_ID", line: "Lit le compte Google Ads (lecture seule)" },
+  "sea-chatgpt": { env: "OPENAI_ADS_API_KEY", line: "Lit le compte ChatGPT Ads (lecture seule)" },
+};
+
+/**
+ * Son travail est-il branché ? Un rôle dans le moteur, ou Yanis (la fiche des
+ * canaux), ou un chef de canal dont le connecteur est posé.
+ */
+export function isPlugged(key: string, engineRoles: readonly string[]): boolean {
+  const reader = READERS[key];
+  return engineRoles.length > 0 || key === "sea-mesure" || Boolean(reader && process.env[reader.env]?.trim());
+}
+
 export function buildTeamView(input: { members: Raw[]; agents: Raw[]; runs: Raw[]; campaigns: Raw[]; steps: Raw[]; pendingValidations: number; now: Date }): TeamView {
   const campaignName = new Map(input.campaigns.map((c) => [String(c.id), String(c.name ?? "—")]));
   const runById = new Map(input.runs.map((r) => [String(r.id), r]));
@@ -177,8 +192,10 @@ export function buildTeamView(input: { members: Raw[]; agents: Raw[]; runs: Raw[
       : [];
     const waiting = isChief && input.pendingValidations > 0;
     const active = m.active !== false;
-    // Yanis (mesure) tient la fiche des canaux, calculée par le code : il travaille sans rôle moteur.
-    const plugged = roles.size > 0 || String(m.key) === "sea-mesure";
+    // Yanis (mesure) tient la fiche des canaux ; Thomas lit Google Ads et Sarah ChatGPT Ads dès que
+    // leur connecteur est posé : ils travaillent sans rôle moteur.
+    const reader = READERS[String(m.key)];
+    const plugged = isPlugged(String(m.key), [...roles]);
     const state: MemberState = !plugged ? "bientot" : !active ? "pause" : working ? "travail" : waiting ? "validation" : "repos";
     const lastAt = mine[0] ? String(mine[0].createdAt) : null;
     const inMonth = mine.filter((a) => Date.parse(String(a.createdAt)) >= monthFrom);
@@ -199,6 +216,8 @@ export function buildTeamView(input: { members: Raw[]; agents: Raw[]; runs: Raw[
       stateLine:
         String(m.key) === "sea-mesure" && state !== "pause"
           ? "Tient la fiche des canaux à jour"
+          : reader && state !== "bientot" && state !== "pause"
+          ? reader.line
           : state === "bientot"
           ? "Son travail arrive bientôt"
           : state === "pause"

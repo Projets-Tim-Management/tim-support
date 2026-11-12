@@ -42,6 +42,7 @@ export const ALLOWED_HOSTS = [
   "www.bing.com",
   "chatgpt.com",
   "platform.openai.com",
+  "ads.openai.com",
   "tim-management.co",
 ];
 

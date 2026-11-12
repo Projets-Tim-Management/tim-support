@@ -3,6 +3,8 @@ import type { Payload } from "payload";
 import { accessTokenFor } from "@/modules/marketing/lib/calendar";
 import { pingBing } from "@/modules/analytics/lib/seo-bing";
 import { pingGa4 } from "@/modules/analytics/lib/seo-ga4";
+import { pingGoogleAds } from "@/modules/analytics/lib/google-ads";
+import { pingOpenAiAds } from "@/modules/analytics/lib/openai-ads";
 import { pingGsc } from "@/modules/analytics/lib/seo-gsc";
 import { pingPageSpeed } from "@/modules/analytics/lib/seo-pagespeed";
 
@@ -195,6 +197,10 @@ export async function testConnection(key: SupportConnection["key"], payload: Pay
                     ? await testSeo(pingBing)
                     : key === "ga4-data"
                       ? await testSeo(pingGa4)
-                      : await testAnthropic();
+                      : key === "google-ads"
+                        ? await testSeo(pingGoogleAds)
+                        : key === "openai-ads"
+                          ? await testSeo(pingOpenAiAds)
+                          : await testAnthropic();
   return { ...r, at };
 }

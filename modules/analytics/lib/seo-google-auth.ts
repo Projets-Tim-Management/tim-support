@@ -4,12 +4,13 @@ import { httpError } from "@/modules/analytics/lib/seo-cache";
 
 /**
  * Le jeton Google du compte de service `seo-lecture` — UN compte, UNE clé
- * (`GSC_SERVICE_ACCOUNT_JSON`), deux lectures : Search Console et GA4. Le
- * jeton porte les deux droits, en lecture seule ; chaque outil n'ouvre que ce
- * que le compte s'est vu accorder chez lui (utilisateur « Restreint » dans
- * Search Console, « Lecteur » dans GA4).
+ * (`GSC_SERVICE_ACCOUNT_JSON`), trois lectures : Search Console, GA4 et
+ * Google Ads. Chaque outil n'ouvre que ce que le compte s'est vu accorder chez
+ * lui (« Restreint » dans Search Console, « Lecteur » dans GA4, « Lecture
+ * seule » dans Google Ads) : le droit `adwords` du jeton n'écrit rien tant que
+ * le compte n'a que la lecture.
  */
-const SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly", "https://www.googleapis.com/auth/analytics.readonly"].join(" ");
+const SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly", "https://www.googleapis.com/auth/analytics.readonly", "https://www.googleapis.com/auth/adwords"].join(" ");
 
 type ServiceAccount = { client_email: string; private_key: string };
 

@@ -17,6 +17,9 @@ import { Portrait } from "@/modules/ai-team/lib/portraits";
 import { TEAM_GROUPS } from "@/modules/ai-team/lib/team";
 import { cached } from "@/modules/analytics/lib/seo-cache";
 import { loadScorecard, type Scorecard } from "@/modules/ai-team/lib/scorecard";
+import { loadGoogleAds, type GoogleAdsView } from "@/modules/analytics/lib/google-ads";
+import { loadOpenAiAds, type OpenAiAdsView } from "@/modules/analytics/lib/openai-ads";
+import type { SourceResult } from "@/modules/analytics/lib/seo-cache";
 import { monthTotal, perDay, type MemberSpend, type TeamSpend } from "@/modules/ai-team/lib/spend";
 
 /**
@@ -378,6 +381,186 @@ function ScorecardView({ card, members }: { card: Scorecard; members: MemberView
   );
 }
 
+/* ─── Ce que lit Thomas (Google Ads) ────────────────────────────────────── */
+
+const eur2 = (n: number | null) => (n == null ? "—" : n.toLocaleString("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+function GoogleAdsPanel({ gads, chief }: { gads: SourceResult<GoogleAdsView>; chief: MemberView | undefined }) {
+  if (gads.status === "missing") return <p className="ait-paused">🔌 Le connecteur Google Ads n&apos;est pas branché : variable(s) {gads.missing.join(", ")} (Système › Connexions du support).</p>;
+  if (gads.status === "error") return <p className="ait-paused">⚠️ Google Ads n&apos;a pas répondu : {gads.message}</p>;
+  const g = gads.data;
+  return (
+    <>
+      {g.findings.length > 0 && (
+        <section className="ait-score">
+          <h3 className="ait-h3">📝 Ses constats pour {chief?.name ?? "sa cheffe"}</h3>
+          <ul className="ait-score__headlines">
+            {g.findings.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+          <p className="ait-meta">{chief?.name ?? "Sa cheffe"} les reprend dans sa revue du lundi, en recommandations pour vous.</p>
+        </section>
+      )}
+      <section className="ait-score">
+        <h3 className="ait-h3">📈 Les 30 derniers jours</h3>
+        <p className="ait-chips">
+          <span>💶 {eur0(g.last30.cost)} dépensés</span>
+          <span>🖱️ {g.last30.clicks} clics · {eur2(g.last30.cpc)} le clic</span>
+          <span>🎯 {g.last30.conversions} conversion{g.last30.conversions > 1 ? "s" : ""} remontée{g.last30.conversions > 1 ? "s" : ""}</span>
+          <span>{g.activeConversionActions ? `✅ ${g.activeConversionActions} action(s) de conversion active(s)` : "⚠️ aucune action de conversion active"}</span>
+        </p>
+        <div className="ait-score__scroll">
+          <table className="ait-table">
+            <thead>
+              <tr>
+                <th>Campagne</th>
+                <th>État</th>
+                <th>Budget / jour</th>
+                <th>Dépense</th>
+                <th>Clics</th>
+                <th>€ / clic</th>
+                <th>Conversions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {g.campaigns.map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    <strong>{c.name}</strong> <span className="ait-score__rate">· {c.type}</span>
+                  </td>
+                  <td>{c.status}</td>
+                  <td>{eur0(c.dailyBudget)}</td>
+                  <td>{eur0(c.cost)}</td>
+                  <td>{c.clicks}</td>
+                  <td>{eur2(c.cpc)}</td>
+                  <td>{c.conversions}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <Detail label={`Les recherches qui ont coûté (${g.searchTerms.length})`}>
+        <table className="ait-table">
+          <thead>
+            <tr>
+              <th>Recherche</th>
+              <th>Dépense</th>
+              <th>Clics</th>
+              <th>Conversions</th>
+              <th>Concurrent</th>
+            </tr>
+          </thead>
+          <tbody>
+            {g.searchTerms.map((t) => (
+              <tr key={t.term}>
+                <td>{t.term}</td>
+                <td>{eur2(t.cost)}</td>
+                <td>{t.clicks}</td>
+                <td>{t.conversions}</td>
+                <td>{t.competitor ?? ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Detail>
+      <Detail label={`Les mots-clés (${g.keywords.length})`}>
+        <table className="ait-table">
+          <thead>
+            <tr>
+              <th>Mot-clé</th>
+              <th>Correspondance</th>
+              <th>État</th>
+              <th>Dépense</th>
+              <th>Clics</th>
+              <th>Conversions</th>
+              <th>Qualité /10</th>
+            </tr>
+          </thead>
+          <tbody>
+            {g.keywords.map((k) => (
+              <tr key={`${k.text}-${k.match}`}>
+                <td>{k.text}</td>
+                <td>{k.match}</td>
+                <td>{k.status}</td>
+                <td>{eur2(k.cost)}</td>
+                <td>{k.clicks}</td>
+                <td>{k.conversions}</td>
+                <td>{k.quality ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Detail>
+      <p className="seo-fetched">Google Ads lu le {new Date(gads.fetchedAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })} · lecture seule · relu toutes les 3 h</p>
+    </>
+  );
+}
+
+/* ─── Ce que lit Sarah (ChatGPT Ads) ────────────────────────────────────── */
+
+function OpenAiAdsPanel({ oads, chief }: { oads: SourceResult<OpenAiAdsView>; chief: MemberView | undefined }) {
+  if (oads.status === "missing") return <p className="ait-paused">🔌 Le connecteur ChatGPT Ads n&apos;est pas branché : variable(s) {oads.missing.join(", ")} (Système › Connexions du support).</p>;
+  if (oads.status === "error") return <p className="ait-paused">⚠️ ChatGPT Ads n&apos;a pas répondu : {oads.message}</p>;
+  const o = oads.data;
+  return (
+    <>
+      {o.findings.length > 0 && (
+        <section className="ait-score">
+          <h3 className="ait-h3">📝 Ses constats pour {chief?.name ?? "sa cheffe"}</h3>
+          <ul className="ait-score__headlines">
+            {o.findings.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+          <p className="ait-meta">{chief?.name ?? "Sa cheffe"} les reprend dans sa revue du lundi, en recommandations pour vous.</p>
+        </section>
+      )}
+      <section className="ait-score">
+        <h3 className="ait-h3">📈 Les 30 derniers jours</h3>
+        <p className="ait-chips">
+          <span>💶 {eur0(o.last30.spend)} dépensés</span>
+          <span>🖱️ {o.last30.clicks} clics · {eur2(o.last30.cpc)} le clic</span>
+          <span>👀 {o.last30.impressions.toLocaleString("fr-FR")} affichages</span>
+          <span>🎯 {o.last30.conversions} conversion{o.last30.conversions > 1 ? "s" : ""} du pixel{o.last30.costPerConversion != null ? ` · ${eur0(o.last30.costPerConversion)} chacune` : ""}</span>
+        </p>
+        <div className="ait-score__scroll">
+          <table className="ait-table">
+            <thead>
+              <tr>
+                <th>Campagne</th>
+                <th>Dépense</th>
+                <th>Affichages</th>
+                <th>Clics</th>
+                <th>€ / clic</th>
+                <th>Conversions</th>
+                <th>€ / conversion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {o.campaigns.map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    <strong>{c.name}</strong>
+                  </td>
+                  <td>{eur0(c.spend)}</td>
+                  <td>{c.impressions.toLocaleString("fr-FR")}</td>
+                  <td>{c.clicks}</td>
+                  <td>{eur2(c.cpc)}</td>
+                  <td>{c.conversions}</td>
+                  <td>{eur0(c.costPerConversion)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <p className="seo-fetched">ChatGPT Ads lu le {new Date(oads.fetchedAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })} · lecture seule · relu toutes les 3 h</p>
+    </>
+  );
+}
+
 /* ─── Fiches ────────────────────────────────────────────────────────────── */
 
 function Head({ m }: { m: MemberView }) {
@@ -601,7 +784,33 @@ function ChiefPanel({ m, team, all, campaigns, campaign, chat, spend, scorecard 
   );
 }
 
-function SubPanel({ m, chief, all, spend, scorecard, members }: { m: MemberView; chief: MemberView | undefined; all: boolean; spend: MemberSpend | undefined; scorecard: Scorecard | null; members: MemberView[] }) {
+function SubPanel({ m, chief, all, spend, scorecard, members, gads, oads }: { m: MemberView; chief: MemberView | undefined; all: boolean; spend: MemberSpend | undefined; scorecard: Scorecard | null; members: MemberView[]; gads: SourceResult<GoogleAdsView> | null; oads: SourceResult<OpenAiAdsView> | null }) {
+  if (m.key === "sea-chatgpt") {
+    return (
+      <div className="ait-panel">
+        <Head m={m} />
+        {chief && (
+          <p className="ait-reports">
+            <Face m={chief} size={22} /> Sarah lit le compte ChatGPT Ads en lecture seule et remet ses constats à {chief.name} ; les changements passent par vous, dans le Gestionnaire de publicités.
+          </p>
+        )}
+        {oads ? <OpenAiAdsPanel oads={oads} chief={chief} /> : <p className="ait-empty">ChatGPT Ads n&apos;a pas pu être lu pour l&apos;instant.</p>}
+      </div>
+    );
+  }
+  if (m.key === "sea-google") {
+    return (
+      <div className="ait-panel">
+        <Head m={m} />
+        {chief && (
+          <p className="ait-reports">
+            <Face m={chief} size={22} /> Thomas lit le compte Google Ads en lecture seule et remet ses constats à {chief.name} ; les changements passent par vous, dans la console Google Ads.
+          </p>
+        )}
+        {gads ? <GoogleAdsPanel gads={gads} chief={chief} /> : <p className="ait-empty">Google Ads n&apos;a pas pu être lu pour l&apos;instant.</p>}
+      </div>
+    );
+  }
   if (m.key === "sea-mesure") {
     return (
       <div className="ait-panel">
@@ -657,6 +866,8 @@ function Report({
   chat,
   inbox,
   scorecard,
+  gads,
+  oads,
 }: {
   team: TeamView & { spend: TeamSpend };
   selected: string | null;
@@ -666,6 +877,8 @@ function Report({
   chat: ChatMessage[];
   inbox: Awaited<ReturnType<typeof loadInbox>>;
   scorecard: Scorecard | null;
+  gads: SourceResult<GoogleAdsView> | null;
+  oads: SourceResult<OpenAiAdsView> | null;
 }) {
   const chief = team.members.find((m) => m.level === "chef");
   const subs = team.members.filter((m) => m.level === "sous-agent");
@@ -700,7 +913,7 @@ function Report({
           );
         })}
       </div>
-      {current && (current.level === "chef" ? <ChiefPanel m={current} team={team} all={all} campaigns={campaigns} campaign={campaign} chat={chat} spend={team.spend} scorecard={scorecard} /> : <SubPanel m={current} chief={team.members.find((x) => x.id === current.chiefId)} all={all} spend={team.spend.members.find((x) => x.key === current.key)} scorecard={scorecard} members={team.members} />)}
+      {current && (current.level === "chef" ? <ChiefPanel m={current} team={team} all={all} campaigns={campaigns} campaign={campaign} chat={chat} spend={team.spend} scorecard={scorecard} /> : <SubPanel m={current} chief={team.members.find((x) => x.id === current.chiefId)} all={all} spend={team.spend.members.find((x) => x.key === current.key)} scorecard={scorecard} members={team.members} gads={gads} oads={oads} />)}
     </>
   );
 }
@@ -729,6 +942,15 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
     : [null, [] as CampaignChip[]];
   // La conversation du chef affiché (le chef par défaut) : ses 40 derniers messages, dans l'ordre.
   const inbox = allowed ? await loadInbox(req.payload) : { open: [], closed: [] };
+  // Ce que lit Thomas, seulement quand on ouvre sa fiche (le compte Google Ads se lit en direct, gardé 3 h).
+  const gads =
+    allowed && selected === "sea-google"
+      ? await loadGoogleAds(
+          ((await req.payload.find({ collection: "ad-competitors", pagination: false, depth: 0, overrideAccess: true, select: { name: true } as never })).docs as unknown as { name?: string }[]).map((c) => String(c.name ?? "")).filter(Boolean),
+        )
+      : null;
+  // Ce que lit Sarah, seulement quand on ouvre sa fiche (ChatGPT Ads, lu en direct, gardé 3 h).
+  const oads = allowed && selected === "sea-chatgpt" ? await loadOpenAiAds() : null;
   // La fiche des canaux lit Pennylane : gardée 30 minutes, et une erreur ne casse pas la page.
   const scorecard = allowed
     ? await cached(`scorecard:${new Date().toISOString().slice(0, 13)}`, 30 * 60_000, () => loadScorecard(req.payload)).catch((e) => {
@@ -764,7 +986,7 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
             <h1 className="ait-title">Équipe IA</h1>
             <p className="ait-sub">Vous parlez aux chefs ; chaque sous-agent reçoit ses missions de son chef et lui rend son travail.</p>
           </header>
-          {team ? <Report team={team} selected={selected} all={all} campaigns={campaigns} campaign={campaign} chat={chat} inbox={inbox} scorecard={scorecard} /> : <p className="ait-empty">Cet écran est réservé à la direction.</p>}
+          {team ? <Report team={team} selected={selected} all={all} campaigns={campaigns} campaign={campaign} chat={chat} inbox={inbox} scorecard={scorecard} gads={gads} oads={oads} /> : <p className="ait-empty">Cet écran est réservé à la direction.</p>}
         </div>
       </Gutter>
     </DefaultTemplate>
