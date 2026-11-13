@@ -98,6 +98,25 @@ const figures = (spend: number, leads: number, qualified: number, won: number): 
 
 const eur = (n: number) => `${n.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €`;
 
+/**
+ * Ce qu'est devenu chaque lead (par l'id de son formulaire) : QUALIFIÉ s'il a
+ * atteint « Démo programmée » ou plus — statut actuel, ou une étape de son
+ * journal, même perdu ensuite — et SIGNÉ. Partagé par la fiche des canaux et
+ * l'entonnoir de l'analyste SEO/GEO. Pure (testée).
+ */
+export function leadOutcomes(clients: Raw[], journal: Raw[]): Map<string, { qualified: boolean; won: boolean }> {
+  const reached = new Set<string>();
+  for (const j of journal) if (reachedQualified(String(j.title ?? ""))) reached.add(String(idOf(j.client)));
+  const out = new Map<string, { qualified: boolean; won: boolean }>();
+  for (const c of clients) {
+    const sub = idOf(c.formSubmission);
+    if (sub == null) continue;
+    const status = String(c.clientStatus ?? "");
+    out.set(String(sub), { qualified: QUALIFIED.has(status) || reached.has(String(c.id)), won: WON.has(status) });
+  }
+  return out;
+}
+
 export function buildScorecard(input: {
   /** Formulaires : id, canal, date. */
   leads: Raw[];
@@ -116,16 +135,7 @@ export function buildScorecard(input: {
   const from = Date.UTC(input.now.getUTCFullYear(), input.now.getUTCMonth() - input.months + 1, 1);
   const previousFrom = Date.UTC(input.now.getUTCFullYear(), input.now.getUTCMonth() - 2 * input.months + 1, 1);
 
-  // Qualifié : statut actuel qualifié, ou une étape qualifiée dans son journal.
-  const reached = new Set<string>();
-  for (const j of input.journal) if (reachedQualified(String(j.title ?? ""))) reached.add(String(idOf(j.client)));
-  const clientOf = new Map<string, { qualified: boolean; won: boolean }>();
-  for (const c of input.clients) {
-    const sub = idOf(c.formSubmission);
-    if (sub == null) continue;
-    const status = String(c.clientStatus ?? "");
-    clientOf.set(String(sub), { qualified: QUALIFIED.has(status) || reached.has(String(c.id)), won: WON.has(status) });
-  }
+  const clientOf = leadOutcomes(input.clients, input.journal);
 
   const count = (channels: readonly string[], since: number, until: number) => {
     let leads = 0;

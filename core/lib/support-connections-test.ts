@@ -1,10 +1,12 @@
 import type { Payload } from "payload";
 
+import { reportApiFailure, reportApiSuccess } from "@/core/lib/api-health";
 import { accessTokenFor } from "@/modules/marketing/lib/calendar";
 import { pingBing } from "@/modules/analytics/lib/seo-bing";
 import { pingGa4 } from "@/modules/analytics/lib/seo-ga4";
 import { pingGoogleAds } from "@/modules/analytics/lib/google-ads";
 import { pingOpenAiAds } from "@/modules/analytics/lib/openai-ads";
+import { pingGemini, pingOpenAi, pingPerplexity } from "@/modules/ai-team/lib/ai-engines";
 import { pingGsc } from "@/modules/analytics/lib/seo-gsc";
 import { pingPageSpeed } from "@/modules/analytics/lib/seo-pagespeed";
 
@@ -174,6 +176,9 @@ const PINGS = {
   "ga4-data": { ping: pingGa4, timeoutMs: 15_000 },
   "google-ads": { ping: pingGoogleAds, timeoutMs: 15_000 },
   "openai-ads": { ping: pingOpenAiAds, timeoutMs: 15_000 },
+  openai: { ping: pingOpenAi, timeoutMs: 30_000 },
+  perplexity: { ping: pingPerplexity, timeoutMs: 30_000 },
+  gemini: { ping: pingGemini, timeoutMs: 30_000 },
 } satisfies Partial<Record<SupportConnection["key"], { ping: () => Promise<string>; timeoutMs: number }>>;
 
 /**
@@ -220,5 +225,8 @@ export async function testConnection(key: SupportConnection["key"], payload: Pay
               : key in PINGS
                 ? await testPing(PINGS[key as keyof typeof PINGS])
                 : await testAnthropic();
+  // Le test rapporte aussi son sort : une panne connue se ferme, une nouvelle s'ouvre (core/lib/api-health.ts).
+  if (r.ok) await reportApiSuccess(key, payload);
+  else await reportApiFailure(key, new Error(r.message), payload);
   return { ...r, at };
 }

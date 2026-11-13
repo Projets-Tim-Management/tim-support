@@ -1,0 +1,103 @@
+import type { Payload, Where } from "payload";
+
+import type { ClaudeModel } from "@/core/lib/ai-pricing";
+import { DAY_MS } from "@/modules/ai-team/lib/format";
+import { runWebModel, WebRunError, type WebCall } from "@/modules/ai-team/lib/web-model";
+
+/**
+ * LE RAPPORT D'UN AGENT DE L'ÉQUIPE SEO/GEO, d'un bout à l'autre — commun à
+ * l'audit du site (Ana), au rapport de concurrence (Guy) et au plan de contenu
+ * (Paige) (relecture du 12/11/2026 : les trois recopiaient ce déroulé) :
+ *
+ *  1. l'agent existe et est en service ; le rapport est dû (ou `force`) et pas
+ *     déjà fait pour cette période ;
+ *  2. il se RÉSERVE (une ligne « en cours ») : un second déclenchement dans les
+ *     15 minutes se retire ;
+ *  3. ses données, puis le modèle avec le web (coût vérifié avant, compté au
+ *     budget de l'équipe SEO/GEO) ;
+ *  4. la réponse vérifiée est enregistrée — ou l'échec, avec ce qu'il a coûté.
+ */
+
+export type ReportKind = "site" | "concurrence" | "contenu" | "ia" | "technique" | "autorite" | "reseaux";
+export type ReportResult = { status: "fait" | "pas-encore" | "deja-fait" | "pause" | "echec"; message?: string; findings?: number; costEur?: number };
+type Member = { id: number | string; name: string; active?: boolean | null };
+
+export async function runAgentReport<F>(
+  payload: Payload,
+  o: {
+    memberKey: string;
+    kind: ReportKind;
+    period: string;
+    now: Date;
+    force?: boolean;
+    /** Le rapport est-il dû maintenant (hors `force`) ? */
+    due: () => boolean | Promise<boolean>;
+    /** Ce qu'il faut faire avant (lire les plans de site…), forcé ou non. */
+    before?: () => Promise<void>;
+    data: (member: Member) => Promise<{ data: unknown; keep?: Record<string, unknown> }>;
+    system: (name: string) => string;
+    ask: string;
+    /** La réponse vérifiée ; `keep` : ce que la réponse ajoute au rapport enregistré (les mentions de Linda). */
+    parse: (text: string) => { summary: string; findings: F[]; keep?: Record<string, unknown> } | null;
+    model: ClaudeModel;
+    maxTokens: number;
+    maxSearches: number;
+    maxFetches: number;
+    detail: (name: string) => string;
+    call?: WebCall;
+  },
+): Promise<ReportResult> {
+  const found = await payload.find({ collection: "ai-team-members", where: { key: { equals: o.memberKey } }, limit: 1, depth: 0, overrideAccess: true });
+  const member = found.docs[0] as unknown as Member | undefined;
+  if (!member) return { status: "echec", message: "Cet agent est introuvable dans l'équipe." };
+  if (member.active === false) return { status: "pause", message: `${member.name} est en pause.` };
+  if (!o.force) {
+    if (!(await o.due())) return { status: "pas-encore" };
+    const done = await payload.count({ collection: "ai-team-audits", where: { and: [{ member: { equals: member.id } }, { kind: { equals: o.kind } }, { period: { equals: o.period } }] }, overrideAccess: true });
+    if (done.totalDocs) return { status: "deja-fait" };
+  }
+  await o.before?.();
+  const running = await payload.count({ collection: "ai-team-audits", where: { and: [{ member: { equals: member.id } }, { status: { equals: "en-cours" } }, { createdAt: { greater_than: new Date(o.now.getTime() - 15 * 60_000).toISOString() } }] }, overrideAccess: true });
+  if (running.totalDocs) return { status: "deja-fait", message: `Le travail de ${member.name} est déjà en cours.` };
+  const reserved = await payload.create({ collection: "ai-team-audits", data: { member: member.id, kind: o.kind, period: o.period, status: "en-cours" } as never, overrideAccess: true });
+  const fail = (message: string, extra: Record<string, unknown> = {}) =>
+    payload.update({ collection: "ai-team-audits", id: reserved.id, data: { status: "echec", error: message.slice(0, 2000), ...extra } as never, overrideAccess: true }).catch(() => null);
+  try {
+    const { data, keep } = await o.data(member);
+    const run = await runWebModel(payload, {
+      model: o.model,
+      system: o.system(member.name),
+      user: `<donnees>\n${JSON.stringify(data).replace(/<\/?donnees>/g, "")}\n</donnees>\n\n${o.ask}`,
+      kind: "seo",
+      detail: o.detail(member.name),
+      now: o.now,
+      maxTokens: o.maxTokens,
+      maxSearches: o.maxSearches,
+      maxFetches: o.maxFetches,
+      call: o.call,
+    });
+    const out = run.stopReason === "refusal" ? null : o.parse(run.text);
+    if (!out) {
+      await fail("Réponse du modèle inutilisable (constats absents).", { searches: run.searches, costEur: run.costEur });
+      return { status: "echec", message: "La réponse n'a pas pu être lue.", costEur: run.costEur };
+    }
+    await payload.update({ collection: "ai-team-audits", id: reserved.id, data: { status: "fait", summary: out.summary, findings: out.findings, searches: run.searches, costEur: run.costEur, ...keep, ...out.keep } as never, overrideAccess: true });
+    return { status: "fait", findings: out.findings.length, costEur: run.costEur };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    await fail(message, e instanceof WebRunError ? { searches: e.searches, costEur: e.costEur } : {});
+    return { status: "echec", message };
+  }
+}
+
+/** Le dernier rapport fait d'une nature (et son âge). L'audit du site d'avant les natures compte comme « site ». */
+export async function latestReport<F>(payload: Payload, kind: ReportKind, now = new Date()) {
+  const where: Where = kind === "site" ? { or: [{ kind: { equals: "site" } }, { kind: { exists: false } }] } : { kind: { equals: kind } };
+  const res = await payload.find({ collection: "ai-team-audits", where: { and: [{ status: { equals: "fait" } }, where] }, sort: "-createdAt", limit: 1, depth: 0, overrideAccess: true }).catch(() => null);
+  const d = res?.docs[0] as unknown as { createdAt: string; period: string; summary?: string; findings?: F[] } | undefined;
+  if (!d) return null;
+  return { at: d.createdAt, period: d.period, ageDays: Math.floor((now.getTime() - Date.parse(d.createdAt)) / DAY_MS), summary: d.summary ?? "", findings: Array.isArray(d.findings) ? d.findings : [] };
+}
+
+/** Les constats d'un rapport, triés : impact fort d'abord. */
+export const IMPACT_ORDER = { fort: 0, moyen: 1, faible: 2 } as const;

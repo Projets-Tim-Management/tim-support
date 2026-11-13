@@ -14,15 +14,19 @@ import { loadOpenAiAds, type OpenAiAdsView } from "@/modules/analytics/lib/opena
 
 const NOT_PLUGGED = "non branché";
 
-/** La fiche des canaux (Yanis) ; `channel` : seulement ce canal. Pure. */
+/**
+ * La fiche des canaux (Yanis). `channel` : seulement ce canal — sans les
+ * phrases clés ni les budgets des campagnes, qui parlent des autres canaux (un
+ * agent SEO n'a pas à recommander de couper une campagne Meta). Pure.
+ */
 export function scorecardForModel(card: Scorecard | null, channel?: string | null) {
   if (!card) return "indisponible pour l'instant";
   const rows = channel ? card.rows.filter((r) => r.key === channel) : card.rows;
   return {
     fenetre: `${card.window.months} derniers mois (depuis le ${card.window.from}), comparés aux ${card.window.months} précédents`,
-    aRetenir: card.headlines,
+    ...(channel ? {} : { aRetenir: card.headlines }),
     canaux: rows.map((r) => ({ canal: r.label, payant: r.paid, maintenant: r.now, avant: r.before, evolutionCoutParQualifiePct: r.cpqTrend })),
-    budgetsFixesParLaDirection: card.budgets,
+    ...(channel ? {} : { budgetsFixesParLaDirection: card.budgets }),
     limites: card.caveats,
   };
 }

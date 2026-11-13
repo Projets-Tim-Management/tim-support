@@ -109,6 +109,11 @@ export interface Config {
     'ai-team-members': AiTeamMember;
     'ai-team-messages': AiTeamMessage;
     'ai-team-methods': AiTeamMethod;
+    'ai-team-objectives': AiTeamObjective;
+    'ai-team-audits': AiTeamAudit;
+    'ai-team-competitor-maps': AiTeamCompetitorMap;
+    'ai-team-ai-answers': AiTeamAiAnswer;
+    'ai-team-social-accounts': AiTeamSocialAccount;
     'ai-team-requests': AiTeamRequest;
     'ai-team-snapshots': AiTeamSnapshot;
     'ad-recaps': AdRecap;
@@ -125,6 +130,7 @@ export interface Config {
     'ad-rushes': AdRush;
     'ads-settings-history': AdsSettingsHistory;
     'email-suppressions': EmailSuppression;
+    'api-alerts': ApiAlert;
     'client-employees': ClientEmployee;
     'client-sites': ClientSite;
     'client-vehicles': ClientVehicle;
@@ -208,6 +214,11 @@ export interface Config {
     'ai-team-members': AiTeamMembersSelect<false> | AiTeamMembersSelect<true>;
     'ai-team-messages': AiTeamMessagesSelect<false> | AiTeamMessagesSelect<true>;
     'ai-team-methods': AiTeamMethodsSelect<false> | AiTeamMethodsSelect<true>;
+    'ai-team-objectives': AiTeamObjectivesSelect<false> | AiTeamObjectivesSelect<true>;
+    'ai-team-audits': AiTeamAuditsSelect<false> | AiTeamAuditsSelect<true>;
+    'ai-team-competitor-maps': AiTeamCompetitorMapsSelect<false> | AiTeamCompetitorMapsSelect<true>;
+    'ai-team-ai-answers': AiTeamAiAnswersSelect<false> | AiTeamAiAnswersSelect<true>;
+    'ai-team-social-accounts': AiTeamSocialAccountsSelect<false> | AiTeamSocialAccountsSelect<true>;
     'ai-team-requests': AiTeamRequestsSelect<false> | AiTeamRequestsSelect<true>;
     'ai-team-snapshots': AiTeamSnapshotsSelect<false> | AiTeamSnapshotsSelect<true>;
     'ad-recaps': AdRecapsSelect<false> | AdRecapsSelect<true>;
@@ -224,6 +235,7 @@ export interface Config {
     'ad-rushes': AdRushesSelect<false> | AdRushesSelect<true>;
     'ads-settings-history': AdsSettingsHistorySelect<false> | AdsSettingsHistorySelect<true>;
     'email-suppressions': EmailSuppressionsSelect<false> | EmailSuppressionsSelect<true>;
+    'api-alerts': ApiAlertsSelect<false> | ApiAlertsSelect<true>;
     'client-employees': ClientEmployeesSelect<false> | ClientEmployeesSelect<true>;
     'client-sites': ClientSitesSelect<false> | ClientSitesSelect<true>;
     'client-vehicles': ClientVehiclesSelect<false> | ClientVehiclesSelect<true>;
@@ -429,6 +441,7 @@ export interface User {
         | 'publicite-urgence'
         | 'publicite-reconnexion'
         | 'publicite-recap'
+        | 'connexion-api'
         | 'agendas'
       )[]
     | null;
@@ -3314,11 +3327,19 @@ export interface AiTeamMember {
    * Toute son équipe : passages, missions, conversations. Le plafond global des agents (Publicité › Garde-fous) reste au-dessus.
    */
   monthlyAiBudgetEur?: number | null;
+  /**
+   * Les objectifs de la semaine tiennent dedans. Vide : 5 h.
+   */
+  weeklyHours?: number | null;
+  /**
+   * Où poser les créneaux des objectifs de la semaine. Vide : l'unique agenda Google connecté en @tim-management.co, s'il n'y en a qu'un.
+   */
+  calendarConnection?: (number | null) | CalendarConnection;
   targetValue?: number | null;
   name: string;
   jobTitle: string;
   level: 'chef' | 'sous-agent';
-  domain: 'sea';
+  domain: 'sea' | 'seo';
   chief?: (number | null) | AiTeamMember;
   portrait:
     | 'chef-sea'
@@ -3329,7 +3350,15 @@ export interface AiTeamMember {
     | 'meta-ads'
     | 'google-ads'
     | 'chatgpt-ads'
-    | 'mesure';
+    | 'mesure'
+    | 'chef-seo'
+    | 'seo-analyste'
+    | 'seo-concurrence'
+    | 'seo-contenu'
+    | 'seo-visibilite-ia'
+    | 'seo-technique'
+    | 'seo-autorite'
+    | 'seo-reseaux';
   /**
    * Facultatif : remplace le portrait illustré.
    */
@@ -3343,6 +3372,35 @@ export interface AiTeamMember {
   engineRoles?:
     ('orchestrateur' | 'stratege' | 'redacteur' | 'directeur-artistique' | 'controleur' | 'analyste')[] | null;
   order?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-connections".
+ */
+export interface CalendarConnection {
+  id: number;
+  partner: number | Partner;
+  provider: 'google' | 'microsoft';
+  accountEmail?: string | null;
+  calendars?:
+    | {
+        calendarId: string;
+        name?: string | null;
+        readOnly?: boolean | null;
+        busy?: boolean | null;
+        /**
+         * Un seul agenda, celui d'où partiront les invitations : c'est son nom que le client verra comme organisateur.
+         */
+        target?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  status?: ('ok' | 'expired') | null;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  expiresAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3402,6 +3460,226 @@ export interface AiTeamMethod {
   searches?: number | null;
   costEur?: number | null;
   error?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-objectives".
+ */
+export interface AiTeamObjective {
+  id: number;
+  member: number | AiTeamMember;
+  week: string;
+  rank: number;
+  status: 'a-faire' | 'fait' | 'reporte' | 'abandonne';
+  title: string;
+  page?: string | null;
+  diagnosis?: string | null;
+  benchmark?: string | null;
+  why?: string | null;
+  measure?: string | null;
+  evidence?: ('prouve' | 'correle' | 'speculatif') | null;
+  dueDate?: string | null;
+  minutes?: number | null;
+  closedAt?: string | null;
+  steps?:
+    | {
+        text: string;
+        minutes?: number | null;
+        prompt?: string | null;
+        done?: boolean | null;
+        doneAt?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * [{ start, end, eventId, link }] — posés à la revue du lundi.
+   */
+  slots?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-audits".
+ */
+export interface AiTeamAudit {
+  id: number;
+  member: number | AiTeamMember;
+  kind?: ('site' | 'concurrence' | 'contenu' | 'ia' | 'technique' | 'autorite' | 'reseaux') | null;
+  period: string;
+  status: 'en-cours' | 'fait' | 'echec';
+  summary?: string | null;
+  findings?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  funnel?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  measure?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  searches?: number | null;
+  costEur?: number | null;
+  error?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-competitor-maps".
+ */
+export interface AiTeamCompetitorMap {
+  id: number;
+  competitor: number | AdCompetitor;
+  week: string;
+  status: 'lu' | 'illisible';
+  count?: number | null;
+  urls?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  added?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  removed?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  error?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Les pages Facebook des concurrents dont l'agent lit les publicités. Il peut en proposer ; elles n'entrent qu'après validation.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ad-competitors".
+ */
+export interface AdCompetitor {
+  id: number;
+  name: string;
+  /**
+   * Collez le lien de l'annonceur dans la bibliothèque publicitaire Meta (il contient view_all_page_id=…), ou l'identifiant seul. À l'enregistrement, seul l'identifiant reste ici ; le lien est gardé en dessous.
+   */
+  pageId: string;
+  /**
+   * Le lien collé, tel quel.
+   */
+  sourceUrl?: string | null;
+  status: 'suivi' | 'propose' | 'refuse';
+  decidedAt?: string | null;
+  /**
+   * L'adresse du site : Guy (SEO/GEO) y lit chaque semaine les nouvelles pages.
+   */
+  website?: string | null;
+  usages?: ('sea' | 'seo')[] | null;
+  kind?: ('editeur' | 'comparateur' | 'media') | null;
+  proposedBy?: (number | null) | AdAgentRun;
+  keywords?: string | null;
+  rationale?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-ai-answers".
+ */
+export interface AiTeamAiAnswer {
+  id: number;
+  member: number | AiTeamMember;
+  period: string;
+  engine: 'chatgpt' | 'perplexity' | 'gemini' | 'claude';
+  question: string;
+  draw: number;
+  status: 'fait' | 'echec';
+  mentioned?: boolean | null;
+  cited?: boolean | null;
+  position?: number | null;
+  brands?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  sources?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  model?: string | null;
+  searches?: number | null;
+  excerpt?: string | null;
+  costEur?: number | null;
+  error?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-social-accounts".
+ */
+export interface AiTeamSocialAccount {
+  id: number;
+  platform: 'youtube' | 'meta';
+  label?: string | null;
+  externalId?: string | null;
+  igUserId?: string | null;
+  igUsername?: string | null;
+  accountEmail?: string | null;
+  token?: string | null;
+  status?: ('actif' | 'erreur') | null;
+  lastError?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3528,7 +3806,7 @@ export interface AdRecap {
  */
 export interface AdAiUsage {
   id: number;
-  kind: 'texte' | 'image' | 'video' | 'agent';
+  kind: 'texte' | 'image' | 'video' | 'agent' | 'seo';
   provider?: string | null;
   model?: string | null;
   eur: number;
@@ -3553,31 +3831,6 @@ export interface AdAiUsage {
     | number
     | boolean
     | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Les pages Facebook des concurrents dont l'agent lit les publicités. Il peut en proposer ; elles n'entrent qu'après validation.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-competitors".
- */
-export interface AdCompetitor {
-  id: number;
-  name: string;
-  /**
-   * Collez le lien de l'annonceur dans la bibliothèque publicitaire Meta (il contient view_all_page_id=…), ou l'identifiant seul. À l'enregistrement, seul l'identifiant reste ici ; le lien est gardé en dessous.
-   */
-  pageId: string;
-  /**
-   * Le lien collé, tel quel.
-   */
-  sourceUrl?: string | null;
-  status: 'suivi' | 'propose' | 'refuse';
-  decidedAt?: string | null;
-  proposedBy?: (number | null) | AdAgentRun;
-  keywords?: string | null;
-  rationale?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3627,6 +3880,25 @@ export interface EmailSuppression {
    * Facultatif — le contexte, quand l'ajout est manuel.
    */
   note?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "api-alerts".
+ */
+export interface ApiAlert {
+  id: number;
+  provider: string;
+  label?: string | null;
+  status?: ('en-panne' | 'en-observation' | 'retablie') | null;
+  kind?: ('paiement' | 'acces' | 'autre' | 'passager') | null;
+  message?: string | null;
+  failures?: number | null;
+  firstFailedAt?: string | null;
+  lastFailedAt?: string | null;
+  emailedAt?: string | null;
+  resolvedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -4123,35 +4395,6 @@ export interface TrainingSession {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "calendar-connections".
- */
-export interface CalendarConnection {
-  id: number;
-  partner: number | Partner;
-  provider: 'google' | 'microsoft';
-  accountEmail?: string | null;
-  calendars?:
-    | {
-        calendarId: string;
-        name?: string | null;
-        readOnly?: boolean | null;
-        busy?: boolean | null;
-        /**
-         * Un seul agenda, celui d'où partiront les invitations : c'est son nom que le client verra comme organisateur.
-         */
-        target?: boolean | null;
-        id?: string | null;
-      }[]
-    | null;
-  status?: ('ok' | 'expired') | null;
-  accessToken?: string | null;
-  refreshToken?: string | null;
-  expiresAt?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -4339,6 +4582,26 @@ export interface PayloadLockedDocument {
         value: number | AiTeamMethod;
       } | null)
     | ({
+        relationTo: 'ai-team-objectives';
+        value: number | AiTeamObjective;
+      } | null)
+    | ({
+        relationTo: 'ai-team-audits';
+        value: number | AiTeamAudit;
+      } | null)
+    | ({
+        relationTo: 'ai-team-competitor-maps';
+        value: number | AiTeamCompetitorMap;
+      } | null)
+    | ({
+        relationTo: 'ai-team-ai-answers';
+        value: number | AiTeamAiAnswer;
+      } | null)
+    | ({
+        relationTo: 'ai-team-social-accounts';
+        value: number | AiTeamSocialAccount;
+      } | null)
+    | ({
         relationTo: 'ai-team-requests';
         value: number | AiTeamRequest;
       } | null)
@@ -4401,6 +4664,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'email-suppressions';
         value: number | EmailSuppression;
+      } | null)
+    | ({
+        relationTo: 'api-alerts';
+        value: number | ApiAlert;
       } | null)
     | ({
         relationTo: 'client-employees';
@@ -5901,6 +6168,8 @@ export interface AdQuestionsSelect<T extends boolean = true> {
 export interface AiTeamMembersSelect<T extends boolean = true> {
   active?: T;
   monthlyAiBudgetEur?: T;
+  weeklyHours?: T;
+  calendarConnection?: T;
   targetValue?: T;
   name?: T;
   jobTitle?: T;
@@ -5947,6 +6216,115 @@ export interface AiTeamMethodsSelect<T extends boolean = true> {
   searches?: T;
   costEur?: T;
   error?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-objectives_select".
+ */
+export interface AiTeamObjectivesSelect<T extends boolean = true> {
+  member?: T;
+  week?: T;
+  rank?: T;
+  status?: T;
+  title?: T;
+  page?: T;
+  diagnosis?: T;
+  benchmark?: T;
+  why?: T;
+  measure?: T;
+  evidence?: T;
+  dueDate?: T;
+  minutes?: T;
+  closedAt?: T;
+  steps?:
+    | T
+    | {
+        text?: T;
+        minutes?: T;
+        prompt?: T;
+        done?: T;
+        doneAt?: T;
+        id?: T;
+      };
+  slots?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-audits_select".
+ */
+export interface AiTeamAuditsSelect<T extends boolean = true> {
+  member?: T;
+  kind?: T;
+  period?: T;
+  status?: T;
+  summary?: T;
+  findings?: T;
+  funnel?: T;
+  measure?: T;
+  searches?: T;
+  costEur?: T;
+  error?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-competitor-maps_select".
+ */
+export interface AiTeamCompetitorMapsSelect<T extends boolean = true> {
+  competitor?: T;
+  week?: T;
+  status?: T;
+  count?: T;
+  urls?: T;
+  added?: T;
+  removed?: T;
+  error?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-ai-answers_select".
+ */
+export interface AiTeamAiAnswersSelect<T extends boolean = true> {
+  member?: T;
+  period?: T;
+  engine?: T;
+  question?: T;
+  draw?: T;
+  status?: T;
+  mentioned?: T;
+  cited?: T;
+  position?: T;
+  brands?: T;
+  sources?: T;
+  model?: T;
+  searches?: T;
+  excerpt?: T;
+  costEur?: T;
+  error?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-social-accounts_select".
+ */
+export interface AiTeamSocialAccountsSelect<T extends boolean = true> {
+  platform?: T;
+  label?: T;
+  externalId?: T;
+  igUserId?: T;
+  igUsername?: T;
+  accountEmail?: T;
+  token?: T;
+  status?: T;
+  lastError?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -6178,6 +6556,9 @@ export interface AdCompetitorsSelect<T extends boolean = true> {
   sourceUrl?: T;
   status?: T;
   decidedAt?: T;
+  website?: T;
+  usages?: T;
+  kind?: T;
   proposedBy?: T;
   keywords?: T;
   rationale?: T;
@@ -6265,6 +6646,24 @@ export interface EmailSuppressionsSelect<T extends boolean = true> {
   reason?: T;
   source?: T;
   note?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "api-alerts_select".
+ */
+export interface ApiAlertsSelect<T extends boolean = true> {
+  provider?: T;
+  label?: T;
+  status?: T;
+  kind?: T;
+  message?: T;
+  failures?: T;
+  firstFailedAt?: T;
+  lastFailedAt?: T;
+  emailedAt?: T;
+  resolvedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -7035,6 +7434,7 @@ export interface TeamEmail {
           | 'publicite-urgence'
           | 'publicite-reconnexion'
           | 'publicite-recap'
+          | 'connexion-api'
           | 'agendas';
         roles?: ('super-admin' | 'admin' | 'support')[] | null;
         id?: string | null;

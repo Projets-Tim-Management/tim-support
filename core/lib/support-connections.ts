@@ -20,7 +20,7 @@ export type EnvVar = {
 };
 
 export type SupportConnection = {
-  key: "pennylane" | "brevo" | "insee" | "google" | "anthropic" | "meta" | "search-console" | "pagespeed" | "bing-webmaster" | "ga4-data" | "google-ads" | "openai-ads";
+  key: "pennylane" | "brevo" | "insee" | "google" | "anthropic" | "meta" | "search-console" | "pagespeed" | "bing-webmaster" | "ga4-data" | "google-ads" | "openai-ads" | "openai" | "perplexity" | "gemini";
   name: string;
   /** Pictogramme : une lettre, sans dépendre d'un logo externe. */
   mark: string;
@@ -251,6 +251,63 @@ export const SUPPORT_CONNECTIONS: SupportConnection[] = [
     consoleUrl: "https://ads.openai.com",
     env: [{ name: "OPENAI_ADS_API_KEY", required: true, hint: "La clé d'API annonceur (Gestionnaire de publicités › Paramètres › Général). Elle peut aussi écrire : à garder en variable sensible." }],
     testLabel: "Lire le compte ChatGPT Ads",
+  },
+  {
+    key: "openai",
+    name: "ChatGPT (API OpenAI)",
+    mark: "G",
+    purpose:
+      "Équipe IA : Georges (visibilité IA) pose chaque mois à ChatGPT les questions d'un acheteur du BTP et compte si TIM est nommé, cité, à quel rang. Sans elle, ChatGPT n'est pas mesuré (les autres IA le restent).",
+    scope: [
+      "API Responses, outil web_search — modèle gpt-6-luna par défaut (environ 1 à 2 centimes la question)",
+      "Une question à la fois, recherche web activée, sans rien nommer de TIM : les réponses sont gardées pour la mesure",
+      "Une clé de projet API (platform.openai.com), distincte de la clé annonceur ChatGPT Ads",
+    ],
+    docUrl: "https://developers.openai.com/api/docs/guides/tools-web-search",
+    consoleUrl: "https://platform.openai.com/api-keys",
+    env: [
+      { name: "OPENAI_API_KEY", required: true, hint: "Clé d'API OpenAI (sk-…), avec un plafond de dépense réglé sur la console." },
+      { name: "OPENAI_VISIBILITY_MODEL", required: false, hint: "Modèle interrogé — défaut gpt-6-luna." },
+    ],
+    testLabel: "Poser une question minimale à ChatGPT",
+  },
+  {
+    key: "perplexity",
+    name: "Perplexity (API)",
+    mark: "P",
+    purpose:
+      "Équipe IA : Georges pose chaque mois à Perplexity les questions d'un acheteur du BTP — TIM nommé, cité, et les sources lues. Sans elle, Perplexity n'est pas mesuré.",
+    scope: [
+      "Agent API (/v1/agent), outil web_search — la Sonar historique est fermée depuis le 27/09/2026",
+      "Une question à la fois, recherche web activée, sans rien nommer de TIM : les réponses sont gardées pour la mesure",
+      "Moins d'un centime la question",
+    ],
+    docUrl: "https://docs.perplexity.ai/docs/agent-api/tools/web-search",
+    consoleUrl: "https://www.perplexity.ai/account/api/keys",
+    env: [
+      { name: "PERPLEXITY_API_KEY", required: true, hint: "Clé d'API Perplexity (pplx-…), avec des crédits prépayés." },
+      { name: "PERPLEXITY_VISIBILITY_MODEL", required: false, hint: "Modèle interrogé — défaut openai/gpt-5.6-luna." },
+    ],
+    testLabel: "Poser une question minimale à Perplexity",
+  },
+  {
+    key: "gemini",
+    name: "Gemini (API Google AI)",
+    mark: "J",
+    purpose:
+      "Équipe IA : Georges pose chaque mois à Gemini les questions d'un acheteur du BTP, avec l'ancrage Google Search — le plus proche de ce que montre Google. Sans elle, Gemini n'est pas mesuré.",
+    scope: [
+      "generateContent avec l'outil google_search — modèle gemini-3.5-flash-lite par défaut",
+      "Une question à la fois, recherche web activée, sans rien nommer de TIM : les réponses sont gardées pour la mesure",
+      "5 000 recherches gratuites par mois, puis 14 $ les 1 000 (bien au-dessus de nos besoins)",
+    ],
+    docUrl: "https://ai.google.dev/gemini-api/docs/google-search",
+    consoleUrl: "https://aistudio.google.com/apikey",
+    env: [
+      { name: "GEMINI_API_KEY", required: true, hint: "Clé d'API Google AI Studio (AIza…)." },
+      { name: "GEMINI_VISIBILITY_MODEL", required: false, hint: "Modèle interrogé — défaut gemini-3.5-flash-lite." },
+    ],
+    testLabel: "Poser une question minimale à Gemini",
   },
 ];
 

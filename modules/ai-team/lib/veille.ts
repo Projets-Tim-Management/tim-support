@@ -1,9 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
 import type { Payload } from "payload";
 
-import { claudeCostUsd, claudeMaxCostUsd, estimateTokens, usdToEur, WEB_SEARCH_USD, type Usage } from "@/core/lib/ai-pricing";
 import { parisNow, periodKey } from "@/modules/ads/agent/followup";
-import { assertAdsBudget, recordAdsUsage } from "@/modules/ads/lib/spend";
 import { safeHttpsUrl } from "@/modules/ai-team/lib/format";
 import { loadTeamMastery, masteryForModel } from "@/modules/ai-team/lib/mastery";
 import { loadAdsReaders, recentVerdicts, scorecardForModel } from "@/modules/ai-team/lib/model-data";
@@ -12,6 +9,7 @@ import type { Scorecard } from "@/modules/ai-team/lib/scorecard";
 import { cachedScorecard, latestMethods } from "@/modules/ai-team/lib/shared-data";
 import { allTrends, loadSnapshots } from "@/modules/ai-team/lib/snapshots";
 import { VEILLE_DOMAINS, VEILLE_KEYS } from "@/modules/ai-team/lib/veille-domains";
+import { runWebModel, sourcesOf, tagOf, WebRunError, type WebCall } from "@/modules/ai-team/lib/web-model";
 
 
 /**
@@ -43,8 +41,6 @@ const MAX_TOKENS = 16_000;
 /** Recherches web par veille. */
 const MAX_SEARCHES = 8;
 const MAX_FETCHES = 4;
-/** Ce que les pages lues peuvent ajouter à l'entrée, au plus (pour le coût maximal). */
-const WEB_INPUT_TOKENS = 90_000;
 /** Reprises d'un tour mis en pause par le serveur (longue recherche). */
 const MAX_TURNS = 3;
 /** Le dimanche à partir de 20 h (Paris) : la méthode est fraîche pour la revue du lundi. */
@@ -77,12 +73,8 @@ const VEILLE_SYSTEM = [
 
 export type VeilleIdea = { titre: string; pourquoi: string; source: string; test: string };
 export type VeilleOutput = { method: string; changes: string; ideas: VeilleIdea[]; benchmark: Benchmark | null };
-export type VeilleSource = { url: string; title: string };
 
-const tag = (text: string, name: string) => {
-  const m = text.match(new RegExp(`<${name}>([\\s\\S]*?)</${name}>`));
-  return m ? m[1].trim() : null;
-};
+const tag = tagOf;
 
 /** La réponse finale, découpée et vérifiée. Null si la méthode manque. Pure (testée). */
 export function parseVeille(text: string): VeilleOutput | null {
@@ -115,57 +107,8 @@ export function parseVeille(text: string): VeilleOutput | null {
   return { method: method.slice(0, 12_000), changes: changes.slice(0, 2_000), ideas, benchmark };
 }
 
-/** Les sources réellement citées par les réponses (et, à défaut, celles qui ont été lues). Pure (testée). */
-export function sourcesOf(contents: Anthropic.ContentBlock[][]): VeilleSource[] {
-  const cited = new Map<string, string>();
-  const seen = new Map<string, string>();
-  for (const content of contents) {
-    for (const b of content) {
-      if (b.type === "text") {
-        for (const c of b.citations ?? []) {
-          if (c.type === "web_search_result_location") {
-            const url = safeHttpsUrl(c.url);
-            if (url && !cited.has(url)) cited.set(url, c.title ?? url);
-          }
-        }
-      } else if (b.type === "web_search_tool_result" && Array.isArray(b.content)) {
-        for (const r of b.content) {
-          const url = safeHttpsUrl(r.url);
-          if (url && !seen.has(url)) seen.set(url, r.title ?? url);
-        }
-      }
-    }
-  }
-  const pick = cited.size ? cited : seen;
-  return [...pick].slice(0, 20).map(([url, title]) => ({ url, title: title.slice(0, 200) }));
-}
-
-export type VeilleTurn = { content: Anthropic.ContentBlock[]; usage: Usage; searches: number; stopReason: string | null };
-export type VeilleCall = (input: { system: string; messages: Anthropic.MessageParam[] }) => Promise<VeilleTurn>;
-
-const client = () => new Anthropic({ timeout: 280_000, maxRetries: 1 });
-
-const callVeilleModel: VeilleCall = async ({ system, messages }) => {
-  const res = await client()
-    .messages.stream({
-      model: VEILLE_MODEL,
-      max_tokens: MAX_TOKENS,
-      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-      messages,
-      tools: [
-        { type: "web_search_20260209", name: "web_search", max_uses: MAX_SEARCHES, user_location: { type: "approximate", country: "FR", timezone: "Europe/Paris" } },
-        { type: "web_fetch_20260209", name: "web_fetch", max_uses: MAX_FETCHES },
-      ],
-      output_config: { effort: "medium" },
-    })
-    .finalMessage();
-  return {
-    content: res.content,
-    usage: { input: res.usage.input_tokens, output: res.usage.output_tokens, cacheRead: res.usage.cache_read_input_tokens ?? 0, cacheWrite: res.usage.cache_creation_input_tokens ?? 0 },
-    searches: res.usage.server_tool_use?.web_search_requests ?? 0,
-    stopReason: res.stop_reason,
-  };
-};
+export { sourcesOf };
+export type VeilleCall = WebCall;
 
 type Raw = Record<string, unknown>;
 
@@ -213,9 +156,6 @@ export async function runVeille(payload: Payload, key: string, opts: { now?: Dat
   const fail = (message: string, extra: Raw = {}) =>
     payload.update({ collection: "ai-team-methods", id: reserved.id, data: { status: "echec", error: message.slice(0, 2000), ...extra } as never, overrideAccess: true }).catch(() => null);
 
-  const total: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-  let searches = 0;
-  const costUsd = () => claudeCostUsd(VEILLE_MODEL, total) + searches * WEB_SEARCH_USD;
   try {
     const card = opts.scorecard ? await opts.scorecard().catch(() => null) : await cachedScorecard(payload, now);
     const [data, previous] = await Promise.all([veilleData(payload, key, now, card), latestMethods(payload, [member.id], true).then((m) => m.get(String(member.id)) ?? null)]);
@@ -225,44 +165,34 @@ export async function runVeille(payload: Payload, key: string, opts: { now?: Dat
       previous?.method ? `Ta méthode actuelle (semaine du ${String(previous.week ?? "")}) :\n<donnees>\n${String(previous.method).replace(/<\/?donnees>/g, "")}\n</donnees>` : "Tu n'as pas encore de méthode : écris la première.",
       "Fais ta veille de la semaine.",
     ].join("\n\n");
-    const messages: Anthropic.MessageParam[] = [{ role: "user", content: user }];
-    const contents: Anthropic.ContentBlock[][] = [];
-    let last: VeilleTurn | null = null;
-    for (let turn = 0; turn < MAX_TURNS; turn += 1) {
-      const maxEur = usdToEur(claudeMaxCostUsd(VEILLE_MODEL, estimateTokens(VEILLE_SYSTEM, JSON.stringify(messages)) + WEB_INPUT_TOKENS, MAX_TOKENS) + MAX_SEARCHES * WEB_SEARCH_USD);
-      await assertAdsBudget(payload, "agent", maxEur, now);
-      last = await (opts.model ?? callVeilleModel)({ system: VEILLE_SYSTEM, messages });
-      total.input += last.usage.input;
-      total.output += last.usage.output;
-      total.cacheRead += last.usage.cacheRead;
-      total.cacheWrite += last.usage.cacheWrite;
-      searches += last.searches;
-      contents.push(last.content);
-      if (last.stopReason !== "pause_turn") break;
-      // Le serveur a mis la recherche en pause : on lui renvoie son tour tel quel, il reprend.
-      messages.push({ role: "assistant", content: last.content as unknown as Anthropic.ContentBlockParam[] });
-    }
-    await recordAdsUsage(payload, { kind: "agent", provider: "anthropic", model: VEILLE_MODEL, usd: costUsd(), detail: `veille web de la semaine (${member.name}, ${searches} recherche${searches > 1 ? "s" : ""})`, usage: { ...total, webSearches: searches } });
-    const costEur = Math.round(usdToEur(costUsd()) * 10_000) / 10_000;
-    const finalText = (last?.content ?? []).filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("");
-    const out = last?.stopReason === "refusal" ? null : parseVeille(finalText);
+    const run = await runWebModel(payload, {
+      model: VEILLE_MODEL,
+      system: VEILLE_SYSTEM,
+      user,
+      kind: "agent",
+      detail: `veille web de la semaine (${member.name})`,
+      now,
+      maxTokens: MAX_TOKENS,
+      maxSearches: MAX_SEARCHES,
+      maxFetches: MAX_FETCHES,
+      maxTurns: MAX_TURNS,
+      call: opts.model,
+    });
+    const out = run.stopReason === "refusal" ? null : parseVeille(run.text);
     if (!out) {
-      await fail(last?.stopReason === "pause_turn" ? "La veille n'a pas abouti dans le temps imparti." : "Réponse du modèle inutilisable (méthode absente).", { searches, costEur });
-      return { status: "echec", member: member.name, message: "La veille n'a pas produit de méthode.", costEur };
+      await fail(run.stopReason === "pause_turn" ? "La veille n'a pas abouti dans le temps imparti." : "Réponse du modèle inutilisable (méthode absente).", { searches: run.searches, costEur: run.costEur });
+      return { status: "echec", member: member.name, message: "La veille n'a pas produit de méthode.", costEur: run.costEur };
     }
     await payload.update({
       collection: "ai-team-methods",
       id: reserved.id,
-      data: { status: "faite", method: out.method, changes: out.changes, ideas: out.ideas, benchmark: out.benchmark, sources: sourcesOf(contents), searches, costEur } as never,
+      data: { status: "faite", method: out.method, changes: out.changes, ideas: out.ideas, benchmark: out.benchmark, sources: sourcesOf(run.contents), searches: run.searches, costEur: run.costEur } as never,
       overrideAccess: true,
     });
-    return { status: "faite", member: member.name, costEur };
+    return { status: "faite", member: member.name, costEur: run.costEur };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    if (searches || total.input) {
-      await recordAdsUsage(payload, { kind: "agent", provider: "anthropic", model: VEILLE_MODEL, usd: costUsd(), detail: `veille web interrompue (${member.name})`, usage: { ...total, webSearches: searches } }).catch(() => null);
-    }
-    await fail(message, { searches, costEur: Math.round(usdToEur(costUsd()) * 10_000) / 10_000 });
+    await fail(message, e instanceof WebRunError ? { searches: e.searches, costEur: e.costEur } : {});
     return { status: "echec", member: member.name, message };
   }
 }

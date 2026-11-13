@@ -62,6 +62,16 @@ export const NAV_HIDDEN = new Set([
   "ai-team-messages",
   // Équipe IA : les demandes des chefs se traitent dans « Vos demandes », en tête de l'organigramme.
   "ai-team-requests",
+  // Équipe IA (menu « Agent », 13/11/2026) : le travail des agents se lit sur leur fiche, dans
+  // l'organigramme — rapports, réponses des IA, photos du lundi, plans de site des concurrents,
+  // méthodes, objectifs de la semaine, comptes de réseaux. Le menu garde l'organigramme et les fiches.
+  "ai-team-audits",
+  "ai-team-ai-answers",
+  "ai-team-snapshots",
+  "ai-team-competitor-maps",
+  "ai-team-methods",
+  "ai-team-objectives",
+  "ai-team-social-accounts",
 ]);
 
 /** Un item de groupe : un slug, un sous-groupe repliable, ou un lien libre. */
@@ -88,7 +98,7 @@ export const NAV_ORDER = [
   "Marketing",
   "Publicité",
   // Les agents IA, incarnés : visible de la seule direction (super-admin ET direction@).
-  "Équipe IA",
+  "Agent",
   "Système",
 ];
 
@@ -172,7 +182,7 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
    * L'équipe d'agents IA, réservée à la direction : l'organigramme d'abord
    * (c'est là qu'on travaille), les fiches ensuite (noms, visages).
    */
-  "Équipe IA": [
+  Agent: [
     { label: "Organigramme", href: "/admin/equipe-ia", directionOnly: true },
     { label: "Fiches de l'équipe", slugs: ["ai-team-members"] },
   ],

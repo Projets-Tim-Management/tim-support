@@ -1,5 +1,5 @@
 import type { Payload, Where } from "payload";
-import { seaMonthlyBudget } from "@/modules/ai-team/lib/availability";
+import { teamMonthlyBudget } from "@/modules/ai-team/lib/availability";
 
 import { usdToEur } from "@/core/lib/ai-pricing";
 import { PARIS_TZ } from "@/core/lib/dates";
@@ -36,6 +36,8 @@ export function limitsFor(kind: AdSpendKind, s: Settings | null | undefined): Li
   if (kind === "texte") return { day: s?.textDailyEur ?? 5, month: s?.textMonthlyEur ?? 50 };
   if (kind === "image") return { month: s?.imagesMonthlyEur ?? 20 };
   if (kind === "agent") return { day: s?.agentDailyEur ?? 15, month: s?.agentMonthlyEur ?? 150 };
+  // L'équipe SEO/GEO : son budget est sur la carte de Serge (assertAdsBudget) ; ce plafond n'est qu'un filet.
+  if (kind === "seo") return { day: 10, month: 100 };
   return { month: s?.videoMonthlyEur ?? 30 };
 }
 
@@ -112,12 +114,14 @@ export async function assertAdsBudget(payload: Payload, kind: AdSpendKind, maxEu
   if (!check.ok) throw new AdsBudgetError(check.reason);
   // Le budget IA du mois de l'équipe, fixé par la direction sur la carte de la cheffe (Équipe IA) :
   // en plus du plafond global des agents — le plus strict des deux l'emporte.
-  if (kind === "agent") {
-    const team = await seaMonthlyBudget(payload);
+  if (kind === "agent" || kind === "seo") {
+    const team = await teamMonthlyBudget(payload, kind === "agent" ? "chef-sea" : "chef-seo");
     if (team && spent.month + maxEur > team.budgetEur) {
-      // La direction est prévenue (une fois par mois) : sans ça, l'équipe s'arrêterait sans pouvoir le dire.
-      const { watchTeamBudget } = await import("@/modules/ai-team/lib/budget-watch");
-      await watchTeamBudget(payload, { now, blocked: true });
+      // La direction est prévenue (une fois par mois) : sans ça, l'équipe SEA s'arrêterait sans pouvoir le dire.
+      if (kind === "agent") {
+        const { watchTeamBudget } = await import("@/modules/ai-team/lib/budget-watch");
+        await watchTeamBudget(payload, { now, blocked: true });
+      }
       throw new AdsBudgetError(
         `Budget IA du mois de l'équipe de ${team.name} atteint : ${eur(spent.month)} dépensés sur ${eur(team.budgetEur)} (Équipe IA › carte de ${team.name}), et cet appel peut coûter jusqu'à ${eur(maxEur)}.`,
       );

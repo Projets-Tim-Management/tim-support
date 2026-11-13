@@ -106,9 +106,11 @@ export function buildTeamSpend(input: {
 }): TeamSpend {
   const from = parisMonthStart(input.now);
   const inMonth = (iso: unknown) => Date.parse(String(iso ?? "")) >= from;
-  const chief = input.members.find((m) => m.level === "chef") ?? null;
+  // Le budget IA « agents » est celui de l'équipe SEA : Serge (SEO/GEO) a le sien, compté à part.
+  const sea = input.members.filter((m) => m.domain !== "seo");
+  const chief = sea.find((m) => m.key === "chef-sea") ?? sea.find((m) => m.level === "chef") ?? null;
 
-  const members: MemberSpend[] = input.members.map((m) => {
+  const members: MemberSpend[] = sea.map((m) => {
     const roles = new Set((m.engineRoles as string[] | undefined) ?? []);
     const mine = input.agents.filter((a) => roles.has(String(a.role))).map((a) => ({ at: a.createdAt, budget: num(a.budgetEur), spent: num(a.spentEur) }));
     const creatable = [...roles].find((r): r is CreatableRole => (CREATABLE_ROLES as readonly string[]).includes(r));

@@ -189,7 +189,11 @@ describe("l'organisation SEA", async () => {
   it("Margaux, directrice SEA, encadre les chefs de canal, la mesure et le studio", () => {
     const margaux = AI_TEAM_SEED.find((m) => m.key === "chef-sea")!;
     expect(margaux).toMatchObject({ level: "chef", jobTitle: "Directrice SEA", engineRoles: ["orchestrateur"] });
-    expect(AI_TEAM_SEED.filter((m) => m.level === "chef")).toHaveLength(1);
+    // Deux chefs : Margaux (SEA) et Serge (SEO & GEO), chacun avec son domaine.
+    expect(AI_TEAM_SEED.filter((m) => m.level === "chef").map((m) => [m.key, m.domain])).toEqual([
+      ["chef-sea", "sea"],
+      ["chef-seo", "seo"],
+    ]);
     expect(AI_TEAM_SEED.filter((m) => m.chiefKey === "chef-sea")).toHaveLength(8);
     expect(["sea-meta", "sea-google", "sea-chatgpt"].map(groupOf)).toEqual(["canal", "canal", "canal"]);
     expect(groupOf("sea-mesure")).toBe("mesure");

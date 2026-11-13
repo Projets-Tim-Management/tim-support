@@ -15,7 +15,7 @@ import { REQUEST_CHANNELS, REQUEST_KINDS, REQUEST_ORIGINS, REQUEST_OUTCOMES, REQ
 export const AiTeamRequests: CollectionConfig = {
   slug: "ai-team-requests",
   labels: { singular: "Demande à la direction", plural: "Demandes à la direction" },
-  admin: { useAsTitle: "title", defaultColumns: ["createdAt", "member", "kind", "title", "status"], group: "Équipe IA", hidden: hideUnlessDirection },
+  admin: { useAsTitle: "title", defaultColumns: ["createdAt", "member", "kind", "title", "status"], group: "Agent", hidden: hideUnlessDirection },
   access: { read: isDirectionAccess, create: () => false, update: () => false, delete: () => false },
   defaultSort: "-createdAt",
   fields: [

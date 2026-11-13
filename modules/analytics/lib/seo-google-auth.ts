@@ -1,5 +1,6 @@
 import { importPKCS8, SignJWT } from "jose";
 
+import { reportApiFailure, reportApiSuccess } from "@/core/lib/api-health";
 import { httpError } from "@/modules/analytics/lib/seo-cache";
 
 /**
@@ -73,6 +74,15 @@ export async function googlePost<T>(url: string, body: unknown, source: string, 
     cache: "no-store",
     signal: AbortSignal.timeout(opts.timeoutMs ?? 30_000),
   });
-  if (!res.ok) throw await httpError(res, source);
+  const provider = GOOGLE_PROVIDER[source];
+  if (!res.ok) {
+    const err = Object.assign(await httpError(res, source), { status: res.status });
+    if (provider) void reportApiFailure(provider, err);
+    throw err;
+  }
+  if (provider) void reportApiSuccess(provider);
   return (await res.json()) as T;
 }
+
+/** La connexion suivie (API en panne) de chaque lecture Google. */
+const GOOGLE_PROVIDER: Record<string, string> = { "Search Console": "search-console", GA4: "ga4-data", "Google Ads": "google-ads" };

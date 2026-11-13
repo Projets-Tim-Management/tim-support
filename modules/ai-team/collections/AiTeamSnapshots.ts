@@ -15,7 +15,7 @@ import { hideUnlessDirection, isDirectionAccess } from "@/core/access";
 export const AiTeamSnapshots: CollectionConfig = {
   slug: "ai-team-snapshots",
   labels: { singular: "Photo de la semaine (équipe IA)", plural: "Photos de la semaine (équipe IA)" },
-  admin: { useAsTitle: "week", defaultColumns: ["week", "createdAt"], group: "Équipe IA", hidden: hideUnlessDirection },
+  admin: { useAsTitle: "week", defaultColumns: ["week", "createdAt"], group: "Agent", hidden: hideUnlessDirection },
   access: { read: isDirectionAccess, create: () => false, update: () => false, delete: () => false },
   defaultSort: "-week",
   fields: [

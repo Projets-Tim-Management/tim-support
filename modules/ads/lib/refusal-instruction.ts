@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Payload } from "payload";
 
+import { trackApi } from "@/core/lib/api-health";
 import { claudeCostUsd, claudeMaxCostUsd, estimateTokens, usdToEur } from "@/core/lib/ai-pricing";
 import { toApiRequest } from "@/modules/ads/agent/claude";
 import type { AgentModelCall } from "@/modules/ads/agent/types";
@@ -28,7 +29,7 @@ const TIMEOUT_MS = 15_000;
 
 /** Haiku, avec un délai à l'échelle d'un clic (celui des agents est taillé pour une étape de 4 minutes). */
 const quickModel: AgentModelCall = async (req) => {
-  const res = await new Anthropic({ timeout: TIMEOUT_MS, maxRetries: 0 }).messages.create(toApiRequest(req));
+  const res = await trackApi("anthropic", () => new Anthropic({ timeout: TIMEOUT_MS, maxRetries: 0 }).messages.create(toApiRequest(req)));
   return {
     content: res.content,
     stopReason: res.stop_reason,

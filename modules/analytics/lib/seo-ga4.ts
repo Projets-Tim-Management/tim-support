@@ -1,4 +1,4 @@
-import { loadSource, type SourceResult } from "@/modules/analytics/lib/seo-cache";
+import { cached, loadSource, type SourceResult } from "@/modules/analytics/lib/seo-cache";
 import { googlePost } from "@/modules/analytics/lib/seo-google-auth";
 import { delta, lastMonths, periodBounds, type Delta } from "@/modules/analytics/lib/growth";
 import { ENGINE_ORDER, ENGINES, engineOf, hostMatches, type Engine } from "@/modules/analytics/lib/seo-sources";
@@ -163,8 +163,9 @@ const num = (v: string) => Math.round(Number(v) || 0);
 type Row = NonNullable<ReportJson["rows"]>[number];
 const metricsOf = (r: Row) => ({ sessions: num(r.metricValues[0].value), engaged: num(r.metricValues[1].value), keyEvents: num(r.metricValues[2].value) });
 
-export async function loadGa4(months: number, now: Date): Promise<SourceResult<Ga4Analytics>> {
-  return loadSource(GA4_ENV, `ga4:${process.env.GA4_PROPERTY_ID}:${months}:${iso(now)}`, TTL, async () => {
+/** Les deux rapports bruts (par mois × source, par page d'arrivée × source), lus une fois et gardés : l'analyse SEO et l'entonnoir les partagent. */
+const ga4Raw = (months: number, now: Date) =>
+  cached(`ga4raw:${process.env.GA4_PROPERTY_ID}:${months}:${iso(now)}`, TTL, async () => {
     const { from, prevFrom } = periodBounds(months, now);
     const [bySource, byPage] = await Promise.all([
       runFullReport({ dateRanges: [{ startDate: iso(prevFrom), endDate: "yesterday" }], dimensions: [{ name: "yearMonth" }, { name: "sessionSource" }, { name: "sessionMedium" }], metrics: METRICS }),
@@ -172,9 +173,19 @@ export async function loadGa4(months: number, now: Date): Promise<SourceResult<G
     ]);
     const rows: Ga4Row[] = bySource.map((r) => ({ month: r.dimensionValues[0].value, source: r.dimensionValues[1].value, medium: r.dimensionValues[2].value, ...metricsOf(r) }));
     const pages: Ga4PageRow[] = byPage.map((r) => ({ page: r.dimensionValues[0].value || "/", source: r.dimensionValues[1].value, medium: r.dimensionValues[2].value, ...metricsOf(r) }));
+    return { rows, pages };
+  });
+
+export async function loadGa4(months: number, now: Date): Promise<SourceResult<Ga4Analytics>> {
+  return loadSource(GA4_ENV, `ga4:${process.env.GA4_PROPERTY_ID}:${months}:${iso(now)}`, TTL, async () => {
+    const { rows, pages } = await ga4Raw(months, now);
     return buildGa4(rows, pages, months, now);
   });
 }
+
+/** Les lignes brutes de GA4 (toutes sources, réseaux compris) : l'entonnoir de l'analyste SEO/GEO. */
+export const loadGa4Rows = (months: number, now: Date): Promise<SourceResult<{ rows: Ga4Row[]; pages: Ga4PageRow[] }>> =>
+  loadSource(GA4_ENV, `ga4rows:${process.env.GA4_PROPERTY_ID}:${months}:${iso(now)}`, TTL, () => ga4Raw(months, now));
 
 /** Le test de la page Connexions : les visites d'hier, la requête la plus légère. */
 export async function pingGa4(): Promise<string> {

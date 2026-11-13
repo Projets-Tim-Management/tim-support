@@ -22,7 +22,7 @@ import { hideUnlessDirection, isDirectionAccess } from "@/core/access";
 export const AiTeamMethods: CollectionConfig = {
   slug: "ai-team-methods",
   labels: { singular: "Méthode d'un agent IA", plural: "Méthodes des agents IA" },
-  admin: { useAsTitle: "week", defaultColumns: ["createdAt", "member", "week", "status", "costEur"], group: "Équipe IA", hidden: hideUnlessDirection },
+  admin: { useAsTitle: "week", defaultColumns: ["createdAt", "member", "week", "status", "costEur"], group: "Agent", hidden: hideUnlessDirection },
   access: { read: isDirectionAccess, create: () => false, update: () => false, delete: () => false },
   defaultSort: "-createdAt",
   fields: [

@@ -29,7 +29,8 @@ describe("la mise à jour de l'équipe au démarrage", () => {
       { id: 2, key: "sea-redacteur", name: "Léa B.", jobTitle: "Ma rédactrice", level: "sous-agent", domain: "sea", engineRoles: ["redacteur"], order: 2, chief: 1 },
     ]);
     await seedAiTeam(payload);
-    expect(created.map((c) => c.key).sort()).toEqual(["sea-chatgpt", "sea-controleur", "sea-directeur-artistique", "sea-google", "sea-mesure", "sea-meta", "sea-stratege"]);
+    // Serge, directeur SEO & GEO (12/11/2026), est créé avec l'organisation SEA.
+    expect(created.map((c) => c.key).sort()).toEqual(["chef-seo", "sea-chatgpt", "sea-controleur", "sea-directeur-artistique", "sea-google", "sea-mesure", "sea-meta", "sea-stratege", "seo-analyste", "seo-autorite", "seo-concurrence", "seo-contenu", "seo-reseaux", "seo-technique", "seo-visibilite-ia"]);
     expect(created.find((c) => c.key === "sea-meta")).toMatchObject({ engineRoles: ["analyste"], chief: 1 });
     const margaux = updated.find((u) => u.id === 1)!.data;
     expect(margaux).toMatchObject({ engineRoles: ["orchestrateur"], jobTitle: "Directrice SEA" });

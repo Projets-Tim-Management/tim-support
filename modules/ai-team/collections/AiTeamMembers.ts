@@ -22,7 +22,7 @@ export const AiTeamMembers: CollectionConfig = {
   admin: {
     useAsTitle: "name",
     defaultColumns: ["name", "jobTitle", "level", "chief"],
-    group: "Équipe IA",
+    group: "Agent",
     hidden: hideUnlessDirection,
     description: "Les agents IA, leur nom, leur visage et leur chef. La direction ne parle qu'aux chefs ; un sous-agent répond à son chef.",
   },
@@ -58,6 +58,23 @@ export const AiTeamMembers: CollectionConfig = {
         condition: (data) => data?.level === "chef",
         description: "Toute son équipe : passages, missions, conversations. Le plafond global des agents (Publicité › Garde-fous) reste au-dessus.",
       },
+    },
+    {
+      // Le temps que la direction consacre chaque semaine aux actions de ce chef (SEO/GEO) : il y fait tenir
+      // ses objectifs de la semaine, le plus rentable d'abord. Vide : 5 h.
+      name: "weeklyHours",
+      type: "number",
+      label: "Temps de la direction par semaine (h)",
+      min: 0,
+      admin: { position: "sidebar", condition: (data) => data?.key === "chef-seo", description: "Les objectifs de la semaine tiennent dedans. Vide : 5 h." },
+    },
+    {
+      // L'agenda où ce chef réserve les créneaux de la direction (une connexion Google Agenda du support).
+      name: "calendarConnection",
+      type: "relationship",
+      relationTo: "calendar-connections",
+      label: "Agenda de la direction",
+      admin: { position: "sidebar", condition: (data) => data?.key === "chef-seo", description: "Où poser les créneaux des objectifs de la semaine. Vide : l'unique agenda Google connecté en @tim-management.co, s'il n'y en a qu'un." },
     },
     {
       // Plus utilisée : la cible fixée par la direction (essai du 12/11/2026) a laissé place au score de

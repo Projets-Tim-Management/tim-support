@@ -908,7 +908,7 @@ $nav-icons: (
     /* Publicité : une cible — on vise quelqu'un, on mesure si on l'atteint. */
     "Publicité":    "<circle cx='12' cy='12' r='9'/><circle cx='12' cy='12' r='5'/><circle cx='12' cy='12' r='1'/>",
     /* Équipe IA : une tête de robot — les agents, incarnés. */
-    "Équipe IA":    "<rect x='5' y='7' width='14' height='12' rx='4'/><path d='M12 7V4'/><circle cx='12' cy='3' r='1'/><circle cx='9.5' cy='12.5' r='1'/><circle cx='14.5' cy='12.5' r='1'/><path d='M10 16h4'/>",
+    "Agent":        "<rect x='5' y='7' width='14' height='12' rx='4'/><path d='M12 7V4'/><circle cx='12' cy='3' r='1'/><circle cx='9.5' cy='12.5' r='1'/><circle cx='14.5' cy='12.5' r='1'/><path d='M10 16h4'/>",
     "Système":      "<circle cx='12' cy='12' r='3'/><path d='M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.6 1.6 0 008 19.4a1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H2a2 2 0 110-4h.1A1.6 1.6 0 003.6 8a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H8a1.6 1.6 0 001-1.5V2a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V8a1.6 1.6 0 001.5 1H22a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z'/>",
   );
   @each $label, $paths in $group-icons {

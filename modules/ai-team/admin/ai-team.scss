@@ -1651,3 +1651,207 @@
   white-space: nowrap;
   pointer-events: none;
 }
+
+/* ─── Organigramme à plusieurs équipes : la direction, puis une colonne par chef ─── */
+.ait-orgs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.ait-orgs__teams {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 1rem;
+  width: 100%;
+  margin-top: 0.4rem;
+
+  > .ait-org {
+    flex: 1 1 320px;
+    min-width: 0;
+  }
+}
+
+/* ─── Les objectifs de la semaine (Serge) ─── */
+.ait-objs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ait-obj {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-white);
+
+  &--done {
+    border-color: var(--tim-success);
+  }
+  &--closed {
+    opacity: 0.6;
+  }
+}
+.ait-obj__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.ait-obj__rank {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--tim-foreground);
+  color: var(--tim-white);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.ait-obj__head {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.ait-obj__title {
+  font-size: 0.95rem;
+  color: var(--tim-foreground);
+  overflow-wrap: anywhere;
+}
+.ait-obj__meta,
+.ait-obj__page,
+.ait-obj__min {
+  font-size: 0.76rem;
+  color: var(--tim-muted);
+  overflow-wrap: anywhere;
+}
+.ait-obj__count {
+  flex: none;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.ait-obj__bar {
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--tim-gray-bg);
+  overflow: hidden;
+
+  > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--tim-success);
+  }
+}
+.ait-obj__text {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--tim-foreground);
+  overflow-wrap: anywhere;
+}
+.ait-obj__more > summary {
+  font-size: 0.8rem;
+  color: var(--tim-blue);
+  cursor: pointer;
+}
+.ait-obj__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.86rem;
+    line-height: 1.4;
+    color: var(--tim-foreground);
+    cursor: pointer;
+  }
+  input {
+    flex: none;
+    width: 1.05rem;
+    height: 1.05rem;
+    margin-top: 0.1rem;
+    accent-color: var(--tim-success);
+  }
+}
+.ait-obj__step--done label > span {
+  color: var(--tim-muted);
+  text-decoration: line-through;
+}
+.ait-obj__prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.8rem;
+  margin: 0.2rem 0 0 1.55rem;
+  font-size: 0.8rem;
+
+  summary {
+    color: var(--tim-muted);
+    cursor: pointer;
+  }
+}
+.ait-obj__pre {
+  max-height: 16rem;
+  margin: 0.3rem 0 0;
+  padding: 0.6rem 0.7rem;
+  overflow: auto;
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-surface);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ait-obj__slots {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--tim-foreground);
+
+  a {
+    color: var(--tim-blue);
+  }
+}
+.ait-obj__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+.ait-obj__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--tim-blue);
+  cursor: pointer;
+
+  &--muted {
+    color: var(--tim-muted);
+    font-weight: 600;
+  }
+}
+.ait-obj__error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--tim-danger-text);
+}

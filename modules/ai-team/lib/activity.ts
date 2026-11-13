@@ -140,6 +140,14 @@ const sinceLine = (iso: string | null, now: Date) => {
 const READERS: Record<string, { env: string; line: string }> = {
   "sea-google": { env: "GOOGLE_ADS_CUSTOMER_ID", line: "Lit le compte Google Ads (lecture seule)" },
   "sea-chatgpt": { env: "OPENAI_ADS_API_KEY", line: "Lit le compte ChatGPT Ads (lecture seule)" },
+  "chef-seo": { env: "GSC_SITE_URL", line: "Fixe vos objectifs SEO/GEO chaque lundi" },
+  "seo-analyste": { env: "GA4_PROPERTY_ID", line: "Suit l'entonnoir gratuit, audite le site chaque mois" },
+  "seo-concurrence": { env: "GSC_SITE_URL", line: "Lit chaque semaine les sites des concurrents" },
+  "seo-contenu": { env: "GSC_SITE_URL", line: "Fait le plan de contenu chaque lundi" },
+  "seo-visibilite-ia": { env: "ANTHROPIC_API_KEY", line: "Mesure chaque mois la place de TIM dans les IA" },
+  "seo-technique": { env: "ANTHROPIC_API_KEY", line: "Contrôle chaque mois la santé technique du site" },
+  "seo-autorite": { env: "ANTHROPIC_API_KEY", line: "Cherche chaque mois où TIM est nommé, et où il manque" },
+  "seo-reseaux": { env: "ANTHROPIC_API_KEY", line: "Lit chaque semaine vos réseaux et vos vidéos" },
 };
 
 /**
@@ -187,7 +195,8 @@ export function buildTeamView(input: { members: Raw[]; agents: Raw[]; runs: Raw[
             costEur: r2(num(r.costEur)),
           }))
       : [];
-    const waiting = isChief && input.pendingValidations > 0;
+    // Les créas à valider sont celles du SEA : elles attendent Margaux, pas Serge.
+    const waiting = String(m.key) === "chef-sea" && input.pendingValidations > 0;
     const active = m.active !== false;
     // Yanis (mesure) tient la fiche des canaux ; Thomas lit Google Ads et Sarah ChatGPT Ads dès que
     // leur connecteur est posé : ils travaillent sans rôle moteur.

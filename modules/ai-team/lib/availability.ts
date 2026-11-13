@@ -112,14 +112,14 @@ export const teamPort = (payload: Payload) => ({
 });
 
 /**
- * Le budget IA du mois de l'équipe SEA, posé sur la carte de sa cheffe. Toute
- * la dépense « agents » du registre est celle de cette équipe (c'est la seule
- * qui existe) : le moteur la compare à ce budget avant chaque appel payant.
- * Rien de posé, ou fiche illisible : null, seul le plafond global s'applique.
+ * Le budget IA du mois d'une équipe, posé sur la carte de son chef : celui du
+ * SEA (« chef-sea ») pour la dépense « agents » du registre, celui du SEO/GEO
+ * (« chef-seo ») pour la dépense « seo ». Le moteur le compare à la dépense du
+ * mois avant chaque appel payant. Rien de posé, ou fiche illisible : null.
  */
-export async function seaMonthlyBudget(payload: Payload): Promise<{ name: string; budgetEur: number } | null> {
+export async function teamMonthlyBudget(payload: Payload, chiefKey: "chef-sea" | "chef-seo"): Promise<{ name: string; budgetEur: number } | null> {
   try {
-    const res = await payload.find({ collection: "ai-team-members", where: { key: { equals: "chef-sea" } }, limit: 1, depth: 0, overrideAccess: true, select: { name: true, monthlyAiBudgetEur: true } as never });
+    const res = await payload.find({ collection: "ai-team-members", where: { key: { equals: chiefKey } }, limit: 1, depth: 0, overrideAccess: true, select: { name: true, monthlyAiBudgetEur: true } as never });
     const m = res.docs[0] as unknown as { name?: string; monthlyAiBudgetEur?: number | null } | undefined;
     return m && typeof m.monthlyAiBudgetEur === "number" ? { name: String(m.name ?? "La cheffe"), budgetEur: m.monthlyAiBudgetEur } : null;
   } catch {

@@ -11,6 +11,7 @@ import { buildConfig } from "payload";
 import { Users } from "./core/collections/Users";
 import { Media } from "./core/collections/Media";
 import { EmailSuppressions } from "./core/collections/EmailSuppressions";
+import { ApiAlerts } from "./core/collections/ApiAlerts";
 import { Appearance } from "./core/globals/Appearance";
 import { Platforms } from "./modules/editorial/collections/Platforms";
 import { FeatureCategories } from "./modules/editorial/collections/FeatureCategories";
@@ -42,6 +43,11 @@ import { AdQuestions } from "./modules/ads/collections/AdQuestions";
 import { AiTeamMembers } from "./modules/ai-team/collections/AiTeamMembers";
 import { AiTeamMessages } from "./modules/ai-team/collections/AiTeamMessages";
 import { AiTeamMethods } from "./modules/ai-team/collections/AiTeamMethods";
+import { AiTeamObjectives } from "./modules/ai-team/collections/AiTeamObjectives";
+import { AiTeamAudits } from "./modules/ai-team/collections/AiTeamAudits";
+import { AiTeamCompetitorMaps } from "./modules/ai-team/collections/AiTeamCompetitorMaps";
+import { AiTeamAiAnswers } from "./modules/ai-team/collections/AiTeamAiAnswers";
+import { AiTeamSocialAccounts } from "./modules/ai-team/collections/AiTeamSocialAccounts";
 import { AiTeamRequests } from "./modules/ai-team/collections/AiTeamRequests";
 import { AiTeamSnapshots } from "./modules/ai-team/collections/AiTeamSnapshots";
 import { AdRecaps } from "./modules/ads/collections/AdRecaps";
@@ -433,6 +439,15 @@ export default buildConfig({
       AiTeamMessages,
       // La méthode de chaque agent, réécrite après sa veille web de la semaine.
       AiTeamMethods,
+      // Les objectifs de la semaine fixés à la direction (équipe SEO/GEO), à cocher.
+      AiTeamObjectives,
+      // Les audits du site vitrine par l'analyste SEO/GEO.
+      AiTeamAudits,
+      // Les plans de site des concurrents, photographiés chaque semaine (sans IA).
+      AiTeamCompetitorMaps,
+      AiTeamAiAnswers,
+      // Les comptes de réseaux branchés pour Cléo (jetons chiffrés).
+      AiTeamSocialAccounts,
       // Les demandes des chefs à la direction (« à faire » ou « question »).
       AiTeamRequests,
       // La photo des chiffres de chaque lundi (tendances, avant / après des recommandations).
@@ -454,6 +469,8 @@ export default buildConfig({
       // Adresses qui ne reçoivent plus d'envoi commercial — transverse à tous
       // les modules, d'où sa place à côté des collections système.
       EmailSuppressions,
+      // Les API en panne (paiement, accès, échecs répétés) : bandeau des Connexions et e-mail d'alerte.
+      ApiAlerts,
       // Dossier de démarrage — cachées du menu (admin.hidden), gérées via les
       // champs `join` de l'onglet « Dossier de démarrage » de la fiche client.
       ClientEmployees,

@@ -82,6 +82,14 @@ export function googleAuthUrl(args: {
   redirectUri: string;
   scopes: string[];
   state: string;
+  /**
+   * Faux : le jeton ne porte QUE ces scopes, sans ceux déjà accordés à ce client
+   * pour un autre usage (la lecture YouTube de l'équipe IA ne doit pas emporter
+   * la messagerie ni l'agenda de la personne). Vrai par défaut.
+   */
+  includeGranted?: boolean;
+  /** Toujours faire choisir le compte (une chaîne YouTube de marque se choisit à cet écran). */
+  chooseAccount?: boolean;
 }): string {
   return `${AUTH}?${new URLSearchParams({
     client_id: args.clientId,
@@ -89,8 +97,8 @@ export function googleAuthUrl(args: {
     response_type: "code",
     scope: args.scopes.join(" "),
     access_type: "offline",
-    prompt: "consent",
-    include_granted_scopes: "true",
+    prompt: args.chooseAccount ? "select_account consent" : "consent",
+    include_granted_scopes: args.includeGranted === false ? "false" : "true",
     state: args.state,
   }).toString()}`;
 }

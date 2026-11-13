@@ -10,6 +10,17 @@ import { ActiveToggle } from "@/modules/ai-team/admin/ActiveToggle";
 import { BudgetEditor } from "@/modules/ai-team/admin/BudgetEditor";
 import { ChatBox, type ChatMessage } from "@/modules/ai-team/admin/ChatBox";
 import { Drawer } from "@/modules/ai-team/admin/Drawer";
+import { HoursEditor } from "@/modules/ai-team/admin/HoursEditor";
+import { ObjectivesBoard, type BoardObjective } from "@/modules/ai-team/admin/ObjectivesBoard";
+import { SeoWeeklyButton } from "@/modules/ai-team/admin/SeoWeeklyButton";
+import { AuditButton } from "@/modules/ai-team/admin/AuditButton";
+import { CompetitionButton } from "@/modules/ai-team/admin/CompetitionButton";
+import { ContentPlanButton } from "@/modules/ai-team/admin/ContentPlanButton";
+import { VisibilityButton } from "@/modules/ai-team/admin/VisibilityButton";
+import { TechButton } from "@/modules/ai-team/admin/TechButton";
+import { AuthorityButton } from "@/modules/ai-team/admin/AuthorityButton";
+import { SocialButton, SocialConnect } from "@/modules/ai-team/admin/SocialConnect";
+import { CopyPromptButton } from "@/modules/ai-team/admin/CopyPromptButton";
 import { Inbox } from "@/modules/ai-team/admin/Inbox";
 import { ProgressChart } from "@/modules/ai-team/admin/ProgressChart";
 import { ReviewButton } from "@/modules/ai-team/admin/ReviewButton";
@@ -22,6 +33,19 @@ import { Portrait } from "@/modules/ai-team/lib/portraits";
 import { REQUEST_CHANNELS, REQUEST_OUTCOMES } from "@/modules/ai-team/lib/requests";
 import type { Scorecard } from "@/modules/ai-team/lib/scorecard";
 import { cachedScorecard, loadCompetitorNames } from "@/modules/ai-team/lib/shared-data";
+import { directionAgenda } from "@/modules/ai-team/lib/agenda";
+import { latestPlan } from "@/modules/ai-team/lib/seo-weekly";
+import { loadFunnel, type Funnel } from "@/modules/ai-team/lib/funnel";
+import { latestAudit, type Finding } from "@/modules/ai-team/lib/site-audit";
+import { latestContentPlan, type ContentItem } from "@/modules/ai-team/lib/content-plan";
+import { visibilityState, type Rates, type VisibilityState } from "@/modules/ai-team/lib/ai-visibility";
+import { latestTech } from "@/modules/ai-team/lib/site-health";
+import { latestAuthority } from "@/modules/ai-team/lib/authority";
+import { socialState, type SocialState } from "@/modules/ai-team/lib/social";
+import { latestCompetition, loadCompetitorRows, type CompetitionFinding, type CompetitorRow } from "@/modules/ai-team/lib/competition";
+import { parisMonthDays } from "@/modules/ai-team/lib/format";
+import { teamMonthlyBudget } from "@/modules/ai-team/lib/availability";
+import { spentOf } from "@/modules/ads/lib/spend";
 import { adsTrends, loadSnapshots } from "@/modules/ai-team/lib/snapshots";
 import { monthTotal, perDay, type MemberSpend, type TeamSpend } from "@/modules/ai-team/lib/spend";
 import { TEAM_GROUPS } from "@/modules/ai-team/lib/team";
@@ -167,7 +191,7 @@ function CardSpend({ m, spend }: { m: MemberView; spend: TeamSpend }) {
   );
 }
 
-function MemberCard({ m, on, big, spend, mastery }: { m: MemberView; on: boolean; big?: boolean; spend: TeamSpend; mastery?: MemberMastery }) {
+function MemberCard({ m, on, big, spend, mastery, extra }: { m: MemberView; on: boolean; big?: boolean; spend: TeamSpend; mastery?: MemberMastery; extra?: React.ReactNode }) {
   return (
     <div className={`ait-card${big ? " ait-card--chef" : ""}${on ? " ait-card--on" : ""}${m.active ? "" : " ait-card--off"}`}>
       <Link href={`${BASE}?membre=${m.key}`} prefetch={false} scroll={false} className="ait-card__link" aria-current={on ? "true" : undefined}>
@@ -179,6 +203,7 @@ function MemberCard({ m, on, big, spend, mastery }: { m: MemberView; on: boolean
         {mastery && <CardMastery x={mastery} />}
       </Link>
       {m.engineRoles.length > 0 && <CardSpend m={m} spend={spend} />}
+      {extra}
       {m.engineRoles.length > 0 && <ActiveToggle id={m.id} name={m.name} active={m.active} />}
     </div>
   );
@@ -805,6 +830,909 @@ function Recos({ recos, name }: { recos: RecoView[]; name: string }) {
   );
 }
 
+/* ─── Serge, directeur SEO & GEO ───────────────────────────────────────── */
+
+export type SeoChiefView = {
+  /** Le premier jour du dernier plan (« AAAA-MM-JJ »), ou null sans plan. */
+  week: string | null;
+  objectives: BoardObjective[];
+  monthEur: number;
+  budgetEur: number | null;
+  hours: number | null;
+  agenda: string | null;
+  daysElapsed: number;
+  daysInMonth: number;
+};
+
+/** Sur sa carte : où en sont les objectifs de la semaine, et ce que coûte l'équipe ce mois. */
+function SeoCardExtra({ m, seo }: { m: MemberView; seo: SeoChiefView }) {
+  const open = seo.objectives.filter((o) => o.status === "a-faire").length;
+  const done = seo.objectives.filter((o) => o.status === "fait").length;
+  const daily = seo.monthEur / Math.max(1, seo.daysElapsed);
+  return (
+    <div className="ait-card__spend">
+      <span className="ait-card__spend-main">
+        🎯 {seo.objectives.length ? `${done}/${seo.objectives.length} objectif${seo.objectives.length > 1 ? "s" : ""} fait${done > 1 ? "s" : ""}${open ? ` · ${open} à faire` : ""}` : "Pas encore d'objectifs cette semaine"}
+      </span>
+      <span className="ait-card__spend-sub">
+        💶 {eur(seo.monthEur)} ce mois · {eur3(daily)}/jour{seo.budgetEur != null ? ` · ${Math.min(100, Math.round((seo.monthEur / Math.max(0.01, seo.budgetEur)) * 100))} % du budget` : ""}
+      </span>
+      <BudgetEditor id={m.id} name={m.name} budgetEur={seo.budgetEur} capMonthEur={null} />
+    </div>
+  );
+}
+
+function SeoChiefPanel({ m, seo, chat }: { m: MemberView; seo: SeoChiefView; chat: ChatMessage[] }) {
+  const planFr = seo.week ? new Date(`${seo.week}T12:00:00Z`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }) : null;
+  const dueLast = seo.objectives.map((o) => o.dueDate).filter((d): d is string => Boolean(d)).sort().at(-1);
+  const planned = seo.objectives.reduce((n, o) => n + (o.minutes ?? 0), 0);
+  return (
+    <div className="ait-panel">
+      <Head
+        m={m}
+        note={<p className="ait-reports">{m.name} suit la visibilité gratuite de TIM — Google, les IA, YouTube, LinkedIn, Instagram — jusqu&apos;au lead qualifié. Il recommande et vous fixe des objectifs ; il ne rédige pas : ses prompts sont prêts à coller dans ChatGPT ou Claude.</p>}
+      />
+      <PausedNote m={m} />
+      {m.active && <SeoWeeklyButton name={m.name} />}
+      <section className="ait-score">
+        <h3 className="ait-h3">🎯 Vos objectifs{planFr ? ` — à partir du ${planFr}` : ""}{dueLast ? `, jusqu'au ${new Date(dueLast).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Paris" })}` : ""}</h3>
+        {seo.objectives.length ? (
+          <>
+            <p className="ait-meta">
+              {seo.objectives.length} objectif{seo.objectives.length > 1 ? "s" : ""} · {Math.round((planned / 60) * 10) / 10} h prévues sur vos {(seo.hours ?? 5).toLocaleString("fr-FR")} h · classés par importance
+            </p>
+            <ObjectivesBoard objectives={seo.objectives} />
+          </>
+        ) : (
+          <p className="ait-empty">Pas encore d&apos;objectifs : ils arrivent lundi matin, ou maintenant avec le bouton.</p>
+        )}
+      </section>
+      <section className="ait-score">
+        <h3 className="ait-h3">⚙️ Réglages</h3>
+        <HoursEditor id={m.id} name={m.name} hours={seo.hours} />
+        <p className="ait-meta">📅 Agenda : {seo.agenda ?? `aucun agenda Google utilisable — ${m.name} ne pose pas de créneaux (Connexions des agendas).`}</p>
+      </section>
+      {m.active ? <ChatBox memberKey={m.key} name={m.name} portrait={m.portrait} initial={chat} /> : null}
+    </div>
+  );
+}
+
+/* ─── Ana, analyste de bout en bout ─────────────────────────────────────── */
+
+export type AnalystView = { funnel: Funnel | null; audit: { at: string; summary: string; findings: Finding[] } | null };
+const KIND_LABEL: Record<string, string> = { search: "Moteur", ai: "IA", social: "Réseau" };
+const IMPACT_LABEL: Record<string, string> = { fort: "🔴 impact fort", moyen: "🟠 impact moyen", faible: "⚪ impact faible" };
+const TYPE_LABEL: Record<string, string> = { technique: "Technique", contenu: "Contenu", conversion: "Conversion" };
+const pctFr = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("fr-FR")} %`);
+
+function AnalystPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: AnalystView }) {
+  const f = view.funnel;
+  return (
+    <div className="ait-panel">
+      <Head
+        m={m}
+        note={
+          chief && (
+            <p className="ait-reports">
+              <Face m={chief} size={22} /> {m.name} suit tout le parcours gratuit, de la première visite au client signé, et remet à {chief.name} ce qui marche vraiment et ce qui fuit.
+            </p>
+          )
+        }
+      />
+      <PausedNote m={m} chief={chief} />
+      <section className="ait-score">
+        <h3 className="ait-h3">🧭 L&apos;entonnoir gratuit, source par source{f ? ` — depuis le ${new Date(`${f.since}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" })}` : ""}</h3>
+        {f && f.rows.length ? (
+          <>
+            <p className="ait-chips">
+              <span>👀 {f.totals.sessions.toLocaleString("fr-FR")} visites</span>
+              <span>📝 {f.totals.leads} leads ({pctFr(f.totals.leadRate)})</span>
+              <span>✅ {f.totals.qualified} qualifiés ({pctFr(f.totals.qualifiedRate)})</span>
+              <span>🤝 {f.totals.won} clients</span>
+            </p>
+            <div className="ait-score__scroll">
+              <table className="ait-table">
+                <thead>
+                  <tr>
+                    <th>Source</th>
+                    <th>Visites</th>
+                    <th>Leads</th>
+                    <th>Lead / visite</th>
+                    <th>Qualifiés</th>
+                    <th>Qualifiés / lead</th>
+                    <th>Clients</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {f.rows.map((r) => (
+                    <tr key={r.key}>
+                      <td>
+                        <strong>{r.label}</strong> <span className="ait-score__rate">· {KIND_LABEL[r.kind]}</span>
+                      </td>
+                      <td>{r.sessions.toLocaleString("fr-FR")}</td>
+                      <td>{r.leads}</td>
+                      <td>{pctFr(r.leadRate)}</td>
+                      <td>{r.qualified}</td>
+                      <td>{pctFr(r.qualifiedRate)}</td>
+                      <td>{r.won}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {f.otherLeads > 0 && <p className="ait-meta">+ {f.otherLeads} lead{f.otherLeads > 1 ? "s" : ""} d&apos;autres sources (publicité, direct, inconnue) — hors de cet entonnoir.</p>}
+            <div className="ait-cols">
+              <section>
+                <h4 className="ait-method__h">Les pages qui convertissent</h4>
+                {f.pages.length ? (
+                  <ul className="ait-score__headlines">
+                    {f.pages.slice(0, 8).map((p) => (
+                      <li key={p.path}>
+                        <strong>{p.path}</strong> — {p.leads} lead{p.leads > 1 ? "s" : ""}, {p.qualified} qualifié{p.qualified > 1 ? "s" : ""}
+                        {p.sessions ? <span className="ait-score__rate"> · {p.sessions.toLocaleString("fr-FR")} visites</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="ait-empty">Aucune page d&apos;arrivée connue pour les leads gratuits.</p>
+                )}
+              </section>
+              <section>
+                <h4 className="ait-method__h">Celles qui attirent sans convertir</h4>
+                {f.attractWithoutConverting.length ? (
+                  <ul className="ait-score__headlines">
+                    {f.attractWithoutConverting.slice(0, 8).map((p) => (
+                      <li key={p.path}>
+                        <strong>{p.path}</strong> — {p.sessions.toLocaleString("fr-FR")} visites, aucun lead
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="ait-empty">Aucune page avec 30 visites gratuites et zéro lead.</p>
+                )}
+              </section>
+            </div>
+          </>
+        ) : (
+          <p className="ait-empty">L&apos;entonnoir n&apos;a pas pu être calculé (GA4 ou les leads ne répondent pas).</p>
+        )}
+      </section>
+      {m.active && <AuditButton name={m.name} />}
+      <section className="ait-score">
+        <h3 className="ait-h3">🔬 Son dernier audit du site{view.audit ? ` — ${new Date(view.audit.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}` : ""}</h3>
+        {view.audit ? (
+          <>
+            <p className="ait-obj__text">{view.audit.summary}</p>
+            <ol className="ait-objs">
+              {view.audit.findings.map((x, i) => (
+                <li key={i} className="ait-obj">
+                  <div className="ait-obj__top">
+                    <span className="ait-obj__rank">{i + 1}</span>
+                    <div className="ait-obj__head">
+                      <strong className="ait-obj__title">{x.problem}</strong>
+                      <span className="ait-obj__meta">
+                        {IMPACT_LABEL[x.impact]} · {TYPE_LABEL[x.type]}
+                      </span>
+                      {x.page && <span className="ait-obj__page">{x.page}</span>}
+                    </div>
+                  </div>
+                  {x.evidence && <p className="ait-obj__text">📊 {x.evidence}</p>}
+                  <p className="ait-obj__text">➡️ {x.action}</p>
+                  {x.prompt && <CopyPromptButton prompt={x.prompt} />}
+                </li>
+              ))}
+            </ol>
+          </>
+        ) : (
+          <p className="ait-empty">Pas encore d&apos;audit : le premier aura lieu au début du mois, ou maintenant avec le bouton.</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/* ─── Guy, chargé de la concurrence ─────────────────────────────────────── */
+
+export type CompetitionView = { rows: CompetitorRow[]; report: { at: string; summary: string; findings: CompetitionFinding[] } | null };
+const COMPETITOR_KIND: Record<string, string> = { editeur: "Éditeur", comparateur: "Comparateur", media: "Média BTP" };
+const HAS_IT: Record<string, string> = { oui: "TIM l'a", partiel: "TIM l'a en partie", non: "TIM ne l'a pas" };
+
+function CompetitionPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: CompetitionView }) {
+  const withoutSite = view.rows.filter((r) => !r.website).length;
+  return (
+    <div className="ait-panel">
+      <Head
+        m={m}
+        note={
+          chief && (
+            <p className="ait-reports">
+              <Face m={chief} size={22} /> {m.name} lit chaque semaine les sites des concurrents et remet à {chief.name} ce qui a bougé et ce que TIM n&apos;a pas — pour faire mieux, jamais pour recopier.
+            </p>
+          )
+        }
+      />
+      <PausedNote m={m} chief={chief} />
+      {m.active && <CompetitionButton name={m.name} />}
+      <section className="ait-score">
+        <h3 className="ait-h3">🔭 Son dernier rapport{view.report ? ` — ${new Date(view.report.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}` : ""}</h3>
+        {view.report ? (
+          <>
+            <p className="ait-obj__text">{view.report.summary}</p>
+            <ol className="ait-objs">
+              {view.report.findings.map((x, i) => (
+                <li key={i} className="ait-obj">
+                  <div className="ait-obj__top">
+                    <span className="ait-obj__rank">{i + 1}</span>
+                    <div className="ait-obj__head">
+                      <strong className="ait-obj__title">
+                        {x.competitor} — {x.what}
+                      </strong>
+                      <span className="ait-obj__meta">
+                        {IMPACT_LABEL[x.impact]} · {x.intent === "achat" ? "intention d'achat" : "information"} · {HAS_IT[x.timHasIt]}
+                      </span>
+                      {x.url && <span className="ait-obj__page">{x.url}</span>}
+                    </div>
+                  </div>
+                  <p className="ait-obj__text">➡️ {x.action}</p>
+                  {x.prompt && <CopyPromptButton prompt={x.prompt} />}
+                </li>
+              ))}
+            </ol>
+          </>
+        ) : (
+          <p className="ait-empty">Pas encore de rapport : le premier arrive lundi matin, ou maintenant avec le bouton.</p>
+        )}
+      </section>
+      <section className="ait-score">
+        <h3 className="ait-h3">📚 Les concurrents suivis ({view.rows.length})</h3>
+        {withoutSite > 0 && <p className="ait-paused">{withoutSite} concurrent{withoutSite > 1 ? "s" : ""} sans site : {m.name} ne peut pas les lire. Renseignez leur site dans la liste.</p>}
+        <div className="ait-score__scroll">
+          <table className="ait-table">
+            <thead>
+              <tr>
+                <th>Concurrent</th>
+                <th>Type</th>
+                <th>Pages</th>
+                <th>Cette semaine</th>
+              </tr>
+            </thead>
+            <tbody>
+              {view.rows.map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    <strong>{r.name}</strong>
+                    {r.website ? <span className="ait-score__rate"> · {r.website.replace(/^https?:\/\/(www\.)?/, "")}</span> : <span className="ait-score__rate"> · pas de site</span>}
+                  </td>
+                  <td>{COMPETITOR_KIND[r.kind ?? ""] ?? "—"}</td>
+                  <td>{r.status === "lu" ? (r.pages ?? 0).toLocaleString("fr-FR") : r.status === "illisible" ? "illisible" : "—"}</td>
+                  <td>{r.status !== "lu" ? (r.error ? <span className="ait-score__rate">{r.error}</span> : "pas encore lu") : r.added == null ? "première photo" : r.added || r.removed ? `+${r.added} / −${r.removed ?? 0}` : "rien de neuf"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="ait-meta">
+          <Link href="/admin/collections/ad-competitors" prefetch={false} className="ait-obj__link">
+            Ajouter ou corriger un concurrent (site, usage, type)
+          </Link>
+        </p>
+      </section>
+    </div>
+  );
+}
+
+/* ─── Paige, stratège de contenu ────────────────────────────────────────── */
+
+export type ContentView = { plan: { at: string; summary: string; findings: ContentItem[] } | null };
+const CONTENT_TYPE: Record<string, string> = { creer: "✨ Créer", rafraichir: "🔄 Rafraîchir", fusionner: "🔗 Fusionner", supprimer: "🗑️ Supprimer" };
+const SOURCE_LABEL: Record<string, string> = { guy: "vu par Guy", ana: "vu par Ana", "search-console": "Search Console" };
+
+function ContentPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: ContentView }) {
+  const total = view.plan?.findings.reduce((n, x) => n + x.minutes, 0) ?? 0;
+  return (
+    <div className="ait-panel">
+      <Head
+        m={m}
+        note={
+          chief && (
+            <p className="ait-reports">
+              <Face m={chief} size={22} /> {m.name} prépare le plan de contenu de la semaine et le remet à {chief.name}. Elle ne rédige pas : chaque action vient avec sa structure et un prompt prêt.
+            </p>
+          )
+        }
+      />
+      <PausedNote m={m} chief={chief} />
+      {m.active && <ContentPlanButton name={m.name} />}
+      <section className="ait-score">
+        <h3 className="ait-h3">📝 Son plan de contenu{view.plan ? ` — ${new Date(view.plan.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}` : ""}</h3>
+        {view.plan ? (
+          <>
+            <p className="ait-obj__text">{view.plan.summary}</p>
+            <p className="ait-meta">
+              {view.plan.findings.length} action{view.plan.findings.length > 1 ? "s" : ""} · {Math.round((total / 60) * 10) / 10} h d&apos;effort au total · Serge en retient ce qui tient dans votre semaine
+            </p>
+            <ol className="ait-objs">
+              {view.plan.findings.map((x, i) => (
+                <li key={i} className="ait-obj">
+                  <div className="ait-obj__top">
+                    <span className="ait-obj__rank">{i + 1}</span>
+                    <div className="ait-obj__head">
+                      <strong className="ait-obj__title">
+                        {CONTENT_TYPE[x.type]} — {x.title}
+                      </strong>
+                      <span className="ait-obj__meta">
+                        {IMPACT_LABEL[x.impact]} · {x.intent === "achat" ? "intention d'achat" : "information"} · {x.minutes} min{x.source ? ` · ${SOURCE_LABEL[x.source] ?? x.source}` : ""}
+                      </span>
+                      {x.query && <span className="ait-obj__page">🔎 « {x.query} »{x.page ? ` · ${x.page}` : ""}</span>}
+                    </div>
+                  </div>
+                  {x.why && <p className="ait-obj__text">💡 {x.why}</p>}
+                  {x.outline.length > 0 && (
+                    <details className="ait-obj__more">
+                      <summary>La structure proposée ({x.outline.length} intertitres)</summary>
+                      <ol className="ait-method__sources">
+                        {x.outline.map((h) => (
+                          <li key={h}>{h}</li>
+                        ))}
+                      </ol>
+                    </details>
+                  )}
+                  <CopyPromptButton prompt={x.prompt} />
+                </li>
+              ))}
+            </ol>
+          </>
+        ) : (
+          <p className="ait-empty">Pas encore de plan : le premier arrive lundi matin, ou maintenant avec le bouton.</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/* ─── Georges, visibilité IA ────────────────────────────────────────────── */
+
+const ACTION_TYPE: Record<string, string> = { page: "📄 Page", source: "🌐 Source tierce", technique: "⚙️ Technique", marque: "🏷️ Marque" };
+const rank = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("fr-FR")}ᵉ`);
+
+function VisibilityPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: VisibilityState }) {
+  const v = view.measure;
+  const month = new Date(`${view.period}-15T12:00:00Z`).toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
+  const left = view.progress.total - view.progress.done;
+  return (
+    <div className="ait-panel">
+      <Head
+        m={m}
+        note={
+          chief && (
+            <p className="ait-reports">
+              <Face m={chief} size={22} /> {m.name} pose chaque mois {view.questions} questions d&apos;acheteur aux IA, deux fois chacune, et remet à {chief.name} où TIM est recommandé, où il se perd, et quoi faire.
+            </p>
+          )
+        }
+      />
+      <PausedNote m={m} chief={chief} />
+      {m.active && view.engines.length > 0 && <VisibilityButton name={m.name} />}
+      <p className="ait-meta">
+        IA interrogées : {view.engines.length ? view.engines.join(", ") : "aucune"}
+        {view.missing.length ? ` · à brancher (Paramètres › Connexions) : ${view.missing.join(", ")}` : ""} · Google AI Overviews n&apos;est pas mesurable sans outil payant.
+      </p>
+      <section className="ait-score">
+        <h3 className="ait-h3">
+          ✨ La place de TIM dans les IA — {month}
+          {left > 0 ? ` (mesure en cours : ${view.progress.done} / ${view.progress.total})` : ""}
+        </h3>
+        {v.answers ? (
+          <>
+            <p className="ait-chips">
+              <span>🗣️ Nommé dans {pctFr(v.overall.mentionPct)} des réponses</span>
+              <span>🔗 Cité en source dans {pctFr(v.overall.citationPct)}</span>
+              <span>📣 Part de voix {pctFr(v.overall.shareOfVoicePct)}</span>
+              <span>🏅 Rang moyen {rank(v.overall.avgPosition)}</span>
+            </p>
+            <div className="ait-score__scroll">
+              <table className="ait-table">
+                <thead>
+                  <tr>
+                    <th>IA / thème</th>
+                    <th>Réponses</th>
+                    <th>TIM nommé</th>
+                    <th>TIM cité</th>
+                    <th>Part de voix</th>
+                    <th>Rang moyen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...v.engines.map((e) => ({ key: e.engine, label: e.label, r: e as Rates })), ...v.themes.map((t) => ({ key: t.theme, label: `↳ ${t.label}`, r: t as Rates }))].map(({ key, label, r }) => (
+                    <tr key={key}>
+                      <td>
+                        <strong>{label}</strong>
+                      </td>
+                      <td>{r.answers}</td>
+                      <td>{pctFr(r.mentionPct)}</td>
+                      <td>{pctFr(r.citationPct)}</td>
+                      <td>{pctFr(r.shareOfVoicePct)}</td>
+                      <td>{rank(r.avgPosition)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="ait-meta">Une IA ne répond jamais deux fois pareil : ce sont des tendances, à lire d&apos;un mois sur l&apos;autre.</p>
+            <div className="ait-cols">
+              <section>
+                <h4 className="ait-method__h">Les concurrents nommés</h4>
+                {v.competitors.length ? (
+                  <ul className="ait-score__headlines">
+                    {v.competitors.slice(0, 10).map((c) => (
+                      <li key={c.name}>
+                        <strong>{c.name}</strong> — {pctFr(c.mentionPct)} des réponses
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="ait-empty">Aucun concurrent de la liste n&apos;est nommé.</p>
+                )}
+              </section>
+              <section>
+                <h4 className="ait-method__h">Où les IA vont chercher</h4>
+                {v.sources.length ? (
+                  <ul className="ait-score__headlines">
+                    {v.sources.slice(0, 10).map((s) => (
+                      <li key={s.host}>
+                        <strong>{s.host}</strong> — {s.count} réponse{s.count > 1 ? "s" : ""}
+                        {s.tim ? <span className="ait-score__rate"> · TIM</span> : s.competitor ? <span className="ait-score__rate"> · {s.competitor}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="ait-empty">Pas encore de sources.</p>
+                )}
+              </section>
+            </div>
+            {v.lost.length > 0 && (
+              <details className="ait-obj__more">
+                <summary>
+                  Les {v.lost.length} question{v.lost.length > 1 ? "s" : ""} où des concurrents sont recommandés, et pas TIM
+                </summary>
+                <ul className="ait-score__headlines">
+                  {v.lost.map((l) => (
+                    <li key={l.id}>
+                      « {l.question} » — {l.competitors.join(", ")}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </>
+        ) : (
+          <p className="ait-empty">{view.engines.length ? "La mesure du mois commence : les premières réponses arrivent dans quelques minutes, ou maintenant avec le bouton." : "Aucune IA branchée pour l'instant."}</p>
+        )}
+      </section>
+      <section className="ait-score">
+        <h3 className="ait-h3">🧭 Son rapport{view.report ? ` — ${new Date(view.report.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}` : ""}</h3>
+        {view.report ? (
+          <>
+            <p className="ait-obj__text">{view.report.summary}</p>
+            <ol className="ait-objs">
+              {view.report.findings.map((x, i) => (
+                <li key={i} className="ait-obj">
+                  <div className="ait-obj__top">
+                    <span className="ait-obj__rank">{i + 1}</span>
+                    <div className="ait-obj__head">
+                      <strong className="ait-obj__title">
+                        {ACTION_TYPE[x.type]} — {x.title}
+                      </strong>
+                      <span className="ait-obj__meta">
+                        {IMPACT_LABEL[x.impact]} · {x.minutes} min
+                      </span>
+                      {x.target && <span className="ait-obj__page">🎯 {x.target}</span>}
+                    </div>
+                  </div>
+                  {x.why && <p className="ait-obj__text">💡 {x.why}</p>}
+                  {x.questions.length > 0 && <p className="ait-meta">Questions : {x.questions.map((q) => `« ${q} »`).join(" · ")}</p>}
+                  <CopyPromptButton prompt={x.prompt} />
+                </li>
+              ))}
+            </ol>
+          </>
+        ) : (
+          <p className="ait-empty">Pas encore de rapport : il s&apos;écrit dès que la mesure du mois est complète.</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/* ─── Robert, technique ─────────────────────────────────────────────────── */
+
+type TechView = Awaited<ReturnType<typeof latestTech>>;
+
+function TechPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: TechView }) {
+  const h = view?.health ?? null;
+  return (
+    <div className="ait-panel">
+      <Head
+        m={m}
+        note={
+          chief && (
+            <p className="ait-reports">
+              <Face m={chief} size={22} /> {m.name} contrôle chaque mois toutes les pages du site et remet à {chief.name} ce qui empêche Google et les IA de les lire. Chaque tâche vient avec ses étapes et un prompt prêt pour votre outil de code.
+            </p>
+          )
+        }
+      />
+      <PausedNote m={m} chief={chief} />
+      {m.active && <TechButton name={m.name} />}
+      <section className="ait-score">
+        <h3 className="ait-h3">🔧 L&apos;état du site{view ? ` — ${new Date(view.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}` : ""}</h3>
+        {h ? (
+          <>
+            <p className="ait-chips">
+              <span>
+                📄 {h.read} / {h.sitemapCount} pages lues
+              </span>
+              <span>🔎 {h.indexed == null ? "indexation non lue" : `${h.indexed} / ${h.inspected} indexées par Google`}</span>
+              <span>⏱️ {h.avgMs == null ? "—" : `${(h.avgMs / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} s`} de réponse en moyenne</span>
+              <span>🤖 {h.bots.filter((b) => !b.allowed).length ? `${h.bots.filter((b) => !b.allowed).length} robot(s) bloqué(s)` : "tous les robots passent"}</span>
+            </p>
+            {h.issues.length ? (
+              <ul className="ait-score__headlines">
+                {h.issues.map((i) => (
+                  <li key={i.code}>
+                    <details>
+                      <summary>
+                        {IMPACT_LABEL[i.impact]} · <strong>{i.label}</strong> — {i.count}
+                      </summary>
+                      <ul className="ait-method__sources">
+                        {i.pages.map((p) => (
+                          <li key={p}>{p}</li>
+                        ))}
+                        {i.count > i.pages.length && <li>… et {i.count - i.pages.length} autre(s)</li>}
+                      </ul>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="ait-empty">Aucun problème relevé.</p>
+            )}
+            <details className="ait-obj__more">
+              <summary>Les robots des moteurs et des IA ({h.bots.filter((b) => b.allowed).length} / {h.bots.length} autorisés)</summary>
+              <ul className="ait-method__sources">
+                {h.bots.map((b) => (
+                  <li key={b.token}>
+                    {b.allowed ? "✅" : "⛔"} <strong>{b.token}</strong> — {b.who}
+                    {b.role === "entrainement" ? " (entraînement : un choix)" : ""}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </>
+        ) : (
+          <p className="ait-empty">Pas encore de contrôle : le premier arrive le premier jour ouvré du mois, ou maintenant avec le bouton.</p>
+        )}
+      </section>
+      {view && (
+        <section className="ait-score">
+          <h3 className="ait-h3">🛠️ Ses tâches</h3>
+          <p className="ait-obj__text">{view.summary}</p>
+          <ol className="ait-objs">
+            {view.findings.map((t, i) => (
+              <li key={i} className="ait-obj">
+                <div className="ait-obj__top">
+                  <span className="ait-obj__rank">{i + 1}</span>
+                  <div className="ait-obj__head">
+                    <strong className="ait-obj__title">{t.title}</strong>
+                    <span className="ait-obj__meta">
+                      {IMPACT_LABEL[t.impact]} · {t.minutes} min
+                    </span>
+                  </div>
+                </div>
+                {t.why && <p className="ait-obj__text">💡 {t.why}</p>}
+                {t.steps.length > 0 && (
+                  <ol className="ait-method__sources">
+                    {t.steps.map((s) => (
+                      <li key={s}>{s}</li>
+                    ))}
+                  </ol>
+                )}
+                {t.pages.length > 0 && (
+                  <details className="ait-obj__more">
+                    <summary>Les pages concernées ({t.pages.length})</summary>
+                    <ul className="ait-method__sources">
+                      {t.pages.map((p) => (
+                        <li key={p}>{p}</li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                <CopyPromptButton prompt={t.prompt} />
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+    </div>
+  );
+}
+
+/* ─── Linda, autorité ───────────────────────────────────────────────────── */
+
+type AuthorityView = Awaited<ReturnType<typeof latestAuthority>>;
+const TARGET_TYPE: Record<string, string> = { comparateur: "⚖️ Comparateur", annuaire: "📒 Annuaire", avis: "⭐ Avis", media: "📰 Média", forum: "💬 Forum", entite: "🪪 Fiche d'entité", partenaire: "🤝 Partenaire" };
+const TARGET_STATE: Record<string, string> = { absent: "TIM absent", incomplet: "fiche incomplète", present: "TIM présent" };
+const TONE: Record<string, string> = { positif: "🙂", neutre: "😐", negatif: "🙁" };
+
+function AuthorityPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: AuthorityView }) {
+  return (
+    <div className="ait-panel">
+      <Head
+        m={m}
+        note={
+          chief && (
+            <p className="ait-reports">
+              <Face m={chief} size={22} /> {m.name} cherche chaque mois où TIM est nommé sur le web, et où il manque, et remet à {chief.name} les cibles une à une. Jamais de faux avis ni de message déguisé.
+            </p>
+          )
+        }
+      />
+      <PausedNote m={m} chief={chief} />
+      {m.active && <AuthorityButton name={m.name} />}
+      {view ? (
+        <>
+          <section className="ait-score">
+            <h3 className="ait-h3">🔗 Ses cibles — {new Date(view.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}</h3>
+            <p className="ait-obj__text">{view.summary}</p>
+            <ol className="ait-objs">
+              {view.findings.map((t, i) => (
+                <li key={i} className="ait-obj">
+                  <div className="ait-obj__top">
+                    <span className="ait-obj__rank">{i + 1}</span>
+                    <div className="ait-obj__head">
+                      <strong className="ait-obj__title">
+                        {TARGET_TYPE[t.type]} — {t.site}
+                      </strong>
+                      <span className="ait-obj__meta">
+                        {IMPACT_LABEL[t.impact]} · {TARGET_STATE[t.state]} · {t.minutes} min
+                      </span>
+                      {t.url && (
+                        <a className="ait-obj__page" href={t.url} target="_blank" rel="noreferrer noopener">
+                          {t.url}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  {t.why && <p className="ait-obj__text">💡 {t.why}</p>}
+                  {t.steps.length > 0 && (
+                    <ol className="ait-method__sources">
+                      {t.steps.map((s) => (
+                        <li key={s}>{s}</li>
+                      ))}
+                    </ol>
+                  )}
+                  <CopyPromptButton prompt={t.prompt} />
+                </li>
+              ))}
+            </ol>
+          </section>
+          <section className="ait-score">
+            <h3 className="ait-h3">🗞️ Là où TIM est nommé ({view.mentions.length})</h3>
+            {view.mentions.length ? (
+              <ul className="ait-score__headlines">
+                {view.mentions.map((x) => (
+                  <li key={x.url}>
+                    {TONE[x.tone]}{" "}
+                    <a href={x.url} target="_blank" rel="noreferrer noopener">
+                      {x.title || x.url}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="ait-empty">Aucune page extérieure trouvée qui nomme TIM.</p>
+            )}
+          </section>
+        </>
+      ) : (
+        <section className="ait-score">
+          <p className="ait-empty">Pas encore de rapport : le premier arrive après la mesure de Georges, au plus tard le 7 du mois — ou maintenant avec le bouton.</p>
+        </section>
+      )}
+    </div>
+  );
+}
+
+/* ─── Cléo, réseaux & vidéo ─────────────────────────────────────────────── */
+
+const SOCIAL_TYPE: Record<string, string> = { relance: "📣 Relance", contenu: "🎬 Contenu", format: "🧩 Format", rythme: "📅 Rythme", reglage: "🔧 Réglage" };
+const NET_LABEL: Record<string, string> = { youtube: "YouTube", facebook: "Facebook", instagram: "Instagram", linkedin: "LinkedIn", tous: "Tous réseaux" };
+const nFr = (n: number | null | undefined) => (n == null ? "—" : n.toLocaleString("fr-FR"));
+
+type SocialView = SocialState & { notice: string | null };
+
+function SocialPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: SocialView }) {
+  const r = view.report;
+  const ms = r?.measure ?? null;
+  const top = ms ? [...ms.posts].sort((a, b) => (b.views ?? b.likes) - (a.views ?? a.likes)).slice(0, 12) : [];
+  const known = ms ? ms.people.filter((p) => p.match) : [];
+  const others = ms ? ms.people.filter((p) => !p.match).slice(0, 15) : [];
+  return (
+    <div className="ait-panel">
+      <Head
+        m={m}
+        note={
+          chief && (
+            <p className="ait-reports">
+              <Face m={chief} size={22} /> {m.name} lit chaque semaine vos réseaux et vos vidéos, rapproche du CRM ceux qui commentent, et remet à {chief.name} les contenus à faire et les personnes à relancer. Elle ne publie rien.
+            </p>
+          )
+        }
+      />
+      <PausedNote m={m} chief={chief} />
+      <SocialConnect accounts={view.accounts} youtubeReady={view.youtubeReady} notice={view.notice} />
+      {m.active && <SocialButton name={m.name} />}
+      {r ? (
+        <>
+          <section className="ait-score">
+            <h3 className="ait-h3">🎬 Ses actions — {new Date(r.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}</h3>
+            <p className="ait-obj__text">{r.summary}</p>
+            <ol className="ait-objs">
+              {r.findings.map((x, i) => (
+                <li key={i} className="ait-obj">
+                  <div className="ait-obj__top">
+                    <span className="ait-obj__rank">{i + 1}</span>
+                    <div className="ait-obj__head">
+                      <strong className="ait-obj__title">
+                        {SOCIAL_TYPE[x.type]} — {x.title}
+                      </strong>
+                      <span className="ait-obj__meta">
+                        {NET_LABEL[x.network]} · {IMPACT_LABEL[x.impact]} · {x.minutes} min
+                      </span>
+                      {x.person && <span className="ait-obj__page">👤 {x.person}</span>}
+                    </div>
+                  </div>
+                  {x.why && <p className="ait-obj__text">💡 {x.why}</p>}
+                  {x.steps.length > 0 && (
+                    <ol className="ait-method__sources">
+                      {x.steps.map((s) => (
+                        <li key={s}>{s}</li>
+                      ))}
+                    </ol>
+                  )}
+                  <CopyPromptButton prompt={x.prompt} />
+                </li>
+              ))}
+            </ol>
+          </section>
+          {ms && (
+            <>
+              <section className="ait-score">
+                <h3 className="ait-h3">📊 Les 28 derniers jours</h3>
+                {ms.networks.length ? (
+                  <p className="ait-chips">
+                    {ms.networks.map((n) => (
+                      <span key={n.network}>
+                        {NET_LABEL[n.network]} · {n.account} : {nFr(n.followers)} abonnés · {n.posts} publication{n.posts > 1 ? "s" : ""} · {nFr(n.views)} vues
+                        {n.previousViews != null ? ` (avant : ${nFr(n.previousViews)})` : ""} · {nFr(n.interactions)} interactions
+                      </span>
+                    ))}
+                  </p>
+                ) : (
+                  <p className="ait-empty">Aucun réseau branché lors de ce rapport : il s&apos;appuie sur l&apos;entonnoir et le web.</p>
+                )}
+                {ms.errors.length > 0 && <p className="ait-meta">⚠️ {ms.errors.join(" · ")}</p>}
+                {top.length > 0 && (
+                  <div className="ait-score__scroll">
+                    <table className="ait-table">
+                      <thead>
+                        <tr>
+                          <th>Publication</th>
+                          <th>Vues</th>
+                          <th>Réactions</th>
+                          <th>Commentaires</th>
+                          <th>Partages</th>
+                          <th>Vu en moyenne</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {top.map((p) => (
+                          <tr key={`${p.network}-${p.id}`}>
+                            <td>
+                              {NET_LABEL[p.network]} · {p.format} —{" "}
+                              {p.url ? (
+                                <a href={p.url} target="_blank" rel="noreferrer noopener">
+                                  {p.title}
+                                </a>
+                              ) : (
+                                p.title
+                              )}
+                            </td>
+                            <td>{nFr(p.views)}</td>
+                            <td>{nFr(p.likes)}</td>
+                            <td>{nFr(p.comments)}</td>
+                            <td>{nFr(p.shares)}</td>
+                            <td>{p.avgViewPct != null ? `${p.avgViewPct} %` : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {(ms.youtubeSources.length > 0 || ms.youtubeSearches.length > 0) && (
+                  <div className="ait-cols">
+                    <section>
+                      <h4 className="ait-method__h">D&apos;où viennent les vues YouTube</h4>
+                      <ul className="ait-score__headlines">
+                        {ms.youtubeSources.slice(0, 8).map((s) => (
+                          <li key={s.source}>
+                            <strong>{s.source}</strong> — {nFr(s.views)} vues
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                    <section>
+                      <h4 className="ait-method__h">Ce qu&apos;on tape dans YouTube pour vous trouver</h4>
+                      {ms.youtubeSearches.length ? (
+                        <ul className="ait-score__headlines">
+                          {ms.youtubeSearches.slice(0, 10).map((s) => (
+                            <li key={s.term}>
+                              « {s.term} » — {nFr(s.views)} vues
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="ait-empty">Pas encore de recherche mesurée.</p>
+                      )}
+                    </section>
+                  </div>
+                )}
+              </section>
+              <section className="ait-score">
+                <h3 className="ait-h3">👥 Qui réagit ({ms.people.length})</h3>
+                <p className="ait-meta">Les réseaux ne disent pas qui regarde : seulement qui commente. Ceux qui sont déjà dans votre CRM d&apos;abord.</p>
+                {known.length > 0 && (
+                  <ul className="ait-score__headlines">
+                    {known.map((p, i) => (
+                      <li key={`k${i}`}>
+                        ⭐ <strong>{p.name}</strong> ({NET_LABEL[p.network]}) — {p.match!.company}
+                        {p.match!.status ? ` · ${p.match!.status}` : ""} : « {p.text} »{" "}
+                        {p.url && (
+                          <a href={p.url} target="_blank" rel="noreferrer noopener">
+                            voir
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {others.length > 0 ? (
+                  <details className="ait-obj__more">
+                    <summary>Les autres commentaires ({ms.people.length - known.length})</summary>
+                    <ul className="ait-score__headlines">
+                      {others.map((p, i) => (
+                        <li key={`o${i}`}>
+                          <strong>{p.name}</strong> ({NET_LABEL[p.network]}) : « {p.text} »
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : (
+                  known.length === 0 && <p className="ait-empty">Aucun commentaire sur la période.</p>
+                )}
+              </section>
+            </>
+          )}
+        </>
+      ) : (
+        <section className="ait-score">
+          <p className="ait-empty">Pas encore de rapport : le premier arrive le prochain jour ouvré dès 5 h — ou maintenant avec le bouton.</p>
+        </section>
+      )}
+    </div>
+  );
+}
+
 /* ─── Fiches ────────────────────────────────────────────────────────────── */
 
 /** L'en-tête de la fiche — figé en haut du panneau ; `note` : la phrase qui dit comment il travaille. */
@@ -1036,7 +1964,14 @@ function ChiefPanel({ m, team, all, campaigns, campaign, chat, spend, scorecard,
   );
 }
 
-function SubPanel({ m, chief, all, spend, scorecard, members, gads, oads, method, trends, mastery }: { m: MemberView; chief: MemberView | undefined; all: boolean; spend: MemberSpend | undefined; scorecard: Scorecard | null; members: MemberView[]; gads: SourceResult<GoogleAdsView> | null; oads: SourceResult<OpenAiAdsView> | null; method: MethodState | null; trends: string[]; mastery: TeamMastery }) {
+function SubPanel({ m, chief, all, spend, scorecard, members, gads, oads, method, trends, mastery, analyst, competition, content, visibility, tech, authority, social }: { m: MemberView; chief: MemberView | undefined; all: boolean; spend: MemberSpend | undefined; scorecard: Scorecard | null; members: MemberView[]; gads: SourceResult<GoogleAdsView> | null; oads: SourceResult<OpenAiAdsView> | null; method: MethodState | null; trends: string[]; mastery: TeamMastery; analyst: AnalystView | null; competition: CompetitionView | null; content: ContentView | null; visibility: VisibilityState | null; tech: TechView | undefined; authority: AuthorityView | undefined; social: SocialView | undefined }) {
+  if (m.key === "seo-reseaux" && social !== undefined) return <SocialPanel m={m} chief={chief} view={social} />;
+  if (m.key === "seo-autorite" && authority !== undefined) return <AuthorityPanel m={m} chief={chief} view={authority} />;
+  if (m.key === "seo-technique" && tech !== undefined) return <TechPanel m={m} chief={chief} view={tech} />;
+  if (m.key === "seo-visibilite-ia" && visibility) return <VisibilityPanel m={m} chief={chief} view={visibility} />;
+  if (m.key === "seo-contenu" && content) return <ContentPanel m={m} chief={chief} view={content} />;
+  if (m.key === "seo-concurrence" && competition) return <CompetitionPanel m={m} chief={chief} view={competition} />;
+  if (m.key === "seo-analyste" && analyst) return <AnalystPanel m={m} chief={chief} view={analyst} />;
   if (m.key === "sea-chatgpt") {
     return (
       <div className="ait-panel">
@@ -1149,6 +2084,14 @@ function Report({
   trends,
   recos,
   mastery,
+  seo,
+  analyst,
+  competition,
+  content,
+  visibility,
+  tech,
+  authority,
+  social,
 }: {
   team: TeamView & { spend: TeamSpend };
   selected: string | null;
@@ -1164,9 +2107,17 @@ function Report({
   trends: string[];
   recos: RecoView[];
   mastery: TeamMastery;
+  seo: SeoChiefView | null;
+  analyst: AnalystView | null;
+  competition: CompetitionView | null;
+  content: ContentView | null;
+  visibility: VisibilityState | null;
+  tech: TechView | undefined;
+  authority: AuthorityView | undefined;
+  social: SocialView | undefined;
 }) {
-  const chief = team.members.find((m) => m.level === "chef");
-  const subs = team.members.filter((m) => m.level === "sous-agent");
+  // Un chef par domaine (SEA, SEO/GEO), chacun avec son équipe.
+  const chiefs = team.members.filter((m) => m.level === "chef");
   // La fiche ne s'ouvre (en panneau) que sur un agent choisi : sans choix, l'organigramme seul.
   const current = team.members.find((m) => m.key === selected);
   const missions = team.members.reduce((n, m) => n + m.monthMissions, 0);
@@ -1179,33 +2130,82 @@ function Report({
         👋 {working.length ? `${working.map((m) => m.name).join(" et ")} ${working.length > 1 ? "sont" : "est"} au travail en ce moment. ` : "Toute l'équipe est disponible. "}
         {missions} mission{missions > 1 ? "s" : ""} menée{missions > 1 ? "s" : ""} ce mois-ci.
       </p>
-      <div className="ait-org" aria-label="Organigramme">
+      <div className="ait-orgs" aria-label="Organigramme">
         <span className="ait-org__direction">Direction</span>
-        <span className="ait-org__line" aria-hidden />
-        {chief && <MemberCard m={chief} on={current?.key === chief.key} big spend={team.spend} mastery={mastery[chief.key]} />}
-        {subs.length > 0 && <span className="ait-org__line" aria-hidden />}
-        {TEAM_GROUPS.map((g) => {
-          const row = subs.filter((m) => m.group === g.value);
-          if (!row.length) return null;
-          return (
-            <div key={g.value} className="ait-org__group">
-              <span className="ait-org__label">{g.label}</span>
-              <div className="ait-org__subs">
-                {row.map((m) => (
-                  <MemberCard key={m.key} m={m} on={current?.key === m.key} spend={team.spend} mastery={mastery[m.key]} />
-                ))}
+        <div className="ait-orgs__teams">
+          {chiefs.map((chief) => {
+            const subs = team.members.filter((m) => m.level === "sous-agent" && String(m.chiefId) === String(chief.id));
+            return (
+              <div key={chief.key} className="ait-org">
+                <span className="ait-org__line" aria-hidden />
+                <MemberCard m={chief} on={current?.key === chief.key} big spend={team.spend} mastery={mastery[chief.key]} extra={chief.key === "chef-seo" && seo ? <SeoCardExtra m={chief} seo={seo} /> : undefined} />
+                {subs.length > 0 && <span className="ait-org__line" aria-hidden />}
+                {TEAM_GROUPS.map((g) => {
+                  const row = subs.filter((m) => m.group === g.value);
+                  if (!row.length) return null;
+                  return (
+                    <div key={g.value} className="ait-org__group">
+                      <span className="ait-org__label">{g.label}</span>
+                      <div className="ait-org__subs">
+                        {row.map((m) => (
+                          <MemberCard key={m.key} m={m} on={current?.key === m.key} spend={team.spend} mastery={mastery[m.key]} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
       {current && (
         <Drawer label={`Fiche de ${current.name}`} closeHref={BASE}>
-          {current.level === "chef" ? <ChiefPanel m={current} team={team} all={all} campaigns={campaigns} campaign={campaign} chat={chat} spend={team.spend} scorecard={scorecard} method={method} recos={recos} mastery={mastery} /> : <SubPanel m={current} chief={team.members.find((x) => x.id === current.chiefId)} all={all} spend={team.spend.members.find((x) => x.key === current.key)} scorecard={scorecard} members={team.members} gads={gads} oads={oads} method={method} trends={trends} mastery={mastery} />}
+          {current.key === "chef-seo" && seo ? <SeoChiefPanel m={current} seo={seo} chat={chat} /> : current.level === "chef" ? <ChiefPanel m={current} team={team} all={all} campaigns={campaigns} campaign={campaign} chat={chat} spend={team.spend} scorecard={scorecard} method={method} recos={recos} mastery={mastery} /> : <SubPanel m={current} chief={team.members.find((x) => x.id === current.chiefId)} all={all} spend={team.spend.members.find((x) => x.key === current.key)} scorecard={scorecard} members={team.members} gads={gads} oads={oads} method={method} trends={trends} mastery={mastery} analyst={analyst} competition={competition} content={content} visibility={visibility} tech={tech} authority={authority} social={social} />}
         </Drawer>
       )}
     </>
   );
+}
+
+/** Serge : les objectifs de la semaine, ce que coûte son équipe ce mois, son budget, le temps de la direction, l'agenda. */
+async function loadSeoChief(payload: Payload, chief: MemberView | undefined): Promise<SeoChiefView | null> {
+  if (!chief) return null;
+  const now = new Date();
+  // Le dernier plan de Serge (cinq jours ouvrés à partir de sa revue).
+  const [objectives, doc, spent, budget] = await Promise.all([
+    latestPlan(payload, chief.id),
+    payload.findByID({ collection: "ai-team-members", id: chief.id, depth: 0, overrideAccess: true }).catch(() => null) as Promise<{ weeklyHours?: number | null; calendarConnection?: unknown } | null>,
+    spentOf(payload, "seo", now).catch(() => ({ day: 0, month: 0 })),
+    teamMonthlyBudget(payload, "chef-seo"),
+  ]);
+  const agenda = await directionAgenda(payload, doc?.calendarConnection ?? null).catch(() => null);
+  const { day, daysInMonth } = parisMonthDays(now);
+  return {
+    week: objectives.length ? String(objectives[0].week ?? "") : null,
+    objectives: objectives.map((o) => ({
+      id: String(o.id),
+      rank: Number(o.rank ?? 0),
+      title: String(o.title ?? ""),
+      page: (o.page as string | null) || null,
+      diagnosis: (o.diagnosis as string | null) || null,
+      benchmark: (o.benchmark as string | null) || null,
+      why: (o.why as string | null) || null,
+      measure: (o.measure as string | null) || null,
+      evidence: (o.evidence as string | null) || null,
+      dueDate: (o.dueDate as string | null) || null,
+      minutes: typeof o.minutes === "number" ? o.minutes : null,
+      status: String(o.status ?? "a-faire"),
+      steps: (Array.isArray(o.steps) ? (o.steps as Record<string, unknown>[]) : []).map((st) => ({ text: String(st.text ?? ""), minutes: typeof st.minutes === "number" ? st.minutes : null, prompt: (st.prompt as string | null) || null, done: Boolean(st.done) })),
+      slots: Array.isArray(o.slots) ? (o.slots as { start: string; end: string; link: string | null }[]) : [],
+    })),
+    monthEur: spent.month,
+    budgetEur: budget?.budgetEur ?? null,
+    hours: typeof doc?.weeklyHours === "number" ? doc.weeklyHours : null,
+    agenda: agenda ? String(agenda.connection.accountEmail ?? agenda.calendarId) : null,
+    daysElapsed: day,
+    daysInMonth,
+  };
 }
 
 /** Les campagnes, pour les puces de la fiche de Margaux. */
@@ -1302,10 +2302,25 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
   ]);
   // Seconde vague : ce qui dépend de l'agent ouvert ou de la fiche.
   const member = team?.members.find((x) => x.key === selected);
-  const [method, mastery, chat] = await Promise.all([
+  const [method, mastery, chat, seo, analyst, competition, content, visibility, tech, authority, social] = await Promise.all([
     member && VEILLE_DOMAINS[member.key] ? loadMethodState(req.payload, member.id) : null,
     allowed ? loadTeamMastery(req.payload, scorecard, new Date(), snaps) : ({} as TeamMastery),
     member?.level === "chef" ? loadChat(req.payload, member.id) : ([] as ChatMessage[]),
+    allowed && team ? loadSeoChief(req.payload, team.members.find((x) => x.key === "chef-seo")) : null,
+    // Ana : l'entonnoir (GA4 gardé 6 h) et son dernier audit, seulement quand on ouvre sa fiche.
+    only("seo-analyste") ? Promise.all([loadFunnel(req.payload).catch(() => null), latestAudit(req.payload)]).then(([funnel, audit]) => ({ funnel, audit })) : null,
+    // Guy : les concurrents suivis, leur dernière photo, son dernier rapport.
+    only("seo-concurrence") ? Promise.all([loadCompetitorRows(req.payload), latestCompetition(req.payload)]).then(([rows, report]) => ({ rows, report })) : null,
+    // Paige : son dernier plan de contenu.
+    only("seo-contenu") ? latestContentPlan(req.payload).then((plan) => ({ plan })) : null,
+    // Georges : la mesure du mois (même en cours) et son dernier rapport.
+    only("seo-visibilite-ia") ? visibilityState(req.payload) : null,
+    // Robert : son dernier contrôle et ses tâches (null : pas encore de contrôle).
+    only("seo-technique") ? latestTech(req.payload) : undefined,
+    // Linda : son dernier rapport et les mentions trouvées (null : pas encore de rapport).
+    only("seo-autorite") ? latestAuthority(req.payload) : undefined,
+    // Cléo : les comptes branchés, son dernier rapport et la mesure qu'il a lue.
+    only("seo-reseaux") ? socialState(req.payload).then((v) => ({ ...v, notice: typeof sp?.youtube === "string" ? sp.youtube : null })) : undefined,
   ]);
   const trends = only("sea-google") || only("sea-chatgpt") ? adsTrends(snaps, selected === "sea-google" ? "google" : "chatgpt") : [];
 
@@ -1326,7 +2341,7 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
             <h1 className="ait-title">Équipe IA</h1>
             <p className="ait-sub">Vous parlez aux chefs ; chaque sous-agent reçoit ses missions de son chef et lui rend son travail.</p>
           </header>
-          {team ? <Report team={team} selected={selected} all={all} campaigns={campaigns} campaign={campaign} chat={chat} inbox={inbox} scorecard={scorecard} gads={gads} oads={oads} method={method} trends={trends} recos={recos} mastery={mastery} /> : <p className="ait-empty">Cet écran est réservé à la direction.</p>}
+          {team ? <Report team={team} selected={selected} all={all} campaigns={campaigns} campaign={campaign} chat={chat} inbox={inbox} scorecard={scorecard} gads={gads} oads={oads} method={method} trends={trends} recos={recos} mastery={mastery} seo={seo} analyst={analyst} competition={competition} content={content} visibility={visibility} tech={tech} authority={authority} social={social} /> : <p className="ait-empty">Cet écran est réservé à la direction.</p>}
         </div>
       </Gutter>
     </DefaultTemplate>

@@ -1,3 +1,5 @@
+import type { Payload } from "payload";
+
 import { delta, lastMonths, periodBounds, type Delta } from "@/modules/analytics/lib/growth";
 import { monthStart } from "@/modules/partner/lib/month";
 
@@ -178,3 +180,34 @@ export function buildOrganicAnalytics(rows: SourceRow[], clients: LeadClient[], 
     allLeads,
   };
 }
+
+/**
+ * Les leads organiques et IA, lus en base : les formulaires de la période et
+ * de la précédente, et les opportunités nées d'un formulaire. Partagé par
+ * l'écran SEO & GEO et la revue du chef SEO/GEO.
+ */
+export async function loadOrganicAnalytics(payload: Payload, months: number, now: Date): Promise<OrganicAnalytics> {
+  const [rows, clients] = await Promise.all([loadLeadRows(payload, periodBounds(months, now).prevFrom), loadLeadClients(payload)]);
+  return buildOrganicAnalytics(rows, clients, months, now);
+}
+
+/** Les formulaires depuis `since` (ms), avec tout ce qui dit d'où vient le lead. */
+export const loadLeadRows = (payload: Payload, since: number): Promise<SourceRow[]> =>
+  payload
+    .find({
+      collection: "form-submissions",
+      // Seule la période utile compte : on ne lit pas le reste.
+      where: { createdAt: { greater_than_equal: new Date(since).toISOString() } },
+      limit: 20000,
+      depth: 0,
+      overrideAccess: true,
+      pagination: false,
+      select: { createdAt: true, channel: true, referrer: true, utmSource: true, utmMedium: true, gclid: true, msclkid: true, oaiclid: true, fbclid: true, landingPath: true, sourcePagePath: true } as never,
+    })
+    .then((r) => r.docs as unknown as SourceRow[]);
+
+/** Les opportunités nées d'un formulaire (leur statut). */
+export const loadLeadClients = (payload: Payload): Promise<LeadClient[]> =>
+  payload
+    .find({ collection: "partner-clients", where: { formSubmission: { exists: true } }, pagination: false, depth: 0, draft: true, overrideAccess: true, select: { formSubmission: true, clientStatus: true } as never })
+    .then((r) => r.docs as unknown as LeadClient[]);

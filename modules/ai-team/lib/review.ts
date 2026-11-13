@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import type { Payload } from "payload";
 
+import { trackApi } from "@/core/lib/api-health";
 import { claudeCostUsd, claudeMaxCostUsd, estimateTokens, usdToEur, type Usage } from "@/core/lib/ai-pricing";
 import { parisNow, periodKey } from "@/modules/ads/agent/followup";
 import { AdsBudgetError, assertAdsBudget, recordAdsUsage, spentOf } from "@/modules/ads/lib/spend";
@@ -123,13 +124,13 @@ const REVIEW_SYSTEM = [
 const client = () => new Anthropic({ timeout: 240_000, maxRetries: 1 });
 
 const callReviewModel: ReviewCall = async ({ system, user }) => {
-  const res = await client().messages.parse({
+  const res = await trackApi("anthropic", () => client().messages.parse({
     model: REVIEW_MODEL,
     max_tokens: MAX_TOKENS,
     system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: user }],
     output_config: { effort: "medium", format: jsonSchemaOutputFormat(REVIEW_SCHEMA) },
-  });
+  }));
   const usage: Usage = { input: res.usage.input_tokens, output: res.usage.output_tokens, cacheRead: res.usage.cache_read_input_tokens ?? 0, cacheWrite: res.usage.cache_creation_input_tokens ?? 0 };
   return { output: (res.parsed_output as ReviewOutput | null) ?? null, usage, stopReason: res.stop_reason };
 };

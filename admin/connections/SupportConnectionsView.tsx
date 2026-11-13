@@ -6,6 +6,7 @@ import { Gutter } from "@payloadcms/ui";
 import { hasAdminRole } from "@/core/access";
 import { ConnectionCard, type Entry } from "@/admin/connections/ConnectionCard";
 import { summarizeSpend, type SpendEntry } from "@/core/lib/ai-budget";
+import { KIND_TEXT, openApiAlerts } from "@/core/lib/api-health";
 import { SUPPORT_CONNECTIONS, connectionEnv, isConfigured, isSimulated } from "@/core/lib/support-connections";
 
 /**
@@ -33,6 +34,9 @@ export default async function SupportConnectionsView({ initPageResult, params, s
     ? ((await payload.findGlobal({ slug: "support-connections", depth: 0, overrideAccess: true })) as { entries?: ({ key: string } & Entry & SpendEntry)[] | null })
     : null;
   const entries = new Map((global?.entries ?? []).map((e) => [e.key, e]));
+  // Les API en panne (paiement, accès, échecs répétés) : en tête de l'écran, avec le lien pour régler.
+  const alerts = isAdmin ? await openApiAlerts(payload) : [];
+  const since = (iso: string | null) => (iso ? new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(iso)) : "—");
 
   return (
     <DefaultTemplate
@@ -53,6 +57,24 @@ export default async function SupportConnectionsView({ initPageResult, params, s
               Les API que ce back-office utilise. Les clés vivent sur Vercel — ici on voit ce qui est posé, on teste, on note.
             </p>
           </header>
+
+          {alerts.length > 0 && (
+            <section className="sc-alerts" role="alert">
+              <h2 className="sc-alerts__title">⚠️ {alerts.length === 1 ? "Une API ne répond plus" : `${alerts.length} API ne répondent plus`}</h2>
+              <ul className="sc-alerts__list">
+                {alerts.map((a) => (
+                  <li key={a.provider} className="sc-alerts__item">
+                    <strong>{a.label}</strong> — {KIND_TEXT[a.kind].title}, depuis le {since(a.since)}.
+                    {a.message && <span className="sc-alerts__msg"> « {a.message} »</span>} {KIND_TEXT[a.kind].todo}{" "}
+                    <a href={a.fix} target={a.fix.startsWith("/") ? undefined : "_blank"} rel="noreferrer noopener">
+                      Régler le problème
+                    </a>
+                  </li>
+                ))}
+              </ul>
+              <p className="sc-alerts__note">L&apos;alerte se ferme toute seule au premier appel réussi — ou avec « Tester » sur la carte de l&apos;API.</p>
+            </section>
+          )}
 
           {!isAdmin ? (
             <p className="sc-empty">Cet écran est réservé aux administrateurs.</p>

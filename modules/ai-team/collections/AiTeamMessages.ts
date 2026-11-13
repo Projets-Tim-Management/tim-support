@@ -13,7 +13,7 @@ import { hideUnlessDirection, isDirectionAccess } from "@/core/access";
 export const AiTeamMessages: CollectionConfig = {
   slug: "ai-team-messages",
   labels: { singular: "Message à l'équipe IA", plural: "Messages à l'équipe IA" },
-  admin: { useAsTitle: "text", defaultColumns: ["createdAt", "member", "from", "text"], group: "Équipe IA", hidden: hideUnlessDirection },
+  admin: { useAsTitle: "text", defaultColumns: ["createdAt", "member", "from", "text"], group: "Agent", hidden: hideUnlessDirection },
   access: { read: isDirectionAccess, create: () => false, update: () => false, delete: () => false },
   defaultSort: "createdAt",
   fields: [

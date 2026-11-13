@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 
+import { trackApi } from "@/core/lib/api-health";
 import type { Usage } from "@/core/lib/ai-pricing";
 import { COPY_SCHEMA, type CopyResult } from "@/modules/ads/lib/copy/prompt";
 import { ADS_TEXT_MAX_TOKENS, ADS_TEXT_MODEL } from "@/modules/ads/lib/models";
@@ -28,13 +29,13 @@ export class CopyModelError extends Error {
 
 export const callClaudeWithin = (limits: CallLimits): ModelCall => async ({ system, user }) => {
   const client = new Anthropic(limits);
-  const res = await client.messages.parse({
+  const res = await trackApi("anthropic", () => client.messages.parse({
     model: ADS_TEXT_MODEL,
     max_tokens: ADS_TEXT_MAX_TOKENS,
     system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: user }],
     output_config: { effort: "medium", format: jsonSchemaOutputFormat(COPY_SCHEMA) },
-  });
+  }));
   const usage: Usage = {
     input: res.usage.input_tokens,
     output: res.usage.output_tokens,

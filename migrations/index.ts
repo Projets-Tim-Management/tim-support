@@ -194,6 +194,15 @@ import * as migration_20261112_142127_equipe_ia_methodes from './20261112_142127
 import * as migration_20261112_143812_equipe_ia_boucle_de_preuve from './20261112_143812_equipe_ia_boucle_de_preuve';
 import * as migration_20261112_144552_equipe_ia_objectifs from './20261112_144552_equipe_ia_objectifs';
 import * as migration_20261112_145742_equipe_ia_maitrise from './20261112_145742_equipe_ia_maitrise';
+import * as migration_20261112_164226_equipe_seo_victor from './20261112_164226_equipe_seo_victor';
+import * as migration_20261112_171059_equipe_seo_ana from './20261112_171059_equipe_seo_ana';
+import * as migration_20261112_172402_equipe_seo_guy from './20261112_172402_equipe_seo_guy';
+import * as migration_20261112_173116_equipe_seo_paige from './20261112_173116_equipe_seo_paige';
+import * as migration_20261112_175107_equipe_seo_georges from './20261112_175107_equipe_seo_georges';
+import * as migration_20261112_181240_equipe_seo_robert from './20261112_181240_equipe_seo_robert';
+import * as migration_20261112_181647_equipe_seo_linda from './20261112_181647_equipe_seo_linda';
+import * as migration_20261113_075211_equipe_seo_cleo from './20261113_075211_equipe_seo_cleo';
+import * as migration_20261113_144311_api_en_panne from './20261113_144311_api_en_panne';
 
 export const migrations = [
   {
@@ -1174,6 +1183,51 @@ export const migrations = [
   {
     up: migration_20261112_145742_equipe_ia_maitrise.up,
     down: migration_20261112_145742_equipe_ia_maitrise.down,
-    name: '20261112_145742_equipe_ia_maitrise'
+    name: '20261112_145742_equipe_ia_maitrise',
+  },
+  {
+    up: migration_20261112_164226_equipe_seo_victor.up,
+    down: migration_20261112_164226_equipe_seo_victor.down,
+    name: '20261112_164226_equipe_seo_victor',
+  },
+  {
+    up: migration_20261112_171059_equipe_seo_ana.up,
+    down: migration_20261112_171059_equipe_seo_ana.down,
+    name: '20261112_171059_equipe_seo_ana',
+  },
+  {
+    up: migration_20261112_172402_equipe_seo_guy.up,
+    down: migration_20261112_172402_equipe_seo_guy.down,
+    name: '20261112_172402_equipe_seo_guy',
+  },
+  {
+    up: migration_20261112_173116_equipe_seo_paige.up,
+    down: migration_20261112_173116_equipe_seo_paige.down,
+    name: '20261112_173116_equipe_seo_paige',
+  },
+  {
+    up: migration_20261112_175107_equipe_seo_georges.up,
+    down: migration_20261112_175107_equipe_seo_georges.down,
+    name: '20261112_175107_equipe_seo_georges',
+  },
+  {
+    up: migration_20261112_181240_equipe_seo_robert.up,
+    down: migration_20261112_181240_equipe_seo_robert.down,
+    name: '20261112_181240_equipe_seo_robert',
+  },
+  {
+    up: migration_20261112_181647_equipe_seo_linda.up,
+    down: migration_20261112_181647_equipe_seo_linda.down,
+    name: '20261112_181647_equipe_seo_linda',
+  },
+  {
+    up: migration_20261113_075211_equipe_seo_cleo.up,
+    down: migration_20261113_075211_equipe_seo_cleo.down,
+    name: '20261113_075211_equipe_seo_cleo',
+  },
+  {
+    up: migration_20261113_144311_api_en_panne.up,
+    down: migration_20261113_144311_api_en_panne.down,
+    name: '20261113_144311_api_en_panne'
   },
 ];

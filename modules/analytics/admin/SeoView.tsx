@@ -11,9 +11,8 @@ import { loadBing, type BingAnalytics } from "@/modules/analytics/lib/seo-bing";
 import type { SourceResult } from "@/modules/analytics/lib/seo-cache";
 import { loadGa4, type Ga4Analytics } from "@/modules/analytics/lib/seo-ga4";
 import { loadGsc, type GscAnalytics } from "@/modules/analytics/lib/seo-gsc";
-import { periodBounds } from "@/modules/analytics/lib/growth";
 import { loadPageSpeed, type PageSpeedData } from "@/modules/analytics/lib/seo-pagespeed";
-import { buildOrganicAnalytics, type LeadClient, type OrganicAnalytics, type SourceRow } from "@/modules/analytics/lib/seo-sources";
+import { buildOrganicAnalytics, loadOrganicAnalytics, type OrganicAnalytics } from "@/modules/analytics/lib/seo-sources";
 
 /**
  * Écran « Analyses → SEO & GEO » (/admin/analyses/seo-geo).
@@ -508,26 +507,13 @@ export default async function SeoView(view: AdminViewServerProps) {
     // Seul l'onglet ouvert interroge sa source externe : PageSpeed prend jusqu'à
     // une minute à froid, il ne doit pas ralentir l'onglet SEO.
     const skip = { status: "missing" as const, missing: [] };
-    const [gsc, bing, ga4, subs, clients] = await Promise.all([
+    const [gsc, bing, ga4, organic] = await Promise.all([
       tab === "seo" ? loadGsc(months, now) : Promise.resolve(skip),
       tab === "seo" ? loadBing(months, now) : Promise.resolve(skip),
       tab === "seo" || tab === "geo" ? loadGa4(months, now) : Promise.resolve(skip),
-      tab === "geo"
-        ? payload.find({
-            collection: "form-submissions",
-            // Seule la période et la précédente comptent (buildOrganicAnalytics) : on ne lit pas le reste.
-            where: { createdAt: { greater_than_equal: new Date(periodBounds(months, now).prevFrom).toISOString() } },
-            limit: 20000,
-            depth: 0,
-            overrideAccess: true,
-            pagination: false,
-            select: { createdAt: true, channel: true, referrer: true, utmSource: true, utmMedium: true, gclid: true, msclkid: true, oaiclid: true, fbclid: true, landingPath: true, sourcePagePath: true } as never,
-          })
-        : Promise.resolve({ docs: [] }),
-      // Seules les opportunités nées d'un formulaire servent ici.
-      tab === "geo" ? payload.find({ collection: "partner-clients", where: { formSubmission: { exists: true } }, pagination: false, depth: 0, draft: true, overrideAccess: true, select: { formSubmission: true, clientStatus: true } as never }) : Promise.resolve({ docs: [] }),
+      tab === "geo" ? loadOrganicAnalytics(payload, months, now) : null,
     ]);
-    data = { gsc, bing, ga4, organic: buildOrganicAnalytics(subs.docs as unknown as SourceRow[], clients.docs as LeadClient[], months, now) };
+    data = { gsc, bing, ga4, organic: organic ?? buildOrganicAnalytics([], [], months, now) };
   }
 
   return (

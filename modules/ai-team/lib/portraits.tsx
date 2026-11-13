@@ -14,7 +14,7 @@ import type { ReactElement } from "react";
  * Server-safe : de simples fonctions qui rendent un <svg>.
  */
 
-export const PORTRAITS = ["chef-sea", "stratege", "redacteur", "directeur-artistique", "controleur", "meta-ads", "google-ads", "chatgpt-ads", "mesure"] as const;
+export const PORTRAITS = ["chef-sea", "stratege", "redacteur", "directeur-artistique", "controleur", "meta-ads", "google-ads", "chatgpt-ads", "mesure", "chef-seo", "seo-analyste", "seo-concurrence", "seo-contenu", "seo-visibilite-ia", "seo-technique", "seo-autorite", "seo-reseaux"] as const;
 export type PortraitKey = (typeof PORTRAITS)[number];
 
 export const PORTRAIT_LABELS: Record<PortraitKey, string> = {
@@ -27,6 +27,14 @@ export const PORTRAIT_LABELS: Record<PortraitKey, string> = {
   "google-ads": "Chef Google Ads — cheveux noirs, clé des mots-clés",
   "chatgpt-ads": "Cheffe ChatGPT Ads — carré lisse, bulle de dialogue",
   mesure: "Mesure & data — cheveux bouclés courts, graphique",
+  "chef-seo": "Chef SEO & GEO — cheveux en arrière, casque-micro, loupe",
+  "seo-analyste": "Analyste de bout en bout — queue-de-cheval, entonnoir",
+  "seo-concurrence": "Concurrence — cheveux courts en brosse, jumelles",
+  "seo-contenu": "Contenu — carré frangé, pile de pages",
+  "seo-visibilite-ia": "Visibilité IA — cheveux poivre et sel ondulés, étincelle",
+  "seo-technique": "Technique — crâne rasé, barbe courte, clé à molette",
+  "seo-autorite": "Autorité — longs cheveux ondulés, maillons de chaîne",
+  "seo-reseaux": "Réseaux & vidéo — coupe courte à mèche, bouton lecture",
 };
 
 type Look = {
@@ -56,6 +64,14 @@ const LOOKS: Record<PortraitKey, Look> = {
   "google-ads": { main: "var(--tim-sky)", bg: "var(--tim-sky-bg)", skin: "#e8b48e", skinShade: "#c98a62", hair: "#1f1a18", hairDark: "#0f0c0b", iris: "#3b2a1f", lips: "#b9725c", lipstick: false, freckles: false, liner: false },
   "chatgpt-ads": { main: "var(--tim-purple)", bg: "var(--tim-purple-bg)", skin: "#dba27b", skinShade: "#bb7d57", hair: "#2a1e1a", hairDark: "#160f0d", iris: "#4b3020", lips: "#b5434a", lipstick: true, freckles: false, liner: true },
   mesure: { main: "var(--tim-slate)", bg: "var(--tim-slate-bg)", skin: "#9c6646", skinShade: "#7d4c31", hair: "#2a1c15", hairDark: "#18100c", iris: "#2f1d12", lips: "#8a4a35", lipstick: false, freckles: false, liner: false },
+  "seo-contenu": { main: "var(--tim-teal)", bg: "var(--tim-teal-bg)", skin: "#e9b896", skinShade: "#cf9270", hair: "#7a4a2a", hairDark: "#4f2e18", iris: "#5b4630", lips: "#c4615a", lipstick: true, freckles: false, liner: true },
+  "seo-concurrence": { main: "var(--tim-gray)", bg: "var(--tim-gray-bg)", skin: "#d9a07a", skinShade: "#b97d58", hair: "#2b211c", hairDark: "#17110e", iris: "#3a2a1e", lips: "#a8644f", lipstick: false, freckles: false, liner: false },
+  "seo-analyste": { main: "var(--tim-red)", bg: "var(--tim-red-bg)", skin: "#f2c6a4", skinShade: "#dc9a78", hair: "#3b2a22", hairDark: "#231812", iris: "#4a6b8a", lips: "#c75a52", lipstick: true, freckles: true, liner: false },
+  "seo-autorite": { main: "var(--tim-amber)", bg: "var(--tim-amber-bg)", skin: "#f1c3a1", skinShade: "#d9977a", hair: "#a0662e", hairDark: "#6e4219", iris: "#3f6b4f", lips: "#c95f57", lipstick: true, freckles: false, liner: true },
+  "seo-reseaux": { main: "var(--tim-purple)", bg: "var(--tim-purple-bg)", skin: "#c58c66", skinShade: "#a56c48", hair: "#1e1714", hairDark: "#0f0b09", iris: "#3a2618", lips: "#b5525a", lipstick: true, freckles: false, liner: true },
+  "seo-technique": { main: "var(--tim-green)", bg: "var(--tim-green-bg)", skin: "#b07a55", skinShade: "#8f5d3c", hair: "#2a201b", hairDark: "#17110e", iris: "#3b2a1e", lips: "#94523f", lipstick: false, freckles: false, liner: false },
+  "seo-visibilite-ia": { main: "var(--tim-indigo)", bg: "var(--tim-indigo-bg)", skin: "#e3ad88", skinShade: "#c48a64", hair: "#8a8580", hairDark: "#5c5854", iris: "#3d5a73", lips: "#b06a58", lipstick: false, freckles: false, liner: false },
+  "chef-seo": { main: "var(--tim-rose)", bg: "var(--tim-rose-bg)", skin: "#efbf9c", skinShade: "#d4936d", hair: "#5a3b26", hairDark: "#3a2416", iris: "#3f6b4f", lips: "#b8705a", lipstick: false, freckles: false, liner: false },
 };
 
 const INK = "#1d1715";
@@ -161,6 +177,76 @@ Object.assign(HAIR, {
       </g>
     ),
   },
+  // Cheveux châtains coiffés en arrière, un peu de volume sur le dessus.
+  "chef-seo": {
+    front: (l: Look) => (
+      <g>
+        <path d="M35 47 C33 27 46 16 62 16 C78 16 88 27 85 46 C82 36 76 30 66 28 C58 27 48 29 42 34 C38 38 36 42 35 47 Z" fill={l.hair} />
+        <path d="M46 25 C54 20 66 19 75 23 M48 30 C56 25 66 24 74 27" fill="none" stroke={l.hairDark} strokeWidth="1.1" strokeLinecap="round" />
+      </g>
+    ),
+  },
+  // Longs cheveux ondulés, raie sur le côté.
+  "seo-autorite": {
+    back: (l: Look) => <path d="M28 52 C24 28 42 15 60 15 C80 15 96 28 92 52 C95 64 92 76 88 84 L32 84 C28 76 25 64 28 52 Z" fill={l.hairDark} />,
+    front: (l: Look) => (
+      <g>
+        <path d="M34 50 C32 30 44 18 58 18 C74 17 88 28 86 50 C82 38 74 30 64 28 C56 34 44 38 34 50 Z" fill={l.hair} />
+        <path d="M86 50 C90 60 88 72 84 82 L79 82 C83 72 83 60 80 52 Z M34 50 C30 60 32 72 36 82 L41 82 C37 72 37 60 40 52 Z" fill={l.hair} />
+      </g>
+    ),
+  },
+  // Crâne rasé (une ombre de cheveux) et une barbe courte.
+  // Coupe courte à la garçonne, une longue mèche sur le côté.
+  "seo-reseaux": {
+    front: (l: Look) => (
+      <g>
+        <path d="M35 48 C33 28 46 17 61 17 C77 17 88 28 85 46 C83 38 79 33 73 30 C66 36 54 40 42 40 C39 42 37 45 35 48 Z" fill={l.hair} />
+        <path d="M73 30 C78 36 82 42 85 46" fill="none" stroke={l.hairDark} strokeWidth="1.2" strokeLinecap="round" />
+      </g>
+    ),
+  },
+  "seo-technique": {
+    front: (l: Look) => (
+      <g>
+        <path d="M37 42 C37 28 47 20 60 20 C73 20 83 28 83 42 C79 33 71 29 60 29 C49 29 41 33 37 42 Z" fill={l.hair} opacity="0.55" />
+        <path d="M40 62 C41 76 50 84 60 84 C70 84 79 76 80 62 C76 70 69 74 60 74 C51 74 44 70 40 62 Z" fill={l.hair} />
+      </g>
+    ),
+  },
+  // Cheveux poivre et sel, courts et ondulés sur le dessus.
+  "seo-visibilite-ia": {
+    front: (l: Look) => (
+      <g>
+        <path d="M35 46 C33 29 45 18 60 18 C75 18 87 29 85 46 C83 39 79 34 73 32 C69 35 64 33 60 30 C56 33 51 35 46 32 C41 35 37 40 35 46 Z" fill={l.hair} />
+        <path d="M44 26 C48 23 52 24 55 27 M58 23 C62 21 66 22 69 25 M70 27 C74 26 77 28 79 31" fill="none" stroke={l.hairDark} strokeWidth="1.2" strokeLinecap="round" />
+      </g>
+    ),
+  },
+  // Carré court avec une frange droite.
+  "seo-contenu": {
+    back: (l: Look) => <path d="M30 50 C28 28 43 16 60 16 C77 16 92 28 90 50 L90 74 L30 74 Z" fill={l.hairDark} />,
+    front: (l: Look) => (
+      <g>
+        <path d="M35 46 C34 28 46 19 60 19 C74 19 86 28 85 46 L85 44 C79 41 70 40 60 40 C50 40 41 41 35 44 Z" fill={l.hair} />
+        <path d="M85 46 C87 56 87 66 85 74 L80 74 C82 66 81 56 79 48 Z M35 46 C33 56 33 66 35 74 L40 74 C38 66 39 56 41 48 Z" fill={l.hair} />
+      </g>
+    ),
+  },
+  // Cheveux courts en brosse.
+  "seo-concurrence": {
+    front: (l: Look) => <path d="M36 44 C35 30 45 21 60 21 C75 21 85 30 84 44 C80 36 72 31 60 31 C48 31 40 36 36 44 Z M44 24 v-3 M50 22 v-3.5 M56 21 v-4 M62 21 v-4 M68 22 v-3.5 M74 24 v-3" fill={l.hair} stroke={l.hair} strokeWidth="2.4" strokeLinecap="round" />,
+  },
+  // Queue-de-cheval haute, frange dégagée.
+  "seo-analyste": {
+    back: (l: Look) => <path d="M78 22 C96 24 100 44 94 66 C92 74 86 78 82 74 C88 60 88 40 76 30 Z" fill={l.hairDark} />,
+    front: (l: Look) => (
+      <g>
+        <path d="M35 48 C34 29 46 18 61 18 C76 18 87 29 85 48 C81 37 73 31 62 30 C51 30 41 36 35 48 Z" fill={l.hair} />
+        <path d="M48 23 C55 19 66 19 73 23" fill="none" stroke={l.hairDark} strokeWidth="1.1" strokeLinecap="round" />
+      </g>
+    ),
+  },
   // Cheveux bouclés courts.
   mesure: {
     front: (l: Look) => (
@@ -220,6 +306,70 @@ const ACCESSORY: Record<PortraitKey, (l: Look) => ReactElement> = {
       <path d="M29 64 Q31 76 47 77" fill="none" stroke={METAL} strokeWidth="2.4" strokeLinecap="round" />
       <circle cx="49" cy="77" r="3" fill={METAL} />
       <path d="M80 99 l2.4 4.9 5.4 .8 -3.9 3.8 .9 5.4 -4.8-2.5 -4.8 2.5 .9-5.4 -3.9-3.8 5.4-.8z" fill={WHITE} />
+    </g>
+  ),
+  // L'autorité : deux maillons de chaîne — les liens que d'autres sites font vers TIM.
+  "seo-autorite": () => (
+    <g fill="none" stroke={WHITE} strokeWidth="2.6">
+      <rect x="70" y="100" width="12" height="7" rx="3.5" transform="rotate(-35 76 103.5)" />
+      <rect x="78" y="105" width="12" height="7" rx="3.5" transform="rotate(-35 84 108.5)" />
+    </g>
+  ),
+  // La technique : une clé à molette — réparer ce qui bloque.
+  // Les réseaux et la vidéo : un bouton lecture.
+  "seo-reseaux": (l) => (
+    <g>
+      <rect x="70" y="98" width="20" height="14" rx="4" fill={WHITE} />
+      <path d="M77.5 101.5 L84.5 105 L77.5 108.5 Z" fill={l.main} />
+    </g>
+  ),
+  "seo-technique": () => (
+    <g>
+      <path d="M74 112 L85 101" stroke={WHITE} strokeWidth="3.4" strokeLinecap="round" />
+      <path d="M83 96 a5.5 5.5 0 1 0 6 6 l-3.2 -0.4 -2.4 -2.4 z" fill={WHITE} />
+    </g>
+  ),
+  // La visibilité dans les IA : une étincelle — ce que les IA font apparaître.
+  "seo-visibilite-ia": () => (
+    <g>
+      <path d="M80 96 C81 102 83 104 89 105 C83 106 81 108 80 114 C79 108 77 106 71 105 C77 104 79 102 80 96 Z" fill={WHITE} />
+      <path d="M90 96 C90.4 98 91 98.6 93 99 C91 99.4 90.4 100 90 102 C89.6 100 89 99.4 87 99 C89 98.6 89.6 98 90 96 Z" fill={WHITE} />
+    </g>
+  ),
+  // Le contenu : une pile de pages.
+  "seo-contenu": () => (
+    <g>
+      <rect x="73" y="99" width="15" height="13" rx="1.5" fill={WHITE} />
+      <rect x="71" y="97" width="15" height="13" rx="1.5" fill={WHITE} stroke={METAL} strokeWidth="1" />
+      <path d="M74 101 h9 M74 104 h9 M74 107 h6" stroke={METAL} strokeWidth="1.2" strokeLinecap="round" />
+    </g>
+  ),
+  // La concurrence : des jumelles — guetter ce que font les autres.
+  "seo-concurrence": () => (
+    <g>
+      <circle cx="75" cy="105" r="5.5" fill={WHITE} />
+      <circle cx="86" cy="105" r="5.5" fill={WHITE} />
+      <rect x="78" y="100" width="5" height="4" rx="1" fill={WHITE} />
+      <circle cx="75" cy="105" r="2.4" fill={METAL} />
+      <circle cx="86" cy="105" r="2.4" fill={METAL} />
+    </g>
+  ),
+  // L'analyste de bout en bout : un entonnoir — des visites jusqu'au client.
+  "seo-analyste": () => (
+    <g>
+      <path d="M71 97 H89 L82 105 V112 L78 114 V105 Z" fill={WHITE} />
+    </g>
+  ),
+  // Le chef SEO & GEO : un casque-micro (il parle à la direction) et une loupe — chercher, être trouvé.
+  "chef-seo": (l) => (
+    <g>
+      <path d="M29 56 Q28 11 60 11 Q92 11 91 56" fill="none" stroke={METAL} strokeWidth="3.5" strokeLinecap="round" />
+      <rect x="24" y="49" width="10" height="16" rx="4.5" fill={l.main} />
+      <rect x="86" y="49" width="10" height="16" rx="4.5" fill={l.main} />
+      <path d="M29 64 Q31 76 47 77" fill="none" stroke={METAL} strokeWidth="2.4" strokeLinecap="round" />
+      <circle cx="49" cy="77" r="3" fill={METAL} />
+      <circle cx="78" cy="103" r="5.5" fill="none" stroke={WHITE} strokeWidth="2.6" />
+      <path d="M82 107 L87 112" stroke={WHITE} strokeWidth="3" strokeLinecap="round" />
     </g>
   ),
   // Le stratège : des lunettes, et une courbe qui monte sur le pull.
