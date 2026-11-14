@@ -203,6 +203,8 @@ import * as migration_20261112_181240_equipe_seo_robert from './20261112_181240_
 import * as migration_20261112_181647_equipe_seo_linda from './20261112_181647_equipe_seo_linda';
 import * as migration_20261113_075211_equipe_seo_cleo from './20261113_075211_equipe_seo_cleo';
 import * as migration_20261113_144311_api_en_panne from './20261113_144311_api_en_panne';
+import * as migration_20261114_090352_carnet_des_chefs from './20261114_090352_carnet_des_chefs';
+import * as migration_20261114_095237_equipe_seo_progresse from './20261114_095237_equipe_seo_progresse';
 
 export const migrations = [
   {
@@ -1228,6 +1230,16 @@ export const migrations = [
   {
     up: migration_20261113_144311_api_en_panne.up,
     down: migration_20261113_144311_api_en_panne.down,
-    name: '20261113_144311_api_en_panne'
+    name: '20261113_144311_api_en_panne',
+  },
+  {
+    up: migration_20261114_090352_carnet_des_chefs.up,
+    down: migration_20261114_090352_carnet_des_chefs.down,
+    name: '20261114_090352_carnet_des_chefs',
+  },
+  {
+    up: migration_20261114_095237_equipe_seo_progresse.up,
+    down: migration_20261114_095237_equipe_seo_progresse.down,
+    name: '20261114_095237_equipe_seo_progresse'
   },
 ];

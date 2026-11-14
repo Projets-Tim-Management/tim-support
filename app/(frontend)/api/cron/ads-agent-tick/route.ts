@@ -24,7 +24,8 @@ import { ensureWeeklySnapshot } from "@/modules/ai-team/lib/snapshots";
  * avancer les passages d'agent dont personne ne tient le verrou (fonction
  * coupée, déploiement, fin du temps après le lancement), et relance ceux en
  * pause de budget quand le plafond le permet de nouveau. Le lundi, le
- * récapitulatif part aux admins une fois les passages du lundi finis.
+ * récapitulatif part aux admins une fois les passages du lundi finis. Entre
+ * les deux, le travail dû de l'équipe IA — un seul gros travail par réveil.
  *
  * Déclenché par Vercel Cron : « Authorization: Bearer <CRON_SECRET> ».
  */
@@ -47,43 +48,59 @@ export async function GET(req: Request) {
   // Le récapitulatif du lundi, une fois les passages du lundi finis (décision du 29/10/2026).
   const recap = await maybeSendWeeklyRecap(payload).catch((e) => (payload.logger.error(`[publicité] récap du lundi : ${(e as Error).message}`), "echec" as const));
   if (recap === "envoye" || recap === "echec") payload.logger.info(`[publicité] récap du lundi : ${recap}.`);
-  // La veille web du dimanche soir : une par minute, un agent après l'autre (Équipe IA, 12/11/2026).
-  const veille = await runDueVeille(payload).catch((e) => ({ status: "echec" as const, message: (e as Error).message }));
-  if (veille.status === "faite" || veille.status === "echec") payload.logger.info(`[équipe IA] veille de la semaine : ${veille.status}${"member" in veille && veille.member ? ` (${veille.member})` : ""}${veille.message ? ` — ${veille.message}` : ""}.`);
   // La photo des chiffres de la semaine, le lundi dès 7 h (sans IA) : tendances et avant / après des recommandations.
   const snapshot = await ensureWeeklySnapshot(payload).catch((e) => (payload.logger.error(`[équipe IA] photo de la semaine : ${(e as Error).message}`), "echec" as const));
   if (snapshot === "prise") payload.logger.info("[équipe IA] photo de la semaine prise.");
-  // Les plans de site des concurrents, le dimanche dès 18 h (sans IA), puis le rapport de Guy le lundi dès 6 h.
+  // Les plans de site des concurrents, le dimanche dès 18 h (sans IA, par lots).
   const crawl = await runCompetitorCrawl(payload).catch((e) => (payload.logger.error(`[équipe IA] plans des concurrents : ${(e as Error).message}`), null));
   if (crawl && crawl.read) payload.logger.info(`[équipe IA] plans des concurrents : ${crawl.read} lu(s), ${crawl.left} restant(s).`);
-  const competition = await runCompetitionReport(payload).catch((e) => ({ status: "echec" as const, message: (e as Error).message }));
-  if (competition.status === "fait" || competition.status === "echec") payload.logger.info(`[équipe IA] rapport de concurrence : ${competition.status}${competition.message ? ` (${competition.message})` : ""}.`);
-  // Le plan de contenu de Paige, le lundi après le rapport de Guy (au plus tard 7 h).
-  const content = await runContentPlan(payload).catch((e) => ({ status: "echec" as const, message: (e as Error).message }));
-  if (content.status === "fait" || content.status === "echec") payload.logger.info(`[équipe IA] plan de contenu : ${content.status}${content.message ? ` (${content.message})` : ""}.`);
-  // La visibilité dans les IA (Georges) : un lot de questions par passage dès le 1er du mois, puis son rapport.
-  const visibility = await runVisibilityDue(payload).catch((e) => ({ tick: { status: "echec" as const, message: (e as Error).message, measured: 0, left: 0 }, report: null }));
-  if (visibility.tick.measured || visibility.tick.status === "echec" || visibility.tick.status === "budget") payload.logger.info(`[équipe IA] visibilité IA : ${visibility.tick.status}, ${visibility.tick.measured} réponse(s), ${visibility.tick.left} restante(s)${visibility.tick.message ? ` (${visibility.tick.message})` : ""}.`);
-  if (visibility.report && (visibility.report.status === "fait" || visibility.report.status === "echec")) payload.logger.info(`[équipe IA] rapport de visibilité IA : ${visibility.report.status}${visibility.report.message ? ` (${visibility.report.message})` : ""}.`);
-  // Le contrôle technique du site (Robert), le premier jour ouvré du mois dès 5 h — avant l'audit d'Ana.
-  const tech = await runTechAudit(payload).catch((e) => ({ status: "echec" as const, message: (e as Error).message }));
-  if (tech.status === "fait" || tech.status === "echec") payload.logger.info(`[équipe IA] contrôle technique : ${tech.status}${tech.message ? ` (${tech.message})` : ""}.`);
-  // L'autorité (Linda), une fois le rapport de Georges du mois fait (au plus tard le 7).
-  const authority = await runAuthority(payload).catch((e) => ({ status: "echec" as const, message: (e as Error).message }));
-  if (authority.status === "fait" || authority.status === "echec") payload.logger.info(`[équipe IA] rapport d'autorité : ${authority.status}${authority.message ? ` (${authority.message})` : ""}.`);
-  // Les réseaux et la vidéo (Cléo), le premier jour ouvré de la semaine dès 5 h — avant les objectifs de Serge.
-  const social = await runSocial(payload).catch((e) => ({ status: "echec" as const, message: (e as Error).message }));
-  if (social.status === "fait" || social.status === "echec") payload.logger.info(`[équipe IA] rapport réseaux & vidéo : ${social.status}${social.message ? ` (${social.message})` : ""}.`);
-  // L'audit du site vitrine par l'analyste SEO/GEO, le premier jour ouvré du mois dès 6 h (avant la revue de Serge).
-  const audit = await runSiteAudit(payload).catch((e) => ({ status: "echec" as const, message: (e as Error).message }));
-  if (audit.status === "fait" || audit.status === "echec") payload.logger.info(`[équipe IA] audit du site : ${audit.status}${audit.message ? ` (${audit.message})` : ""}.`);
-  // Les objectifs de la semaine de Serge (SEO/GEO), le lundi dès 7 h : créneaux posés dans l'agenda de la direction.
-  const seoWeek = await runSeoWeekly(payload).catch((e) => ({ status: "echec" as const, message: (e as Error).message }));
-  if (seoWeek.status === "faite" || seoWeek.status === "echec") payload.logger.info(`[équipe IA] objectifs SEO/GEO de la semaine : ${seoWeek.status}${seoWeek.message ? ` (${seoWeek.message})` : ""}.`);
-  // La revue du lundi de Margaux (directrice SEA), après les passages du lundi de Camille (Équipe IA, 12/11/2026).
-  const review = await runWeeklyReview(payload).catch((e) => ({ status: "echec" as const, message: (e as Error).message }));
-  if (review.status === "faite" || review.status === "echec") payload.logger.info(`[équipe IA] revue du lundi : ${review.status}${review.message ? ` (${review.message})` : ""}.`);
+
+  // LE TRAVAIL DE L'ÉQUIPE IA : UN SEUL gros travail par réveil (14/11/2026). Le réveil a 5 minutes au plus ; enchaîner
+  // un rapport avec recherche web, les objectifs de Serge et la revue de Margaux dans la même minute pouvait les
+  // dépasser, et Vercel coupait le dernier en route. Chacun regarde s'il est dû ; le premier qui travaille vraiment
+  // prend le réveil, les suivants attendent la minute d'après. L'ordre est celui de leurs dépendances.
+  const fail = (e: unknown) => ({ status: "echec" as const, message: (e as Error).message });
+  const ran = (status: string) => status === "fait" || status === "faite" || status === "echec";
+  const steps: { name: string; label: string; run: () => Promise<{ status: string; message?: string; member?: string }> }[] = [
+    // La veille web du dimanche soir : un agent après l'autre.
+    { name: "veille", label: "veille de la semaine", run: () => runDueVeille(payload).catch(fail) },
+    // Le rapport de Guy (lundi dès 6 h), puis le plan de contenu de Paige (au plus tard 7 h).
+    { name: "competition", label: "rapport de concurrence", run: () => runCompetitionReport(payload).catch(fail) },
+    { name: "content", label: "plan de contenu", run: () => runContentPlan(payload).catch(fail) },
+    // La visibilité dans les IA (Georges) : un lot de questions par réveil dès le 1er du mois, puis son rapport.
+    {
+      name: "visibility",
+      label: "visibilité IA",
+      run: async () => {
+        const v = await runVisibilityDue(payload).catch((e) => ({ tick: { ...fail(e), measured: 0, left: 0 }, report: null }));
+        const report = v.report && ran(v.report.status) ? v.report : null;
+        return report ?? { status: v.tick.measured || v.tick.status === "echec" ? "fait" : "pas-encore", message: `${v.tick.status}, ${v.tick.measured} réponse(s), ${v.tick.left} restante(s)${v.tick.message ? ` — ${v.tick.message}` : ""}` };
+      },
+    },
+    // Le contrôle technique (Robert), l'autorité (Linda), les réseaux (Cléo), l'audit d'Ana.
+    { name: "tech", label: "contrôle technique", run: () => runTechAudit(payload).catch(fail) },
+    { name: "authority", label: "rapport d'autorité", run: () => runAuthority(payload).catch(fail) },
+    { name: "social", label: "rapport réseaux & vidéo", run: () => runSocial(payload).catch(fail) },
+    { name: "audit", label: "audit du site", run: () => runSiteAudit(payload).catch(fail) },
+    // Les objectifs de la semaine de Serge (lundi dès 7 h), puis la revue de Margaux (lundi dès 10 h).
+    { name: "seoWeek", label: "objectifs SEO/GEO de la semaine", run: () => runSeoWeekly(payload).catch(fail) },
+    { name: "review", label: "revue du lundi", run: () => runWeeklyReview(payload).catch(fail) },
+  ];
+  const team: Record<string, string> = {};
+  for (const step of steps) {
+    // Un réveil déjà bien entamé (ordonnancement lent) laisse le gros travail à la minute suivante.
+    if (Date.now() - start > 60_000) break;
+    const t0 = Date.now();
+    const r = await step.run();
+    team[step.name] = r.status;
+    // A vraiment travaillé : fait, ou échoué APRÈS avoir travaillé. Un échec immédiat (agent introuvable…) ne prend
+    // pas le réveil : il bloquerait chaque minute tout ce qui le suit.
+    if (r.status === "fait" || r.status === "faite" || (r.status === "echec" && Date.now() - t0 > 5_000)) {
+      payload.logger.info(`[équipe IA] ${step.label} : ${r.status}${r.member ? ` (${r.member})` : ""}${r.message ? ` — ${r.message}` : ""}.`);
+      break;
+    } else if (r.status === "echec") payload.logger.warn(`[équipe IA] ${step.label} : échec immédiat${r.message ? ` — ${r.message}` : ""}.`);
+  }
   const done = await tickDueRuns(payload, new Date(start + (maxDuration - 20) * 1000));
   if (done.length) payload.logger.info(`[cron] agents de campagne : ${done.map((d) => `${d.run} → ${typeof d.result === "string" ? d.result : d.result.outcome}`).join(", ")}`);
-  return NextResponse.json({ ok: true, scheduled, recap, veille: veille.status, competition: competition.status, content: content.status, visibility: visibility.tick.status, tech: tech.status, authority: authority.status, social: social.status, audit: audit.status, seoWeek: seoWeek.status, review: review.status, done });
+  return NextResponse.json({ ok: true, scheduled, recap, team, done });
 }

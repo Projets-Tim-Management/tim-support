@@ -1,6 +1,7 @@
 import type { CollectionConfig } from "payload";
 
 import { hideUnlessDirection, isDirectionAccess } from "@/core/access";
+import { REQUEST_OUTCOMES } from "@/modules/ai-team/lib/requests";
 
 export const OBJECTIVE_STATUSES = [
   { label: "À faire", value: "a-faire" },
@@ -56,6 +57,12 @@ export const AiTeamObjectives: CollectionConfig = {
     { name: "why", type: "textarea", label: "Pourquoi maintenant, ce qu'on y gagne" },
     { name: "measure", type: "text", label: "Ce qu'on mesurera" },
     { name: "evidence", type: "select", label: "Niveau de preuve", options: [...OBJECTIVE_EVIDENCE] },
+    // Ce que l'objectif a donné (14/11/2026) : Serge le juge deux semaines après qu'il est fait, chiffres à l'appui —
+    // et l'agent dont il reprend l'action en gagne des points de maîtrise (preuves, apprentissage).
+    { name: "proposedBy", type: "text", label: "Action proposée par (agent)", index: true },
+    { name: "outcome", type: "select", label: "Résultat", options: [...REQUEST_OUTCOMES] },
+    { name: "verdict", type: "textarea", label: "Ce que les chiffres montrent" },
+    { name: "verdictAt", type: "date", label: "Jugé le" },
     {
       type: "row",
       fields: [

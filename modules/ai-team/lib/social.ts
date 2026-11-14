@@ -5,7 +5,7 @@ import { IMPACT_ORDER, latestReport, runAgentReport, type ReportResult } from "@
 import { seoCompetitors } from "@/modules/ai-team/lib/competitor-maps";
 import { DAY_MS } from "@/modules/ai-team/lib/format";
 import { funnelForModel, loadFunnel, socialOfSession } from "@/modules/ai-team/lib/funnel";
-import { markSocial, socialAccess, socialAccounts } from "@/modules/ai-team/lib/social-accounts";
+import { markSocial, socialAccess, socialAccounts, youtubeClient } from "@/modules/ai-team/lib/social-accounts";
 import { measureSocial, NETWORK_LABEL, type Network, type SocialMeasure } from "@/modules/ai-team/lib/social-sources";
 import { tagOf, type WebCall } from "@/modules/ai-team/lib/web-model";
 
@@ -210,6 +210,6 @@ export async function latestSocial(payload: Payload, now = new Date()) {
 /** Ce que la fiche de Cléo affiche : les comptes branchés et son dernier rapport. */
 export async function socialState(payload: Payload, now = new Date()) {
   const [accounts, report] = await Promise.all([socialAccounts(payload), latestSocial(payload, now)]);
-  return { accounts, report, youtubeReady: !!(process.env.YOUTUBE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID) };
+  return { accounts, report, youtubeReady: !!youtubeClient() };
 }
 export type SocialState = Awaited<ReturnType<typeof socialState>>;

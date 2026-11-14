@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const auth = await adminRequest(req, isDirection, "reserve-direction");
   if ("response" in auth) return auth.response;
-  if (!youtubeClient()) return NextResponse.json({ error: "Application OAuth Google absente (GOOGLE_CLIENT_ID / _SECRET)." }, { status: 501 });
+  if (!youtubeClient()) return NextResponse.json({ error: "Application OAuth YouTube absente (YOUTUBE_CLIENT_ID / _SECRET)." }, { status: 501 });
   // State signé et daté (10 minutes) : il porte l'identité de la demande jusqu'au retour.
   return NextResponse.redirect(youtubeAuthUrl(signState({ userId: auth.user.id, for: "youtube" }), new URL(req.url).origin));
 }

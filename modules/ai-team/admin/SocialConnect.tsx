@@ -81,7 +81,7 @@ export function SocialConnect({ accounts, youtubeReady, notice }: { accounts: Ac
               Brancher YouTube
             </a>
           ) : (
-            "l'application OAuth Google n'est pas configurée (GOOGLE_CLIENT_ID)."
+            "l'application OAuth YouTube n'est pas configurée (YOUTUBE_CLIENT_ID)."
           )}
         </li>
         <li>

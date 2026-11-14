@@ -2,6 +2,9 @@ import type { Payload, Where } from "payload";
 
 import type { ClaudeModel } from "@/core/lib/ai-pricing";
 import { DAY_MS } from "@/modules/ai-team/lib/format";
+import { consignesBlock, consignesFor } from "@/modules/ai-team/lib/notebook";
+import { latestMethods } from "@/modules/ai-team/lib/shared-data";
+import { INTERRUPTED, isPeriodDone, staleBefore } from "@/modules/ai-team/lib/stale";
 import { runWebModel, WebRunError, type WebCall } from "@/modules/ai-team/lib/web-model";
 
 /**
@@ -51,10 +54,12 @@ export async function runAgentReport<F>(
   const member = found.docs[0] as unknown as Member | undefined;
   if (!member) return { status: "echec", message: "Cet agent est introuvable dans l'équipe." };
   if (member.active === false) return { status: "pause", message: `${member.name} est en pause.` };
+  // Un rapport coupé en route (fin du temps du réveil) reste « en cours » : il est clos « interrompu », et relancé.
+  await payload.update({ collection: "ai-team-audits", where: { and: [{ member: { equals: member.id } }, { kind: { equals: o.kind } }, { status: { equals: "en-cours" } }, { createdAt: { less_than: staleBefore(o.now) } }] }, data: { status: "echec", error: INTERRUPTED } as never, overrideAccess: true }).catch(() => null);
   if (!o.force) {
     if (!(await o.due())) return { status: "pas-encore" };
-    const done = await payload.count({ collection: "ai-team-audits", where: { and: [{ member: { equals: member.id } }, { kind: { equals: o.kind } }, { period: { equals: o.period } }] }, overrideAccess: true });
-    if (done.totalDocs) return { status: "deja-fait" };
+    const rows = await payload.find({ collection: "ai-team-audits", where: { and: [{ member: { equals: member.id } }, { kind: { equals: o.kind } }, { period: { equals: o.period } }] }, limit: 10, depth: 0, overrideAccess: true, select: { status: true, error: true } as never });
+    if (isPeriodDone(rows.docs as unknown as { status?: unknown; error?: unknown }[])) return { status: "deja-fait" };
   }
   await o.before?.();
   const running = await payload.count({ collection: "ai-team-audits", where: { and: [{ member: { equals: member.id } }, { status: { equals: "en-cours" } }, { createdAt: { greater_than: new Date(o.now.getTime() - 15 * 60_000).toISOString() } }] }, overrideAccess: true });
@@ -63,11 +68,15 @@ export async function runAgentReport<F>(
   const fail = (message: string, extra: Record<string, unknown> = {}) =>
     payload.update({ collection: "ai-team-audits", id: reserved.id, data: { status: "echec", error: message.slice(0, 2000), ...extra } as never, overrideAccess: true }).catch(() => null);
   try {
-    const { data, keep } = await o.data(member);
+    const [{ data, keep }, methods, consignes] = await Promise.all([o.data(member), latestMethods(payload, [member.id], true).catch(() => new Map()), consignesFor(payload, o.memberKey).catch(() => [] as string[])]);
+    // Sa méthode, réécrite chaque dimanche après sa veille (nouveautés, tendances France et États-Unis) : il l'applique.
+    const method = methods.get(String(member.id));
+    const methodBlock = method?.method ? `\n\nTa méthode (réécrite le ${String(method.createdAt ?? "").slice(0, 10)} après ta veille web) — applique-la ; ses idées à tester sont des hypothèses, pas des preuves :\n<donnees>\n${String(method.method).replace(/<\/?donnees>/g, "").slice(0, 8_000)}\n</donnees>` : "";
     const run = await runWebModel(payload, {
       model: o.model,
-      system: o.system(member.name),
-      user: `<donnees>\n${JSON.stringify(data).replace(/<\/?donnees>/g, "")}\n</donnees>\n\n${o.ask}`,
+      // Les consignes en cours de son chef (son carnet) s'ajoutent à sa consigne.
+      system: o.system(member.name) + consignesBlock(consignes),
+      user: `<donnees>\n${JSON.stringify(data).replace(/<\/?donnees>/g, "")}\n</donnees>${methodBlock}\n\n${o.ask}`,
       kind: "seo",
       detail: o.detail(member.name),
       now: o.now,

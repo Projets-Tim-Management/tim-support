@@ -84,6 +84,8 @@
   }
 }
 .ait-card__link {
+  /* Le coût et la case « en service » se calent en bas : d'une carte à l'autre, ils restent alignés. */
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1663,15 +1665,98 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 1rem;
   width: 100%;
   margin-top: 0.4rem;
 
-  > .ait-org {
+  > .ait-office {
     flex: 1 1 320px;
     min-width: 0;
   }
+}
+
+/* ─── Un bureau par chef ; le bureau ouvert, son équipe prend toute la largeur ─── */
+.ait-office {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0 1rem 1.1rem;
+  border: 1px solid var(--tim-border);
+  border-top: 6px solid var(--tim-muted-light);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+
+  > .ait-org__line {
+    margin-top: -0.4rem;
+  }
+  /* Les bureaux côte à côte ont la même hauteur, et la carte du chef remplit le sien. */
+  > .ait-card {
+    flex: 1 1 auto;
+    justify-content: flex-start;
+  }
+}
+.ait-office--open {
+  border-color: var(--tim-primary);
+  border-top-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px var(--tim-primary-light);
+}
+.ait-office__plate {
+  padding: 0.2rem 0.8rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 4px;
+  background: var(--tim-white);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tim-muted);
+}
+.ait-staff {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0 1rem 1.5rem;
+  border: 1px solid var(--tim-primary);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+
+  > .ait-org__line {
+    height: 1rem;
+  }
+  .ait-org__subs {
+    max-width: none;
+    gap: 1rem;
+
+    align-items: stretch;
+
+    /* Quatre cartes par rangée, sur toute la largeur ; une rangée plus courte garde la même taille de carte. */
+    > .ait-card {
+      flex: 1 1 0;
+      min-width: 15rem;
+      max-width: calc((100% - 3rem) / 4);
+      padding: 1.4rem 1.2rem 1.1rem;
+    }
+  }
+  .ait-card__name {
+    font-size: 1.35rem;
+  }
+  .ait-card__job {
+    font-size: 0.95rem;
+  }
+  .ait-card__line {
+    font-size: 0.88rem;
+  }
+}
+.ait-staff__title {
+  margin: 0.6rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--tim-foreground);
 }
 
 /* ─── Les objectifs de la semaine (Serge) ─── */
@@ -1854,4 +1939,254 @@
   margin: 0;
   font-size: 0.8rem;
   color: var(--tim-danger-text);
+}
+
+/* ─── La fiche d'un chef en quelques coups d'œil : quatre chiffres, puis des onglets ─── */
+.ait-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (max-width: 700px) {
+  .ait-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.ait-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.ait-kpi--alert {
+  border-color: var(--tim-primary);
+  box-shadow: 0 0 0 3px var(--tim-primary-light);
+}
+.ait-kpi__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+}
+.ait-kpi__value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--tim-foreground);
+  overflow-wrap: anywhere;
+
+  small {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--tim-muted);
+  }
+}
+.ait-kpi__sub {
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--tim-muted);
+}
+.ait-kpi__gauge {
+  height: 6px;
+  margin-top: 0.2rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  overflow: hidden;
+
+  > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--tim-foreground);
+  }
+}
+.ait-kpi__gauge--high > span {
+  background: var(--tim-primary);
+}
+
+.ait-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.ait-tabs__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--tim-border);
+}
+.ait-tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--tim-foreground);
+    background: var(--tim-surface);
+  }
+}
+.ait-tabs__tab--on {
+  border-color: var(--tim-border);
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+.ait-tabs__badge {
+  min-width: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--tim-primary);
+  color: var(--tim-white);
+  font-size: 0.7rem;
+  line-height: 1.25rem;
+  text-align: center;
+}
+
+/* ─── Le carnet : « Noté : … » sous une réponse, et l'onglet du chef ─── */
+.ait-noted {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0.6rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border-left: 3px solid var(--tim-primary);
+  border-radius: 4px;
+  background: var(--tim-white);
+  list-style: none;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--tim-foreground);
+}
+.ait-carnet {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.ait-carnet__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.ait-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ait-note {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-white);
+}
+.ait-note--closed {
+  background: var(--tim-surface);
+  opacity: 0.8;
+}
+.ait-note__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+.ait-note__text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--tim-foreground);
+}
+.ait-note__badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+.ait-note__badge {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--tim-surface);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--tim-muted);
+  white-space: nowrap;
+}
+.ait-note__badge--retenue {
+  background: var(--tim-green-bg);
+  color: var(--tim-green);
+}
+.ait-note__badge--a-tester {
+  background: var(--tim-amber-bg);
+  color: var(--tim-amber);
+}
+.ait-note__badge--ecartee {
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+}
+.ait-note__badge--imposee {
+  background: var(--tim-indigo-bg);
+  color: var(--tim-indigo);
+}
+.ait-note__why {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--tim-foreground);
+}
+.ait-note__meta {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--tim-muted);
+}
+.ait-note__history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+}
+.ait-consignes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border-left: 3px solid var(--tim-primary);
+  border-radius: 4px;
+  background: var(--tim-primary-light);
+  font-size: 0.84rem;
+
+  ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0;
+    padding-left: 1.1rem;
+  }
+}
+.ait-consignes__meta {
+  color: var(--tim-muted);
+  font-size: 0.76rem;
 }

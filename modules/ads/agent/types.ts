@@ -257,6 +257,8 @@ export type TeamPort = {
   ask?: (role: string, request: import("@/modules/ai-team/lib/requests").RequestInput, origin: { run: Id; campaign: Id }) => Promise<Id>;
   /** Les demandes de ce chef closes depuis 30 jours : ce que la direction a fait ou répondu. */
   answers?: (role: string) => Promise<{ titre: string; forme: string; etat: string; reponse: string | null; le: string | null }[]>;
+  /** Les consignes en cours que son chef a données au membre qui incarne ce rôle (son carnet) — jointes à sa consigne. */
+  consignes?: (role: string) => Promise<string[]>;
 };
 
 export type AgentDeps = { store: AgentStore; model: AgentModelCall; budget: GlobalBudget; atelier: AtelierPort; sources: SourcesPort; suivi?: SuiviPort; team?: TeamPort; now: () => Date };

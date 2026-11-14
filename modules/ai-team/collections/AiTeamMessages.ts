@@ -31,5 +31,7 @@ export const AiTeamMessages: CollectionConfig = {
     { name: "text", type: "textarea", label: "Message", required: true },
     { name: "author", type: "relationship", relationTo: "users", label: "Écrit par" },
     { name: "costEur", type: "number", label: "Coût de la réponse (€)" },
+    // Ce que le chef a noté dans son carnet à ce message (« 📝 Noté : … »), pour l'afficher sous sa réponse.
+    { name: "noted", type: "json", label: "Noté dans son carnet" },
   ],
 };

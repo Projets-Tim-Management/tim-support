@@ -1,6 +1,6 @@
 import type { Payload } from "payload";
 
-import { exchangeGoogleCode, googleAuthUrl, revokeGoogleToken, type GoogleClient } from "@/core/lib/google-oauth";
+import { exchangeGoogleCode, googleAuthUrl, refreshGoogleTokens, revokeGoogleToken, type GoogleClient } from "@/core/lib/google-oauth";
 import { decryptSecret, encryptSecret } from "@/core/lib/secrets";
 import { META_DEFAULT_VERSION } from "@/modules/ads/platforms/meta";
 import type { MetaAccount, SocialAccess } from "@/modules/ai-team/lib/social-sources";
@@ -10,9 +10,11 @@ import type { MetaAccount, SocialAccess } from "@/modules/ai-team/lib/social-sou
  *
  *  - YouTube : consentement Google (lecture seule : `youtube.readonly` et
  *    `yt-analytics.readonly`) — un compte de service ne peut pas lire une
- *    chaîne, Google l'interdit. Le client OAuth est celui des agendas
- *    (`GOOGLE_CLIENT_*`, écran de consentement « Interne » : pas de jeton qui
- *    meurt au bout de 7 jours), ou un client à part (`YOUTUBE_CLIENT_*`).
+ *    chaîne, Google l'interdit. Le client OAuth est le SIEN seul
+ *    (`YOUTUBE_CLIENT_*`, projet Google « TIM YouTube ») — jamais celui des
+ *    agendas : chez Google, retirer une autorisation retire tout ce que le
+ *    compte a accordé à l'application. Le 13/11, débrancher une chaîne branchée
+ *    par l'application des agendas a coupé l'agenda du même compte.
  *  - Facebook et Instagram : un jeton d'utilisateur système du portefeuille
  *    business (sans échéance, comme pour la publicité), collé une fois ; on en
  *    tire la page, son jeton, et le compte Instagram relié.
@@ -24,8 +26,8 @@ const YT_SCOPES = ["https://www.googleapis.com/auth/youtube.readonly", "https://
 export const SOCIAL_RETURN = "/admin/equipe-ia?membre=seo-reseaux";
 
 export const youtubeClient = (): GoogleClient | null => {
-  const clientId = process.env.YOUTUBE_CLIENT_ID?.trim() || process.env.GOOGLE_CLIENT_ID?.trim();
-  const clientSecret = process.env.YOUTUBE_CLIENT_SECRET?.trim() || process.env.GOOGLE_CLIENT_SECRET?.trim();
+  const clientId = process.env.YOUTUBE_CLIENT_ID?.trim();
+  const clientSecret = process.env.YOUTUBE_CLIENT_SECRET?.trim();
   return clientId && clientSecret ? { clientId, clientSecret } : null;
 };
 
@@ -37,7 +39,7 @@ export const youtubeRedirectUri = (origin: string) => `${origin.replace(/\/$/, "
 
 export function youtubeAuthUrl(state: string, origin: string): string {
   const client = youtubeClient();
-  if (!client) throw new Error("GOOGLE_CLIENT_ID / _SECRET manquants");
+  if (!client) throw new Error("YOUTUBE_CLIENT_ID / _SECRET manquants");
   return googleAuthUrl({ clientId: client.clientId, redirectUri: youtubeRedirectUri(origin), scopes: YT_SCOPES, state, includeGranted: false, chooseAccount: true });
 }
 
@@ -53,7 +55,7 @@ async function upsert(payload: Payload, platform: Row["platform"], data: Omit<Ro
 /** Le retour de Google : le code contre un jeton durable, puis la chaîne qu'il ouvre. */
 export async function connectYoutube(payload: Payload, code: string, origin: string): Promise<{ channel: string }> {
   const client = youtubeClient();
-  if (!client) throw new Error("GOOGLE_CLIENT_ID / _SECRET manquants");
+  if (!client) throw new Error("YOUTUBE_CLIENT_ID / _SECRET manquants");
   const tokens = await exchangeGoogleCode(client, code, youtubeRedirectUri(origin));
   // Sans jeton de rafraîchissement, la connexion mourrait dans l'heure sans rien dire.
   if (!tokens.refreshToken) throw new Error("sans_jeton_durable");
@@ -134,11 +136,17 @@ export async function markSocial(payload: Payload, platform: Row["platform"], er
   if (doc) await payload.update({ collection: "ai-team-social-accounts", id: doc.id, data: { status: error ? "erreur" : "actif", lastError: error?.slice(0, 1000) ?? null } as never, overrideAccess: true }).catch(() => null);
 }
 
-/** Débrancher un réseau : la ligne et son jeton disparaissent — et, pour YouTube, l'autorisation est retirée chez Google aussi. */
+/**
+ * Débrancher un réseau : la ligne et son jeton disparaissent — et, pour YouTube, l'autorisation est retirée chez
+ * Google aussi, MAIS seulement si elle a été donnée au client YouTube. Un jeton de rafraîchissement ne se renouvelle
+ * qu'avec le client qui l'a émis : s'il se renouvelle avec le nôtre, le retrait ne touche que YouTube ; sinon (jeton
+ * d'une autre application, celle des agendas par exemple), on efface la ligne sans rien retirer chez Google.
+ */
 export async function disconnectSocial(payload: Payload, platform: Row["platform"]) {
   if (platform === "youtube") {
     const token = decryptSecret((await rows(payload)).find((r) => r.platform === "youtube")?.token);
-    if (token) await revokeGoogleToken(token);
+    const client = youtubeClient();
+    if (token && client && (await refreshGoogleTokens(client, token).then(() => true, () => false))) await revokeGoogleToken(token);
   }
   await payload.delete({ collection: "ai-team-social-accounts", where: { platform: { equals: platform } }, overrideAccess: true });
 }

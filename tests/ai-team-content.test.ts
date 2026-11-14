@@ -33,13 +33,16 @@ describe("Le déroulé d'un rapport d'agent (Paige)", () => {
       if (collection === "ai-team-audits") {
         const w = JSON.stringify(where);
         if (w.includes('"concurrence"')) return { docs: opts.guyWeek ? [{ createdAt: "2026-11-16T05:10:00Z", period: opts.guyWeek, findings: [], summary: "" }] : [] };
+        // Ce qui est déjà fait pour la période (le moteur lit l'état de chaque rapport, pour relancer un rapport coupé).
+        if (w.includes('"period"')) return { docs: audits.filter((a) => w.includes(`"${a.period}"`) && a.kind === "contenu") };
         return { docs: [] };
       }
       return { docs: [] };
     }),
     count: vi.fn(async ({ where }: { where: unknown }) => ({ totalDocs: audits.filter((a) => JSON.stringify(where).includes(`"${a.period}"`) && a.kind === "contenu").length })),
     create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => (audits.push(data), { id: audits.length, ...data })),
-    update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => (Object.assign(audits.at(-1)!, data), data)),
+    // Une mise à jour par critère (les rapports coupés en route) ne touche aucun rapport fini ici.
+    update: vi.fn(async ({ data, where }: { data: Record<string, unknown>; where?: unknown }) => (where ? { docs: [] } : (Object.assign(audits.at(-1)!, data), data))),
     logger: { warn: vi.fn() },
   });
   const call: WebCall = async () => ({ content: [{ type: "text", text: answer([item({})]), citations: null }] as never, usage: { input: 10_000, output: 2_000, cacheRead: 0, cacheWrite: 0 }, searches: 1, stopReason: "end_turn" });

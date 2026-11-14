@@ -72,6 +72,7 @@ export const NAV_HIDDEN = new Set([
   "ai-team-methods",
   "ai-team-objectives",
   "ai-team-social-accounts",
+  "ai-team-notes",
 ]);
 
 /** Un item de groupe : un slug, un sous-groupe repliable, ou un lien libre. */

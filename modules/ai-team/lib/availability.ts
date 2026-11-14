@@ -1,6 +1,9 @@
 import type { Payload } from "payload";
 
+import type { AgentRole } from "@/modules/ads/collections/AdAgents";
+import { consignesFor } from "@/modules/ai-team/lib/notebook";
 import type { RequestInput } from "@/modules/ai-team/lib/requests";
+import { engineRoleOwner } from "@/modules/ai-team/lib/team";
 
 /**
  * Qui est EN PAUSE dans l'équipe IA — la case « en service » de l'organigramme,
@@ -66,6 +69,10 @@ async function speakerOfRole(payload: Payload, role: string): Promise<{ id: numb
  * direction (déposer, relire les réponses), au nom du chef qui incarne le rôle.
  */
 export const teamPort = (payload: Payload) => ({
+  consignes: async (role: string): Promise<string[]> => {
+    const owner = engineRoleOwner(role as AgentRole);
+    return owner ? consignesFor(payload, owner.key) : [];
+  },
   paused: async (role: string): Promise<string | null> => {
     const m = (await pausedRoles(payload)).get(role);
     return m ? pausedReason(m) : null;

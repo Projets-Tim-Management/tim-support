@@ -13,7 +13,12 @@ import { Portrait } from "@/modules/ai-team/lib/portraits";
  * (ai-team-messages) : la page les relit à chaque visite.
  */
 
-export type ChatMessage = { id: string; from: "direction" | "agent"; text: string; at: string };
+/** Les **mots en gras** des réponses s'affichent en gras, au lieu de laisser voir les astérisques. */
+function bold(text: string): React.ReactNode[] {
+  return text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 ? <strong key={i}>{part}</strong> : part));
+}
+
+export type ChatMessage = { id: string; from: "direction" | "agent"; text: string; at: string; noted?: string[] };
 
 const STARTERS = ["Où en sont nos campagnes ?", "Qu'est-ce qui attend ma décision ?", "Que fait ton équipe en ce moment ?"];
 
@@ -44,9 +49,9 @@ export function ChatBox({ memberKey, name, portrait, initial }: { memberKey: str
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ member: memberKey, text: t }),
       });
-      const data = (await res.json().catch(() => ({}))) as { answer?: string; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { answer?: string; error?: string; noted?: string[] };
       if (!res.ok || !data.answer) throw new Error(data.error ?? "La réponse n'a pas pu être obtenue.");
-      setMessages((m) => [...m, { id: `local-${Date.now()}-r`, from: "agent", text: data.answer!, at: new Date().toISOString() }]);
+      setMessages((m) => [...m, { id: `local-${Date.now()}-r`, from: "agent", text: data.answer!, at: new Date().toISOString(), noted: data.noted }]);
     } catch (e) {
       // Le message n'a pas été gardé : on le retire et on le rend au champ, pour réessayer.
       setMessages((m) => m.slice(0, -1));
@@ -74,14 +79,21 @@ export function ChatBox({ memberKey, name, portrait, initial }: { memberKey: str
             <div key={m.id} className="ait-msg">
               <Portrait portrait={portrait} size={34} title={name} />
               <div className="ait-bubble">
-                <p className="ait-bubble__text ait-bubble__text--long">{m.text}</p>
+                <p className="ait-bubble__text ait-bubble__text--long">{bold(m.text)}</p>
+                {m.noted && m.noted.length > 0 && (
+                  <ul className="ait-noted" aria-label={`Ce que ${name} a noté dans son carnet`}>
+                    {m.noted.map((l) => (
+                      <li key={l}>📝 {l}</li>
+                    ))}
+                  </ul>
+                )}
                 <span className="ait-bubble__when">{time(m.at)}</span>
               </div>
             </div>
           ) : (
             <div key={m.id} className="ait-msg ait-msg--reply">
               <div className="ait-bubble ait-bubble--reply">
-                <p className="ait-bubble__text ait-bubble__text--long">{m.text}</p>
+                <p className="ait-bubble__text ait-bubble__text--long">{bold(m.text)}</p>
                 <span className="ait-bubble__when">{time(m.at)}</span>
               </div>
             </div>
@@ -132,7 +144,7 @@ export function ChatBox({ memberKey, name, portrait, initial }: { memberKey: str
               void send(draft);
             }
           }}
-          placeholder={`Votre message à ${name}… (Entrée pour envoyer)`}
+          placeholder={`Votre message à ${name}…`}
           rows={2}
           maxLength={1500}
           disabled={busy}

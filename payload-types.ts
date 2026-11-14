@@ -114,6 +114,7 @@ export interface Config {
     'ai-team-competitor-maps': AiTeamCompetitorMap;
     'ai-team-ai-answers': AiTeamAiAnswer;
     'ai-team-social-accounts': AiTeamSocialAccount;
+    'ai-team-notes': AiTeamNote;
     'ai-team-requests': AiTeamRequest;
     'ai-team-snapshots': AiTeamSnapshot;
     'ad-recaps': AdRecap;
@@ -219,6 +220,7 @@ export interface Config {
     'ai-team-competitor-maps': AiTeamCompetitorMapsSelect<false> | AiTeamCompetitorMapsSelect<true>;
     'ai-team-ai-answers': AiTeamAiAnswersSelect<false> | AiTeamAiAnswersSelect<true>;
     'ai-team-social-accounts': AiTeamSocialAccountsSelect<false> | AiTeamSocialAccountsSelect<true>;
+    'ai-team-notes': AiTeamNotesSelect<false> | AiTeamNotesSelect<true>;
     'ai-team-requests': AiTeamRequestsSelect<false> | AiTeamRequestsSelect<true>;
     'ai-team-snapshots': AiTeamSnapshotsSelect<false> | AiTeamSnapshotsSelect<true>;
     'ad-recaps': AdRecapsSelect<false> | AdRecapsSelect<true>;
@@ -3415,6 +3417,15 @@ export interface AiTeamMessage {
   text: string;
   author?: (number | null) | User;
   costEur?: number | null;
+  noted?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3480,6 +3491,10 @@ export interface AiTeamObjective {
   why?: string | null;
   measure?: string | null;
   evidence?: ('prouve' | 'correle' | 'speculatif') | null;
+  proposedBy?: string | null;
+  outcome?: ('a-marche' | 'sans-effet' | 'a-empire') | null;
+  verdict?: string | null;
+  verdictAt?: string | null;
   dueDate?: string | null;
   minutes?: number | null;
   closedAt?: string | null;
@@ -3680,6 +3695,34 @@ export interface AiTeamSocialAccount {
   token?: string | null;
   status?: ('actif' | 'erreur') | null;
   lastError?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-notes".
+ */
+export interface AiTeamNote {
+  id: number;
+  member: number | AiTeamMember;
+  kind: 'decision' | 'consigne' | 'conviction' | 'suivi' | 'idee';
+  text: string;
+  reason?: string | null;
+  target?: (number | null) | AiTeamMember;
+  verdict?: ('retenue' | 'a-tester' | 'ecartee' | 'imposee') | null;
+  disagreement?: string | null;
+  dueAt?: string | null;
+  status: 'active' | 'terminee' | 'abandonnee';
+  origin?: ('conversation' | 'revue') | null;
+  sourceMessage?: (number | null) | AiTeamMessage;
+  history?:
+    | {
+        at?: string | null;
+        change?: string | null;
+        reason?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -4600,6 +4643,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ai-team-social-accounts';
         value: number | AiTeamSocialAccount;
+      } | null)
+    | ({
+        relationTo: 'ai-team-notes';
+        value: number | AiTeamNote;
       } | null)
     | ({
         relationTo: 'ai-team-requests';
@@ -6196,6 +6243,7 @@ export interface AiTeamMessagesSelect<T extends boolean = true> {
   text?: T;
   author?: T;
   costEur?: T;
+  noted?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -6235,6 +6283,10 @@ export interface AiTeamObjectivesSelect<T extends boolean = true> {
   why?: T;
   measure?: T;
   evidence?: T;
+  proposedBy?: T;
+  outcome?: T;
+  verdict?: T;
+  verdictAt?: T;
   dueDate?: T;
   minutes?: T;
   closedAt?: T;
@@ -6325,6 +6377,33 @@ export interface AiTeamSocialAccountsSelect<T extends boolean = true> {
   token?: T;
   status?: T;
   lastError?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-notes_select".
+ */
+export interface AiTeamNotesSelect<T extends boolean = true> {
+  member?: T;
+  kind?: T;
+  text?: T;
+  reason?: T;
+  target?: T;
+  verdict?: T;
+  disagreement?: T;
+  dueAt?: T;
+  status?: T;
+  origin?: T;
+  sourceMessage?: T;
+  history?:
+    | T
+    | {
+        at?: T;
+        change?: T;
+        reason?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }

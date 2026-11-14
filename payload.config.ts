@@ -48,6 +48,7 @@ import { AiTeamAudits } from "./modules/ai-team/collections/AiTeamAudits";
 import { AiTeamCompetitorMaps } from "./modules/ai-team/collections/AiTeamCompetitorMaps";
 import { AiTeamAiAnswers } from "./modules/ai-team/collections/AiTeamAiAnswers";
 import { AiTeamSocialAccounts } from "./modules/ai-team/collections/AiTeamSocialAccounts";
+import { AiTeamNotes } from "./modules/ai-team/collections/AiTeamNotes";
 import { AiTeamRequests } from "./modules/ai-team/collections/AiTeamRequests";
 import { AiTeamSnapshots } from "./modules/ai-team/collections/AiTeamSnapshots";
 import { AdRecaps } from "./modules/ads/collections/AdRecaps";
@@ -448,6 +449,7 @@ export default buildConfig({
       AiTeamAiAnswers,
       // Les comptes de réseaux branchés pour Cléo (jetons chiffrés).
       AiTeamSocialAccounts,
+      AiTeamNotes,
       // Les demandes des chefs à la direction (« à faire » ou « question »).
       AiTeamRequests,
       // La photo des chiffres de chaque lundi (tendances, avant / après des recommandations).

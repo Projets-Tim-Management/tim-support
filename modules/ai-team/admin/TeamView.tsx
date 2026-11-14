@@ -10,6 +10,8 @@ import { ActiveToggle } from "@/modules/ai-team/admin/ActiveToggle";
 import { BudgetEditor } from "@/modules/ai-team/admin/BudgetEditor";
 import { ChatBox, type ChatMessage } from "@/modules/ai-team/admin/ChatBox";
 import { Drawer } from "@/modules/ai-team/admin/Drawer";
+import { FicheTabs, type FicheTab } from "@/modules/ai-team/admin/FicheTabs";
+import { consignesOf, loadCarnet, type NoteRow } from "@/modules/ai-team/lib/notebook";
 import { HoursEditor } from "@/modules/ai-team/admin/HoursEditor";
 import { ObjectivesBoard, type BoardObjective } from "@/modules/ai-team/admin/ObjectivesBoard";
 import { SeoWeeklyButton } from "@/modules/ai-team/admin/SeoWeeklyButton";
@@ -63,8 +65,11 @@ import type { SourceResult } from "@/modules/analytics/lib/seo-cache";
  * d'abord (une phrase par message, quatre messages), le détail à un clic
  * (« Voir le détail », « Tout voir »).
  *
- * En haut, l'organigramme, avec sur chaque carte la case « en service ». Au
- * clic sur une carte :
+ * En haut, l'organigramme : la direction, puis UN BUREAU PAR CHEF (14/11/2026).
+ * Un clic sur la carte d'un chef ouvre sa fiche ET son bureau : toute son
+ * équipe s'affiche dessous, sur toute la largeur ; fermer la fiche laisse le
+ * bureau ouvert (?bureau=…), ouvrir un autre chef referme le premier. Sur
+ * chaque carte, la case « en service ». La fiche s'ouvre :
  *  - la cheffe : ses nouvelles à la direction (préparations, suivis) et ce que
  *    fait son équipe en coulisses ;
  *  - un sous-agent : ses échanges avec sa cheffe — la mission reçue, ce qu'il
@@ -191,11 +196,11 @@ function CardSpend({ m, spend }: { m: MemberView; spend: TeamSpend }) {
   );
 }
 
-function MemberCard({ m, on, big, spend, mastery, extra }: { m: MemberView; on: boolean; big?: boolean; spend: TeamSpend; mastery?: MemberMastery; extra?: React.ReactNode }) {
+function MemberCard({ m, on, big, wide, spend, mastery, extra, expanded }: { m: MemberView; on: boolean; big?: boolean; wide?: boolean; spend: TeamSpend; mastery?: MemberMastery; extra?: React.ReactNode; expanded?: boolean }) {
   return (
     <div className={`ait-card${big ? " ait-card--chef" : ""}${on ? " ait-card--on" : ""}${m.active ? "" : " ait-card--off"}`}>
-      <Link href={`${BASE}?membre=${m.key}`} prefetch={false} scroll={false} className="ait-card__link" aria-current={on ? "true" : undefined}>
-        <Face m={m} size={big ? 104 : 76} />
+      <Link href={`${BASE}?membre=${m.key}`} prefetch={false} scroll={false} className="ait-card__link" aria-current={on ? "true" : undefined} aria-expanded={expanded}>
+        <Face m={m} size={big ? 104 : wide ? 128 : 76} />
         <span className="ait-card__name">{m.name}</span>
         <span className="ait-card__job">{m.jobTitle}</span>
         <StateChip m={m} />
@@ -312,6 +317,48 @@ function Budget({ spend, members }: { spend: TeamSpend; members: MemberView[] })
     </section>
   );
 }
+
+/* ─── Une fiche en quelques coups d'œil : quatre chiffres, puis des onglets ─── */
+
+type Kpi = { label: string; value: React.ReactNode; sub?: React.ReactNode; alert?: boolean; gauge?: number | null };
+
+/** Les chiffres clés en tête d'une fiche (quatre, d'un coup d'œil) ; `alert` encadre ce qui demande l'attention. */
+function Kpis({ items }: { items: Kpi[] }) {
+  return (
+    <ul className="ait-kpis">
+      {items.map((k) => (
+        <li key={k.label} className={`ait-kpi${k.alert ? " ait-kpi--alert" : ""}`}>
+          <span className="ait-kpi__label">{k.label}</span>
+          <strong className="ait-kpi__value">{k.value}</strong>
+          {k.sub ? <span className="ait-kpi__sub">{k.sub}</span> : null}
+          {k.gauge != null && (
+            <span className={`ait-kpi__gauge${k.gauge >= 80 ? " ait-kpi__gauge--high" : ""}`} aria-hidden>
+              <span style={{ width: `${Math.min(100, Math.max(0, k.gauge))}%` }} />
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+type Pane = { key: string; label: string; badge?: number; body: React.ReactNode };
+
+/** Le détail d'une fiche rangé en onglets ; une seule section : pas d'onglet. */
+function Panes({ panes, initial }: { panes: Pane[]; initial?: string }) {
+  const shown = panes.filter((p) => p.body != null && p.body !== false);
+  if (!shown.length) return null;
+  if (shown.length === 1) return <>{shown[0].body}</>;
+  return (
+    <FicheTabs tabs={shown.map(({ key, label, badge }) => ({ key, label, badge: badge || undefined }))} initial={initial}>
+      {shown.map((p) => (
+        <div key={p.key}>{p.body}</div>
+      ))}
+    </FicheTabs>
+  );
+}
+
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" });
 
 /* ─── La fiche des canaux (Yanis) ───────────────────────────────────────── */
 
@@ -434,180 +481,220 @@ function Trends({ lines }: { lines: string[] }) {
   );
 }
 
-function GoogleAdsPanel({ gads, chief }: { gads: SourceResult<GoogleAdsView>; chief: MemberView | undefined }) {
-  if (gads.status === "missing") return <p className="ait-paused">🔌 Le connecteur Google Ads n&apos;est pas branché : variable(s) {gads.missing.join(", ")} (Système › Connexions du support).</p>;
-  if (gads.status === "error") return <p className="ait-paused">⚠️ Google Ads n&apos;a pas répondu : {gads.message}</p>;
+/** Ce que Thomas lit de Google Ads : ses chiffres clés et ses onglets — ou ce qui empêche de lire. */
+function googleAdsFiche(gads: SourceResult<GoogleAdsView> | null, chief: MemberView | undefined): { problem: React.ReactNode | null; kpis: Kpi[]; panes: Pane[]; footer: React.ReactNode } {
+  const empty = { kpis: [] as Kpi[], panes: [] as Pane[], footer: null };
+  if (!gads) return { problem: <p className="ait-empty">Google Ads n&apos;a pas pu être lu pour l&apos;instant.</p>, ...empty };
+  if (gads.status === "missing") return { problem: <p className="ait-paused">🔌 Le connecteur Google Ads n&apos;est pas branché : variable(s) {gads.missing.join(", ")} (Système › Connexions du support).</p>, ...empty };
+  if (gads.status === "error") return { problem: <p className="ait-paused">⚠️ Google Ads n&apos;a pas répondu : {gads.message}</p>, ...empty };
   const g = gads.data;
-  return (
-    <>
-      {g.findings.length > 0 && (
-        <section className="ait-score">
-          <h3 className="ait-h3">📝 Ses constats pour {chief?.name ?? "sa cheffe"}</h3>
-          <ul className="ait-score__headlines">
-            {g.findings.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
-          <p className="ait-meta">{chief?.name ?? "Sa cheffe"} les reprend dans sa revue du lundi, en recommandations pour vous.</p>
-        </section>
-      )}
-      <section className="ait-score">
-        <h3 className="ait-h3">📈 Les 30 derniers jours</h3>
-        <p className="ait-chips">
-          <span>💶 {eur0(g.last30.cost)} dépensés</span>
-          <span>🖱️ {g.last30.clicks} clics · {eur2(g.last30.cpc)} le clic</span>
-          <span>🎯 {g.last30.conversions} conversion{g.last30.conversions > 1 ? "s" : ""} remontée{g.last30.conversions > 1 ? "s" : ""}</span>
-          <span>{g.activeConversionActions ? `✅ ${g.activeConversionActions} action(s) de conversion active(s)` : "⚠️ aucune action de conversion active"}</span>
-        </p>
-        <div className="ait-score__scroll">
-          <table className="ait-table">
-            <thead>
-              <tr>
-                <th>Campagne</th>
-                <th>État</th>
-                <th>Budget / jour</th>
-                <th>Dépense</th>
-                <th>Clics</th>
-                <th>€ / clic</th>
-                <th>Conversions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {g.campaigns.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    <strong>{c.name}</strong> <span className="ait-score__rate">· {c.type}</span>
-                  </td>
-                  <td>{c.status}</td>
-                  <td>{eur0(c.dailyBudget)}</td>
-                  <td>{eur0(c.cost)}</td>
-                  <td>{c.clicks}</td>
-                  <td>{eur2(c.cpc)}</td>
-                  <td>{c.conversions}</td>
-                </tr>
+  return {
+    problem: null,
+    kpis: [
+      { label: "💶 Dépensé sur 30 jours", value: eur0(g.last30.cost), sub: `${g.campaigns.length} campagne${g.campaigns.length > 1 ? "s" : ""}` },
+      { label: "🖱️ Clics", value: g.last30.clicks.toLocaleString("fr-FR"), sub: `${eur2(g.last30.cpc)} le clic` },
+      { label: "🎯 Conversions remontées", value: g.last30.conversions, sub: g.activeConversionActions ? `${g.activeConversionActions} action(s) de conversion active(s)` : "aucune action de conversion active", alert: !g.activeConversionActions },
+      { label: `📝 Constats pour ${chief?.name ?? "sa cheffe"}`, value: g.findings.length, sub: g.findings.length ? "repris dans sa revue du lundi" : "rien à signaler", alert: g.findings.length > 0 },
+    ],
+    panes: [
+      {
+        key: "constats",
+        label: "📝 Constats",
+        badge: g.findings.length,
+        body: g.findings.length ? (
+          <section className="ait-score">
+            <ul className="ait-score__headlines">
+              {g.findings.map((f) => (
+                <li key={f}>{f}</li>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <Detail label={`Les recherches qui ont coûté (${g.searchTerms.length})`}>
-        <table className="ait-table">
-          <thead>
-            <tr>
-              <th>Recherche</th>
-              <th>Dépense</th>
-              <th>Clics</th>
-              <th>Conversions</th>
-              <th>Concurrent</th>
-            </tr>
-          </thead>
-          <tbody>
-            {g.searchTerms.map((t) => (
-              <tr key={t.term}>
-                <td>{t.term}</td>
-                <td>{eur2(t.cost)}</td>
-                <td>{t.clicks}</td>
-                <td>{t.conversions}</td>
-                <td>{t.competitor ?? ""}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Detail>
-      <Detail label={`Les mots-clés (${g.keywords.length})`}>
-        <table className="ait-table">
-          <thead>
-            <tr>
-              <th>Mot-clé</th>
-              <th>Correspondance</th>
-              <th>État</th>
-              <th>Dépense</th>
-              <th>Clics</th>
-              <th>Conversions</th>
-              <th>Qualité /10</th>
-            </tr>
-          </thead>
-          <tbody>
-            {g.keywords.map((k) => (
-              <tr key={`${k.text}-${k.match}`}>
-                <td>{k.text}</td>
-                <td>{k.match}</td>
-                <td>{k.status}</td>
-                <td>{eur2(k.cost)}</td>
-                <td>{k.clicks}</td>
-                <td>{k.conversions}</td>
-                <td>{k.quality ?? "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Detail>
-      <p className="seo-fetched">Google Ads lu le {new Date(gads.fetchedAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })} · lecture seule · relu toutes les 3 h</p>
-    </>
-  );
+            </ul>
+            <p className="ait-meta">{chief?.name ?? "Sa cheffe"} les reprend dans sa revue du lundi, en recommandations pour vous.</p>
+          </section>
+        ) : (
+          <p className="ait-empty">Aucun constat : rien d&apos;anormal sur le compte.</p>
+        ),
+      },
+      {
+        key: "campagnes",
+        label: "📈 Campagnes",
+        body: (
+          <div className="ait-score__scroll">
+            <table className="ait-table">
+              <thead>
+                <tr>
+                  <th>Campagne</th>
+                  <th>État</th>
+                  <th>Budget / jour</th>
+                  <th>Dépense</th>
+                  <th>Clics</th>
+                  <th>€ / clic</th>
+                  <th>Conversions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.campaigns.map((c) => (
+                  <tr key={c.id}>
+                    <td>
+                      <strong>{c.name}</strong> <span className="ait-score__rate">· {c.type}</span>
+                    </td>
+                    <td>{c.status}</td>
+                    <td>{eur0(c.dailyBudget)}</td>
+                    <td>{eur0(c.cost)}</td>
+                    <td>{c.clicks}</td>
+                    <td>{eur2(c.cpc)}</td>
+                    <td>{c.conversions}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ),
+      },
+      {
+        key: "recherches",
+        label: "🔎 Recherches",
+        badge: g.searchTerms.length,
+        body: (
+          <div className="ait-score__scroll">
+            <table className="ait-table">
+              <thead>
+                <tr>
+                  <th>Recherche</th>
+                  <th>Dépense</th>
+                  <th>Clics</th>
+                  <th>Conversions</th>
+                  <th>Concurrent</th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.searchTerms.map((t) => (
+                  <tr key={t.term}>
+                    <td>{t.term}</td>
+                    <td>{eur2(t.cost)}</td>
+                    <td>{t.clicks}</td>
+                    <td>{t.conversions}</td>
+                    <td>{t.competitor ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ),
+      },
+      {
+        key: "mots-cles",
+        label: "🔑 Mots-clés",
+        badge: g.keywords.length,
+        body: (
+          <div className="ait-score__scroll">
+            <table className="ait-table">
+              <thead>
+                <tr>
+                  <th>Mot-clé</th>
+                  <th>Correspondance</th>
+                  <th>État</th>
+                  <th>Dépense</th>
+                  <th>Clics</th>
+                  <th>Conversions</th>
+                  <th>Qualité /10</th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.keywords.map((k) => (
+                  <tr key={`${k.text}-${k.match}`}>
+                    <td>{k.text}</td>
+                    <td>{k.match}</td>
+                    <td>{k.status}</td>
+                    <td>{eur2(k.cost)}</td>
+                    <td>{k.clicks}</td>
+                    <td>{k.conversions}</td>
+                    <td>{k.quality ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ),
+      },
+    ],
+    footer: <p className="seo-fetched">Google Ads lu le {new Date(gads.fetchedAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })} · lecture seule · relu toutes les 3 h</p>,
+  };
 }
 
 /* ─── Ce que lit Sarah (ChatGPT Ads) ────────────────────────────────────── */
 
-function OpenAiAdsPanel({ oads, chief }: { oads: SourceResult<OpenAiAdsView>; chief: MemberView | undefined }) {
-  if (oads.status === "missing") return <p className="ait-paused">🔌 Le connecteur ChatGPT Ads n&apos;est pas branché : variable(s) {oads.missing.join(", ")} (Système › Connexions du support).</p>;
-  if (oads.status === "error") return <p className="ait-paused">⚠️ ChatGPT Ads n&apos;a pas répondu : {oads.message}</p>;
+/** Ce que Sarah lit de ChatGPT Ads : ses chiffres clés et ses onglets — ou ce qui empêche de lire. */
+function openAiAdsFiche(oads: SourceResult<OpenAiAdsView> | null, chief: MemberView | undefined): { problem: React.ReactNode | null; kpis: Kpi[]; panes: Pane[]; footer: React.ReactNode } {
+  const empty = { kpis: [] as Kpi[], panes: [] as Pane[], footer: null };
+  if (!oads) return { problem: <p className="ait-empty">ChatGPT Ads n&apos;a pas pu être lu pour l&apos;instant.</p>, ...empty };
+  if (oads.status === "missing") return { problem: <p className="ait-paused">🔌 Le connecteur ChatGPT Ads n&apos;est pas branché : variable(s) {oads.missing.join(", ")} (Système › Connexions du support).</p>, ...empty };
+  if (oads.status === "error") return { problem: <p className="ait-paused">⚠️ ChatGPT Ads n&apos;a pas répondu : {oads.message}</p>, ...empty };
   const o = oads.data;
-  return (
-    <>
-      {o.findings.length > 0 && (
-        <section className="ait-score">
-          <h3 className="ait-h3">📝 Ses constats pour {chief?.name ?? "sa cheffe"}</h3>
-          <ul className="ait-score__headlines">
-            {o.findings.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
-          <p className="ait-meta">{chief?.name ?? "Sa cheffe"} les reprend dans sa revue du lundi, en recommandations pour vous.</p>
-        </section>
-      )}
-      <section className="ait-score">
-        <h3 className="ait-h3">📈 Les 30 derniers jours</h3>
-        <p className="ait-chips">
-          <span>💶 {eur0(o.last30.spend)} dépensés</span>
-          <span>🖱️ {o.last30.clicks} clics · {eur2(o.last30.cpc)} le clic</span>
-          <span>👀 {o.last30.impressions.toLocaleString("fr-FR")} affichages</span>
-          <span>🎯 {o.last30.conversions} conversion{o.last30.conversions > 1 ? "s" : ""} du pixel{o.last30.costPerConversion != null ? ` · ${eur0(o.last30.costPerConversion)} chacune` : ""}</span>
-        </p>
-        <div className="ait-score__scroll">
-          <table className="ait-table">
-            <thead>
-              <tr>
-                <th>Campagne</th>
-                <th>Dépense</th>
-                <th>Affichages</th>
-                <th>Clics</th>
-                <th>€ / clic</th>
-                <th>Conversions</th>
-                <th>€ / conversion</th>
-              </tr>
-            </thead>
-            <tbody>
-              {o.campaigns.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    <strong>{c.name}</strong>
-                  </td>
-                  <td>{eur0(c.spend)}</td>
-                  <td>{c.impressions.toLocaleString("fr-FR")}</td>
-                  <td>{c.clicks}</td>
-                  <td>{eur2(c.cpc)}</td>
-                  <td>{c.conversions}</td>
-                  <td>{eur0(c.costPerConversion)}</td>
-                </tr>
+  return {
+    problem: null,
+    kpis: [
+      { label: "💶 Dépensé sur 30 jours", value: eur0(o.last30.spend), sub: `${o.last30.impressions.toLocaleString("fr-FR")} affichages` },
+      { label: "🖱️ Clics", value: o.last30.clicks.toLocaleString("fr-FR"), sub: `${eur2(o.last30.cpc)} le clic` },
+      { label: "🎯 Conversions du pixel", value: o.last30.conversions, sub: o.last30.costPerConversion != null ? `${eur0(o.last30.costPerConversion)} chacune · pas un lead qualifié` : "pas un lead qualifié" },
+      { label: `📝 Constats pour ${chief?.name ?? "sa cheffe"}`, value: o.findings.length, sub: o.findings.length ? "repris dans sa revue du lundi" : "rien à signaler", alert: o.findings.length > 0 },
+    ],
+    panes: [
+      {
+        key: "constats",
+        label: "📝 Constats",
+        badge: o.findings.length,
+        body: o.findings.length ? (
+          <section className="ait-score">
+            <ul className="ait-score__headlines">
+              {o.findings.map((f) => (
+                <li key={f}>{f}</li>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <p className="seo-fetched">ChatGPT Ads lu le {new Date(oads.fetchedAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })} · lecture seule · relu toutes les 3 h</p>
-    </>
-  );
+            </ul>
+            <p className="ait-meta">{chief?.name ?? "Sa cheffe"} les reprend dans sa revue du lundi, en recommandations pour vous.</p>
+          </section>
+        ) : (
+          <p className="ait-empty">Aucun constat : rien d&apos;anormal sur le compte.</p>
+        ),
+      },
+      {
+        key: "campagnes",
+        label: "📈 Campagnes",
+        body: (
+          <div className="ait-score__scroll">
+            <table className="ait-table">
+              <thead>
+                <tr>
+                  <th>Campagne</th>
+                  <th>Dépense</th>
+                  <th>Affichages</th>
+                  <th>Clics</th>
+                  <th>€ / clic</th>
+                  <th>Conversions</th>
+                  <th>€ / conversion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {o.campaigns.map((c) => (
+                  <tr key={c.id}>
+                    <td>
+                      <strong>{c.name}</strong>
+                    </td>
+                    <td>{eur0(c.spend)}</td>
+                    <td>{c.impressions.toLocaleString("fr-FR")}</td>
+                    <td>{c.clicks}</td>
+                    <td>{eur2(c.cpc)}</td>
+                    <td>{c.conversions}</td>
+                    <td>{eur0(c.costPerConversion)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ),
+      },
+    ],
+    footer: <p className="seo-fetched">ChatGPT Ads lu le {new Date(oads.fetchedAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" })} · lecture seule · relu toutes les 3 h</p>,
+  };
 }
 
 /* ─── Sa maîtrise, sur 100 ──────────────────────────────────────────────── */
@@ -766,7 +853,7 @@ function MethodView({ m, state }: { m: MemberView; state: MethodState | null }) 
                   </li>
                 ))}
               </ul>
-              <p className="ait-meta">Margaux choisit lesquelles tester, dans sa revue du lundi.</p>
+              <p className="ait-meta">{domain.team === "seo" ? "Serge les reprend en objectifs quand elles passent devant, dans sa revue du lundi." : "Margaux choisit lesquelles tester, dans sa revue du lundi."}</p>
             </>
           )}
           <Detail label="Lire sa méthode complète">{cur.method ? <MethodText text={cur.method} /> : null}</Detail>
@@ -862,10 +949,15 @@ function SeoCardExtra({ m, seo }: { m: MemberView; seo: SeoChiefView }) {
   );
 }
 
-function SeoChiefPanel({ m, seo, chat }: { m: MemberView; seo: SeoChiefView; chat: ChatMessage[] }) {
+function SeoChiefPanel({ m, seo, chat, notes, members, mastery, method }: { m: MemberView; seo: SeoChiefView; chat: ChatMessage[]; notes: NoteRow[]; members: MemberView[]; mastery: TeamMastery; method: MethodState | null }) {
   const planFr = seo.week ? new Date(`${seo.week}T12:00:00Z`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }) : null;
   const dueLast = seo.objectives.map((o) => o.dueDate).filter((d): d is string => Boolean(d)).sort().at(-1);
   const planned = seo.objectives.reduce((n, o) => n + (o.minutes ?? 0), 0);
+  const done = seo.objectives.filter((o) => o.status === "fait").length;
+  const open = seo.objectives.filter((o) => o.status === "a-faire").length;
+  const hours = seo.hours ?? 5;
+  const budgetPct = seo.budgetEur ? Math.min(100, Math.round((seo.monthEur / Math.max(0.01, seo.budgetEur)) * 100)) : null;
+  const consignes = notes.filter((n) => n.kind === "consigne" && n.status === "active").length;
   return (
     <div className="ait-panel">
       <Head
@@ -873,26 +965,48 @@ function SeoChiefPanel({ m, seo, chat }: { m: MemberView; seo: SeoChiefView; cha
         note={<p className="ait-reports">{m.name} suit la visibilité gratuite de TIM — Google, les IA, YouTube, LinkedIn, Instagram — jusqu&apos;au lead qualifié. Il recommande et vous fixe des objectifs ; il ne rédige pas : ses prompts sont prêts à coller dans ChatGPT ou Claude.</p>}
       />
       <PausedNote m={m} />
+      <Kpis
+        items={[
+          { label: "🎯 Objectifs de la semaine", value: seo.objectives.length ? `${done} / ${seo.objectives.length}` : "—", sub: seo.objectives.length ? (open ? `${open} à faire${dueLast ? ` d'ici ${shortDate(dueLast)}` : ""}` : "tout est fait") : "ils arrivent lundi matin", alert: open > 0 },
+          { label: "⏱️ Votre temps", value: `${Math.round((planned / 60) * 10) / 10} h`, sub: `prévues sur vos ${hours.toLocaleString("fr-FR")} h`, gauge: hours ? Math.round((planned / 60 / hours) * 100) : null },
+          { label: "💶 Budget IA du mois", value: eur(seo.monthEur), sub: budgetPct != null ? `${budgetPct} % de ${eur(seo.budgetEur!)}` : "pas de budget fixé", gauge: budgetPct },
+          { label: "📣 Consignes à l'équipe", value: consignes, sub: consignes ? "jointes à leurs missions" : "aucune en cours" },
+        ]}
+      />
       {m.active && <SeoWeeklyButton name={m.name} />}
-      <section className="ait-score">
-        <h3 className="ait-h3">🎯 Vos objectifs{planFr ? ` — à partir du ${planFr}` : ""}{dueLast ? `, jusqu'au ${new Date(dueLast).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/Paris" })}` : ""}</h3>
-        {seo.objectives.length ? (
-          <>
-            <p className="ait-meta">
-              {seo.objectives.length} objectif{seo.objectives.length > 1 ? "s" : ""} · {Math.round((planned / 60) * 10) / 10} h prévues sur vos {(seo.hours ?? 5).toLocaleString("fr-FR")} h · classés par importance
-            </p>
-            <ObjectivesBoard objectives={seo.objectives} />
-          </>
-        ) : (
-          <p className="ait-empty">Pas encore d&apos;objectifs : ils arrivent lundi matin, ou maintenant avec le bouton.</p>
-        )}
-      </section>
-      <section className="ait-score">
-        <h3 className="ait-h3">⚙️ Réglages</h3>
-        <HoursEditor id={m.id} name={m.name} hours={seo.hours} />
-        <p className="ait-meta">📅 Agenda : {seo.agenda ?? `aucun agenda Google utilisable — ${m.name} ne pose pas de créneaux (Connexions des agendas).`}</p>
-      </section>
       {m.active ? <ChatBox memberKey={m.key} name={m.name} portrait={m.portrait} initial={chat} /> : null}
+      <Panes
+        panes={[
+          {
+            key: "objectifs",
+            label: "🎯 Vos objectifs",
+            badge: open,
+            body: seo.objectives.length ? (
+              <section className="ait-score">
+                <p className="ait-meta">
+                  {planFr ? `À partir du ${planFr} · ` : ""}classés par importance
+                </p>
+                <ObjectivesBoard objectives={seo.objectives} />
+              </section>
+            ) : (
+              <p className="ait-empty">Pas encore d&apos;objectifs : ils arrivent lundi matin, ou maintenant avec le bouton.</p>
+            ),
+          },
+          { key: "carnet", label: "🧠 Carnet", badge: consignes, body: <CarnetView m={m} notes={notes} members={members} /> },
+          { key: "maitrise", label: "🎓 Maîtrise", body: mastery[m.key] ? <MasteryView m={m} x={mastery[m.key]} /> : null },
+          { key: "methode", label: "📘 Méthode", body: <MethodView m={m} state={method} /> },
+          {
+            key: "reglages",
+            label: "⚙️ Réglages",
+            body: (
+              <section className="ait-score">
+                <HoursEditor id={m.id} name={m.name} hours={seo.hours} />
+                <p className="ait-meta">📅 Agenda : {seo.agenda ?? `aucun agenda Google utilisable — ${m.name} ne pose pas de créneaux (Connexions des agendas).`}</p>
+              </section>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }
@@ -905,8 +1019,9 @@ const IMPACT_LABEL: Record<string, string> = { fort: "🔴 impact fort", moyen: 
 const TYPE_LABEL: Record<string, string> = { technique: "Technique", contenu: "Contenu", conversion: "Conversion" };
 const pctFr = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("fr-FR")} %`);
 
-function AnalystPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: AnalystView }) {
+function AnalystPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: MemberView | undefined; extra?: Pane[]; view: AnalystView }) {
   const f = view.funnel;
+  const strong = view.audit?.findings.filter((x) => x.impact === "fort").length ?? 0;
   return (
     <div className="ait-panel">
       <Head
@@ -920,16 +1035,59 @@ function AnalystPanel({ m, chief, view }: { m: MemberView; chief: MemberView | u
         }
       />
       <PausedNote m={m} chief={chief} />
-      <section className="ait-score">
-        <h3 className="ait-h3">🧭 L&apos;entonnoir gratuit, source par source{f ? ` — depuis le ${new Date(`${f.since}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" })}` : ""}</h3>
-        {f && f.rows.length ? (
-          <>
-            <p className="ait-chips">
-              <span>👀 {f.totals.sessions.toLocaleString("fr-FR")} visites</span>
-              <span>📝 {f.totals.leads} leads ({pctFr(f.totals.leadRate)})</span>
-              <span>✅ {f.totals.qualified} qualifiés ({pctFr(f.totals.qualifiedRate)})</span>
-              <span>🤝 {f.totals.won} clients</span>
-            </p>
+      {m.active && <AuditButton name={m.name} />}
+      {f && f.rows.length ? (
+        <Kpis
+          items={[
+            { label: "👀 Visites gratuites", value: f.totals.sessions.toLocaleString("fr-FR"), sub: `depuis le ${new Date(`${f.since}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" })}` },
+            { label: "📝 Leads", value: f.totals.leads, sub: `${pctFr(f.totals.leadRate)} des visites` },
+            { label: "✅ Qualifiés", value: f.totals.qualified, sub: `${pctFr(f.totals.qualifiedRate)} des leads · ${f.totals.won} client${f.totals.won > 1 ? "s" : ""}` },
+            { label: "🕳️ Pages qui fuient", value: f.attractWithoutConverting.length, sub: "attirent sans aucun lead", alert: f.attractWithoutConverting.length > 0 },
+          ]}
+        />
+      ) : (
+        <p className="ait-empty">L&apos;entonnoir n&apos;a pas pu être calculé (GA4 ou les leads ne répondent pas).</p>
+      )}
+      <Panes
+        panes={[
+          {
+            key: "audit",
+            label: "🔬 Son audit",
+            badge: strong,
+            body: view.audit ? (
+              <section className="ait-score">
+                <p className="ait-meta">Audit du {shortDate(view.audit.at)}</p>
+                <p className="ait-obj__text">{view.audit.summary}</p>
+            <ol className="ait-objs">
+              {view.audit.findings.map((x, i) => (
+                <li key={i} className="ait-obj">
+                  <div className="ait-obj__top">
+                    <span className="ait-obj__rank">{i + 1}</span>
+                    <div className="ait-obj__head">
+                      <strong className="ait-obj__title">{x.problem}</strong>
+                      <span className="ait-obj__meta">
+                        {IMPACT_LABEL[x.impact]} · {TYPE_LABEL[x.type]}
+                      </span>
+                      {x.page && <span className="ait-obj__page">{x.page}</span>}
+                    </div>
+                  </div>
+                  {x.evidence && <p className="ait-obj__text">📊 {x.evidence}</p>}
+                  <p className="ait-obj__text">➡️ {x.action}</p>
+                  {x.prompt && <CopyPromptButton prompt={x.prompt} />}
+                </li>
+              ))}
+            </ol>
+              </section>
+            ) : (
+              <p className="ait-empty">Pas encore d&apos;audit : le premier aura lieu au début du mois, ou maintenant avec le bouton.</p>
+            ),
+          },
+          {
+            key: "entonnoir",
+            label: "🧭 Entonnoir par source",
+            body:
+              f && f.rows.length ? (
+                <section className="ait-score">
             <div className="ait-score__scroll">
               <table className="ait-table">
                 <thead>
@@ -961,6 +1119,15 @@ function AnalystPanel({ m, chief, view }: { m: MemberView; chief: MemberView | u
               </table>
             </div>
             {f.otherLeads > 0 && <p className="ait-meta">+ {f.otherLeads} lead{f.otherLeads > 1 ? "s" : ""} d&apos;autres sources (publicité, direct, inconnue) — hors de cet entonnoir.</p>}
+                </section>
+              ) : null,
+          },
+          {
+            key: "pages",
+            label: "📄 Pages",
+            body:
+              f && f.rows.length ? (
+                <section className="ait-score">
             <div className="ait-cols">
               <section>
                 <h4 className="ait-method__h">Les pages qui convertissent</h4>
@@ -992,41 +1159,12 @@ function AnalystPanel({ m, chief, view }: { m: MemberView; chief: MemberView | u
                 )}
               </section>
             </div>
-          </>
-        ) : (
-          <p className="ait-empty">L&apos;entonnoir n&apos;a pas pu être calculé (GA4 ou les leads ne répondent pas).</p>
-        )}
-      </section>
-      {m.active && <AuditButton name={m.name} />}
-      <section className="ait-score">
-        <h3 className="ait-h3">🔬 Son dernier audit du site{view.audit ? ` — ${new Date(view.audit.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}` : ""}</h3>
-        {view.audit ? (
-          <>
-            <p className="ait-obj__text">{view.audit.summary}</p>
-            <ol className="ait-objs">
-              {view.audit.findings.map((x, i) => (
-                <li key={i} className="ait-obj">
-                  <div className="ait-obj__top">
-                    <span className="ait-obj__rank">{i + 1}</span>
-                    <div className="ait-obj__head">
-                      <strong className="ait-obj__title">{x.problem}</strong>
-                      <span className="ait-obj__meta">
-                        {IMPACT_LABEL[x.impact]} · {TYPE_LABEL[x.type]}
-                      </span>
-                      {x.page && <span className="ait-obj__page">{x.page}</span>}
-                    </div>
-                  </div>
-                  {x.evidence && <p className="ait-obj__text">📊 {x.evidence}</p>}
-                  <p className="ait-obj__text">➡️ {x.action}</p>
-                  {x.prompt && <CopyPromptButton prompt={x.prompt} />}
-                </li>
-              ))}
-            </ol>
-          </>
-        ) : (
-          <p className="ait-empty">Pas encore d&apos;audit : le premier aura lieu au début du mois, ou maintenant avec le bouton.</p>
-        )}
-      </section>
+                </section>
+              ) : null,
+          },
+          ...extra,
+        ]}
+      />
     </div>
   );
 }
@@ -1037,8 +1175,12 @@ export type CompetitionView = { rows: CompetitorRow[]; report: { at: string; sum
 const COMPETITOR_KIND: Record<string, string> = { editeur: "Éditeur", comparateur: "Comparateur", media: "Média BTP" };
 const HAS_IT: Record<string, string> = { oui: "TIM l'a", partiel: "TIM l'a en partie", non: "TIM ne l'a pas" };
 
-function CompetitionPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: CompetitionView }) {
+function CompetitionPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: MemberView | undefined; extra?: Pane[]; view: CompetitionView }) {
   const withoutSite = view.rows.filter((r) => !r.website).length;
+  const read = view.rows.filter((r) => r.status === "lu");
+  const moved = read.filter((r) => (r.added ?? 0) + (r.removed ?? 0) > 0).length;
+  const findings = view.report?.findings ?? [];
+  const missing = findings.filter((x) => x.timHasIt === "non").length;
   return (
     <div className="ait-panel">
       <Head
@@ -1053,11 +1195,23 @@ function CompetitionPanel({ m, chief, view }: { m: MemberView; chief: MemberView
       />
       <PausedNote m={m} chief={chief} />
       {m.active && <CompetitionButton name={m.name} />}
-      <section className="ait-score">
-        <h3 className="ait-h3">🔭 Son dernier rapport{view.report ? ` — ${new Date(view.report.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}` : ""}</h3>
-        {view.report ? (
-          <>
-            <p className="ait-obj__text">{view.report.summary}</p>
+      <Kpis
+        items={[
+          { label: "📚 Concurrents suivis", value: view.rows.length, sub: withoutSite ? `${withoutSite} sans site : illisible${withoutSite > 1 ? "s" : ""}` : `${read.length} lu${read.length > 1 ? "s" : ""} cette semaine`, alert: withoutSite > 0 },
+          { label: "🔄 Ont bougé", value: moved, sub: "pages ajoutées ou retirées cette semaine" },
+          { label: "🧭 Pistes", value: findings.length, sub: view.report ? `rapport du ${shortDate(view.report.at)}` : "pas encore de rapport" },
+          { label: "🚫 Ce que TIM n'a pas", value: missing, sub: "vu chez un concurrent", alert: missing > 0 },
+        ]}
+      />
+      <Panes
+        panes={[
+          {
+            key: "rapport",
+            label: "🔭 Son rapport",
+            badge: findings.length,
+            body: view.report ? (
+              <section className="ait-score">
+                <p className="ait-obj__text">{view.report.summary}</p>
             <ol className="ait-objs">
               {view.report.findings.map((x, i) => (
                 <li key={i} className="ait-obj">
@@ -1078,13 +1232,17 @@ function CompetitionPanel({ m, chief, view }: { m: MemberView; chief: MemberView
                 </li>
               ))}
             </ol>
-          </>
-        ) : (
-          <p className="ait-empty">Pas encore de rapport : le premier arrive lundi matin, ou maintenant avec le bouton.</p>
-        )}
-      </section>
-      <section className="ait-score">
-        <h3 className="ait-h3">📚 Les concurrents suivis ({view.rows.length})</h3>
+              </section>
+            ) : (
+              <p className="ait-empty">Pas encore de rapport : le premier arrive lundi matin, ou maintenant avec le bouton.</p>
+            ),
+          },
+          {
+            key: "concurrents",
+            label: "📚 Concurrents suivis",
+            badge: withoutSite,
+            body: (
+              <section className="ait-score">
         {withoutSite > 0 && <p className="ait-paused">{withoutSite} concurrent{withoutSite > 1 ? "s" : ""} sans site : {m.name} ne peut pas les lire. Renseignez leur site dans la liste.</p>}
         <div className="ait-score__scroll">
           <table className="ait-table">
@@ -1116,7 +1274,12 @@ function CompetitionPanel({ m, chief, view }: { m: MemberView; chief: MemberView
             Ajouter ou corriger un concurrent (site, usage, type)
           </Link>
         </p>
-      </section>
+              </section>
+            ),
+          },
+          ...extra,
+        ]}
+      />
     </div>
   );
 }
@@ -1127,8 +1290,10 @@ export type ContentView = { plan: { at: string; summary: string; findings: Conte
 const CONTENT_TYPE: Record<string, string> = { creer: "✨ Créer", rafraichir: "🔄 Rafraîchir", fusionner: "🔗 Fusionner", supprimer: "🗑️ Supprimer" };
 const SOURCE_LABEL: Record<string, string> = { guy: "vu par Guy", ana: "vu par Ana", "search-console": "Search Console" };
 
-function ContentPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: ContentView }) {
-  const total = view.plan?.findings.reduce((n, x) => n + x.minutes, 0) ?? 0;
+function ContentPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: MemberView | undefined; extra?: Pane[]; view: ContentView }) {
+  const items = view.plan?.findings ?? [];
+  const total = items.reduce((n, x) => n + x.minutes, 0);
+  const count = (t: string) => items.filter((x) => x.type === t).length;
   return (
     <div className="ait-panel">
       <Head
@@ -1143,49 +1308,61 @@ function ContentPanel({ m, chief, view }: { m: MemberView; chief: MemberView | u
       />
       <PausedNote m={m} chief={chief} />
       {m.active && <ContentPlanButton name={m.name} />}
-      <section className="ait-score">
-        <h3 className="ait-h3">📝 Son plan de contenu{view.plan ? ` — ${new Date(view.plan.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}` : ""}</h3>
-        {view.plan ? (
-          <>
-            <p className="ait-obj__text">{view.plan.summary}</p>
-            <p className="ait-meta">
-              {view.plan.findings.length} action{view.plan.findings.length > 1 ? "s" : ""} · {Math.round((total / 60) * 10) / 10} h d&apos;effort au total · Serge en retient ce qui tient dans votre semaine
-            </p>
-            <ol className="ait-objs">
-              {view.plan.findings.map((x, i) => (
-                <li key={i} className="ait-obj">
-                  <div className="ait-obj__top">
-                    <span className="ait-obj__rank">{i + 1}</span>
-                    <div className="ait-obj__head">
-                      <strong className="ait-obj__title">
-                        {CONTENT_TYPE[x.type]} — {x.title}
-                      </strong>
-                      <span className="ait-obj__meta">
-                        {IMPACT_LABEL[x.impact]} · {x.intent === "achat" ? "intention d'achat" : "information"} · {x.minutes} min{x.source ? ` · ${SOURCE_LABEL[x.source] ?? x.source}` : ""}
-                      </span>
-                      {x.query && <span className="ait-obj__page">🔎 « {x.query} »{x.page ? ` · ${x.page}` : ""}</span>}
-                    </div>
-                  </div>
-                  {x.why && <p className="ait-obj__text">💡 {x.why}</p>}
-                  {x.outline.length > 0 && (
-                    <details className="ait-obj__more">
-                      <summary>La structure proposée ({x.outline.length} intertitres)</summary>
-                      <ol className="ait-method__sources">
-                        {x.outline.map((h) => (
-                          <li key={h}>{h}</li>
-                        ))}
-                      </ol>
-                    </details>
-                  )}
-                  <CopyPromptButton prompt={x.prompt} />
-                </li>
-              ))}
-            </ol>
-          </>
-        ) : (
-          <p className="ait-empty">Pas encore de plan : le premier arrive lundi matin, ou maintenant avec le bouton.</p>
-        )}
-      </section>
+      <Kpis
+        items={[
+          { label: "📝 Actions du plan", value: items.length, sub: view.plan ? `plan du ${shortDate(view.plan.at)}` : "pas encore de plan" },
+          { label: "⏱️ Effort total", value: `${Math.round((total / 60) * 10) / 10} h`, sub: `${chief?.name ?? "Son chef"} en retient ce qui tient dans votre semaine` },
+          { label: "✨ À créer", value: count("creer"), sub: `${count("rafraichir")} à rafraîchir` },
+          { label: "🔴 Impact fort", value: items.filter((x) => x.impact === "fort").length, sub: "à faire en premier" },
+        ]}
+      />
+      <Panes
+        panes={[
+          {
+            key: "plan",
+            label: "📝 Son plan",
+            badge: items.length,
+            body: view.plan ? (
+              <section className="ait-score">
+                <p className="ait-obj__text">{view.plan.summary}</p>
+                  <ol className="ait-objs">
+                    {view.plan.findings.map((x, i) => (
+                      <li key={i} className="ait-obj">
+                        <div className="ait-obj__top">
+                          <span className="ait-obj__rank">{i + 1}</span>
+                          <div className="ait-obj__head">
+                            <strong className="ait-obj__title">
+                              {CONTENT_TYPE[x.type]} — {x.title}
+                            </strong>
+                            <span className="ait-obj__meta">
+                              {IMPACT_LABEL[x.impact]} · {x.intent === "achat" ? "intention d'achat" : "information"} · {x.minutes} min{x.source ? ` · ${SOURCE_LABEL[x.source] ?? x.source}` : ""}
+                            </span>
+                            {x.query && <span className="ait-obj__page">🔎 « {x.query} »{x.page ? ` · ${x.page}` : ""}</span>}
+                          </div>
+                        </div>
+                        {x.why && <p className="ait-obj__text">💡 {x.why}</p>}
+                        {x.outline.length > 0 && (
+                          <details className="ait-obj__more">
+                            <summary>La structure proposée ({x.outline.length} intertitres)</summary>
+                            <ol className="ait-method__sources">
+                              {x.outline.map((h) => (
+                                <li key={h}>{h}</li>
+                              ))}
+                            </ol>
+                          </details>
+                        )}
+                        <CopyPromptButton prompt={x.prompt} />
+                      </li>
+                    ))}
+                  </ol>
+              </section>
+            ) : (
+              <p className="ait-empty">Pas encore de plan : le premier arrive lundi matin, ou maintenant avec le bouton.</p>
+            ),
+          },
+          ...extra,
+        ]}
+      />
     </div>
   );
 }
@@ -1195,7 +1372,7 @@ function ContentPanel({ m, chief, view }: { m: MemberView; chief: MemberView | u
 const ACTION_TYPE: Record<string, string> = { page: "📄 Page", source: "🌐 Source tierce", technique: "⚙️ Technique", marque: "🏷️ Marque" };
 const rank = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("fr-FR")}ᵉ`);
 
-function VisibilityPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: VisibilityState }) {
+function VisibilityPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: MemberView | undefined; extra?: Pane[]; view: VisibilityState }) {
   const v = view.measure;
   const month = new Date(`${view.period}-15T12:00:00Z`).toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
   const left = view.progress.total - view.progress.done;
@@ -1214,22 +1391,65 @@ function VisibilityPanel({ m, chief, view }: { m: MemberView; chief: MemberView 
       <PausedNote m={m} chief={chief} />
       {m.active && view.engines.length > 0 && <VisibilityButton name={m.name} />}
       <p className="ait-meta">
-        IA interrogées : {view.engines.length ? view.engines.join(", ") : "aucune"}
+        {month}{left > 0 ? ` · mesure en cours : ${view.progress.done} / ${view.progress.total}` : ""} · IA interrogées : {view.engines.length ? view.engines.join(", ") : "aucune"}
         {view.missing.length ? ` · à brancher (Paramètres › Connexions) : ${view.missing.join(", ")}` : ""} · Google AI Overviews n&apos;est pas mesurable sans outil payant.
       </p>
-      <section className="ait-score">
-        <h3 className="ait-h3">
-          ✨ La place de TIM dans les IA — {month}
-          {left > 0 ? ` (mesure en cours : ${view.progress.done} / ${view.progress.total})` : ""}
-        </h3>
-        {v.answers ? (
-          <>
-            <p className="ait-chips">
-              <span>🗣️ Nommé dans {pctFr(v.overall.mentionPct)} des réponses</span>
-              <span>🔗 Cité en source dans {pctFr(v.overall.citationPct)}</span>
-              <span>📣 Part de voix {pctFr(v.overall.shareOfVoicePct)}</span>
-              <span>🏅 Rang moyen {rank(v.overall.avgPosition)}</span>
-            </p>
+      {v.answers ? (
+        <Kpis
+          items={[
+            { label: "🗣️ TIM nommé", value: pctFr(v.overall.mentionPct), sub: `dans ${v.answers} réponses d'IA` },
+            { label: "🔗 TIM cité en source", value: pctFr(v.overall.citationPct), sub: "lien vers le site" },
+            { label: "📣 Part de voix", value: pctFr(v.overall.shareOfVoicePct), sub: "face aux concurrents nommés" },
+            { label: "🥊 Questions perdues", value: v.lost.length, sub: "des concurrents recommandés, pas TIM", alert: v.lost.length > 0 },
+          ]}
+        />
+      ) : (
+        <p className="ait-empty">{view.engines.length ? "La mesure du mois commence : les premières réponses arrivent dans quelques minutes, ou maintenant avec le bouton." : "Aucune IA branchée pour l'instant."}</p>
+      )}
+      <Panes
+        panes={[
+          {
+            key: "rapport",
+            label: "🧭 Ses actions",
+            badge: view.report?.findings.length,
+            body: view.report ? (
+              <section className="ait-score">
+                <p className="ait-meta">Rapport du {shortDate(view.report.at)}</p>
+                <p className="ait-obj__text">{view.report.summary}</p>
+            <ol className="ait-objs">
+              {view.report.findings.map((x, i) => (
+                <li key={i} className="ait-obj">
+                  <div className="ait-obj__top">
+                    <span className="ait-obj__rank">{i + 1}</span>
+                    <div className="ait-obj__head">
+                      <strong className="ait-obj__title">
+                        {ACTION_TYPE[x.type]} — {x.title}
+                      </strong>
+                      <span className="ait-obj__meta">
+                        {IMPACT_LABEL[x.impact]} · {x.minutes} min
+                      </span>
+                      {x.target && <span className="ait-obj__page">🎯 {x.target}</span>}
+                    </div>
+                  </div>
+                  {x.why && <p className="ait-obj__text">💡 {x.why}</p>}
+                  {x.questions.length > 0 && <p className="ait-meta">Questions : {x.questions.map((q) => `« ${q} »`).join(" · ")}</p>}
+                  <CopyPromptButton prompt={x.prompt} />
+                </li>
+              ))}
+            </ol>
+              </section>
+            ) : (
+              <p className="ait-empty">Pas encore de rapport : il s&apos;écrit dès que la mesure du mois est complète.</p>
+            ),
+          },
+          {
+            key: "ia",
+            label: "✨ Par IA et par thème",
+            body: v.answers ? (
+              <section className="ait-score">
+                <p className="ait-chips">
+                  <span>🏅 Rang moyen de TIM : {rank(v.overall.avgPosition)}</span>
+                </p>
             <div className="ait-score__scroll">
               <table className="ait-table">
                 <thead>
@@ -1259,6 +1479,14 @@ function VisibilityPanel({ m, chief, view }: { m: MemberView; chief: MemberView 
               </table>
             </div>
             <p className="ait-meta">Une IA ne répond jamais deux fois pareil : ce sont des tendances, à lire d&apos;un mois sur l&apos;autre.</p>
+              </section>
+            ) : null,
+          },
+          {
+            key: "concurrents",
+            label: "🥊 Concurrents et sources",
+            // Les concurrents nommés, et les sites où les IA vont chercher.
+            body: v.answers ? <section className="ait-score">
             <div className="ait-cols">
               <section>
                 <h4 className="ait-method__h">Les concurrents nommés</h4>
@@ -1290,11 +1518,14 @@ function VisibilityPanel({ m, chief, view }: { m: MemberView; chief: MemberView 
                 )}
               </section>
             </div>
-            {v.lost.length > 0 && (
-              <details className="ait-obj__more">
-                <summary>
-                  Les {v.lost.length} question{v.lost.length > 1 ? "s" : ""} où des concurrents sont recommandés, et pas TIM
-                </summary>
+              </section> : null,
+          },
+          {
+            key: "perdues",
+            label: "❓ Questions perdues",
+            badge: v.lost.length,
+            body: v.lost.length ? (
+              <section className="ait-score">
                 <ul className="ait-score__headlines">
                   {v.lost.map((l) => (
                     <li key={l.id}>
@@ -1302,44 +1533,12 @@ function VisibilityPanel({ m, chief, view }: { m: MemberView; chief: MemberView 
                     </li>
                   ))}
                 </ul>
-              </details>
-            )}
-          </>
-        ) : (
-          <p className="ait-empty">{view.engines.length ? "La mesure du mois commence : les premières réponses arrivent dans quelques minutes, ou maintenant avec le bouton." : "Aucune IA branchée pour l'instant."}</p>
-        )}
-      </section>
-      <section className="ait-score">
-        <h3 className="ait-h3">🧭 Son rapport{view.report ? ` — ${new Date(view.report.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}` : ""}</h3>
-        {view.report ? (
-          <>
-            <p className="ait-obj__text">{view.report.summary}</p>
-            <ol className="ait-objs">
-              {view.report.findings.map((x, i) => (
-                <li key={i} className="ait-obj">
-                  <div className="ait-obj__top">
-                    <span className="ait-obj__rank">{i + 1}</span>
-                    <div className="ait-obj__head">
-                      <strong className="ait-obj__title">
-                        {ACTION_TYPE[x.type]} — {x.title}
-                      </strong>
-                      <span className="ait-obj__meta">
-                        {IMPACT_LABEL[x.impact]} · {x.minutes} min
-                      </span>
-                      {x.target && <span className="ait-obj__page">🎯 {x.target}</span>}
-                    </div>
-                  </div>
-                  {x.why && <p className="ait-obj__text">💡 {x.why}</p>}
-                  {x.questions.length > 0 && <p className="ait-meta">Questions : {x.questions.map((q) => `« ${q} »`).join(" · ")}</p>}
-                  <CopyPromptButton prompt={x.prompt} />
-                </li>
-              ))}
-            </ol>
-          </>
-        ) : (
-          <p className="ait-empty">Pas encore de rapport : il s&apos;écrit dès que la mesure du mois est complète.</p>
-        )}
-      </section>
+              </section>
+            ) : null,
+          },
+          ...extra,
+        ]}
+      />
     </div>
   );
 }
@@ -1348,8 +1547,9 @@ function VisibilityPanel({ m, chief, view }: { m: MemberView; chief: MemberView 
 
 type TechView = Awaited<ReturnType<typeof latestTech>>;
 
-function TechPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: TechView }) {
+function TechPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: MemberView | undefined; extra?: Pane[]; view: TechView }) {
   const h = view?.health ?? null;
+  const blocked = h ? h.bots.filter((b) => !b.allowed).length : 0;
   return (
     <div className="ait-panel">
       <Head
@@ -1364,59 +1564,27 @@ function TechPanel({ m, chief, view }: { m: MemberView; chief: MemberView | unde
       />
       <PausedNote m={m} chief={chief} />
       {m.active && <TechButton name={m.name} />}
-      <section className="ait-score">
-        <h3 className="ait-h3">🔧 L&apos;état du site{view ? ` — ${new Date(view.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}` : ""}</h3>
-        {h ? (
-          <>
-            <p className="ait-chips">
-              <span>
-                📄 {h.read} / {h.sitemapCount} pages lues
-              </span>
-              <span>🔎 {h.indexed == null ? "indexation non lue" : `${h.indexed} / ${h.inspected} indexées par Google`}</span>
-              <span>⏱️ {h.avgMs == null ? "—" : `${(h.avgMs / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} s`} de réponse en moyenne</span>
-              <span>🤖 {h.bots.filter((b) => !b.allowed).length ? `${h.bots.filter((b) => !b.allowed).length} robot(s) bloqué(s)` : "tous les robots passent"}</span>
-            </p>
-            {h.issues.length ? (
-              <ul className="ait-score__headlines">
-                {h.issues.map((i) => (
-                  <li key={i.code}>
-                    <details>
-                      <summary>
-                        {IMPACT_LABEL[i.impact]} · <strong>{i.label}</strong> — {i.count}
-                      </summary>
-                      <ul className="ait-method__sources">
-                        {i.pages.map((p) => (
-                          <li key={p}>{p}</li>
-                        ))}
-                        {i.count > i.pages.length && <li>… et {i.count - i.pages.length} autre(s)</li>}
-                      </ul>
-                    </details>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="ait-empty">Aucun problème relevé.</p>
-            )}
-            <details className="ait-obj__more">
-              <summary>Les robots des moteurs et des IA ({h.bots.filter((b) => b.allowed).length} / {h.bots.length} autorisés)</summary>
-              <ul className="ait-method__sources">
-                {h.bots.map((b) => (
-                  <li key={b.token}>
-                    {b.allowed ? "✅" : "⛔"} <strong>{b.token}</strong> — {b.who}
-                    {b.role === "entrainement" ? " (entraînement : un choix)" : ""}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          </>
-        ) : (
-          <p className="ait-empty">Pas encore de contrôle : le premier arrive le premier jour ouvré du mois, ou maintenant avec le bouton.</p>
-        )}
-      </section>
-      {view && (
-        <section className="ait-score">
-          <h3 className="ait-h3">🛠️ Ses tâches</h3>
-          <p className="ait-obj__text">{view.summary}</p>
+      {h ? (
+        <Kpis
+          items={[
+            { label: "📄 Pages lues", value: `${h.read} / ${h.sitemapCount}`, sub: `contrôle du ${shortDate(view!.at)}` },
+            { label: "🔎 Indexées par Google", value: h.indexed == null ? "—" : `${h.indexed} / ${h.inspected}`, sub: h.indexed == null ? "indexation non lue" : "pages vérifiées" },
+            { label: "⏱️ Temps de réponse", value: h.avgMs == null ? "—" : `${(h.avgMs / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} s`, sub: "en moyenne" },
+            { label: "⚠️ Problèmes relevés", value: h.issues.length, sub: blocked ? `${blocked} robot(s) bloqué(s)` : "tous les robots passent", alert: h.issues.some((x) => x.impact === "fort") || blocked > 0 },
+          ]}
+        />
+      ) : (
+        <p className="ait-empty">Pas encore de contrôle : le premier arrive le premier jour ouvré du mois, ou maintenant avec le bouton.</p>
+      )}
+      <Panes
+        panes={[
+          {
+            key: "taches",
+            label: "🛠️ Ses tâches",
+            badge: view?.findings.length,
+            body: view ? (
+              <section className="ait-score">
+                <p className="ait-obj__text">{view.summary}</p>
           <ol className="ait-objs">
             {view.findings.map((t, i) => (
               <li key={i} className="ait-obj">
@@ -1451,8 +1619,60 @@ function TechPanel({ m, chief, view }: { m: MemberView; chief: MemberView | unde
               </li>
             ))}
           </ol>
-        </section>
-      )}
+              </section>
+            ) : null,
+          },
+          {
+            key: "problemes",
+            label: "🔧 Problèmes",
+            badge: h?.issues.length,
+            body: h ? (
+              <section className="ait-score">
+            {h.issues.length ? (
+              <ul className="ait-score__headlines">
+                {h.issues.map((i) => (
+                  <li key={i.code}>
+                    <details>
+                      <summary>
+                        {IMPACT_LABEL[i.impact]} · <strong>{i.label}</strong> — {i.count}
+                      </summary>
+                      <ul className="ait-method__sources">
+                        {i.pages.map((p) => (
+                          <li key={p}>{p}</li>
+                        ))}
+                        {i.count > i.pages.length && <li>… et {i.count - i.pages.length} autre(s)</li>}
+                      </ul>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="ait-empty">Aucun problème relevé.</p>
+            )}
+              </section>
+            ) : null,
+          },
+          {
+            key: "robots",
+            label: "🤖 Robots",
+            badge: blocked,
+            body: h ? (
+              <section className="ait-score">
+                <p className="ait-meta">Les robots des moteurs et des IA : {h.bots.filter((b) => b.allowed).length} / {h.bots.length} autorisés.</p>
+              <ul className="ait-method__sources">
+                {h.bots.map((b) => (
+                  <li key={b.token}>
+                    {b.allowed ? "✅" : "⛔"} <strong>{b.token}</strong> — {b.who}
+                    {b.role === "entrainement" ? " (entraînement : un choix)" : ""}
+                  </li>
+                ))}
+              </ul>
+              </section>
+            ) : null,
+          },
+          ...extra,
+        ]}
+      />
     </div>
   );
 }
@@ -1464,7 +1684,9 @@ const TARGET_TYPE: Record<string, string> = { comparateur: "⚖️ Comparateur",
 const TARGET_STATE: Record<string, string> = { absent: "TIM absent", incomplet: "fiche incomplète", present: "TIM présent" };
 const TONE: Record<string, string> = { positif: "🙂", neutre: "😐", negatif: "🙁" };
 
-function AuthorityPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: AuthorityView }) {
+function AuthorityPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: MemberView | undefined; extra?: Pane[]; view: AuthorityView }) {
+  const absent = view ? view.findings.filter((t) => t.state === "absent").length : 0;
+  const negative = view ? view.mentions.filter((x) => x.tone === "negatif").length : 0;
   return (
     <div className="ait-panel">
       <Head
@@ -1481,9 +1703,23 @@ function AuthorityPanel({ m, chief, view }: { m: MemberView; chief: MemberView |
       {m.active && <AuthorityButton name={m.name} />}
       {view ? (
         <>
-          <section className="ait-score">
-            <h3 className="ait-h3">🔗 Ses cibles — {new Date(view.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}</h3>
-            <p className="ait-obj__text">{view.summary}</p>
+          <Kpis
+            items={[
+              { label: "🎯 Cibles", value: view.findings.length, sub: `rapport du ${shortDate(view.at)}` },
+              { label: "🚫 TIM absent", value: absent, sub: "sites où TIM devrait être", alert: absent > 0 },
+              { label: "🗞️ Pages qui nomment TIM", value: view.mentions.length, sub: "trouvées sur le web" },
+              { label: "🙁 Mentions négatives", value: negative, sub: negative ? "à lire en premier" : "aucune", alert: negative > 0 },
+            ]}
+          />
+          <Panes
+            panes={[
+              {
+                key: "cibles",
+                label: "🔗 Ses cibles",
+                badge: view.findings.length,
+                body: (
+                  <section className="ait-score">
+                    <p className="ait-obj__text">{view.summary}</p>
             <ol className="ait-objs">
               {view.findings.map((t, i) => (
                 <li key={i} className="ait-obj">
@@ -1515,9 +1751,15 @@ function AuthorityPanel({ m, chief, view }: { m: MemberView; chief: MemberView |
                 </li>
               ))}
             </ol>
-          </section>
-          <section className="ait-score">
-            <h3 className="ait-h3">🗞️ Là où TIM est nommé ({view.mentions.length})</h3>
+                  </section>
+                ),
+              },
+              {
+                key: "mentions",
+                label: "🗞️ Où TIM est nommé",
+                badge: view.mentions.length,
+                body: (
+                  <section className="ait-score">
             {view.mentions.length ? (
               <ul className="ait-score__headlines">
                 {view.mentions.map((x) => (
@@ -1532,12 +1774,18 @@ function AuthorityPanel({ m, chief, view }: { m: MemberView; chief: MemberView |
             ) : (
               <p className="ait-empty">Aucune page extérieure trouvée qui nomme TIM.</p>
             )}
-          </section>
+                  </section>
+                ),
+              },
+              ...extra,
+            ]}
+          />
         </>
       ) : (
-        <section className="ait-score">
+        <>
           <p className="ait-empty">Pas encore de rapport : le premier arrive après la mesure de Georges, au plus tard le 7 du mois — ou maintenant avec le bouton.</p>
-        </section>
+          <Panes panes={extra} />
+        </>
       )}
     </div>
   );
@@ -1551,12 +1799,16 @@ const nFr = (n: number | null | undefined) => (n == null ? "—" : n.toLocaleStr
 
 type SocialView = SocialState & { notice: string | null };
 
-function SocialPanel({ m, chief, view }: { m: MemberView; chief: MemberView | undefined; view: SocialView }) {
+function SocialPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: MemberView | undefined; extra?: Pane[]; view: SocialView }) {
   const r = view.report;
   const ms = r?.measure ?? null;
   const top = ms ? [...ms.posts].sort((a, b) => (b.views ?? b.likes) - (a.views ?? a.likes)).slice(0, 12) : [];
   const known = ms ? ms.people.filter((p) => p.match) : [];
   const others = ms ? ms.people.filter((p) => !p.match).slice(0, 15) : [];
+  const sum = (f: (n: NonNullable<typeof ms>["networks"][number]) => number | null | undefined) => (ms ? ms.networks.reduce((t, n) => t + (f(n) ?? 0), 0) : 0);
+  const views = sum((n) => n.views);
+  const before = sum((n) => n.previousViews);
+  const broken = view.accounts.filter((a) => a.status === "erreur").length;
   return (
     <div className="ait-panel">
       <Head
@@ -1570,13 +1822,27 @@ function SocialPanel({ m, chief, view }: { m: MemberView; chief: MemberView | un
         }
       />
       <PausedNote m={m} chief={chief} />
-      <SocialConnect accounts={view.accounts} youtubeReady={view.youtubeReady} notice={view.notice} />
       {m.active && <SocialButton name={m.name} />}
-      {r ? (
-        <>
-          <section className="ait-score">
-            <h3 className="ait-h3">🎬 Ses actions — {new Date(r.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" })}</h3>
-            <p className="ait-obj__text">{r.summary}</p>
+      {ms && (
+        <Kpis
+          items={[
+            { label: "👥 Abonnés", value: nFr(sum((n) => n.followers)), sub: ms.networks.map((n) => NET_LABEL[n.network]).join(" · ") || "aucun réseau lu" },
+            { label: "👀 Vues sur 28 jours", value: nFr(views), sub: before ? `avant : ${nFr(before)}` : "pas de période d'avant" },
+            { label: "💬 Interactions", value: nFr(sum((n) => n.interactions)), sub: `${sum((n) => n.posts)} publication(s) sur la période` },
+            { label: "⭐ Clients ou prospects qui réagissent", value: known.length, sub: known.length ? "déjà dans votre CRM : à relancer" : `${ms.people.length} commentaire(s) au total`, alert: known.length > 0 },
+          ]}
+        />
+      )}
+      <Panes
+        panes={[
+          {
+            key: "actions",
+            label: "🎬 Ses actions",
+            badge: r?.findings.length,
+            body: r ? (
+              <section className="ait-score">
+                <p className="ait-meta">Rapport du {shortDate(r.at)}</p>
+                <p className="ait-obj__text">{r.summary}</p>
             <ol className="ait-objs">
               {r.findings.map((x, i) => (
                 <li key={i} className="ait-obj">
@@ -1604,11 +1870,16 @@ function SocialPanel({ m, chief, view }: { m: MemberView; chief: MemberView | un
                 </li>
               ))}
             </ol>
-          </section>
-          {ms && (
-            <>
+              </section>
+            ) : (
+              <p className="ait-empty">Pas encore de rapport : le premier arrive le prochain jour ouvré dès 5 h — ou maintenant avec le bouton.</p>
+            ),
+          },
+          {
+            key: "publications",
+            label: "📊 Publications",
+            body: ms ? (
               <section className="ait-score">
-                <h3 className="ait-h3">📊 Les 28 derniers jours</h3>
                 {ms.networks.length ? (
                   <p className="ait-chips">
                     {ms.networks.map((n) => (
@@ -1688,8 +1959,14 @@ function SocialPanel({ m, chief, view }: { m: MemberView; chief: MemberView | un
                   </div>
                 )}
               </section>
+            ) : null,
+          },
+          {
+            key: "personnes",
+            label: "👥 Qui réagit",
+            badge: known.length,
+            body: ms ? (
               <section className="ait-score">
-                <h3 className="ait-h3">👥 Qui réagit ({ms.people.length})</h3>
                 <p className="ait-meta">Les réseaux ne disent pas qui regarde : seulement qui commente. Ceux qui sont déjà dans votre CRM d&apos;abord.</p>
                 {known.length > 0 && (
                   <ul className="ait-score__headlines">
@@ -1721,14 +1998,13 @@ function SocialPanel({ m, chief, view }: { m: MemberView; chief: MemberView | un
                   known.length === 0 && <p className="ait-empty">Aucun commentaire sur la période.</p>
                 )}
               </section>
-            </>
-          )}
-        </>
-      ) : (
-        <section className="ait-score">
-          <p className="ait-empty">Pas encore de rapport : le premier arrive le prochain jour ouvré dès 5 h — ou maintenant avec le bouton.</p>
-        </section>
-      )}
+            ) : null,
+          },
+          { key: "comptes", label: "🔌 Comptes", badge: broken, body: <SocialConnect accounts={view.accounts} youtubeReady={view.youtubeReady} notice={view.notice} /> },
+          ...extra,
+        ]}
+        initial={view.notice ? "comptes" : undefined}
+      />
     </div>
   );
 }
@@ -1736,7 +2012,10 @@ function SocialPanel({ m, chief, view }: { m: MemberView; chief: MemberView | un
 /* ─── Fiches ────────────────────────────────────────────────────────────── */
 
 /** L'en-tête de la fiche — figé en haut du panneau ; `note` : la phrase qui dit comment il travaille. */
-function Head({ m, note }: { m: MemberView; note?: React.ReactNode }) {
+/** Une fiche ouverte porte, pour un sous-agent, les consignes que son chef lui a données (carnet du chef). */
+type WithConsignes = MemberView & { consignes?: NoteRow[]; consignesFrom?: string };
+
+function Head({ m, note }: { m: WithConsignes; note?: React.ReactNode }) {
   return (
     <header className="ait-panel__head">
       <Face m={m} size={64} />
@@ -1754,6 +2033,23 @@ function Head({ m, note }: { m: MemberView; note?: React.ReactNode }) {
         <p className="ait-text">{m.specialty}</p>
       </Detail>
       {note ? <div className="ait-panel__note">{note}</div> : null}
+      {m.consignes && m.consignes.length > 0 && (
+        <div className="ait-consignes">
+          <strong>📣 Consignes reçues de {m.consignesFrom ?? "son chef"}</strong>
+          <ul>
+            {m.consignes.map((c) => (
+              <li key={c.id}>
+                {c.text}
+                <span className="ait-consignes__meta">
+                  {" "}
+                  · depuis le {dayFr(c.createdAt)}
+                  {c.reason ? ` · ${c.reason}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </header>
   );
 }
@@ -1896,35 +2192,158 @@ function Campaigns({ m, campaigns, open }: { m: MemberView; campaigns: CampaignC
   );
 }
 
-function ChiefPanel({ m, team, all, campaigns, campaign, chat, spend, scorecard, method, recos, mastery }: { m: MemberView; team: TeamView; all: boolean; campaigns: CampaignChip[]; campaign: string | null; chat: ChatMessage[]; spend: TeamSpend; scorecard: Scorecard | null; method: MethodState | null; recos: RecoView[]; mastery: TeamMastery }) {
+/* ─── Le carnet d'un chef ───────────────────────────────────────────────── */
+
+const dayFr = (iso: string) => new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" });
+const IDEA_BADGE: Record<string, string> = { retenue: "✅ retenue", "a-tester": "🧪 à tester", ecartee: "❌ écartée", imposee: "🫡 appliquée à votre demande" };
+const NOTE_GROUPS: { kind: NoteRow["kind"]; title: string; empty: string }[] = [
+  { kind: "consigne", title: "📣 Ses consignes à l'équipe", empty: "Aucune consigne en cours." },
+  { kind: "decision", title: "🏛️ Ses décisions", empty: "Aucune décision notée." },
+  { kind: "idee", title: "💬 Vos idées, et son verdict", empty: "Aucune idée de votre part notée." },
+  { kind: "conviction", title: "💡 Ses convictions", empty: "Aucune conviction notée." },
+  { kind: "suivi", title: "📌 À suivre", empty: "Rien à suivre." },
+];
+
+function NoteItem({ n, names }: { n: NoteRow; names: Map<string, string> }) {
+  const closed = n.status !== "active";
+  return (
+    <li className={`ait-note${closed ? " ait-note--closed" : ""}`}>
+      <div className="ait-note__top">
+        <span className="ait-note__text">
+          {n.kind === "consigne" && n.target ? <strong>{names.get(n.target) ?? "?"} · </strong> : null}
+          {n.text}
+        </span>
+        <span className="ait-note__badges">
+          {n.verdict && <span className={`ait-note__badge ait-note__badge--${n.verdict}`}>{IDEA_BADGE[n.verdict]}</span>}
+          {closed && <span className="ait-note__badge">{n.status === "terminee" ? "terminée" : "abandonnée"}</span>}
+        </span>
+      </div>
+      {n.reason && <p className="ait-note__why">{n.reason}</p>}
+      {n.disagreement && <p className="ait-note__why">⚠️ Son désaccord : {n.disagreement}</p>}
+      <p className="ait-note__meta">
+        {n.kind === "suivi" && n.dueAt ? `à revoir le ${dayFr(n.dueAt)} · ` : ""}noté le {dayFr(n.createdAt)}
+        {n.updatedAt.slice(0, 10) !== n.createdAt.slice(0, 10) ? ` · revu le ${dayFr(n.updatedAt)}` : ""} ·{" "}
+        <Link href={`/admin/collections/ai-team-notes/${n.id}`} prefetch={false}>
+          corriger
+        </Link>
+      </p>
+      {n.history.length > 1 && (
+        <Detail label={`Son histoire (${n.history.length})`}>
+          <ol className="ait-note__history">
+            {n.history.map((h, i) => (
+              <li key={i}>
+                <span className="ait-note__meta">{h.at ? dayFr(h.at) : ""}</span> {h.change}
+              </li>
+            ))}
+          </ol>
+        </Detail>
+      )}
+    </li>
+  );
+}
+
+/** Ce que le chef retient : ses consignes, décisions, vos idées et son verdict, convictions, points à suivre — et ce qui est clos. */
+function CarnetView({ m, notes, members }: { m: MemberView; notes: NoteRow[]; members: MemberView[] }) {
+  const names = new Map(members.map((x) => [String(x.id), x.name]));
+  const open = notes.filter((n) => n.status === "active" || (n.kind === "idee" && n.verdict === "ecartee"));
+  const closed = notes.filter((n) => !open.includes(n));
+  if (!notes.length) {
+    return <p className="ait-empty">Le carnet de {m.name} est vide : il se remplit au fil de vos échanges et de ses revues — vos idées, ses décisions, ses consignes à l&apos;équipe, ce que les chiffres lui apprennent.</p>;
+  }
+  return (
+    <section className="ait-carnet">
+      <p className="ait-meta">Ce que {m.name} retient d&apos;un échange à l&apos;autre. Vos idées, {m.name} les juge — et peut dire non ; ses décisions évoluent avec les chiffres.</p>
+      {NOTE_GROUPS.map((g) => {
+        const rows = open.filter((n) => n.kind === g.kind);
+        if (!rows.length) return null;
+        return (
+          <div key={g.kind} className="ait-carnet__group">
+            <h4 className="ait-method__h">{g.title}</h4>
+            <ul className="ait-notes">
+              {rows.map((n) => (
+                <NoteItem key={n.id} n={n} names={names} />
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+      {closed.length > 0 && (
+        <Detail label={`Clos depuis 60 jours (${closed.length})`}>
+          <ul className="ait-notes">
+            {closed.map((n) => (
+              <NoteItem key={n.id} n={n} names={names} />
+            ))}
+          </ul>
+        </Detail>
+      )}
+    </section>
+  );
+}
+
+/**
+ * La fiche d'un chef, à lire en quelques coups d'œil (14/11/2026) : quatre chiffres en haut (budget, meilleur
+ * canal, maîtrise, ce qui vous attend), ce qu'il faut décider, la conversation — et le détail rangé en onglets.
+ */
+function ChiefKpis({ m, team, spend, scorecard, mastery, openRecos }: { m: MemberView; team: TeamView; spend: TeamSpend; scorecard: Scorecard | null; mastery: MemberMastery | undefined; openRecos: number }) {
+  const budgetPct = spend.budgetEur ? Math.min(100, Math.round((spend.teamMonthEur / spend.budgetEur) * 100)) : null;
+  const best = scorecard?.rows.find((r) => r.key === scorecard.best);
+  const delta = mastery ? deltaOf(mastery) : null;
+  const waiting = team.pendingValidations + openRecos;
+  return (
+    <ul className="ait-kpis">
+      <li className="ait-kpi">
+        <span className="ait-kpi__label">💶 Budget IA du mois</span>
+        <strong className="ait-kpi__value">{eur(spend.teamMonthEur)}</strong>
+        <span className="ait-kpi__sub">{budgetPct != null ? `${budgetPct} % de ${eur(spend.budgetEur!)}` : "pas de budget fixé"}</span>
+        {budgetPct != null && (
+          <span className={`ait-kpi__gauge${budgetPct >= 80 ? " ait-kpi__gauge--high" : ""}`} aria-hidden>
+            <span style={{ width: `${budgetPct}%` }} />
+          </span>
+        )}
+      </li>
+      <li className="ait-kpi">
+        <span className="ait-kpi__label">🏆 Meilleur canal</span>
+        <strong className="ait-kpi__value">{best ? best.label : "—"}</strong>
+        <span className="ait-kpi__sub">{best?.now.costPerQualified != null ? `${eur0(best.now.costPerQualified)} le lead qualifié` : "pas encore assez de chiffres"}</span>
+      </li>
+      <li className="ait-kpi">
+        <span className="ait-kpi__label">🎓 Maîtrise</span>
+        <strong className="ait-kpi__value">
+          {mastery ? mastery.mastery.score : "—"}
+          <small>/100</small>
+        </strong>
+        <span className="ait-kpi__sub">{delta == null ? "courbe après deux lundis" : delta === 0 ? "stable depuis lundi" : `${delta > 0 ? "▲ +" : "▼ "}${delta} depuis lundi`}</span>
+      </li>
+      <li className={`ait-kpi${waiting ? " ait-kpi--alert" : ""}`}>
+        <span className="ait-kpi__label">🙋 Vous attend</span>
+        <strong className="ait-kpi__value">{waiting}</strong>
+        <span className="ait-kpi__sub">
+          {waiting ? [team.pendingValidations ? `${team.pendingValidations} créa${team.pendingValidations > 1 ? "s" : ""} à valider` : null, openRecos ? `${openRecos} reco${openRecos > 1 ? "s" : ""} à trancher` : null].filter(Boolean).join(" · ") : `rien à décider · ${m.monthMissions} mission${m.monthMissions > 1 ? "s" : ""} ce mois`}
+        </span>
+      </li>
+    </ul>
+  );
+}
+
+function ChiefPanel({ m, team, all, campaigns, campaign, chat, spend, scorecard, method, recos, mastery, notes }: { m: MemberView; team: TeamView; all: boolean; campaigns: CampaignChip[]; campaign: string | null; chat: ChatMessage[]; spend: TeamSpend; scorecard: Scorecard | null; method: MethodState | null; recos: RecoView[]; mastery: TeamMastery; notes: NoteRow[] }) {
   const now = new Date();
   const byKey = new Map(team.members.map((x) => [x.key, x]));
   const runs = all ? m.runs : m.runs.slice(0, SHORT);
   const feed = team.feed.slice(0, all ? 30 : 8);
-  return (
-    <div className="ait-panel">
-      <Head m={m} />
-      <PausedNote m={m} />
-      {team.pendingValidations > 0 && (
-        <Link href="/admin/publicite/a-valider" prefetch={false} className="ait-cta">
-          🙋 {m.name} attend votre avis sur {team.pendingValidations} créa{team.pendingValidations > 1 ? "s" : ""} — voir « À valider » →
-        </Link>
-      )}
-      {m.active && m.key === "chef-sea" && <ReviewButton name={m.name} />}
-      {m.active ? <ChatBox memberKey={m.key} name={m.name} portrait={m.portrait} initial={chat} /> : null}
-
-      {scorecard && <ScorecardView card={scorecard} members={team.members} />}
-
-      <MasteryView m={m} x={mastery[m.key]} />
-
-      {m.key === "chef-sea" && <Recos recos={recos} name={m.name} />}
-
-      <MethodView m={m} state={method} />
-
-      <Campaigns m={m} campaigns={campaigns} open={campaign} />
-
-      <Budget spend={spend} members={team.members} />
-
+  const openRecos = recos.filter((r) => r.status === "ouverte").length;
+  const isSea = m.key === "chef-sea";
+  const tabs: FicheTab[] = [
+    { key: "nouvelles", label: "📰 Nouvelles" },
+    { key: "carnet", label: "🧠 Carnet", badge: notes.filter((n) => n.kind === "consigne" && n.status === "active").length || undefined },
+    ...(scorecard ? [{ key: "canaux", label: "📊 Canaux" }] : []),
+    { key: "campagnes", label: "📣 Campagnes", badge: campaigns.length || undefined },
+    ...(isSea ? [{ key: "recos", label: "📏 Recommandations", badge: openRecos || undefined }] : []),
+    ...(VEILLE_DOMAINS[m.key] ? [{ key: "methode", label: "📘 Méthode" }] : []),
+    ...(mastery[m.key] ? [{ key: "maitrise", label: "🎓 Maîtrise" }] : []),
+    { key: "budget", label: "💶 Budget" },
+  ];
+  const panes: Record<string, React.ReactNode> = {
+    nouvelles: (
       <div className="ait-cols">
         <section>
           <h3 className="ait-h3">Ses nouvelles</h3>
@@ -1960,19 +2379,53 @@ function ChiefPanel({ m, team, all, campaigns, campaign, chat, spend, scorecard,
           {!all && team.feed.length > 8 && <More href={`${BASE}?membre=${m.key}&tout=1`} count={team.feed.length} label="Tout le fil" />}
         </section>
       </div>
+    ),
+    carnet: <CarnetView m={m} notes={notes} members={team.members} />,
+    canaux: scorecard ? <ScorecardView card={scorecard} members={team.members} /> : null,
+    campagnes: <Campaigns m={m} campaigns={campaigns} open={campaign} />,
+    recos: <Recos recos={recos} name={m.name} />,
+    methode: <MethodView m={m} state={method} />,
+    maitrise: <MasteryView m={m} x={mastery[m.key]} />,
+    budget: <Budget spend={spend} members={team.members} />,
+  };
+  return (
+    <div className="ait-panel">
+      <Head m={m} />
+      <PausedNote m={m} />
+      <ChiefKpis m={m} team={team} spend={spend} scorecard={scorecard} mastery={mastery[m.key]} openRecos={openRecos} />
+      {team.pendingValidations > 0 && (
+        <Link href="/admin/publicite/a-valider" prefetch={false} className="ait-cta">
+          🙋 {team.pendingValidations} créa{team.pendingValidations > 1 ? "s" : ""} à valider →
+        </Link>
+      )}
+      {m.active && isSea && <ReviewButton name={m.name} />}
+      {m.active ? <ChatBox memberKey={m.key} name={m.name} portrait={m.portrait} initial={chat} /> : null}
+      <FicheTabs tabs={tabs} initial={campaign ? "campagnes" : all ? "nouvelles" : undefined}>
+        {tabs.map((t) => (
+          <div key={t.key}>{panes[t.key]}</div>
+        ))}
+      </FicheTabs>
     </div>
   );
 }
 
-function SubPanel({ m, chief, all, spend, scorecard, members, gads, oads, method, trends, mastery, analyst, competition, content, visibility, tech, authority, social }: { m: MemberView; chief: MemberView | undefined; all: boolean; spend: MemberSpend | undefined; scorecard: Scorecard | null; members: MemberView[]; gads: SourceResult<GoogleAdsView> | null; oads: SourceResult<OpenAiAdsView> | null; method: MethodState | null; trends: string[]; mastery: TeamMastery; analyst: AnalystView | null; competition: CompetitionView | null; content: ContentView | null; visibility: VisibilityState | null; tech: TechView | undefined; authority: AuthorityView | undefined; social: SocialView | undefined }) {
-  if (m.key === "seo-reseaux" && social !== undefined) return <SocialPanel m={m} chief={chief} view={social} />;
-  if (m.key === "seo-autorite" && authority !== undefined) return <AuthorityPanel m={m} chief={chief} view={authority} />;
-  if (m.key === "seo-technique" && tech !== undefined) return <TechPanel m={m} chief={chief} view={tech} />;
-  if (m.key === "seo-visibilite-ia" && visibility) return <VisibilityPanel m={m} chief={chief} view={visibility} />;
-  if (m.key === "seo-contenu" && content) return <ContentPanel m={m} chief={chief} view={content} />;
-  if (m.key === "seo-concurrence" && competition) return <CompetitionPanel m={m} chief={chief} view={competition} />;
-  if (m.key === "seo-analyste" && analyst) return <AnalystPanel m={m} chief={chief} view={analyst} />;
-  if (m.key === "sea-chatgpt") {
+function SubPanel({ m, chief, all, spend, scorecard, members, gads, oads, method, trends, mastery, analyst, competition, content, visibility, tech, authority, social }: { m: WithConsignes; chief: MemberView | undefined; all: boolean; spend: MemberSpend | undefined; scorecard: Scorecard | null; members: MemberView[]; gads: SourceResult<GoogleAdsView> | null; oads: SourceResult<OpenAiAdsView> | null; method: MethodState | null; trends: string[]; mastery: TeamMastery; analyst: AnalystView | null; competition: CompetitionView | null; content: ContentView | null; visibility: VisibilityState | null; tech: TechView | undefined; authority: AuthorityView | undefined; social: SocialView | undefined }) {
+  // Comme toute l'équipe : sa maîtrise sur 100, et sa méthode réécrite chaque semaine après sa veille.
+  const grow: Pane[] = [
+    { key: "maitrise", label: "🎓 Maîtrise", body: mastery[m.key] ? <MasteryView m={m} x={mastery[m.key]} /> : null },
+    { key: "methode", label: "📘 Méthode", body: VEILLE_DOMAINS[m.key] ? <MethodView m={m} state={method} /> : null },
+  ];
+  if (m.key === "seo-reseaux" && social !== undefined) return <SocialPanel m={m} chief={chief} extra={grow} view={social} />;
+  if (m.key === "seo-autorite" && authority !== undefined) return <AuthorityPanel m={m} chief={chief} extra={grow} view={authority} />;
+  if (m.key === "seo-technique" && tech !== undefined) return <TechPanel m={m} chief={chief} extra={grow} view={tech} />;
+  if (m.key === "seo-visibilite-ia" && visibility) return <VisibilityPanel m={m} chief={chief} extra={grow} view={visibility} />;
+  if (m.key === "seo-contenu" && content) return <ContentPanel m={m} chief={chief} extra={grow} view={content} />;
+  if (m.key === "seo-concurrence" && competition) return <CompetitionPanel m={m} chief={chief} extra={grow} view={competition} />;
+  if (m.key === "seo-analyste" && analyst) return <AnalystPanel m={m} chief={chief} extra={grow} view={analyst} />;
+  // Thomas et Sarah lisent une régie en lecture seule ; Yanis tient la fiche des canaux.
+  if (m.key === "sea-google" || m.key === "sea-chatgpt") {
+    const google = m.key === "sea-google";
+    const f = google ? googleAdsFiche(gads, chief) : openAiAdsFiche(oads, chief);
     return (
       <div className="ait-panel">
         <Head
@@ -1980,39 +2433,32 @@ function SubPanel({ m, chief, all, spend, scorecard, members, gads, oads, method
           note={
             chief && (
               <p className="ait-reports">
-                <Face m={chief} size={22} /> Sarah lit le compte ChatGPT Ads en lecture seule et remet ses constats à {chief.name} ; les changements passent par vous, dans le Gestionnaire de publicités.
+                <Face m={chief} size={22} /> {m.name} lit le compte {google ? "Google Ads" : "ChatGPT Ads"} en lecture seule et remet ses constats à {chief.name} ; les changements passent par vous, dans {google ? "la console Google Ads" : "le Gestionnaire de publicités"}.
               </p>
             )
           }
         />
-        <MasteryView m={m} x={mastery[m.key]} />
-        {oads ? <OpenAiAdsPanel oads={oads} chief={chief} /> : <p className="ait-empty">ChatGPT Ads n&apos;a pas pu être lu pour l&apos;instant.</p>}
-        <Trends lines={trends} />
-        <MethodView m={m} state={method} />
-      </div>
-    );
-  }
-  if (m.key === "sea-google") {
-    return (
-      <div className="ait-panel">
-        <Head
-          m={m}
-          note={
-            chief && (
-              <p className="ait-reports">
-                <Face m={chief} size={22} /> Thomas lit le compte Google Ads en lecture seule et remet ses constats à {chief.name} ; les changements passent par vous, dans la console Google Ads.
-              </p>
-            )
-          }
+        <PausedNote m={m} chief={chief} />
+        {f.problem}
+        {f.kpis.length > 0 && <Kpis items={f.kpis} />}
+        <Panes
+          panes={[
+            ...f.panes,
+            { key: "tendances", label: "📈 Tendances", body: <Trends lines={trends} /> },
+            { key: "maitrise", label: "🎓 Maîtrise", body: mastery[m.key] ? <MasteryView m={m} x={mastery[m.key]} /> : null },
+            { key: "methode", label: "📘 Méthode", body: VEILLE_DOMAINS[m.key] ? <MethodView m={m} state={method} /> : null },
+          ]}
         />
-        <MasteryView m={m} x={mastery[m.key]} />
-        {gads ? <GoogleAdsPanel gads={gads} chief={chief} /> : <p className="ait-empty">Google Ads n&apos;a pas pu être lu pour l&apos;instant.</p>}
-        <Trends lines={trends} />
-        <MethodView m={m} state={method} />
+        {f.footer}
       </div>
     );
   }
   if (m.key === "sea-mesure") {
+    const rows = scorecard?.rows ?? [];
+    const best = rows.find((r) => r.key === scorecard?.best);
+    const leads = rows.reduce((n, r) => n + r.now.leads, 0);
+    const qualified = rows.reduce((n, r) => n + r.now.qualified, 0);
+    const won = rows.reduce((n, r) => n + r.now.won, 0);
     return (
       <div className="ait-panel">
         <Head
@@ -2026,13 +2472,53 @@ function SubPanel({ m, chief, all, spend, scorecard, members, gads, oads, method
           }
         />
         <PausedNote m={m} chief={chief} />
-        <MasteryView m={m} x={mastery[m.key]} />
-        {scorecard ? <ScorecardView card={scorecard} members={members} /> : <p className="ait-empty">La fiche n&apos;a pas pu être calculée pour l&apos;instant.</p>}
+        {scorecard ? (
+          <Kpis
+            items={[
+              { label: "🏆 Meilleur canal", value: best?.label ?? "—", sub: best?.now.costPerQualified != null ? `${eur0(best.now.costPerQualified)} le lead qualifié` : "pas encore assez de chiffres" },
+              { label: `📝 Leads sur ${scorecard.window.months} mois`, value: leads, sub: "tous canaux" },
+              { label: "✅ Leads qualifiés", value: qualified, sub: leads ? `${Math.round((qualified / leads) * 100)} % des leads` : "—" },
+              { label: "🤝 Clients signés", value: won, sub: qualified ? `${Math.round((won / qualified) * 100)} % des qualifiés` : "—" },
+            ]}
+          />
+        ) : (
+          <p className="ait-empty">La fiche n&apos;a pas pu être calculée pour l&apos;instant.</p>
+        )}
+        <Panes
+          panes={[
+            { key: "fiche", label: "📊 Fiche des canaux", body: scorecard ? <ScorecardView card={scorecard} members={members} /> : null },
+            { key: "maitrise", label: "🎓 Maîtrise", body: mastery[m.key] ? <MasteryView m={m} x={mastery[m.key]} /> : null },
+          ]}
+        />
       </div>
     );
   }
   const now = new Date();
   const missions = all ? m.missions : m.missions.slice(0, SHORT);
+  const x = mastery[m.key];
+  const tabs: FicheTab[] = [
+    { key: "echanges", label: `💬 Échanges avec ${chief?.name ?? "sa cheffe"}`, badge: m.missions.length || undefined },
+    ...(x ? [{ key: "maitrise", label: "🎓 Maîtrise" }] : []),
+    ...(VEILLE_DOMAINS[m.key] ? [{ key: "methode", label: "📘 Méthode" }] : []),
+  ];
+  const panes: Record<string, React.ReactNode> = {
+    echanges: (
+      <>
+        {missions.length ? (
+          <ol className="ait-threads">
+            {missions.map((t) => (
+              <MissionThread key={String(t.id)} x={t} m={m} chief={chief} now={now} />
+            ))}
+          </ol>
+        ) : (
+          <p className="ait-empty">Pas encore de mission.</p>
+        )}
+        {!all && m.missions.length > SHORT && <More href={`${BASE}?membre=${m.key}&tout=1`} count={m.missions.length} label="Tous ses échanges" />}
+      </>
+    ),
+    maitrise: <MasteryView m={m} x={x} />,
+    methode: <MethodView m={m} state={method} />,
+  };
   return (
     <div className="ait-panel">
       <Head
@@ -2040,38 +2526,66 @@ function SubPanel({ m, chief, all, spend, scorecard, members, gads, oads, method
         note={
           chief && (
             <p className="ait-reports">
-              <Face m={chief} size={22} /> Pas de conversation directe : les missions viennent de {chief.name}, et le travail lui est rendu.
+              <Face m={chief} size={22} /> {m.name} reçoit ses missions de {chief.name} et lui rend son travail. Une consigne pour {m.name} ? Dites-la à {chief.name}.
             </p>
           )
         }
       />
       <PausedNote m={m} chief={chief} />
-      {spend && (
-        <p className="ait-budget__mine">
-          💼 Ce mois, {chief?.name ?? "sa cheffe"} lui a confié <strong>{eur(spend.month.budgetEur)}</strong> pour {spend.month.missions} mission{spend.month.missions > 1 ? "s" : ""} : <strong>{eur3(spend.month.spentEur)}</strong> dépensés
-          {spend.month.usedPct != null ? ` (${spend.month.usedPct} %)` : ""}.
-        </p>
-      )}
-      <MasteryView m={m} x={mastery[m.key]} />
-      <MethodView m={m} state={method} />
-      <h3 className="ait-h3">Ses échanges avec {chief?.name ?? "sa cheffe"}</h3>
-      {missions.length ? (
-        <ol className="ait-threads">
-          {missions.map((x) => (
-            <MissionThread key={String(x.id)} x={x} m={m} chief={chief} now={now} />
-          ))}
-        </ol>
-      ) : (
-        <p className="ait-empty">Pas encore de mission.</p>
-      )}
-      {!all && m.missions.length > SHORT && <More href={`${BASE}?membre=${m.key}&tout=1`} count={m.missions.length} label="Tous ses échanges" />}
+      <SubKpis m={m} chief={chief} spend={spend} mastery={x} now={now} />
+      <FicheTabs tabs={tabs} initial={all ? "echanges" : undefined}>
+        {tabs.map((t) => (
+          <div key={t.key}>{panes[t.key]}</div>
+        ))}
+      </FicheTabs>
     </div>
+  );
+}
+
+/** Les quatre chiffres d'un sous-agent : son budget confié, ses missions, sa maîtrise, les consignes en cours de son chef. */
+function SubKpis({ m, chief, spend, mastery, now }: { m: WithConsignes; chief: MemberView | undefined; spend: MemberSpend | undefined; mastery: MemberMastery | undefined; now: Date }) {
+  const used = spend?.month.usedPct ?? null;
+  const delta = mastery ? deltaOf(mastery) : null;
+  const last = m.missions[0];
+  const consignes = m.consignes?.length ?? 0;
+  return (
+    <ul className="ait-kpis">
+      <li className="ait-kpi">
+        <span className="ait-kpi__label">💼 Budget confié ce mois</span>
+        <strong className="ait-kpi__value">{spend ? eur3(spend.month.spentEur) : "—"}</strong>
+        <span className="ait-kpi__sub">{spend && spend.month.budgetEur ? `dépensés sur ${eur(spend.month.budgetEur)} confiés` : "rien de confié ce mois"}</span>
+        {used != null && (
+          <span className={`ait-kpi__gauge${used >= 80 ? " ait-kpi__gauge--high" : ""}`} aria-hidden>
+            <span style={{ width: `${Math.min(100, used)}%` }} />
+          </span>
+        )}
+      </li>
+      <li className="ait-kpi">
+        <span className="ait-kpi__label">🎯 Missions ce mois</span>
+        <strong className="ait-kpi__value">{m.monthMissions}</strong>
+        <span className="ait-kpi__sub">{last ? `dernière ${ago(last.at, now)} · ${STATUS_PHRASES[last.status] ?? last.status}` : "aucune mission encore"}</span>
+      </li>
+      <li className="ait-kpi">
+        <span className="ait-kpi__label">🎓 Maîtrise</span>
+        <strong className="ait-kpi__value">
+          {mastery ? mastery.mastery.score : "—"}
+          <small>/100</small>
+        </strong>
+        <span className="ait-kpi__sub">{delta == null ? "courbe après deux lundis" : delta === 0 ? "stable depuis lundi" : `${delta > 0 ? "▲ +" : "▼ "}${delta} depuis lundi`}</span>
+      </li>
+      <li className={`ait-kpi${consignes ? " ait-kpi--alert" : ""}`}>
+        <span className="ait-kpi__label">📣 Consignes en cours</span>
+        <strong className="ait-kpi__value">{consignes}</strong>
+        <span className="ait-kpi__sub">{consignes ? `de ${chief?.name ?? "son chef"}, jointes à chaque mission` : `aucune consigne de ${chief?.name ?? "son chef"}`}</span>
+      </li>
+    </ul>
   );
 }
 
 function Report({
   team,
   selected,
+  bureau,
   all,
   campaigns,
   campaign,
@@ -2092,9 +2606,11 @@ function Report({
   tech,
   authority,
   social,
+  notes,
 }: {
   team: TeamView & { spend: TeamSpend };
   selected: string | null;
+  bureau: string | null;
   all: boolean;
   campaigns: CampaignChip[];
   campaign: string | null;
@@ -2115,11 +2631,15 @@ function Report({
   tech: TechView | undefined;
   authority: AuthorityView | undefined;
   social: SocialView | undefined;
+  notes: NoteRow[];
 }) {
   // Un chef par domaine (SEA, SEO/GEO), chacun avec son équipe.
   const chiefs = team.members.filter((m) => m.level === "chef");
   // La fiche ne s'ouvre (en panneau) que sur un agent choisi : sans choix, l'organigramme seul.
   const current = team.members.find((m) => m.key === selected);
+  // Un bureau par chef : on en ouvre un à la fois, et son équipe prend toute la largeur. Le bureau ouvert est celui
+  // de l'adresse (?bureau=…), sinon celui de l'agent dont la fiche est ouverte (lien d'une demande, d'un e-mail).
+  const office = chiefs.find((c) => c.key === bureau) ?? (current ? chiefs.find((c) => c.key === current.key || String(c.id) === String(current.chiefId)) : undefined);
   const missions = team.members.reduce((n, m) => n + m.monthMissions, 0);
   const working = team.members.filter((m) => m.state === "travail");
   const people = Object.fromEntries(team.members.map((m) => [m.key, { name: m.name, portrait: m.portrait }]));
@@ -2134,34 +2654,40 @@ function Report({
         <span className="ait-org__direction">Direction</span>
         <div className="ait-orgs__teams">
           {chiefs.map((chief) => {
-            const subs = team.members.filter((m) => m.level === "sous-agent" && String(m.chiefId) === String(chief.id));
+            const open = office?.key === chief.key;
             return (
-              <div key={chief.key} className="ait-org">
+              <div key={chief.key} className={`ait-office${open ? " ait-office--open" : ""}`}>
                 <span className="ait-org__line" aria-hidden />
-                <MemberCard m={chief} on={current?.key === chief.key} big spend={team.spend} mastery={mastery[chief.key]} extra={chief.key === "chef-seo" && seo ? <SeoCardExtra m={chief} seo={seo} /> : undefined} />
-                {subs.length > 0 && <span className="ait-org__line" aria-hidden />}
-                {TEAM_GROUPS.map((g) => {
-                  const row = subs.filter((m) => m.group === g.value);
-                  if (!row.length) return null;
-                  return (
-                    <div key={g.value} className="ait-org__group">
-                      <span className="ait-org__label">{g.label}</span>
-                      <div className="ait-org__subs">
-                        {row.map((m) => (
-                          <MemberCard key={m.key} m={m} on={current?.key === m.key} spend={team.spend} mastery={mastery[m.key]} />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
+                <span className="ait-office__plate">Bureau de {chief.name}</span>
+                <MemberCard m={chief} on={open} big spend={team.spend} mastery={mastery[chief.key]} expanded={open} extra={chief.key === "chef-seo" && seo ? <SeoCardExtra m={chief} seo={seo} /> : undefined} />
               </div>
             );
           })}
         </div>
+        {office && (
+          <section className="ait-staff" aria-label={`L'équipe de ${office.name}`}>
+            <span className="ait-org__line" aria-hidden />
+            <h2 className="ait-staff__title">L&apos;équipe de {office.name}</h2>
+            {TEAM_GROUPS.map((g) => {
+              const row = team.members.filter((m) => m.level === "sous-agent" && String(m.chiefId) === String(office.id) && m.group === g.value);
+              if (!row.length) return null;
+              return (
+                <div key={g.value} className="ait-org__group">
+                  <span className="ait-org__label">{g.label}</span>
+                  <div className="ait-org__subs">
+                    {row.map((m) => (
+                      <MemberCard key={m.key} m={m} on={current?.key === m.key} wide spend={team.spend} mastery={mastery[m.key]} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </section>
+        )}
       </div>
       {current && (
-        <Drawer label={`Fiche de ${current.name}`} closeHref={BASE}>
-          {current.key === "chef-seo" && seo ? <SeoChiefPanel m={current} seo={seo} chat={chat} /> : current.level === "chef" ? <ChiefPanel m={current} team={team} all={all} campaigns={campaigns} campaign={campaign} chat={chat} spend={team.spend} scorecard={scorecard} method={method} recos={recos} mastery={mastery} /> : <SubPanel m={current} chief={team.members.find((x) => x.id === current.chiefId)} all={all} spend={team.spend.members.find((x) => x.key === current.key)} scorecard={scorecard} members={team.members} gads={gads} oads={oads} method={method} trends={trends} mastery={mastery} analyst={analyst} competition={competition} content={content} visibility={visibility} tech={tech} authority={authority} social={social} />}
+        <Drawer label={`Fiche de ${current.name}`} closeHref={office ? `${BASE}?bureau=${office.key}` : BASE}>
+          {current.key === "chef-seo" && seo ? <SeoChiefPanel m={current} seo={seo} chat={chat} notes={notes} members={team.members} mastery={mastery} method={method} /> : current.level === "chef" ? <ChiefPanel m={current} team={team} all={all} campaigns={campaigns} campaign={campaign} chat={chat} spend={team.spend} scorecard={scorecard} method={method} recos={recos} mastery={mastery} notes={notes} /> : <SubPanel m={{ ...current, consignes: notes, consignesFrom: team.members.find((x) => x.id === current.chiefId)?.name }} chief={team.members.find((x) => x.id === current.chiefId)} all={all} spend={team.spend.members.find((x) => x.key === current.key)} scorecard={scorecard} members={team.members} gads={gads} oads={oads} method={method} trends={trends} mastery={mastery} analyst={analyst} competition={competition} content={content} visibility={visibility} tech={tech} authority={authority} social={social} />}
         </Drawer>
       )}
     </>
@@ -2241,11 +2767,11 @@ const loadRecos = (payload: Payload): Promise<RecoView[]> =>
 /** La conversation d'un chef : ses 40 derniers messages, dans l'ordre. */
 const loadChat = (payload: Payload, memberId: number | string): Promise<ChatMessage[]> =>
   payload
-    .find({ collection: "ai-team-messages", where: { member: { equals: memberId } }, sort: "-createdAt", limit: 40, depth: 0, overrideAccess: true, select: { from: true, text: true, createdAt: true } as never })
+    .find({ collection: "ai-team-messages", where: { member: { equals: memberId } }, sort: "-createdAt", limit: 40, depth: 0, overrideAccess: true, select: { from: true, text: true, createdAt: true, noted: true } as never })
     .then((r) =>
-      (r.docs as unknown as { id: number; from: "direction" | "agent"; text: string; createdAt: string }[])
+      (r.docs as unknown as { id: number; from: "direction" | "agent"; text: string; createdAt: string; noted?: unknown }[])
         .reverse()
-        .map((d) => ({ id: String(d.id), from: d.from, text: d.text, at: d.createdAt })),
+        .map((d) => ({ id: String(d.id), from: d.from, text: d.text, at: d.createdAt, ...(Array.isArray(d.noted) ? { noted: d.noted.map(String) } : {}) })),
     );
 
 /** La méthode d'un agent : sa version du moment, sa dernière veille (en cours, en échec), combien de versions faites. */
@@ -2302,7 +2828,7 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
   ]);
   // Seconde vague : ce qui dépend de l'agent ouvert ou de la fiche.
   const member = team?.members.find((x) => x.key === selected);
-  const [method, mastery, chat, seo, analyst, competition, content, visibility, tech, authority, social] = await Promise.all([
+  const [method, mastery, chat, seo, analyst, competition, content, visibility, tech, authority, social, notes] = await Promise.all([
     member && VEILLE_DOMAINS[member.key] ? loadMethodState(req.payload, member.id) : null,
     allowed ? loadTeamMastery(req.payload, scorecard, new Date(), snaps) : ({} as TeamMastery),
     member?.level === "chef" ? loadChat(req.payload, member.id) : ([] as ChatMessage[]),
@@ -2321,6 +2847,8 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
     only("seo-autorite") ? latestAuthority(req.payload) : undefined,
     // Cléo : les comptes branchés, son dernier rapport et la mesure qu'il a lue.
     only("seo-reseaux") ? socialState(req.payload).then((v) => ({ ...v, notice: typeof sp?.youtube === "string" ? sp.youtube : null })) : undefined,
+    // Le carnet du chef ouvert ; pour un sous-agent, les consignes que son chef lui a données.
+    !allowed || !member ? ([] as NoteRow[]) : member.level === "chef" ? loadCarnet(req.payload, member.id, new Date()) : consignesOf(req.payload, member.id),
   ]);
   const trends = only("sea-google") || only("sea-chatgpt") ? adsTrends(snaps, selected === "sea-google" ? "google" : "chatgpt") : [];
 
@@ -2341,7 +2869,7 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
             <h1 className="ait-title">Équipe IA</h1>
             <p className="ait-sub">Vous parlez aux chefs ; chaque sous-agent reçoit ses missions de son chef et lui rend son travail.</p>
           </header>
-          {team ? <Report team={team} selected={selected} all={all} campaigns={campaigns} campaign={campaign} chat={chat} inbox={inbox} scorecard={scorecard} gads={gads} oads={oads} method={method} trends={trends} recos={recos} mastery={mastery} seo={seo} analyst={analyst} competition={competition} content={content} visibility={visibility} tech={tech} authority={authority} social={social} /> : <p className="ait-empty">Cet écran est réservé à la direction.</p>}
+          {team ? <Report team={team} selected={selected} bureau={typeof sp?.bureau === "string" ? sp.bureau : null} all={all} campaigns={campaigns} campaign={campaign} chat={chat} inbox={inbox} scorecard={scorecard} gads={gads} oads={oads} method={method} trends={trends} recos={recos} mastery={mastery} seo={seo} analyst={analyst} competition={competition} content={content} visibility={visibility} tech={tech} authority={authority} social={social} notes={notes} /> : <p className="ait-empty">Cet écran est réservé à la direction.</p>}
         </div>
       </Gutter>
     </DefaultTemplate>

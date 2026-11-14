@@ -75,6 +75,20 @@ export async function recentVerdicts(payload: Payload, now: Date, channel?: stri
 }
 
 /**
+ * Les verdicts de Serge sur les objectifs SEO/GEO des 12 dernières semaines — ceux qui reprenaient l'action de
+ * `key` (tous pour Serge). Ce sont les preuves de l'équipe SEO, comme les verdicts des recommandations pour le SEA.
+ */
+export async function seoVerdicts(payload: Payload, now: Date, key?: string | null) {
+  const res = await payload
+    .find({ collection: "ai-team-objectives", where: { and: [{ outcome: { exists: true } }, { verdictAt: { greater_than_equal: new Date(now.getTime() - 84 * DAY_MS).toISOString() } }] }, sort: "-verdictAt", limit: 30, depth: 0, overrideAccess: true, select: { title: true, page: true, proposedBy: true, outcome: true, verdict: true, verdictAt: true } as never })
+    .then((r) => r.docs as unknown as Record<string, unknown>[])
+    .catch(() => []);
+  return res
+    .filter((r) => !key || key === "chef-seo" || r.proposedBy === key)
+    .map((r) => ({ le: String(r.verdictAt ?? "").slice(0, 10), objectif: r.title, page: r.page, proposePar: r.proposedBy ?? null, resultat: r.outcome, lecon: r.verdict }));
+}
+
+/**
  * Ce que Margaux lit des méthodes de l'équipe : la sienne en entier, et pour
  * chaque agent ce qui a changé et ses idées à tester. `keys` : les agents qui
  * font une veille. Une lecture qui échoue ne casse rien.
