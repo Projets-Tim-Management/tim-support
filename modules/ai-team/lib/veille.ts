@@ -9,7 +9,7 @@ import type { Scorecard } from "@/modules/ai-team/lib/scorecard";
 import { cachedScorecard, latestMethods } from "@/modules/ai-team/lib/shared-data";
 import { allTrends, loadSnapshots } from "@/modules/ai-team/lib/snapshots";
 import { INTERRUPTED, isPeriodDone, staleBefore } from "@/modules/ai-team/lib/stale";
-import { VEILLE_DOMAINS, VEILLE_KEYS } from "@/modules/ai-team/lib/veille-domains";
+import { SOCLES, spendKindOf, type TeamKey, VEILLE_DOMAINS, VEILLE_KEYS } from "@/modules/ai-team/lib/veille-domains";
 import { runWebModel, sourcesOf, tagOf, WebRunError, type WebCall } from "@/modules/ai-team/lib/web-model";
 
 
@@ -49,8 +49,8 @@ const VEILLE_WEEKDAY = 7;
 const VEILLE_HOUR = 20;
 
 /** La consigne de la veille ; `team` : l'équipe de l'agent, `repere` : le repère du marché qu'il cherche. Pure (testée). */
-export const veilleSystem = (team: "sea" | "seo", repere: string) => [
-  `Tu es un agent IA de l'équipe ${team === "seo" ? "SEO/GEO (visibilité gratuite : Google, les IA, les réseaux)" : "SEA (publicité payante)"} de TIM Management (tim-management.co), éditeur d'un logiciel de gestion pour les entreprises du BTP, vendu en France : un prospect demande une démo, une démo bien menée devient un client.`,
+export const veilleSystem = (team: TeamKey, repere: string) => [
+  `Tu es un agent IA de l'équipe ${team === "seo" ? "SEO/GEO (visibilité gratuite : Google, les IA, les réseaux)" : team === "com" ? "commerciale (le pipeline, les essais, les clients en place : le revenu)" : "SEA (publicité payante)"} de TIM Management (tim-management.co), éditeur d'un logiciel de gestion pour les entreprises du BTP, vendu en France : un prospect demande une démo, une démo bien menée devient un client.`,
   "C'est ta veille de la semaine. Ton but : devenir, semaine après semaine, le meilleur dans ton domaine POUR TIM — pas en général. Les meilleurs de ton métier se tiennent à jour chaque semaine : toi aussi.",
   "1. Relis ta méthode actuelle et les chiffres de TIM joints.",
   `2. Cherche sur le web (au plus ${MAX_SEARCHES} recherches) — d'abord CE QUI A CHANGÉ depuis ta dernière veille :`,
@@ -123,6 +123,7 @@ type Raw = Record<string, unknown>;
 async function veilleData(payload: Payload, key: string, now: Date, card: Scorecard | null) {
   const { channel, team } = VEILLE_DOMAINS[key];
   if (team === "seo") return seoVeilleData(payload, key, now, card);
+  if (team === "com") return import("@/modules/ai-team/lib/commercial").then((m) => m.comVeilleData(payload, key, now));
   // Les preuves de TIM : les tendances des photos du lundi, les verdicts des recommandations appliquées, son score.
   const [snaps, verdicts, readers] = await Promise.all([
     loadSnapshots(payload),
@@ -130,7 +131,7 @@ async function veilleData(payload: Payload, key: string, now: Date, card: Scorec
     channel === "google" || channel === "chatgpt" ? loadAdsReaders(payload, now, channel) : null,
   ]);
   const trends = allTrends(snaps);
-  const mine = (await loadTeamMastery(payload, card, now, snaps))[key];
+  const mine = (await loadTeamMastery(payload, card, now, snaps, { keys: [key] }))[key];
   return {
     aujourdhui: now.toISOString().slice(0, 10),
     maMaitrise: mine ? masteryForModel(mine) : "pas encore calculée",
@@ -154,6 +155,7 @@ const SEO_LATEST: Record<string, (payload: Payload, now: Date) => Promise<{ summ
   "seo-technique": (p, n) => import("@/modules/ai-team/lib/site-health").then((m) => m.latestTech(p, n)),
   "seo-autorite": (p, n) => import("@/modules/ai-team/lib/authority").then((m) => m.latestAuthority(p, n)),
   "seo-reseaux": (p, n) => import("@/modules/ai-team/lib/social").then((m) => m.latestSocial(p, n)),
+  "seo-conversion": (p, n) => import("@/modules/ai-team/lib/conversion").then((m) => m.latestConversion(p, n)),
 };
 
 async function seoVeilleData(payload: Payload, key: string, now: Date, card: Scorecard | null) {
@@ -161,7 +163,7 @@ async function seoVeilleData(payload: Payload, key: string, now: Date, card: Sco
     import("@/modules/ai-team/lib/funnel").then((m) => m.loadFunnel(payload, now).then((f) => (f ? m.funnelForModel(f) : null))).catch(() => null),
     SEO_LATEST[key]?.(payload, now).catch(() => null) ?? null,
     seoVerdicts(payload, now, key),
-    loadTeamMastery(payload, card, now),
+    loadTeamMastery(payload, card, now, undefined, { keys: [key] }),
   ]);
   return {
     aujourdhui: now.toISOString().slice(0, 10),
@@ -200,7 +202,10 @@ export async function runVeille(payload: Payload, key: string, opts: { now?: Dat
     const [data, previous] = await Promise.all([veilleData(payload, key, now, card), latestMethods(payload, [member.id], true).then((m) => m.get(String(member.id)) ?? null)]);
     const user = [
       `Tu es ${member.name}. Ton domaine : ${domain.focus}`,
-      `<donnees>\n${JSON.stringify({ chiffresDeTim: data }).replace(/<\/?donnees>/g, "")}\n</donnees>`,
+      SOCLES[key]?.length ? `Ton SOCLE de méthode (les règles de fond de ton métier, adaptées à TIM) — garde-le dans ta méthode, sauf si ta veille ou les chiffres de TIM le contredisent preuve à l'appui :\n${SOCLES[key].map((x) => `- ${x}`).join("\n")}` : "",
+      `<donnees>\n${JSON.stringify({ chiffresDeTim: data, feuilleDeRoute: await import("@/modules/ai-team/lib/roadmap").then((m) => m.roadmapForModel(payload, domain.team, now)).catch(() => null) }).replace(/<\/?donnees>/g, "")}\n</donnees>`,
+      "Ta veille sert la feuille de route de ton équipe (feuilleDeRoute : ses objectifs à 3, 6 et 12 mois) : cherche d'abord ce qui aide à les atteindre.",
+      (await import("@/modules/ai-team/lib/brief").then((m) => m.loadBriefBlock(payload)).catch(() => "")).trim(),
       previous?.method ? `Ta méthode actuelle (semaine du ${String(previous.week ?? "")}) :\n<donnees>\n${String(previous.method).replace(/<\/?donnees>/g, "")}\n</donnees>` : "Tu n'as pas encore de méthode : écris la première.",
       "Fais ta veille de la semaine.",
     ].join("\n\n");
@@ -208,8 +213,8 @@ export async function runVeille(payload: Payload, key: string, opts: { now?: Dat
       model: VEILLE_MODEL,
       system: veilleSystem(domain.team, domain.repere),
       user,
-      // L'équipe SEO/GEO compte sa veille sur son propre budget.
-      kind: domain.team === "seo" ? "seo" : "agent",
+      // Chaque bureau compte sa veille sur son propre budget.
+      kind: spendKindOf(domain.team),
       detail: `veille web de la semaine (${member.name})`,
       now,
       maxTokens: MAX_TOKENS,
@@ -248,13 +253,23 @@ export async function runDueVeille(payload: Payload, now = new Date(), model?: V
   const week = periodKey("hebdomadaire", p);
   const members = await payload.find({ collection: "ai-team-members", where: { key: { in: VEILLE_KEYS } }, pagination: false, depth: 0, overrideAccess: true, select: { key: true, active: true } as never });
   const byKey = new Map((members.docs as unknown as { id: number | string; key: string; active?: boolean | null }[]).map((m) => [m.key, m]));
+  const ids = [...byKey.values()].filter((m) => m.active !== false).map((m) => m.id);
+  if (!ids.length) return { status: "deja-faite" };
+  // Une veille coupée en route reste « en cours » : close « interrompue », elle se relance (deux fois au plus).
+  // Deux requêtes pour toute l'équipe (pas deux par agent à chaque minute du dimanche soir).
+  await payload.update({ collection: "ai-team-methods", where: { and: [{ member: { in: ids } }, { status: { equals: "en-cours" } }, { createdAt: { less_than: staleBefore(now) } }] }, data: { status: "echec", error: INTERRUPTED } as never, overrideAccess: true }).catch(() => null);
+  const rows = await payload.find({ collection: "ai-team-methods", where: { and: [{ member: { in: ids } }, { week: { equals: week } }, { trigger: { equals: "semaine" } }] }, pagination: false, depth: 0, overrideAccess: true, select: { member: true, status: true, error: true } as never });
+  const byMember = new Map<string, { status?: unknown; error?: unknown }[]>();
+  for (const r of rows.docs as unknown as { member: unknown; status?: unknown; error?: unknown }[]) {
+    const id = String(typeof r.member === "object" && r.member ? (r.member as { id: unknown }).id : r.member);
+    const list = byMember.get(id);
+    if (list) list.push(r);
+    else byMember.set(id, [r]);
+  }
   for (const key of VEILLE_KEYS) {
     const m = byKey.get(key);
     if (!m || m.active === false) continue;
-    // Une veille coupée en route reste « en cours » : close « interrompue », elle se relance (deux fois au plus).
-    await payload.update({ collection: "ai-team-methods", where: { and: [{ member: { equals: m.id } }, { status: { equals: "en-cours" } }, { createdAt: { less_than: staleBefore(now) } }] }, data: { status: "echec", error: INTERRUPTED } as never, overrideAccess: true }).catch(() => null);
-    const rows = await payload.find({ collection: "ai-team-methods", where: { and: [{ member: { equals: m.id } }, { week: { equals: week } }, { trigger: { equals: "semaine" } }] }, limit: 10, depth: 0, overrideAccess: true, select: { status: true, error: true } as never });
-    if (isPeriodDone(rows.docs as unknown as { status?: unknown; error?: unknown }[])) continue;
+    if (isPeriodDone(byMember.get(String(m.id)) ?? [])) continue;
     return runVeille(payload, key, { now, trigger: "semaine", model });
   }
   return { status: "deja-faite" };

@@ -3,7 +3,10 @@ import type { Payload, Where } from "payload";
 import type { ClaudeModel } from "@/core/lib/ai-pricing";
 import { DAY_MS } from "@/modules/ai-team/lib/format";
 import { consignesBlock, consignesFor } from "@/modules/ai-team/lib/notebook";
+import { loadBriefBlock } from "@/modules/ai-team/lib/brief";
+import { roadmapBlock, roadmapForModel } from "@/modules/ai-team/lib/roadmap";
 import { latestMethods } from "@/modules/ai-team/lib/shared-data";
+import { SOCLES, spendKindOf, teamOfKey } from "@/modules/ai-team/lib/veille-domains";
 import { INTERRUPTED, isPeriodDone, staleBefore } from "@/modules/ai-team/lib/stale";
 import { runWebModel, WebRunError, type WebCall } from "@/modules/ai-team/lib/web-model";
 
@@ -21,7 +24,7 @@ import { runWebModel, WebRunError, type WebCall } from "@/modules/ai-team/lib/we
  *  4. la réponse vérifiée est enregistrée — ou l'échec, avec ce qu'il a coûté.
  */
 
-export type ReportKind = "site" | "concurrence" | "contenu" | "ia" | "technique" | "autorite" | "reseaux";
+export type ReportKind = "site" | "concurrence" | "contenu" | "ia" | "technique" | "autorite" | "reseaux" | "pipeline" | "conversion" | "essais" | "sante";
 export type ReportResult = { status: "fait" | "pas-encore" | "deja-fait" | "pause" | "echec"; message?: string; findings?: number; costEur?: number };
 type Member = { id: number | string; name: string; active?: boolean | null };
 
@@ -50,14 +53,15 @@ export async function runAgentReport<F>(
     call?: WebCall;
   },
 ): Promise<ReportResult> {
-  const found = await payload.find({ collection: "ai-team-members", where: { key: { equals: o.memberKey } }, limit: 1, depth: 0, overrideAccess: true });
+  // Pas dû : rien n'est lu en base (le réveil de la minute passe sur une dizaine de rapports — relecture du 15/11/2026).
+  if (!o.force && !(await o.due())) return { status: "pas-encore" };
+  const found = await payload.find({ collection: "ai-team-members", where: { key: { equals: o.memberKey } }, limit: 1, depth: 0, overrideAccess: true, select: { name: true, active: true } as never });
   const member = found.docs[0] as unknown as Member | undefined;
   if (!member) return { status: "echec", message: "Cet agent est introuvable dans l'équipe." };
   if (member.active === false) return { status: "pause", message: `${member.name} est en pause.` };
   // Un rapport coupé en route (fin du temps du réveil) reste « en cours » : il est clos « interrompu », et relancé.
   await payload.update({ collection: "ai-team-audits", where: { and: [{ member: { equals: member.id } }, { kind: { equals: o.kind } }, { status: { equals: "en-cours" } }, { createdAt: { less_than: staleBefore(o.now) } }] }, data: { status: "echec", error: INTERRUPTED } as never, overrideAccess: true }).catch(() => null);
   if (!o.force) {
-    if (!(await o.due())) return { status: "pas-encore" };
     const rows = await payload.find({ collection: "ai-team-audits", where: { and: [{ member: { equals: member.id } }, { kind: { equals: o.kind } }, { period: { equals: o.period } }] }, limit: 10, depth: 0, overrideAccess: true, select: { status: true, error: true } as never });
     if (isPeriodDone(rows.docs as unknown as { status?: unknown; error?: unknown }[])) return { status: "deja-fait" };
   }
@@ -68,16 +72,27 @@ export async function runAgentReport<F>(
   const fail = (message: string, extra: Record<string, unknown> = {}) =>
     payload.update({ collection: "ai-team-audits", id: reserved.id, data: { status: "echec", error: message.slice(0, 2000), ...extra } as never, overrideAccess: true }).catch(() => null);
   try {
-    const [{ data, keep }, methods, consignes] = await Promise.all([o.data(member), latestMethods(payload, [member.id], true).catch(() => new Map()), consignesFor(payload, o.memberKey).catch(() => [] as string[])]);
+    const [{ data, keep }, methods, consignes, road, brief] = await Promise.all([
+      o.data(member),
+      latestMethods(payload, [member.id], true).catch(() => new Map()),
+      consignesFor(payload, o.memberKey).catch(() => [] as string[]),
+      // La feuille de route de son équipe : les objectifs qu'il sert, ce que font les équipes humaines.
+      roadmapForModel(payload, teamOfKey(o.memberKey), o.now).catch(() => null),
+      // La fiche produit & positionnement : la cible, les objections, les preuves, les mots des clients.
+      loadBriefBlock(payload).catch(() => ""),
+    ]);
     // Sa méthode, réécrite chaque dimanche après sa veille (nouveautés, tendances France et États-Unis) : il l'applique.
     const method = methods.get(String(member.id));
-    const methodBlock = method?.method ? `\n\nTa méthode (réécrite le ${String(method.createdAt ?? "").slice(0, 10)} après ta veille web) — applique-la ; ses idées à tester sont des hypothèses, pas des preuves :\n<donnees>\n${String(method.method).replace(/<\/?donnees>/g, "").slice(0, 8_000)}\n</donnees>` : "";
+    const methodBlock = method?.method ? `\n\nTa méthode (réécrite le ${String(method.createdAt ?? "").slice(0, 10)} après ta veille web) — applique-la ; ses idées à tester sont des hypothèses, pas des preuves :\n<donnees>\n${String(method.method).replace(/<\/?donnees>/g, "").slice(0, 8_000)}\n</donnees>` : SOCLES[o.memberKey]?.length
+        ? `\n\nTon socle de méthode (pas encore de veille : applique ces règles de fond de ton métier) :\n${SOCLES[o.memberKey].map((x) => `- ${x}`).join("\n")}`
+        : "";
     const run = await runWebModel(payload, {
       model: o.model,
       // Les consignes en cours de son chef (son carnet) s'ajoutent à sa consigne.
-      system: o.system(member.name) + consignesBlock(consignes),
+      system: o.system(member.name) + brief + consignesBlock(consignes) + roadmapBlock(road),
       user: `<donnees>\n${JSON.stringify(data).replace(/<\/?donnees>/g, "")}\n</donnees>${methodBlock}\n\n${o.ask}`,
-      kind: "seo",
+      // Chaque bureau paie sur son budget : SEO/GEO, commercial (Nathan, Jade, Malo), SEA.
+      kind: spendKindOf(teamOfKey(o.memberKey)),
       detail: o.detail(member.name),
       now: o.now,
       maxTokens: o.maxTokens,
@@ -99,13 +114,16 @@ export async function runAgentReport<F>(
   }
 }
 
-/** Le dernier rapport fait d'une nature (et son âge). L'audit du site d'avant les natures compte comme « site ». */
-export async function latestReport<F>(payload: Payload, kind: ReportKind, now = new Date()) {
+/**
+ * Le dernier rapport fait d'une nature (et son âge, et ce qu'il a mesuré). L'audit du site d'avant les natures compte
+ * comme « site ». Le SEUL endroit qui lit « le dernier rapport » : Nathan, Jade, Malo et Lou passent par lui.
+ */
+export async function latestReport<F, M = unknown>(payload: Payload, kind: ReportKind, now = new Date()) {
   const where: Where = kind === "site" ? { or: [{ kind: { equals: "site" } }, { kind: { exists: false } }] } : { kind: { equals: kind } };
   const res = await payload.find({ collection: "ai-team-audits", where: { and: [{ status: { equals: "fait" } }, where] }, sort: "-createdAt", limit: 1, depth: 0, overrideAccess: true }).catch(() => null);
-  const d = res?.docs[0] as unknown as { createdAt: string; period: string; summary?: string; findings?: F[] } | undefined;
+  const d = res?.docs[0] as unknown as { createdAt: string; period: string; summary?: string; findings?: F[]; measure?: M | null } | undefined;
   if (!d) return null;
-  return { at: d.createdAt, period: d.period, ageDays: Math.floor((now.getTime() - Date.parse(d.createdAt)) / DAY_MS), summary: d.summary ?? "", findings: Array.isArray(d.findings) ? d.findings : [] };
+  return { at: d.createdAt, period: d.period, ageDays: Math.floor((now.getTime() - Date.parse(d.createdAt)) / DAY_MS), summary: d.summary ?? "", findings: Array.isArray(d.findings) ? d.findings : [], measure: (d.measure ?? null) as M | null };
 }
 
 /** Les constats d'un rapport, triés : impact fort d'abord. */

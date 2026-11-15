@@ -30,7 +30,14 @@ describe("la mise à jour de l'équipe au démarrage", () => {
     ]);
     await seedAiTeam(payload);
     // Serge, directeur SEO & GEO (12/11/2026), est créé avec l'organisation SEA.
-    expect(created.map((c) => c.key).sort()).toEqual(["chef-seo", "sea-chatgpt", "sea-controleur", "sea-directeur-artistique", "sea-google", "sea-mesure", "sea-meta", "sea-stratege", "seo-analyste", "seo-autorite", "seo-concurrence", "seo-contenu", "seo-reseaux", "seo-technique", "seo-visibilite-ia"]);
+    // Le bureau commercial d'Élise (15/11/2026) : Nathan, Jade et Malo.
+    expect(created.map((c) => c.key).sort()).toEqual(["chef-com", "chef-seo", "com-clients", "com-essais", "com-pipeline", "sea-chatgpt", "sea-controleur", "sea-directeur-artistique", "sea-google", "sea-mesure", "sea-meta", "sea-stratege", "seo-analyste", "seo-autorite", "seo-concurrence", "seo-contenu", "seo-conversion", "seo-reseaux", "seo-technique", "seo-visibilite-ia"]);
+    const elise = created.find((c) => c.key === "chef-com")!;
+    expect(elise).toMatchObject({ level: "chef", domain: "com" });
+    // Ses trois agents ont le même chef, créé juste avant eux.
+    const chiefs = ["com-pipeline", "com-essais", "com-clients"].map((k) => created.find((c) => c.key === k)!.chief);
+    expect(chiefs[0]).toBeTruthy();
+    expect(new Set(chiefs).size).toBe(1);
     expect(created.find((c) => c.key === "sea-meta")).toMatchObject({ engineRoles: ["analyste"], chief: 1 });
     const margaux = updated.find((u) => u.id === 1)!.data;
     expect(margaux).toMatchObject({ engineRoles: ["orchestrateur"], jobTitle: "Directrice SEA" });

@@ -11,6 +11,12 @@ import { BudgetEditor } from "@/modules/ai-team/admin/BudgetEditor";
 import { ChatBox, type ChatMessage } from "@/modules/ai-team/admin/ChatBox";
 import { Drawer } from "@/modules/ai-team/admin/Drawer";
 import { FicheTabs, type FicheTab } from "@/modules/ai-team/admin/FicheTabs";
+import { AgentRunButton } from "@/modules/ai-team/admin/RevenueButtons";
+import { latestConversion } from "@/modules/ai-team/lib/conversion";
+import type { latestPipeline, PipelineAction } from "@/modules/ai-team/lib/pipeline-agent";
+import { healthSummary, type latestHealth, type latestTrials } from "@/modules/ai-team/lib/commercial";
+import { comReports } from "@/modules/ai-team/lib/com-weekly";
+import { measureContext } from "@/modules/ai-team/lib/indicators";
 import { consignesOf, loadCarnet, type NoteRow } from "@/modules/ai-team/lib/notebook";
 import { HoursEditor } from "@/modules/ai-team/admin/HoursEditor";
 import { ObjectivesBoard, type BoardObjective } from "@/modules/ai-team/admin/ObjectivesBoard";
@@ -931,22 +937,29 @@ export type SeoChiefView = {
   daysInMonth: number;
 };
 
+/** La part du budget IA du mois déjà dépensée, en % (null : pas de budget fixé). */
+const budgetPct = (monthEur: number, budgetEur: number | null) => (budgetEur ? Math.min(100, Math.round((monthEur / Math.max(0.01, budgetEur)) * 100)) : null);
+
+/** Sur la carte d'un chef (Serge, Élise) : sa ligne du jour, ce que coûte son bureau ce mois, et son budget. */
+function ChiefCardExtra({ m, main, monthEur, budgetEur, daysElapsed }: { m: MemberView; main: string; monthEur: number; budgetEur: number | null; daysElapsed: number }) {
+  const pct = budgetPct(monthEur, budgetEur);
+  return (
+    <div className="ait-card__spend">
+      <span className="ait-card__spend-main">{main}</span>
+      <span className="ait-card__spend-sub">
+        💶 {eur(monthEur)} ce mois · {eur3(monthEur / Math.max(1, daysElapsed))}/jour{pct != null ? ` · ${pct} % du budget` : ""}
+      </span>
+      <BudgetEditor id={m.id} name={m.name} budgetEur={budgetEur} capMonthEur={null} />
+    </div>
+  );
+}
+
 /** Sur sa carte : où en sont les objectifs de la semaine, et ce que coûte l'équipe ce mois. */
 function SeoCardExtra({ m, seo }: { m: MemberView; seo: SeoChiefView }) {
   const open = seo.objectives.filter((o) => o.status === "a-faire").length;
   const done = seo.objectives.filter((o) => o.status === "fait").length;
-  const daily = seo.monthEur / Math.max(1, seo.daysElapsed);
-  return (
-    <div className="ait-card__spend">
-      <span className="ait-card__spend-main">
-        🎯 {seo.objectives.length ? `${done}/${seo.objectives.length} objectif${seo.objectives.length > 1 ? "s" : ""} fait${done > 1 ? "s" : ""}${open ? ` · ${open} à faire` : ""}` : "Pas encore d'objectifs cette semaine"}
-      </span>
-      <span className="ait-card__spend-sub">
-        💶 {eur(seo.monthEur)} ce mois · {eur3(daily)}/jour{seo.budgetEur != null ? ` · ${Math.min(100, Math.round((seo.monthEur / Math.max(0.01, seo.budgetEur)) * 100))} % du budget` : ""}
-      </span>
-      <BudgetEditor id={m.id} name={m.name} budgetEur={seo.budgetEur} capMonthEur={null} />
-    </div>
-  );
+  const main = `🎯 ${seo.objectives.length ? `${done}/${seo.objectives.length} objectif${seo.objectives.length > 1 ? "s" : ""} fait${done > 1 ? "s" : ""}${open ? ` · ${open} à faire` : ""}` : "Pas encore d'objectifs cette semaine"}`;
+  return <ChiefCardExtra m={m} main={main} monthEur={seo.monthEur} budgetEur={seo.budgetEur} daysElapsed={seo.daysElapsed} />;
 }
 
 function SeoChiefPanel({ m, seo, chat, notes, members, mastery, method }: { m: MemberView; seo: SeoChiefView; chat: ChatMessage[]; notes: NoteRow[]; members: MemberView[]; mastery: TeamMastery; method: MethodState | null }) {
@@ -956,7 +969,7 @@ function SeoChiefPanel({ m, seo, chat, notes, members, mastery, method }: { m: M
   const done = seo.objectives.filter((o) => o.status === "fait").length;
   const open = seo.objectives.filter((o) => o.status === "a-faire").length;
   const hours = seo.hours ?? 5;
-  const budgetPct = seo.budgetEur ? Math.min(100, Math.round((seo.monthEur / Math.max(0.01, seo.budgetEur)) * 100)) : null;
+  const spentPct = budgetPct(seo.monthEur, seo.budgetEur);
   const consignes = notes.filter((n) => n.kind === "consigne" && n.status === "active").length;
   return (
     <div className="ait-panel">
@@ -969,7 +982,7 @@ function SeoChiefPanel({ m, seo, chat, notes, members, mastery, method }: { m: M
         items={[
           { label: "🎯 Objectifs de la semaine", value: seo.objectives.length ? `${done} / ${seo.objectives.length}` : "—", sub: seo.objectives.length ? (open ? `${open} à faire${dueLast ? ` d'ici ${shortDate(dueLast)}` : ""}` : "tout est fait") : "ils arrivent lundi matin", alert: open > 0 },
           { label: "⏱️ Votre temps", value: `${Math.round((planned / 60) * 10) / 10} h`, sub: `prévues sur vos ${hours.toLocaleString("fr-FR")} h`, gauge: hours ? Math.round((planned / 60 / hours) * 100) : null },
-          { label: "💶 Budget IA du mois", value: eur(seo.monthEur), sub: budgetPct != null ? `${budgetPct} % de ${eur(seo.budgetEur!)}` : "pas de budget fixé", gauge: budgetPct },
+          { label: "💶 Budget IA du mois", value: eur(seo.monthEur), sub: spentPct != null ? `${spentPct} % de ${eur(seo.budgetEur!)}` : "pas de budget fixé", gauge: spentPct },
           { label: "📣 Consignes à l'équipe", value: consignes, sub: consignes ? "jointes à leurs missions" : "aucune en cours" },
         ]}
       />
@@ -1791,6 +1804,469 @@ function AuthorityPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: 
   );
 }
 
+/* ─── Nathan, pipeline & relances ; Lou, conversion ──────────────────────── */
+
+type PipelineView = Awaited<ReturnType<typeof latestPipeline>>;
+type ComReportsView = Awaited<ReturnType<typeof comReports>>;
+type ConversionView = Awaited<ReturnType<typeof latestConversion>>;
+export type RevenueView = { pipeline?: PipelineView; conversion?: ConversionView; trials?: TrialsView; health?: HealthViewState; com?: ComChiefView | null };
+const PAGE_TYPE: Record<string, string> = { demo: "Démo / contact", tarifs: "Tarifs", produit: "Produit", accueil: "Accueil", blog: "Blog", autre: "Autres" };
+
+/** Les gestes confiés à la direction par un agent du bureau commercial (Nathan, Jade, Malo). */
+function ActionsList({ at, summary, findings, what }: { at: string; summary: string; findings: PipelineAction[]; what: string }) {
+  return (
+    <section className="ait-score">
+      <p className="ait-meta">Point du {shortDate(at)} — chaque {what} est dans « Vos demandes » et sur la feuille de route.</p>
+      <p className="ait-obj__text">{summary}</p>
+      <ol className="ait-objs">
+        {findings.map((f, i) => (
+          <li key={i} className="ait-obj">
+            <div className="ait-obj__top">
+              <span className="ait-obj__rank">{f.priority}</span>
+              <div className="ait-obj__head">
+                <a href={`/admin/collections/partner-clients/${f.client}`}>
+                  <strong className="ait-obj__title">{f.title}</strong>
+                </a>
+                <span className="ait-obj__meta">{f.why}</span>
+              </div>
+            </div>
+            <ol className="ait-method__sources">
+              {f.steps.map((x) => (
+                <li key={x}>{x}</li>
+              ))}
+            </ol>
+            {f.message && <CopyPromptButton prompt={f.message} />}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/* ─── Jade, essais ; Malo, rétention & clients ───────────────────────────── */
+
+type TrialsView = Awaited<ReturnType<typeof latestTrials>>;
+type HealthViewState = Awaited<ReturnType<typeof latestHealth>>;
+const HEALTH_DOT: Record<string, string> = { vert: "🟢", orange: "🟠", rouge: "🔴" };
+
+function TrialsPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: MemberView | undefined; view: TrialsView; extra?: Pane[] }) {
+  const trials = view?.measure?.trials ?? null;
+  const flagged = trials ? trials.filter((t) => t.flags.length).length : 0;
+  const ending = trials ? trials.filter((t) => t.daysLeft != null && t.daysLeft >= 0 && t.daysLeft <= 7).length : 0;
+  const overdue = trials ? trials.filter((t) => t.daysLeft != null && t.daysLeft < 0).length : 0;
+  const amount = trials ? trials.reduce((n, t) => n + t.amount, 0) : 0;
+  return (
+    <div className="ait-panel">
+      <Head
+        m={m}
+        note={
+          chief && (
+            <p className="ait-reports">
+              <Face m={chief} size={22} /> {m.name} suit chaque jour ouvré les prospects en phase de test et vous confie au plus cinq gestes pour que chaque essai finisse par une décision ; elle rend compte à {chief.name}.
+            </p>
+          )
+        }
+      />
+      <PausedNote m={m} chief={chief} />
+      {m.active && <AgentRunButton kind="trials" name={m.name} />}
+      {trials ? (
+        <Kpis
+          items={[
+            { label: "⏳ Essais en cours", value: trials.length, sub: `${eur0(amount)} de MRR en jeu` },
+            { label: "⚠️ Essais à risque", value: flagged, sub: "au moins un signal", alert: flagged > 0 },
+            { label: "🏁 Fin dans 7 jours", value: ending, sub: "bilan et décision à caler" },
+            { label: "⌛ Finis sans décision", value: overdue, sub: "à trancher", alert: overdue > 0 },
+          ]}
+        />
+      ) : (
+        <p className="ait-empty">Pas encore de point : le premier arrive le prochain jour ouvré dès 8 h — ou maintenant avec le bouton.</p>
+      )}
+      <Panes
+        panes={[
+          { key: "gestes", label: "🤝 Les gestes du jour", badge: view?.findings.length, body: view ? <ActionsList at={view.at} summary={view.summary} findings={view.findings} what="geste" /> : null },
+          {
+            key: "essais",
+            label: "📋 Les essais",
+            badge: flagged,
+            body: trials ? (
+              <div className="ait-score__scroll">
+                <table className="ait-table">
+                  <thead>
+                    <tr>
+                      <th>Prospect</th>
+                      <th>Où il en est</th>
+                      <th>Dernier échange</th>
+                      <th>Ce qui cloche</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trials.map((t) => (
+                      <tr key={t.id}>
+                        <td>
+                          <a href={`/admin/collections/journey-runs/${t.id}`}>
+                            <strong>{t.name}</strong>
+                          </a>{" "}
+                          <span className="ait-score__rate">· {t.priority}</span>
+                        </td>
+                        <td>
+                          {t.day != null ? `J${t.day}${t.length ? ` / ${t.length}` : ""}` : t.status === "preparation" ? "en préparation" : "—"} <span className="ait-score__rate">· {t.progress}</span>
+                        </td>
+                        <td>{t.lastContactDays == null ? "—" : `il y a ${t.lastContactDays} j`}</td>
+                        <td className={t.flags.length ? "ait-score__trend--bad" : undefined}>{t.flags.length ? t.flags.join(" · ") : "sur les rails"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null,
+          },
+          ...extra,
+        ]}
+      />
+    </div>
+  );
+}
+
+function HealthPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: MemberView | undefined; view: HealthViewState; extra?: Pane[] }) {
+  const health = view?.measure?.health ?? null;
+  const sum = health ? healthSummary(health) : null;
+  return (
+    <div className="ait-panel">
+      <Head
+        m={m}
+        note={
+          chief && (
+            <p className="ait-reports">
+              <Face m={chief} size={22} /> {m.name} note chaque lundi la santé de chaque client en place, sur des faits, et vous confie les clients à appeler avant qu&apos;ils partent ; il rend compte à {chief.name}.
+            </p>
+          )
+        }
+      />
+      <PausedNote m={m} chief={chief} />
+      {m.active && <AgentRunButton kind="health" name={m.name} />}
+      {sum && health ? (
+        <Kpis
+          items={[
+            { label: "🟢 En bonne santé", value: sum.vert, sub: `sur ${health.length} client${health.length > 1 ? "s" : ""}` },
+            { label: "🟠 À surveiller", value: sum.orange, sub: "un signal au moins" },
+            { label: "🔴 À risque", value: sum.rouge, sub: "à appeler cette semaine", alert: sum.rouge > 0 },
+            { label: "💶 MRR à risque", value: eur0(sum.mrrARisque), sub: "des clients rouges", alert: sum.mrrARisque > 0 },
+          ]}
+        />
+      ) : (
+        <p className="ait-empty">Pas encore de point : le premier arrive lundi dès 8 h — ou maintenant avec le bouton.</p>
+      )}
+      <Panes
+        panes={[
+          { key: "gestes", label: "🤝 Les gestes de la semaine", badge: view?.findings.length, body: view ? <ActionsList at={view.at} summary={view.summary} findings={view.findings} what="geste" /> : null },
+          {
+            key: "clients",
+            label: "📋 Les clients",
+            badge: sum?.rouge,
+            body: health ? (
+              <div className="ait-score__scroll">
+                <table className="ait-table">
+                  <thead>
+                    <tr>
+                      <th>Client</th>
+                      <th>Santé</th>
+                      <th>Depuis</th>
+                      <th>MRR</th>
+                      <th>Signaux</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {health.map((h) => (
+                      <tr key={h.id}>
+                        <td>
+                          <a href={`/admin/collections/partner-clients/${h.id}`}>
+                            <strong>{h.name}</strong>
+                          </a>
+                        </td>
+                        <td>
+                          {HEALTH_DOT[h.health]} {h.health}
+                        </td>
+                        <td>{h.ageDays == null ? "—" : h.ageDays < 60 ? `${h.ageDays} j` : `${Math.round(h.ageDays / 30)} mois`}</td>
+                        <td>{eur0(h.mrr)}</td>
+                        <td className={h.health === "rouge" ? "ait-score__trend--bad" : undefined}>{h.signals.length ? h.signals.map((x) => x.text).join(" · ") : (h.opportunity ?? "aucun")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null,
+          },
+          ...extra,
+        ]}
+      />
+    </div>
+  );
+}
+
+/* ─── Élise, directrice commerciale & revenu ──────────────────────────────── */
+
+export type ComChiefView = {
+  mrr: number | null;
+  mrrTest: number | null;
+  weighted: number | null;
+  health: { vert: number; orange: number; rouge: number; mrrARisque: number } | null;
+  trials: number | null;
+  monthEur: number;
+  budgetEur: number | null;
+  daysElapsed: number;
+};
+
+/** Sur sa carte : le MRR, et ce que coûte le bureau ce mois. */
+function ComCardExtra({ m, com }: { m: MemberView; com: ComChiefView }) {
+  const main = `📈 MRR ${com.mrr == null ? "—" : eur0(com.mrr)}${com.health?.rouge ? ` · ${com.health.rouge} client${com.health.rouge > 1 ? "s" : ""} à risque` : ""}`;
+  return <ChiefCardExtra m={m} main={main} monthEur={com.monthEur} budgetEur={com.budgetEur} daysElapsed={com.daysElapsed} />;
+}
+
+function ComChiefPanel({ m, com, chat, notes, members, mastery, method }: { m: MemberView; com: ComChiefView; chat: ChatMessage[]; notes: NoteRow[]; members: MemberView[]; mastery: TeamMastery; method: MethodState | null }) {
+  const spentPct = budgetPct(com.monthEur, com.budgetEur);
+  const consignes = notes.filter((n) => n.kind === "consigne" && n.status === "active").length;
+  return (
+    <div className="ait-panel">
+      <Head m={m} note={<p className="ait-reports">{m.name} tient le revenu de TIM : le pipeline (Nathan), les essais (Jade), les clients en place (Malo). Chaque lundi, elle fait le point du MRR, des affaires qui peuvent signer et des clients à risque, avec une prévision honnête.</p>} />
+      <PausedNote m={m} />
+      <Kpis
+        items={[
+          { label: "📈 MRR", value: com.mrr == null ? "—" : eur0(com.mrr), sub: "clients en contrat" },
+          { label: "⏳ En test", value: com.mrrTest == null ? "—" : eur0(com.mrrTest), sub: `${com.trials ?? "—"} essai${(com.trials ?? 0) > 1 ? "s" : ""} en cours · pondéré ${com.weighted == null ? "—" : eur0(com.weighted)}` },
+          { label: "🔴 Clients à risque", value: com.health ? com.health.rouge : "—", sub: com.health ? `${eur0(com.health.mrrARisque)} de MRR` : "le premier point arrive lundi", alert: Boolean(com.health?.rouge) },
+          { label: "💶 Budget IA du mois", value: eur(com.monthEur), sub: spentPct != null ? `${spentPct} % de ${eur(com.budgetEur!)}` : "pas de budget fixé", gauge: spentPct },
+        ]}
+      />
+      {m.active && <AgentRunButton kind="comWeekly" name={m.name} />}
+      {m.active ? <ChatBox memberKey={m.key} name={m.name} portrait={m.portrait} initial={chat} /> : null}
+      <Panes
+        panes={[
+          { key: "carnet", label: "🧠 Carnet", badge: consignes, body: <CarnetView m={m} notes={notes} members={members} /> },
+          { key: "maitrise", label: "🎓 Maîtrise", body: mastery[m.key] ? <MasteryView m={m} x={mastery[m.key]} /> : null },
+          { key: "methode", label: "📘 Méthode", body: <MethodView m={m} state={method} /> },
+        ]}
+      />
+    </div>
+  );
+}
+
+function PipelinePanel({ m, chief, view, extra = [] }: { m: MemberView; chief: MemberView | undefined; view: PipelineView; extra?: Pane[] }) {
+  const ms = view?.measure ?? null;
+  const stalled = ms ? ms.deals.filter((d) => d.stalled).length : 0;
+  const noNext = ms ? ms.deals.filter((d) => !d.nextStep).length : 0;
+  const waiting = ms ? ms.leads.filter((l) => !l.answered && l.hoursWaiting >= 1) : [];
+  const answered = ms ? ms.leads.filter((l) => l.firstResponseHours != null) : [];
+  const avgResponse = answered.length ? Math.round((answered.reduce((n, l) => n + (l.firstResponseHours ?? 0), 0) / answered.length) * 10) / 10 : null;
+  return (
+    <div className="ait-panel">
+      <Head
+        m={m}
+        note={
+          chief && (
+            <p className="ait-reports">
+              <Face m={chief} size={22} /> {m.name} lit chaque jour ouvré le pipeline et vous confie au plus cinq relances, message prêt ; il rend compte à {chief.name}. Il n&apos;envoie rien lui-même.
+            </p>
+          )
+        }
+      />
+      <PausedNote m={m} chief={chief} />
+      {m.active && <AgentRunButton kind="pipeline" name={m.name} />}
+      {ms ? (
+        <Kpis
+          items={[
+            { label: "💶 MRR en jeu", value: eur0(ms.openAmount), sub: `${ms.deals.length} affaire${ms.deals.length > 1 ? "s" : ""} ouverte${ms.deals.length > 1 ? "s" : ""} · pondéré ${eur0(ms.weightedAmount)}` },
+            { label: "⏳ Affaires qui stagnent", value: stalled, sub: `${noNext} sans prochaine étape`, alert: stalled > 0 },
+            { label: "📥 Leads sans réponse", value: waiting.length, sub: "depuis plus d'une heure ouvrée", alert: waiting.length > 0 },
+            { label: "⚡ Délai de première réponse", value: avgResponse == null ? "—" : `${avgResponse.toLocaleString("fr-FR")} h`, sub: "ouvrées, en moyenne (14 jours) · cible : moins d'1 h" },
+          ]}
+        />
+      ) : (
+        <p className="ait-empty">Pas encore de point : le premier arrive le prochain jour ouvré dès 8 h — ou maintenant avec le bouton.</p>
+      )}
+      <Panes
+        panes={[
+          {
+            key: "relances",
+            label: "🔁 Les relances du jour",
+            badge: view?.findings.length,
+            body: view ? <ActionsList at={view.at} summary={view.summary} findings={view.findings} what="relance" /> : null,
+          },
+          {
+            key: "affaires",
+            label: "📋 Les affaires",
+            badge: stalled,
+            body: ms ? (
+              <div className="ait-score__scroll">
+                <table className="ait-table">
+                  <thead>
+                    <tr>
+                      <th>Affaire</th>
+                      <th>Étape</th>
+                      <th>Depuis</th>
+                      <th>Dernier contact</th>
+                      <th>Prochaine étape</th>
+                      <th>MRR</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ms.deals.map((d) => (
+                      <tr key={d.id}>
+                        <td>
+                          <a href={`/admin/collections/partner-clients/${d.id}`}>
+                            <strong>{d.name}</strong>
+                          </a>{" "}
+                          <span className="ait-score__rate">· {d.priority}</span>
+                        </td>
+                        <td>{d.stage}</td>
+                        <td className={d.stalled ? "ait-score__trend--bad" : undefined}>
+                          {Math.round(d.daysInStage)} j <span className="ait-score__rate">/ {d.threshold} j</span>
+                        </td>
+                        <td>{d.lastContactDays == null ? "—" : `il y a ${d.lastContactDays} j`}</td>
+                        <td className={!d.nextStep || d.overdue ? "ait-score__trend--bad" : undefined}>{d.nextStep ? `${d.nextStep.title} (${d.nextStep.dueDays >= 0 ? `dans ${d.nextStep.dueDays} j` : `retard ${-d.nextStep.dueDays} j`})` : "aucune"}</td>
+                        <td>{eur0(d.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null,
+          },
+          {
+            key: "seuils",
+            label: "📏 Seuils",
+            body: ms ? (
+              <section className="ait-score">
+                <p className="ait-meta">Une affaire stagne au-delà de 1,5 fois le temps que les affaires gagnées ont passé à la même étape (dès 3 affaires gagnées) ; avant, un seuil de départ.</p>
+                <ul className="ait-score__headlines">
+                  {Object.entries(ms.thresholds).map(([k, v]) => (
+                    <li key={k}>
+                      <strong>{k}</strong> — {v.days} j <span className="ait-score__rate">· {v.basis === "historique" ? `d'après ${v.samples} affaires gagnées` : "seuil de départ"}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null,
+          },
+          ...extra,
+        ]}
+      />
+    </div>
+  );
+}
+
+function ConversionPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: MemberView | undefined; view: ConversionView; extra?: Pane[] }) {
+  const ms = view?.measure ?? null;
+  const demo = ms?.byType.find((t) => t.type === "demo");
+  const product = ms?.byType.find((t) => t.type === "produit");
+  const blog = ms?.byType.find((t) => t.type === "blog");
+  const leads = ms ? ms.pages.reduce((n, p) => n + p.leads, 0) + ms.leadsWithoutPage : 0;
+  return (
+    <div className="ait-panel">
+      <Head
+        m={m}
+        note={
+          chief && (
+            <p className="ait-reports">
+              <Face m={chief} size={22} /> {m.name} suit, page par page, combien de visites deviennent une démo (leads comptés dans le CRM) et remet à {chief.name} une ou deux hypothèses à fort effet. Pas de test A/B à faible trafic.
+            </p>
+          )
+        }
+      />
+      <PausedNote m={m} chief={chief} />
+      {m.active && <AgentRunButton kind="conversion" name={m.name} />}
+      {ms ? (
+        <Kpis
+          items={[
+            { label: "📝 Leads (2 mois)", value: leads, sub: ms.leadsWithoutPage ? `${ms.leadsWithoutPage} sans page d'arrivée connue` : "tous rattachés à une page" },
+            { label: "🎯 Pages démo / contact", value: demo?.rate == null ? "—" : `${demo.rate.toLocaleString("fr-FR")} %`, sub: `${demo?.leads ?? 0} lead(s) sur ${demo?.sessions ?? 0} visites` },
+            { label: "🧩 Pages produit", value: product?.rate == null ? "—" : `${product.rate.toLocaleString("fr-FR")} %`, sub: `${product?.leads ?? 0} lead(s) sur ${product?.sessions ?? 0} visites` },
+            { label: "📰 Blog", value: blog?.rate == null ? "—" : `${blog.rate.toLocaleString("fr-FR")} %`, sub: `${blog?.leads ?? 0} lead(s) sur ${blog?.sessions ?? 0} visites` },
+          ]}
+        />
+      ) : (
+        <p className="ait-empty">Pas encore de revue : la première arrive le prochain premier jour ouvré de la semaine dès 6 h — ou maintenant avec le bouton.</p>
+      )}
+      <Panes
+        panes={[
+          {
+            key: "hypotheses",
+            label: "💡 Ses hypothèses",
+            badge: view?.findings.length,
+            body: view ? (
+              <section className="ait-score">
+                <p className="ait-meta">Revue du {shortDate(view.at)}</p>
+                <p className="ait-obj__text">{view.summary}</p>
+                <ol className="ait-objs">
+                  {view.findings.map((f, i) => (
+                    <li key={i} className="ait-obj">
+                      <div className="ait-obj__top">
+                        <span className="ait-obj__rank">{i + 1}</span>
+                        <div className="ait-obj__head">
+                          <strong className="ait-obj__title">{f.change}</strong>
+                          <span className="ait-obj__meta">
+                            {IMPACT_LABEL[f.impact]} · {f.minutes} min
+                          </span>
+                          {f.page && <span className="ait-obj__page">{f.page}</span>}
+                        </div>
+                      </div>
+                      {f.why && <p className="ait-obj__text">💡 {f.why}</p>}
+                      {f.measure && <p className="ait-meta">📏 {f.measure}</p>}
+                      <ol className="ait-method__sources">
+                        {f.steps.map((x) => (
+                          <li key={x}>{x}</li>
+                        ))}
+                      </ol>
+                      {f.prompt && <CopyPromptButton prompt={f.prompt} />}
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ) : null,
+          },
+          {
+            key: "pages",
+            label: "📄 Page par page",
+            body: ms ? (
+              <section className="ait-score">
+                <p className="ait-meta">Depuis le {ms.since} · visites GA4 (toutes sources, sous-estimées par les refus de cookies) · leads du CRM.</p>
+                <div className="ait-score__scroll">
+                  <table className="ait-table">
+                    <thead>
+                      <tr>
+                        <th>Page</th>
+                        <th>Type</th>
+                        <th>Visites</th>
+                        <th>Leads</th>
+                        <th>Qualifiés</th>
+                        <th>Lead / visite</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ms.pages.map((p) => (
+                        <tr key={p.path}>
+                          <td>
+                            <strong>{p.path}</strong>
+                          </td>
+                          <td>{PAGE_TYPE[p.type]}</td>
+                          <td>{p.sessions.toLocaleString("fr-FR")}</td>
+                          <td>{p.leads}</td>
+                          <td>{p.qualified}</td>
+                          <td>{pctFr(p.rate)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ) : null,
+          },
+          ...extra,
+        ]}
+      />
+    </div>
+  );
+}
+
 /* ─── Cléo, réseaux & vidéo ─────────────────────────────────────────────── */
 
 const SOCIAL_TYPE: Record<string, string> = { relance: "📣 Relance", contenu: "🎬 Contenu", format: "🧩 Format", rythme: "📅 Rythme", reglage: "🔧 Réglage" };
@@ -2409,13 +2885,17 @@ function ChiefPanel({ m, team, all, campaigns, campaign, chat, spend, scorecard,
   );
 }
 
-function SubPanel({ m, chief, all, spend, scorecard, members, gads, oads, method, trends, mastery, analyst, competition, content, visibility, tech, authority, social }: { m: WithConsignes; chief: MemberView | undefined; all: boolean; spend: MemberSpend | undefined; scorecard: Scorecard | null; members: MemberView[]; gads: SourceResult<GoogleAdsView> | null; oads: SourceResult<OpenAiAdsView> | null; method: MethodState | null; trends: string[]; mastery: TeamMastery; analyst: AnalystView | null; competition: CompetitionView | null; content: ContentView | null; visibility: VisibilityState | null; tech: TechView | undefined; authority: AuthorityView | undefined; social: SocialView | undefined }) {
+function SubPanel({ m, chief, all, spend, scorecard, members, gads, oads, method, trends, mastery, analyst, competition, content, visibility, tech, authority, social, revenue }: { revenue?: RevenueView; m: WithConsignes; chief: MemberView | undefined; all: boolean; spend: MemberSpend | undefined; scorecard: Scorecard | null; members: MemberView[]; gads: SourceResult<GoogleAdsView> | null; oads: SourceResult<OpenAiAdsView> | null; method: MethodState | null; trends: string[]; mastery: TeamMastery; analyst: AnalystView | null; competition: CompetitionView | null; content: ContentView | null; visibility: VisibilityState | null; tech: TechView | undefined; authority: AuthorityView | undefined; social: SocialView | undefined }) {
   // Comme toute l'équipe : sa maîtrise sur 100, et sa méthode réécrite chaque semaine après sa veille.
   const grow: Pane[] = [
     { key: "maitrise", label: "🎓 Maîtrise", body: mastery[m.key] ? <MasteryView m={m} x={mastery[m.key]} /> : null },
     { key: "methode", label: "📘 Méthode", body: VEILLE_DOMAINS[m.key] ? <MethodView m={m} state={method} /> : null },
   ];
   if (m.key === "seo-reseaux" && social !== undefined) return <SocialPanel m={m} chief={chief} extra={grow} view={social} />;
+  if (m.key === "com-pipeline" && revenue?.pipeline !== undefined) return <PipelinePanel m={m} chief={chief} extra={grow} view={revenue.pipeline} />;
+  if (m.key === "com-essais" && revenue?.trials !== undefined) return <TrialsPanel m={m} chief={chief} extra={grow} view={revenue.trials} />;
+  if (m.key === "com-clients" && revenue?.health !== undefined) return <HealthPanel m={m} chief={chief} extra={grow} view={revenue.health} />;
+  if (m.key === "seo-conversion" && revenue?.conversion !== undefined) return <ConversionPanel m={m} chief={chief} extra={grow} view={revenue.conversion} />;
   if (m.key === "seo-autorite" && authority !== undefined) return <AuthorityPanel m={m} chief={chief} extra={grow} view={authority} />;
   if (m.key === "seo-technique" && tech !== undefined) return <TechPanel m={m} chief={chief} extra={grow} view={tech} />;
   if (m.key === "seo-visibilite-ia" && visibility) return <VisibilityPanel m={m} chief={chief} extra={grow} view={visibility} />;
@@ -2607,6 +3087,7 @@ function Report({
   authority,
   social,
   notes,
+  revenue,
 }: {
   team: TeamView & { spend: TeamSpend };
   selected: string | null;
@@ -2632,6 +3113,7 @@ function Report({
   authority: AuthorityView | undefined;
   social: SocialView | undefined;
   notes: NoteRow[];
+  revenue: RevenueView;
 }) {
   // Un chef par domaine (SEA, SEO/GEO), chacun avec son équipe.
   const chiefs = team.members.filter((m) => m.level === "chef");
@@ -2659,7 +3141,7 @@ function Report({
               <div key={chief.key} className={`ait-office${open ? " ait-office--open" : ""}`}>
                 <span className="ait-org__line" aria-hidden />
                 <span className="ait-office__plate">Bureau de {chief.name}</span>
-                <MemberCard m={chief} on={open} big spend={team.spend} mastery={mastery[chief.key]} expanded={open} extra={chief.key === "chef-seo" && seo ? <SeoCardExtra m={chief} seo={seo} /> : undefined} />
+                <MemberCard m={chief} on={open} big spend={team.spend} mastery={mastery[chief.key]} expanded={open} extra={chief.key === "chef-seo" && seo ? <SeoCardExtra m={chief} seo={seo} /> : chief.key === "chef-com" && revenue.com ? <ComCardExtra m={chief} com={revenue.com} /> : undefined} />
               </div>
             );
           })}
@@ -2687,11 +3169,26 @@ function Report({
       </div>
       {current && (
         <Drawer label={`Fiche de ${current.name}`} closeHref={office ? `${BASE}?bureau=${office.key}` : BASE}>
-          {current.key === "chef-seo" && seo ? <SeoChiefPanel m={current} seo={seo} chat={chat} notes={notes} members={team.members} mastery={mastery} method={method} /> : current.level === "chef" ? <ChiefPanel m={current} team={team} all={all} campaigns={campaigns} campaign={campaign} chat={chat} spend={team.spend} scorecard={scorecard} method={method} recos={recos} mastery={mastery} notes={notes} /> : <SubPanel m={{ ...current, consignes: notes, consignesFrom: team.members.find((x) => x.id === current.chiefId)?.name }} chief={team.members.find((x) => x.id === current.chiefId)} all={all} spend={team.spend.members.find((x) => x.key === current.key)} scorecard={scorecard} members={team.members} gads={gads} oads={oads} method={method} trends={trends} mastery={mastery} analyst={analyst} competition={competition} content={content} visibility={visibility} tech={tech} authority={authority} social={social} />}
+          {current.key === "chef-seo" && seo ? <SeoChiefPanel m={current} seo={seo} chat={chat} notes={notes} members={team.members} mastery={mastery} method={method} /> : current.key === "chef-com" && revenue.com ? <ComChiefPanel m={current} com={revenue.com} chat={chat} notes={notes} members={team.members} mastery={mastery} method={method} /> : current.level === "chef" ? <ChiefPanel m={current} team={team} all={all} campaigns={campaigns} campaign={campaign} chat={chat} spend={team.spend} scorecard={scorecard} method={method} recos={recos} mastery={mastery} notes={notes} /> : <SubPanel m={{ ...current, consignes: notes, consignesFrom: team.members.find((x) => x.id === current.chiefId)?.name }} chief={team.members.find((x) => x.id === current.chiefId)} all={all} spend={team.spend.members.find((x) => x.key === current.key)} scorecard={scorecard} members={team.members} gads={gads} oads={oads} method={method} trends={trends} mastery={mastery} analyst={analyst} competition={competition} content={content} visibility={visibility} tech={tech} authority={authority} social={social} revenue={revenue} />}
         </Drawer>
       )}
     </>
   );
+}
+
+/** Élise : le MRR, l'en-test, le pipeline pondéré, la santé des clients, ce que coûte le bureau ce mois et son budget. */
+async function loadComChief(payload: Payload, reports: ComReportsView): Promise<ComChiefView | null> {
+  const now = new Date();
+  const ctx = measureContext(payload, now);
+  const [mrr, mrrTest, weighted, spent, budget] = await Promise.all([
+    ctx.measure("mrr", now).catch(() => null),
+    ctx.measure("mrr-test", now).catch(() => null),
+    ctx.measure("pipeline-pondere", now).catch(() => null),
+    spentOf(payload, "commercial", now).catch(() => ({ day: 0, month: 0 })),
+    teamMonthlyBudget(payload, "chef-com"),
+  ]);
+  const { health, trials } = reports;
+  return { mrr, mrrTest, weighted, health: health?.measure ? healthSummary(health.measure.health) : null, trials: trials?.measure ? trials.measure.trials.length : null, monthEur: spent.month, budgetEur: budget?.budgetEur ?? null, daysElapsed: parisMonthDays(now).day };
 }
 
 /** Serge : les objectifs de la semaine, ce que coûte son équipe ce mois, son budget, le temps de la direction, l'agenda. */
@@ -2817,6 +3314,8 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
   const only = (key: string) => allowed && selected === key;
   // Première vague, en parallèle : l'équipe, les demandes, la fiche des canaux, les photos du lundi —
   // et ce que lisent Thomas, Sarah, Margaux, seulement quand on ouvre leur fiche (chaque régie gardée 3 h).
+  // Les trois points du bureau commercial, lus UNE fois : la carte d'Élise, les scores et la fiche ouverte les partagent.
+  const comReportsP = allowed ? comReports(req.payload) : Promise.resolve({ pipe: null, trials: null, health: null });
   const [[team, campaigns], inbox, gads, oads, recos, scorecard, snaps] = await Promise.all([
     allowed ? Promise.all([loadTeamView(req.payload), loadCampaignChips(req.payload)]) : Promise.resolve([null, [] as CampaignChip[]] as const),
     allowed ? loadInbox(req.payload) : { open: [], closed: [] },
@@ -2830,7 +3329,7 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
   const member = team?.members.find((x) => x.key === selected);
   const [method, mastery, chat, seo, analyst, competition, content, visibility, tech, authority, social, notes] = await Promise.all([
     member && VEILLE_DOMAINS[member.key] ? loadMethodState(req.payload, member.id) : null,
-    allowed ? loadTeamMastery(req.payload, scorecard, new Date(), snaps) : ({} as TeamMastery),
+    allowed ? comReportsP.then((com) => loadTeamMastery(req.payload, scorecard, new Date(), snaps, { com })) : ({} as TeamMastery),
     member?.level === "chef" ? loadChat(req.payload, member.id) : ([] as ChatMessage[]),
     allowed && team ? loadSeoChief(req.payload, team.members.find((x) => x.key === "chef-seo")) : null,
     // Ana : l'entonnoir (GA4 gardé 6 h) et son dernier audit, seulement quand on ouvre sa fiche.
@@ -2850,6 +3349,11 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
     // Le carnet du chef ouvert ; pour un sous-agent, les consignes que son chef lui a données.
     !allowed || !member ? ([] as NoteRow[]) : member.level === "chef" ? loadCarnet(req.payload, member.id, new Date()) : consignesOf(req.payload, member.id),
   ]);
+  // Nathan, Jade, Malo et Lou : leur dernier point, seulement quand on ouvre leur fiche (null : pas encore de point) ;
+  // Élise : le revenu et le budget de son bureau, pour sa carte de l'organigramme.
+  const reports = await comReportsP;
+  const [conversion, com] = await Promise.all([only("seo-conversion") ? latestConversion(req.payload) : undefined, allowed && team ? loadComChief(req.payload, reports) : null]);
+  const revenue: RevenueView = { pipeline: only("com-pipeline") ? reports.pipe : undefined, conversion, trials: only("com-essais") ? reports.trials : undefined, health: only("com-clients") ? reports.health : undefined, com };
   const trends = only("sea-google") || only("sea-chatgpt") ? adsTrends(snaps, selected === "sea-google" ? "google" : "chatgpt") : [];
 
   return (
@@ -2869,7 +3373,7 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
             <h1 className="ait-title">Équipe IA</h1>
             <p className="ait-sub">Vous parlez aux chefs ; chaque sous-agent reçoit ses missions de son chef et lui rend son travail.</p>
           </header>
-          {team ? <Report team={team} selected={selected} bureau={typeof sp?.bureau === "string" ? sp.bureau : null} all={all} campaigns={campaigns} campaign={campaign} chat={chat} inbox={inbox} scorecard={scorecard} gads={gads} oads={oads} method={method} trends={trends} recos={recos} mastery={mastery} seo={seo} analyst={analyst} competition={competition} content={content} visibility={visibility} tech={tech} authority={authority} social={social} notes={notes} /> : <p className="ait-empty">Cet écran est réservé à la direction.</p>}
+          {team ? <Report team={team} selected={selected} bureau={typeof sp?.bureau === "string" ? sp.bureau : null} all={all} campaigns={campaigns} campaign={campaign} chat={chat} inbox={inbox} scorecard={scorecard} gads={gads} oads={oads} method={method} trends={trends} recos={recos} mastery={mastery} seo={seo} analyst={analyst} competition={competition} content={content} visibility={visibility} tech={tech} authority={authority} social={social} notes={notes} revenue={revenue} /> : <p className="ait-empty">Cet écran est réservé à la direction.</p>}
         </div>
       </Gutter>
     </DefaultTemplate>

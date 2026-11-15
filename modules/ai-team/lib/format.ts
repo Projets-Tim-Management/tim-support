@@ -37,3 +37,19 @@ export function parisMonthDays(now: Date): { day: number; daysInMonth: number } 
 
 /** Minuit à Paris le 1er du mois de `now`, en millisecondes — le même mois que les plafonds des agents. */
 export const parisMonthStart = (now: Date): number => zonedStart(now, "month", PARIS_TZ).getTime();
+
+/** Le jour à Paris (« AAAA-MM-JJ ») : entre minuit et 2 h, l'UTC est encore la veille. */
+export const parisDay = (now: Date): string => new Intl.DateTimeFormat("en-CA", { timeZone: PARIS_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+
+/** `n` mois plus tard, le jour ramené à la fin du mois s'il n'existe pas (31 janvier + 1 mois → 28 ou 29 février). Pure. */
+export function addMonths(d: Date, n: number): Date {
+  const out = new Date(d);
+  const day = out.getUTCDate();
+  out.setUTCDate(1);
+  out.setUTCMonth(out.getUTCMonth() + n);
+  out.setUTCDate(Math.min(day, new Date(Date.UTC(out.getUTCFullYear(), out.getUTCMonth() + 1, 0)).getUTCDate()));
+  return out;
+}
+
+/** Une date de la base en millisecondes ; NaN si elle manque. */
+export const timeOf = (v: unknown): number => (v ? Date.parse(String(v)) : NaN);

@@ -16,7 +16,13 @@ import { runVisibilityDue } from "@/modules/ai-team/lib/ai-visibility";
 import { runTechAudit } from "@/modules/ai-team/lib/site-health";
 import { runAuthority } from "@/modules/ai-team/lib/authority";
 import { runSocial } from "@/modules/ai-team/lib/social";
+import { runConversion } from "@/modules/ai-team/lib/conversion";
+import { runPipeline } from "@/modules/ai-team/lib/pipeline-agent";
+import { runHealth, runTrials } from "@/modules/ai-team/lib/commercial";
+import { runComWeekly } from "@/modules/ai-team/lib/com-weekly";
 import { ensureWeeklySnapshot } from "@/modules/ai-team/lib/snapshots";
+import { ensureSnapshotMetrics } from "@/modules/ai-team/lib/roadmap-metrics";
+import { measureGoals } from "@/modules/ai-team/lib/indicators";
 
 /**
  * Chaque minute : lance les passages de SUIVI dus sur les campagnes en ligne
@@ -51,6 +57,9 @@ export async function GET(req: Request) {
   // La photo des chiffres de la semaine, le lundi dès 7 h (sans IA) : tendances et avant / après des recommandations.
   const snapshot = await ensureWeeklySnapshot(payload).catch((e) => (payload.logger.error(`[équipe IA] photo de la semaine : ${(e as Error).message}`), "echec" as const));
   if (snapshot === "prise") payload.logger.info("[équipe IA] photo de la semaine prise.");
+  // Les indicateurs de la feuille de route sur la photo de la semaine (clics hors marque, IA…), une fois.
+  const metrics = await ensureSnapshotMetrics(payload).catch((e) => (payload.logger.error(`[équipe IA] indicateurs de la semaine : ${(e as Error).message}`), "echec" as const));
+  if (metrics === "ajoutes") payload.logger.info("[équipe IA] indicateurs de la feuille de route ajoutés à la photo de la semaine.");
   // Les plans de site des concurrents, le dimanche dès 18 h (sans IA, par lots).
   const crawl = await runCompetitorCrawl(payload).catch((e) => (payload.logger.error(`[équipe IA] plans des concurrents : ${(e as Error).message}`), null));
   if (crawl && crawl.read) payload.logger.info(`[équipe IA] plans des concurrents : ${crawl.read} lu(s), ${crawl.left} restant(s).`);
@@ -62,6 +71,8 @@ export async function GET(req: Request) {
   const fail = (e: unknown) => ({ status: "echec" as const, message: (e as Error).message });
   const ran = (status: string) => status === "fait" || status === "faite" || status === "echec";
   const steps: { name: string; label: string; run: () => Promise<{ status: string; message?: string; member?: string }> }[] = [
+    // Le relevé de la semaine des objectifs chiffrés de la feuille de route (chaque objectif, au plus une fois en 6 jours).
+    { name: "goals", label: "relevé des objectifs", run: () => measureGoals(payload).then((n) => ({ status: n ? "fait" : "pas-encore", message: n ? `${n} objectif(s) relevé(s)` : undefined })).catch(fail) },
     // La veille web du dimanche soir : un agent après l'autre.
     { name: "veille", label: "veille de la semaine", run: () => runDueVeille(payload).catch(fail) },
     // Le rapport de Guy (lundi dès 6 h), puis le plan de contenu de Paige (au plus tard 7 h).
@@ -82,6 +93,14 @@ export async function GET(req: Request) {
     { name: "authority", label: "rapport d'autorité", run: () => runAuthority(payload).catch(fail) },
     { name: "social", label: "rapport réseaux & vidéo", run: () => runSocial(payload).catch(fail) },
     { name: "audit", label: "audit du site", run: () => runSiteAudit(payload).catch(fail) },
+    // La conversion du site (Lou), le premier jour ouvré de la semaine dès 6 h — avant les objectifs de Serge.
+    { name: "conversion", label: "revue de la conversion", run: () => runConversion(payload).catch(fail) },
+    // Le bureau commercial d'Élise : le pipeline (Nathan) et les essais (Jade) chaque jour ouvré dès 8 h, la santé des
+    // clients (Malo) le lundi dès 8 h, puis le point commercial d'Élise le lundi dès 9 h.
+    { name: "pipeline", label: "point du pipeline", run: () => runPipeline(payload).catch(fail) },
+    { name: "trials", label: "point des essais", run: () => runTrials(payload).catch(fail) },
+    { name: "health", label: "santé des clients", run: () => runHealth(payload).catch(fail) },
+    { name: "comWeek", label: "point commercial de la semaine", run: () => runComWeekly(payload).catch(fail) },
     // Les objectifs de la semaine de Serge (lundi dès 7 h), puis la revue de Margaux (lundi dès 10 h).
     { name: "seoWeek", label: "objectifs SEO/GEO de la semaine", run: () => runSeoWeekly(payload).catch(fail) },
     { name: "review", label: "revue du lundi", run: () => runWeeklyReview(payload).catch(fail) },

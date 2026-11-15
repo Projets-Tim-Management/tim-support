@@ -3,6 +3,7 @@ import type { Payload } from "payload";
 import type { AgentRole } from "@/modules/ads/collections/AdAgents";
 import { consignesFor } from "@/modules/ai-team/lib/notebook";
 import type { RequestInput } from "@/modules/ai-team/lib/requests";
+import type { ChiefKey } from "@/modules/ai-team/lib/veille-domains";
 import { engineRoleOwner } from "@/modules/ai-team/lib/team";
 
 /**
@@ -68,7 +69,14 @@ async function speakerOfRole(payload: Payload, role: string): Promise<{ id: numb
  * Le port que le moteur reçoit : qui est en pause, et les demandes à la
  * direction (déposer, relire les réponses), au nom du chef qui incarne le rôle.
  */
-export const teamPort = (payload: Payload) => ({
+export const teamPort = (payload: Payload) => {
+  // La feuille de route est lue une fois par port (un réveil, un passage), pas à chaque appel du modèle : la consigne
+  // reste aussi identique d'un tour à l'autre, ce qui garde le cache du modèle.
+  let roadmap: Promise<string> | null = null;
+  return {
+  brief: async (): Promise<string> => (await import("@/modules/ai-team/lib/brief")).loadBriefBlock(payload),
+  roadmap: (): Promise<string> =>
+    (roadmap ??= import("@/modules/ai-team/lib/roadmap").then(async ({ roadmapBlock, roadmapForModel }) => roadmapBlock(await roadmapForModel(payload, "sea")))),
   consignes: async (role: string): Promise<string[]> => {
     const owner = engineRoleOwner(role as AgentRole);
     return owner ? consignesFor(payload, owner.key) : [];
@@ -116,7 +124,8 @@ export const teamPort = (payload: Payload) => ({
       le: d.closedAt ? d.closedAt.slice(0, 10) : null,
     }));
   },
-});
+  };
+};
 
 /**
  * Le budget IA du mois d'une équipe, posé sur la carte de son chef : celui du
@@ -124,7 +133,7 @@ export const teamPort = (payload: Payload) => ({
  * (« chef-seo ») pour la dépense « seo ». Le moteur le compare à la dépense du
  * mois avant chaque appel payant. Rien de posé, ou fiche illisible : null.
  */
-export async function teamMonthlyBudget(payload: Payload, chiefKey: "chef-sea" | "chef-seo"): Promise<{ name: string; budgetEur: number } | null> {
+export async function teamMonthlyBudget(payload: Payload, chiefKey: ChiefKey): Promise<{ name: string; budgetEur: number } | null> {
   try {
     const res = await payload.find({ collection: "ai-team-members", where: { key: { equals: chiefKey } }, limit: 1, depth: 0, overrideAccess: true, select: { name: true, monthlyAiBudgetEur: true } as never });
     const m = res.docs[0] as unknown as { name?: string; monthlyAiBudgetEur?: number | null } | undefined;

@@ -75,8 +75,8 @@ async function fail(deps: AgentDeps, agent: AgentRow, reason: string): Promise<A
 async function callModel(deps: AgentDeps, run: RunRow, agent: AgentRow, agents: AgentRow[], steps: StepRow[], existing?: StepRow): Promise<AdvanceResult> {
   const tools = agent.tools.filter((t) => TOOLS[t]).map((t) => TOOLS[t].definition);
   // Les consignes que son chef lui a données (carnet du chef) s'ajoutent à sa consigne de rôle.
-  const consignes = await deps.team?.consignes?.(agent.role).catch(() => [] as string[]);
-  const req = { model: agent.model, system: systemPrompt(agent.role) + consignesBlock(consignes ?? []), messages: buildMessages(run, agent, steps), tools, maxTokens: ADS_AGENT_MAX_TOKENS };
+  const [consignes, roadmap, brief] = await Promise.all([deps.team?.consignes?.(agent.role).catch(() => [] as string[]), deps.team?.roadmap?.().catch(() => ""), deps.team?.brief?.().catch(() => "")]);
+  const req = { model: agent.model, system: systemPrompt(agent.role) + (brief ?? "") + consignesBlock(consignes ?? []) + (roadmap ?? ""), messages: buildMessages(run, agent, steps), tools, maxTokens: ADS_AGENT_MAX_TOKENS };
   const maxEur = usdToEur(claudeMaxCostUsd(agent.model, estimateTokens(JSON.stringify(req)), ADS_AGENT_MAX_TOKENS));
 
   const own = canSpend(ledgerOf(agent, agents), maxEur);

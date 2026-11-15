@@ -47,6 +47,7 @@ export const AiTeamRequests: CollectionConfig = {
     },
     { name: "baseline", type: "json", label: "Chiffres au moment de la recommandation" },
     { name: "proposedBy", type: "text", label: "Idée de (agent)", admin: { description: "La clé de l'agent dont l'idée est testée (son score d'apprentissage)." } },
+    { name: "goal", type: "relationship", relationTo: "ai-team-goals", label: "Sert l'objectif (feuille de route)" },
     {
       type: "row",
       fields: [

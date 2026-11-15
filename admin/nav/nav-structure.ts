@@ -73,6 +73,8 @@ export const NAV_HIDDEN = new Set([
   "ai-team-objectives",
   "ai-team-social-accounts",
   "ai-team-notes",
+  "ai-team-goals",
+  "ai-team-actions",
 ]);
 
 /** Un item de groupe : un slug, un sous-groupe repliable, ou un lien libre. */
@@ -185,6 +187,8 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
    */
   Agent: [
     { label: "Organigramme", href: "/admin/equipe-ia", directionOnly: true },
+    { label: "Feuille de route", href: "/admin/feuille-de-route", directionOnly: true },
+    { label: "Fiche produit", href: "/admin/globals/ai-team-brief", directionOnly: true },
     { label: "Fiches de l'équipe", slugs: ["ai-team-members"] },
   ],
   Utilisateurs: [

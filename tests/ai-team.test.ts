@@ -186,15 +186,23 @@ describe("le pilotage des agents est réservé à la direction", () => {
 
 describe("l'organisation SEA", async () => {
   const { groupOf, PREVIOUS_DEFAULTS } = await import("@/modules/ai-team/lib/team");
-  it("Margaux, directrice SEA, encadre les chefs de canal, la mesure et le studio", () => {
+  it("Margaux, directrice SEA, encadre les chefs de canal, la mesure et le studio ; Élise tient le bureau commercial", () => {
     const margaux = AI_TEAM_SEED.find((m) => m.key === "chef-sea")!;
     expect(margaux).toMatchObject({ level: "chef", jobTitle: "Directrice SEA", engineRoles: ["orchestrateur"] });
-    // Deux chefs : Margaux (SEA) et Serge (SEO & GEO), chacun avec son domaine.
+    // Trois chefs : Margaux (SEA), Serge (SEO & GEO) et Élise (commercial & revenu), chacun avec son domaine.
     expect(AI_TEAM_SEED.filter((m) => m.level === "chef").map((m) => [m.key, m.domain])).toEqual([
       ["chef-sea", "sea"],
       ["chef-seo", "seo"],
+      ["chef-com", "com"],
     ]);
     expect(AI_TEAM_SEED.filter((m) => m.chiefKey === "chef-sea")).toHaveLength(8);
+    expect(AI_TEAM_SEED.filter((m) => m.chiefKey === "chef-com").map((m) => [m.key, m.name])).toEqual([
+      ["com-pipeline", "Nathan"],
+      ["com-essais", "Jade"],
+      ["com-clients", "Malo"],
+    ]);
+    expect(["com-pipeline", "com-essais", "com-clients"].map(groupOf)).toEqual(["commercial", "commercial", "commercial"]);
+    expect(groupOf("seo-conversion")).toBe("revenu");
     expect(["sea-meta", "sea-google", "sea-chatgpt"].map(groupOf)).toEqual(["canal", "canal", "canal"]);
     expect(groupOf("sea-mesure")).toBe("mesure");
     expect(["sea-stratege", "sea-redacteur", "sea-directeur-artistique", "sea-controleur"].map(groupOf)).toEqual(["studio", "studio", "studio", "studio"]);

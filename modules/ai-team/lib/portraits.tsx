@@ -14,7 +14,7 @@ import type { ReactElement } from "react";
  * Server-safe : de simples fonctions qui rendent un <svg>.
  */
 
-export const PORTRAITS = ["chef-sea", "stratege", "redacteur", "directeur-artistique", "controleur", "meta-ads", "google-ads", "chatgpt-ads", "mesure", "chef-seo", "seo-analyste", "seo-concurrence", "seo-contenu", "seo-visibilite-ia", "seo-technique", "seo-autorite", "seo-reseaux"] as const;
+export const PORTRAITS = ["chef-sea", "stratege", "redacteur", "directeur-artistique", "controleur", "meta-ads", "google-ads", "chatgpt-ads", "mesure", "chef-seo", "seo-analyste", "seo-concurrence", "seo-contenu", "seo-visibilite-ia", "seo-technique", "seo-autorite", "seo-reseaux", "pipeline", "conversion", "chef-com", "essais", "clients"] as const;
 export type PortraitKey = (typeof PORTRAITS)[number];
 
 export const PORTRAIT_LABELS: Record<PortraitKey, string> = {
@@ -35,6 +35,11 @@ export const PORTRAIT_LABELS: Record<PortraitKey, string> = {
   "seo-technique": "Technique — crâne rasé, barbe courte, clé à molette",
   "seo-autorite": "Autorité — longs cheveux ondulés, maillons de chaîne",
   "seo-reseaux": "Réseaux & vidéo — coupe courte à mèche, bouton lecture",
+  pipeline: "Pipeline & relances — cheveux courts en brosse, flèche de relance",
+  conversion: "Conversion — queue-de-cheval, curseur qui clique",
+  "chef-com": "Directrice commerciale — longs cheveux ondulés, casque-micro, flèche qui monte",
+  essais: "Essais — carré frangé, sablier",
+  clients: "Rétention & clients — cheveux en arrière, cœur",
 };
 
 type Look = {
@@ -72,6 +77,11 @@ const LOOKS: Record<PortraitKey, Look> = {
   "seo-technique": { main: "var(--tim-green)", bg: "var(--tim-green-bg)", skin: "#b07a55", skinShade: "#8f5d3c", hair: "#2a201b", hairDark: "#17110e", iris: "#3b2a1e", lips: "#94523f", lipstick: false, freckles: false, liner: false },
   "seo-visibilite-ia": { main: "var(--tim-indigo)", bg: "var(--tim-indigo-bg)", skin: "#e3ad88", skinShade: "#c48a64", hair: "#8a8580", hairDark: "#5c5854", iris: "#3d5a73", lips: "#b06a58", lipstick: false, freckles: false, liner: false },
   "chef-seo": { main: "var(--tim-rose)", bg: "var(--tim-rose-bg)", skin: "#efbf9c", skinShade: "#d4936d", hair: "#5a3b26", hairDark: "#3a2416", iris: "#3f6b4f", lips: "#b8705a", lipstick: false, freckles: false, liner: false },
+  pipeline: { main: "var(--tim-teal)", bg: "var(--tim-teal-bg)", skin: "#c99a74", skinShade: "#a87953", hair: "#6b4a2f", hairDark: "#45301c", iris: "#3d5a73", lips: "#a8644f", lipstick: false, freckles: true, liner: false },
+  "chef-com": { main: "var(--tim-green)", bg: "var(--tim-green-bg)", skin: "#e8b48f", skinShade: "#cc8a66", hair: "#2b1d16", hairDark: "#170f0b", iris: "#4b3524", lips: "#c0504a", lipstick: true, freckles: false, liner: true },
+  essais: { main: "var(--tim-sky)", bg: "var(--tim-sky-bg)", skin: "#f3cfb2", skinShade: "#dca582", hair: "#b5653a", hairDark: "#7f4222", iris: "#4f7a4f", lips: "#cf6a60", lipstick: true, freckles: true, liner: false },
+  clients: { main: "var(--tim-red)", bg: "var(--tim-red-bg)", skin: "#a8724f", skinShade: "#87553a", hair: "#1c1410", hairDark: "#0c0806", iris: "#3a2a1c", lips: "#8e5040", lipstick: false, freckles: false, liner: false },
+  conversion: { main: "var(--tim-amber)", bg: "var(--tim-amber-bg)", skin: "#f0c8a8", skinShade: "#d89f7e", hair: "#1f1916", hairDark: "#0f0c0b", iris: "#4a3a2a", lips: "#c4615a", lipstick: true, freckles: false, liner: true },
 };
 
 const INK = "#1d1715";
@@ -263,6 +273,16 @@ Object.assign(HAIR, {
   },
 } satisfies Partial<Record<PortraitKey, Hair>>);
 
+/*
+ * Coiffures reprises d'un autre portrait (les couleurs les distinguent). Posées APRÈS Object.assign : un accesseur
+ * dans l'objet copié serait lu pendant la copie, avant que la coiffure qu'il reprend n'existe (15/11/2026).
+ */
+HAIR.pipeline = HAIR["seo-concurrence"]; // la brosse courte de Guy
+HAIR.conversion = HAIR["seo-analyste"]; // la queue-de-cheval d'Ana
+HAIR["chef-com"] = HAIR["seo-autorite"];
+HAIR.essais = HAIR["seo-contenu"];
+HAIR.clients = HAIR["chef-seo"];
+
 /* ─── Les touches de métier ──────────────────────────────────────────────── */
 
 const ACCESSORY: Record<PortraitKey, (l: Look) => ReactElement> = {
@@ -316,6 +336,38 @@ const ACCESSORY: Record<PortraitKey, (l: Look) => ReactElement> = {
     </g>
   ),
   // La technique : une clé à molette — réparer ce qui bloque.
+  // Le pipeline : une flèche qui revient — la relance.
+  pipeline: () => (
+    <g fill="none" stroke={WHITE} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M86 103 A7.5 7.5 0 1 1 82.5 97" />
+      <path d="M80 94 L83.5 97.5 L79.5 100" />
+    </g>
+  ),
+  // La conversion : un curseur qui clique.
+  conversion: () => (
+    <g>
+      <path d="M75 95 L75 112 L79.5 107.5 L83 114.5 L86.5 113 L83 106 L89 106 Z" fill={WHITE} stroke={WHITE} strokeWidth="1" strokeLinejoin="round" />
+    </g>
+  ),
+  // La directrice commerciale : le casque-micro des chefs et une flèche qui monte — le MRR.
+  "chef-com": (l) => (
+    <g>
+      <path d="M29 56 Q28 11 60 11 Q92 11 91 56" fill="none" stroke={METAL} strokeWidth="3.5" strokeLinecap="round" />
+      <rect x="24" y="49" width="10" height="16" rx="4.5" fill={l.main} />
+      <rect x="86" y="49" width="10" height="16" rx="4.5" fill={l.main} />
+      <path d="M29 64 Q31 76 47 77" fill="none" stroke={METAL} strokeWidth="2.4" strokeLinecap="round" />
+      <circle cx="49" cy="77" r="3" fill={METAL} />
+      <path d="M72 112 L79 104 L83 108 L90 99 M85 99 H90 V104" fill="none" stroke={WHITE} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+    </g>
+  ),
+  // Les essais : un sablier — l'essai a une date de décision.
+  essais: () => (
+    <g fill="none" stroke={WHITE} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M74 97 H88 M74 113 H88 M76 97 C76 103 86 103 86 105 C86 107 76 107 76 113 M86 97 C86 103 76 103 76 105" />
+    </g>
+  ),
+  // La rétention : un cœur — garder les clients.
+  clients: () => <path d="M81 112 C72 106 72 98 76.5 97 C79 96.5 80.5 98.5 81 100 C81.5 98.5 83 96.5 85.5 97 C90 98 90 106 81 112 Z" fill={WHITE} />,
   // Les réseaux et la vidéo : un bouton lecture.
   "seo-reseaux": (l) => (
     <g>

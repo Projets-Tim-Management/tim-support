@@ -10,12 +10,14 @@ import { AdsBudgetError, assertAdsBudget, recordAdsUsage } from "@/modules/ads/l
 import { firstSentence, isPlugged, resultText } from "@/modules/ai-team/lib/activity";
 import { loadBudgetOutlook, outlookForModel } from "@/modules/ai-team/lib/budget-watch";
 import { idOf } from "@/core/lib/relations";
-import { loadTeamMastery, masteryForModel, SEA_MASTERY_KEYS, SEO_MASTERY_KEYS } from "@/modules/ai-team/lib/mastery";
+import { loadTeamMastery, MASTERY_KEYS_OF, masteryForModel } from "@/modules/ai-team/lib/mastery";
 import { loadAdsReaders, scorecardForModel, teamMethodsForModel } from "@/modules/ai-team/lib/model-data";
 import { cachedScorecard } from "@/modules/ai-team/lib/shared-data";
 import { buildTeamSpend } from "@/modules/ai-team/lib/spend";
+import { loadBriefBlock } from "@/modules/ai-team/lib/brief";
+import { roadmapForModel } from "@/modules/ai-team/lib/roadmap";
 import { CARNET_FORMAT, carnetForModel, carnetRules, loadCarnet, splitCarnet, teamOf, writeCarnet } from "@/modules/ai-team/lib/notebook";
-import { SEA_VEILLE_KEYS } from "@/modules/ai-team/lib/veille-domains";
+import { OFFICES, officeOfChief, SEA_VEILLE_KEYS } from "@/modules/ai-team/lib/veille-domains";
 
 /**
  * La conversation de la direction avec un CHEF de l'équipe IA (étape 4 du plan
@@ -50,13 +52,16 @@ type Raw = Record<string, unknown>;
 /** La consigne du chef : son identité, son équipe, ses limites. Pure (testée). */
 export function chiefSystem(chief: { name: string; jobTitle: string; personality?: string | null; key?: string }, team: { name: string; jobTitle: string; active: boolean; plugged?: boolean }[], members: { key: string; name: string }[] = []): string {
   const seo = chief.key === "chef-seo";
+  const com = chief.key === "chef-com";
   const crew = team.length
     ? team.map((m) => `${m.name} (${m.jobTitle.toLowerCase()}${m.plugged === false ? ", pas encore branché" : m.active ? "" : ", en pause"})`).join(", ")
     : "personne pour l'instant";
   return [
     `Tu es ${chief.name}, ${chief.jobTitle.toLowerCase()} chez TIM (logiciel de gestion pour le BTP). Tu es un agent IA, et tu le sais : tu ne t'inventes pas de vie privée ni d'émotions humaines.`,
     `Tu parles à la direction de TIM, qui pilote l'équipe IA. Ton équipe : ${crew}. Tu leur confies les missions et ils te rendent leur travail ; la direction ne leur parle pas, c'est toi qui rends compte pour eux.`,
-    "Tu juges un canal au lead QUALIFIÉ (une opportunité qui a atteint « Démo programmée » ou plus) et au client signé, jamais au clic. C'est la direction qui répartit les budgets : tu RECOMMANDES, chiffres à l'appui (où déplacer, de combien, pourquoi, quoi tester), et elle décide.",
+    com
+      ? "Tu juges au revenu : le MRR signé et sa trajectoire vers l'objectif, les affaires qui peuvent signer, les essais qui se jouent, les clients à garder — un client perdu pèse autant qu'une affaire signée. C'est la direction qui appelle, rencontre et signe : tu RECOMMANDES, chiffres à l'appui, et elle décide."
+      : "Tu juges un canal au lead QUALIFIÉ (une opportunité qui a atteint « Démo programmée » ou plus) et au client signé, jamais au clic. C'est la direction qui répartit les budgets : tu RECOMMANDES, chiffres à l'appui (où déplacer, de combien, pourquoi, quoi tester), et elle décide.",
     chief.personality ? `Ta façon de parler : ${chief.personality}` : "",
     "Réponds comme un collègue au téléphone : en français simple, à la première personne, en vouvoyant la direction, 2 à 5 phrases (une courte liste si on te demande un détail). Commence par ce qui demande une décision. Chiffres à l'appui, sans jargon technique (pas de noms d'outils ni de champs).",
     "Appuie-toi UNIQUEMENT sur les données jointes. Si elles ne permettent pas de répondre, dis-le franchement et dis ce qu'il faudrait regarder.",
@@ -65,8 +70,11 @@ export function chiefSystem(chief: { name: string; jobTitle: string; personality
     "Ton budget IA du mois est un plafond fixé par la direction, pas un objectif : l'équipe ne dépense que ce qui sert. Si la projection de fin de mois le dépasse ou qu'un besoin le justifie, tu peux demander une hausse — en disant combien, pourquoi et ce qu'on y gagne ; la direction change le chiffre sur ta carte.",
     "Tu parles comme un vrai responsable d'équipe, pas comme un assistant : tu as un avis, tu le défends, tu peux dire non à une idée de la direction en expliquant pourquoi, et tu changes d'avis quand les chiffres te donnent tort.",
     carnetRules(members),
+    "Ta feuille de route (feuilleDeRoute) : tes objectifs à 3, 6 et 12 mois et les indicateurs qui les mesurent, avec leur courbe. Appuie-toi dessus quand on te demande où vous en êtes ; tu les proposes ou en fais le point dans ta revue, pas ici.",
     CARNET_FORMAT,
-    seo
+    com
+      ? "Tu n'agis pas depuis cette conversation. Les relances, les gestes sur les essais et sur les clients sont confiés chaque jour à la direction par Nathan, Jade et Malo (ses tâches « Pour vous ») ; ton point du lundi fait la synthèse. Propose ce qui te semble utile, avec ce qu'on y gagne."
+      : seo
       ? "Tu n'agis pas depuis cette conversation. Une action passe par les objectifs de la semaine (fixés le lundi, ou maintenant avec « Préparer mes objectifs maintenant ») : propose-la, avec ce qu'on y gagne. Tu recommandes et donnes des prompts prêts, tu ne rédiges pas les textes toi-même."
       : "Tu n'agis pas depuis cette conversation. Si une action te semble utile, propose-la et dis comment elle se fera : une préparation que la direction lance dans Équipe IA › tes campagnes, des créas à décider dans « À valider », ou ce que tu décideras toi-même à ton passage du lundi.",
     "Seule exception : tes consignes à ton équipe partent d'ici, par ton carnet — elles seront jointes à leurs prochaines missions.",
@@ -91,13 +99,13 @@ export function historyTurns(messages: { from: string; text: string }[]): Anthro
   return turns;
 }
 
-/** Ce que le chef SEA sait au moment de répondre. */
-async function chiefData(payload: Payload, now: Date) {
+/** Ce que le chef SEA sait au moment de répondre. `chiefId` : son équipe, ce sont SES sous-agents. */
+async function chiefData(payload: Payload, now: Date, chiefId: Id) {
   const common = { depth: 0, overrideAccess: true } as const;
   const [campaigns, runs, team, agents, pending, allMembers, spendAgents, msgs, questions, settings] = await Promise.all([
     payload.find({ collection: "ad-campaigns", sort: "-updatedAt", limit: 20, pagination: false, ...common, select: { name: true, status: true, publicationStatus: true } as never }),
     payload.find({ collection: "ad-agent-runs", sort: "-startedAt", limit: 6, ...common, select: { campaign: true, kind: true, status: true, summary: true, startedAt: true } as never }),
-    payload.find({ collection: "ai-team-members", where: { level: { equals: "sous-agent" } }, sort: "order", pagination: false, ...common }),
+    payload.find({ collection: "ai-team-members", where: { and: [{ level: { equals: "sous-agent" } }, { chief: { equals: chiefId } }] }, sort: "order", pagination: false, ...common }),
     payload.find({ collection: "ad-agents", where: { depth: { greater_than: 0 } }, sort: "-createdAt", limit: 20, ...common, select: { role: true, status: true, mission: true, result: true, error: true, createdAt: true } as never }),
     payload.count({ collection: "ad-creatives", where: { status: { equals: "a-valider" } }, overrideAccess: true }),
     // De quoi chiffrer l'équipe : les mêmes données que la section « Budget IA » de la page.
@@ -186,22 +194,36 @@ export async function askChief(
   if (!chief || chief.level !== "chef") throw new ChatError("On ne parle qu'aux chefs de l'équipe.");
   if (chief.active === false) throw new ChatError(`${chief.name} est en pause : remettez cet agent en service pour lui écrire.`);
 
-  const seo = chief.key === "chef-seo";
-  const [{ team, data }, past] = await Promise.all([
-    // Serge (SEO/GEO) parle de ses sources et des objectifs de la semaine ; Margaux de ses campagnes.
-    seo ? import("@/modules/ai-team/lib/seo-weekly").then(async (m) => ({ team: [], data: await m.seoChatData(payload, now, chief as never) })) : chiefData(payload, now),
+  // Le bureau du chef (une table : OFFICES) : son budget, sa feuille de route, la maîtrise de son équipe.
+  const office = officeOfChief(String(chief.key)) ?? "sea";
+  const sea = office === "sea";
+  const spendKind = OFFICES[office].spend;
+  // La fiche des canaux (Yanis) : ce qui fonde les recommandations de budget de Margaux.
+  const card = sea ? await cachedScorecard(payload, now) : null;
+  const [{ team, data }, past, requests, readers, mastery, notes, crew, roadmap, brief] = await Promise.all([
+    // Serge (SEO/GEO) parle de ses sources et des objectifs de la semaine ; Élise du revenu ; Margaux de ses campagnes.
+    office === "com"
+      ? import("@/modules/ai-team/lib/com-weekly").then(async (m) => ({ team: null, data: await m.comChatData(payload, now, chief) }))
+      : office === "seo"
+        ? import("@/modules/ai-team/lib/seo-weekly").then(async (m) => ({ team: null, data: await m.seoChatData(payload, now, chief as never) }))
+        : chiefData(payload, now, chief.id),
     payload.find({ collection: "ai-team-messages", where: { member: { equals: chief.id } }, sort: "-createdAt", limit: HISTORY, depth: 0, overrideAccess: true }),
+    // Ce qu'il a demandé à la direction, et ce que la direction a fait ou répondu.
+    payload.find({ collection: "ai-team-requests", where: { member: { equals: chief.id } }, sort: "-createdAt", limit: 10, depth: 0, overrideAccess: true }),
+    // Margaux lit aussi ce que lisent Thomas et Sarah.
+    sea ? loadAdsReaders(payload, now) : {},
+    loadTeamMastery(payload, card, now, undefined, { keys: MASTERY_KEYS_OF[office] }),
+    loadCarnet(payload, chief.id, now),
+    teamOf(payload, chief.id),
+    // Les objectifs et les actions humaines seulement : les indicateurs se mesurent à la revue, pas à chaque message.
+    roadmapForModel(payload, office, now).catch(() => null),
+    loadBriefBlock(payload),
   ]);
   const history = historyTurns((past.docs as unknown as { from: string; text: string }[]).reverse());
-  // Ce qu'elle a demandé à la direction, et ce que la direction a fait ou répondu.
-  const requests = await payload.find({ collection: "ai-team-requests", where: { member: { equals: chief.id } }, sort: "-createdAt", limit: 10, depth: 0, overrideAccess: true });
-  // La fiche des canaux (Yanis) : ce qui fonde ses recommandations de budget.
-  const card = seo ? null : await cachedScorecard(payload, now);
-  // Serge lit la maîtrise de son équipe ; Margaux la sienne, avec ce que lisent Thomas et Sarah.
-  const [readers, mastery] = seo ? [{}, await loadTeamMastery(payload, null, now)] : await Promise.all([loadAdsReaders(payload, now), loadTeamMastery(payload, card, now)]);
   const withRequests = {
     ...data,
-    ...(seo ? { maitriseDeLEquipe: SEO_MASTERY_KEYS.flatMap((k) => (mastery[k] ? [masteryForModel(mastery[k])] : [])) } : { maitriseDeLEquipe: SEA_MASTERY_KEYS.flatMap((k) => (mastery[k] ? [masteryForModel(mastery[k])] : [])), ficheDesCanaux: scorecardForModel(card) }),
+    maitriseDeLEquipe: MASTERY_KEYS_OF[office].flatMap((k) => (mastery[k] ? [masteryForModel(mastery[k])] : [])),
+    ...(sea ? { ficheDesCanaux: scorecardForModel(card) } : {}),
     ...readers,
     mesDemandesALaDirection: (requests.docs as unknown as Raw[]).map((r) => ({
       le: String(r.createdAt ?? "").slice(0, 10),
@@ -211,11 +233,11 @@ export async function askChief(
       reponseOuMot: r.answer ?? null,
     })),
   };
-  const [notes, crew] = await Promise.all([loadCarnet(payload, chief.id, now), teamOf(payload, chief.id)]);
-  const json = JSON.stringify({ ...withRequests, monCarnet: carnetForModel(notes, crew) }).replace(/<\/?donnees>/g, "");
+  const json = JSON.stringify({ ...withRequests, monCarnet: carnetForModel(notes, crew), ...(roadmap ? { feuilleDeRoute: roadmap } : {}) }).replace(/<\/?donnees>/g, "");
   const req = {
     model: QUESTION_MODEL,
-    system: chiefSystem({ ...chief, key: String(chief.key) }, team, crew),
+    // Son équipe : celle de chiefData pour Margaux (avec qui est branché) ; pour Serge et Élise, leurs agents.
+    system: chiefSystem({ ...chief, key: String(chief.key) }, team ?? crew, crew) + brief,
     messages: [...history, { role: "user" as const, content: `<donnees>\n${json}\n</donnees>\n\nMessage de la direction : ${text}` }],
     tools: [],
     maxTokens: MAX_TOKENS,
@@ -223,7 +245,7 @@ export async function askChief(
 
   const maxEur = usdToEur(claudeMaxCostUsd(QUESTION_MODEL, estimateTokens(JSON.stringify(req)), MAX_TOKENS));
   try {
-    await assertAdsBudget(payload, seo ? "seo" : "agent", maxEur, now);
+    await assertAdsBudget(payload, spendKind, maxEur, now);
   } catch (e) {
     if (e instanceof AdsBudgetError) throw new ChatError(`${chief.name} ne peut pas répondre maintenant : ${e.message}`);
     throw e;
@@ -231,12 +253,12 @@ export async function askChief(
 
   const res = await (deps.model ?? callAgentModel)(req);
   const usd = claudeCostUsd(QUESTION_MODEL, res.usage);
-  await recordAdsUsage(payload, { kind: seo ? "seo" : "agent", provider: "anthropic", model: QUESTION_MODEL, usd, detail: `conversation avec ${chief.name}`, usage: res.usage });
+  await recordAdsUsage(payload, { kind: spendKind, provider: "anthropic", model: QUESTION_MODEL, usd, detail: `conversation avec ${chief.name}`, usage: res.usage });
   // La réponse, et à part ce que le chef note dans son carnet.
   const { text: written, raw } = splitCarnet(res.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n").trim());
   const answer =
     res.stopReason === "refusal"
-      ? "Je préfère ne pas répondre à cette demande telle quelle. Reformulez-la autour de nos campagnes, et je reprends."
+      ? "Je préfère ne pas répondre à cette demande telle quelle. Reformulez-la autour de notre travail, et je reprends."
       : written || "Je n'ai pas de réponse à vous donner sur ce point.";
   const costEur = Math.round(usdToEur(usd) * 10_000) / 10_000;
 

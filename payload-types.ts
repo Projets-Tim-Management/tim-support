@@ -115,6 +115,8 @@ export interface Config {
     'ai-team-ai-answers': AiTeamAiAnswer;
     'ai-team-social-accounts': AiTeamSocialAccount;
     'ai-team-notes': AiTeamNote;
+    'ai-team-goals': AiTeamGoal;
+    'ai-team-actions': AiTeamAction;
     'ai-team-requests': AiTeamRequest;
     'ai-team-snapshots': AiTeamSnapshot;
     'ad-recaps': AdRecap;
@@ -221,6 +223,8 @@ export interface Config {
     'ai-team-ai-answers': AiTeamAiAnswersSelect<false> | AiTeamAiAnswersSelect<true>;
     'ai-team-social-accounts': AiTeamSocialAccountsSelect<false> | AiTeamSocialAccountsSelect<true>;
     'ai-team-notes': AiTeamNotesSelect<false> | AiTeamNotesSelect<true>;
+    'ai-team-goals': AiTeamGoalsSelect<false> | AiTeamGoalsSelect<true>;
+    'ai-team-actions': AiTeamActionsSelect<false> | AiTeamActionsSelect<true>;
     'ai-team-requests': AiTeamRequestsSelect<false> | AiTeamRequestsSelect<true>;
     'ai-team-snapshots': AiTeamSnapshotsSelect<false> | AiTeamSnapshotsSelect<true>;
     'ad-recaps': AdRecapsSelect<false> | AdRecapsSelect<true>;
@@ -271,6 +275,7 @@ export interface Config {
     'ads-brand-kit': AdsBrandKit;
     'team-emails': TeamEmail;
     'expense-categories': ExpenseCategory;
+    'ai-team-brief': AiTeamBrief;
   };
   globalsSelect: {
     appearance: AppearanceSelect<false> | AppearanceSelect<true>;
@@ -283,6 +288,7 @@ export interface Config {
     'ads-brand-kit': AdsBrandKitSelect<false> | AdsBrandKitSelect<true>;
     'team-emails': TeamEmailsSelect<false> | TeamEmailsSelect<true>;
     'expense-categories': ExpenseCategoriesSelect<false> | ExpenseCategoriesSelect<true>;
+    'ai-team-brief': AiTeamBriefSelect<false> | AiTeamBriefSelect<true>;
   };
   locale: null;
   widgets: {
@@ -3341,7 +3347,7 @@ export interface AiTeamMember {
   name: string;
   jobTitle: string;
   level: 'chef' | 'sous-agent';
-  domain: 'sea' | 'seo';
+  domain: 'sea' | 'seo' | 'com';
   chief?: (number | null) | AiTeamMember;
   portrait:
     | 'chef-sea'
@@ -3360,7 +3366,12 @@ export interface AiTeamMember {
     | 'seo-visibilite-ia'
     | 'seo-technique'
     | 'seo-autorite'
-    | 'seo-reseaux';
+    | 'seo-reseaux'
+    | 'pipeline'
+    | 'conversion'
+    | 'chef-com'
+    | 'essais'
+    | 'clients';
   /**
    * Facultatif : remplace le portrait illustré.
    */
@@ -3492,6 +3503,7 @@ export interface AiTeamObjective {
   measure?: string | null;
   evidence?: ('prouve' | 'correle' | 'speculatif') | null;
   proposedBy?: string | null;
+  goal?: (number | null) | AiTeamGoal;
   outcome?: ('a-marche' | 'sans-effet' | 'a-empire') | null;
   verdict?: string | null;
   verdictAt?: string | null;
@@ -3525,12 +3537,64 @@ export interface AiTeamObjective {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-goals".
+ */
+export interface AiTeamGoal {
+  id: number;
+  team: 'sea' | 'seo' | 'com' | 'tous';
+  horizon: 'court' | 'moyen' | 'long';
+  status: 'propose' | 'valide' | 'atteint' | 'manque' | 'abandonne';
+  title: string;
+  kind: 'chiffre' | 'jalon';
+  /**
+   * Clé du catalogue des indicateurs : mrr, leads-30j, clics-google, vues-page, manuel…
+   */
+  metric?: string | null;
+  param?: string | null;
+  measures?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  baseline?: number | null;
+  target?: number | null;
+  dueDate: string;
+  why?: string | null;
+  member?: (number | null) | AiTeamMember;
+  author?: (number | null) | User;
+  startDate?: string | null;
+  validatedAt?: string | null;
+  review?: string | null;
+  reviewedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ai-team-audits".
  */
 export interface AiTeamAudit {
   id: number;
   member: number | AiTeamMember;
-  kind?: ('site' | 'concurrence' | 'contenu' | 'ia' | 'technique' | 'autorite' | 'reseaux') | null;
+  kind?:
+    | (
+        | 'site'
+        | 'concurrence'
+        | 'contenu'
+        | 'ia'
+        | 'technique'
+        | 'autorite'
+        | 'reseaux'
+        | 'pipeline'
+        | 'conversion'
+        | 'essais'
+        | 'sante'
+      )
+    | null;
   period: string;
   status: 'en-cours' | 'fait' | 'echec';
   summary?: string | null;
@@ -3728,6 +3792,27 @@ export interface AiTeamNote {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-actions".
+ */
+export interface AiTeamAction {
+  id: number;
+  title: string;
+  who: 'direction' | 'dev' | 'commerciaux' | 'marketing' | 'support' | 'prestataire' | 'autre';
+  team: 'sea' | 'seo' | 'com' | 'tous';
+  status: 'prevue' | 'en-cours' | 'faite' | 'abandonnee';
+  plannedDate?: string | null;
+  doneDate?: string | null;
+  goal?: (number | null) | AiTeamGoal;
+  notes?: string | null;
+  author?: (number | null) | User;
+  outcome?: ('a-marche' | 'sans-effet' | 'a-empire') | null;
+  verdict?: string | null;
+  verdictAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ai-team-requests".
  */
 export interface AiTeamRequest {
@@ -3767,6 +3852,7 @@ export interface AiTeamRequest {
    * La clé de l'agent dont l'idée est testée (son score d'apprentissage).
    */
   proposedBy?: string | null;
+  goal?: (number | null) | AiTeamGoal;
   outcome?: ('a-marche' | 'sans-effet' | 'a-empire') | null;
   verdictAt?: string | null;
   verdict?: string | null;
@@ -3825,6 +3911,16 @@ export interface AiTeamSnapshot {
     | number
     | boolean
     | null;
+  metrics?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  reconstituted?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3849,7 +3945,7 @@ export interface AdRecap {
  */
 export interface AdAiUsage {
   id: number;
-  kind: 'texte' | 'image' | 'video' | 'agent' | 'seo';
+  kind: 'texte' | 'image' | 'video' | 'agent' | 'seo' | 'commercial';
   provider?: string | null;
   model?: string | null;
   eur: number;
@@ -4647,6 +4743,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ai-team-notes';
         value: number | AiTeamNote;
+      } | null)
+    | ({
+        relationTo: 'ai-team-goals';
+        value: number | AiTeamGoal;
+      } | null)
+    | ({
+        relationTo: 'ai-team-actions';
+        value: number | AiTeamAction;
       } | null)
     | ({
         relationTo: 'ai-team-requests';
@@ -6284,6 +6388,7 @@ export interface AiTeamObjectivesSelect<T extends boolean = true> {
   measure?: T;
   evidence?: T;
   proposedBy?: T;
+  goal?: T;
   outcome?: T;
   verdict?: T;
   verdictAt?: T;
@@ -6409,6 +6514,52 @@ export interface AiTeamNotesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-goals_select".
+ */
+export interface AiTeamGoalsSelect<T extends boolean = true> {
+  team?: T;
+  horizon?: T;
+  status?: T;
+  title?: T;
+  kind?: T;
+  metric?: T;
+  param?: T;
+  measures?: T;
+  baseline?: T;
+  target?: T;
+  dueDate?: T;
+  why?: T;
+  member?: T;
+  author?: T;
+  startDate?: T;
+  validatedAt?: T;
+  review?: T;
+  reviewedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-actions_select".
+ */
+export interface AiTeamActionsSelect<T extends boolean = true> {
+  title?: T;
+  who?: T;
+  team?: T;
+  status?: T;
+  plannedDate?: T;
+  doneDate?: T;
+  goal?: T;
+  notes?: T;
+  author?: T;
+  outcome?: T;
+  verdict?: T;
+  verdictAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ai-team-requests_select".
  */
 export interface AiTeamRequestsSelect<T extends boolean = true> {
@@ -6428,6 +6579,7 @@ export interface AiTeamRequestsSelect<T extends boolean = true> {
   channel?: T;
   baseline?: T;
   proposedBy?: T;
+  goal?: T;
   outcome?: T;
   verdictAt?: T;
   verdict?: T;
@@ -6445,6 +6597,8 @@ export interface AiTeamSnapshotsSelect<T extends boolean = true> {
   chatgpt?: T;
   tracking?: T;
   mastery?: T;
+  metrics?: T;
+  reconstituted?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -7552,6 +7706,101 @@ export interface ExpenseCategory {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-brief".
+ */
+export interface AiTeamBrief {
+  id: number;
+  /**
+   * Ce que TIM change pour le client, dans ses mots à lui.
+   */
+  promesse?: string | null;
+  /**
+   * Comment le client cherche ce genre d'outil (« logiciel de gestion BTP », « logiciel de devis artisan »…).
+   */
+  categorie?: string | null;
+  /**
+   * Excel, papier, un autre logiciel, un ERP, ne rien faire — et ce qui ne va pas avec chacun.
+   */
+  alternatives?: string | null;
+  /**
+   * Ce que les alternatives n'ont pas, la valeur pour le client, et sa preuve.
+   */
+  differences?: string | null;
+  /**
+   * Chiffres, clients, témoignages qu'on peut citer.
+   */
+  preuves?: string | null;
+  /**
+   * Tirés des meilleurs clients (ceux qui ont signé vite, utilisent beaucoup, restent) : métier, taille, nombre de chantiers.
+   */
+  cible?: string | null;
+  /**
+   * L'événement qui déclenche l'achat : croissance, une erreur coûteuse, un nouveau chantier, une obligation…
+   */
+  declencheurs?: string | null;
+  /**
+   * À ne pas viser, ou à disqualifier vite.
+   */
+  horsCible?: string | null;
+  /**
+   * Un ou deux rôles : le gérant, le conducteur de travaux, l'assistante… et ce qui compte pour chacun.
+   */
+  decideurs?: string | null;
+  /**
+   * Les freins entendus — surtout la peur de se tromper (adoption par les équipes, reprise des données) — avec la réponse et sa preuve.
+   */
+  objections?: string | null;
+  /**
+   * Une promesse, trois piliers, une preuve par pilier.
+   */
+  messages?: string | null;
+  /**
+   * Prix ou fourchette, essai, démo : ce qu'on demande au prospect de faire.
+   */
+  offre?: string | null;
+  /**
+   * Le vocabulaire du BTP qui parle (« situations de travaux », « chantier »), le jargon à bannir (« solution digitale », « optimiser vos process »).
+   */
+  mots?: string | null;
+  /**
+   * Ce qui a marché ou pas chez TIM — messages, offres, canaux —, daté.
+   */
+  apprentissages?: string | null;
+  /**
+   * Les phrases exactes de prospects et de clients, chacune avec sa source. Les agents les reprennent telles quelles.
+   */
+  quotes?:
+    | {
+        quote: string;
+        tag?: ('douleur' | 'declencheur' | 'objection' | 'alternative' | 'resultat') | null;
+        who?: string | null;
+        source?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  proposals?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  proposedAt?: string | null;
+  version?: number | null;
+  changelog?:
+    | {
+        at?: string | null;
+        change?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "appearance_select".
  */
 export interface AppearanceSelect<T extends boolean = true> {
@@ -7790,6 +8039,48 @@ export interface TeamEmailsSelect<T extends boolean = true> {
  */
 export interface ExpenseCategoriesSelect<T extends boolean = true> {
   parents?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ai-team-brief_select".
+ */
+export interface AiTeamBriefSelect<T extends boolean = true> {
+  promesse?: T;
+  categorie?: T;
+  alternatives?: T;
+  differences?: T;
+  preuves?: T;
+  cible?: T;
+  declencheurs?: T;
+  horsCible?: T;
+  decideurs?: T;
+  objections?: T;
+  messages?: T;
+  offre?: T;
+  mots?: T;
+  apprentissages?: T;
+  quotes?:
+    | T
+    | {
+        quote?: T;
+        tag?: T;
+        who?: T;
+        source?: T;
+        id?: T;
+      };
+  proposals?: T;
+  proposedAt?: T;
+  version?: T;
+  changelog?:
+    | T
+    | {
+        at?: T;
+        change?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

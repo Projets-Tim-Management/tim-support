@@ -192,3 +192,21 @@ export async function pingGa4(): Promise<string> {
   const j = await runReport({ dateRanges: [{ startDate: "7daysAgo", endDate: "yesterday" }], metrics: [{ name: "sessions" }] });
   return `GA4 répond pour la propriété ${process.env.GA4_PROPERTY_ID} : ${num(j.rows?.[0]?.metricValues[0].value ?? "0")} visites sur 7 jours.`;
 }
+
+/**
+ * Les VUES D'UNE PAGE, mois par mois (feuille de route, 14/11/2026 : « plus de clics sur la page contact ») — le
+ * chemin exact, avec ou sans « / » final (« /contact » ne compte pas « /contact-merci » ; GA4 ne garde pas la partie
+ * « ?… » dans pagePath), sur les 13 derniers mois, gardé 6 h.
+ * `month` : « AAAAMM ».
+ */
+export const loadGa4PageViews = (path: string, now: Date): Promise<SourceResult<{ month: string; views: number }[]>> =>
+  loadSource(GA4_ENV, `ga4page:${process.env.GA4_PROPERTY_ID}:${path}:${iso(now)}`, TTL, async () => {
+    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 12, 1));
+    const rows = await runFullReport({
+      dateRanges: [{ startDate: iso(from), endDate: "yesterday" }],
+      dimensions: [{ name: "yearMonth" }],
+      metrics: [{ name: "screenPageViews" }],
+      dimensionFilter: { filter: { fieldName: "pagePath", stringFilter: { matchType: "FULL_REGEXP", value: `${path.replace(/\/+$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/?` } } },
+    });
+    return rows.map((r) => ({ month: r.dimensionValues[0].value, views: num(r.metricValues[0].value) }));
+  });

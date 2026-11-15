@@ -1,5 +1,6 @@
 import type { Payload, Where } from "payload";
 import { teamMonthlyBudget } from "@/modules/ai-team/lib/availability";
+import { chiefOfSpend } from "@/modules/ai-team/lib/veille-domains";
 
 import { usdToEur } from "@/core/lib/ai-pricing";
 import { PARIS_TZ } from "@/core/lib/dates";
@@ -37,7 +38,7 @@ export function limitsFor(kind: AdSpendKind, s: Settings | null | undefined): Li
   if (kind === "image") return { month: s?.imagesMonthlyEur ?? 20 };
   if (kind === "agent") return { day: s?.agentDailyEur ?? 15, month: s?.agentMonthlyEur ?? 150 };
   // L'équipe SEO/GEO : son budget est sur la carte de Serge (assertAdsBudget) ; ce plafond n'est qu'un filet.
-  if (kind === "seo") return { day: 10, month: 100 };
+  if (kind === "seo" || kind === "commercial") return { day: 10, month: 100 };
   return { month: s?.videoMonthlyEur ?? 30 };
 }
 
@@ -114,8 +115,9 @@ export async function assertAdsBudget(payload: Payload, kind: AdSpendKind, maxEu
   if (!check.ok) throw new AdsBudgetError(check.reason);
   // Le budget IA du mois de l'équipe, fixé par la direction sur la carte de la cheffe (Équipe IA) :
   // en plus du plafond global des agents — le plus strict des deux l'emporte.
-  if (kind === "agent" || kind === "seo") {
-    const team = await teamMonthlyBudget(payload, kind === "agent" ? "chef-sea" : "chef-seo");
+  const chief = chiefOfSpend(kind);
+  if (chief) {
+    const team = await teamMonthlyBudget(payload, chief);
     if (team && spent.month + maxEur > team.budgetEur) {
       // La direction est prévenue (une fois par mois) : sans ça, l'équipe SEA s'arrêterait sans pouvoir le dire.
       if (kind === "agent") {

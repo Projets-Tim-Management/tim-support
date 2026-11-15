@@ -49,6 +49,8 @@ export type Mastery = { score: number; parts: MasteryPart[] };
  * (`tracking`) : la part des leads au canal connu.
  */
 export type SeoMetric = "conversion" | "indexation" | "ia" | "autorite" | "engagement";
+/** Le bureau commercial (15/11/2026) : des parts à cible absolue (100 %), mesurées sur ses derniers rapports. */
+export type ComMetric = "reactivite" | "essais" | "sante" | "bureau";
 const SEO_METRIC_TEXT: Record<SeoMetric, { what: string; none: string; up: string }> = {
   conversion: { what: "des visites gratuites deviennent un lead", none: "Pas encore de visites gratuites mesurées.", up: "Faire monter la conversion des pages qui reçoivent des visites gratuites." },
   indexation: { what: "des pages contrôlées sont indexées par Google", none: "Pas encore de contrôle de l'indexation.", up: "Que chaque page qui compte soit indexée." },
@@ -56,8 +58,14 @@ const SEO_METRIC_TEXT: Record<SeoMetric, { what: string; none: string; up: strin
   autorite: { what: "des sites de référence suivis nomment TIM", none: "Pas encore de cibles d'autorité.", up: "Être présent sur plus de sites de référence." },
   engagement: { what: "d'interactions par vue sur les réseaux", none: "Pas encore de mesure des réseaux.", up: "Des contenus qui font réagir, pas seulement voir." },
 };
+const COM_METRIC_TEXT: Record<ComMetric, { what: string; none: string; up: string }> = {
+  reactivite: { what: "des nouveaux leads ont eu une réponse dans l'heure ouvrée", none: "Pas encore de point du pipeline.", up: "Répondre à chaque nouveau lead dans l'heure ouvrée." },
+  essais: { what: "des essais en cours sont sur les rails (aucun signal)", none: "Pas encore de point des essais.", up: "Que chaque essai ait sa séance, ses échanges et sa date de décision." },
+  sante: { what: "des clients en place ne sont pas à risque (pas rouges)", none: "Pas encore de point de la santé des clients.", up: "Traiter les clients rouges avant qu'ils partent." },
+  bureau: { what: "en moyenne sur son bureau (réponse aux leads, essais sur les rails, clients pas rouges)", none: "Pas encore de point de son équipe.", up: "Que Nathan, Jade et Malo progressent tous les trois." },
+};
 
-const SCOPE: Record<string, { channel: string | null; benchmarkOf: string } | { tracking: true } | { seo: SeoMetric }> = {
+const SCOPE: Record<string, { channel: string | null; benchmarkOf: string } | { tracking: true } | { seo: SeoMetric } | { com: ComMetric }> = {
   "chef-sea": { channel: null, benchmarkOf: "chef-sea" },
   "sea-meta": { channel: "meta", benchmarkOf: "sea-meta" },
   "sea-google": { channel: "google", benchmarkOf: "sea-google" },
@@ -75,11 +83,19 @@ const SCOPE: Record<string, { channel: string | null; benchmarkOf: string } | { 
   "seo-technique": { seo: "indexation" },
   "seo-autorite": { seo: "autorite" },
   "seo-reseaux": { seo: "engagement" },
+  "seo-conversion": { seo: "conversion" },
+  "chef-com": { com: "bureau" },
+  "com-pipeline": { com: "reactivite" },
+  "com-essais": { com: "essais" },
+  "com-clients": { com: "sante" },
 };
 export const MASTERY_KEYS = Object.keys(SCOPE);
 /** Les agents de Margaux (sa revue, sa conversation) et ceux de Serge. */
-export const SEA_MASTERY_KEYS = MASTERY_KEYS.filter((k) => !("seo" in SCOPE[k]));
+export const SEA_MASTERY_KEYS = MASTERY_KEYS.filter((k) => !("seo" in SCOPE[k]) && !("com" in SCOPE[k]));
 export const SEO_MASTERY_KEYS = MASTERY_KEYS.filter((k) => "seo" in SCOPE[k]);
+export const COM_MASTERY_KEYS = MASTERY_KEYS.filter((k) => "com" in SCOPE[k]);
+/** Les agents dont un chef lit le score, par bureau. */
+export const MASTERY_KEYS_OF = { sea: SEA_MASTERY_KEYS, seo: SEO_MASTERY_KEYS, com: COM_MASTERY_KEYS } as const;
 const channelOf = (key: string) => {
   const s = SCOPE[key];
   return s && "channel" in s ? s.channel : null;
@@ -108,19 +124,21 @@ export function computeMastery(i: MasteryInput): Mastery {
 
   // Résultats
   const scope = SCOPE[i.key];
+  const com = scope && "com" in scope ? scope.com : null;
   const seo = scope && "seo" in scope ? scope.seo : null;
-  if (seo) {
-    const t = SEO_METRIC_TEXT[seo];
+  if (seo || com) {
+    const t = com ? COM_METRIC_TEXT[com] : SEO_METRIC_TEXT[seo!];
     const v = i.seoValue ?? null;
-    // Robert : une cible absolue (100 % des pages) ; les autres : face au repère du marché de leur veille.
-    const target = seo === "indexation" ? 100 : i.benchmark;
+    // Robert et le bureau commercial : une cible absolue (100 %) ; les autres : face au repère du marché de leur veille.
+    const absolute = seo === "indexation" || com != null;
+    const target = absolute ? 100 : i.benchmark;
     const fmt = (n: number) => `${n.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`;
     parts.push({
       key: "resultats",
       label: "Résultats",
       max: 40,
       points: v == null || !target ? 0 : Math.round(Math.min(1, v / target) * 40),
-      detail: v == null ? t.none : !target ? `${fmt(v)} ${t.what} ; pas encore de repère du marché : sa veille le cherchera.` : `${fmt(v)} ${t.what}, pour ${seo === "indexation" ? "une cible de" : "un marché autour de"} ${fmt(target)}${v >= target ? " : au niveau ou mieux" : ""}.`,
+      detail: v == null ? t.none : !target ? `${fmt(v)} ${t.what} ; pas encore de repère du marché : sa veille le cherchera.` : `${fmt(v)} ${t.what}, pour ${absolute ? "une cible de" : "un marché autour de"} ${fmt(target)}${v >= target ? " : au niveau ou mieux" : ""}.`,
       next: v != null && target && v >= target ? "Rester devant : le marché progresse aussi." : !target && v != null ? "Un repère du marché sourcé, à sa prochaine veille." : t.up,
     });
   } else if (scope && "tracking" in scope) {
@@ -193,10 +211,40 @@ export function computeMastery(i: MasteryInput): Mastery {
   return { score: parts.reduce((s, p) => s + p.points, 0), parts };
 }
 
+/** Les derniers rapports du bureau commercial, tels qu'un appelant les a peut-être déjà lus (pour ne pas les relire). */
+export type ComReports = {
+  pipe: { measure: { leads: { answered: boolean; firstResponseHours: number | null }[] } | null } | null;
+  trials: { measure: { trials: { flags: string[] }[] } | null } | null;
+  health: { measure: { health: { health: string }[] } | null } | null;
+};
+
+/** Les parts du bureau commercial, sur les derniers rapports de Nathan, Jade et Malo (null : pas encore de rapport). */
+async function loadComValues(payload: Payload, given?: ComReports): Promise<Record<ComMetric, number | null>> {
+  const ratio = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 1000) / 10 : null);
+  const reports: ComReports =
+    given ??
+    (await Promise.all([
+      import("@/modules/ai-team/lib/pipeline-agent").then((m) => m.latestPipeline(payload)).catch(() => null),
+      import("@/modules/ai-team/lib/commercial").then((m) => Promise.all([m.latestTrials(payload).catch(() => null), m.latestHealth(payload).catch(() => null)])),
+    ]).then(([p, [t, h]]): ComReports => ({ pipe: p, trials: t, health: h })));
+  const { pipe, trials, health } = reports;
+  const leads = pipe?.measure?.leads ?? [];
+  const t = trials?.measure?.trials ?? [];
+  const h = health?.measure?.health ?? [];
+  const values = {
+    reactivite: pipe ? ratio(leads.filter((l) => l.answered && (l.firstResponseHours ?? 99) <= 1).length, leads.length) : null,
+    essais: trials ? ratio(t.filter((x) => !x.flags.length).length, t.length) : null,
+    sante: health ? ratio(h.filter((x) => x.health !== "rouge").length, h.length) : null,
+  };
+  const known = Object.values(values).filter((v): v is number => v != null);
+  return { ...values, bureau: known.length ? Math.round((known.reduce((a, b) => a + b, 0) / known.length) * 10) / 10 : null };
+}
+
 /**
  * Les chiffres de TIM de l'équipe SEO/GEO, en % (null : pas encore mesuré). Lus seulement si un agent SEO est à
  * noter ; chaque source est déjà gardée en cache ou en base (rapports des agents). Ne lève pas.
  */
+
 async function loadSeoValues(payload: Payload, now: Date): Promise<Record<SeoMetric, number | null>> {
   const ratio = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 1000) / 10 : null);
   const safe = <T>(p: Promise<T>) => p.catch(() => null);
@@ -229,12 +277,14 @@ type Raw = Record<string, unknown>;
  * Le score de toute l'équipe, maintenant, et sa courbe (photos du lundi).
  * `snaps` : les photos déjà lues par l'appelant, pour ne pas les relire. Ne lève pas.
  */
-export async function loadTeamMastery(payload: Payload, card: Scorecard | null, now = new Date(), snaps?: Snapshot[]): Promise<TeamMastery> {
+export async function loadTeamMastery(payload: Payload, card: Scorecard | null, now = new Date(), snaps?: Snapshot[], opts: { keys?: readonly string[]; com?: ComReports } = {}): Promise<TeamMastery> {
   try {
     const common = { pagination: false, depth: 0, overrideAccess: true } as const;
     const since = (days: number) => ({ greater_than_equal: new Date(now.getTime() - days * DAY_MS).toISOString() });
     const [members, tracking, photos, verdictsRes, testsRes, objectivesRes] = await Promise.all([
-      membersByKeys(payload, MASTERY_KEYS),
+      // Seulement les agents demandés (une veille, une conversation) : les sources des autres ne sont pas lues.
+      // (avec ceux dont ils empruntent le repère du marché : le studio prend celui de Camille).
+      membersByKeys(payload, opts.keys ? MASTERY_KEYS.filter((k) => opts.keys!.includes(k) || opts.keys!.some((x) => { const sc = SCOPE[x]; return sc && "benchmarkOf" in sc && sc.benchmarkOf === k; })) : MASTERY_KEYS),
       loadTracking(payload, now).catch(() => null),
       snaps ?? loadSnapshots(payload, 12),
       payload.find({ collection: "ai-team-requests", where: { and: [{ outcome: { exists: true } }, { verdictAt: since(84) }] }, ...common, select: { channel: true, outcome: true } as never }),
@@ -243,7 +293,19 @@ export async function loadTeamMastery(payload: Payload, card: Scorecard | null, 
       payload.find({ collection: "ai-team-objectives", where: { createdAt: since(84) }, ...common, select: { proposedBy: true, status: true, outcome: true, verdictAt: true } as never }).catch(() => ({ docs: [] })),
     ]);
     const objectives = objectivesRes.docs as unknown as Raw[];
-    const seoValues = members.some((m) => SCOPE[m.key] && "seo" in SCOPE[m.key]) ? await loadSeoValues(payload, now) : null;
+    const hasCom = members.some((m) => SCOPE[m.key] && "com" in SCOPE[m.key]);
+    // Les agents du bureau commercial, et seulement eux : leurs tâches confiées à la direction (faites = appliquées).
+    const comIds = new Set(members.filter((m) => SCOPE[m.key] && "com" in SCOPE[m.key]).map((m) => String(m.id)));
+    const [seoValues, comValues, comRequests] = await Promise.all([
+      members.some((m) => SCOPE[m.key] && "seo" in SCOPE[m.key]) ? loadSeoValues(payload, now) : null,
+      hasCom ? loadComValues(payload, opts.com) : null,
+      hasCom
+        ? payload
+            .find({ collection: "ai-team-requests", where: { and: [{ origin: { equals: "agent" } }, { member: { in: [...comIds] } }, { createdAt: since(56) }] }, ...common, select: { member: true, status: true, outcome: true, verdictAt: true } as never })
+            .then((r) => r.docs as unknown as Raw[])
+            .catch(() => [] as Raw[])
+        : ([] as Raw[]),
+    ]);
     const verdicts = verdictsRes.docs as unknown as Raw[];
     const tests = testsRes.docs as unknown as Raw[];
     // Dernière veille réussie et repère du marché de chacun (sans le texte des méthodes).
@@ -258,6 +320,23 @@ export async function loadTeamMastery(payload: Payload, card: Scorecard | null, 
       const channel = channelOf(m.key);
       const own = methods.get(String(m.id));
       const benchmark = "benchmarkOf" in scope ? methods.get(idOfKey.get(scope.benchmarkOf) ?? "")?.benchmark : "seo" in scope ? own?.benchmark : null;
+      if ("com" in scope) {
+        // Élise : celles de tout son bureau ; chacun des autres : les siennes.
+        const mine = m.key === "chef-com" ? comRequests : comRequests.filter((r) => String(typeof r.member === "object" && r.member ? (r.member as Raw).id : r.member) === String(m.id));
+        const mastery = computeMastery({
+          key: m.key,
+          cost: null,
+          benchmark: null,
+          trackingPct: null,
+          seoValue: comValues?.[scope.com] ?? null,
+          lastVeilleAt: own ? String(own.createdAt) : null,
+          verdicts: mine.filter((r) => r.outcome).map((r) => ({ outcome: String(r.outcome) })),
+          tests: { judged: mine.filter((r) => r.outcome && Date.parse(String(r.verdictAt ?? "")) >= recentJudged).length, applied: mine.filter((r) => r.status === "faite").length },
+          now,
+        });
+        out[m.key] = { name: m.name, mastery, history: photos.flatMap((s) => (typeof s.mastery?.[m.key] === "number" ? [{ week: s.week, score: s.mastery[m.key] }] : [])) };
+        continue;
+      }
       if ("seo" in scope) {
         // Ses objectifs : ceux qui reprenaient son action (tous, pour Serge).
         const mine = objectives.filter((o) => m.key === "chef-seo" || o.proposedBy === m.key);

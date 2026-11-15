@@ -259,6 +259,10 @@ export type TeamPort = {
   answers?: (role: string) => Promise<{ titre: string; forme: string; etat: string; reponse: string | null; le: string | null }[]>;
   /** Les consignes en cours que son chef a données au membre qui incarne ce rôle (son carnet) — jointes à sa consigne. */
   consignes?: (role: string) => Promise<string[]>;
+  /** La feuille de route de l'équipe SEA (objectifs, actions des équipes humaines), jointe à la consigne de chaque agent. */
+  roadmap?: () => Promise<string>;
+  /** La fiche produit & positionnement de TIM, jointe à la consigne de chaque agent. */
+  brief?: () => Promise<string>;
 };
 
 export type AgentDeps = { store: AgentStore; model: AgentModelCall; budget: GlobalBudget; atelier: AtelierPort; sources: SourcesPort; suivi?: SuiviPort; team?: TeamPort; now: () => Date };

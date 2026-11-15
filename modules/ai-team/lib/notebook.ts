@@ -181,9 +181,9 @@ export async function consignesOf(payload: Payload, memberId: number | string): 
 }
 
 /** L'équipe d'un chef : clé, prénom, id. */
-export async function teamOf(payload: Payload, chiefId: number | string): Promise<{ id: string; key: string; name: string }[]> {
-  const res = await payload.find({ collection: "ai-team-members", where: { chief: { equals: chiefId } }, sort: "order", pagination: false, depth: 0, overrideAccess: true });
-  return (res.docs as unknown as Raw[]).map((m) => ({ id: String(m.id), key: String(m.key), name: String(m.name) }));
+export async function teamOf(payload: Payload, chiefId: number | string): Promise<{ id: string; key: string; name: string; jobTitle: string; active: boolean }[]> {
+  const res = await payload.find({ collection: "ai-team-members", where: { chief: { equals: chiefId } }, sort: "order", pagination: false, depth: 0, overrideAccess: true, select: { key: true, name: true, jobTitle: true, active: true } as never });
+  return (res.docs as unknown as Raw[]).map((m) => ({ id: String(m.id), key: String(m.key), name: String(m.name), jobTitle: String(m.jobTitle ?? ""), active: m.active !== false }));
 }
 
 /** Le carnet tel que le chef le relit. Pure (testée). */

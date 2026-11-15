@@ -15,11 +15,12 @@ import { createPortal } from "react-dom";
  * l'admin l'enfermait sous la navigation et l'en-tête de Payload.
  */
 const noop = () => () => {};
-export function Drawer({ label, closeHref, children }: { label: string; closeHref: string; children: React.ReactNode }) {
+export function Drawer({ label, closeHref, onClose, narrow = false, children }: { label: string; closeHref?: string; onClose?: () => void; narrow?: boolean; children: React.ReactNode }) {
   const router = useRouter();
   // Côté serveur, pas de document : le panneau apparaît une fois la page hydratée.
   const onClient = useSyncExternalStore(noop, () => true, () => false);
-  const close = useCallback(() => router.push(closeHref, { scroll: false }), [router, closeHref]);
+  // Fermer : revenir à l'adresse donnée (fiche d'agent), ou prévenir l'écran qui l'a ouvert (tâche de la feuille de route).
+  const close = useCallback(() => (onClose ? onClose() : router.push(closeHref ?? "", { scroll: false })), [router, closeHref, onClose]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // Échap dans un champ (cible, budget, message) annule la saisie, pas la fiche.
@@ -38,7 +39,7 @@ export function Drawer({ label, closeHref, children }: { label: string; closeHre
   return createPortal(
     <div className="ait-drawer" role="dialog" aria-modal="true" aria-label={label}>
       <button type="button" className="ait-drawer__overlay" aria-label="Fermer la fiche" onClick={close} />
-      <aside className="ait-drawer__panel">
+      <aside className={`ait-drawer__panel${narrow ? " ait-drawer__panel--narrow" : ""}`}>
         <button type="button" className="ait-drawer__close" aria-label="Fermer la fiche" onClick={close}>
           ✕
         </button>

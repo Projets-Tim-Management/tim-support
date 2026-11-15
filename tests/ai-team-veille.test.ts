@@ -42,10 +42,10 @@ function fakePayload(opts: { active?: boolean } = {}) {
     { id: 3, key: "sea-chatgpt", name: "Sarah", active: true },
     { id: 4, key: "sea-meta", name: "Camille", active: true },
   ];
-  type W = { and?: W[]; key?: { equals?: string; in?: string[] }; member?: { equals: number }; status?: { equals: string }; week?: { equals: string }; trigger?: { equals: string } };
+  type W = { and?: W[]; key?: { equals?: string; in?: string[] }; member?: { equals?: number; in?: (number | string)[] }; status?: { equals: string }; week?: { equals: string }; trigger?: { equals: string } };
   const match = (d: Record<string, unknown>, w: W): boolean =>
     (w.and ?? []).every((x) => match(d, x)) &&
-    (!w.member || d.member === w.member.equals) &&
+    (!w.member || (w.member.in ? w.member.in.map(String).includes(String(d.member)) : d.member === w.member.equals)) &&
     (!w.status || d.status === w.status.equals) &&
     (!w.week || d.week === w.week.equals) &&
     (!w.trigger || d.trigger === w.trigger.equals);

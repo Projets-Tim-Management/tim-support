@@ -49,6 +49,9 @@ import { AiTeamCompetitorMaps } from "./modules/ai-team/collections/AiTeamCompet
 import { AiTeamAiAnswers } from "./modules/ai-team/collections/AiTeamAiAnswers";
 import { AiTeamSocialAccounts } from "./modules/ai-team/collections/AiTeamSocialAccounts";
 import { AiTeamNotes } from "./modules/ai-team/collections/AiTeamNotes";
+import { AiTeamGoals } from "./modules/ai-team/collections/AiTeamGoals";
+import { AiTeamActions } from "./modules/ai-team/collections/AiTeamActions";
+import { AiTeamBrief } from "./modules/ai-team/globals/AiTeamBrief";
 import { AiTeamRequests } from "./modules/ai-team/collections/AiTeamRequests";
 import { AiTeamSnapshots } from "./modules/ai-team/collections/AiTeamSnapshots";
 import { AdRecaps } from "./modules/ads/collections/AdRecaps";
@@ -338,6 +341,13 @@ export default buildConfig({
           exact: true,
           meta: { title: "Équipe IA" },
         },
+        // La feuille de route de l'équipe IA : objectifs à horizon, actions et résultats (modules/ai-team).
+        feuilleDeRoute: {
+          Component: "/modules/ai-team/admin/RoadmapView#default",
+          path: "/feuille-de-route",
+          exact: true,
+          meta: { title: "Feuille de route" },
+        },
         analysesSeoGeo: {
           Component: "/modules/analytics/admin/SeoView#default",
           path: "/analyses/seo-geo",
@@ -450,6 +460,8 @@ export default buildConfig({
       // Les comptes de réseaux branchés pour Cléo (jetons chiffrés).
       AiTeamSocialAccounts,
       AiTeamNotes,
+      AiTeamGoals,
+      AiTeamActions,
       // Les demandes des chefs à la direction (« à faire » ou « question »).
       AiTeamRequests,
       // La photo des chiffres de chaque lundi (tendances, avant / après des recommandations).
@@ -683,7 +695,7 @@ export default buildConfig({
        */
     }),
   ],
-  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, TrainingSettings, DevAnnounceEmail, AdsSettings, AdsBrandKit, TeamEmails, ExpenseCategories],
+  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, TrainingSettings, DevAnnounceEmail, AdsSettings, AdsBrandKit, TeamEmails, ExpenseCategories, AiTeamBrief],
 
   db: postgresAdapter({
     // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :

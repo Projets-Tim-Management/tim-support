@@ -17,6 +17,8 @@ import { REQUEST_OUTCOMES } from "@/modules/ai-team/lib/requests";
 import { loadScorecard, type Scorecard } from "@/modules/ai-team/lib/scorecard";
 import { allTrends, ensureWeeklySnapshot, loadSnapshots, type Snapshot } from "@/modules/ai-team/lib/snapshots";
 import { MAX_INTERRUPTIONS, reopenStale } from "@/modules/ai-team/lib/stale";
+import { loadBriefBlock } from "@/modules/ai-team/lib/brief";
+import { applyGoalUpdates, GOAL_RULES, goalsForChief, humanActionsToJudge, judgeHumanAction } from "@/modules/ai-team/lib/roadmap";
 import { carnetForModel, carnetRules, loadCarnet, teamOf, writeCarnet } from "@/modules/ai-team/lib/notebook";
 import { SEA_VEILLE_KEYS } from "@/modules/ai-team/lib/veille-domains";
 
@@ -56,8 +58,35 @@ const CHANNEL_LABELS = { meta: "Meta Ads", google: "Google Ads", chatgpt: "ChatG
 const REVIEW_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["synthese", "recommandations", "verdicts", "carnet"],
+  required: ["synthese", "recommandations", "verdicts", "carnet", "horizons"],
   properties: {
+    horizons: {
+      type: "object",
+      additionalProperties: false,
+      required: ["propositions", "points"],
+      description: "La feuille de route (règles des objectifs à horizon) : tes propositions pour un horizon libre, et le point du mois des objectifs qui le demandent. Vides s'il n'y a rien.",
+      properties: {
+        propositions: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["horizon", "indicateur", "titre", "cible", "pourquoi"],
+            properties: {
+              horizon: { type: "string", enum: ["court", "moyen", "long"] },
+              indicateur: { type: "string", description: "La clé d'un des indicateursDisponibles." },
+              titre: { type: "string" },
+              cible: { type: "number" },
+              pourquoi: { type: "string" },
+            },
+          },
+        },
+        points: {
+          type: "array",
+          items: { type: "object", additionalProperties: false, required: ["id", "point"], properties: { id: { type: "string" }, point: { type: "string" } } },
+        },
+      },
+    },
     carnet: {
       type: "object",
       additionalProperties: false,
@@ -104,7 +133,7 @@ const REVIEW_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["type", "canal", "titre", "pourquoi", "lien", "etapes", "question", "proposePar"],
+        required: ["type", "canal", "titre", "pourquoi", "lien", "etapes", "question", "proposePar", "sertObjectif"],
         properties: {
           type: { type: "string", enum: ["a-faire", "question"] },
           canal: { type: "string", enum: ["meta", "google", "chatgpt", "seo", "tous"] },
@@ -113,13 +142,14 @@ const REVIEW_SCHEMA = {
           lien: { type: "string", description: "« a-faire » : la page où agir (« /admin/… » ou une console connue) ; vide sinon." },
           etapes: { type: "array", items: { type: "string" }, description: "« a-faire » : les étapes, dans l'ordre ; vide pour une question." },
           question: { type: "string", description: "« question » : la question d'arbitrage posée à la direction ; vide sinon." },
+          sertObjectif: { type: "string", description: "L'id de l'objectif à horizon (feuilleDeRoute) que la recommandation fait avancer, ou « aucun »." },
           proposePar: { type: "string", enum: [...SEA_MASTERY_KEYS, "aucun"], description: "La clé de l'agent dont l'idée est testée (une idée de sa veille), ou « aucun »." },
         },
       },
     },
     verdicts: {
       type: "array",
-      description: "Un verdict pour chaque recommandation passée marquée « aJuger » (vide s'il n'y en a pas).",
+      description: "Un verdict pour chaque recommandation passée marquée « aJuger », et pour chaque action de actionsHumainesAJuger (son id « action-… ») ; vide s'il n'y en a pas.",
       items: {
         type: "object",
         additionalProperties: false,
@@ -136,9 +166,10 @@ const REVIEW_SCHEMA = {
 
 export type ReviewOutput = {
   synthese: string;
-  recommandations: { type: "a-faire" | "question"; canal: keyof typeof CHANNEL_LABELS; titre: string; pourquoi: string; lien: string; etapes: string[]; question: string; proposePar?: string }[];
+  recommandations: { type: "a-faire" | "question"; canal: keyof typeof CHANNEL_LABELS; titre: string; pourquoi: string; lien: string; etapes: string[]; question: string; proposePar?: string; sertObjectif?: string }[];
   verdicts?: { id: string; resultat: "a-marche" | "sans-effet" | "a-empire" | "trop-tot"; lecon: string }[];
   carnet?: { ajouter: Record<string, string>[]; modifier: Record<string, string>[] };
+  horizons?: { propositions: Record<string, unknown>[]; points: { id: string; point: string }[] };
 };
 
 export type ReviewCall = (input: { system: string; user: string }) => Promise<{ output: ReviewOutput | null; usage: Usage; stopReason: string | null }>;
@@ -169,6 +200,7 @@ const reviewSystem = (crew: { key: string; name: string }[]) =>
   [
     REVIEW_SYSTEM,
     carnetRules(crew),
+    GOAL_RULES,
     "- Ta revue est le moment de relire ton carnet face aux nouveaux chiffres : ferme ce qui est fait, abandonne ce que les chiffres contredisent (en disant pourquoi), donne ou retire des consignes à ton équipe, reprends une idée écartée si les chiffres ont bougé. Ce qui change dans ton carnet, dis-le en une phrase dans ta synthèse.",
   ].join("\n");
 
@@ -316,9 +348,10 @@ export async function runWeeklyReview(payload: Payload, opts: { now?: Date; forc
     // La photo de la semaine, si le rythme du lundi matin l'a manquée : c'est elle qui sert d'« avant ».
     await ensureWeeklySnapshot(payload, now, card).catch((err) => payload.logger.warn(`[équipe IA] photo de la semaine : ${err}`));
     const snaps = await loadSnapshots(payload);
-    const [base, notes, crew] = await Promise.all([reviewData(payload, now, card, snaps), loadCarnet(payload, margaux.id, now), teamOf(payload, margaux.id)]);
-    const data = { ...base, monCarnet: carnetForModel(notes, crew) };
-    const system = reviewSystem(crew);
+    const [base, notes, crew, road, humanToJudge] = await Promise.all([reviewData(payload, now, card, snaps), loadCarnet(payload, margaux.id, now), teamOf(payload, margaux.id), goalsForChief(payload, "sea", now), humanActionsToJudge(payload, "sea", now)]);
+    const goalIds = new Set(road.mesObjectifsAHorizon.map((g) => g.id));
+    const data = { ...base, monCarnet: carnetForModel(notes, crew), feuilleDeRoute: road, actionsHumainesAJuger: humanToJudge };
+    const system = reviewSystem(crew) + (await loadBriefBlock(payload));
     const user = `<donnees>\n${JSON.stringify(data).replace(/<\/?donnees>/g, "")}\n</donnees>\n\nFais ta revue du lundi.`;
     const maxEur = usdToEur(claudeMaxCostUsd(REVIEW_MODEL, estimateTokens(system + user), MAX_TOKENS));
     await assertAdsBudget(payload, "agent", maxEur, now);
@@ -339,25 +372,32 @@ export async function runWeeklyReview(payload: Payload, opts: { now?: Date; forc
       if (same.totalDocs) continue;
       await payload.create({
         collection: "ai-team-requests",
-        data: { member: margaux.id, kind: r.kind, status: "ouverte", title: r.title, why: r.why, url: r.url, steps: r.steps, question: r.question, origin: "revue", channel: reco.canal, baseline: figuresFor(card, snaps.at(-1) ?? null, reco.canal), proposedBy: reco.proposePar && SEA_MASTERY_KEYS.includes(reco.proposePar) ? reco.proposePar : null } as never,
+        data: { member: margaux.id, kind: r.kind, status: "ouverte", title: r.title, why: r.why, url: r.url, steps: r.steps, question: r.question, origin: "revue", channel: reco.canal, baseline: figuresFor(card, snaps.at(-1) ?? null, reco.canal), proposedBy: reco.proposePar && SEA_MASTERY_KEYS.includes(reco.proposePar) ? reco.proposePar : null, goal: reco.sertObjectif && goalIds.has(reco.sertObjectif) ? Number(reco.sertObjectif) : null } as never,
         overrideAccess: true,
       });
       created += 1;
     }
     // Les verdicts : seulement sur une recommandation à juger, et jamais « trop tôt » (on la rejugera).
-    const toJudge = new Set(data.mesRecommandationsPassees.filter((x) => x.aJuger).map((x) => x.id));
+    const toJudge = new Set([...data.mesRecommandationsPassees.filter((x) => x.aJuger).map((x) => x.id), ...humanToJudge.map((a) => a.id)]);
     const outcomes = new Set<string>(REQUEST_OUTCOMES.map((o) => o.value));
     let judged = 0;
     for (const v of res.output.verdicts ?? []) {
       if (!toJudge.has(String(v.id)) || !outcomes.has(v.resultat)) continue;
       toJudge.delete(String(v.id));
+      // Une action d'une équipe humaine se juge comme une recommandation.
+      if (String(v.id).startsWith("action-")) {
+        if (v.resultat !== "trop-tot") await judgeHumanAction(payload, String(v.id), v.resultat, String(v.lecon ?? ""), now);
+        judged += 1;
+        continue;
+      }
       await payload.update({ collection: "ai-team-requests", id: v.id, data: { outcome: v.resultat, verdict: String(v.lecon ?? "").slice(0, 600), verdictAt: now.toISOString() } as never, overrideAccess: true });
       judged += 1;
     }
     const noted = await writeCarnet(payload, { chiefId: margaux.id, raw: res.output.carnet ?? null, origin: "revue", sourceMessage: placeholder.id, now, notes, team: crew });
+    const goals = await applyGoalUpdates(payload, { team: "sea", chiefId: margaux.id, raw: res.output.horizons ?? null, now }).catch(() => ({ proposed: 0, points: 0 }));
     if (noted.length) await payload.update({ collection: "ai-team-messages", id: placeholder.id, data: { noted } as never, overrideAccess: true });
     const synthese = res.output.synthese.trim() || (firstSentence(JSON.stringify(data.ficheDesCanaux)) ?? "");
-    await finish(`${mark}\n\n${synthese}\n\n${created ? `➡️ ${created} recommandation${created > 1 ? "s" : ""} vous attend${created > 1 ? "ent" : ""} dans « Vos demandes ».` : "Rien à vous demander cette semaine."}${judged ? `\n📏 ${judged} recommandation${judged > 1 ? "s" : ""} passée${judged > 1 ? "s" : ""} jugée${judged > 1 ? "s" : ""} sur ses résultats.` : ""}`, costEur);
+    await finish(`${mark}\n\n${synthese}\n\n${created ? `➡️ ${created} recommandation${created > 1 ? "s" : ""} vous attend${created > 1 ? "ent" : ""} dans « Vos demandes ».` : "Rien à vous demander cette semaine."}${judged ? `\n📏 ${judged} recommandation${judged > 1 ? "s" : ""} passée${judged > 1 ? "s" : ""} jugée${judged > 1 ? "s" : ""} sur ses résultats.` : ""}${goals.proposed ? `\n🗺️ ${goals.proposed} objectif${goals.proposed > 1 ? "s" : ""} à 3, 6 ou 12 mois proposé${goals.proposed > 1 ? "s" : ""} : à valider dans la Feuille de route.` : ""}`, costEur);
     return { status: "faite", created, judged };
   } catch (e) {
     const why = e instanceof AdsBudgetError ? e.message : "un incident technique";

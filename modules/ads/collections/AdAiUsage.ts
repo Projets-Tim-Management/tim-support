@@ -18,6 +18,7 @@ export const AD_SPEND_KINDS = [
   { label: "Agent de campagne", value: "agent" },
   // L'équipe SEO/GEO de l'équipe IA (Serge et ses agents) : son propre budget, à part de celui du SEA.
   { label: "Équipe SEO/GEO", value: "seo" },
+  { label: "Équipe commerciale & revenu", value: "commercial" },
 ] as const;
 
 export type AdSpendKind = (typeof AD_SPEND_KINDS)[number]["value"];

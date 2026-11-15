@@ -14,7 +14,7 @@ import { SEA_VEILLE_KEYS, SEO_VEILLE_KEYS, VEILLE_DOMAINS } from "@/modules/ai-t
 
 describe("la veille de chaque semaine", () => {
   it("toute l'équipe SEO/GEO fait sa veille, et chaque équipe garde la sienne", () => {
-    expect(SEO_VEILLE_KEYS).toEqual(["chef-seo", "seo-analyste", "seo-concurrence", "seo-contenu", "seo-visibilite-ia", "seo-technique", "seo-autorite", "seo-reseaux"]);
+    expect(SEO_VEILLE_KEYS).toEqual(["chef-seo", "seo-analyste", "seo-concurrence", "seo-contenu", "seo-visibilite-ia", "seo-technique", "seo-autorite", "seo-reseaux", "seo-conversion"]);
     expect(SEA_VEILLE_KEYS).toContain("chef-sea");
     expect(SEA_VEILLE_KEYS.some((k) => k.startsWith("seo-"))).toBe(false);
     for (const k of SEO_VEILLE_KEYS) expect(VEILLE_DOMAINS[k].repere.length).toBeGreaterThan(20);
@@ -54,7 +54,7 @@ describe("la maîtrise de l'équipe SEO/GEO", () => {
   const results = (i: Partial<MasteryInput>) => computeMastery({ ...base, ...i }).parts.find((p) => p.key === "resultats")!;
 
   it("chaque équipe a ses agents", () => {
-    expect(SEO_MASTERY_KEYS).toHaveLength(8);
+    expect(SEO_MASTERY_KEYS).toHaveLength(9);
     expect(SEA_MASTERY_KEYS.every((k) => !SEO_MASTERY_KEYS.includes(k))).toBe(true);
   });
 
@@ -89,5 +89,25 @@ describe("un travail coupé en route", () => {
     expect(isPeriodDone([{ status: "echec", error: INTERRUPTED }, { status: "fait" }])).toBe(true);
     expect(isPeriodDone([{ status: "echec", error: "Réponse inutilisable" }])).toBe(true);
     expect(isPeriodDone([{ status: "en-cours" }])).toBe(true);
+  });
+});
+
+import { isPaidStep } from "@/modules/ai-team/lib/seo-weekly";
+
+describe("une étape de publicité payante n'a rien à faire chez Serge", () => {
+  it("est reconnue (et retirée de ses objectifs), une étape SEO non", () => {
+    expect(isPaidStep("Hors SEO, à décider : couper la campagne Meta « Campagne brouillon de test » (10 €/jour)")).toBe(true);
+    expect(isPaidStep("Baisser le budget de la campagne Google Ads marque")).toBe(true);
+    expect(isPaidStep("Couper la publicité payante sur Instagram")).toBe(true);
+    expect(isPaidStep("Se connecter à Bing Webmaster Tools et soumettre le sitemap")).toBe(false);
+    expect(isPaidStep("Lire la page du numéro 1 sur Google pour « logiciel BTP »")).toBe(false);
+  });
+
+  it("disparaît de l'objectif à la lecture de la revue, et part dans la liste pour Margaux", () => {
+    const text = `<synthese>ok</synthese><objectifs>[{"titre":"Rebrancher Bing","etapes":[{"texte":"Rebrancher la clé d'API","minutes":15},{"texte":"Hors SEO, à décider : couper la campagne Meta test","minutes":5}],"echeance":"2026-11-16"}]</objectifs>`;
+    const r = parseSeoWeekly(text, 300, ["2026-11-16"])!;
+    expect(r.objectives[0].steps.map((x) => x.text)).toEqual(["Rebrancher la clé d'API"]);
+    expect(r.objectives[0].minutes).toBe(15);
+    expect(r.paid).toEqual(["Hors SEO, à décider : couper la campagne Meta test"]);
   });
 });

@@ -205,6 +205,9 @@ import * as migration_20261113_075211_equipe_seo_cleo from './20261113_075211_eq
 import * as migration_20261113_144311_api_en_panne from './20261113_144311_api_en_panne';
 import * as migration_20261114_090352_carnet_des_chefs from './20261114_090352_carnet_des_chefs';
 import * as migration_20261114_095237_equipe_seo_progresse from './20261114_095237_equipe_seo_progresse';
+import * as migration_20261114_102341_feuille_de_route from './20261114_102341_feuille_de_route';
+import * as migration_20261114_113201_feuille_de_route_complete from './20261114_113201_feuille_de_route_complete';
+import * as migration_20261115_091839_bureau_commercial_fiche_produit from './20261115_091839_bureau_commercial_fiche_produit';
 
 export const migrations = [
   {
@@ -1240,6 +1243,21 @@ export const migrations = [
   {
     up: migration_20261114_095237_equipe_seo_progresse.up,
     down: migration_20261114_095237_equipe_seo_progresse.down,
-    name: '20261114_095237_equipe_seo_progresse'
+    name: '20261114_095237_equipe_seo_progresse',
+  },
+  {
+    up: migration_20261114_102341_feuille_de_route.up,
+    down: migration_20261114_102341_feuille_de_route.down,
+    name: '20261114_102341_feuille_de_route',
+  },
+  {
+    up: migration_20261114_113201_feuille_de_route_complete.up,
+    down: migration_20261114_113201_feuille_de_route_complete.down,
+    name: '20261114_113201_feuille_de_route_complete',
+  },
+  {
+    up: migration_20261115_091839_bureau_commercial_fiche_produit.up,
+    down: migration_20261115_091839_bureau_commercial_fiche_produit.down,
+    name: '20261115_091839_bureau_commercial_fiche_produit'
   },
 ];

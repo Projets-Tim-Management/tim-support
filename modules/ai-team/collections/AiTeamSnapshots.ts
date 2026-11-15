@@ -25,5 +25,9 @@ export const AiTeamSnapshots: CollectionConfig = {
     { name: "chatgpt", type: "json", label: "ChatGPT Ads — 30 derniers jours" },
     { name: "tracking", type: "json", label: "Leads des 30 derniers jours, et combien au canal connu" },
     { name: "mastery", type: "json", label: "Score de maîtrise de chaque agent (sur 100)" },
+    // Les indicateurs de la feuille de route qui ne sont pas dans la fiche des canaux (clics hors marque, IA…).
+    { name: "metrics", type: "json", label: "Indicateurs de la feuille de route" },
+    // Une photo tirée après coup de l'historique (un point par mois) : pour les courbes, jamais pour les tendances.
+    { name: "reconstituted", type: "checkbox", label: "Reconstituée après coup", defaultValue: false, index: true },
   ],
 };

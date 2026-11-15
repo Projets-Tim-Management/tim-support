@@ -19,7 +19,7 @@ import { loadOpenAiAds } from "@/modules/analytics/lib/openai-ads";
 
 export type Ads30 = { spend: number; clicks: number; conversions: number; cpc: number | null; costPerConversion: number | null };
 export type ChannelFigures = { key: string; label: string; now: Figures };
-export type Snapshot = { week: string; channels: ChannelFigures[]; google: Ads30 | null; chatgpt: Ads30 | null; tracking?: Tracking | null; mastery?: Record<string, number> | null };
+export type Snapshot = { week: string; channels: ChannelFigures[]; google: Ads30 | null; chatgpt: Ads30 | null; tracking?: Tracking | null; mastery?: Record<string, number> | null; metrics?: Record<string, number | null> | null };
 
 const SNAPSHOT_HOUR = 7;
 /** Combien de semaines on relit pour les tendances. */
@@ -74,11 +74,14 @@ export async function ensureWeeklySnapshot(payload: Payload, now = new Date(), c
 }
 
 /** Les dernières photos, de la plus ancienne à la plus récente. */
-export async function loadSnapshots(payload: Payload, weeks = TREND_WEEKS): Promise<Snapshot[]> {
+export async function loadSnapshots(payload: Payload, weeks = TREND_WEEKS, opts: { history?: boolean } = {}): Promise<Snapshot[]> {
   try {
-    const res = await payload.find({ collection: "ai-team-snapshots", sort: "-week", limit: weeks, depth: 0, overrideAccess: true });
+    // Les photos RECONSTITUÉES (un point par mois, tirées après coup de l'historique : feuille de route) servent aux
+    // courbes (`history`), jamais aux tendances semaine après semaine ni à la maîtrise.
+    const where = opts.history ? undefined : { reconstituted: { not_equals: true } };
+    const res = await payload.find({ collection: "ai-team-snapshots", ...(where ? { where: where as never } : {}), sort: "-week", limit: weeks, depth: 0, overrideAccess: true });
     return (res.docs as unknown as Snapshot[])
-      .map((d) => ({ week: String(d.week), channels: Array.isArray(d.channels) ? d.channels : [], google: d.google ?? null, chatgpt: d.chatgpt ?? null, tracking: d.tracking ?? null, mastery: d.mastery ?? null }))
+      .map((d) => ({ week: String(d.week), channels: Array.isArray(d.channels) ? d.channels : [], google: d.google ?? null, chatgpt: d.chatgpt ?? null, tracking: d.tracking ?? null, mastery: d.mastery ?? null, metrics: d.metrics ?? null }))
       .reverse();
   } catch {
     return [];
