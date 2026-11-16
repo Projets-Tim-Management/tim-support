@@ -390,6 +390,13 @@ export default function BookingCompact(p: Props) {
   const times = day ? (byDay.get(day) ?? []) : [];
   return (
     <div className="px-0 py-3 sm:px-2 sm:py-4">
+      {/* Venu du formulaire de contact (16/11/2026) : dire tout de suite à quoi sert ce calendrier. */}
+      {fromDemande && (
+        <div className="mb-5 text-center">
+          <p className="text-xl font-bold text-ink">Dernière étape : réservez votre démo</p>
+          <p className="mt-1 text-sm text-foreground/75">Choisissez un créneau de {p.durationMin} minutes, en visio ou par téléphone. C&apos;est sans engagement.</p>
+        </div>
+      )}
       <Steps current={1} />
       {error && <p className="mb-4 rounded-md bg-danger-bg px-4 py-3 text-sm text-foreground">{error.message}</p>}
       {!slots.length ? (
