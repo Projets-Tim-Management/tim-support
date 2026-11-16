@@ -25,6 +25,12 @@ type Raw = Record<string, unknown>;
 type Id = number | string;
 const idOf = (v: unknown): string | null => (v == null ? null : typeof v === "object" ? (((v as Raw).id as Id | undefined) != null ? String((v as Raw).id) : null) : String(v));
 const MIN = 60_000;
+/**
+ * Un identifiant de relation tel que la base l'attend : un NOMBRE (Postgres). Passé en texte (« 242 »), Payload
+ * refuse la relation — c'est ce qui avait empêché la tâche « Démo en visio » du premier test de bout en bout
+ * (16/11/2026 : « Le champ suivant n'est pas valide : Opportunité »).
+ */
+const relId = (id: string | number) => (typeof id === "number" ? id : /^\d+$/.test(id) ? Number(id) : id);
 
 /** Une question de la page : `type` texte, paragraphe, choix ou choix multiple (« multi », réponses séparées par des virgules). */
 export type Question = { key: string; label: string; type: string; options: { value: string; label: string }[]; required: boolean; crmField: string };
@@ -316,7 +322,7 @@ async function attachClient(payload: Payload, t: BookingType, b: { person: Perso
       companyName: p.company,
       email: p.email,
       phone: p.phone ?? undefined,
-      partner: partner as never,
+      partner: (partner == null ? partner : relId(partner)) as never,
       clientStatus: (b.stage ?? "nouvelle") as never,
       ...(effectif ? { collaborateurs: answerLabel(effectif, b.answers[effectif.key]) } : {}),
       leadNotes: [`Rendez-vous « ${t.name} » réservé en ligne pour le ${whenFr(b.start)}.`, `Contact : ${p.firstName} ${p.lastName} — ${p.email}${p.phone ? ` — ${p.phone}` : ""}`, ...answersFor(t, b.answers).map((a) => `${a.label} : ${a.value}`)].join("\n"),
@@ -326,7 +332,7 @@ async function attachClient(payload: Payload, t: BookingType, b: { person: Perso
   });
   clientId = String(doc.id);
   await payload
-    .create({ collection: "client-contacts", data: { client: clientId as never, firstName: p.firstName, lastName: p.lastName, email: p.email, phone: p.phone ?? undefined, role: `Rendez-vous : ${t.name}` } as never, overrideAccess: true })
+    .create({ collection: "client-contacts", data: { client: relId(clientId) as never, firstName: p.firstName, lastName: p.lastName, email: p.email, phone: p.phone ?? undefined, role: `Rendez-vous : ${t.name}` } as never, overrideAccess: true })
     .catch((e) => payload.logger.error(`[rendez-vous] contact de ${clientId} non créé : ${e}`));
   return clientId;
 }
@@ -456,7 +462,7 @@ export async function book(payload: Payload, t: BookingType, input: BookingInput
   if (clientId) {
     const task = taskContent(t, booking, host.name, problems);
     taskId = await payload
-      .create({ collection: "client-activities", data: { client: clientId, type: "tache", taskKind: "reunion", title: task.title.slice(0, 200), dueDate: start, content: task.content, highPriority: task.highPriority } as never, overrideAccess: true })
+      .create({ collection: "client-activities", data: { client: relId(clientId), type: "tache", taskKind: "reunion", title: task.title.slice(0, 200), dueDate: start, content: task.content, highPriority: task.highPriority } as never, overrideAccess: true })
       .then((d) => String(d.id))
       .catch((e) => {
         note("crm", `Tâche non créée : ${e instanceof Error ? e.message : String(e)}`);
@@ -604,7 +610,7 @@ export async function cancel(payload: Payload, token: string, reason: string, no
   if (taskId) await payload.update({ collection: "client-activities", id: taskId, data: { done: true, doneAt: new Date().toISOString(), content: `Annulé par le prospect${why ? ` : « ${why} »` : "."}` } as never, overrideAccess: true }).catch(() => null);
   if (clientId)
     await payload
-      .create({ collection: "client-activities", data: { client: clientId, type: "tache", taskKind: "appel", title: `Rappeler ${String(b.firstName)} ${String(b.lastName)} : rendez-vous « ${t.name} » annulé`, dueDate: new Date().toISOString(), content: `Le prospect a annulé le rendez-vous du ${whenFr(String(b.start))}${why ? ` : « ${why} »` : "."}\n${String(b.phone ?? "")}`, highPriority: true } as never, overrideAccess: true })
+      .create({ collection: "client-activities", data: { client: relId(clientId), type: "tache", taskKind: "appel", title: `Rappeler ${String(b.firstName)} ${String(b.lastName)} : rendez-vous « ${t.name} » annulé`, dueDate: new Date().toISOString(), content: `Le prospect a annulé le rendez-vous du ${whenFr(String(b.start))}${why ? ` : « ${why} »` : "."}\n${String(b.phone ?? "")}`, highPriority: true } as never, overrideAccess: true })
       .catch(() => null);
   if (host?.email && t.notifyHost) {
     const mail = hostMail(view, "annule", { problems: problems.map(problemText), reason: why, clientUrl: clientId ? adminUrl(`/collections/partner-clients/${clientId}`) : null, bookingUrl: adminUrl(`/collections/bookings/${String(b.id)}`) });
