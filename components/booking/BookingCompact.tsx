@@ -95,7 +95,7 @@ function Steps({ current, picked, onBack }: { current: 1 | 2 | 3; picked?: strin
                 dot
               )}
             </span>
-            <span className={`mt-1.5 text-xs leading-tight ${on ? "font-semibold text-ink" : done ? "text-foreground" : "text-foreground/50"}`}>{s.label}</span>
+            <span className={`mt-1.5 text-[11px] leading-tight sm:text-xs ${on ? "font-semibold text-ink" : done ? "text-foreground" : "text-foreground/50"}`}>{s.label}</span>
             {done && s.n === 1 && picked && <span className="text-[11px] font-semibold leading-tight text-primary">{picked}</span>}
           </li>
         );
@@ -389,7 +389,7 @@ export default function BookingCompact(p: Props) {
   const [y, m] = month.split("-").map(Number);
   const times = day ? (byDay.get(day) ?? []) : [];
   return (
-    <div className="px-2 py-4">
+    <div className="px-0 py-3 sm:px-2 sm:py-4">
       <Steps current={1} />
       {error && <p className="mb-4 rounded-md bg-danger-bg px-4 py-3 text-sm text-foreground">{error.message}</p>}
       {!slots.length ? (
@@ -422,7 +422,7 @@ export default function BookingCompact(p: Props) {
                       disabled={!byDay.has(d)}
                       onClick={() => setDay(d)}
                       aria-pressed={day === d}
-                      className={`flex h-10 w-10 items-center justify-center rounded-full text-sm transition ${day === d ? "bg-primary font-bold text-white" : byDay.has(d) ? "bg-primary-light font-bold text-primary hover:bg-primary hover:text-white" : "text-foreground/35"}`}
+                      className={`flex h-9 w-9 items-center justify-center rounded-full text-sm transition sm:h-10 sm:w-10 ${day === d ? "bg-primary font-bold text-white" : byDay.has(d) ? "bg-primary-light font-bold text-primary hover:bg-primary hover:text-white" : "text-foreground/35"}`}
                     >
                       {Number(d.slice(8))}
                     </button>
