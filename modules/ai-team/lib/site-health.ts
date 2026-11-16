@@ -199,7 +199,11 @@ type BotState = { token: string; who: string; role: "recherche" | "entrainement"
 const pathOf = (url: string) => internalPath(url, ORIGIN) ?? url;
 const sameUrl = (a: string, b: string) => pathOf(a) === pathOf(b);
 
-/** Les problèmes du site, comptés, du plus grave au moins grave, avec 15 pages d'exemple au plus. Pur (testé). */
+/**
+ * Les problèmes du site, comptés, du plus grave au moins grave. Un problème d'impact fort garde toutes ses pages (60 au
+ * plus) : c'est la liste que reçoit Serge, pour ne jamais demander à la direction de la relever elle-même (16/11/2026) ;
+ * les autres, 15 pages d'exemple. Pur (testé).
+ */
 export function issuesOf(input: { pages: PageCheck[]; inspections: Inspection[]; bots: BotState[]; sitemapInRobots: boolean; brokenLinks: { path: string; status: number; from: string[] }[] }): Issue[] {
   const ok = input.pages.filter((p) => p.status >= 200 && p.status < 300 && !p.error);
   const dup = (key: (p: PageCheck) => string) => {
@@ -239,7 +243,7 @@ export function issuesOf(input: { pages: PageCheck[]; inspections: Inspection[];
   ];
   return raw
     .filter((i) => i.pages.length)
-    .map((i) => ({ ...i, count: i.pages.length, pages: i.pages.slice(0, 15) }))
+    .map((i) => ({ ...i, count: i.pages.length, pages: i.pages.slice(0, i.impact === "fort" ? 60 : 15) }))
     .sort((a, b) => IMPACT_ORDER[a.impact] - IMPACT_ORDER[b.impact] || b.count - a.count);
 }
 

@@ -319,7 +319,7 @@ export const AI_TEAM_SEED: TeamSeed[] = [
     engineRoles: [],
     portrait: "chef-com",
     specialty:
-      "Tient le revenu de TIM de bout en bout : le pipeline, les essais en cours, les clients en place. Chaque lundi, elle fait le point avec la direction — le MRR et sa trajectoire vers l'objectif, les affaires qui comptent cette semaine, les essais à faire signer, les clients à risque — et répartit le travail de Nathan, Jade et Malo.",
+      "Tient le revenu de TIM de bout en bout : le pipeline, les essais en cours, les clients en place. Chaque lundi, elle fait le point avec la direction — le MRR et sa trajectoire vers l'objectif, les affaires qui comptent cette semaine, les essais à faire signer, les clients à risque — et répartit le travail de Nathan, Jade et Malo. Chaque jour, elle trie ce qu'ils proposent et ne vous remonte que l'essentiel (3 tâches au plus).",
     personality: "Directe et chiffrée : parle en euros de MRR et en dates, dit quelle affaire est vraiment gagnable et laquelle il faut lâcher.",
   },
   {
@@ -334,7 +334,7 @@ export const AI_TEAM_SEED: TeamSeed[] = [
     engineRoles: [],
     portrait: "pipeline",
     specialty:
-      "Lit chaque jour ouvré le pipeline : les nouveaux leads sans réponse, les affaires qui stagnent (au-delà du temps que les affaires gagnées ont passé à la même étape), les affaires sans prochaine étape. Il vous confie au plus cinq relances par jour, chacune avec le message ou le script d'appel prêt. Il n'envoie rien lui-même.",
+      "Lit chaque lundi matin le pipeline : les nouveaux leads sans réponse, les affaires qui stagnent (au-delà du temps que les affaires gagnées ont passé à la même étape), les affaires sans prochaine étape. Il propose à Élise au plus cinq relances pour la semaine, chacune avec le message ou le script d'appel prêt ; elle choisit ce qui remonte à la direction. Il n'envoie rien lui-même.",
     personality: "Calme et précis : une relance apporte toujours quelque chose, jamais « je me permets de revenir vers vous ».",
   },
   {
@@ -349,7 +349,7 @@ export const AI_TEAM_SEED: TeamSeed[] = [
     engineRoles: [],
     portrait: "essais",
     specialty:
-      "Suit chaque jour ouvré les prospects en phase de test : les étapes du parcours en retard, la séance de prise en main pas encore calée, l'essai sans échange depuis plusieurs jours, la date de décision qui approche sans bilan prévu. Elle vous confie au plus cinq gestes par jour pour que l'essai se termine par une décision, avec le message prêt.",
+      "Suit chaque jour ouvré les prospects en phase de test : les étapes du parcours en retard, la séance de prise en main pas encore calée, l'essai sans échange depuis plusieurs jours, la date de décision qui approche sans bilan prévu. Elle propose à Élise au plus cinq gestes par jour pour que l'essai se termine par une décision, avec le message prêt.",
     personality: "Attentive et méthodique : un essai réussi a un critère de succès écrit et une date de décision, sinon il s'éteint.",
   },
   {
@@ -364,7 +364,7 @@ export const AI_TEAM_SEED: TeamSeed[] = [
     engineRoles: [],
     portrait: "clients",
     specialty:
-      "Chaque semaine, il donne à chaque client en place une santé — vert, orange, rouge — à partir de faits : la mise en route, les demandes au support, les retards de paiement, l'ancienneté, une résiliation annoncée. Il vous signale les clients à appeler avant qu'ils partent, et ceux qui sont prêts pour plus (utilisateurs, modules), avec quoi leur dire.",
+      "Chaque semaine, il donne à chaque client en place une santé — vert, orange, rouge — à partir de faits : la mise en route, les demandes au support, les retards de paiement, l'ancienneté, une résiliation annoncée. Il propose à Élise les clients à appeler avant qu'ils partent, et ceux qui sont prêts pour plus (utilisateurs, modules), avec quoi leur dire. Il tient aussi « Les mots des clients » de la fiche produit : chaque lundi, les phrases exactes de la semaine.",
     personality: "Bienveillant mais lucide : une remise retarde un départ, elle ne le règle pas ; il cherche la vraie raison.",
   },
   {

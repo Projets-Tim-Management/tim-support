@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { ROLE_TOOLS } from "@/modules/ads/agent/roles";
-import { buildInbox, closeRequest } from "@/modules/ai-team/lib/inbox";
-import { safeRequestUrl, validateRequest } from "@/modules/ai-team/lib/requests";
+import { buildMyTasks, type MyTasksInput } from "@/modules/ai-team/lib/my-tasks";
+import { groupOf, weekProgress } from "@/modules/ai-team/lib/my-tasks-shared";
+import { checkRequestStep, closeRequest, safeRequestUrl, validateRequest } from "@/modules/ai-team/lib/requests";
 
 /**
  * Les demandes des chefs à la direction : deux formes (à faire / question),
@@ -59,35 +60,78 @@ describe("clore une demande", () => {
   });
 });
 
-describe("« Vos demandes » rassemble tout ce qui attend la direction", () => {
-  const members = [{ id: 1, key: "chef-sea", engineRoles: ["orchestrateur", "analyste"] }];
-  const inbox = buildInbox({
-    members,
+describe("« Mes tâches » rassemble tout ce qui attend la direction", () => {
+  const base: MyTasksInput = { requests: [], objectives: [], actions: [], members: [], goals: [], campaigns: [], pendingCreatives: [], proposedActions: [] };
+  const tasks = buildMyTasks({
+    ...base,
+    members: [
+      { id: 1, key: "chef-sea", name: "Margaux", engineRoles: ["orchestrateur"] },
+      { id: 2, key: "chef-com", name: "Élise" },
+      { id: 3, key: "com-clients", name: "Malo" },
+      { id: 4, key: "chef-seo", name: "Serge" },
+    ],
+    goals: [{ id: 9, title: "5 000 € de MRR" }],
     campaigns: [{ id: 7, name: "Campagne test" }],
     requests: [
       { id: 10, member: 1, kind: "question", status: "ouverte", title: "Budget de décembre", why: "Les fêtes", question: "Quel plafond ?", createdAt: "2026-11-11T08:00:00Z" },
-      { id: 11, member: 1, kind: "a-faire", status: "faite", title: "Reconnecter Meta", why: "Jeton", answer: "OK", closedAt: "2026-11-10T08:00:00Z", createdAt: "2026-11-09T08:00:00Z" },
+      { id: 11, member: 1, kind: "a-faire", status: "faite", title: "Reconnecter Meta", why: "Jeton", answer: "OK", steps: ["Ouvrir", "Reconnecter"], closedAt: "2026-11-16T08:00:00Z", createdAt: "2026-11-09T08:00:00Z" },
+      { id: 12, member: 3, kind: "a-faire", status: "ouverte", title: "🔴 Urgent — Rappeler Kern", why: "Résiliation annoncée", steps: [{ text: "Appeler", done: true }, "Écrire"], goal: 9, createdAt: "2026-11-16T07:00:00Z" },
     ],
+    objectives: [{ id: 5, title: "Réécrire la page devis", status: "a-faire", dueDate: "2026-11-14T00:00:00.000Z", proposedBy: "seo-contenu", steps: [{ text: "Plan", minutes: 20, prompt: "p", done: false }], slots: [{ start: "2026-11-13T09:00:00Z", end: "2026-11-13T10:00:00Z", link: "https://cal" }] }],
+    actions: [{ id: 3, title: "Livrer l'export", who: "dev", team: "tous", status: "prevue", plannedDate: "2026-12-01T12:00:00.000Z", createdAt: "2026-11-01T08:00:00Z" }],
     pendingCreatives: [
       { campaign: 7, createdAt: "2026-11-02T08:00:00Z" },
       { campaign: 7, createdAt: "2026-11-02T08:00:00Z" },
     ],
     proposedActions: [{ id: 5, kind: "budget", campaign: 7, rationale: "CPC en baisse", after: {}, createdAt: "2026-11-12T07:00:00Z" }],
   });
+  const byId = (id: string) => tasks.find((t) => t.id === id)!;
 
-  it("les demandes ouvertes des chefs, les créas par campagne, les actions proposées — les plus récentes d'abord", () => {
-    expect(inbox.open.map((i) => [i.source, i.kind])).toEqual([
-      ["a-valider", "a-faire"],
-      ["chef", "question"],
-      ["a-valider", "a-faire"],
-    ]);
-    const creas = inbox.open.find((i) => i.id === "creas-7")!;
-    expect(creas).toMatchObject({ title: "Décider de 2 créas — Campagne test", url: "/admin/publicite/a-valider?campagne=7", memberKey: "chef-sea" });
-    expect(creas.steps.length).toBeGreaterThan(0);
+  it("une couleur par bureau, et le chef à qui en parler — l'idée d'un agent remonte par son chef", () => {
+    expect(byId("r10")).toMatchObject({ category: "sea", form: "question", chief: "chef-sea", from: "Margaux", status: "a-faire" });
+    expect(byId("r12")).toMatchObject({ category: "com", chief: "chef-com", from: "Élise · idée de Malo", urgent: true, goal: "5 000 € de MRR", stepsCheckable: true });
+    expect(byId("r12").steps.map((s) => s.done)).toEqual([true, false]);
+    expect(byId("o5")).toMatchObject({ category: "seo", chief: "chef-seo", due: "2026-11-14", stepsCheckable: true });
+    expect(byId("o5").slots).toHaveLength(1);
+    expect(byId("a3")).toMatchObject({ category: "tous", chief: null, from: "Développement", due: "2026-12-01" });
   });
 
-  it("garde les demandes traitées à part, avec la réponse", () => {
-    expect(inbox.closed).toEqual([{ id: "r-11", memberKey: "chef-sea", kind: "a-faire", title: "Reconnecter Meta", status: "faite", answer: "OK", at: "2026-11-10T08:00:00Z" }]);
+  it("« À valider » y est aussi : une tâche par campagne de créas, une par action proposée, qui se décident là-bas", () => {
+    expect(byId("v-creas-7")).toMatchObject({ source: "a-valider", title: "Décider de 2 créas — Campagne test", url: "/admin/publicite/a-valider?campagne=7", chief: "chef-sea" });
+    expect(byId("v-action-5")).toMatchObject({ source: "a-valider", category: "sea" });
+  });
+
+  it("se range en retard, cette semaine (une demande sans date est pour maintenant), plus tard, fait", () => {
+    const today = "2026-11-16";
+    expect(groupOf(byId("o5"), today)).toBe("retard");
+    expect(groupOf(byId("r10"), today)).toBe("semaine");
+    expect(groupOf(byId("a3"), today)).toBe("plus-tard");
+    expect(groupOf(byId("r11"), today)).toBe("fait");
+  });
+
+  it("où j'en suis : les tâches faites depuis lundi face à celles qui restent cette semaine", () => {
+    // Faite lundi 16 : r11. Restent cette semaine : r10, r12, o5 (en retard), v-creas-7, v-action-5.
+    expect(weekProgress(tasks, "2026-11-16")).toEqual({ done: 1, left: 5, late: 1, pct: 17 });
+    expect(weekProgress([], "2026-11-16").pct).toBe(100);
+  });
+});
+
+describe("cocher les étapes d'une demande", () => {
+  it("garde les étapes en objets, et la demande est faite quand tout est coché", () => {
+    const req = { kind: "a-faire", status: "ouverte", steps: ["Ouvrir", { text: "Reconnecter", done: true }] };
+    expect(checkRequestStep(req, 0, true)).toEqual({ ok: true, status: "faite", steps: [{ text: "Ouvrir", done: true }, { text: "Reconnecter", done: true }] });
+    expect(checkRequestStep({ ...req, status: "faite" }, 1, false)).toMatchObject({ ok: true, status: "ouverte" });
+  });
+
+  it("refuse une question, une demande retirée, une étape inconnue", () => {
+    expect(checkRequestStep({ kind: "question", status: "ouverte", steps: [] }, 0, true)).toMatchObject({ ok: false });
+    expect(checkRequestStep({ kind: "a-faire", status: "retiree", steps: ["x"] }, 0, true)).toMatchObject({ ok: false });
+    expect(checkRequestStep({ kind: "a-faire", status: "ouverte", steps: ["x"] }, 3, true)).toMatchObject({ ok: false });
+  });
+
+  it("un « C'est fait » cliqué trop vite se rouvre ; une question répondue, non", () => {
+    expect(closeRequest({ kind: "a-faire", status: "faite" }, "rouvrir", "")).toEqual({ ok: true, status: "ouverte", answer: null });
+    expect(closeRequest({ kind: "question", status: "repondue" }, "rouvrir", "")).toMatchObject({ ok: false });
   });
 });
 

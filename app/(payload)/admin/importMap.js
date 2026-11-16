@@ -131,6 +131,7 @@ import { SequenceMessagePreview as SequenceMessagePreview_1d83c136501c19d8287861
 import { SequenceThemeRowLabel as SequenceThemeRowLabel_f78827f64ca8974d62621135cef1d267 } from '../../../modules/marketing/admin/SequenceThemeRowLabel'
 import { FormOptionRowLabel as FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b } from '../../../modules/forms/admin/FormOptionRowLabel'
 import { FormFieldRowLabel as FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3 } from '../../../modules/forms/admin/FormFieldRowLabel'
+import { PublicLink as PublicLink_d0b9bae00eb5301e3d382eccf8dee0f4 } from '../../../modules/booking/admin/PublicLink'
 import { LaunchTrack as LaunchTrack_f98aede5c8cdf4ba78c59bf556604594 } from '../../../modules/ads/admin/LaunchTrack'
 import { AgentTeamLink as AgentTeamLink_729c8c7a2634880a1a6bd9697e62a9d0 } from '../../../modules/ads/admin/AgentTeamLink'
 import { PublishPanel as PublishPanel_0b56d77730197393cc2744e5eef1a5ba } from '../../../modules/ads/admin/PublishPanel'
@@ -153,10 +154,10 @@ import { PaletteCheck as PaletteCheck_f97f8060092912987144671ff9edb2ae } from '.
 import { FontPreview as FontPreview_f97f8060092912987144671ff9edb2ae } from '../../../modules/ads/admin/BrandKitPreview'
 import { TeamEmailRowLabel as TeamEmailRowLabel_fe4e3de0c8d06bd60498ae61b540f761 } from '../../../core/globals/TeamEmailRowLabel'
 import { CategoryParentsField as CategoryParentsField_14711bdf579380bfdc58e1c2eab125d7 } from '../../../modules/analytics/admin/CategoryParentsField'
-import { BriefAssistant as BriefAssistant_63ff26738593f067a631db4c2914553f } from '../../../modules/ai-team/admin/BriefAssistant'
 import { default as default_5599fe28f2b3157f52fea861e6ba12e6 } from '../../../admin/graphics/Avatar'
 import { default as default_8224f9d0d872abe7f15fe4a0b0d49bd9 } from '../../../admin/nav/CustomNav'
 import { default as default_bd65fe58e0079c6c4581354ef4ec3555 } from '../../../admin/header/PartnerSwitcher'
+import { default as default_d238f4aab73eba0336d12285682b6f49 } from '../../../modules/ai-team/admin/GoalCelebration'
 import { Icon as Icon_48a75e37b0630d5b8c8066e180c0e6ef } from '../../../admin/graphics/Icon'
 import { Logo as Logo_88541c286955dbac4d90fb5ed606381c } from '../../../admin/graphics/Logo'
 import { default as default_3cb4a5c74877e195c5857e84f524e351 } from '../../../admin/login/LoginEnhancements'
@@ -177,6 +178,7 @@ import { default as default_8e6317c196aa90c5c449f01aad526c7f } from '../../../mo
 import { default as default_1c3d467279591bbf05bba5b4228f8e57 } from '../../../modules/ads/admin/AdsDashboardView'
 import { default as default_8052050c666bd08f67a59ad1c2e0cc41 } from '../../../modules/analytics/admin/AcquisitionView'
 import { default as default_e424d3f558f23151dc38caefd5fde3c3 } from '../../../modules/ai-team/admin/TeamView'
+import { default as default_8ac13a3bfcc9f3fe58042813b8b6a55a } from '../../../modules/ai-team/admin/MyTasksView'
 import { default as default_25d4443f3bd5c0f75cd68918251eca76 } from '../../../modules/ai-team/admin/RoadmapView'
 import { default as default_87f30d4380616a0c579052b8e8e0f5be } from '../../../modules/analytics/admin/SeoView'
 import { default as default_5200a101958b5383ac3b8ff93e5777dc } from '../../../modules/analytics/admin/VideosView'
@@ -320,6 +322,7 @@ export const importMap = {
   "/modules/marketing/admin/SequenceThemeRowLabel#SequenceThemeRowLabel": SequenceThemeRowLabel_f78827f64ca8974d62621135cef1d267,
   "/modules/forms/admin/FormOptionRowLabel#FormOptionRowLabel": FormOptionRowLabel_e9c5d5e6699ab838f761b62222944f4b,
   "/modules/forms/admin/FormFieldRowLabel#FormFieldRowLabel": FormFieldRowLabel_59a9209eaff25aa99dd3f859bfdc67d3,
+  "/modules/booking/admin/PublicLink#PublicLink": PublicLink_d0b9bae00eb5301e3d382eccf8dee0f4,
   "/modules/ads/admin/LaunchTrack#LaunchTrack": LaunchTrack_f98aede5c8cdf4ba78c59bf556604594,
   "/modules/ads/admin/AgentTeamLink#AgentTeamLink": AgentTeamLink_729c8c7a2634880a1a6bd9697e62a9d0,
   "/modules/ads/admin/PublishPanel#PublishPanel": PublishPanel_0b56d77730197393cc2744e5eef1a5ba,
@@ -342,10 +345,10 @@ export const importMap = {
   "/modules/ads/admin/BrandKitPreview#FontPreview": FontPreview_f97f8060092912987144671ff9edb2ae,
   "/core/globals/TeamEmailRowLabel#TeamEmailRowLabel": TeamEmailRowLabel_fe4e3de0c8d06bd60498ae61b540f761,
   "/modules/analytics/admin/CategoryParentsField#CategoryParentsField": CategoryParentsField_14711bdf579380bfdc58e1c2eab125d7,
-  "/modules/ai-team/admin/BriefAssistant#BriefAssistant": BriefAssistant_63ff26738593f067a631db4c2914553f,
   "/admin/graphics/Avatar#default": default_5599fe28f2b3157f52fea861e6ba12e6,
   "/admin/nav/CustomNav#default": default_8224f9d0d872abe7f15fe4a0b0d49bd9,
   "/admin/header/PartnerSwitcher#default": default_bd65fe58e0079c6c4581354ef4ec3555,
+  "/modules/ai-team/admin/GoalCelebration#default": default_d238f4aab73eba0336d12285682b6f49,
   "/admin/graphics/Icon#Icon": Icon_48a75e37b0630d5b8c8066e180c0e6ef,
   "/admin/graphics/Logo#Logo": Logo_88541c286955dbac4d90fb5ed606381c,
   "/admin/login/LoginEnhancements#default": default_3cb4a5c74877e195c5857e84f524e351,
@@ -366,6 +369,7 @@ export const importMap = {
   "/modules/ads/admin/AdsDashboardView#default": default_1c3d467279591bbf05bba5b4228f8e57,
   "/modules/analytics/admin/AcquisitionView#default": default_8052050c666bd08f67a59ad1c2e0cc41,
   "/modules/ai-team/admin/TeamView#default": default_e424d3f558f23151dc38caefd5fde3c3,
+  "/modules/ai-team/admin/MyTasksView#default": default_8ac13a3bfcc9f3fe58042813b8b6a55a,
   "/modules/ai-team/admin/RoadmapView#default": default_25d4443f3bd5c0f75cd68918251eca76,
   "/modules/analytics/admin/SeoView#default": default_87f30d4380616a0c579052b8e8e0f5be,
   "/modules/analytics/admin/VideosView#default": default_5200a101958b5383ac3b8ff93e5777dc,

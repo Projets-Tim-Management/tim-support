@@ -7,7 +7,7 @@ import { runWeeklyReview } from "@/modules/ai-team/lib/review";
 /**
  * Lancer la revue de Margaux tout de suite, sans attendre lundi.
  * POST — réservé à la direction. La synthèse arrive dans la conversation,
- * les recommandations dans « Vos demandes ».
+ * les recommandations dans « Mes tâches ».
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;

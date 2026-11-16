@@ -29,13 +29,14 @@ import { TechButton } from "@/modules/ai-team/admin/TechButton";
 import { AuthorityButton } from "@/modules/ai-team/admin/AuthorityButton";
 import { SocialButton, SocialConnect } from "@/modules/ai-team/admin/SocialConnect";
 import { CopyPromptButton } from "@/modules/ai-team/admin/CopyPromptButton";
-import { Inbox } from "@/modules/ai-team/admin/Inbox";
 import { ProgressChart } from "@/modules/ai-team/admin/ProgressChart";
 import { ReviewButton } from "@/modules/ai-team/admin/ReviewButton";
 import { VeilleButton } from "@/modules/ai-team/admin/VeilleButton";
 import { loadTeamView, type MemberView, type MissionView, type RunView, type TeamView } from "@/modules/ai-team/lib/activity";
 import { euro } from "@/modules/ai-team/lib/format";
-import { loadInbox } from "@/modules/ai-team/lib/inbox";
+import { loadChat } from "@/modules/ai-team/lib/chat-history";
+import { loadMyTasks } from "@/modules/ai-team/lib/my-tasks";
+import { openCount } from "@/modules/ai-team/lib/my-tasks-shared";
 import { loadTeamMastery, type MemberMastery, type TeamMastery } from "@/modules/ai-team/lib/mastery";
 import { Portrait } from "@/modules/ai-team/lib/portraits";
 import { REQUEST_CHANNELS, REQUEST_OUTCOMES } from "@/modules/ai-team/lib/requests";
@@ -1816,7 +1817,7 @@ const PAGE_TYPE: Record<string, string> = { demo: "Démo / contact", tarifs: "Ta
 function ActionsList({ at, summary, findings, what }: { at: string; summary: string; findings: PipelineAction[]; what: string }) {
   return (
     <section className="ait-score">
-      <p className="ait-meta">Point du {shortDate(at)} — chaque {what} est dans « Vos demandes » et sur la feuille de route.</p>
+      <p className="ait-meta">Point du {shortDate(at)} — proposé à Élise, qui choisit chaque jour ce qui vous remonte ; l&apos;urgent ({what}s marqués 🔴) est déjà dans « Mes tâches ».</p>
       <p className="ait-obj__text">{summary}</p>
       <ol className="ait-objs">
         {findings.map((f, i) => (
@@ -1862,7 +1863,7 @@ function TrialsPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: Mem
         note={
           chief && (
             <p className="ait-reports">
-              <Face m={chief} size={22} /> {m.name} suit chaque jour ouvré les prospects en phase de test et vous confie au plus cinq gestes pour que chaque essai finisse par une décision ; elle rend compte à {chief.name}.
+              <Face m={chief} size={22} /> {m.name} suit chaque jour ouvré les prospects en phase de test et propose ses gestes à {chief.name}, qui choisit ceux qui vous remontent ; un essai fini sans décision vous arrive directement.
             </p>
           )
         }
@@ -1937,7 +1938,7 @@ function HealthPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: Mem
         note={
           chief && (
             <p className="ait-reports">
-              <Face m={chief} size={22} /> {m.name} note chaque lundi la santé de chaque client en place, sur des faits, et vous confie les clients à appeler avant qu&apos;ils partent ; il rend compte à {chief.name}.
+              <Face m={chief} size={22} /> {m.name} note chaque lundi la santé de chaque client en place, sur des faits, et propose à {chief.name} les clients à appeler ; une résiliation annoncée vous arrive directement. Il tient aussi « Les mots des clients » de la fiche produit, chaque lundi.
             </p>
           )
         }
@@ -2037,6 +2038,7 @@ function ComChiefPanel({ m, com, chat, notes, members, mastery, method }: { m: M
           { label: "💶 Budget IA du mois", value: eur(com.monthEur), sub: spentPct != null ? `${spentPct} % de ${eur(com.budgetEur!)}` : "pas de budget fixé", gauge: spentPct },
         ]}
       />
+      {m.active && <AgentRunButton kind="comTriage" name={m.name} />}
       {m.active && <AgentRunButton kind="comWeekly" name={m.name} />}
       {m.active ? <ChatBox memberKey={m.key} name={m.name} portrait={m.portrait} initial={chat} /> : null}
       <Panes
@@ -2064,7 +2066,7 @@ function PipelinePanel({ m, chief, view, extra = [] }: { m: MemberView; chief: M
         note={
           chief && (
             <p className="ait-reports">
-              <Face m={chief} size={22} /> {m.name} lit chaque jour ouvré le pipeline et vous confie au plus cinq relances, message prêt ; il rend compte à {chief.name}. Il n&apos;envoie rien lui-même.
+              <Face m={chief} size={22} /> {m.name} lit chaque jour ouvré le pipeline et propose ses relances à {chief.name}, qui choisit celles qui vous remontent ; un lead sans réponse vous arrive directement. Il n&apos;envoie rien lui-même.
             </p>
           )
         }
@@ -3070,7 +3072,7 @@ function Report({
   campaigns,
   campaign,
   chat,
-  inbox,
+  tasksOpen,
   scorecard,
   gads,
   oads,
@@ -3096,7 +3098,8 @@ function Report({
   campaigns: CampaignChip[];
   campaign: string | null;
   chat: ChatMessage[];
-  inbox: Awaited<ReturnType<typeof loadInbox>>;
+  /** Les tâches qui attendent la direction cette semaine (« Mes tâches »). */
+  tasksOpen: number;
   scorecard: Scorecard | null;
   gads: SourceResult<GoogleAdsView> | null;
   oads: SourceResult<OpenAiAdsView> | null;
@@ -3124,13 +3127,14 @@ function Report({
   const office = chiefs.find((c) => c.key === bureau) ?? (current ? chiefs.find((c) => c.key === current.key || String(c.id) === String(current.chiefId)) : undefined);
   const missions = team.members.reduce((n, m) => n + m.monthMissions, 0);
   const working = team.members.filter((m) => m.state === "travail");
-  const people = Object.fromEntries(team.members.map((m) => [m.key, { name: m.name, portrait: m.portrait }]));
   return (
     <>
-      <Inbox open={inbox.open} closed={inbox.closed} people={people} />
       <p className="ait-hello">
         👋 {working.length ? `${working.map((m) => m.name).join(" et ")} ${working.length > 1 ? "sont" : "est"} au travail en ce moment. ` : "Toute l'équipe est disponible. "}
-        {missions} mission{missions > 1 ? "s" : ""} menée{missions > 1 ? "s" : ""} ce mois-ci.
+        {missions} mission{missions > 1 ? "s" : ""} menée{missions > 1 ? "s" : ""} ce mois-ci.{" "}
+        <Link className="ait-hello__tasks" href="/admin/mes-taches" prefetch={false}>
+          📋 {tasksOpen ? `${tasksOpen} tâche${tasksOpen > 1 ? "s" : ""} vous attend${tasksOpen > 1 ? "ent" : ""} cette semaine` : "Rien ne vous attend cette semaine"} — Mes tâches →
+        </Link>
       </p>
       <div className="ait-orgs" aria-label="Organigramme">
         <span className="ait-org__direction">Direction</span>
@@ -3261,16 +3265,6 @@ const loadRecos = (payload: Payload): Promise<RecoView[]> =>
     )
     .catch(() => []);
 
-/** La conversation d'un chef : ses 40 derniers messages, dans l'ordre. */
-const loadChat = (payload: Payload, memberId: number | string): Promise<ChatMessage[]> =>
-  payload
-    .find({ collection: "ai-team-messages", where: { member: { equals: memberId } }, sort: "-createdAt", limit: 40, depth: 0, overrideAccess: true, select: { from: true, text: true, createdAt: true, noted: true } as never })
-    .then((r) =>
-      (r.docs as unknown as { id: number; from: "direction" | "agent"; text: string; createdAt: string; noted?: unknown }[])
-        .reverse()
-        .map((d) => ({ id: String(d.id), from: d.from, text: d.text, at: d.createdAt, ...(Array.isArray(d.noted) ? { noted: d.noted.map(String) } : {}) })),
-    );
-
 /** La méthode d'un agent : sa version du moment, sa dernière veille (en cours, en échec), combien de versions faites. */
 async function loadMethodState(payload: Payload, memberId: number | string): Promise<MethodState | null> {
   const toDoc = (d: Record<string, unknown> | undefined): MethodDoc | null =>
@@ -3316,9 +3310,9 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
   // et ce que lisent Thomas, Sarah, Margaux, seulement quand on ouvre leur fiche (chaque régie gardée 3 h).
   // Les trois points du bureau commercial, lus UNE fois : la carte d'Élise, les scores et la fiche ouverte les partagent.
   const comReportsP = allowed ? comReports(req.payload) : Promise.resolve({ pipe: null, trials: null, health: null });
-  const [[team, campaigns], inbox, gads, oads, recos, scorecard, snaps] = await Promise.all([
+  const [[team, campaigns], tasksOpen, gads, oads, recos, scorecard, snaps] = await Promise.all([
     allowed ? Promise.all([loadTeamView(req.payload), loadCampaignChips(req.payload)]) : Promise.resolve([null, [] as CampaignChip[]] as const),
-    allowed ? loadInbox(req.payload) : { open: [], closed: [] },
+    allowed ? loadMyTasks(req.payload).then((d) => openCount(d.tasks, d.today)) : 0,
     only("sea-google") ? loadCompetitorNames(req.payload).then((names) => loadGoogleAds(names)) : null,
     only("sea-chatgpt") ? loadOpenAiAds() : null,
     only("chef-sea") ? loadRecos(req.payload) : ([] as RecoView[]),
@@ -3373,7 +3367,7 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
             <h1 className="ait-title">Équipe IA</h1>
             <p className="ait-sub">Vous parlez aux chefs ; chaque sous-agent reçoit ses missions de son chef et lui rend son travail.</p>
           </header>
-          {team ? <Report team={team} selected={selected} bureau={typeof sp?.bureau === "string" ? sp.bureau : null} all={all} campaigns={campaigns} campaign={campaign} chat={chat} inbox={inbox} scorecard={scorecard} gads={gads} oads={oads} method={method} trends={trends} recos={recos} mastery={mastery} seo={seo} analyst={analyst} competition={competition} content={content} visibility={visibility} tech={tech} authority={authority} social={social} notes={notes} revenue={revenue} /> : <p className="ait-empty">Cet écran est réservé à la direction.</p>}
+          {team ? <Report team={team} selected={selected} bureau={typeof sp?.bureau === "string" ? sp.bureau : null} all={all} campaigns={campaigns} campaign={campaign} chat={chat} tasksOpen={tasksOpen} scorecard={scorecard} gads={gads} oads={oads} method={method} trends={trends} recos={recos} mastery={mastery} seo={seo} analyst={analyst} competition={competition} content={content} visibility={visibility} tech={tech} authority={authority} social={social} notes={notes} revenue={revenue} /> : <p className="ait-empty">Cet écran est réservé à la direction.</p>}
         </div>
       </Gutter>
     </DefaultTemplate>

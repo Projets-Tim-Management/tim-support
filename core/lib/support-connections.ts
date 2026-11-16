@@ -225,7 +225,7 @@ export const SUPPORT_CONNECTIONS: SupportConnection[] = [
     scope: [
       "API Google Ads, lecture seule : le compte de service (GSC_SERVICE_ACCOUNT_JSON) est utilisateur « Lecture seule » du compte",
       "Projet Google Cloud en accès « Explorer » (2 880 opérations par jour) ; plus de jeton développeur depuis le 09/09/2026",
-      "Aucune écriture : budgets et mots-clés négatifs se changent dans la console, via « Vos demandes »",
+      "Aucune écriture : budgets et mots-clés négatifs se changent dans la console, via « Mes tâches »",
     ],
     docUrl: "https://developers.google.com/google-ads/api/docs/start",
     consoleUrl: "https://ads.google.com/aw/accountsettings/accessandsecurity",
@@ -245,7 +245,7 @@ export const SUPPORT_CONNECTIONS: SupportConnection[] = [
     scope: [
       "API annonceur OpenAI (api.ads.openai.com), lectures seulement : le support ne fait que des GET",
       "La clé d'API annonceur du Gestionnaire de publicités (Paramètres › Général) — pas une clé de conversion, qui ne lit rien",
-      "Aucune écriture : budgets et annonces se changent dans le Gestionnaire, via « Vos demandes »",
+      "Aucune écriture : budgets et annonces se changent dans le Gestionnaire, via « Mes tâches »",
     ],
     docUrl: "https://developers.openai.com/ads",
     consoleUrl: "https://ads.openai.com",

@@ -7,6 +7,7 @@ import { DAY_MS } from "@/modules/ai-team/lib/format";
 import { QUALIFIED } from "@/modules/ai-team/lib/indicators";
 import { tagOf, type WebCall } from "@/modules/ai-team/lib/web-model";
 import { periodBounds } from "@/modules/analytics/lib/growth";
+import { loadBookingInsights } from "@/modules/booking/lib/insights";
 
 /**
  * LOU, RESPONSABLE CONVERSION (équipe SEO/GEO, 14/11/2026) — 0,3 % des visites
@@ -185,6 +186,8 @@ export async function runConversion(payload: Payload, opts: { now?: Date; force?
         data: {
           aujourdhui: now.toISOString().slice(0, 10),
           conversion: measure,
+          // Après le formulaire : qui réserve un rendez-vous, visio ou téléphone, et comment ils disent nous avoir connus.
+          rendezVousEtSourcesDeclarees: (await loadBookingInsights(payload, now, 90).catch(() => null)) ?? "illisible",
           mesHypothesesPassees: past.map((a) => ({ le: String(a.createdAt ?? "").slice(0, 10), synthese: a.summary, hypotheses: a.findings })),
           objectifsFaitsSurLeSite: done.map((o) => ({ objectif: o.title, page: o.page, faitLe: String(o.closedAt ?? "").slice(0, 10), mesure: o.measure, verdict: o.outcome ? { resultat: o.outcome, lecon: o.verdict } : null })),
         },

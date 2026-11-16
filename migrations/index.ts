@@ -208,6 +208,14 @@ import * as migration_20261114_095237_equipe_seo_progresse from './20261114_0952
 import * as migration_20261114_102341_feuille_de_route from './20261114_102341_feuille_de_route';
 import * as migration_20261114_113201_feuille_de_route_complete from './20261114_113201_feuille_de_route_complete';
 import * as migration_20261115_091839_bureau_commercial_fiche_produit from './20261115_091839_bureau_commercial_fiche_produit';
+import * as migration_20261116_092416_suppression_recap_publicite from './20261116_092416_suppression_recap_publicite';
+import * as migration_20261116_105830_objectifs_atteints_fetes from './20261116_105830_objectifs_atteints_fetes';
+import * as migration_20261116_131157_rendez_vous_en_ligne from './20261116_131157_rendez_vous_en_ligne';
+import * as migration_20261116_132242_rendez_vous_lieux from './20261116_132242_rendez_vous_lieux';
+import * as migration_20261116_133328_rendez_vous_formulaire from './20261116_133328_rendez_vous_formulaire';
+import * as migration_20261116_134704_rendez_vous_simplifie from './20261116_134704_rendez_vous_simplifie';
+import * as migration_20261116_135347_rendez_vous_creneaux from './20261116_135347_rendez_vous_creneaux';
+import * as migration_20261116_141008_comment_nous_a_connus from './20261116_141008_comment_nous_a_connus';
 
 export const migrations = [
   {
@@ -1258,6 +1266,46 @@ export const migrations = [
   {
     up: migration_20261115_091839_bureau_commercial_fiche_produit.up,
     down: migration_20261115_091839_bureau_commercial_fiche_produit.down,
-    name: '20261115_091839_bureau_commercial_fiche_produit'
+    name: '20261115_091839_bureau_commercial_fiche_produit',
+  },
+  {
+    up: migration_20261116_092416_suppression_recap_publicite.up,
+    down: migration_20261116_092416_suppression_recap_publicite.down,
+    name: '20261116_092416_suppression_recap_publicite',
+  },
+  {
+    up: migration_20261116_105830_objectifs_atteints_fetes.up,
+    down: migration_20261116_105830_objectifs_atteints_fetes.down,
+    name: '20261116_105830_objectifs_atteints_fetes',
+  },
+  {
+    up: migration_20261116_131157_rendez_vous_en_ligne.up,
+    down: migration_20261116_131157_rendez_vous_en_ligne.down,
+    name: '20261116_131157_rendez_vous_en_ligne',
+  },
+  {
+    up: migration_20261116_132242_rendez_vous_lieux.up,
+    down: migration_20261116_132242_rendez_vous_lieux.down,
+    name: '20261116_132242_rendez_vous_lieux',
+  },
+  {
+    up: migration_20261116_133328_rendez_vous_formulaire.up,
+    down: migration_20261116_133328_rendez_vous_formulaire.down,
+    name: '20261116_133328_rendez_vous_formulaire',
+  },
+  {
+    up: migration_20261116_134704_rendez_vous_simplifie.up,
+    down: migration_20261116_134704_rendez_vous_simplifie.down,
+    name: '20261116_134704_rendez_vous_simplifie',
+  },
+  {
+    up: migration_20261116_135347_rendez_vous_creneaux.up,
+    down: migration_20261116_135347_rendez_vous_creneaux.down,
+    name: '20261116_135347_rendez_vous_creneaux',
+  },
+  {
+    up: migration_20261116_141008_comment_nous_a_connus.up,
+    down: migration_20261116_141008_comment_nous_a_connus.down,
+    name: '20261116_141008_comment_nous_a_connus'
   },
 ];

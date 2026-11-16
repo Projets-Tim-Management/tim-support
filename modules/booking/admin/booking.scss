@@ -1,0 +1,42 @@
+/* ─── Rendez-vous en ligne : l'adresse publique d'un type (PublicLink) ─── */
+.bk-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--tim-border);
+  border-radius: var(--tim-radius);
+  background: var(--tim-surface);
+}
+.bk-link__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--tim-muted);
+  text-transform: uppercase;
+}
+.bk-link__url {
+  flex: 1;
+  min-width: 14rem;
+  font-size: 0.85rem;
+  color: var(--tim-foreground);
+  word-break: break-all;
+}
+.bk-link__btn {
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 999px;
+  background: var(--tim-white);
+  color: var(--tim-foreground);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.bk-link__btn:hover {
+  border-color: var(--tim-primary);
+  color: var(--tim-primary);
+}

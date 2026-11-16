@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { buildInbox } from "@/modules/ai-team/lib/inbox";
+import { buildMyTasks } from "@/modules/ai-team/lib/my-tasks";
 import { seedAiTeam } from "@/modules/ai-team/lib/seed";
 import { AI_TEAM_SEED } from "@/modules/ai-team/lib/team";
 
@@ -61,7 +61,10 @@ describe("la mise à jour de l'équipe au démarrage", () => {
 
 describe("la direction ne parle qu'aux chefs", () => {
   it("une action proposée par la cheffe Meta remonte sous le nom de Margaux, en disant qui l'a soulevée", () => {
-    const inbox = buildInbox({
+    const tasks = buildMyTasks({
+      objectives: [],
+      actions: [],
+      goals: [],
       members: [
         { id: 1, key: "chef-sea", name: "Margaux", jobTitle: "Directrice SEA", engineRoles: ["orchestrateur"] },
         { id: 2, key: "sea-meta", name: "Camille", jobTitle: "Cheffe Meta Ads", engineRoles: ["analyste"], chief: 1 },
@@ -71,6 +74,6 @@ describe("la direction ne parle qu'aux chefs", () => {
       pendingCreatives: [],
       proposedActions: [{ id: 5, kind: "pause", campaign: 7, rationale: "Coût par lead qualifié trop haut", after: {}, createdAt: "2026-11-12T07:00:00Z" }],
     });
-    expect(inbox.open[0]).toMatchObject({ memberKey: "chef-sea", why: "Soulevé par Camille (Cheffe Meta Ads) : Coût par lead qualifié trop haut" });
+    expect(tasks[0]).toMatchObject({ chief: "chef-sea", from: "Margaux", why: "Soulevé par Camille (Cheffe Meta Ads) : Coût par lead qualifié trop haut" });
   });
 });

@@ -93,6 +93,8 @@ export interface Config {
     forms: Form;
     'form-submissions': FormSubmission;
     'presentation-bookings': PresentationBooking;
+    'booking-types': BookingType;
+    bookings: Booking;
     'mass-email-campaigns': MassEmailCampaign;
     'ga4-sends': Ga4Send;
     'video-views': VideoView;
@@ -119,7 +121,6 @@ export interface Config {
     'ai-team-actions': AiTeamAction;
     'ai-team-requests': AiTeamRequest;
     'ai-team-snapshots': AiTeamSnapshot;
-    'ad-recaps': AdRecap;
     'ad-media': AdMedia;
     'ad-facts': AdFact;
     'ad-ai-usage': AdAiUsage;
@@ -201,6 +202,8 @@ export interface Config {
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'presentation-bookings': PresentationBookingsSelect<false> | PresentationBookingsSelect<true>;
+    'booking-types': BookingTypesSelect<false> | BookingTypesSelect<true>;
+    bookings: BookingsSelect<false> | BookingsSelect<true>;
     'mass-email-campaigns': MassEmailCampaignsSelect<false> | MassEmailCampaignsSelect<true>;
     'ga4-sends': Ga4SendsSelect<false> | Ga4SendsSelect<true>;
     'video-views': VideoViewsSelect<false> | VideoViewsSelect<true>;
@@ -227,7 +230,6 @@ export interface Config {
     'ai-team-actions': AiTeamActionsSelect<false> | AiTeamActionsSelect<true>;
     'ai-team-requests': AiTeamRequestsSelect<false> | AiTeamRequestsSelect<true>;
     'ai-team-snapshots': AiTeamSnapshotsSelect<false> | AiTeamSnapshotsSelect<true>;
-    'ad-recaps': AdRecapsSelect<false> | AdRecapsSelect<true>;
     'ad-media': AdMediaSelect<false> | AdMediaSelect<true>;
     'ad-facts': AdFactsSelect<false> | AdFactsSelect<true>;
     'ad-ai-usage': AdAiUsageSelect<false> | AdAiUsageSelect<true>;
@@ -448,7 +450,6 @@ export interface User {
         | 'parcours-etapes'
         | 'publicite-urgence'
         | 'publicite-reconnexion'
-        | 'publicite-recap'
         | 'connexion-api'
         | 'agendas'
       )[]
@@ -720,6 +721,8 @@ export interface PartnerClient {
         | 'site-vitrine'
       )
     | null;
+  heardFrom?:
+    ('google' | 'ia' | 'linkedin' | 'facebook-instagram' | 'youtube' | 'recommandation' | 'salon' | 'autre') | null;
   /**
    * Déclaré au formulaire du site vitrine.
    */
@@ -1053,6 +1056,10 @@ export interface Form {
    */
   defaultChannel: 'seo' | 'sea' | 'chatgpt' | 'meta-facebook' | 'meta-instagram';
   /**
+   * Facultatif. La vitrine affiche la page de réservation de ce type, déjà remplie avec la demande (nom, e-mail, société, effectif) et rattachée à la même fiche.
+   */
+  bookingType?: (number | null) | BookingType;
+  /**
    * L'ordre de cette liste est l'ordre d'affichage sur le site.
    */
   fields?:
@@ -1112,6 +1119,128 @@ export interface Form {
    */
   active?: boolean | null;
   seedVersion?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Comme Calendly : chaque type a sa page publique de réservation (support…/rdv/<adresse>).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "booking-types".
+ */
+export interface BookingType {
+  id: number;
+  name: string;
+  slug: string;
+  active?: boolean | null;
+  description?: string | null;
+  durationMin: number;
+  locations: ('meet' | 'telephone' | 'sur-place' | 'autre')[];
+  locationDetail?: string | null;
+  locationKind?: ('meet' | 'telephone' | 'sur-place' | 'autre') | null;
+  /**
+   * Leur agenda connecté (fiche partenaire › Agenda & rendez-vous) est lu : un créneau occupé n'est jamais proposé. Sans agenda connecté, les horaires ci-dessous font foi et le rendez-vous est signalé « créneau non vérifié ».
+   */
+  hosts: (number | User)[];
+  distribution?: ('disponibilite' | 'equilibre') | null;
+  scheduling?: {
+    hours?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+    dateOverrides?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+  };
+  incrementMin?: ('10' | '15' | '20' | '30' | '45' | '60') | null;
+  bufferBeforeMin?: number | null;
+  /**
+   * 30 min avant et après : jamais deux rendez-vous à la suite.
+   */
+  bufferAfterMin?: number | null;
+  /**
+   * Pas de rendez-vous dans les N prochaines heures.
+   */
+  minNoticeHours?: number | null;
+  horizonDays?: number | null;
+  /**
+   * Vide : sans limite.
+   */
+  maxPerDay?: number | null;
+  /**
+   * Le premier créneau proposé est demain.
+   */
+  noSameDay?: boolean | null;
+  /**
+   * 1 à 5 horaires par jour (3 le plus souvent), différents d'un jour à l'autre et fixes : un agenda qui paraît demandé. Décoché : tous les horaires libres.
+   */
+  limitedSlots?: boolean | null;
+  /**
+   * Choisi : la page pose exactement les questions de ce formulaire (mêmes libellés, mêmes tranches, mêmes choix) à la place des questions ci-dessous. En visio, tout est obligatoire.
+   */
+  sourceForm?: (number | null) | Form;
+  simpleForm?: boolean | null;
+  phoneRequired?: boolean | null;
+  questions?:
+    | {
+        label: string;
+        key: string;
+        type: 'texte' | 'paragraphe' | 'choix';
+        options?: string | null;
+        required?: boolean | null;
+        crmField?: ('aucun' | 'collaborateurs') | null;
+        id?: string | null;
+      }[]
+    | null;
+  confirmationEmail?: boolean | null;
+  confirmationText?: string | null;
+  /**
+   * Un e-mail avant le rendez-vous. Par défaut : la veille (1 440 min) et une heure avant (60 min).
+   */
+  reminders?:
+    | {
+        minutesBefore: number;
+        id?: string | null;
+      }[]
+    | null;
+  notifyHost?: boolean | null;
+  allowReschedule?: boolean | null;
+  allowCancel?: boolean | null;
+  changeUntilHours?: number | null;
+  /**
+   * Une affaire déjà plus loin ne recule pas.
+   */
+  crmStage?:
+    | (
+        | 'nouvelle'
+        | 'en-qualification'
+        | 'demo-programmee'
+        | 'attente-engagement'
+        | 'attente-longue'
+        | 'en-test'
+        | 'en-signature'
+        | 'actif'
+        | 'perdue'
+        | 'resilie'
+        | 'archive'
+      )
+    | null;
+  confirmationMessage?: string | null;
+  /**
+   * Facultatif : une page de la vitrine, par exemple.
+   */
+  redirectUrl?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2402,6 +2531,112 @@ export interface PresentationBooking {
   createdAt: string;
 }
 /**
+ * Les rendez-vous réservés sur les pages publiques. ⚠️ : un problème à traiter (appelez le prospect).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  summary?: string | null;
+  start: string;
+  end: string;
+  status: 'confirme' | 'annule' | 'venu' | 'absent';
+  type: number | BookingType;
+  host: number | User;
+  slotKey?: string | null;
+  /**
+   * Cochée par le serveur quand quelque chose a raté. Décochez une fois le prospect rappelé.
+   */
+  hasProblem?: boolean | null;
+  problems?:
+    | {
+        kind?: ('agenda-lecture' | 'agenda-evenement' | 'email-prospect' | 'email-equipe' | 'crm') | null;
+        at?: string | null;
+        message?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string | null;
+  company: string;
+  locationKind?: ('meet' | 'telephone' | 'sur-place' | 'autre') | null;
+  answers?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  client?: (number | null) | PartnerClient;
+  task?: (number | null) | ClientActivity;
+  submission?: (number | null) | FormSubmission;
+  heardFrom?:
+    ('google' | 'ia' | 'linkedin' | 'facebook-instagram' | 'youtube' | 'recommandation' | 'salon' | 'autre') | null;
+  tracking?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  meetingUrl?: string | null;
+  eventId?: string | null;
+  calendarId?: string | null;
+  connection?: (number | null) | CalendarConnection;
+  manageToken?: string | null;
+  remindersSent?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  rescheduledCount?: number | null;
+  cancelReason?: string | null;
+  cancelledBy?: ('prospect' | 'equipe') | null;
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "calendar-connections".
+ */
+export interface CalendarConnection {
+  id: number;
+  partner: number | Partner;
+  provider: 'google' | 'microsoft';
+  accountEmail?: string | null;
+  calendars?:
+    | {
+        calendarId: string;
+        name?: string | null;
+        readOnly?: boolean | null;
+        busy?: boolean | null;
+        /**
+         * Un seul agenda, celui d'où partiront les invitations : c'est son nom que le client verra comme organisateur.
+         */
+        target?: boolean | null;
+        id?: string | null;
+      }[]
+    | null;
+  status?: ('ok' | 'expired') | null;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  expiresAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "mass-email-campaigns".
  */
@@ -3390,35 +3625,6 @@ export interface AiTeamMember {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "calendar-connections".
- */
-export interface CalendarConnection {
-  id: number;
-  partner: number | Partner;
-  provider: 'google' | 'microsoft';
-  accountEmail?: string | null;
-  calendars?:
-    | {
-        calendarId: string;
-        name?: string | null;
-        readOnly?: boolean | null;
-        busy?: boolean | null;
-        /**
-         * Un seul agenda, celui d'où partiront les invitations : c'est son nom que le client verra comme organisateur.
-         */
-        target?: boolean | null;
-        id?: string | null;
-      }[]
-    | null;
-  status?: ('ok' | 'expired') | null;
-  accessToken?: string | null;
-  refreshToken?: string | null;
-  expiresAt?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "ai-team-messages".
  */
 export interface AiTeamMessage {
@@ -3568,6 +3774,8 @@ export interface AiTeamGoal {
   author?: (number | null) | User;
   startDate?: string | null;
   validatedAt?: string | null;
+  reachedAt?: string | null;
+  celebratedAt?: string | null;
   review?: string | null;
   reviewedAt?: string | null;
   updatedAt: string;
@@ -3921,19 +4129,6 @@ export interface AiTeamSnapshot {
     | boolean
     | null;
   reconstituted?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-recaps".
- */
-export interface AdRecap {
-  id: number;
-  week: string;
-  status: 'envoye' | 'vide' | 'echec';
-  text?: string | null;
-  sentAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -4657,6 +4852,14 @@ export interface PayloadLockedDocument {
         value: number | PresentationBooking;
       } | null)
     | ({
+        relationTo: 'booking-types';
+        value: number | BookingType;
+      } | null)
+    | ({
+        relationTo: 'bookings';
+        value: number | Booking;
+      } | null)
+    | ({
         relationTo: 'mass-email-campaigns';
         value: number | MassEmailCampaign;
       } | null)
@@ -4759,10 +4962,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'ai-team-snapshots';
         value: number | AiTeamSnapshot;
-      } | null)
-    | ({
-        relationTo: 'ad-recaps';
-        value: number | AdRecap;
       } | null)
     | ({
         relationTo: 'ad-media';
@@ -5308,6 +5507,7 @@ export interface PartnerClientsSelect<T extends boolean = true> {
   lossReasonDetail?: T;
   resiliationDate?: T;
   source?: T;
+  heardFrom?: T;
   collaborateurs?: T;
   formSubmission?: T;
   ga4Sends?: T;
@@ -5841,6 +6041,7 @@ export interface FormsSelect<T extends boolean = true> {
   label?: T;
   formId?: T;
   defaultChannel?: T;
+  bookingType?: T;
   fields?:
     | T
     | {
@@ -5933,6 +6134,113 @@ export interface PresentationBookingsSelect<T extends boolean = true> {
   notes?: T;
   meetingUrl?: T;
   eventId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "booking-types_select".
+ */
+export interface BookingTypesSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  active?: T;
+  description?: T;
+  durationMin?: T;
+  locations?: T;
+  locationDetail?: T;
+  locationKind?: T;
+  hosts?: T;
+  distribution?: T;
+  scheduling?:
+    | T
+    | {
+        hours?: T;
+        dateOverrides?: T;
+      };
+  incrementMin?: T;
+  bufferBeforeMin?: T;
+  bufferAfterMin?: T;
+  minNoticeHours?: T;
+  horizonDays?: T;
+  maxPerDay?: T;
+  noSameDay?: T;
+  limitedSlots?: T;
+  sourceForm?: T;
+  simpleForm?: T;
+  phoneRequired?: T;
+  questions?:
+    | T
+    | {
+        label?: T;
+        key?: T;
+        type?: T;
+        options?: T;
+        required?: T;
+        crmField?: T;
+        id?: T;
+      };
+  confirmationEmail?: T;
+  confirmationText?: T;
+  reminders?:
+    | T
+    | {
+        minutesBefore?: T;
+        id?: T;
+      };
+  notifyHost?: T;
+  allowReschedule?: T;
+  allowCancel?: T;
+  changeUntilHours?: T;
+  crmStage?: T;
+  confirmationMessage?: T;
+  redirectUrl?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings_select".
+ */
+export interface BookingsSelect<T extends boolean = true> {
+  summary?: T;
+  start?: T;
+  end?: T;
+  status?: T;
+  type?: T;
+  host?: T;
+  slotKey?: T;
+  hasProblem?: T;
+  problems?:
+    | T
+    | {
+        kind?: T;
+        at?: T;
+        message?: T;
+        id?: T;
+      };
+  firstName?: T;
+  lastName?: T;
+  email?: T;
+  phone?: T;
+  company?: T;
+  locationKind?: T;
+  answers?: T;
+  client?: T;
+  task?: T;
+  submission?: T;
+  heardFrom?: T;
+  tracking?: T;
+  meetingUrl?: T;
+  eventId?: T;
+  calendarId?: T;
+  connection?: T;
+  manageToken?: T;
+  remindersSent?: T;
+  rescheduledCount?: T;
+  cancelReason?: T;
+  cancelledBy?: T;
+  notes?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -6533,6 +6841,8 @@ export interface AiTeamGoalsSelect<T extends boolean = true> {
   author?: T;
   startDate?: T;
   validatedAt?: T;
+  reachedAt?: T;
+  celebratedAt?: T;
   review?: T;
   reviewedAt?: T;
   updatedAt?: T;
@@ -6599,18 +6909,6 @@ export interface AiTeamSnapshotsSelect<T extends boolean = true> {
   mastery?: T;
   metrics?: T;
   reconstituted?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ad-recaps_select".
- */
-export interface AdRecapsSelect<T extends boolean = true> {
-  week?: T;
-  status?: T;
-  text?: T;
-  sentAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -7666,7 +7964,6 @@ export interface TeamEmail {
           | 'parcours-etapes'
           | 'publicite-urgence'
           | 'publicite-reconnexion'
-          | 'publicite-recap'
           | 'connexion-api'
           | 'agendas';
         roles?: ('super-admin' | 'admin' | 'support')[] | null;
@@ -7767,7 +8064,7 @@ export interface AiTeamBrief {
    */
   apprentissages?: string | null;
   /**
-   * Les phrases exactes de prospects et de clients, chacune avec sa source. Les agents les reprennent telles quelles.
+   * Les phrases exactes de prospects et de clients, chacune avec sa source — Malo ajoute chaque lundi celles de la semaine, les plus récentes en tête. Les agents lisent les 30 premières et les reprennent telles quelles.
    */
   quotes?:
     | {

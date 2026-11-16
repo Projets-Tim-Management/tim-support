@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { FeatureTerm } from "@/core/lib/types";
 import { getRecentFeatures, getModifiedFeatures, NEW_FEATURE_DAYS, MODIFIED_FEATURE_DAYS } from "@/modules/editorial/lib/feature-utils";
 import V2Video from "@/components/app-v2/V2Video";
-import { APP_V2_BOOKING_UNTIL, appV2Path } from "@/modules/marketing/lib/app-v2";
+import { appV2Path } from "@/modules/marketing/lib/app-v2";
 
 export const revalidate = 3600;
 
@@ -14,8 +14,6 @@ const PLATFORM_ICONS: Record<string, string> = {
   mobile: "📱",
 };
 
-/** La prise de rendez-vous V2 est ouverte (la page est régénérée toutes les heures). */
-const v2BookingOpen = () => Date.now() < Date.parse(APP_V2_BOOKING_UNTIL);
 
 export default async function HomePage() {
   const [allFeatures, categories] = await Promise.all([
@@ -32,9 +30,8 @@ export default async function HomePage() {
   const recentFeatures   = getRecentFeatures(allFeatures, 10);
   // Features modifiées récemment (mais pas créées récemment).
   const modifiedFeatures = getModifiedFeatures(allFeatures, 10);
-  // La V2 : la page de présentation, et la prise de rendez-vous tant qu'elle est ouverte.
+  // La V2 : la page de présentation (sa prise de rendez-vous est fermée depuis le 16/11/2026).
   const v2Href = appV2Path();
-  const v2Booking = v2BookingOpen();
 
   return (
     <>
@@ -159,18 +156,13 @@ export default async function HomePage() {
           </div>
 
           <div className="relative mt-8">
-            <V2Video page="/" rdvHref={`${v2Href}#rendez-vous`} />
+            <V2Video page="/" />
           </div>
 
           <div className="relative mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link href={v2Href} className="rounded-btn bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark">
               Ce qui change, profil par profil →
             </Link>
-            {v2Booking && (
-              <Link href={`${v2Href}#rendez-vous`} className="rounded-btn border border-border bg-white px-5 py-2.5 text-sm font-semibold text-foreground transition hover:border-primary hover:text-primary">
-                Réserver 20 minutes avec nous
-              </Link>
-            )}
           </div>
         </section>
 

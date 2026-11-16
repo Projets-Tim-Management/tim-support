@@ -5,6 +5,7 @@ import { leadOutcomes } from "@/modules/ai-team/lib/scorecard";
 import { periodBounds } from "@/modules/analytics/lib/growth";
 import { classifyGa4Source, loadGa4Rows, type Ga4PageRow, type Ga4Row } from "@/modules/analytics/lib/seo-ga4";
 import { classifySource, hostMatches, loadLeadClients, loadLeadRows, type SourceRow } from "@/modules/analytics/lib/seo-sources";
+import { loadBookingInsights, type BookingInsights } from "@/modules/booking/lib/insights";
 
 /**
  * L'ENTONNOIR DE BOUT EN BOUT de la visibilité gratuite (analyste de l'équipe
@@ -69,7 +70,7 @@ export function sourceOfLead(r: SourceRow): Source | null {
 
 export type FunnelRow = { key: string; label: string; kind: FunnelKind; sessions: number; leads: number; qualified: number; won: number; leadRate: number | null; qualifiedRate: number | null };
 export type FunnelPage = { path: string; sessions: number; leads: number; qualified: number };
-export type Funnel = { since: string; rows: FunnelRow[]; totals: Omit<FunnelRow, "key" | "label" | "kind">; pages: FunnelPage[]; attractWithoutConverting: FunnelPage[]; otherLeads: number };
+export type Funnel = { since: string; rows: FunnelRow[]; totals: Omit<FunnelRow, "key" | "label" | "kind">; pages: FunnelPage[]; attractWithoutConverting: FunnelPage[]; otherLeads: number; booking?: BookingInsights | null };
 
 const pct = (part: number, whole: number) => (whole ? Math.round((part / whole) * 1000) / 10 : null);
 const pathOf = (p: string | null | undefined) => {
@@ -145,7 +146,7 @@ export function buildFunnel(input: { from: number; leads: (SourceRow & { id: unk
 /** L'entonnoir des `months` derniers mois (3 par défaut), lu en base et dans GA4. GA4 absent : les visites restent à 0. */
 export async function loadFunnel(payload: Payload, now = new Date(), months = 3): Promise<Funnel> {
   const { from } = periodBounds(months, now);
-  const [leads, clients, journal, ga4] = await Promise.all([
+  const [leads, clients, journal, ga4, booking] = await Promise.all([
     loadLeadRows(payload, from),
     loadLeadClients(payload),
     payload
@@ -153,8 +154,10 @@ export async function loadFunnel(payload: Payload, now = new Date(), months = 3)
       .then((r) => r.docs as unknown as Record<string, unknown>[])
       .catch(() => []),
     loadGa4Rows(months, now),
+    // Les rendez-vous pris en ligne et ce que les prospects déclarent (« comment nous avez-vous connus ? »).
+    loadBookingInsights(payload, now, months * 30).catch(() => null),
   ]);
-  return buildFunnel({
+  const funnel = buildFunnel({
     from,
     leads: leads as (SourceRow & { id: unknown })[],
     clients: clients as unknown as Record<string, unknown>[],
@@ -162,6 +165,7 @@ export async function loadFunnel(payload: Payload, now = new Date(), months = 3)
     ga4Rows: ga4.status === "ok" ? ga4.data.rows : [],
     ga4Pages: ga4.status === "ok" ? ga4.data.pages : [],
   });
+  return { ...funnel, booking };
 }
 
 /** Ce que Serge et l'audit lisent de l'entonnoir : l'essentiel. Pure. */
@@ -172,4 +176,5 @@ export const funnelForModel = (f: Funnel) => ({
   pagesQuiConvertissent: f.pages.slice(0, 10),
   pagesQuiAttirentSansConvertir: f.attractWithoutConverting.slice(0, 10),
   leadsDAutresSourcesOuInconnues: f.otherLeads,
+  ...(f.booking ? { rendezVousEtSourcesDeclarees: f.booking } : {}),
 });

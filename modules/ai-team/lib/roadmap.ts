@@ -2,6 +2,7 @@ import type { Payload } from "payload";
 
 import { idOf } from "@/core/lib/relations";
 import { addMonths, DAY_MS, parisDay } from "@/modules/ai-team/lib/format";
+import { taskHref } from "@/modules/ai-team/lib/my-tasks-shared";
 import { HORIZON_MONTHS, WHO_LABEL, type Horizon } from "@/modules/ai-team/lib/roadmap-constants";
 import { OFFICES, teamOfKey } from "@/modules/ai-team/lib/veille-domains";
 
@@ -61,6 +62,8 @@ export type GoalView = {
   why: string | null;
   review: string | null;
   reviewedAt: string | null;
+  /** Atteint le (tout seul pour un objectif chiffré, par son chef pour un jalon). */
+  reachedAt: string | null;
   by: string | null;
 };
 
@@ -98,7 +101,7 @@ function toGoal(d: Raw, names: Map<string, string>, now: Date): GoalView | null 
   let progress: number | null = null;
   let pace: GoalView["pace"] = null;
   if (meta && base.target != null) ({ progress, pace } = goalProgress({ ...base, target: base.target, startDate, dueDate }, meta.better, now));
-  // Un jalon : atteint quand on le coche ; en retard si l'échéance est passée.
+  // Un jalon : atteint quand son chef le déclare (preuve à l'appui) ; en retard si l'échéance est passée.
   if (kind === "jalon") pace = status === "atteint" ? "atteint" : Date.parse(dueDate) < now.getTime() ? "retard" : null;
   return {
     id: String(d.id),
@@ -119,6 +122,7 @@ function toGoal(d: Raw, names: Map<string, string>, now: Date): GoalView | null 
     why: (d.why as string | null) ?? null,
     review: (d.review as string | null) ?? null,
     reviewedAt: d.reviewedAt ? String(d.reviewedAt) : null,
+    reachedAt: d.reachedAt ? String(d.reachedAt) : null,
     by: d.member != null ? (names.get(String(idOf(d.member))) ?? null) : d.author != null ? "Direction" : null,
   };
 }
@@ -142,7 +146,7 @@ export type ActionView = {
    */
   kind: "vous" | "ia" | "equipe";
   source: "objectif" | "recommandation" | "decision" | "equipe" | "rapport";
-  /** Une demande de Margaux : « a-faire » se coche, « question » se tranche dans « Vos demandes ». */
+  /** Une demande d'un chef : « a-faire » (des étapes) ou « question » (une réponse) — l'une et l'autre dans « Mes tâches ». */
   requestKind?: "a-faire" | "question";
   goal: string | null;
   outcome: "a-marche" | "sans-effet" | "a-empire" | null;
@@ -156,7 +160,7 @@ export type TaskStep = { text: string; minutes: number | null; prompt: string | 
 export type TaskDetail = { diagnosis?: string | null; why?: string | null; measure?: string | null; page?: string | null; minutes?: number | null; steps?: TaskStep[]; question?: string | null; url?: string | null; notes?: string | null; summary?: string | null };
 
 /** Les étapes d'une tâche, quelle que soit leur forme en base (objets ou simples textes). Pure. */
-const stepsOf = (v: unknown): TaskStep[] =>
+export const stepsOf = (v: unknown): TaskStep[] =>
   (Array.isArray(v) ? v : []).flatMap((x) =>
     typeof x === "string" ? [{ text: x, minutes: null, prompt: null, done: false }] : x && typeof x === "object" && (x as Raw).text ? [{ text: String((x as Raw).text), minutes: typeof (x as Raw).minutes === "number" ? ((x as Raw).minutes as number) : null, prompt: ((x as Raw).prompt as string | null) || null, done: Boolean((x as Raw).done) }] : [],
   );
@@ -240,7 +244,7 @@ export async function loadRoadmap(payload: Payload, now = new Date()): Promise<R
           goal: goalOf(o.goal),
           outcome: outcomeOf(o.outcome),
           verdict: (o.verdict as string | null) ?? null,
-          href: `/admin/collections/ai-team-objectives/${o.id}`,
+          href: done ? `/admin/collections/ai-team-objectives/${o.id}` : taskHref(`o${o.id}`),
           detail: { diagnosis: (o.diagnosis as string | null) ?? null, why: (o.why as string | null) ?? null, measure: (o.measure as string | null) ?? null, page: (o.page as string | null) ?? null, minutes: typeof o.minutes === "number" ? o.minutes : null, steps: stepsOf(o.steps) },
         },
       ];
@@ -260,7 +264,7 @@ export async function loadRoadmap(payload: Payload, now = new Date()): Promise<R
       goal: goalOf(r.goal),
       outcome: outcomeOf(r.outcome),
       verdict: (r.verdict as string | null) ?? null,
-      href: r.status === "ouverte" ? "/admin/equipe-ia" : `/admin/collections/ai-team-requests/${r.id}`,
+      href: r.status === "ouverte" ? taskHref(`r${r.id}`) : `/admin/collections/ai-team-requests/${r.id}`,
       detail: { why: (r.why as string | null) ?? null, url: (r.url as string | null) ?? null, steps: stepsOf(r.steps), question: (r.question as string | null) ?? null },
     })),
     ...(decisions as unknown as Raw[]).map((d) => ({
@@ -297,7 +301,7 @@ export async function loadRoadmap(payload: Payload, now = new Date()): Promise<R
           goal: goalOf(a.goal),
           outcome: outcomeOf(a.outcome),
           verdict: (a.verdict as string | null) ?? null,
-          href: `/admin/collections/ai-team-actions/${a.id}`,
+          href: done ? `/admin/collections/ai-team-actions/${a.id}` : taskHref(`a${a.id}`),
           detail: { notes: (a.notes as string | null) ?? null },
         },
       ];
@@ -359,6 +363,7 @@ export async function roadmapForModel(payload: Payload, team: Team, now = new Da
       fixePar: g.by,
       dernierPoint: g.review,
       pointDuMois: g.status === "valide" && monthlyPointDue(g.reviewedAt, now),
+      ...(g.reachedAt ? { atteintLe: g.reachedAt.slice(0, 10) } : {}),
     })),
     actionsDesEquipesHumaines: human.map((a) => ({
       id: `action-${a.id}`,
@@ -380,11 +385,12 @@ export async function goalsForChief(payload: Payload, team: Team, now = new Date
   // Les indicateurs qu'il peut proposer, avec leur valeur du jour (les sources sont en cache).
   const ctx = measureContext(payload, now);
   const available = INDICATORS.filter((x) => x.teams.includes(team) && !x.param);
-  const values = await Promise.all(available.map((x) => ctx.measure(x.key, now).catch(() => null)));
+  const [values, live] = await Promise.all([Promise.all(available.map((x) => ctx.measure(x.key, now).catch(() => null))), liveGoalsByMetric(payload)]);
   return {
     mesObjectifsAHorizon: road.objectifs,
     actionsDesEquipesHumaines: road.actionsDesEquipesHumaines,
-    indicateursDisponibles: available.map((x, i) => ({ cle: x.key, famille: x.group, nom: x.label, unite: x.unit, mieux: x.better === "up" ? "plus haut" : "plus bas", ceQueCestMesure: x.help, valeurDuJour: values[i] })),
+    // « objectifEnCours » : un objectif suit déjà cet indicateur (toutes équipes) — on n'en propose pas un second.
+    indicateursDisponibles: available.map((x, i) => ({ cle: x.key, famille: x.group, nom: x.label, unite: x.unit, mieux: x.better === "up" ? "plus haut" : "plus bas", ceQueCestMesure: x.help, valeurDuJour: values[i], objectifEnCours: live.get(x.key) ?? null })),
   };
 }
 
@@ -407,11 +413,13 @@ export function roadmapBlock(road: Awaited<ReturnType<typeof roadmapForModel>> |
 
 /** Les règles des objectifs à horizon, pour la consigne du chef. */
 export const GOAL_RULES = [
-  "TA FEUILLE DE ROUTE (feuilleDeRoute.mesObjectifsAHorizon) : les objectifs de ton équipe à court terme (3 mois), moyen terme (6 mois) et long terme (12 mois) — chiffrés (un indicateur de indicateursDisponibles, une cible) ou jalons (un livrable daté). Ceux fixés par la direction sont ta priorité.",
+  "TA FEUILLE DE ROUTE (feuilleDeRoute.mesObjectifsAHorizon) : les objectifs de ton équipe — chiffrés (un indicateur de indicateursDisponibles, une cible, une échéance à 3, 6 ou 12 mois) ou jalons (un livrable daté). Ceux fixés par la direction sont ta priorité.",
   "- Tout ton travail sert ces objectifs : chaque objectif de la semaine ou recommandation dit lequel il fait avancer (« sertObjectif » : son id, ou « aucun »).",
   "- Les actions des équipes humaines (actionsDesEquipesHumaines : direction, développement, commerciaux, marketing…) comptent autant que les vôtres : tiens-en compte, ne les double pas, appuie-les. Une action humaine faite depuis au moins deux semaines se juge comme les tiennes (son id commence par « action- »).",
-  "- S'il manque un objectif à un horizon (ni proposé ni validé), propose-le : un indicateur, une cible chiffrée réaliste et ambitieuse — appuie-toi sur la courbe, le volume de TIM et les repères du marché de ta méthode — et pourquoi. Au plus un par horizon. La direction le valide, le corrige ou le refuse.",
-  "- Pour chaque objectif validé marqué pointDuMois, fais le point : où on en est face à la cible et au temps écoulé, ce qui a fait bouger le chiffre (vos actions, celles des équipes), ce que tu fais pour tenir l'échéance. Deux ou trois phrases, chiffres à l'appui.",
+  "- UN SEUL OBJECTIF À LA FOIS PAR INDICATEUR, toutes équipes confondues : ne propose jamais d'objectif sur un indicateur dont « objectifEnCours » n'est pas vide (on ne double pas : pas de 6 000 € puis 7 500 € de MRR tant que les 5 000 € ne sont pas atteints).",
+  "- Quand un objectif de ton équipe vient d'être atteint ou manqué (etat « atteint » ou « manque » récent), propose LE SUIVANT sur le même indicateur : revu à la hausse ou à la baisse, et dis pourquoi dans « pourquoi » (le rythme constaté, ce qui a marché ou pas, les chiffres). Sinon, tu peux proposer un objectif sur un indicateur que personne ne suit encore, s'il compte vraiment pour ton équipe. Au plus deux propositions par revue ; la direction les accepte, les corrige ou les refuse.",
+  "- Personne ne coche « atteint » : un objectif chiffré l'est tout seul dès que l'indicateur touche la cible. Un JALON, c'est toi qui le déclares atteint (« jalonsAtteints »), seulement avec une preuve vérifiable (un lien, un chiffre, une date).",
+  "- Pour chaque objectif en cours marqué pointDuMois, fais le point : où on en est face à la cible et au temps écoulé, ce qui a fait bouger le chiffre (vos actions, celles des équipes), ce que tu fais pour tenir l'échéance. Deux ou trois phrases, chiffres à l'appui.",
 ].join("\n");
 
 /** Les propositions et les points du mois d'une réponse en texte libre (balise <horizons>) ; null s'il n'y en a pas. */
@@ -425,24 +433,33 @@ export function horizonsOf(text: string): unknown {
 }
 
 /** Le format des propositions dans une réponse en texte libre (Serge). */
-export const GOAL_FORMAT = '<horizons>{"propositions":[{"horizon":"court|moyen|long","indicateur":"clé","titre":"…","cible":12,"pourquoi":"…"}],"points":[{"id":"…","point":"…"}]}</horizons> — omets la balise s\'il n\'y a rien à proposer ni de point à faire.';
+export const GOAL_FORMAT = '<horizons>{"propositions":[{"horizon":"court|moyen|long","indicateur":"clé","titre":"…","cible":12,"pourquoi":"…"}],"points":[{"id":"…","point":"…"}],"jalonsAtteints":[{"id":"…","preuve":"…"}]}</horizons> — omets la balise s\'il n\'y a rien à proposer, ni point à faire, ni jalon atteint.';
 
 export type GoalProposal = { horizon: Horizon; metric: string; title: string; target: number; why: string };
 const clip = (v: unknown, n: number) => String(v ?? "").trim().slice(0, n);
 
-/** Les propositions et les points du mois, vérifiés : un indicateur de SON équipe, une cible chiffrée, un horizon libre. Pure (testée). */
-export function parseGoalUpdates(raw: unknown, ctx: { team: Team; takenHorizons: Set<string>; goalIds: Set<string> }): { proposals: GoalProposal[]; points: { id: string; text: string }[] } {
-  const r = (raw && typeof raw === "object" ? raw : {}) as { propositions?: unknown; points?: unknown };
+const MAX_PROPOSALS = 2;
+
+/**
+ * Les propositions, les points du mois et les jalons atteints, vérifiés : un indicateur de SON équipe que personne ne
+ * suit encore (un seul objectif vivant par indicateur), une cible chiffrée, au plus deux propositions ; un jalon
+ * atteint n'est retenu qu'avec sa preuve. Pure (testée).
+ */
+export function parseGoalUpdates(
+  raw: unknown,
+  ctx: { team: Team; liveMetrics: Set<string>; goalIds: Set<string>; milestoneIds?: Set<string> },
+): { proposals: GoalProposal[]; points: { id: string; text: string }[]; milestones: { id: string; proof: string }[] } {
+  const r = (raw && typeof raw === "object" ? raw : {}) as { propositions?: unknown; points?: unknown; jalonsAtteints?: unknown };
   const allowed = new Set(INDICATORS.filter((x) => x.teams.includes(ctx.team) && !x.param).map((x) => x.key));
   const proposals: GoalProposal[] = [];
-  const taken = new Set(ctx.takenHorizons);
+  const taken = new Set(ctx.liveMetrics);
   for (const p of Array.isArray(r.propositions) ? (r.propositions as Raw[]) : []) {
     const horizon = String(p?.horizon ?? "") as Horizon;
     const metric = String(p?.indicateur ?? "");
     const target = Number(p?.cible);
     const title = clip(p?.titre, 160);
-    if (!(horizon in HORIZON_MONTHS) || taken.has(horizon) || !allowed.has(metric) || !Number.isFinite(target) || !title) continue;
-    taken.add(horizon);
+    if (proposals.length >= MAX_PROPOSALS || !(horizon in HORIZON_MONTHS) || taken.has(metric) || !allowed.has(metric) || !Number.isFinite(target) || !title) continue;
+    taken.add(metric);
     proposals.push({ horizon, metric, title, target, why: clip(p?.pourquoi, 800) });
   }
   const points = (Array.isArray(r.points) ? (r.points as Raw[]) : []).flatMap((p) => {
@@ -450,28 +467,92 @@ export function parseGoalUpdates(raw: unknown, ctx: { team: Team; takenHorizons:
     const text = clip(p?.point, 800);
     return ctx.goalIds.has(id) && text ? [{ id, text }] : [];
   });
-  return { proposals, points };
+  const milestones = (Array.isArray(r.jalonsAtteints) ? (r.jalonsAtteints as Raw[]) : []).flatMap((p) => {
+    const id = String(p?.id ?? "");
+    const proof = clip(p?.preuve, 600);
+    return ctx.milestoneIds?.has(id) && proof ? [{ id, proof }] : [];
+  });
+  return { proposals, points, milestones };
+}
+
+/** La clé d'un indicateur suivi : l'indicateur, et sa page s'il en a une. */
+export const metricKey = (metric: string, param: string | null) => (param ? `${metric}|${param}` : metric);
+
+/** Les objectifs vivants (proposés ou en cours) par indicateur (et page), toutes équipes : « titre (équipe) ». */
+export async function liveGoalsByMetric(payload: Payload): Promise<Map<string, string>> {
+  const docs = await payload
+    .find({ collection: "ai-team-goals", where: { and: [{ status: { in: ["propose", "valide"] } }, { kind: { equals: "chiffre" } }] }, pagination: false, depth: 0, overrideAccess: true, select: { metric: true, param: true, title: true, team: true } as never })
+    .then((r) => r.docs as unknown as Raw[])
+    .catch(() => [] as Raw[]);
+  // Un indicateur suivi PAGE PAR PAGE (vues de /contact, de /tarifs…) a un objectif par page : la clé porte la page.
+  return new Map(docs.filter((g) => g.metric).map((g) => [metricKey(String(g.metric), (g.param as string | null) ?? null), `${String(g.title)} (${String(g.team)})`]));
+}
+
+/** Atteint, manqué, ou encore en cours : un objectif chiffré face à sa valeur du jour. Pure (testée). */
+export function goalOutcome(g: { target: number; current: number | null; dueDate: string }, better: "up" | "down", now: Date): "atteint" | "manque" | null {
+  if (g.current != null && (better === "up" ? g.current >= g.target : g.current <= g.target)) return "atteint";
+  return Date.parse(g.dueDate) < now.getTime() ? "manque" : null;
+}
+
+/** Le dernier relevé « en direct » de chaque objectif (mémoire du serveur) : au plus un toutes les 15 minutes. */
+const liveChecked = new Map<string, number>();
+const LIVE_MS = 15 * 60_000;
+
+/**
+ * LES OBJECTIFS SE CLOSENT TOUT SEULS (16/11/2026 : « ils se valident tout seuls lorsqu'ils sont atteints ; pour le
+ * MRR, c'est déjà dans le support ») : un objectif chiffré en cours passe « atteint » dès que l'indicateur touche la
+ * cible, « manqué » si l'échéance passe avant. `live` : la valeur du jour est relue à la source (le support, Search
+ * Console, GA4…), au plus toutes les 15 minutes par objectif ; sinon, la dernière mesure gardée. Un jalon se clôt par
+ * son chef (applyGoalUpdates). Rend les objectifs clos.
+ */
+export async function closeGoals(payload: Payload, now = new Date(), opts: { live?: boolean } = {}): Promise<{ id: string; status: "atteint" | "manque" }[]> {
+  const goals = await payload
+    .find({ collection: "ai-team-goals", where: { and: [{ status: { equals: "valide" } }, { kind: { equals: "chiffre" } }] }, pagination: false, depth: 0, overrideAccess: true })
+    .then((r) => r.docs as unknown as Raw[])
+    .catch(() => [] as Raw[]);
+  const ctx = measureContext(payload, now);
+  const closed: { id: string; status: "atteint" | "manque" }[] = [];
+  for (const g of goals) {
+    const id = String(g.id);
+    const meta = indicatorOf(String(g.metric));
+    if (!meta || typeof g.target !== "number") continue;
+    const measures = measuresOf(g);
+    let current = measures.at(-1)?.value ?? null;
+    let fresh: number | null = null;
+    if (opts.live && meta.key !== "manuel" && now.getTime() - (liveChecked.get(id) ?? 0) >= LIVE_MS) {
+      liveChecked.set(id, now.getTime());
+      fresh = await ctx.measure(meta.key, now, (g.param as string | null) ?? null).catch(() => null);
+      if (fresh != null) current = fresh;
+    }
+    const status = goalOutcome({ target: g.target, current, dueDate: String(g.dueDate ?? "") }, meta.better, now);
+    if (!status) continue;
+    const point = status === "atteint" && fresh != null && fresh !== measures.at(-1)?.value ? { measures: [...measures, { at: now.toISOString(), value: fresh, source: "auto" }] } : {};
+    const done = await payload
+      .update({ collection: "ai-team-goals", id, data: { status, ...(status === "atteint" ? { reachedAt: now.toISOString() } : {}), ...point } as never, overrideAccess: true })
+      .then(() => true)
+      .catch(() => false);
+    if (done) closed.push({ id, status });
+  }
+  return closed;
 }
 
 /**
- * Écrit ce que le chef propose et le point du mois, et tient les états à jour : un objectif chiffré validé atteint
- * passe « atteint », un objectif validé dont l'échéance est passée sans l'atteindre passe « manqué ». Rend ce qui a
- * changé.
+ * Écrit ce que le chef propose, le point du mois et les jalons qu'il déclare atteints, et tient les états à jour
+ * (closeGoals). Rend ce qui a changé.
  */
 export async function applyGoalUpdates(payload: Payload, o: { team: Team; chiefId: number | string; raw: unknown; now: Date }): Promise<{ proposed: number; points: number }> {
-  const goals = await payload.find({ collection: "ai-team-goals", where: { and: [inTeam(o.team), { status: { in: ["propose", "valide"] } }] }, pagination: false, depth: 0, overrideAccess: true }).then((r) => r.docs as unknown as Raw[]).catch(() => [] as Raw[]);
-  // Atteint ou manqué : l'état change, et l'objectif clos ne reçoit plus de point du mois.
-  const closed = goals.flatMap((g) => {
-    if (g.status !== "valide" || g.kind === "jalon") return [];
-    const view = toGoal(g, new Map(), o.now);
-    const status = !view ? null : view.pace === "atteint" ? "atteint" : Date.parse(view.dueDate) < o.now.getTime() ? "manque" : null;
-    return status ? [{ id: String(g.id), status }] : [];
+  // Atteint ou manqué : l'état change d'abord, et l'objectif clos ne reçoit plus de point du mois.
+  const closedIds = new Set((await closeGoals(payload, o.now).catch(() => [])).map((c) => c.id));
+  const [goals, live] = await Promise.all([
+    payload.find({ collection: "ai-team-goals", where: { and: [inTeam(o.team), { status: { equals: "valide" } }] }, pagination: false, depth: 0, overrideAccess: true }).then((r) => (r.docs as unknown as Raw[]).filter((g) => !closedIds.has(String(g.id)))).catch(() => [] as Raw[]),
+    liveGoalsByMetric(payload),
+  ]);
+  const { proposals, points, milestones } = parseGoalUpdates(o.raw, {
+    team: o.team,
+    liveMetrics: new Set(live.keys()),
+    goalIds: new Set(goals.map((g) => String(g.id))),
+    milestoneIds: new Set(goals.filter((g) => g.kind === "jalon").map((g) => String(g.id))),
   });
-  await Promise.all(closed.map((c) => payload.update({ collection: "ai-team-goals", id: c.id, data: { status: c.status } as never, overrideAccess: true }).catch(() => null)));
-  const closedIds = new Set(closed.map((c) => c.id));
-  // Un horizon est pris par un objectif de SON équipe (les objectifs « toute l'entreprise » n'empêchent pas de proposer).
-  const own = goals.filter((g) => g.team === o.team);
-  const { proposals, points } = parseGoalUpdates(o.raw, { team: o.team, takenHorizons: new Set(own.map((g) => String(g.horizon))), goalIds: new Set(goals.filter((g) => g.status === "valide" && !closedIds.has(String(g.id))).map((g) => String(g.id))) });
   const ctx = measureContext(payload, o.now);
   await Promise.all(proposals.map(async (p) => {
     const measures = await initialMeasures(ctx, p.metric, null, o.now).catch(() => [] as Measure[]);
@@ -480,7 +561,10 @@ export async function applyGoalUpdates(payload: Payload, o: { team: Team; chiefI
       .create({ collection: "ai-team-goals", data: { team: o.team, horizon: p.horizon, kind: "chiffre", status: "propose", title: p.title, metric: p.metric, baseline: measures.at(-1)?.value ?? null, measures, target: p.target, dueDate: due.toISOString(), startDate: o.now.toISOString(), why: p.why || null, member: o.chiefId } as never, overrideAccess: true })
       .catch((e) => payload.logger.warn(`[équipe IA] objectif à horizon : ${e instanceof Error ? e.message : String(e)}`));
   }));
-  await Promise.all(points.map((p) => payload.update({ collection: "ai-team-goals", id: p.id, data: { review: p.text, reviewedAt: o.now.toISOString() } as never, overrideAccess: true }).catch(() => null)));
+  await Promise.all([
+    ...points.map((p) => payload.update({ collection: "ai-team-goals", id: p.id, data: { review: p.text, reviewedAt: o.now.toISOString() } as never, overrideAccess: true }).catch(() => null)),
+    ...milestones.map((m) => payload.update({ collection: "ai-team-goals", id: m.id, data: { status: "atteint", reachedAt: o.now.toISOString(), review: `Atteint : ${m.proof}`, reviewedAt: o.now.toISOString() } as never, overrideAccess: true }).catch(() => null)),
+  ]);
   return { proposed: proposals.length, points: points.length };
 }
 

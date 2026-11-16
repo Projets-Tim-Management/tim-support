@@ -92,9 +92,9 @@ export function verifiedQuotes(quotes: unknown, corpus: string, known: string[] 
   });
 }
 
-/** Ce que le CRM dit vraiment : les clients signés, les motifs de perte, les notes et e-mails reçus des 12 derniers mois. */
-async function crmCorpus(payload: Payload, now: Date) {
-  const since = new Date(now.getTime() - 365 * 86_400_000).toISOString();
+/** Ce que le CRM dit vraiment : les clients signés, les motifs de perte, les notes et e-mails reçus des `days` derniers jours (12 mois par défaut). */
+export async function crmCorpus(payload: Payload, now: Date, days = 365) {
+  const since = new Date(now.getTime() - days * 86_400_000).toISOString();
   const common = { pagination: false, depth: 0, overrideAccess: true } as const;
   const [clients, acts] = await Promise.all([
     payload.find({ collection: "partner-clients", ...common, draft: true, select: { companyName: true, clientStatus: true, source: true, nafLabel: true, lossReason: true, lossReasonDetail: true, notes: true, signatureDate: true } as never }).then((r) => r.docs as unknown as Raw[]).catch(() => [] as Raw[]),

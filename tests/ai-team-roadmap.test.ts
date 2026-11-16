@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { beforeAfter, metricSeries, metricValue } from "@/modules/ai-team/lib/roadmap-calc";
-import { goalProgress, parseGoalUpdates, whatWorks, type ActionView } from "@/modules/ai-team/lib/roadmap";
+import { goalOutcome, goalProgress, parseGoalUpdates, whatWorks, type ActionView } from "@/modules/ai-team/lib/roadmap";
 import type { Snapshot } from "@/modules/ai-team/lib/snapshots";
 
 /**
@@ -70,28 +70,48 @@ describe("un objectif à horizon", () => {
 });
 
 describe("ce que le chef propose", () => {
-  it("un indicateur de SON équipe, un horizon libre, une cible chiffrée ; le point du mois sur un objectif validé", () => {
+  it("un seul objectif vivant par indicateur, d'une équipe, chiffré ; au plus deux propositions ; le point du mois", () => {
     const r = parseGoalUpdates(
       {
         propositions: [
+          { horizon: "moyen", indicateur: "mrr", titre: "6 000 € de MRR", cible: 6000, pourquoi: "doublon" },
           { horizon: "court", indicateur: "leads-qualifies-30j", titre: "Doubler les leads qualifiés", cible: 12, pourquoi: "courbe" },
-          { horizon: "court", indicateur: "clics-google", titre: "Deuxième court terme", cible: 500 },
+          { horizon: "long", indicateur: "leads-qualifies-30j", titre: "Même indicateur, deux fois", cible: 20 },
           { horizon: "moyen", indicateur: "mrr-signature", titre: "Pas son équipe", cible: 250 },
           { horizon: "long", indicateur: "ia-mentions", titre: "Sans cible", cible: "beaucoup" },
           { horizon: "moyen", indicateur: "ia-mentions", titre: "Être nommé par les IA", cible: 25 },
+          { horizon: "court", indicateur: "clics-google", titre: "Une troisième", cible: 500 },
         ],
         points: [
           { id: "3", point: "On est à 6 sur 12." },
           { id: "99", point: "inconnu" },
         ],
       },
-      { team: "seo", takenHorizons: new Set(["long"]), goalIds: new Set(["3"]) },
+      { team: "seo", liveMetrics: new Set(["mrr"]), goalIds: new Set(["3"]) },
     );
     expect(r.proposals.map((p) => [p.horizon, p.metric, p.target])).toEqual([
       ["court", "leads-qualifies-30j", 12],
       ["moyen", "ia-mentions", 25],
     ]);
     expect(r.points).toEqual([{ id: "3", text: "On est à 6 sur 12." }]);
+  });
+
+  it("un jalon atteint se déclare par son chef, preuve à l'appui, et seulement un jalon en cours de son équipe", () => {
+    const r = parseGoalUpdates({ jalonsAtteints: [{ id: "8", preuve: "Chaîne en ligne : youtube.com/@tim" }, { id: "9", preuve: "x" }, { id: "8b", preuve: "" }] }, { team: "seo", liveMetrics: new Set(), goalIds: new Set(), milestoneIds: new Set(["8", "8b"]) });
+    expect(r.milestones).toEqual([{ id: "8", proof: "Chaîne en ligne : youtube.com/@tim" }]);
+  });
+});
+
+describe("un objectif se clôt tout seul", () => {
+  const now = new Date("2026-11-16T10:00:00Z");
+  it("atteint dès que l'indicateur touche la cible, dans un sens comme dans l'autre", () => {
+    expect(goalOutcome({ target: 5000, current: 5010, dueDate: "2026-12-31" }, "up", now)).toBe("atteint");
+    expect(goalOutcome({ target: 450, current: 440, dueDate: "2027-05-16" }, "down", now)).toBe("atteint");
+  });
+  it("manqué si l'échéance passe avant ; sinon toujours en cours", () => {
+    expect(goalOutcome({ target: 5000, current: 4300, dueDate: "2026-11-01" }, "up", now)).toBe("manque");
+    expect(goalOutcome({ target: 5000, current: 4300, dueDate: "2026-12-31" }, "up", now)).toBeNull();
+    expect(goalOutcome({ target: 5000, current: null, dueDate: "2026-12-31" }, "up", now)).toBeNull();
   });
 });
 
@@ -163,5 +183,16 @@ describe("un seul catalogue d'indicateurs (relecture du 15/11/2026)", () => {
     // Avant la première photo, ou trop loin après la dernière : on ne sait pas.
     expect(await ctx.measure("seo-clics-hors-marque", new Date("2026-10-01T10:00:00Z"))).toBeNull();
     expect(await ctx.measure("seo-clics-hors-marque", new Date("2026-12-20T10:00:00Z"))).toBeNull();
+  });
+});
+
+describe("l'avancement à date (16/11/2026)", () => {
+  it("100 % quand toutes les tâches humaines à date sont faites ; le travail des agents et l'avenir ne comptent pas", async () => {
+    const { progressToDate } = await import("@/modules/ai-team/admin/roadmap-ui");
+    const a = (id: string, kind: string, date: string, status: string) => ({ id, kind, date, status }) as never;
+    const today = "2026-11-16";
+    expect(progressToDate([a("1", "vous", "2026-11-10", "faite"), a("2", "equipe", "2026-11-16", "faite"), a("3", "ia", "2026-11-01", "prevue"), a("4", "vous", "2026-11-20", "prevue")], today)).toEqual({ done: 2, due: 2, pct: 100, late: 0 });
+    expect(progressToDate([a("1", "vous", "2026-11-10", "faite"), a("2", "vous", "2026-11-12", "prevue"), a("3", "equipe", "2026-11-14", "en-cours")], today)).toEqual({ done: 1, due: 3, pct: 33, late: 2 });
+    expect(progressToDate([], today).pct).toBe(100);
   });
 });

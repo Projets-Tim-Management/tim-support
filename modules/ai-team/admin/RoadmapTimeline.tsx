@@ -1,12 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { indicatorOf } from "@/modules/ai-team/lib/indicators-meta";
 import { CopyPromptButton } from "@/modules/ai-team/admin/CopyPromptButton";
 import { Drawer } from "@/modules/ai-team/admin/Drawer";
-import { actionTone as toneOf, DAY, fmtValue as fmt, gapText, goalTone, OUTCOME, postJson, ProgressRing, t } from "@/modules/ai-team/admin/roadmap-ui";
+import { actionTone as toneOf, DAY, fmtValue as fmt, gapText, goalTone, OUTCOME, ProgressRing, t } from "@/modules/ai-team/admin/roadmap-ui";
+import { taskHref } from "@/modules/ai-team/lib/my-tasks-shared";
 import type { ActionView, GoalView } from "@/modules/ai-team/lib/roadmap";
 
 /**
@@ -30,16 +30,17 @@ const ZOOMS = [
 
 const dayFr = (ms: number) => new Date(ms).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
 
-type Sel = { kind: "action"; a: ActionView } | { kind: "goal"; g: GoalView } | null;
-type Chip = { a: ActionView; left: number; width: number; row: number };
+type Sel = { kind: "action"; a: ActionView } | { kind: "goal"; g: GoalView } | { kind: "group"; items: ActionView[]; label: string } | null;
+/** Une étiquette : une action, ou un PAQUET d'actions de la même famille le même jour (la même semaine au zoom « mois »). */
+type Chip = { a: ActionView; group: ActionView[]; left: number; width: number; row: number };
 type Family = ActionView["kind"];
 type Lane = { key: string; goal: GoalView | null; family: Family | null; chips: Chip[]; top: number; height: number };
 
 /** Les trois familles et leur couleur : ce que les agents vous confient, ce qu'ils font, ce que font les équipes. */
 const FAMILIES: { key: Family; label: string; icon: string; lane: string; hint: string }[] = [
-  { key: "vous", label: "Pour vous", icon: "🙋", lane: "Vos tâches", hint: "confiées par les agents" },
-  { key: "ia", label: "Agents IA", icon: "🤖", lane: "Agents IA", hint: "leurs rapports, leurs décisions" },
-  { key: "equipe", label: "Équipes", icon: "👥", lane: "Équipes", hint: "direction, dev, commerciaux…" },
+  { key: "vous", label: "Pour vous", icon: "🙋", lane: "Vos autres tâches", hint: "qui ne servent aucun objectif" },
+  { key: "ia", label: "Agents IA", icon: "🤖", lane: "Agents IA", hint: "rapports et décisions hors objectif" },
+  { key: "equipe", label: "Équipes", icon: "👥", lane: "Équipes", hint: "actions hors objectif" },
 ];
 
 const AXIS_H = 46;
@@ -51,20 +52,37 @@ const shortDay = (ms: number) => new Date(ms).toLocaleDateString("fr-FR", { day:
 
 /**
  * Range les actions d'une ligne en ÉTIQUETTES lisibles posées à leur date, sur autant de rangs qu'il faut pour
- * qu'aucune ne chevauche la suivante (comme les feuilles de route de Linear ou Notion). Pure.
+ * qu'aucune ne chevauche la suivante (comme les feuilles de route de Linear ou Notion). Les actions d'une même
+ * famille la même semaine (le même mois au zoom « mois ») forment UN paquet — « 9 tâches · semaine du 16 nov. » —
+ * qui s'ouvre d'un clic (16/11/2026 : « lourd à tout scroller » : quinze rapports du même lundi faisaient quinze
+ * rangs, et les objectifs d'une semaine un escalier). Pure.
  */
-function pack(actions: ActionView[], x: (ms: number) => number): { chips: Chip[]; rows: number } {
+export const bucketOf = (ms: number, zoom: "semaines" | "mois") => {
+  const d = new Date(ms);
+  if (zoom === "mois") return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+  const day = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return String(day - ((d.getUTCDay() + 6) % 7) * DAY);
+};
+const bucketLabel = (ms: number, zoom: "semaines" | "mois") =>
+  zoom === "mois" ? new Date(ms).toLocaleDateString("fr-FR", { month: "long", timeZone: "UTC" }) : `semaine du ${shortDay(Number(bucketOf(ms, "semaines")))}`;
+
+function pack(actions: ActionView[], x: (ms: number) => number, zoom: "semaines" | "mois"): { chips: Chip[]; rows: number } {
+  const buckets = new Map<string, ActionView[]>();
+  for (const a of [...actions].filter((a) => Number.isFinite(t(a.date))).sort((a, b) => t(a.date) - t(b.date))) {
+    const k = `${a.kind}|${bucketOf(t(a.date), zoom)}`;
+    buckets.set(k, [...(buckets.get(k) ?? []), a]);
+  }
   const ends: number[] = [];
-  const chips = [...actions]
-    .filter((a) => Number.isFinite(t(a.date)))
-    .sort((a, b) => t(a.date) - t(b.date))
-    .map((a) => {
+  const chips = [...buckets.values()]
+    .sort((a, b) => t(a[0].date) - t(b[0].date))
+    .map((group) => {
+      const a = group[0];
       const left = x(t(a.date)) - 6;
-      const width = Math.min(340, Math.max(150, 96 + a.title.length * 7.8));
+      const width = group.length > 1 ? 190 : Math.min(300, Math.max(150, 96 + a.title.length * 7.8));
       let row = ends.findIndex((end) => end + 8 <= left);
       if (row < 0) row = ends.length;
       ends[row] = left + width;
-      return { a, left, width, row };
+      return { a, group, left, width, row };
     });
   return { chips, rows: ends.length };
 }
@@ -123,14 +141,14 @@ export function RoadmapTimeline({ goals, actions: allActions, today, renderGoal,
     ].filter((l) => l.goal || l.items.length);
     let top = AXIS_H;
     return defs.map((l) => {
-      const { chips, rows } = pack(l.items, x);
+      const { chips, rows } = pack(l.items, x, zoom);
       const head = l.goal ? HEAD_H : PAD;
-      const height = Math.max(l.goal ? 96 : 80, head + rows * (CHIP_H + ROW_GAP) + PAD);
+      const height = Math.max(l.goal ? 84 : 70, head + rows * (CHIP_H + ROW_GAP) + (rows ? PAD - ROW_GAP : PAD));
       const lane = { key: l.key, goal: l.goal, family: l.family, chips, top, height };
       top += height;
       return lane;
     });
-  }, [goals, actions, x]);
+  }, [goals, actions, x, zoom]);
   const trackH = (lanes.at(-1)?.top ?? AXIS_H) + (lanes.at(-1)?.height ?? 0);
 
   // À l'ouverture et au changement de zoom : aujourd'hui au tiers de l'écran (on voit un peu de passé, beaucoup d'avenir).
@@ -139,19 +157,8 @@ export function RoadmapTimeline({ goals, actions: allActions, today, renderGoal,
     if (el) el.scrollLeft = Math.max(0, x(now) - el.clientWidth / 3);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom]);
-  useEffect(() => {
-    const el = scroller.current;
-    if (!el) return;
-    // La molette verticale fait défiler dans le temps (plus naturel qu'un défilement latéral introuvable).
-    const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && !e.shiftKey) {
-        el.scrollLeft += e.deltaY;
-        e.preventDefault();
-      }
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, []);
+  // La molette fait défiler la PAGE (16/11/2026 : la frise la détournait vers le temps, et on restait coincé dessus) ;
+  // le temps se parcourt au pavé tactile, en glissant à la souris, aux flèches, ou avec Passé / Aujourd'hui / Futur.
 
   const go = (where: "past" | "today" | "future") => {
     const el = scroller.current;
@@ -180,21 +187,8 @@ export function RoadmapTimeline({ goals, actions: allActions, today, renderGoal,
     scroller.current?.scrollBy({ left: e.key === "ArrowLeft" ? -200 : 200, behavior: "smooth" });
   };
 
-  // Cocher : l'action passe au vert tout de suite (et s'anime), puis la page se recharge avec l'état enregistré.
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [just, setJust] = useState<string | null>(null);
+  // On ne coche plus ici (16/11/2026) : la frise montre l'état, « Mes tâches » est le seul endroit où l'on coche.
   const close = useCallback(() => setSel(null), []);
-  const toggle = async (a: ActionView) => {
-    setBusy(true);
-    setError(null);
-    if (a.status !== "faite") setJust(a.id);
-    const err = await toggleAction(a);
-    setBusy(false);
-    if (err) return setError(err);
-    router.refresh();
-  };
   // Le panneau suit les données rechargées (une action cochée y apparaît cochée).
   const selAction = sel?.kind === "action" ? (actions.find((a) => a.id === sel.a.id) ?? sel.a) : null;
   const selGoal = sel?.kind === "goal" ? (goals.find((g) => g.id === sel.g.id) ?? sel.g) : null;
@@ -317,15 +311,37 @@ export function RoadmapTimeline({ goals, actions: allActions, today, renderGoal,
                     </button>
                   )}
                   {l.chips.map((c, ci) => {
+                    const top = (g ? HEAD_H : PAD) + c.row * (CHIP_H + ROW_GAP);
+                    const style = { left: c.left, width: c.width, top, ["--i" as string]: ci % 12 } as React.CSSProperties;
+                    if (c.group.length > 1) {
+                      const done = c.group.filter((a) => a.status === "faite").length;
+                      const late = c.group.filter((a) => a.status !== "faite" && t(a.date) < now).length;
+                      const fam = FAMILIES.find((f) => f.key === c.a.kind)!;
+                      const label = `${c.group.length} ${c.a.kind === "ia" ? "travaux d'agents" : "tâches"} · ${bucketLabel(t(c.a.date), zoom)}`;
+                      return (
+                        <div key={`${c.a.id}-g`} className={`rdt-chip rdt-chip--group rdt-fam--${c.a.kind}${done === c.group.length ? " rdt-chip--done" : " rdt-chip--future"}${late ? " rdt-chip--late" : ""}`} style={style} title={c.group.map((a) => `• ${a.title}`).join("\n")}>
+                          <span className="rdt-chip__count">{c.group.length}</span>
+                          <button type="button" className="rdt-chip__body" onClick={() => !drag.current?.moved && setSel({ kind: "group", items: c.group, label: `${fam.icon} ${label}` })}>
+                            <span className="rdt-chip__title">
+                              <strong>{label}</strong>
+                              <small>
+                                {done} faite{done > 1 ? "s" : ""}
+                                {late ? ` · ${late} en retard` : ""}
+                              </small>
+                            </span>
+                          </button>
+                        </div>
+                      );
+                    }
                     const on = sel?.kind === "action" && sel.a.id === c.a.id;
                     return (
                       <div
                         key={c.a.id}
-                        className={`rdt-chip rdt-fam--${c.a.kind}${c.a.status === "faite" ? " rdt-chip--done" : " rdt-chip--future"}${c.a.status !== "faite" && t(c.a.date) < now ? " rdt-chip--late" : ""}${on ? " rdt-chip--sel" : ""}${just === c.a.id ? " rdt-chip--just" : ""}`}
-                        style={{ left: c.left, width: c.width, top: (g ? HEAD_H : PAD) + c.row * (CHIP_H + ROW_GAP), ["--i" as string]: ci % 12 } as React.CSSProperties}
+                        className={`rdt-chip rdt-fam--${c.a.kind}${c.a.status === "faite" ? " rdt-chip--done" : " rdt-chip--future"}${c.a.status !== "faite" && t(c.a.date) < now ? " rdt-chip--late" : ""}${on ? " rdt-chip--sel" : ""}`}
+                        style={style}
                         title={`${dayFr(t(c.a.date))} — ${c.a.title}${c.a.by ? ` (${c.a.by})` : ""}`}
                       >
-                        <CheckBox a={c.a} onToggle={toggle} busy={busy} />
+                        <CheckBox a={c.a} />
                         <button type="button" className="rdt-chip__body" onClick={() => !drag.current?.moved && setSel({ kind: "action", a: c.a })}>
                           <span className="rdt-chip__icon" aria-hidden>
                             {FAMILIES.find((f) => f.key === c.a.kind)?.icon}
@@ -357,20 +373,42 @@ export function RoadmapTimeline({ goals, actions: allActions, today, renderGoal,
         <span>· pointillés : à faire · bord rouge : en retard</span>
       </p>
 
-      {error && <p className="rdm-error">{error}</p>}
       {/* Le détail : la même présentation que dans les onglets Objectifs et Courbes. */}
+      {/* Un objectif s'ouvre lui aussi dans le tiroir (16/11/2026 : « plus simple à la lecture » qu'en bas de la frise). */}
       {selGoal && (
-        <div className="rdt-detail">
-          <button type="button" className="rdt-detail__x" onClick={close} aria-label="Fermer le détail">
-            ✕
-          </button>
-          <ul className="rdm-goals">{renderGoal(selGoal)}</ul>
-        </div>
+        <Drawer label={selGoal.title} onClose={close} narrow>
+          <ul className="rdm-goals rdt-goalsheet">{renderGoal(selGoal)}</ul>
+        </Drawer>
+      )}
+      {sel?.kind === "group" && (
+        <Drawer label={sel.label} onClose={close} narrow>
+          <div className="rdt-groupsheet">
+            <h2>{sel.label}</h2>
+            <ul>
+              {sel.items.map((a) => (
+                <li key={a.id}>
+                  <button type="button" className={`rdt-groupsheet__row rdt-fam--${a.kind}`} onClick={() => setSel({ kind: "action", a })}>
+                    <CheckBox a={a} />
+                    <span>
+                      <strong className={a.status === "faite" ? "rdt-done" : undefined}>{a.title}</strong>
+                      <small>
+                        {shortDay(t(a.date))}
+                        {a.by ? ` · ${a.by}` : ""}
+                        {a.status !== "faite" && t(a.date) < now ? " · en retard" : ""}
+                      </small>
+                    </span>
+                    <span aria-hidden>›</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Drawer>
       )}
       {/* Une tâche s'ouvre dans le tiroir, comme la fiche d'un agent. */}
       {selAction && (
         <Drawer label={selAction.title} onClose={close} narrow>
-          <TaskSheet a={selAction} goal={goals.find((g) => g.id === selAction.goal)} today={today} onToggle={toggle} busy={busy} just={just === selAction.id}>
+          <TaskSheet a={selAction} goal={goals.find((g) => g.id === selAction.goal)} today={today}>
             {renderAction(selAction)}
           </TaskSheet>
         </Drawer>
@@ -379,31 +417,17 @@ export function RoadmapTimeline({ goals, actions: allActions, today, renderGoal,
   );
 }
 
-/* ─── Cocher : une action faite, un objectif atteint ────────────────────── */
+/* ─── L'état d'une action : faite ou à faire (on coche dans « Mes tâches ») ─── */
 
-/** Une action se coche si c'est celle d'une équipe ou un objectif de la semaine de Serge (pas une recommandation ni une décision). */
-export const checkable = (a: ActionView) => a.source === "equipe" || (a.source === "objectif" && a.id.startsWith("o")) || (a.source === "recommandation" && a.requestKind === "a-faire" && a.status !== "faite");
+/** Une tâche de la direction ou d'une équipe : elle se coche dans « Mes tâches » (même identifiant : o12, r5, a3). */
+export const inMyTasks = (a: ActionView) => a.source === "equipe" || a.source === "objectif" || a.source === "recommandation";
 
-/** Coche ou décoche une action ; rend un message d'erreur, ou null. */
-export async function toggleAction(a: ActionView): Promise<string | null> {
+export function CheckBox({ a }: { a: ActionView }) {
   const done = a.status === "faite";
-  const n = a.id.slice(1);
-  const [url, body] =
-    a.source === "equipe"
-      ? ["/api/admin/ai-team/actions", { id: n, status: done ? "prevue" : "faite" }]
-      : a.source === "recommandation"
-        ? [`/api/admin/ai-team/requests/${n}`, { action: "fait" }]
-        : [`/api/admin/ai-team/objectives/${n}`, { status: done ? "a-faire" : "fait" }];
-  return postJson(url as string, body, "Le changement n'a pas été enregistré.");
-}
-
-export function CheckBox({ a, onToggle, busy }: { a: ActionView; onToggle: (a: ActionView) => void; busy: boolean }) {
-  const done = a.status === "faite";
-  if (!checkable(a)) return <span className={`rdt-check rdt-check--fixed${done ? " rdt-check--on" : ""}`}>{done ? "✓" : "○"}</span>;
   return (
-    <button type="button" className={`rdt-check${done ? " rdt-check--on" : ""}`} onClick={() => onToggle(a)} disabled={busy} aria-pressed={done} aria-label={done ? `Décocher « ${a.title} »` : `Cocher « ${a.title} » : faite`}>
-      {done ? "✓" : ""}
-    </button>
+    <span className={`rdt-check rdt-check--fixed${done ? " rdt-check--on" : ""}`} aria-label={done ? "Faite" : "À faire"}>
+      {done ? "✓" : "○"}
+    </span>
   );
 }
 
@@ -411,26 +435,13 @@ const STATUS_LABEL: Record<ActionView["status"], string> = { faite: "Faite", "en
 const SOURCE_LABEL: Record<ActionView["source"], string> = { objectif: "Objectif de la semaine (Serge)", recommandation: "Demande d'un chef", decision: "Décision d'un chef", equipe: "Action d'équipe", rapport: "Rapport d'agent" };
 
 /** La fiche d'une tâche, dans le tiroir : ce qu'elle est, ce qu'il faut faire (étapes à cocher, prompts prêts), ce qu'elle sert. */
-function TaskSheet({ a, goal, today, onToggle, busy, just, children }: { a: ActionView; goal: GoalView | undefined; today: string; onToggle: (a: ActionView) => void; busy: boolean; just: boolean; children: React.ReactNode }) {
-  const router = useRouter();
+function TaskSheet({ a, goal, today, children }: { a: ActionView; goal: GoalView | undefined; today: string; children: React.ReactNode }) {
   const fam = FAMILIES.find((f) => f.key === a.kind)!;
   const late = a.status !== "faite" && t(a.date) < t(today);
   const d = a.detail ?? {};
-  // Les étapes d'un objectif de Serge se cochent une à une (toutes cochées : l'objectif est fait).
-  const [steps, setSteps] = useState(d.steps ?? []);
-  const [stepBusy, setStepBusy] = useState(false);
-  const stepsCheckable = a.source === "objectif" && a.id.startsWith("o");
-  const toggleStep = async (i: number) => {
-    const done = !steps[i].done;
-    setSteps(steps.map((x, k) => (k === i ? { ...x, done } : x)));
-    setStepBusy(true);
-    const err = await postJson(`/api/admin/ai-team/objectives/${a.id.slice(1)}`, { step: i, done });
-    setStepBusy(false);
-    if (!err) router.refresh();
-    else setSteps(steps);
-  };
+  const steps = d.steps ?? [];
+  const stepsCheckable = a.source === "objectif" || (a.source === "recommandation" && a.requestKind === "a-faire");
   const doneSteps = steps.filter((x) => x.done).length;
-  const canCheck = checkable(a);
   return (
     <div className={`rdt-sheet rdt-fam--${a.kind}`}>
       <header className="rdt-sheet__hero">
@@ -440,8 +451,8 @@ function TaskSheet({ a, goal, today, onToggle, busy, just, children }: { a: Acti
           </span>
           {fam.label} · {SOURCE_LABEL[a.source]}
         </span>
-        <div className={`rdt-sheet__title${just ? " rdt-chip--just" : ""}`}>
-          <CheckBox a={a} onToggle={onToggle} busy={busy} />
+        <div className="rdt-sheet__title">
+          <CheckBox a={a} />
           <h2 className={a.status === "faite" ? "rdt-done" : undefined}>{a.title}</h2>
         </div>
         <div className="rdt-sheet__meta">
@@ -497,7 +508,7 @@ function TaskSheet({ a, goal, today, onToggle, busy, just, children }: { a: Acti
               <span aria-hidden>❓</span> La question à trancher
             </h3>
             <p>{d.question}</p>
-            {a.status !== "faite" && <small>Elle se tranche dans « Vos demandes », sur la page de l&apos;équipe IA.</small>}
+            {a.status !== "faite" && <small>Elle se tranche dans « Mes tâches ».</small>}
           </section>
         )}
         {steps.length > 0 && (
@@ -508,13 +519,7 @@ function TaskSheet({ a, goal, today, onToggle, busy, just, children }: { a: Acti
             <ol className="rdt-stepper">
               {steps.map((x, i) => (
                 <li key={i} className={`rdt-stepper__step${x.done ? " rdt-stepper__step--done" : ""}`}>
-                  {stepsCheckable ? (
-                    <button type="button" className="rdt-stepper__node" onClick={() => toggleStep(i)} disabled={stepBusy} aria-pressed={x.done} aria-label={x.done ? `Décocher l'étape ${i + 1}` : `Cocher l'étape ${i + 1}`}>
-                      {x.done ? "✓" : i + 1}
-                    </button>
-                  ) : (
-                    <span className="rdt-stepper__node">{i + 1}</span>
-                  )}
+                  <span className="rdt-stepper__node">{x.done ? "✓" : i + 1}</span>
                   <div className="rdt-stepper__body">
                     <div className="rdt-stepper__head">
                       <span className="rdt-stepper__text">{x.text}</span>
@@ -547,19 +552,20 @@ function TaskSheet({ a, goal, today, onToggle, busy, just, children }: { a: Acti
       </div>
 
       <footer className="rdt-sheet__foot">
-        {canCheck && a.status !== "faite" && (
-          <button type="button" className="an-btn rdm-btn--primary rdt-sheet__done" onClick={() => onToggle(a)} disabled={busy}>
-            ✓ Marquer comme faite
-          </button>
+        {inMyTasks(a) && a.status !== "faite" ? (
+          <a className="an-btn rdm-btn--primary rdt-sheet__done" href={taskHref(a.id)}>
+            La faire dans Mes tâches →
+          </a>
+        ) : (
+          <a className="an-btn" href={a.href}>
+            {a.source === "rapport" ? "Fiche de l'agent" : "Fiche complète"}
+          </a>
         )}
         {d.url && (
           <a className="an-btn" href={d.url} target="_blank" rel="noreferrer noopener">
             Ouvrir le lien →
           </a>
         )}
-        <a className="an-btn" href={a.href}>
-          {a.source === "recommandation" && a.status !== "faite" ? "Vos demandes" : a.source === "rapport" ? "Fiche de l'agent" : "Fiche complète"}
-        </a>
       </footer>
     </div>
   );

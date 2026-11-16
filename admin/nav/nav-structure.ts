@@ -60,7 +60,7 @@ export const NAV_HIDDEN = new Set([
   "mass-email-campaigns",
   // Équipe IA : la conversation avec un chef se lit sur sa fiche, dans l'organigramme.
   "ai-team-messages",
-  // Équipe IA : les demandes des chefs se traitent dans « Vos demandes », en tête de l'organigramme.
+  // Équipe IA : les demandes des chefs se traitent dans « Mes tâches » (Agent › Mes tâches).
   "ai-team-requests",
   // Équipe IA (menu « Agent », 13/11/2026) : le travail des agents se lit sur leur fiche, dans
   // l'organigramme — rapports, réponses des IA, photos du lundi, plans de site des concurrents,
@@ -75,6 +75,10 @@ export const NAV_HIDDEN = new Set([
   "ai-team-notes",
   "ai-team-goals",
   "ai-team-actions",
+  // Équipe IA : la fiche produit s'ouvre par le lien « Fiche produit » du menu (sinon elle apparaissait deux fois).
+  "ai-team-brief",
+  // Système : les API en panne se lisent dans le bandeau de Connexions du support, qui y renvoie.
+  "api-alerts",
 ]);
 
 /** Un item de groupe : un slug, un sous-groupe repliable, ou un lien libre. */
@@ -128,6 +132,8 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     "journey-runs",
     "sequence-runs",
     "form-submissions",
+    // Les rendez-vous réservés en ligne (16/11/2026) : ⚠️ = un problème à traiter (appeler le prospect).
+    "bookings",
     { label: "E-mail de masse", href: "/admin/emails-de-masse", adminOnly: true },
     {
       label: "Paramètres",
@@ -186,6 +192,8 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
    * (c'est là qu'on travaille), les fiches ensuite (noms, visages).
    */
   Agent: [
+    // Le seul endroit où la direction coche ce qu'elle a fait (16/11/2026).
+    { label: "Mes tâches", href: "/admin/mes-taches", directionOnly: true },
     { label: "Organigramme", href: "/admin/equipe-ia", directionOnly: true },
     { label: "Feuille de route", href: "/admin/feuille-de-route", directionOnly: true },
     { label: "Fiche produit", href: "/admin/globals/ai-team-brief", directionOnly: true },
@@ -227,6 +235,8 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     "training-settings",
     // Qui reçoit chaque e-mail interne (par rôle ; chacun peut le remplacer sur sa fiche).
     "team-emails",
+    // Les types de rendez-vous (démo, prise de rendez-vous) : du paramétrage, réglé une fois (16/11/2026).
+    "booking-types",
     "mailbox-connections",
     "media",
     { label: "Connexions du support", href: "/admin/connexions-support", adminOnly: true },

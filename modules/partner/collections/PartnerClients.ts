@@ -63,6 +63,7 @@ import { geocodeClient } from "@/core/hooks/geocodeClient";
 import { setPhoneDigits } from "@/core/hooks/phoneDigits";
 import { sendGa4Steps } from "@/modules/analytics/lib/ga4-hook";
 import { refreshPotentialOnStatus } from "@/modules/dev/hooks/potential";
+import { HEARD_FROM } from "@/modules/booking/lib/heard-from";
 
 /**
  * Opportunités — les entreprises BTP qu'un partenaire a amenées à Tim, du
@@ -1018,6 +1019,15 @@ export const PartnerClients: CollectionConfig = {
        */
       options: PROVENANCE_OPTIONS,
       admin: { position: "sidebar", readOnly: true },
+    },
+    {
+      // Ce que le prospect DÉCLARE (16/11/2026, un clic après son rendez-vous ou dans l'accusé de réception) — à côté
+      // de la provenance calculée : le bouche-à-oreille et l'IA qui a cité TIM ne laissent pas de trace.
+      name: "heardFrom",
+      type: "select",
+      label: "Comment il nous a connus (déclaré)",
+      options: HEARD_FROM.map(({ label, value }) => ({ label, value })),
+      admin: { position: "sidebar" },
     },
     {
       /**

@@ -5,10 +5,9 @@ import { BRIEF_SECTIONS, QUOTE_TAGS } from "@/modules/ai-team/lib/brief-sections
 
 /**
  * La FICHE PRODUIT & POSITIONNEMENT de TIM (voir lib/brief-sections) : lue
- * par tous les agents, tenue par la direction. L'assistant (en tête de page)
- * rédige un premier jet et propose ensuite des mises à jour, section par
- * section, avec les mots exacts des clients trouvés dans le CRM — la direction
- * accepte ou ignore chaque proposition.
+ * par tous les agents, tenue par la direction : elle la corrige ici, à la main.
+ * Le premier jet (16/11/2026) vient de l'assistant de lib/brief, lancé à la
+ * demande — plus de bouton sur la page : la fiche change rarement.
  */
 export const AiTeamBrief: GlobalConfig = {
   slug: "ai-team-brief",
@@ -16,13 +15,13 @@ export const AiTeamBrief: GlobalConfig = {
   admin: { group: "Agent", hidden: hideUnlessDirection },
   access: { read: isDirectionAccess, update: isDirectionAccess },
   fields: [
-    { name: "assistant", type: "ui", admin: { components: { Field: "/modules/ai-team/admin/BriefAssistant#BriefAssistant" } } },
     ...BRIEF_SECTIONS.map((s) => ({ name: s.key, type: "textarea" as const, label: s.label, admin: { description: s.help, rows: s.rows } })),
     {
       name: "quotes",
       type: "array",
       label: "Les mots des clients",
-      admin: { description: "Les phrases exactes de prospects et de clients, chacune avec sa source. Les agents les reprennent telles quelles." },
+      // Tenue par Malo chaque lundi (lib/client-voice) ; la liste défile au-delà d'une hauteur fixe (custom.scss).
+      admin: { className: "brief-quotes", description: "Les phrases exactes de prospects et de clients, chacune avec sa source — Malo ajoute chaque lundi celles de la semaine, les plus récentes en tête. Les agents lisent les 30 premières et les reprennent telles quelles." },
       fields: [
         { name: "quote", type: "textarea", label: "Citation exacte", required: true },
         {

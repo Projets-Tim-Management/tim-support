@@ -56,7 +56,13 @@ export type ReservedReview<C> = { chief: C; placeholderId: number | string; fini
  * est due (`due`), pas déjà faite depuis `since` (un message qui porte `mark`), pas interrompue trop souvent, et ce
  * qu'elle attend est prêt (`ready`) ; puis elle se RÉSERVE par un message « `title` : `preparing`… » — de deux
  * réservations simultanées, la plus récente se retire. Rend la réservation et de quoi écrire le message final.
+ *
+ * UNE REVUE EN ÉCHEC NE COMPTE PAS COMME FAITE (16/11/2026 : la revue de Serge, bloquée par le plafond du jour, avait
+ * fermé sa semaine) : son message (« … je n'ai pas pu … ») est ignoré, et elle se rattrape — pas le jour même (un
+ * plafond du jour ne se relance pas chaque minute), mais dès le jour suivant, dans la fenêtre de `due`.
  */
+// Le PRÉFIXE seulement (« <titre> : je n'ai pas pu … ») : une revue réussie peut dire « je n'ai pas pu lire X » dans son texte.
+export const isFailedReview = (text: unknown) => /^[^\n]{0,120}? : je n'ai pas pu/i.test(String(text ?? ""));
 export async function reserveChiefReview<C extends { id: number | string; name: string; active?: boolean | null }>(
   payload: Payload,
   o: { chiefKey: string; missing: string; mark: string; title: string; preparing: string; interrupted: string; since: string; now: Date; force?: boolean; due?: () => boolean; ready?: (chief: C) => Promise<boolean> },
@@ -65,17 +71,23 @@ export async function reserveChiefReview<C extends { id: number | string; name: 
   const chief = await memberByKey<C>(payload, o.chiefKey);
   if (!chief) return { skip: { status: "echec", message: o.missing } };
   if (chief.active === false) return { skip: { status: "pause", message: `${chief.name} est en pause.` } };
-  const recent = () => payload.find({ collection: "ai-team-messages", where: { and: [{ member: { equals: chief.id } }, { from: { equals: "agent" } }, { text: { like: o.mark } }, { createdAt: { greater_than_equal: o.since } }] }, sort: "createdAt", limit: 3, depth: 0, overrideAccess: true });
+  const recent = () => payload.find({ collection: "ai-team-messages", where: { and: [{ member: { equals: chief.id } }, { from: { equals: "agent" } }, { text: { like: o.mark } }, { createdAt: { greater_than_equal: o.since } }] }, sort: "createdAt", limit: 30, depth: 0, overrideAccess: true });
   const interrupted = await reopenStale(payload, chief.id, o.preparing, o.interrupted, o.now, o.since);
   if (!o.force) {
     if (o.due && !o.due()) return { skip: { status: "pas-encore" } };
-    if (interrupted >= MAX_INTERRUPTIONS || (await recent()).docs.length) return { skip: { status: "deja-faite" } };
+    const rows = (await recent()).docs as unknown as { text?: unknown; createdAt?: unknown }[];
+    if (interrupted >= MAX_INTERRUPTIONS || rows.some((r) => !isFailedReview(r.text))) return { skip: { status: "deja-faite" } };
+    // Un échec aujourd'hui : on retente demain.
+    const { localMidnight, localParts } = await import("@/modules/ads/lib/zoned");
+    const { y, m, d } = localParts(o.now, "Europe/Paris");
+    const today = localMidnight(y, m, d, "Europe/Paris").toISOString();
+    if (rows.some((r) => isFailedReview(r.text) && String(r.createdAt ?? "") >= today)) return { skip: { status: "pas-encore" } };
     if (o.ready && !(await o.ready(chief))) return { skip: { status: "pas-encore" } };
   }
   const placeholder = await payload.create({ collection: "ai-team-messages", data: { member: chief.id, from: "agent", text: `${o.title} : ${o.preparing}…` } as never, overrideAccess: true });
   if (!o.force) {
-    const racing = await recent();
-    if (racing.docs.length > 1 && racing.docs[0].id !== placeholder.id) {
+    const racing = (await recent()).docs.filter((r) => !isFailedReview((r as { text?: unknown }).text));
+    if (racing.length > 1 && racing[0].id !== placeholder.id) {
       await payload.delete({ collection: "ai-team-messages", id: placeholder.id, overrideAccess: true });
       return { skip: { status: "deja-faite" } };
     }

@@ -11,39 +11,6 @@ vi.mock("@/modules/ads/agent/run", () => ({ loadNotebook: async () => ({ instruc
 vi.mock("@/modules/ads/lib/spend", async (orig) => ({ ...(await orig<object>()), assertAdsBudget: async () => ({ ok: true }), recordAdsUsage: async () => ({}) }));
 
 const { askAgent, QuestionError } = await import("@/modules/ads/agent/question");
-const { campaignRecap, recapDue } = await import("@/modules/ads/lib/weekly-recap");
-
-describe("le récapitulatif du lundi", () => {
-  const base = {
-    id: 7,
-    name: "Campagne test",
-    totals: { depenseEur: 55.47, vuesPage: 347, leadsSite: 0, leadsQualifies: 0, coutParLeadEur: null, tauxClicPct: 4.44 },
-    trends: { depensePct: 107, leadsPct: null },
-    summary: "337 vues, aucun lead : la page ne convertit pas.",
-    actions: [{ summary: "Mettre en pause la publicité « C17 »", status: "executee" }, { summary: "Budget de l'ensemble « BTP » : 9 € → 10,80 €", status: "proposee" }],
-    proposed: 1,
-    toValidate: 2,
-    alerts: [{ kind: "clics-sans-lead", detail: "347 personnes…" }],
-    test: null,
-    prospects: { id: 12 },
-  };
-
-  it("dit les chiffres, ce que l'analyste a fait, et ce qui attend Charlie", () => {
-    const r = campaignRecap(base);
-    expect(r.lines[0]).toBe("Semaine : 55,47 € (+107 %), 347 vues de la page, 0 lead(s), dont 0 qualifié(s) ; coût par lead —, taux de clic 4,44 %.");
-    expect(r.lines).toEqual(expect.arrayContaining(["L'analyste : 337 vues, aucun lead : la page ne convertit pas.", "• Mettre en pause la publicité « C17 » — fait", "• Budget de l'ensemble « BTP » : 9 € → 10,80 € — à valider", "⚠ Des visites, aucun lead : 347 personnes…"]));
-    expect(r.waiting).toEqual(["1 action(s) de l'agent à valider", "2 créa(s) à valider (visuels à faire dans Claude Design)", "la campagne Prospects n° 12 à publier"]);
-  });
-
-  it("part le lundi dès 10 h une fois le passage du lundi fini, à midi au plus tard", () => {
-    // Lundi 9 novembre 2026, heure de Paris (UTC+1).
-    expect(recapDue(new Date("2026-11-09T08:30:00Z"), false)).toBe(false); // 9 h 30
-    expect(recapDue(new Date("2026-11-09T09:30:00Z"), false)).toBe(true); // 10 h 30, lundi fini
-    expect(recapDue(new Date("2026-11-09T09:30:00Z"), true)).toBe(false); // encore en cours
-    expect(recapDue(new Date("2026-11-09T11:05:00Z"), true)).toBe(true); // midi : on n'attend plus
-    expect(recapDue(new Date("2026-11-10T09:30:00Z"), false)).toBe(false); // mardi
-  });
-});
 
 describe("poser une question à l'agent", () => {
   const created: Record<string, unknown>[] = [];

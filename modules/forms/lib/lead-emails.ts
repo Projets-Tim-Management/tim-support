@@ -6,11 +6,13 @@ import {
   INK,
   MUTED,
   OUTER,
+  SITE_URL,
   adminUrl,
   escape,
   internalNotice,
   shell,
 } from "@/core/lib/email-template";
+import { HEARD_FROM, HEARD_FROM_PATH, HEARD_FROM_QUESTION } from "@/modules/booking/lib/heard-from";
 
 /**
  * Les deux e-mails d'une soumission : l'accusé de réception au prospect, et
@@ -71,6 +73,13 @@ function enumerate(items: string[]): string {
 }
 
 export interface LeadEmailContext {
+  /**
+   * La page de réservation du support (16/11/2026), déjà remplie avec cette demande : remplace Calendly dès que le
+   * formulaire « propose un rendez-vous après l'envoi ». Absente : le lien Calendly d'avant.
+   */
+  bookingUrl?: string;
+  /** La référence signée de la demande : les boutons « Comment nous avez-vous connus ? » (un clic) la portent. */
+  sourceRef?: string;
   /** Libellés, pas valeurs : « Mme », « Employé », « 11 - 25 ». */
   civilite?: string;
   nom?: string;
@@ -129,6 +138,23 @@ const TIPS = [
   "Rien à préparer de votre côté, trente minutes suffisent.",
 ];
 
+/** Un bouton de « Comment nous avez-vous connus ? » : la page de remerciement l'enregistre à l'affichage. */
+const heardFromUrl = (ref: string, value: string) => `${SITE_URL.replace(/\/$/, "")}${HEARD_FROM_PATH}?d=${encodeURIComponent(ref)}&r=${value}`;
+
+/** La question en un clic, en bas de l'accusé de réception (16/11/2026) : facultative, rien à taper. */
+function heardFromHtml(ref: string | undefined): string {
+  if (!ref) return "";
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px;">
+      <tr><td style="border-top:1px solid ${BORDER};padding-top:16px;">
+        <p style="margin:0 0 10px;font-family:${FONT};font-size:14px;color:${MUTED};">Une dernière chose, en un clic : ${escape(HEARD_FROM_QUESTION.toLowerCase())}</p>
+        <p style="margin:0;font-family:${FONT};font-size:13px;line-height:2.4;">${HEARD_FROM.map(
+          (h) =>
+            `<a href="${escape(heardFromUrl(ref, h.value))}" style="display:inline-block;margin:0 6px 6px 0;padding:6px 12px;border:1px solid ${BORDER};border-radius:999px;color:${INK};text-decoration:none;white-space:nowrap;">${escape(h.label)}</a>`,
+        ).join("")}</p>
+      </td></tr>
+    </table>`;
+}
+
 export function leadConfirmationEmail(ctx: LeadEmailContext): BuiltEmail {
   const links = linksFor(ctx.besoinValues);
 
@@ -138,7 +164,7 @@ export function leadConfirmationEmail(ctx: LeadEmailContext): BuiltEmail {
     opening(ctx),
     "",
     INVITE,
-    `→ ${CALENDLY_URL}`,
+    `→ ${ctx.bookingUrl ?? CALENDLY_URL}`,
     `Ou par téléphone : ${PHONE}`,
     "",
     "Trois conseils pour que ce soit utile :",
@@ -163,7 +189,7 @@ export function leadConfirmationEmail(ctx: LeadEmailContext): BuiltEmail {
     p(escape(INVITE)),
 
     `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:2px 0 6px;"><tr><td>
-      <a href="${CALENDLY_URL}" style="display:inline-block;padding:13px 26px;background:${BRAND};border-radius:9px;color:#ffffff;font-family:${FONT};font-size:15px;font-weight:700;text-decoration:none;">Choisir un créneau</a>
+      <a href="${escape(ctx.bookingUrl ?? CALENDLY_URL)}" style="display:inline-block;padding:13px 26px;background:${BRAND};border-radius:9px;color:#ffffff;font-family:${FONT};font-size:15px;font-weight:700;text-decoration:none;">Choisir un créneau</a>
     </td></tr></table>`,
     p(`Ou par téléphone : <strong style="color:${INK};">${escape(PHONE)}</strong>`, `font-size:14px;color:${MUTED};margin-bottom:26px;`),
 
@@ -185,11 +211,12 @@ export function leadConfirmationEmail(ctx: LeadEmailContext): BuiltEmail {
           .join(`<span style="color:${MUTED};"> · </span>`)}</p>
       </td></tr>
     </table>`,
+    heardFromHtml(ctx.sourceRef),
   ].join("");
 
   return {
     subject: "Votre demande est bien arrivée",
-    text,
+    text: ctx.sourceRef ? `${text}\n\n${HEARD_FROM_QUESTION} ${heardFromUrl(ctx.sourceRef, "google").replace(/&r=google$/, "")}` : text,
     html: shell({
       heading: "Votre demande est bien arrivée",
       preheader: "Réservons trente minutes, en partant de votre organisation.",
