@@ -279,13 +279,13 @@ export default function BookingCompact(p: Props) {
               <span className="text-sm font-medium text-foreground">E-mail *</span>
               <input name="email" type="email" required autoComplete="email" defaultValue={v.email} className={input + bad("email")} />
             </label>
-            <label className="block">
+            <label className="block sm:col-span-2">
               <span className="text-sm font-medium text-foreground">
-                {location === "telephone" ? "Numéro à appeler" : "Téléphone"} {needPhone ? "*" : <span className="font-normal text-muted">(facultatif)</span>}
+                {location === "telephone" ? "Le numéro où nous vous appelons" : "Téléphone"} {needPhone ? "*" : <span className="font-normal text-muted">(facultatif)</span>}
               </span>
               <input name="phone" type="tel" required={needPhone} autoComplete="tel" maxLength={30} defaultValue={v.phone} className={input + bad("phone")} />
             </label>
-            <label className="block">
+            <label className="block sm:col-span-2">
               <span className="text-sm font-medium text-foreground">Société *</span>
               <input name="company" required autoComplete="organization" maxLength={120} defaultValue={v.company} className={input + bad("company")} />
             </label>
