@@ -47,16 +47,6 @@ function grid(ym: string): (string | null)[] {
 }
 const input = "mt-1 w-full rounded-md border border-border bg-white px-3 py-2.5 text-foreground outline-none focus:border-primary";
 
-function Back({ onClick }: { onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} aria-label="Retour" className="flex h-10 w-10 flex-none items-center justify-center rounded-full text-foreground hover:bg-surface">
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M19 12H5M11 6l-6 6 6 6" />
-      </svg>
-    </button>
-  );
-}
-
 function Icon({ kind }: { kind: string }) {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5 flex-none" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -69,6 +59,48 @@ function Icon({ kind }: { kind: string }) {
         <path d="M5 4h3.5l1.7 4.3-2.2 1.4a11 11 0 0 0 5.3 5.3l1.4-2.2L19 14.5V18a2 2 0 0 1-2 2A15 15 0 0 1 3 6a2 2 0 0 1 2-2z" />
       )}
     </svg>
+  );
+}
+
+/**
+ * LA FRISE DES ÉTAPES (16/11/2026 : « une timeline avec les étapes », « simple, fluide ») : date et heure, vos
+ * informations, confirmé. L'étape en cours en couleur, celle faite cochée avec le créneau choisi dessous — et
+ * cliquable pour en changer.
+ */
+function Steps({ current, picked, onBack }: { current: 1 | 2 | 3; picked?: string | null; onBack?: () => void }) {
+  const steps = [
+    { n: 1, label: "Date et heure" },
+    { n: 2, label: "Vos informations" },
+    { n: 3, label: "Confirmé" },
+  ] as const;
+  return (
+    <ol className="mb-5 flex items-start" aria-label="Étapes de la réservation">
+      {steps.map((s, i) => {
+        const done = s.n < current;
+        const on = s.n === current;
+        const dot = (
+          <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition ${done ? "bg-primary text-white" : on ? "bg-primary text-white ring-4 ring-primary-light" : "border-2 border-border bg-white text-foreground/40"}`}>
+            {done ? "✓" : s.n}
+          </span>
+        );
+        return (
+          <li key={s.n} className="relative flex flex-1 flex-col items-center text-center" aria-current={on ? "step" : undefined}>
+            {i > 0 && <span aria-hidden="true" className={`absolute right-1/2 top-3.5 h-0.5 w-full ${s.n <= current ? "bg-primary" : "bg-border"}`} />}
+            <span className="relative z-10">
+              {done && s.n === 1 && current === 2 && onBack ? (
+                <button type="button" onClick={onBack} aria-label="Changer de créneau" className="rounded-full hover:opacity-80">
+                  {dot}
+                </button>
+              ) : (
+                dot
+              )}
+            </span>
+            <span className={`mt-1.5 text-xs leading-tight ${on ? "font-semibold text-ink" : done ? "text-foreground" : "text-foreground/50"}`}>{s.label}</span>
+            {done && s.n === 1 && picked && <span className="text-[11px] font-semibold leading-tight text-primary">{picked}</span>}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -107,6 +139,7 @@ export default function BookingCompact(p: Props) {
       const list = ((await res.json()) as { slots: string[] }).slots;
       setSlots(list);
       setMonth((m) => m ?? (list[0] ? dayOf(list[0]).slice(0, 7) : null));
+      setDay((d) => (d && list.some((x) => dayOf(x) === d) ? d : list[0] ? dayOf(list[0]) : null));
       setFailed(false);
     } catch {
       setFailed(true);
@@ -170,12 +203,15 @@ export default function BookingCompact(p: Props) {
     }
   }
 
+  const short = (iso: string) => `${new Date(iso).toLocaleDateString("fr-FR", { timeZone: PARIS, weekday: "short", day: "numeric", month: "short" })} · ${hour(iso)}`;
+
   if (done) {
     return (
-      <div className="px-2 py-8 text-center">
+      <div className="px-2 py-4 text-center">
+        <Steps current={3} picked={short(done.start)} />
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success-bg text-2xl text-success-text">✓</div>
         <p className="mt-4 text-xl font-bold text-ink">C&apos;est confirmé</p>
-        <p className="mt-1 capitalize text-foreground">
+        <p className="mt-1 text-foreground first-letter:uppercase">
           {weekday(dayOf(done.start))} {longDay(dayOf(done.start))} à {hour(done.start)}
         </p>
         <p className="mx-auto mt-3 max-w-sm text-sm text-foreground/75">{done.message ?? "La confirmation part par e-mail, avec de quoi l'ajouter à votre agenda."}</p>
@@ -196,19 +232,20 @@ export default function BookingCompact(p: Props) {
     const bad = (name: string) => (error?.field === name ? " border-danger" : "");
     return (
       <form onSubmit={submit} className="px-2 py-4">
-        <div className="flex items-center gap-3">
-          <Back onClick={() => setSlot(null)} />
+        <Steps current={2} picked={short(slot)} onBack={() => setSlot(null)} />
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-primary-light px-4 py-3">
           <div>
-            <p className="font-semibold capitalize text-ink">
-              {weekday(dayOf(slot))} {longDay(dayOf(slot))}
+            <p className="font-semibold text-ink first-letter:uppercase">
+              {weekday(dayOf(slot))} {longDay(dayOf(slot))} à {hour(slot)}
             </p>
-            <p className="text-sm text-foreground/75">
-              {hour(slot)} · {p.durationMin} min
-            </p>
+            <p className="text-sm text-foreground/75">{p.durationMin} minutes · heure de Paris</p>
           </div>
+          <button type="button" onClick={() => setSlot(null)} className="flex-none text-sm font-semibold text-primary hover:underline">
+            Modifier
+          </button>
         </div>
 
-        <h2 className="mt-6 text-xl font-bold text-ink">{editing ? "Indiquez vos informations" : "Confirmez votre rendez-vous"}</h2>
+        <h2 className="mt-5 text-lg font-bold text-ink">{editing ? "Indiquez vos informations" : "Confirmez votre rendez-vous"}</h2>
 
         {!editing ? (
           <p className="mt-2 text-sm text-foreground">
@@ -242,7 +279,13 @@ export default function BookingCompact(p: Props) {
               <span className="text-sm font-medium text-foreground">E-mail *</span>
               <input name="email" type="email" required autoComplete="email" defaultValue={v.email} className={input + bad("email")} />
             </label>
-            <label className="block sm:col-span-2">
+            <label className="block">
+              <span className="text-sm font-medium text-foreground">
+                {location === "telephone" ? "Numéro à appeler" : "Téléphone"} {needPhone ? "*" : <span className="font-normal text-muted">(facultatif)</span>}
+              </span>
+              <input name="phone" type="tel" required={needPhone} autoComplete="tel" maxLength={30} defaultValue={v.phone} className={input + bad("phone")} />
+            </label>
+            <label className="block">
               <span className="text-sm font-medium text-foreground">Société *</span>
               <input name="company" required autoComplete="organization" maxLength={120} defaultValue={v.company} className={input + bad("company")} />
             </label>
@@ -283,14 +326,14 @@ export default function BookingCompact(p: Props) {
           </fieldset>
         )}
 
-        {(editing || !v.phone) && needPhone && (
+        {(p.simpleForm ? editing || !v.phone : !editing && !v.phone) && needPhone && (
           <label className="mt-4 block">
             <span className="text-sm font-medium text-foreground">{location === "telephone" ? "Le numéro où nous vous appelons *" : "Téléphone *"}</span>
             <input name="phone" type="tel" required autoComplete="tel" maxLength={30} defaultValue={v.phone} className={input + bad("phone")} />
           </label>
         )}
         {!editing && v.phone && <input type="hidden" name="phone" value={v.phone} />}
-        {editing && !needPhone && (
+        {editing && p.simpleForm && !needPhone && (
           <label className="mt-4 block">
             <span className="text-sm font-medium text-foreground">
               Téléphone <span className="font-normal text-muted">(facultatif)</span>
@@ -340,88 +383,78 @@ export default function BookingCompact(p: Props) {
     );
   }
 
-  // ── 2. L'heure ──────────────────────────────────────────────────────────
-  if (day) {
-    return (
-      <div className="px-2 py-4">
-        <div className="flex items-center gap-3">
-          <Back onClick={() => setDay(null)} />
-          <div className="flex-1 text-center">
-            <p className="text-2xl font-bold capitalize text-ink">{weekday(day)}</p>
-            <p className="text-foreground">{longDay(day)}</p>
-          </div>
-          <span className="w-10" />
-        </div>
-        <p className="mt-6 text-center text-xl font-bold text-ink">Choisissez un horaire</p>
-        <p className="mt-1 text-center text-sm text-foreground/75">Durée : {p.durationMin} min · heure de Paris</p>
-        <div className="mt-5 space-y-3">
-          {(byDay.get(day) ?? []).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => {
-                setError(null);
-                setSlot(s);
-              }}
-              className="w-full rounded-md border-2 border-primary/50 bg-white py-3 text-lg font-bold text-primary transition hover:border-primary hover:bg-primary-light"
-            >
-              {hour(s)}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // ── 1. Le jour ──────────────────────────────────────────────────────────
+  // ── 1. Date et heure ────────────────────────────────────────────────
   const first = slots[0] ? dayOf(slots[0]).slice(0, 7) : month;
   const last = slots.length ? dayOf(slots[slots.length - 1]).slice(0, 7) : month;
   const [y, m] = month.split("-").map(Number);
+  const times = day ? (byDay.get(day) ?? []) : [];
   return (
     <div className="px-2 py-4">
+      <Steps current={1} />
       {error && <p className="mb-4 rounded-md bg-danger-bg px-4 py-3 text-sm text-foreground">{error.message}</p>}
-      <p className="text-center text-2xl font-bold text-ink">Choisissez un jour</p>
       {!slots.length ? (
-        <p className="mt-6 rounded-md bg-surface px-4 py-3 text-sm text-foreground">Tous les créneaux sont pris pour le moment. Écrivez-nous à support@tim-management.co.</p>
+        <p className="rounded-md bg-surface px-4 py-3 text-sm text-foreground">Tous les créneaux sont pris pour le moment. Écrivez-nous à support@tim-management.co.</p>
       ) : (
-        <>
-          <div className="mt-6 flex items-center justify-center gap-8">
-            <button type="button" onClick={() => setMonth(shiftMonth(month, -1))} disabled={month <= first} aria-label="Mois précédent" className="text-2xl text-primary disabled:text-border">
-              ‹
-            </button>
-            <span className="min-w-36 text-center font-semibold text-ink">
-              {MONTHS[m - 1]} {y}
-            </span>
-            <button type="button" onClick={() => setMonth(shiftMonth(month, 1))} disabled={month >= last} aria-label="Mois suivant" className="text-2xl text-primary disabled:text-border">
-              ›
-            </button>
-          </div>
-          <div className="mt-5 grid grid-cols-7 gap-y-2 text-center">
-            {WEEKDAYS.map((w) => (
-              <span key={w} className="text-xs text-foreground/60">
-                {w}
+        <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_12.5rem]">
+          <div>
+            <div className="flex items-center justify-between">
+              <button type="button" onClick={() => setMonth(shiftMonth(month, -1))} disabled={month <= first} aria-label="Mois précédent" className="flex h-9 w-9 items-center justify-center rounded-full text-xl text-primary hover:bg-primary-light disabled:text-border disabled:hover:bg-transparent">
+                ‹
+              </button>
+              <span className="font-semibold capitalize text-ink">
+                {MONTHS[m - 1]} {y}
               </span>
-            ))}
-            {grid(month).map((d, i) =>
-              d ? (
-                <span key={d} className="flex flex-col items-center">
-                  <button
-                    type="button"
-                    disabled={!byDay.has(d)}
-                    onClick={() => setDay(d)}
-                    className={`flex h-11 w-11 items-center justify-center rounded-full text-base ${byDay.has(d) ? "bg-primary-light font-bold text-primary hover:bg-primary hover:text-white" : "text-foreground/45"}`}
-                  >
-                    {Number(d.slice(8))}
-                  </button>
-                  {d === today && <span className="mt-0.5 h-1 w-1 rounded-full bg-foreground/60" aria-hidden="true" />}
+              <button type="button" onClick={() => setMonth(shiftMonth(month, 1))} disabled={month >= last} aria-label="Mois suivant" className="flex h-9 w-9 items-center justify-center rounded-full text-xl text-primary hover:bg-primary-light disabled:text-border disabled:hover:bg-transparent">
+                ›
+              </button>
+            </div>
+            <div className="mt-3 grid grid-cols-7 gap-y-1 text-center">
+              {WEEKDAYS.map((w) => (
+                <span key={w} className="pb-1 text-[11px] uppercase text-foreground/50">
+                  {w}
                 </span>
-              ) : (
-                <span key={`v${i}`} />
-              ),
-            )}
+              ))}
+              {grid(month).map((d, i) =>
+                d ? (
+                  <span key={d} className="flex flex-col items-center">
+                    <button
+                      type="button"
+                      disabled={!byDay.has(d)}
+                      onClick={() => setDay(d)}
+                      aria-pressed={day === d}
+                      className={`flex h-10 w-10 items-center justify-center rounded-full text-sm transition ${day === d ? "bg-primary font-bold text-white" : byDay.has(d) ? "bg-primary-light font-bold text-primary hover:bg-primary hover:text-white" : "text-foreground/35"}`}
+                    >
+                      {Number(d.slice(8))}
+                    </button>
+                    <span className={`mt-0.5 h-1 w-1 rounded-full ${d === today ? "bg-foreground/50" : "bg-transparent"}`} aria-hidden="true" />
+                  </span>
+                ) : (
+                  <span key={`v${i}`} />
+                ),
+              )}
+            </div>
           </div>
-          <p className="mt-5 text-center text-xs text-foreground/60">Heures de Paris</p>
-        </>
+          {/* Les horaires du jour, sur un fond à part : on voit d'un coup d'œil où choisir l'heure. */}
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <p className="font-semibold capitalize text-ink">{day ? `${weekday(day)} ${Number(day.slice(8))}` : "Choisissez un jour"}</p>
+            <p className="text-xs text-foreground/60">{p.durationMin} min · heure de Paris</p>
+            <div className="mt-3 grid max-h-80 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-1">
+              {times.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setSlot(t);
+                  }}
+                  className="rounded-md border-2 border-primary/40 bg-white py-2.5 font-bold text-primary transition hover:border-primary hover:bg-primary hover:text-white"
+                >
+                  {hour(t)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
