@@ -53,50 +53,39 @@ describe("sujets déduits des besoins", () => {
 });
 
 describe("accusé de réception au prospect", () => {
-  it("accueille la personne par une vraie phrase", () => {
-    const { text } = leadConfirmationEmail(full);
+  it("salue la personne et dit que la demande est arrivée", () => {
+    const { text, html } = leadConfirmationEmail(full);
     expect(text).toContain("Bonjour Mme Marie Poulit,");
-    expect(text).toContain("Merci pour votre demande, elle est bien arrivée.");
-    expect(text).toContain("Vous êtes Employé chez Capblancq GT");
-    expect(text).toContain("le pointage et les plannings");
+    expect(text).toContain("✅ Votre demande est bien arrivée.");
+    expect(html).toContain("Demande reçue");
   });
 
-  it("recompose la phrase autour de ce qui manque", () => {
-    expect(leadConfirmationEmail({ companyName: "ACME" }).text).toContain("Vous représentez ACME");
-    expect(leadConfirmationEmail({ fonction: "Dirigeant" }).text).toContain("Vous êtes Dirigeant :");
-    expect(leadConfirmationEmail({ besoinValues: ["pointage"] }).text).toContain(
-      "Vous souhaitez y voir plus clair sur le pointage",
-    );
+  it("un suivi en trois étapes, la suivante en avant : choisir le créneau", () => {
+    const { html } = leadConfirmationEmail(full);
+    expect(html.indexOf("Demande reçue")).toBeLessThan(html.indexOf("Choisissez votre créneau"));
+    expect(html.indexOf("Choisissez votre créneau")).toBeLessThan(html.indexOf("Votre démo"));
+    expect(html).toContain("Choisir mon créneau");
+    expect(html).toContain("Sans engagement");
   });
 
   it("se dégrade proprement quand tout manque", () => {
     const { text, html } = leadConfirmationEmail({});
     expect(text).toContain("Bonjour,");
     expect(text).not.toMatch(/Bonjour\s+,/);
-    expect(text).toContain("Voyons ensemble ce que Tim peut changer");
     expect(text).not.toContain("undefined");
     expect(html).not.toContain("undefined");
   });
 
-  it("énumère les sujets en français, pas en liste", () => {
-    const three = leadConfirmationEmail({ besoinValues: ["pointage", "planning", "chantiers"] }).text;
-    expect(three).toContain("le pointage, les plannings et le suivi de chantier");
-  });
-
-  it("porte l'invitation, le lien de visio et le téléphone", () => {
+  it("porte le lien de réservation et le téléphone", () => {
     const { text } = leadConfirmationEmail(full);
-    expect(text).toContain("trente minutes en visio");
     expect(text).toContain("calendly.com/cpiancatelli/30min");
     expect(text).toContain("09 72 12 59 03");
   });
 
-  it("donne les trois conseils", () => {
+  it("court : ni longs conseils, ni liens vers les fonctionnalités", () => {
     const { text, html } = leadConfirmationEmail(full);
-    expect(text).toContain("Trois conseils");
-    expect(text).toContain("chantier en cours en tête");
-    expect(text).toContain("la personne qui gère les heures");
-    expect(text).toContain("Rien à préparer");
-    expect(html).toContain("Trois conseils pour que ce soit utile");
+    expect(text).not.toContain("Trois conseils");
+    expect(html).not.toContain("jeter un œil");
   });
 
   it("reste court — c'est un e-mail, pas un document", () => {
@@ -107,7 +96,7 @@ describe("accusé de réception au prospect", () => {
   });
 
   it("échappe ce que la personne a saisi", () => {
-    const { html } = leadConfirmationEmail({ ...full, companyName: "Dupont & <b>Fils</b>" });
+    const { html } = leadConfirmationEmail({ ...full, nom: "Dupont & <b>Fils</b>" });
     expect(html).toContain("Dupont &amp; &lt;b&gt;Fils&lt;/b&gt;");
     expect(html).not.toContain("<b>Fils</b>");
   });

@@ -29,7 +29,7 @@ const PHONE = process.env.LEAD_PHONE || "09 72 12 59 03";
 
 const SITE = "https://tim-management.co";
 
-const FEATURES = {
+export const FEATURES = {
   pointage: { label: "Pointage", url: `${SITE}/pointage-digital-mobile-chantier` },
   heures: { label: "Feuilles d'heures", url: `${SITE}/feuilles-dheures-btp` },
   rh: { label: "Gestion RH", url: `${SITE}/employes-rh` },
@@ -66,11 +66,6 @@ export function linksFor(besoins: string[] = []): FeatureKey[] {
   return unique.length ? unique.slice(0, 3) : ["pointage", "planningOuvrier", "chantier"];
 }
 
-/** « a », « a et b », « a, b et c » — une énumération qui se lit. */
-function enumerate(items: string[]): string {
-  if (items.length <= 1) return items[0] ?? "";
-  return `${items.slice(0, -1).join(", ")} et ${items[items.length - 1]}`;
-}
 
 export interface LeadEmailContext {
   /**
@@ -104,39 +99,6 @@ function greeting(ctx: LeadEmailContext): string {
   return who ? `Bonjour ${who},` : "Bonjour,";
 }
 
-/**
- * La phrase d'accueil. Chaque morceau est facultatif et la phrase se recompose
- * autour de ce qui manque — un modèle qui écrirait « Vous êtes  de  » serait
- * pire que pas de personnalisation.
- */
-function opening(ctx: LeadEmailContext): string {
-  const qui = ctx.companyName
-    ? ctx.fonction
-      ? `Vous êtes ${ctx.fonction} chez ${ctx.companyName}`
-      : `Vous représentez ${ctx.companyName}`
-    : ctx.fonction
-      ? `Vous êtes ${ctx.fonction}`
-      : "";
-
-  const sujets = enumerate(topicsFor(ctx.besoinValues).map((t) => t.topic));
-
-  if (qui && sujets)
-    return `Merci pour votre demande, elle est bien arrivée. ${qui}, et vous souhaitez y voir plus clair sur ${sujets} — c'est exactement ce dont on peut parler ensemble.`;
-  if (sujets)
-    return `Merci pour votre demande, elle est bien arrivée. Vous souhaitez y voir plus clair sur ${sujets} — c'est exactement ce dont on peut parler ensemble.`;
-  if (qui)
-    return `Merci pour votre demande, elle est bien arrivée. ${qui} : voyons ensemble ce que Tim peut changer dans votre organisation.`;
-  return "Merci pour votre demande, elle est bien arrivée. Voyons ensemble ce que Tim peut changer dans votre organisation.";
-}
-
-const INVITE =
-  "Le plus simple est de réserver trente minutes en visio. On part de votre organisation actuelle, pas d'une démonstration toute faite.";
-
-const TIPS = [
-  "Venez avec un chantier en cours en tête : c'est ce qui parle le mieux.",
-  "Si vous le pouvez, invitez la personne qui gère les heures — c'est elle qui verra le plus vite ce que ça change.",
-  "Rien à préparer de votre côté, trente minutes suffisent.",
-];
 
 /** Un bouton de « Comment nous avez-vous connus ? » : la page de remerciement l'enregistre à l'affichage. */
 const heardFromUrl = (ref: string, value: string) => `${SITE_URL.replace(/\/$/, "")}${HEARD_FROM_PATH}?d=${encodeURIComponent(ref)}&r=${value}`;
@@ -155,71 +117,61 @@ function heardFromHtml(ref: string | undefined): string {
     </table>`;
 }
 
+/**
+ * L'ACCUSÉ DE RÉCEPTION (refait le 16/11/2026 : « trop de texte, pas assez d'icônes ni de “validé” ») : la demande
+ * est arrivée (coché), un suivi en trois étapes dont la suivante est mise en avant — choisir le créneau —, UN bouton,
+ * trois repères courts, le téléphone en une ligne ; « comment nous avez-vous connus ? » en petit, tout en bas.
+ */
 export function leadConfirmationEmail(ctx: LeadEmailContext): BuiltEmail {
-  const links = linksFor(ctx.besoinValues);
-
+  const url = ctx.bookingUrl ?? CALENDLY_URL;
   const text = [
     greeting(ctx),
     "",
-    opening(ctx),
+    "✅ Votre demande est bien arrivée.",
+    "📅 Dernière étape : choisissez le créneau de votre démo (30 min, en visio ou par téléphone, sans engagement).",
+    `→ ${url}`,
     "",
-    INVITE,
-    `→ ${ctx.bookingUrl ?? CALENDLY_URL}`,
-    `Ou par téléphone : ${PHONE}`,
-    "",
-    "Trois conseils pour que ce soit utile :",
-    ...TIPS.map((t) => `· ${t}`),
-    "",
-    "En attendant, si vous voulez jeter un œil :",
-    ...links.map((k) => `  ${FEATURES[k].label} : ${FEATURES[k].url}`),
+    `Une question ? ${PHONE}`,
+    ...(ctx.sourceRef ? ["", `${HEARD_FROM_QUESTION} ${heardFromUrl(ctx.sourceRef, "").replace(/&r=$/, "")}`] : []),
   ].join("\n");
 
-  const p = (t: string, extra = "") =>
-    `<p style="margin:0 0 16px;font-family:${FONT};font-size:15px;line-height:1.65;color:${BODY};${extra}">${t}</p>`;
-
-  const tipRow = (t: string) =>
-    `<tr>
-      <td style="padding:0 10px 10px 0;font-family:${FONT};font-size:15px;color:${BRAND};vertical-align:top;line-height:1.6;">•</td>
-      <td style="padding:0 0 10px;font-family:${FONT};font-size:14px;line-height:1.6;color:${BODY};">${escape(t)}</td>
+  // Une étape du suivi : son pastille (faite, en cours, à venir), son titre, sa précision.
+  const step = (icon: string, title: string, detail: string, state: "fait" | "maintenant" | "ensuite") => {
+    const bg = state === "fait" ? "#e3f5e9" : state === "maintenant" ? BRAND : OUTER;
+    const color = state === "maintenant" ? INK : state === "fait" ? INK : MUTED;
+    return `<tr>
+      <td width="44" style="padding:0 14px 0 0;vertical-align:middle;">
+        <div style="width:40px;height:40px;line-height:40px;border-radius:999px;background:${bg};text-align:center;font-size:19px;">${icon}</div>
+      </td>
+      <td style="padding:10px 0;vertical-align:middle;font-family:${FONT};">
+        <div style="font-size:15px;font-weight:${state === "ensuite" ? 600 : 800};color:${color};">${escape(title)}</div>
+        <div style="font-size:13px;color:${MUTED};margin-top:2px;">${escape(detail)}</div>
+      </td>
     </tr>`;
+  };
+  const tick = (t: string) => `<td style="padding:0 14px 0 0;font-family:${FONT};font-size:13px;color:${BODY};white-space:nowrap;"><span style="color:#15803d;font-weight:800;">✓</span> ${escape(t)}</td>`;
 
   const bodyHtml = [
-    p(escape(greeting(ctx)), `font-size:16px;color:${INK};margin-bottom:14px;`),
-    p(escape(opening(ctx))),
-    p(escape(INVITE)),
-
-    `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:2px 0 6px;"><tr><td>
-      <a href="${escape(ctx.bookingUrl ?? CALENDLY_URL)}" style="display:inline-block;padding:13px 26px;background:${BRAND};border-radius:9px;color:#ffffff;font-family:${FONT};font-size:15px;font-weight:700;text-decoration:none;">Choisir un créneau</a>
+    `<p style="margin:0 0 18px;font-family:${FONT};font-size:16px;color:${INK};">${escape(greeting(ctx))}</p>`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;padding:14px 18px;background:#ffffff;border:1px solid ${BORDER};border-radius:14px;">
+      ${step("✅", "Demande reçue", "Elle est entre nos mains.", "fait")}
+      ${step("📅", "Choisissez votre créneau", "C'est la dernière étape, en 1 minute.", "maintenant")}
+      ${step("💬", "Votre démo", "On part de vos chantiers, pas d'une présentation toute faite.", "ensuite")}
+    </table>`,
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;"><tr><td align="center">
+      <a href="${escape(url)}" style="display:inline-block;padding:15px 34px;background:${BRAND};border-radius:999px;color:#ffffff;font-family:${FONT};font-size:16px;font-weight:800;text-decoration:none;">📅&nbsp; Choisir mon créneau</a>
     </td></tr></table>`,
-    p(`Ou par téléphone : <strong style="color:${INK};">${escape(PHONE)}</strong>`, `font-size:14px;color:${MUTED};margin-bottom:26px;`),
-
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;">
-      <tr><td style="padding:18px 20px;background:${OUTER};border-radius:12px;">
-        <p style="margin:0 0 12px;font-family:${FONT};font-size:15px;font-weight:800;color:${INK};">Trois conseils pour que ce soit utile</p>
-        <table role="presentation" cellpadding="0" cellspacing="0">${TIPS.map(tipRow).join("")}</table>
-      </td></tr>
-    </table>`,
-
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-      <tr><td style="border-top:1px solid ${BORDER};padding-top:16px;">
-        <p style="margin:0 0 6px;font-family:${FONT};font-size:14px;color:${MUTED};">En attendant, si vous voulez jeter un œil :</p>
-        <p style="margin:0;font-family:${FONT};font-size:14px;line-height:1.9;">${links
-          .map(
-            (k) =>
-              `<a href="${FEATURES[k].url}" style="color:${BRAND};font-weight:600;text-decoration:none;">${escape(FEATURES[k].label)}</a>`,
-          )
-          .join(`<span style="color:${MUTED};"> · </span>`)}</p>
-      </td></tr>
-    </table>`,
+    `<table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 24px;"><tr>${tick("30 min")}${tick("Visio ou téléphone")}${tick("Sans engagement")}</tr></table>`,
+    `<p style="margin:0 0 4px;text-align:center;font-family:${FONT};font-size:13px;color:${MUTED};">Une question ? <a href="tel:${escape(PHONE.replace(/\s/g, ""))}" style="color:${INK};font-weight:700;text-decoration:none;">${escape(PHONE)}</a></p>`,
     heardFromHtml(ctx.sourceRef),
   ].join("");
 
   return {
-    subject: "Votre demande est bien arrivée",
-    text: ctx.sourceRef ? `${text}\n\n${HEARD_FROM_QUESTION} ${heardFromUrl(ctx.sourceRef, "google").replace(/&r=google$/, "")}` : text,
+    subject: "✅ Votre demande est bien arrivée",
+    text,
     html: shell({
-      heading: "Votre demande est bien arrivée",
-      preheader: "Réservons trente minutes, en partant de votre organisation.",
+      heading: "Votre demande est bien arrivée ✓",
+      preheader: "Dernière étape : choisissez le créneau de votre démo.",
       bodyHtml,
       recipientEmail: ctx.email,
     }),
