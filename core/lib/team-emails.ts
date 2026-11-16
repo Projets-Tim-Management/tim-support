@@ -59,7 +59,6 @@ export const TEAM_EMAILS = [
   { key: "parcours-etapes", group: "Parcours client", label: "Étapes de mise en production", when: "À chaque étape franchie d'une mise en production.", defaultRoles: ADMINS },
   { key: "publicite-urgence", group: "Publicité", label: "Publicité : urgence sur une campagne", when: "Après la synchro de nuit, une fois par alerte.", defaultRoles: ADMINS, critical: true },
   { key: "publicite-reconnexion", group: "Publicité", label: "Publicité : compte ou jeton à reconnecter", when: "7 jours avant l'expiration d'une connexion.", defaultRoles: ADMINS, critical: true },
-  { key: "publicite-recap", group: "Publicité", label: "Publicité : récap du lundi", when: "Chaque lundi matin.", defaultRoles: ADMINS },
   {
     key: "connexion-api",
     group: "Connexions",

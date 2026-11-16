@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { analyzeHealth, analyzeTrials, healthSummary, workdaysBetween, type ClientFacts, type TrialInput } from "@/modules/ai-team/lib/commercial";
 import { computeMastery, COM_MASTERY_KEYS, SEA_MASTERY_KEYS } from "@/modules/ai-team/lib/mastery";
@@ -160,5 +160,110 @@ describe("relecture du 15/11/2026 : les calculs corrigés", () => {
     expect(horizonsOf('ok <horizons>{"propositions":[]}</horizons>')).toEqual({ propositions: [] });
     expect(horizonsOf("<horizons>pas du json</horizons>")).toBeNull();
     expect(horizonsOf("rien")).toBeNull();
+  });
+});
+
+describe("le tri du jour d'Élise (16/11/2026)", () => {
+  it("garde au plus les places libres, des sources connues sans doublon, et les raisons des écartées", async () => {
+    const { parseTriage } = await import("@/modules/ai-team/lib/com-triage");
+    const known = new Set(["pipeline-0", "pipeline-1", "sante-0", "demande-9"]);
+    const text = [
+      "<synthese>Deux affaires se jouent cette semaine.</synthese>",
+      '<taches>[{"sources":["pipeline-0","demande-9"],"priorite":"A","titre":"Appeler Dupont BTP","pourquoi":"signature proche","etapes":["Appeler"],"message":"Bonjour"},{"sources":["pipeline-0"],"titre":"Doublon","etapes":["x"]},{"sources":["inconnue"],"titre":"Hors liste","etapes":["x"]},{"sources":["sante-0"],"titre":"Martin TP","etapes":["Appeler"]}]</taches>',
+      '<ecartees>[{"id":"pipeline-1","raison":"déjà relancé hier"},{"id":"inconnue","raison":"x"}]</ecartees>',
+    ].join("\n");
+    const out = parseTriage(text, known, 1)!;
+    expect(out.picks).toHaveLength(1);
+    expect(out.picks[0]).toMatchObject({ sources: ["pipeline-0", "demande-9"], priority: "A", title: "Appeler Dupont BTP" });
+    expect([...out.dropped]).toEqual([["pipeline-1", "déjà relancé hier"]]);
+    expect(parseTriage("<synthese>x</synthese><taches>pas du json</taches>", known, 3)).toBeNull();
+  });
+
+  it("seul l'urgent part directement à la direction, marqué 🔴, au nom de l'agent", async () => {
+    vi.resetModules();
+    const filed: Record<string, unknown>[] = [];
+    vi.doMock("@/modules/ai-team/lib/agent-report", async (orig) => ({
+      ...(await orig<object>()),
+      runAgentReport: async (_p: unknown, o: { data: () => Promise<unknown>; parse: (t: string) => unknown }) => {
+        await o.data();
+        o.parse('<synthese>ok</synthese><actions>[{"affaire":"c1","titre":"Relancer Dupont","pourquoi":"lead","etapes":["Appeler"]},{"affaire":"c2","titre":"Relancer Martin","pourquoi":"stagne","etapes":["Appeler"]}]</actions>');
+        return { status: "fait", findings: 2 };
+      },
+    }));
+    const { runActionsReport } = await import("@/modules/ai-team/lib/pipeline-agent");
+    const payload = {
+      find: async ({ collection }: { collection: string }) => ({ docs: collection === "ai-team-members" ? [{ id: 7 }] : [] }),
+      create: async ({ data }: { data: Record<string, unknown> }) => (filed.push(data), data),
+      logger: { warn: () => {} },
+    };
+    await runActionsReport(payload as never, {
+      memberKey: "com-pipeline",
+      kind: "pipeline",
+      period: "2026-11-16",
+      now: new Date(NOW),
+      due: () => true,
+      load: async () => ({ data: {}, measure: {}, links: new Map([["c1", "/admin/collections/partner-clients/c1"], ["c2", "/admin/collections/partner-clients/c2"]]), urgent: new Map([["c1", "Lead sans réponse depuis 3 h ouvrées"]]) }),
+      system: () => "",
+      ask: "",
+      detail: () => "",
+    });
+    expect(filed).toHaveLength(1);
+    expect(filed[0]).toMatchObject({ member: 7, title: "🔴 Urgent — Relancer Dupont", url: "/admin/collections/partner-clients/c1" });
+    expect(String(filed[0].why)).toContain("Lead sans réponse depuis 3 h ouvrées");
+    vi.doUnmock("@/modules/ai-team/lib/agent-report");
+  });
+});
+
+describe("Malo tient les mots des clients (16/11/2026)", () => {
+  it("ajoute en tête les phrases vérifiées mot pour mot, une fois par semaine", async () => {
+    vi.resetModules();
+    vi.doMock("@/modules/ai-team/lib/brief", async (orig) => ({
+      ...(await orig<object>()),
+      crmCorpus: async () => ({ data: { textesDuCrm: ["[E-mail reçu — Dupont BTP — 2026-11-12] Re : je passe mes soirées à ressaisir les heures des gars"] }, corpus: "[E-mail reçu — Dupont BTP — 2026-11-12] Re : je passe mes soirées à ressaisir les heures des gars" }),
+    }));
+    const { runClientVoice } = await import("@/modules/ai-team/lib/client-voice");
+    let brief: Record<string, unknown> = { quotes: [{ quote: "Une ancienne phrase bien réelle" }], changelog: [], version: 3 };
+    const payload = {
+      find: async () => ({ docs: [{ id: 9, name: "Malo", active: true }] }),
+      findGlobal: async () => brief,
+      updateGlobal: async ({ data }: { data: Record<string, unknown> }) => (brief = { ...brief, ...data }),
+      create: async () => ({}),
+      findByID: async () => null,
+      logger: { warn: () => {} },
+    };
+    const call = async () => ({ content: [{ type: "text", text: '<citations>[{"citation":"je passe mes soirées à ressaisir les heures des gars","nature":"douleur","qui":"gérant, électricité","source":"E-mail reçu — Dupont BTP"},{"citation":"phrase inventée qui n existe pas","nature":"douleur"}]</citations>' }], usage: { input_tokens: 100, output_tokens: 50 }, stop_reason: "end_turn" });
+    const r = await runClientVoice(payload as never, { now: new Date("2026-11-16T10:30:00Z"), call: call as never });
+    expect(r).toMatchObject({ status: "faite", added: 1 });
+    expect((brief.quotes as { quote: string }[]).map((q) => q.quote)).toEqual(["je passe mes soirées à ressaisir les heures des gars", "Une ancienne phrase bien réelle"]);
+    expect(brief.version).toBe(4);
+    expect((await runClientVoice(payload as never, { now: new Date("2026-11-16T11:30:00Z"), call: call as never })).status).toBe("deja-faite");
+    vi.doUnmock("@/modules/ai-team/lib/brief");
+  });
+});
+
+describe("une revue en échec ne compte pas comme faite (16/11/2026)", () => {
+  const fake = (texts: { text: string; createdAt: string }[]) => {
+    const created: unknown[] = [];
+    return {
+      created,
+      payload: {
+        find: async ({ collection }: { collection: string }) =>
+          collection === "ai-team-members" ? { docs: [{ id: 1, name: "Serge", active: true }] } : { docs: [...texts.map((t, i) => ({ id: i + 1, ...t })), ...created.map((c, i) => ({ id: 100 + i, ...(c as object) }))] },
+        update: async () => ({ docs: [] }),
+        create: async ({ data }: { data: Record<string, unknown> }) => (created.push({ ...data, createdAt: new Date().toISOString() }), { id: 100 + created.length - 1, ...data }),
+        delete: async () => ({}),
+      },
+    };
+  };
+  const o = (now: string) => ({ chiefKey: "chef-seo", missing: "x", mark: "🎯 Objectifs", title: "🎯 Objectifs — semaine", preparing: "je prépare vos objectifs", interrupted: "⏳", since: "2026-11-12T00:00:00Z", now: new Date(now), due: () => true });
+
+  it("échec le lundi : pas de relance le jour même, rattrapage le mardi ; une revue réussie ferme la semaine", async () => {
+    const { reserveChiefReview } = await import("@/modules/ai-team/lib/stale");
+    const failed = [{ text: "🎯 Objectifs — semaine : je n'ai pas pu préparer vos objectifs (Plafond du jour…).", createdAt: "2026-11-16T08:51:52Z" }];
+    expect(await reserveChiefReview(fake(failed).payload as never, o("2026-11-16T14:00:00Z"))).toEqual({ skip: { status: "pas-encore" } });
+    const tuesday = await reserveChiefReview(fake(failed).payload as never, o("2026-11-17T08:00:00Z"));
+    expect("chief" in tuesday).toBe(true);
+    const done = [{ text: "🎯 Objectifs — semaine\n\nSynthèse…", createdAt: "2026-11-16T08:51:52Z" }];
+    expect(await reserveChiefReview(fake(done).payload as never, o("2026-11-17T08:00:00Z"))).toEqual({ skip: { status: "deja-faite" } });
   });
 });

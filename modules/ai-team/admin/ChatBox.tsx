@@ -24,7 +24,11 @@ const STARTERS = ["Où en sont nos campagnes ?", "Qu'est-ce qui attend ma décis
 
 const time = (iso: string) => new Date(iso).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
 
-export function ChatBox({ memberKey, name, portrait, initial }: { memberKey: string; name: string; portrait: string; initial: ChatMessage[] }) {
+/**
+ * `context` : la conversation s'ouvre depuis une tâche (« Mes tâches ») — chaque message part précédé de son titre,
+ * pour que le chef sache de quoi on parle, et les questions toutes faites portent sur la tâche.
+ */
+export function ChatBox({ memberKey, name, portrait, initial, context, starters = STARTERS }: { memberKey: string; name: string; portrait: string; initial: ChatMessage[]; context?: string; starters?: string[] }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initial);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -36,8 +40,9 @@ export function ChatBox({ memberKey, name, portrait, initial }: { memberKey: str
   }, [messages.length, busy]);
 
   const send = async (text: string) => {
-    const t = text.trim();
-    if (!t || busy) return;
+    const typed = text.trim();
+    if (!typed || busy) return;
+    const t = context ? `À propos de la tâche « ${context} » — ${typed}` : typed;
     setError(null);
     setBusy(true);
     setDraft("");
@@ -55,7 +60,7 @@ export function ChatBox({ memberKey, name, portrait, initial }: { memberKey: str
     } catch (e) {
       // Le message n'a pas été gardé : on le retire et on le rend au champ, pour réessayer.
       setMessages((m) => m.slice(0, -1));
-      setDraft(t);
+      setDraft(typed);
       setError(e instanceof Error ? e.message : "La réponse n'a pas pu être obtenue.");
     } finally {
       setBusy(false);
@@ -115,9 +120,9 @@ export function ChatBox({ memberKey, name, portrait, initial }: { memberKey: str
         <div ref={end} />
       </div>
 
-      {messages.length === 0 && !busy && (
+      {(messages.length === 0 || context) && !busy && (
         <div className="ait-chat__starters">
-          {STARTERS.map((s) => (
+          {starters.map((s) => (
             <button key={s} type="button" className="ait-starter" onClick={() => send(s)}>
               {s}
             </button>

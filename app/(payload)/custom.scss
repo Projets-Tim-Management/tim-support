@@ -1,3 +1,12 @@
 /* Habillage du back-office Payload.
    Tout le design vit dans styles/admin-theme.scss (source unique de vérité). */
 @import "../../styles/admin-theme.scss";
+
+/* Fiche produit › Les mots des clients (16/11/2026) : Malo en ajoute chaque semaine ; au-delà d'une hauteur fixe,
+   la liste défile au lieu d'allonger la page d'année en année. */
+.brief-quotes .array-field__draggable-rows {
+  max-height: 36rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.35rem;
+}

@@ -18,7 +18,7 @@ const demander: AgentTool = {
   definition: {
     name: "demander_a_la_direction",
     description: [
-      "Demande quelque chose à la direction, qui le verra dans « Vos demandes » (Équipe IA). Tout ce que tu ne peux pas faire ou décider seul : un accès, un réglage, un chiffre, un arbitrage, un contenu.",
+      "Demande quelque chose à la direction, qui le verra dans « Mes tâches ». Tout ce que tu ne peux pas faire ou décider seul : un accès, un réglage, un chiffre, un arbitrage, un contenu.",
       "Deux formes : « a-faire » — un lien vers la page où agir et des étapes numérotées, courtes et concrètes, dans l'ordre (la direction clique ensuite « C'est fait ») ; « question » — une question claire, la direction répond en texte.",
       `Lien : une page du back-office (« /admin/… ») ou une console connue (${ALLOWED_HOSTS.join(", ")}), sinon la demande est refusée. Une demande identique encore ouverte n'est pas redéposée.`,
       "Ne demande pas ce que « À valider » couvre déjà (créas, actions proposées) : la direction le voit déjà.",

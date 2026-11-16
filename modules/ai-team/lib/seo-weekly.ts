@@ -1,9 +1,11 @@
 import type { Payload } from "payload";
 
+import { SITE_URL } from "@/core/lib/email-template";
 import { parisNow, periodKey } from "@/modules/ads/agent/followup";
 import { bookWeek, planDays, type BookedSlot, type PlanDay } from "@/modules/ai-team/lib/agenda";
 import { DAY_MS } from "@/modules/ai-team/lib/format";
 import { funnelForModel, loadFunnel } from "@/modules/ai-team/lib/funnel";
+import { taskHref } from "@/modules/ai-team/lib/my-tasks-shared";
 import { latestAudit } from "@/modules/ai-team/lib/site-audit";
 import { latestCompetition } from "@/modules/ai-team/lib/competition";
 import { latestContentPlan } from "@/modules/ai-team/lib/content-plan";
@@ -86,6 +88,7 @@ const seoSystem = (name: string) => [
   "- Le GEO (visibilité dans les IA) repose d'abord sur le socle SEO ; le reste (mentions de marque, avis, forums) est corrélé, pas prouvé ; llms.txt et le balisage « pour l'IA » sont sans effet démontré. Étiquette chaque objectif : « prouve », « correle » ou « speculatif ».",
   "- Reprends un objectif non fini de la semaine passée s'il reste parmi les plus importants (ne le recommence pas de zéro : pars des étapes cochées).",
   `- Au plus ${MAX_OBJECTIVES} objectifs, les plus rentables d'abord. La SOMME des minutes de toutes les étapes ne dépasse pas le temps de la direction (donné en minutes). Chaque étape : une action concrète, faisable en une fois, avec ses minutes. Au plus ${MAX_STEPS} étapes par objectif.`,
+  "- NE FAIS JAMAIS FAIRE À LA DIRECTION CE QUE TON ÉQUIPE SAIT DÉJÀ (16/11/2026) : l'indexation page par page et la raison de Google, les liens cassés, les pages en erreur (controleTechnique.problemesRelevesParLeCode), les requêtes et les clics (Search Console), les visites et la conversion (GA4, entonnoir), la présence dans les IA. Pas d'étape « exportez la liste », « relevez », « vérifiez dans la Search Console combien… » : écris la liste ou le chiffre DANS l'étape (les adresses, la raison), et l'étape commence directement par l'action. La direction ne fait que ce qu'aucun agent ne peut faire : modifier le site, écrire, publier, appeler, décider.",
   "- Tu ne rédiges PAS les textes : quand une étape demande d'écrire (une page, une FAQ, un titre, un script vidéo, un post), donne un « prompt » complet à coller dans ChatGPT ou Claude — contexte TIM, cible, intention, angle, structure, mots-clés, preuves à citer, longueur, ton, et ce que fait le numéro 1 à dépasser.",
   "- Ton périmètre est la visibilité GRATUITE (SEO, IA, réseaux). La publicité payante (Meta, Google Ads, ChatGPT Ads) relève de Margaux, directrice SEA : n'en fais jamais un objectif ni une étape. Si tu vois un problème côté publicité payante (une campagne qui dépense sans lead, par exemple), écris-le en une étape qui commence par « Hors SEO : » : elle sera retirée de tes objectifs et transmise à Margaux, qui tranchera.",
   "- Chaque échéance est une des dates de joursDuPlan (format AAAA-MM-JJ) ; répartis le travail sur ces jours, le plus important d'abord.",
@@ -232,7 +235,11 @@ async function seoWeeklyData(payload: Payload, now: Date, chiefId: number | stri
     planDeContenu: content ? { ilYaJours: content.ageDays, synthese: content.summary, actions: content.findings } : "pas encore de plan",
     reseauxEtVideo: social ? { ilYaJours: social.ageDays, synthese: social.summary, actions: social.findings } : "pas encore de rapport",
     autorite: authority ? { ilYaJours: authority.ageDays, synthese: authority.summary, cibles: authority.findings } : "pas encore de rapport",
-    controleTechnique: tech ? { ilYaJours: tech.ageDays, synthese: tech.summary, taches: tech.findings } : "pas encore de contrôle",
+    // Les problèmes relevés par le code (Search Console page par page, liens, robots), pages comprises : Serge les met
+    // dans les étapes au lieu de demander à la direction de les relever.
+    controleTechnique: tech
+      ? { ilYaJours: tech.ageDays, synthese: tech.summary, taches: tech.findings, problemesRelevesParLeCode: (tech.health?.issues ?? []).filter((i) => i.impact !== "faible").map((i) => ({ probleme: i.label, nombre: i.count, pages: i.pages })) }
+      : "pas encore de contrôle",
     visibiliteDansLesIA: visibility ? { ilYaJours: visibility.ageDays, synthese: visibility.summary, actions: visibility.findings } : "pas encore de mesure",
     rapportDeConcurrence: competition ? { ilYaJours: competition.ageDays, synthese: competition.summary, constats: competition.findings } : "pas encore de rapport",
     aujourdhui: now.toISOString().slice(0, 10),
@@ -287,7 +294,7 @@ export async function notifyMargaux(payload: Payload, items: string[], from: str
 export type SeoWeeklyResult = { status: "faite" | "pas-encore" | "deja-faite" | "pause" | "echec"; message?: string; objectives?: number; booked?: number; costEur?: number };
 
 /** La revue de la semaine : due le lundi dès 7 h (Paris), une fois par semaine — ou tout de suite avec `force`. */
-export async function runSeoWeekly(payload: Payload, opts: { now?: Date; force?: boolean; call?: WebCall } = {}): Promise<SeoWeeklyResult> {
+export async function runSeoWeekly(payload: Payload, opts: { now?: Date; force?: boolean; call?: WebCall; overDailyCap?: boolean } = {}): Promise<SeoWeeklyResult> {
   const now = opts.now ?? new Date();
   const p = parisNow(now);
   // Le plan : les cinq prochains jours ouvrés ; il porte la date de son premier jour.
@@ -306,7 +313,8 @@ export async function runSeoWeekly(payload: Payload, opts: { now?: Date; force?:
     since: new Date(now.getTime() - MIN_DAYS_BETWEEN * DAY_MS).toISOString(),
     now,
     force: opts.force,
-    due: () => p.weekday === 1 && p.hour >= SEO_HOUR,
+    // Le lundi dès 7 h ; une revue manquée (échec) se rattrape jusqu'au mercredi.
+    due: () => p.weekday <= 3 && (p.weekday > 1 || p.hour >= SEO_HOUR),
     // Il attend le plan de contenu de la semaine (Paige, après Guy) — au plus tard jusqu'à 8 h.
     ready: async () => p.hour >= SEO_HOUR + 1 || (await latestContentPlan(payload, now))?.period === periodKey("hebdomadaire", p),
   });
@@ -339,6 +347,7 @@ export async function runSeoWeekly(payload: Payload, opts: { now?: Date; force?:
       maxFetches: 6,
       effort: "medium",
       call: opts.call,
+      overDailyCap: opts.overDailyCap,
     });
     // Le bloc du carnet se lit à part, avant les objectifs.
     const { text: answer, raw } = splitCarnet(run.text);
@@ -396,7 +405,7 @@ export async function runSeoWeekly(payload: Payload, opts: { now?: Date; force?:
       items: created.map((c, i) => ({ id: String(c.id), minutes: parsed.objectives[i].minutes, dueDay: parsed.objectives[i].dueDay })),
       describe: (id) => {
         const o = byId.get(id)!;
-        return { summary: `🎯 SEO/GEO — ${o.title}`, description: [o.diagnosis, "", ...o.steps.map((s, i) => `${i + 1}. ${s.text} (${s.minutes} min)`), "", `Le détail et les prompts : Support › Équipe IA › ${chief.name}.`].join("\n") };
+        return { summary: `🎯 SEO/GEO — ${o.title}`, description: [o.diagnosis, "", ...o.steps.map((s, i) => `${i + 1}. ${s.text} (${s.minutes} min)`), "", `Le détail, les prompts et la case à cocher : ${SITE_URL}${taskHref(`o${id}`)}`].join("\n") };
       },
     }).catch((err) => {
       payload.logger.warn(`[équipe IA] agenda de la direction : ${err}`);

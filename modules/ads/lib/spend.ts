@@ -105,13 +105,19 @@ export async function spentOf(payload: Payload, kind: AdSpendKind, now = new Dat
  * (interrupteur coupé, plafond du jour, plafond du mois) ; sinon renvoie ce
  * qui reste.
  */
-export async function assertAdsBudget(payload: Payload, kind: AdSpendKind, maxEur: number, now = new Date()) {
+/**
+ * `overDailyCap` : la direction a demandé ce travail EXPRESSÉMENT malgré le plafond du jour (16/11/2026, « lance
+ * Serge même si on dépasse ») — le plafond du jour est levé pour cet appel seulement ; l'interrupteur, le plafond du
+ * mois et le budget de l'équipe restent vérifiés.
+ */
+export async function assertAdsBudget(payload: Payload, kind: AdSpendKind, maxEur: number, now = new Date(), opts: { overDailyCap?: boolean } = {}) {
   const settings = (await payload.findGlobal({ slug: "ads-settings", overrideAccess: true })) as Settings;
   if (settings?.enabled === false) {
     throw new AdsBudgetError("Interrupteur général coupé (Publicité › Paramètres › Garde-fous) : aucune génération ne part.");
   }
   const spent = await spentOf(payload, kind, now);
-  const check = checkBudget(limitsFor(kind, settings), spent, maxEur);
+  const limits = limitsFor(kind, settings);
+  const check = checkBudget(opts.overDailyCap ? { ...limits, day: undefined } : limits, spent, maxEur);
   if (!check.ok) throw new AdsBudgetError(check.reason);
   // Le budget IA du mois de l'équipe, fixé par la direction sur la carte de la cheffe (Équipe IA) :
   // en plus du plafond global des agents — le plus strict des deux l'emporte.

@@ -4,7 +4,6 @@ import { cronGuard } from "@/core/lib/cron-guard";
 import { payloadClient } from "@/core/payload-client";
 import { scheduleFollowUps } from "@/modules/ads/agent/followup";
 import { tickDueRuns } from "@/modules/ads/agent/run";
-import { maybeSendWeeklyRecap } from "@/modules/ads/lib/weekly-recap";
 import { runWeeklyReview } from "@/modules/ai-team/lib/review";
 import { runDueVeille } from "@/modules/ai-team/lib/veille";
 import { runSeoWeekly } from "@/modules/ai-team/lib/seo-weekly";
@@ -20,9 +19,13 @@ import { runConversion } from "@/modules/ai-team/lib/conversion";
 import { runPipeline } from "@/modules/ai-team/lib/pipeline-agent";
 import { runHealth, runTrials } from "@/modules/ai-team/lib/commercial";
 import { runComWeekly } from "@/modules/ai-team/lib/com-weekly";
+import { runComTriage } from "@/modules/ai-team/lib/com-triage";
+import { runClientVoice } from "@/modules/ai-team/lib/client-voice";
 import { ensureWeeklySnapshot } from "@/modules/ai-team/lib/snapshots";
 import { ensureSnapshotMetrics } from "@/modules/ai-team/lib/roadmap-metrics";
 import { measureGoals } from "@/modules/ai-team/lib/indicators";
+import { closeGoals } from "@/modules/ai-team/lib/roadmap";
+import { runUrgentLeads } from "@/modules/ai-team/lib/pipeline-agent";
 
 /**
  * Chaque minute : lance les passages de SUIVI dus sur les campagnes en ligne
@@ -51,9 +54,6 @@ export async function GET(req: Request) {
       if (new Date().getUTCMinutes() === 0) payload.logger.warn(`[publicité] suivi ${f.kind} de la campagne ${f.campaign} reporté : ${f.skipped}`);
     } else payload.logger.info(`[publicité] suivi ${f.kind} lancé sur la campagne ${f.campaign} (passage ${f.run}).`);
   }
-  // Le récapitulatif du lundi, une fois les passages du lundi finis (décision du 29/10/2026).
-  const recap = await maybeSendWeeklyRecap(payload).catch((e) => (payload.logger.error(`[publicité] récap du lundi : ${(e as Error).message}`), "echec" as const));
-  if (recap === "envoye" || recap === "echec") payload.logger.info(`[publicité] récap du lundi : ${recap}.`);
   // La photo des chiffres de la semaine, le lundi dès 7 h (sans IA) : tendances et avant / après des recommandations.
   const snapshot = await ensureWeeklySnapshot(payload).catch((e) => (payload.logger.error(`[équipe IA] photo de la semaine : ${(e as Error).message}`), "echec" as const));
   if (snapshot === "prise") payload.logger.info("[équipe IA] photo de la semaine prise.");
@@ -73,6 +73,21 @@ export async function GET(req: Request) {
   const steps: { name: string; label: string; run: () => Promise<{ status: string; message?: string; member?: string }> }[] = [
     // Le relevé de la semaine des objectifs chiffrés de la feuille de route (chaque objectif, au plus une fois en 6 jours).
     { name: "goals", label: "relevé des objectifs", run: () => measureGoals(payload).then((n) => ({ status: n ? "fait" : "pas-encore", message: n ? `${n} objectif(s) relevé(s)` : undefined })).catch(fail) },
+    // Les leads restés plus d'une heure ouvrée sans réponse : chez la direction tout de suite, sans IA, toutes les
+    // demi-heures — le point de Nathan, lui, est hebdomadaire (16/11/2026). Ne prend jamais le réveil.
+    { name: "urgentLeads", label: "leads sans réponse", run: () => runUrgentLeads(payload).catch(fail) },
+    // Les objectifs atteints ou manqués se closent tout seuls (16/11/2026) : la valeur du jour relue à la source, tous
+    // les quarts d'heure ; le feu d'artifice attend la direction à sa prochaine page.
+    {
+      name: "goalsClose",
+      label: "objectifs atteints",
+      run: () =>
+        new Date().getUTCMinutes() % 15
+          ? Promise.resolve({ status: "pas-encore" })
+          : closeGoals(payload, new Date(), { live: true })
+              .then((c) => ({ status: c.length ? "fait" : "pas-encore", message: c.length ? c.map((x) => `objectif ${x.id} ${x.status}`).join(", ") : undefined }))
+              .catch(fail),
+    },
     // La veille web du dimanche soir : un agent après l'autre.
     { name: "veille", label: "veille de la semaine", run: () => runDueVeille(payload).catch(fail) },
     // Le rapport de Guy (lundi dès 6 h), puis le plan de contenu de Paige (au plus tard 7 h).
@@ -96,10 +111,14 @@ export async function GET(req: Request) {
     // La conversion du site (Lou), le premier jour ouvré de la semaine dès 6 h — avant les objectifs de Serge.
     { name: "conversion", label: "revue de la conversion", run: () => runConversion(payload).catch(fail) },
     // Le bureau commercial d'Élise : le pipeline (Nathan) et les essais (Jade) chaque jour ouvré dès 8 h, la santé des
-    // clients (Malo) le lundi dès 8 h, puis le point commercial d'Élise le lundi dès 9 h.
+    // clients (Malo) le lundi dès 8 h, le tri du jour d'Élise dès 9 h, puis son point commercial le lundi.
     { name: "pipeline", label: "point du pipeline", run: () => runPipeline(payload).catch(fail) },
     { name: "trials", label: "point des essais", run: () => runTrials(payload).catch(fail) },
     { name: "health", label: "santé des clients", run: () => runHealth(payload).catch(fail) },
+    // Le tri du jour d'Élise (chaque jour ouvré dès 9 h) : ce que Nathan, Jade et Malo proposent, elle le trie.
+    { name: "comTriage", label: "tri du jour d'Élise", run: () => runComTriage(payload).catch(fail) },
+    // Les mots des clients de la fiche produit (Malo, le lundi dès 10 h).
+    { name: "voice", label: "mots des clients", run: () => runClientVoice(payload).catch(fail) },
     { name: "comWeek", label: "point commercial de la semaine", run: () => runComWeekly(payload).catch(fail) },
     // Les objectifs de la semaine de Serge (lundi dès 7 h), puis la revue de Margaux (lundi dès 10 h).
     { name: "seoWeek", label: "objectifs SEO/GEO de la semaine", run: () => runSeoWeekly(payload).catch(fail) },
@@ -121,5 +140,5 @@ export async function GET(req: Request) {
   }
   const done = await tickDueRuns(payload, new Date(start + (maxDuration - 20) * 1000));
   if (done.length) payload.logger.info(`[cron] agents de campagne : ${done.map((d) => `${d.run} → ${typeof d.result === "string" ? d.result : d.result.outcome}`).join(", ")}`);
-  return NextResponse.json({ ok: true, scheduled, recap, team, done });
+  return NextResponse.json({ ok: true, scheduled, team, done });
 }

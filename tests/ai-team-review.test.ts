@@ -17,6 +17,7 @@ import { isToJudge, recoToRequest, runWeeklyReview, type ReviewOutput } from "@/
  */
 const MONDAY_11H = new Date("2026-11-16T10:00:00Z"); // lundi, 11 h à Paris
 const TUESDAY = new Date("2026-11-17T10:00:00Z");
+const THURSDAY = new Date("2026-11-19T10:00:00Z");
 
 function fakePayload(over: { active?: boolean; busy?: number; done?: number; past?: Record<string, unknown>[] } = {}) {
   const created: { collection: string; data: Record<string, unknown> }[] = [];
@@ -61,7 +62,9 @@ beforeEach(() => vi.mocked(assertAdsBudget).mockReset().mockResolvedValue(undefi
 
 describe("quand la revue part", () => {
   it("pas avant le lundi 10 h, pas deux fois, pas pendant les passages du lundi, pas si Margaux est en pause", async () => {
-    expect((await runWeeklyReview(fakePayload().payload, { now: TUESDAY, model: model(), scorecard })).status).toBe("pas-encore");
+    // Hors de la fenêtre (lundi 10 h → mercredi) : pas de revue ; le mardi, une revue manquée se rattrape.
+    expect((await runWeeklyReview(fakePayload().payload, { now: THURSDAY, model: model(), scorecard })).status).toBe("pas-encore");
+    expect((await runWeeklyReview(fakePayload().payload, { now: TUESDAY, model: model(), scorecard })).status).toBe("faite");
     expect((await runWeeklyReview(fakePayload({ done: 1 }).payload, { now: MONDAY_11H, model: model(), scorecard })).status).toBe("deja-faite");
     expect((await runWeeklyReview(fakePayload({ busy: 1 }).payload, { now: MONDAY_11H, model: model(), scorecard })).status).toBe("pas-encore");
     expect((await runWeeklyReview(fakePayload({ active: false }).payload, { now: MONDAY_11H, model: model(), scorecard })).status).toBe("pause");
@@ -73,7 +76,7 @@ describe("quand la revue part", () => {
 });
 
 describe("ce que la revue produit", () => {
-  it("dépose les recommandations dans « Vos demandes » et la synthèse dans la conversation", async () => {
+  it("dépose les recommandations dans « Mes tâches » et la synthèse dans la conversation", async () => {
     const { payload, created, updated } = fakePayload();
     const r = await runWeeklyReview(payload, { now: MONDAY_11H, model: model(), scorecard });
     expect(r).toEqual({ status: "faite", created: 3, judged: 0 });
@@ -87,7 +90,7 @@ describe("ce que la revue produit", () => {
     const last = String(updated.at(-1)!.text);
     expect(last).toMatch(/^📅 Revue du lundi — semaine du 16 novembre/);
     expect(last).toContain("Google Ads qualifie 4 leads sur 10");
-    expect(last).toContain("3 recommandations vous attendent dans « Vos demandes »");
+    expect(last).toContain("3 recommandations vous attendent dans « Mes tâches »");
   });
 
   it("dit pourquoi elle n'a pas pu se faire quand le budget IA est atteint", async () => {

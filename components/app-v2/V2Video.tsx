@@ -14,11 +14,9 @@ import { APP_V2_VIDEO as VIDEO } from "@/modules/marketing/lib/app-v2";
  * source : AV1 s'il le lit, sinon H.264 720p sur mobile et 1080p ailleurs.
  *
  * Mesure anonyme (compteur des analyses vidéo) : affichage, lecture, 25 / 50 /
- * 75 %, fin, et clic vers la prise de rendez-vous — par page (la page V2, ou
- * l'accueil du support), pour que les deux se lisent séparément.
- *
- * Posée hors de la page V2 (l'accueil), elle n'a pas de section « rendez-vous »
- * sous elle : le bouton de fin mène alors à `rdvHref`.
+ * 75 %, fin — par page (la page V2, ou l'accueil du support), pour que les deux
+ * se lisent séparément. La prise de rendez-vous de la V2 est fermée (16/11/2026) :
+ * la fin de la vidéo propose seulement de la revoir.
  */
 
 const PALIERS = [25, 50, 75] as const;
@@ -46,7 +44,7 @@ export function compterVue(etape: string, page?: string) {
 
 const duree = `${Math.floor(VIDEO.dureeSecondes / 60)} min ${String(VIDEO.dureeSecondes % 60).padStart(2, "0")}`;
 
-export default function V2Video({ rdvHref, page }: { rdvHref?: string; page?: string } = {}) {
+export default function V2Video({ page }: { page?: string } = {}) {
   const cadre = useRef<HTMLDivElement>(null);
   const lecteur = useRef<HTMLVideoElement>(null);
   const paliersVus = useRef(new Set<number>());
@@ -106,15 +104,6 @@ export default function V2Video({ rdvHref, page }: { rdvHref?: string; page?: st
     paliersVus.current.clear();
     setLancee(false);
     setFinie(true);
-  };
-
-  const versRendezVous = () => {
-    compterVue("cta", page);
-    lecteur.current?.pause();
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-    const rdv = document.getElementById("rendez-vous");
-    if (rdv) rdv.scrollIntoView({ behavior: "smooth", block: "start" });
-    else if (rdvHref) window.location.assign(rdvHref);
   };
 
   const apercu = (
@@ -188,17 +177,7 @@ export default function V2Video({ rdvHref, page }: { rdvHref?: string; page?: st
           {apercu}
           <div aria-hidden="true" className="absolute inset-0 bg-foreground/75 backdrop-blur-[3px]" />
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center text-white sm:gap-5">
-            <p className="hidden max-w-lg text-xl font-bold leading-tight sm:block md:text-2xl">
-              Envie d&apos;en faire le tour avec nous avant la mise en production&nbsp;?
-            </p>
             <div className="flex flex-col items-center gap-2.5 sm:flex-row sm:gap-3">
-              <button
-                type="button"
-                onClick={versRendezVous}
-                className="rounded-btn bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-primary-dark sm:px-6 sm:py-3 sm:text-base"
-              >
-                Réserver 20 minutes
-              </button>
               <button
                 type="button"
                 onClick={lancer}

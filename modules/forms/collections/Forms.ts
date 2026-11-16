@@ -56,6 +56,17 @@ export const Forms: CollectionConfig = {
       },
     },
     {
+      // Après l'envoi, la vitrine propose de réserver tout de suite (16/11/2026) : la réponse du support porte
+      // l'adresse de la page de réservation, déjà remplie et rattachée à cette demande.
+      name: "bookingType",
+      type: "relationship",
+      relationTo: "booking-types",
+      label: "Proposer un rendez-vous après l'envoi",
+      admin: {
+        description: "Facultatif. La vitrine affiche la page de réservation de ce type, déjà remplie avec la demande (nom, e-mail, société, effectif) et rattachée à la même fiche.",
+      },
+    },
+    {
       name: "fields",
       type: "array",
       label: "Champs",

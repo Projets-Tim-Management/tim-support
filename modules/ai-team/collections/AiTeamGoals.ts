@@ -15,14 +15,18 @@ import { HORIZONS, TEAM_OPTIONS } from "@/modules/ai-team/lib/roadmap-constants"
  *
  * Un objectif chiffré suit UN indicateur (lib/roadmap-metrics) : son point de départ
  * (la valeur le jour où il est proposé), sa cible, son échéance. Le chef le
- * PROPOSE dans sa revue, chiffres à l'appui ; la direction le valide, le
- * corrige ou le refuse — validé, il devient la référence, et le chef en fait le
- * point chaque mois. La valeur du jour et la progression se calculent sur les
- * photos du lundi.
+ * PROPOSE dans sa revue, chiffres à l'appui ; la direction l'accepte, le
+ * corrige ou le refuse — accepté, il devient la référence, et le chef en fait le
+ * point chaque mois.
+ *
+ * UN SEUL OBJECTIF VIVANT PAR INDICATEUR (16/11/2026 : « inutile de doubler les
+ * objectifs ») : le suivant ne se propose qu'une fois le premier atteint ou
+ * manqué, revu à la hausse ou à la baisse, et pourquoi. Personne ne coche
+ * « atteint » : l'objectif chiffré l'est tout seul, le jalon par son chef.
  */
 export const GOAL_STATUSES = [
-  { label: "Proposé, à valider", value: "propose" },
-  { label: "Validé", value: "valide" },
+  { label: "Proposé par un chef", value: "propose" },
+  { label: "En cours", value: "valide" },
   { label: "Atteint", value: "atteint" },
   { label: "Manqué", value: "manque" },
   { label: "Refusé ou abandonné", value: "abandonne" },
@@ -81,6 +85,15 @@ export const AiTeamGoals: CollectionConfig = {
     { name: "author", type: "relationship", relationTo: "users", label: "Fixé par (direction)" },
     { name: "startDate", type: "date", label: "Point de départ mesuré le" },
     { name: "validatedAt", type: "date", label: "Validé le" },
+    // Atteint (16/11/2026) : tout seul, dès que l'indicateur touche la cible (relevé par le support) ; un jalon, par son
+    // chef, preuve à l'appui. « Fêté » : la direction a vu le feu d'artifice.
+    {
+      type: "row",
+      fields: [
+        { name: "reachedAt", type: "date", label: "Atteint le", admin: { width: "50%", readOnly: true, date: { pickerAppearance: "dayAndTime" } } },
+        { name: "celebratedAt", type: "date", label: "Fêté le", admin: { width: "50%", readOnly: true, date: { pickerAppearance: "dayAndTime" } } },
+      ],
+    },
     { name: "review", type: "textarea", label: "Le point du mois (le chef)" },
     { name: "reviewedAt", type: "date", label: "Point fait le" },
   ],

@@ -1,14 +1,10 @@
-import type { SchedulingRules } from "@/modules/marketing/lib/scheduling";
-
 /**
  * Présentation de la V2 de l'application mobile — page publique envoyée aux
- * clients (/app-mobile-v2) : la vidéo, ce qui change pour chaque profil, et la
- * prise de rendez-vous pour un tour de l'app avant la mise en production.
+ * clients (/app-mobile-v2) : la vidéo et ce qui change pour chaque profil.
  *
  * Tout ce qui se règle est ici, et nulle part ailleurs : le contenu des onglets,
- * la vidéo, et les règles des créneaux. Ces règles sont PROPRES à la page — elles
- * ne touchent pas à celles de la session de prise en main réglées sur la fiche
- * partenaire, qui restent ce qu'elles sont.
+ * la vidéo. La prise de rendez-vous de la page est fermée (16/11/2026) : les
+ * rendez-vous se prennent sur les pages /rdv (modules/booking).
  */
 
 /** Identifiant du compteur de vues (analyses → vidéos). */
@@ -42,89 +38,6 @@ export const appV2HostId = (slug?: string | null): number | null =>
 
 /** Adresse de la page d'un interlocuteur : `/app-mobile-v2/cpiancatelli`. */
 export const appV2Path = (slug: string = APP_V2_DEFAULT_HOST): string => `${APP_V2_PATH}/${slug}`;
-
-/**
- * Règles des créneaux : 20 minutes, mardi, mercredi et jeudi de 14 h à 18 h.
- * Dix minutes entre deux rendez-vous : la grille tombe sur les demi-heures
- * (14 h, 14 h 30…), plus lisible pour le client et plus vivable pour l'agenda.
- */
-export const APP_V2_RULES: SchedulingRules = {
-  hours: {
-    "2": [{ start: "14:00", end: "18:00" }],
-    "3": [{ start: "14:00", end: "18:00" }],
-    "4": [{ start: "14:00", end: "18:00" }],
-  },
-  durationMin: 20,
-  bufferMin: 10,
-  minNoticeHours: 24,
-  // Large : c'est `APP_V2_BOOKING_UNTIL` qui borne vraiment l'offre.
-  horizonDays: 60,
-};
-
-/**
- * Dernier jour proposé. La mise en production est prévue courant novembre :
- * passé cette date, un tour « avant la mise en production » n'a plus de sens.
- * À avancer dès que la date est fixée.
- */
-export const APP_V2_BOOKING_UNTIL = "2026-11-30T23:59:59+01:00";
-
-/**
- * Créneaux OUVERTS par après-midi, sur les huit que la grille permet.
- *
- * Volontairement peu, et en nombre VARIABLE d'un jour à l'autre (décision de
- * Charlie, 23/10/2026) : trois le plus souvent, parfois quatre ou cinq, parfois
- * un ou deux. Une offre resserrée et irrégulière se lit comme un agenda demandé.
- *
- * Tout est FIXE — le nombre du jour comme les heures retenues, les mêmes à
- * chaque visite — et se décide sur la grille entière, AVANT de retirer ce qui est
- * occupé : un créneau réservé disparaît donc sans être remplacé, et l'offre fond
- * pour de vrai au fil des réservations.
- */
-const SLOTS_PER_DAY_WEIGHTS: [count: number, weight: number][] = [
-  [1, 1],
-  [2, 2],
-  [3, 4],
-  [4, 2],
-  [5, 1],
-];
-
-/** Nombre de créneaux ouverts pour un jour donné, tiré une fois pour toutes. */
-const slotsForDay = (day: string): number => {
-  const total = SLOTS_PER_DAY_WEIGHTS.reduce((n, [, w]) => n + w, 0);
-  let pick = hash(`jour-${day}`) % total;
-  for (const [count, weight] of SLOTS_PER_DAY_WEIGHTS) {
-    if (pick < weight) return count;
-    pick -= weight;
-  }
-  return 3;
-};
-
-/** Empreinte stable d'un créneau : sert seulement à mélanger, pas à sécuriser. */
-const hash = (s: string): number => {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i += 1) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return h >>> 0;
-};
-
-/**
- * Les créneaux ouverts d'une grille : par jour (heure de Paris), autant que
- * `slotsForDay` en accorde, pris en tête du mélange.
- */
-export function openSlots(grid: string[]): Set<string> {
-  const byDay = new Map<string, string[]>();
-  for (const s of grid) {
-    const day = new Date(s).toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" });
-    byDay.set(day, [...(byDay.get(day) ?? []), s]);
-  }
-  const open = new Set<string>();
-  for (const [day, slots] of byDay) {
-    [...slots]
-      .sort((a, b) => hash(a) - hash(b))
-      .slice(0, slotsForDay(day))
-      .forEach((s) => open.add(s));
-  }
-  return open;
-}
 
 /**
  * Vidéo : même fabrication que les vidéos de la vitrine (AV1 + H.264 1080p +

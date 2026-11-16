@@ -10,6 +10,9 @@ import { checkIngestKey, clientIp, parseAttribution } from "@/modules/forms/lib/
 import { toPublicForm } from "@/modules/forms/lib/public-schema";
 import { buildOpportunity } from "@/modules/forms/lib/to-opportunity";
 import { honeypotTripped, validateAnswers } from "@/modules/forms/lib/validate";
+import { SITE_URL } from "@/core/lib/email-template";
+import { bookingPath } from "@/modules/booking/lib/constants";
+import { signSubmission } from "@/modules/booking/lib/prefill";
 
 /**
  * POST /api/forms/<formId>/submissions — l'entrée des leads du site vitrine.
@@ -168,6 +171,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
       }.`,
     );
 
+    // Le rendez-vous à proposer après l'envoi (réglé sur le formulaire) : l'adresse de sa page de réservation, déjà
+    // remplie et rattachée à cette demande par une référence signée (modules/booking/lib/prefill). Elle va à la
+    // vitrine (écran « Merci ») ET dans l'accusé de réception, à la place de Calendly.
+    const bookingTypeId = (doc as { bookingType?: number | string | { id?: number | string } | null })?.bookingType;
+    const bookingType = bookingTypeId
+      ? ((await payload.findByID({ collection: "booking-types", id: typeof bookingTypeId === "object" ? String(bookingTypeId.id) : String(bookingTypeId), depth: 0, overrideAccess: true }).catch(() => null)) as { slug?: string; active?: boolean } | null)
+      : null;
+    const bookingUrl = bookingType?.slug && bookingType.active !== false ? `${SITE_URL.replace(/\/$/, "")}${bookingPath(bookingType.slug)}?demande=${signSubmission(submission.id)}` : undefined;
+
     /**
      * L'opportunité, dans la foulée — c'est ce qui remplace le cron quotidien.
      *
@@ -209,6 +221,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
         issues: outcome.status === "echec" ? [] : opportunity.issues.map((i) => `${i.message} (« ${i.raw} »)`),
         known: outcome.status === "rattachee",
         followedBy: follower ? { name: follower.displayName || "son partenaire", email: follower.email ?? null } : null,
+        bookingUrl,
+        sourceRef: signSubmission(submission.id),
       });
     } catch (e) {
       const error = (e as Error).message;
@@ -217,7 +231,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ formId:
     }
 
     return NextResponse.json(
-      { ok: true, submission_id: submissionId },
+      { ok: true, submission_id: submissionId, ...(bookingUrl ? { booking_url: bookingUrl } : {}) },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (err) {

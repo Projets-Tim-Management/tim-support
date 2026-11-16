@@ -32,6 +32,19 @@ export async function postJson(url: string, body: unknown, fallback = "L'enregis
   return data?.error ?? fallback;
 }
 
+/**
+ * L'AVANCEMENT À DATE (16/11/2026 : « 100 % si toutes les tâches à date sont faites ») : parmi les tâches à faire
+ * par des humains — les vôtres (confiées par les agents) et celles des équipes — dont la date est aujourd'hui ou
+ * passée, la part faite. Le travail des agents eux-mêmes (rapports, décisions) n'y entre pas : il est fait d'office.
+ * Pure (testée).
+ */
+export function progressToDate(actions: ActionView[], today: string): { done: number; due: number; pct: number; late: number } {
+  const end = t(today) + DAY / 2;
+  const due = actions.filter((a) => (a.kind === "vous" || a.kind === "equipe") && t(a.date) <= end);
+  const done = due.filter((a) => a.status === "faite").length;
+  return { done, due: due.length, pct: due.length ? Math.round((done / due.length) * 100) : 100, late: due.length - done };
+}
+
 export const fmtValue = (v: number | null | undefined, unit: string) =>
   v == null ? "—" : unit === "€" ? v.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : unit === "%" ? `${v.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %` : v.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 

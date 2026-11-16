@@ -41,9 +41,13 @@ export async function sendLeadEmails(
     known?: boolean;
     /** Le partenaire qui suit cette fiche, prévenu à part — sauf celui du site. */
     followedBy?: { name: string; email: string | null } | null;
+    /** La page de réservation du support, pré-remplie (voir lead-emails : remplace Calendly). */
+    bookingUrl?: string;
+    /** La référence signée de la demande (« Comment nous avez-vous connus ? » en un clic). */
+    sourceRef?: string;
   },
 ): Promise<void> {
-  const { form, answers, attribution, channel, clientId, issues, known, followedBy } = args;
+  const { form, answers, attribution, channel, clientId, issues, known, followedBy, bookingUrl, sourceRef } = args;
 
   const besoinValues = Array.isArray(answers.besoins) ? answers.besoins : [];
   const ctx = {
@@ -55,6 +59,8 @@ export async function sendLeadEmails(
     besoins: besoinValues.map((v) => labelOf(form, "besoins", v)).filter(Boolean),
     besoinValues,
     email: str(answers.email).toLowerCase() || undefined,
+    bookingUrl,
+    sourceRef,
   };
 
   if (ctx.email) {

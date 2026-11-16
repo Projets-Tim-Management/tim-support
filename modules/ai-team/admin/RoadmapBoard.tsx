@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { actionTone, fmtValue as fmt, gapText, goalTone, OutcomeBadge, postJson as post, ProgressRing, t } from "@/modules/ai-team/admin/roadmap-ui";
+import { actionTone, fmtValue as fmt, gapText, goalTone, OutcomeBadge, postJson as post, progressToDate, ProgressRing, t } from "@/modules/ai-team/admin/roadmap-ui";
 import { ACTION_WHO, HORIZONS as HORIZON_LIST, ROADMAP_TEAMS, TEAM_SHORT as TEAM_LABEL } from "@/modules/ai-team/lib/roadmap-constants";
-import { CheckBox, RoadmapTimeline, toggleAction } from "@/modules/ai-team/admin/RoadmapTimeline";
+import { CheckBox, RoadmapTimeline } from "@/modules/ai-team/admin/RoadmapTimeline";
 import { Sparkline } from "@/modules/analytics/admin/ui";
 import { INDICATOR_GROUPS, INDICATORS, indicatorOf, WEEKLY_INDICATORS } from "@/modules/ai-team/lib/indicators-meta";
 import { beforeAfter, type SeriesPoint } from "@/modules/ai-team/lib/roadmap-calc";
@@ -264,18 +264,10 @@ function ActionForm({ goals, goal, onClose }: { goals: GoalView[]; goal: string 
 /* ─── Onglet « Objectifs » : une ligne par objectif, avec ses actions ───── */
 
 function ActionChip({ a, today }: { a: ActionView; today: string }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
   const late = a.status !== "faite" && a.date.slice(0, 10) < today;
-  const toggle = async (x: ActionView) => {
-    setBusy(true);
-    const err = await toggleAction(x);
-    setBusy(false);
-    if (!err) router.refresh();
-  };
   return (
     <li className={`rdm-act rdm-act--${actionTone(a)}${a.status === "faite" ? " rdm-act--done" : ""}`}>
-      <CheckBox a={a} onToggle={toggle} busy={busy} />
+      <CheckBox a={a} />
       <span className="rdm-act__date">{dayFr(a.date)}</span>
       <a className={`rdm-act__title${a.status === "faite" ? " rdt-done" : ""}`} href={a.href}>
         {a.title}
@@ -310,9 +302,10 @@ function GoalRow({ g, actions, today, onAddAction }: { g: GoalView; actions: Act
         <div className="rdm-goal__badges">
           <span className="an-badge an-badge--muted">{TEAM_LABEL[g.team]}</span>
           {g.kind === "jalon" && <span className="an-badge an-badge--muted">Jalon</span>}
-          {g.status === "propose" && <span className="an-badge an-badge--warn">À valider</span>}
+          {g.status === "propose" && <span className="an-badge an-badge--warn">Proposé{g.by ? ` par ${g.by}` : ""}</span>}
+          {g.status === "atteint" && <span className="an-badge an-badge--ok">🎉 Atteint{g.reachedAt ? ` le ${dayFr(g.reachedAt)}` : ""}</span>}
           {g.status === "manque" && <span className="an-badge an-badge--bad">Manqué</span>}
-          {pace && g.status !== "propose" && <span className={`an-badge an-badge--${pace.tone}`}>{pace.label}</span>}
+          {pace && g.status === "valide" && <span className={`an-badge an-badge--${pace.tone}`}>{pace.label}</span>}
         </div>
         <div className="rdm-goal__hero">
           {m ? (
@@ -344,7 +337,7 @@ function GoalRow({ g, actions, today, onAddAction }: { g: GoalView; actions: Act
             {g.kind === "chiffre" && <input aria-label="Cible" type="number" step="any" value={target} onChange={(e) => setTarget(e.target.value)} />}
             <input aria-label="Échéance" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
             <button type="button" className="an-btn rdm-btn--primary" onClick={() => act("valider")} disabled={busy}>
-              Valider
+              Accepter cet objectif
             </button>
             <button type="button" className="an-btn" onClick={() => act("refuser")} disabled={busy}>
               Refuser
@@ -373,11 +366,8 @@ function GoalRow({ g, actions, today, onAddAction }: { g: GoalView; actions: Act
         )}
         {g.status === "valide" && (
           <div className="rdm-goal__links">
-            {g.kind === "jalon" && (
-              <button type="button" className="rdm-link" onClick={() => act("atteint")} disabled={busy}>
-                Marquer atteint
-              </button>
-            )}
+            {g.kind === "jalon" && <span className="rdm-goal__auto">Atteint : déclaré par le chef de l&apos;équipe, preuve à l&apos;appui.</span>}
+            {g.kind === "chiffre" && <span className="rdm-goal__auto">Atteint tout seul dès que le chiffre touche la cible.</span>}
             <button type="button" className="rdm-link" onClick={() => act("abandonner")} disabled={busy}>
               Abandonner
             </button>
@@ -553,7 +543,7 @@ export function RoadmapBoard({ view }: { view: RoadmapView }) {
   const inTeam = (x: GoalTeam) => team === "all" || x === team || x === "tous";
 
   // Mémorisés : la frise recalcule ses couloirs seulement quand l'équipe ou les données changent.
-  const goals = useMemo(() => view.goals.filter((g) => team === "all" || g.team === team || g.team === "tous"), [view.goals, team]);
+  const goals = useMemo(() => view.goals.filter((g) => g.status !== "abandonne" && (team === "all" || g.team === team || g.team === "tous")), [view.goals, team]);
   const actions = useMemo(() => view.actions.filter((a) => team === "all" || a.team === team || a.team === "tous"), [view.actions, team]);
   const byGoal = useMemo(() => {
     const m = new Map<string, ActionView[]>();
@@ -574,6 +564,7 @@ export function RoadmapBoard({ view }: { view: RoadmapView }) {
   }, [fullSeries, months]);
 
   const toValidate = goals.filter((g) => g.status === "propose").length;
+  const pace = useMemo(() => progressToDate(actions, today), [actions, today]);
   const works = view.works.filter((w) => inTeam(w.team));
   const current = actions.find((a) => a.id === selected) ?? null;
 
@@ -592,13 +583,25 @@ export function RoadmapBoard({ view }: { view: RoadmapView }) {
             </button>
           ))}
         </div>
-        <div className="rdm-bar__buttons">
-          <button type="button" className="an-btn" onClick={() => setDialog({ kind: "action", goal: null })}>
-            + Action
-          </button>
-          <button type="button" className="an-btn rdm-btn--primary" onClick={() => setDialog({ kind: "goal" })}>
-            + Objectif
-          </button>
+        <div className="rdm-bar__right">
+          <div
+            className={`rdm-pace${pace.pct === 100 ? " rdm-pace--ok" : pace.pct < 50 ? " rdm-pace--bad" : ""}`}
+            title={pace.due ? `${pace.done} tâche${pace.done > 1 ? "s" : ""} faite${pace.done > 1 ? "s" : ""} sur ${pace.due} prévue${pace.due > 1 ? "s" : ""} à aujourd'hui${pace.late ? ` · ${pace.late} en retard` : ""}` : "Aucune tâche prévue à ce jour."}
+          >
+            <span className="rdm-pace__label">{pace.pct === 100 ? "✅ À jour" : "À date"}</span>
+            <span className="rdm-pace__track" role="progressbar" aria-label="Tâches faites à date" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pace.pct}>
+              <span className="rdm-pace__fill" style={{ width: `${pace.pct}%` }} />
+            </span>
+            <span className="rdm-pace__pct">{pace.pct} %</span>
+          </div>
+          <div className="rdm-bar__buttons">
+            <button type="button" className="an-btn" onClick={() => setDialog({ kind: "action", goal: null })}>
+              + Action
+            </button>
+            <button type="button" className="an-btn rdm-btn--primary" onClick={() => setDialog({ kind: "goal" })}>
+              + Objectif
+            </button>
+          </div>
         </div>
       </div>
 

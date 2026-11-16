@@ -54,7 +54,6 @@ import { AiTeamActions } from "./modules/ai-team/collections/AiTeamActions";
 import { AiTeamBrief } from "./modules/ai-team/globals/AiTeamBrief";
 import { AiTeamRequests } from "./modules/ai-team/collections/AiTeamRequests";
 import { AiTeamSnapshots } from "./modules/ai-team/collections/AiTeamSnapshots";
-import { AdRecaps } from "./modules/ads/collections/AdRecaps";
 import { AdsSettings } from "./modules/ads/globals/AdsSettings";
 import { AdsBrandKit } from "./modules/ads/globals/AdsBrandKit";
 import { AdMedia } from "./modules/ads/collections/AdMedia";
@@ -92,6 +91,8 @@ import { ElectronicSignatures } from "./modules/partner/collections/ElectronicSi
 import { ClientContracts } from "./modules/partner/collections/ClientContracts";
 import { CalendarConnections } from "./modules/marketing/collections/CalendarConnections";
 import { PresentationBookings } from "./modules/marketing/collections/PresentationBookings";
+import { BookingTypes } from "./modules/booking/collections/BookingTypes";
+import { Bookings } from "./modules/booking/collections/Bookings";
 import { MassEmailCampaigns } from "./modules/marketing/collections/MassEmailCampaigns";
 import { seedJourneys } from "./modules/marketing/lib/seed";
 import { ContractSettings, seedContractSettings } from "./modules/partner/globals/ContractSettings";
@@ -254,7 +255,8 @@ export default buildConfig({
       // Barre du haut : switcher de partenaire (recherche + bascule de contexte)
       // + cloche de notifications (compteur + popover) + compte. La cloche
       // remplace l'ancien raccourci « Notifications » du menu (retiré).
-      header: ["/admin/header/PartnerSwitcher#default"],
+      // + le feu d'artifice d'un objectif atteint (équipe IA, 16/11/2026), sur toutes les pages, pour la direction.
+      header: ["/admin/header/PartnerSwitcher#default", "/modules/ai-team/admin/GoalCelebration#default"],
       views: {
         // Tableau de bord custom (remplace la page d'accueil /admin). Métriques
         // par compartiment + graphiques — voir admin/dashboard/.
@@ -340,6 +342,13 @@ export default buildConfig({
           path: "/equipe-ia",
           exact: true,
           meta: { title: "Équipe IA" },
+        },
+        // Mes tâches : tout ce que la direction a à faire, le seul endroit où elle coche (modules/ai-team, 16/11/2026).
+        mesTaches: {
+          Component: "/modules/ai-team/admin/MyTasksView#default",
+          path: "/mes-taches",
+          exact: true,
+          meta: { title: "Mes tâches" },
         },
         // La feuille de route de l'équipe IA : objectifs à horizon, actions et résultats (modules/ai-team).
         feuilleDeRoute: {
@@ -427,6 +436,9 @@ export default buildConfig({
       FormSubmissions,
       // Tours de l'app mobile V2 réservés depuis la page de présentation
       PresentationBookings,
+      // Les rendez-vous en ligne (comme Calendly) : les types réglables et chaque réservation (modules/booking)
+      BookingTypes,
+      Bookings,
       // E-mail de masse : la trace de chaque envoi, clé des statistiques Brevo
       MassEmailCampaigns,
       // Les étapes commerciales renvoyées à GA4 (plan de mesure) : une ligne par opportunité et par étape
@@ -466,7 +478,6 @@ export default buildConfig({
       AiTeamRequests,
       // La photo des chiffres de chaque lundi (tendances, avant / après des recommandations).
       AiTeamSnapshots,
-      AdRecaps,
       AdMedia,
       AdFacts,
       AdAiUsage,

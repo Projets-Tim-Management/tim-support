@@ -92,7 +92,8 @@ export function safeRequestUrl(raw: unknown): string | null {
 export function cleanSteps(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .map((s) => String(s ?? "").replace(/\s+/g, " ").trim())
+    // Une étape cochée dans « Mes tâches » est gardée en objet { text, done } : on en relit le texte.
+    .map((s) => String((s && typeof s === "object" ? (s as { text?: unknown }).text : s) ?? "").replace(/\s+/g, " ").trim())
     .filter(Boolean)
     .slice(0, 8)
     .map((s) => (s.length > 300 ? `${s.slice(0, 299)}…` : s));
@@ -123,3 +124,50 @@ export function validateRequest(input: Record<string, unknown>): { ok: true; val
   if (asked && !url) return { ok: false, reason: `lien refusé : seulement une page du back-office (« /admin/… ») ou une console connue (${ALLOWED_HOSTS.join(", ")}).` };
   return { ok: true, value: { kind, title, why, url, steps, question: null } };
 }
+
+/** Ce que la direction fait d'une demande : la nouvelle valeur, ou la raison du refus. Pure (testée). */
+export function closeRequest(req: { kind: string; status: string }, action: string, text: string): { ok: true; status: "faite" | "repondue" | "retiree" | "ouverte"; answer: string | null } | { ok: false; reason: string } {
+  // Un « C'est fait » cliqué trop vite se rattrape : la demande se rouvre (une question répondue, non).
+  if (action === "rouvrir") return req.kind === "a-faire" && req.status === "faite" ? { ok: true, status: "ouverte", answer: null } : { ok: false, reason: "Seule une tâche faite se rouvre." };
+  if (req.status !== "ouverte") return { ok: false, reason: "Cette demande est déjà close." };
+  const t = text.trim();
+  if (t.length > 2000) return { ok: false, reason: "2 000 caractères au plus." };
+  if (action === "retirer") return { ok: true, status: "retiree", answer: t || null };
+  if (action === "fait") {
+    if (req.kind !== "a-faire") return { ok: false, reason: "Une question attend une réponse, pas « C'est fait »." };
+    return { ok: true, status: "faite", answer: t || null };
+  }
+  if (action === "repondre") {
+    if (req.kind !== "question") return { ok: false, reason: "Cette demande n'est pas une question." };
+    if (!t) return { ok: false, reason: "Écrivez votre réponse." };
+    return { ok: true, status: "repondue", answer: t };
+  }
+  return { ok: false, reason: "Action inconnue." };
+}
+
+export type RequestStep = { text: string; done: boolean };
+
+/**
+ * Cocher ou décocher une étape d'une demande « à faire » (« Mes tâches », 16/11/2026). Les étapes, écrites en
+ * simples textes par les agents, sont gardées en objets { text, done } dès la première coche. Toutes cochées : la
+ * demande est faite. Pure (testée).
+ */
+export function checkRequestStep(req: { kind: string; status: string; steps?: unknown }, step: number, done: boolean): { ok: true; steps: RequestStep[]; status: "ouverte" | "faite" } | { ok: false; reason: string } {
+  if (req.kind !== "a-faire") return { ok: false, reason: "Une question n'a pas d'étapes à cocher." };
+  if (req.status !== "ouverte" && req.status !== "faite") return { ok: false, reason: "Cette demande est close." };
+  const steps: RequestStep[] = (Array.isArray(req.steps) ? req.steps : []).flatMap((s) => {
+    const text = String((s && typeof s === "object" ? (s as { text?: unknown }).text : s) ?? "").trim();
+    return text ? [{ text, done: Boolean(s && typeof s === "object" && (s as { done?: unknown }).done) }] : [];
+  });
+  if (!Number.isInteger(step) || step < 0 || step >= steps.length) return { ok: false, reason: "Étape inconnue." };
+  steps[step] = { ...steps[step], done };
+  return { ok: true, steps, status: steps.every((s) => s.done) ? "faite" : "ouverte" };
+}
+
+/**
+ * La règle de toutes les demandes faites à la direction (16/11/2026 : « c'est à moi de faire cette tâche, pas à un
+ * agent ? » — Serge lui faisait exporter de la Search Console une liste que Robert avait déjà) : jointe à la consigne
+ * de chaque agent qui confie un geste à la direction.
+ */
+export const NO_LEGWORK =
+  "- Ne fais jamais faire à la direction ce que l'équipe sait déjà ou peut lire elle-même (CRM, comptes publicitaires en lecture, Search Console, GA4, contrôles du site, rapports des agents) : pas d'étape « exportez », « relevez », « vérifiez combien… » ; écris la liste ou le chiffre DANS l'étape et commence par l'action. La direction ne fait que ce qu'aucun agent ne peut faire : modifier, écrire, publier, appeler, décider.";

@@ -12,7 +12,7 @@ const users = [
 
 describe("e-mails d'équipe", () => {
   it("par défaut, comme avant : tous les admins, jamais un partenaire utilisateur", () => {
-    expect(resolveTeamRecipients("publicite-recap", users, {})).toEqual(["direction@tim-management.co", "cpiancatelli@tim-management.co", "mpetrini@tim-management.co"]);
+    expect(resolveTeamRecipients("publicite-urgence", users, {})).toEqual(["direction@tim-management.co", "cpiancatelli@tim-management.co", "mpetrini@tim-management.co"]);
   });
 
   it("suit les rôles du réglage", () => {
@@ -24,16 +24,16 @@ describe("e-mails d'équipe", () => {
       ...users.slice(0, 2),
       { email: "mpetrini@tim-management.co", roles: ["admin", "support"], teamEmailsMode: "custom", teamEmails: ["parcours-devis"] },
       // Un partenaire utilisateur ne reçoit rien, même avec une liste.
-      { email: "partenaire@exemple.fr", roles: ["partner-utilisateur"], teamEmailsMode: "custom", teamEmails: ["publicite-recap"] },
+      { email: "partenaire@exemple.fr", roles: ["partner-utilisateur"], teamEmailsMode: "custom", teamEmails: ["publicite-urgence"] },
     ];
-    const rules = { "publicite-recap": ["admin"], "parcours-devis": ["super-admin"] };
-    expect(resolveTeamRecipients("publicite-recap", perso, rules)).toEqual(["direction@tim-management.co", "cpiancatelli@tim-management.co"]);
+    const rules = { "publicite-urgence": ["admin"], "parcours-devis": ["super-admin"] };
+    expect(resolveTeamRecipients("publicite-urgence", perso, rules)).toEqual(["direction@tim-management.co", "cpiancatelli@tim-management.co"]);
     expect(resolveTeamRecipients("parcours-devis", perso, rules)).toEqual(["direction@tim-management.co", "mpetrini@tim-management.co"]);
   });
 
   it("une alerte critique que personne ne reçoit part au super-admin ; une simple information, non", () => {
     expect(resolveTeamRecipients("publicite-urgence", users, { "publicite-urgence": [] })).toEqual(["direction@tim-management.co"]);
-    expect(resolveTeamRecipients("publicite-recap", users, { "publicite-recap": [] })).toEqual([]);
+    expect(resolveTeamRecipients("client-gagne", users, { "client-gagne": [] })).toEqual([]);
   });
 
   it("ne double pas une adresse portée par deux comptes ou deux rôles", () => {

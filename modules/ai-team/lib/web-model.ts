@@ -80,6 +80,8 @@ export async function runWebModel(
     maxTurns?: number;
     effort?: WebCallInput["effort"];
     call?: WebCall;
+    /** Levé à la demande expresse de la direction : le plafond du JOUR seulement (lib/spend). */
+    overDailyCap?: boolean;
   },
 ): Promise<WebRun> {
   const maxTokens = o.maxTokens ?? 16_000;
@@ -96,7 +98,7 @@ export async function runWebModel(
   try {
     for (let turn = 0; turn < (o.maxTurns ?? 3); turn += 1) {
       const maxEur = usdToEur(claudeMaxCostUsd(o.model, estimateTokens(o.system, JSON.stringify(messages)) + (o.webInputTokens ?? 90_000), maxTokens) + maxSearches * WEB_SEARCH_USD);
-      await assertAdsBudget(payload, o.kind, maxEur, o.now);
+      await assertAdsBudget(payload, o.kind, maxEur, o.now, { overDailyCap: o.overDailyCap });
       const input = { model: o.model, system: o.system, messages, maxTokens, maxSearches, maxFetches, effort: o.effort ?? "medium" } as const;
       // Un vrai appel rapporte son sort (API en panne : paiement, clé…) ; un appel simulé (tests) non.
       last = o.call ? await o.call(input) : await trackApi("anthropic", () => callWebModel(input), payload);

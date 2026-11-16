@@ -5,6 +5,7 @@ import { adminRequest } from "@/modules/ads/lib/route-auth";
 import { initialMeasures, measureContext, type Measure } from "@/modules/ai-team/lib/indicators";
 import { indicatorOf } from "@/modules/ai-team/lib/indicators-meta";
 import { addMonths } from "@/modules/ai-team/lib/format";
+import { liveGoalsByMetric, metricKey } from "@/modules/ai-team/lib/roadmap";
 import { dayToIso as asDate, HORIZON_MONTHS, isRoadmapTeam, type Horizon } from "@/modules/ai-team/lib/roadmap-constants";
 
 /**
@@ -14,8 +15,11 @@ import { dayToIso as asDate, HORIZON_MONTHS, isRoadmapTeam, type Horizon } from 
  *    la direction, validé d'emblée ; sa courbe part avec le passé de l'indicateur (12 mois, s'il en a un) et la valeur
  *    du jour, qui est son point de départ ;
  *  - POST { id, measure, at? } — une valeur saisie à la main (indicateur « Saisie manuelle », ou correction) ;
- *  - POST { id, action: "valider" | "refuser" | "abandonner" | "atteint", target?, dueDate? } — décider d'un objectif
- *    proposé par un chef (en corrigeant sa cible ou son échéance), l'abandonner, cocher un jalon atteint.
+ *  - POST { id, action: "valider" | "refuser" | "abandonner", target?, dueDate? } — accepter un objectif proposé par
+ *    un chef (en corrigeant sa cible ou son échéance), le refuser, l'abandonner.
+ *
+ * Personne ne coche « atteint » (16/11/2026) : un objectif chiffré l'est tout seul (closeGoals), un jalon par son
+ * chef. Et un seul objectif vivant par indicateur : on n'en crée pas un second tant que le premier court.
  *
  * Réservé à la direction.
  */
@@ -42,6 +46,8 @@ export async function POST(req: Request) {
       const meta = indicatorOf(String(c.metric));
       const target = Number(c.target);
       if (!meta || !Number.isFinite(target)) return NextResponse.json({ error: "Un objectif chiffré a un indicateur et une cible." }, { status: 400 });
+      const live = meta.key === "manuel" ? undefined : (await liveGoalsByMetric(payload)).get(metricKey(meta.key, meta.param ? String(c.param ?? "").trim() : null));
+      if (live) return NextResponse.json({ error: `Un objectif suit déjà cet indicateur : ${live}. Le suivant se fixe une fois celui-ci atteint ou manqué.` }, { status: 400 });
       const param = meta.param ? String(c.param ?? "").trim().slice(0, 300) : null;
       if (meta.param && !param?.startsWith("/")) return NextResponse.json({ error: "Indiquez la page à suivre, par exemple /contact." }, { status: 400 });
       // La courbe de départ : le passé de l'indicateur et la valeur du jour ; une saisie manuelle part de la valeur donnée.
@@ -69,7 +75,7 @@ export async function POST(req: Request) {
 
   const id = String(body.id ?? "");
   const action = String(body.action ?? "");
-  if (!id || !["valider", "refuser", "abandonner", "atteint"].includes(action)) return NextResponse.json({ error: "Demande incomplète." }, { status: 400 });
+  if (!id || !["valider", "refuser", "abandonner"].includes(action)) return NextResponse.json({ error: "Demande incomplète." }, { status: 400 });
   const goal = await payload.findByID({ collection: "ai-team-goals", id, depth: 0, overrideAccess: true }).catch(() => null);
   if (!goal) return NextResponse.json({ error: "Objectif introuvable." }, { status: 404 });
   const data: Record<string, unknown> = {};
@@ -78,8 +84,7 @@ export async function POST(req: Request) {
     if (target != null && !Number.isFinite(target)) return NextResponse.json({ error: "La cible doit être un nombre." }, { status: 400 });
     const due = asDate(body.dueDate);
     Object.assign(data, { status: "valide", validatedAt: new Date().toISOString(), ...(target != null ? { target } : {}), ...(due ? { dueDate: due } : {}) });
-  } else if (action === "atteint") data.status = "atteint";
-  else data.status = "abandonne";
+  } else data.status = "abandonne";
   await payload.update({ collection: "ai-team-goals", id, data: data as never, overrideAccess: true });
   return NextResponse.json({ ok: true });
 }

@@ -16,7 +16,7 @@ import { googlePost } from "@/modules/analytics/lib/seo-google-auth";
  *
  * Lu en direct (GAQL), gardé 3 heures. Aucune écriture, aucune table : le
  * pilotage (budgets, mots-clés négatifs) passe par la direction, dans la
- * console Google Ads, via « Vos demandes ».
+ * console Google Ads, via « Mes tâches ».
  *
  * `buildGoogleAds` est pur (testé) ; `loadGoogleAds` interroge l'API.
  */

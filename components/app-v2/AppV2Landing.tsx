@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 
 import CountUp from "@/components/app-v2/CountUp";
 import Phone from "@/components/app-v2/Phone";
 import ProfileShowcase from "@/components/app-v2/ProfileShowcase";
 import Reveal from "@/components/app-v2/Reveal";
-import V2Booking from "@/components/app-v2/V2Booking";
 import V2Message from "@/components/app-v2/V2Message";
 import V2Video from "@/components/app-v2/V2Video";
 import { APP_V2_PROFILES, APP_V2_VIDEO } from "@/modules/marketing/lib/app-v2";
@@ -19,24 +17,13 @@ import "./v2.css";
  * d'informer. D'où les halos de l'ouverture, les téléphones qui
  * flottent, les chiffres en grand. L'ordre suit les questions qu'on se pose :
  * à quoi ça ressemble (le film), qu'est-ce qui change pour mes équipes (un
- * profil à la fois, à sa couleur de la vidéo), comment la voir avant tout le
- * monde (le rendez-vous), et à qui écrire (le support).
- *
- * Une page PAR INTERLOCUTEUR (`/app-mobile-v2/cpiancatelli`) : le rendez-vous
- * se prend avec lui, dans son agenda, et la section le présente — nom, fonction,
- * photo de sa fiche partenaire — comme le contact pour la présentation de la V2.
+ * profil à la fois, à sa couleur de la vidéo), et à qui écrire (le support).
+ * La prise de rendez-vous est fermée depuis le 16/11/2026 (la V2 est en
+ * production) ; les rendez-vous se prennent sur les pages /rdv (modules/booking).
  *
  * Hors navigation du centre d'aide (voir ConditionalHeader). Non indexée :
  * c'est un envoi, pas une page du site.
  */
-
-/** L'interlocuteur de la page, tel que l'affiche la section rendez-vous. */
-export type AppV2Host = {
-  slug: string;
-  name: string;
-  jobTitle: string | null;
-  photoUrl: string | null;
-};
 
 export const APP_V2_METADATA: Metadata = {
   title: "L'application mobile V2",
@@ -111,8 +98,7 @@ const STATS = [
 
 const TITLE = ["L'app", "mobile."];
 
-export default function AppV2Landing({ host }: { host: AppV2Host }) {
-  const firstName = host.name.split(" ")[0] ?? host.name;
+export default function AppV2Landing() {
   return (
     <div className="overflow-x-clip bg-white">
       {/* ── 1. Ouverture : noir, halos, titre, les trois profils ─────────── */}
@@ -151,10 +137,10 @@ export default function AppV2Landing({ host }: { host: AppV2Host }) {
               style={{ "--d": "800ms" } as React.CSSProperties}
             >
               <a
-                href="#rendez-vous"
+                href="#message"
                 className="rounded-full bg-primary px-7 py-3.5 font-semibold text-white shadow-lg shadow-primary/40 transition hover:scale-[1.03] hover:bg-primary-dark"
               >
-                Réserver mon tour de 20 min
+                Une question ? Écrivez-nous
               </a>
               <a
                 href="#film"
@@ -323,65 +309,6 @@ export default function AppV2Landing({ host }: { host: AppV2Host }) {
             <div className="v2-float">
               <Phone screens={[{ src: "/app-v2/ecran-absence-3.jpg", alt: "Mes demandes d'absence : une demande en attente de validation", full: true }]} className="rotate-3" />
             </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ── 6. Le rendez-vous ──────────────────────────────────────────────── */}
-      <section id="rendez-vous" className="relative isolate scroll-mt-4 overflow-hidden bg-white">
-        <div aria-hidden="true" className="absolute left-1/2 top-0 -z-10 h-[420px] w-[820px] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
-        <div className="mx-auto max-w-5xl px-4 py-24 sm:px-6 sm:py-32">
-          <Reveal className="text-center">
-            <span className="inline-flex items-center gap-2 rounded-full bg-primary-light px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-primary">
-              <span className="v2-pulse h-2 w-2 rounded-full bg-primary" />
-              Places limitées
-            </span>
-            <h2 className="mt-5 text-4xl font-bold leading-[1.05] tracking-tight text-ink sm:text-6xl">
-              Voyez-la avant
-              <br />
-              tout le monde.
-            </h2>
-            <p className="mx-auto mt-5 max-w-2xl text-lg text-foreground/70">
-              20 minutes en visio avec {host.name}, votre contact pour la présentation de la V2 : un tour de
-              l&apos;application sur vos cas réels, et toutes vos questions, avant la mise en production.
-            </p>
-          </Reveal>
-
-          {/* Avec qui : une personne, pas « l'équipe ». « Contact pour la V2 » et non
-              « interlocuteur principal » : la page part aussi aux clients suivis par
-              un autre partenaire (ceux de Luis), pour qui ce serait faux. */}
-          <Reveal delay={80} className="mt-10 flex justify-center">
-            <div className="inline-flex items-center gap-4 rounded-2xl bg-white px-5 py-4 text-left shadow-lg shadow-foreground/5 ring-1 ring-border">
-              {host.photoUrl ? (
-                <Image
-                  src={host.photoUrl}
-                  alt={host.name}
-                  width={64}
-                  height={64}
-                  unoptimized
-                  className="h-16 w-16 rounded-full object-cover ring-2 ring-primary-light"
-                />
-              ) : (
-                <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-light text-xl font-bold text-primary">
-                  {host.name
-                    .split(" ")
-                    .map((w) => w[0])
-                    .join("")
-                    .slice(0, 2)}
-                </span>
-              )}
-              <span>
-                <span className="block text-lg font-bold text-ink">{host.name}</span>
-                {host.jobTitle && <span className="block text-sm text-foreground/70">{host.jobTitle}</span>}
-                <span className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-primary-light px-2.5 py-0.5 text-xs font-semibold text-primary">
-                  Votre contact pour la V2
-                </span>
-              </span>
-            </div>
-          </Reveal>
-
-          <Reveal delay={150} className="mt-10">
-            <V2Booking hote={host.slug} hostFirstName={firstName} />
           </Reveal>
         </div>
       </section>
