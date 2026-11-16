@@ -22,7 +22,8 @@ export default function ConditionalHeader() {
   const isPortal = /^\/espace-client(?:\/|$)/.test(pathname);
   // Présentation de la V2 : une page envoyée à un client, qui a sa propre
   // marque et une seule chose à proposer — le même raisonnement.
-  const isPresentation = pathname.startsWith("/app-mobile-v2");
+  // La présentation V2 et les pages de rendez-vous (/rdv, intégrées dans la vitrine) : sans l'habillage du centre d'aide.
+  const isPresentation = pathname.startsWith("/app-mobile-v2") || pathname.startsWith("/rdv");
   if (isPortal || isPresentation) return null;
   return <Header />;
 }
