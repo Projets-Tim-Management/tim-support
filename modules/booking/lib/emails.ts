@@ -151,7 +151,7 @@ export function cancelledMail(v: MailView, rebookUrl: string): Mail {
 /** Au membre de l'équipe : nouveau, déplacé ou annulé — les problèmes en tête. */
 export function hostMail(v: MailView, what: "nouveau" | "deplace" | "annule", o: { problems: string[]; clientUrl: string | null; bookingUrl: string; reason?: string | null }): Mail {
   const verb = what === "nouveau" ? "Nouveau rendez-vous" : what === "deplace" ? "Rendez-vous déplacé" : "Rendez-vous annulé";
-  const alert = o.problems.length ? `⚠️ À rappeler : ${o.problems.join(" · ")}. Le rendez-vous et le prospect sont enregistrés : appelez-le au ${v.phone ?? "numéro de la fiche"} pour confirmer.` : undefined;
+  const alert = o.problems.length ? `⚠️ À vérifier : ${o.problems.join(" · ")}. Le rendez-vous est bien enregistré ; si besoin, appelez le prospect au ${v.phone ?? "numéro de la fiche"} pour confirmer.` : undefined;
   const rows: [string, string][] = [
     ["Quand", `${whenFr(v.start)} · ${v.durationMin} min`],
     ["Type", v.typeName],

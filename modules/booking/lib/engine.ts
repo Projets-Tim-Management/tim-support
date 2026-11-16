@@ -290,7 +290,12 @@ const PROBLEM_TEXT: Record<ProblemKind, string> = {
   "email-equipe": "l'équipe n'a pas été prévenue par e-mail",
   crm: "fiche du prospect non créée",
 };
-export const problemText = (p: Pick<Problem, "kind">) => PROBLEM_TEXT[p.kind];
+/**
+ * Le problème en clair. Côté CRM, la fiche peut exister et la tâche seule manquer : on dit lequel (16/11/2026 : « fiche
+ * non créée » s'affichait alors que seule la tâche avait été refusée).
+ */
+export const problemText = (p: Pick<Problem, "kind"> & { message?: string }) =>
+  p.kind === "crm" && /^Tâche/.test(p.message ?? "") ? "tâche « Réunion » non créée sur la fiche (à poser à la main)" : PROBLEM_TEXT[p.kind];
 
 async function send(payload: Payload, to: string, mail: Mail, ics?: string): Promise<boolean> {
   return payload

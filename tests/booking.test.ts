@@ -142,7 +142,7 @@ describe("les e-mails et l'agenda du prospect", () => {
   it("l'avis à l'équipe : « ⚠️ » et « à rappeler » quand il reste un problème", () => {
     const m = hostMail(v, "nouveau", { problems: ["agenda non vérifié"], clientUrl: null, bookingUrl: "https://x" });
     expect(m.subject.startsWith("⚠️")).toBe(true);
-    expect(m.text).toContain("À rappeler");
+    expect(m.text).toContain("À vérifier");
   });
 });
 
@@ -287,5 +287,13 @@ describe("relecture du 16/11/2026", () => {
     expect(a).toHaveLength(1);
     expect(a[0]).toMatchObject({ client: "demande-7", priority: "A" });
     expect(a[0].title).toMatch(/^🔴 Urgent — Répondre à Dupont BTP .* 2\.3 h ouvrées$/);
+  });
+});
+
+describe("un problème se dit tel qu'il est", () => {
+  it("côté CRM : la tâche manquante n'est pas une fiche manquante", async () => {
+    const { problemText } = await import("@/modules/booking/lib/engine");
+    expect(problemText({ kind: "crm", message: "Tâche non créée : refus" })).toMatch(/tâche « Réunion » non créée/);
+    expect(problemText({ kind: "crm", message: "Erreur" })).toBe("fiche du prospect non créée");
   });
 });
