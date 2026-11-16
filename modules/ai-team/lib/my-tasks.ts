@@ -87,8 +87,10 @@ export function buildMyTasks(input: MyTasksInput): MyTask[] {
   }
 
   const serge = OFFICES.seo.chief;
+  const live = input.objectives.filter((o) => o.status !== "reporte");
   for (const o of input.objectives) {
     const done = o.status === "fait";
+    const reported = o.status === "reporte";
     tasks.push({
       ...empty,
       id: `o${o.id}`,
@@ -96,7 +98,8 @@ export function buildMyTasks(input: MyTasksInput): MyTask[] {
       category: "seo",
       form: "a-faire",
       title: String(o.title ?? ""),
-      status: done ? "fait" : "a-faire",
+      status: done ? "fait" : reported ? "reporte" : "a-faire",
+      ...(reported ? { carriedOver: takenOverBy(o, live) } : {}),
       due: day(o.dueDate),
       at: String(o.createdAt ?? o.week ?? ""),
       doneAt: done ? (str(o.closedAt) ?? null) : null,
@@ -110,7 +113,7 @@ export function buildMyTasks(input: MyTasksInput): MyTask[] {
       page: str(o.page),
       minutes: typeof o.minutes === "number" ? o.minutes : null,
       steps: stepsOf(o.steps),
-      stepsCheckable: !done,
+      stepsCheckable: !done && !reported,
       slots: (Array.isArray(o.slots) ? (o.slots as Raw[]) : []).flatMap((s) => (s.start && s.end ? [{ start: String(s.start), end: String(s.end), link: str(s.link) }] : [])),
       goal: goalOf(o.goal),
     });
@@ -195,6 +198,22 @@ export function buildMyTasks(input: MyTasksInput): MyTask[] {
   return tasks;
 }
 
+const WORD = /[a-zà-ÿ0-9]{4,}/g;
+const wordsOf = (t: unknown) => new Set((String(t ?? "").toLowerCase().normalize("NFC").match(WORD) ?? []).filter((w) => !["pour", "dans", "avec", "sous", "page", "faire"].includes(w)));
+
+/**
+ * L'objectif de cette semaine qui REPREND un objectif reporté : la même page, ou au moins deux mots forts en commun
+ * dans le titre (« Faire cliquer la grille de salaire BTP 2026 » / « … (titre et description) »). Null : mis de côté.
+ * Pur (testé).
+ */
+export function takenOverBy(reported: Raw, current: Raw[]): string | null {
+  const page = String(reported.page ?? "").trim();
+  const mine = wordsOf(reported.title);
+  const later = current.filter((o) => String(o.createdAt ?? "") > String(reported.createdAt ?? ""));
+  const hit = later.find((o) => (page && String(o.page ?? "").trim() === page) || [...wordsOf(o.title)].filter((w) => mine.has(w)).length >= 2);
+  return hit ? String(hit.title ?? "") : null;
+}
+
 /** Ce que la page lit : les tâches ouvertes, et celles faites ces 14 derniers jours. */
 export async function loadMyTasks(payload: Payload, now = new Date()): Promise<{ tasks: MyTask[]; today: string }> {
   const common = { pagination: false, depth: 0, overrideAccess: true } as const;
@@ -202,7 +221,9 @@ export async function loadMyTasks(payload: Payload, now = new Date()): Promise<{
   const safe = (p: Promise<{ docs: unknown[] }>) => p.then((r) => r.docs as Raw[]).catch(() => [] as Raw[]);
   const [requests, objectives, actions, members, goals, campaigns, pendingCreatives, proposedActions] = await Promise.all([
     safe(payload.find({ collection: "ai-team-requests", where: { or: [{ status: { equals: "ouverte" } }, { and: [{ status: { in: ["faite", "repondue"] } }, { closedAt: { greater_than_equal: since } }] }] }, sort: "-createdAt", limit: 200, depth: 0, overrideAccess: true })),
-    safe(payload.find({ collection: "ai-team-objectives", where: { or: [{ status: { equals: "a-faire" } }, { and: [{ status: { equals: "fait" } }, { closedAt: { greater_than_equal: since } }] }] }, sort: "rank", ...common })),
+    // Les objectifs reportés (non finis à la fin de la semaine de Serge) : ces 14 derniers jours, pour qu'aucun ne
+    // disparaisse sans que la direction le voie (16/11/2026).
+    safe(payload.find({ collection: "ai-team-objectives", where: { or: [{ status: { equals: "a-faire" } }, { and: [{ status: { in: ["fait", "reporte"] } }, { closedAt: { greater_than_equal: since } }] }] }, sort: "rank", ...common })),
     safe(payload.find({ collection: "ai-team-actions", where: { or: [{ status: { in: ["prevue", "en-cours"] } }, { and: [{ status: { equals: "faite" } }, { doneDate: { greater_than_equal: since } }] }] }, sort: "plannedDate", ...common })),
     safe(payload.find({ collection: "ai-team-members", ...common, select: { key: true, name: true, jobTitle: true, engineRoles: true, chief: true } as never })),
     safe(payload.find({ collection: "ai-team-goals", ...common, select: { title: true } as never })),

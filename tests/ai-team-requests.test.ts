@@ -144,3 +144,20 @@ describe("les outils pour parler à la direction", () => {
     for (const role of ["stratege", "redacteur", "directeur-artistique", "controleur"] as const) expect(ROLE_TOOLS[role]).not.toContain("demander_a_la_direction");
   });
 });
+
+describe("les objectifs reportés ne disparaissent pas", () => {
+  it("repris cette semaine (même page ou deux mots forts en commun) ou mis de côté", async () => {
+    const { takenOverBy } = await import("@/modules/ai-team/lib/my-tasks");
+    const now = [
+      { title: "Reprendre la page produit pointage : définition en tête", page: "/pointage", createdAt: "2026-11-16T08:00:00Z" },
+      { title: "Faire cliquer la grille de salaire BTP 2026 (titre et description)", page: "/grille", createdAt: "2026-11-16T08:00:00Z" },
+    ];
+    expect(takenOverBy({ title: "Renforcer la page produit pointage chantier", page: "/autre", createdAt: "2026-11-09T08:00:00Z" }, now)).toMatch(/^Reprendre la page produit pointage/);
+    expect(takenOverBy({ title: "Faire cliquer la grille de salaire BTP 2026", page: null, createdAt: "2026-11-09T08:00:00Z" }, now)).toMatch(/^Faire cliquer la grille/);
+    expect(takenOverBy({ title: "Mettre la calculatrice dans l'article calcul du temps de travail", page: "/calcul", createdAt: "2026-11-09T08:00:00Z" }, now)).toBeNull();
+  });
+  it("se rangent à part, hors de l'avancement de la semaine", () => {
+    const t = { ...({} as Record<string, unknown>), status: "reporte", due: "2026-11-13" } as never;
+    expect(groupOf(t, "2026-11-16")).toBe("reportees");
+  });
+});
