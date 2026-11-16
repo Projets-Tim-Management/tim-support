@@ -12,16 +12,16 @@ import { latestTech } from "@/modules/ai-team/lib/site-health";
 import { latestAuthority } from "@/modules/ai-team/lib/authority";
 import { latestSocial } from "@/modules/ai-team/lib/social";
 import { scorecardForModel, teamMethodsForModel } from "@/modules/ai-team/lib/model-data";
-import { cachedScorecard } from "@/modules/ai-team/lib/shared-data";
+import { cachedScorecard, memberByKey } from "@/modules/ai-team/lib/shared-data";
 import { runWebModel, tagOf, WebRunError, type WebCall } from "@/modules/ai-team/lib/web-model";
 import { loadBing } from "@/modules/analytics/lib/seo-bing";
 import { loadGa4 } from "@/modules/analytics/lib/seo-ga4";
 import { loadGsc } from "@/modules/analytics/lib/seo-gsc";
 import { loadOrganicAnalytics } from "@/modules/analytics/lib/seo-sources";
 import { loadTeamMastery, masteryForModel, SEO_MASTERY_KEYS } from "@/modules/ai-team/lib/mastery";
-import { MAX_INTERRUPTIONS, reopenStale } from "@/modules/ai-team/lib/stale";
+import { reserveChiefReview } from "@/modules/ai-team/lib/stale";
 import { loadBriefBlock } from "@/modules/ai-team/lib/brief";
-import { applyGoalUpdates, horizonsOf, GOAL_FORMAT, GOAL_RULES, goalsForChief, humanActionsToJudge, judgeHumanAction } from "@/modules/ai-team/lib/roadmap";
+import { applyGoalUpdates, GOAL_FORMAT, GOAL_RULES, goalsForChief, horizonsOf, humanActionsToJudge, writeVerdict } from "@/modules/ai-team/lib/roadmap";
 import { SEO_VEILLE_KEYS } from "@/modules/ai-team/lib/veille-domains";
 import { CARNET_FORMAT, carnetForModel, carnetRules, loadCarnet, splitCarnet, teamOf, writeCarnet } from "@/modules/ai-team/lib/notebook";
 
@@ -270,8 +270,7 @@ const SEO_INTERRUPTED = "⏳ Revue des objectifs interrompue (temps dépassé) :
 
 /** Transmet à Margaux ce que Serge a vu côté publicité payante : une note « à suivre » dans son carnet. */
 export async function notifyMargaux(payload: Payload, items: string[], from: string, now: Date): Promise<number> {
-  const found = await payload.find({ collection: "ai-team-members", where: { key: { equals: "chef-sea" } }, limit: 1, depth: 0, overrideAccess: true }).catch(() => null);
-  const margaux = found?.docs[0] as unknown as { id: number | string } | undefined;
+  const margaux = await memberByKey<{ id: number | string }>(payload, "chef-sea").catch(() => undefined);
   if (!margaux) return 0;
   const day = now.toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "Europe/Paris" });
   let n = 0;
@@ -294,34 +293,26 @@ export async function runSeoWeekly(payload: Payload, opts: { now?: Date; force?:
   // Le plan : les cinq prochains jours ouvrés ; il porte la date de son premier jour.
   const days = planDays(now);
   const plan = days[0].date;
-  const found = await payload.find({ collection: "ai-team-members", where: { key: { equals: SEO_CHIEF } }, limit: 1, depth: 0, overrideAccess: true });
-  const chief = found.docs[0] as unknown as { id: number | string; name: string; active?: boolean | null; weeklyHours?: number | null; calendarConnection?: unknown } | undefined;
-  if (!chief) return { status: "echec", message: "Le chef SEO/GEO est introuvable dans l'équipe." };
-  if (chief.active === false) return { status: "pause", message: `${chief.name} est en pause.` };
   const mark = `${SEO_MARK} — du ${dayLabel(days[0])} au ${dayLabel(days[days.length - 1])}`;
-  // Une revue récente (moins de 4 jours, lancée par la direction par exemple) tient lieu de celle du lundi.
-  const recentFrom = new Date(now.getTime() - MIN_DAYS_BETWEEN * DAY_MS).toISOString();
-  const recent = () => payload.find({ collection: "ai-team-messages", where: { and: [{ member: { equals: chief.id } }, { from: { equals: "agent" } }, { text: { like: SEO_MARK } }, { createdAt: { greater_than_equal: recentFrom } }] }, sort: "createdAt", limit: 3, depth: 0, overrideAccess: true });
-  // Une revue coupée en route laisse « je prépare vos objectifs… » : le message est marqué interrompu (il ne compte
-  // plus comme fait) et la revue se relance — deux fois au plus.
-  const interrupted = await reopenStale(payload, chief.id, "je prépare vos objectifs", SEO_INTERRUPTED, now, recentFrom);
-  if (!opts.force) {
-    if (p.weekday !== 1 || p.hour < SEO_HOUR) return { status: "pas-encore" };
-    if ((await recent()).docs.length || interrupted >= MAX_INTERRUPTIONS) return { status: "deja-faite" };
+  // Une revue récente (moins de 4 jours, lancée par la direction par exemple) tient lieu de celle du lundi ; une revue
+  // coupée en route laisse « je prépare vos objectifs… », marquée interrompue et relancée (deux fois au plus).
+  const reserved = await reserveChiefReview<{ id: number | string; name: string; active?: boolean | null; weeklyHours?: number | null; calendarConnection?: unknown }>(payload, {
+    chiefKey: SEO_CHIEF,
+    missing: "Le chef SEO/GEO est introuvable dans l'équipe.",
+    mark: SEO_MARK,
+    title: mark,
+    preparing: "je prépare vos objectifs",
+    interrupted: SEO_INTERRUPTED,
+    since: new Date(now.getTime() - MIN_DAYS_BETWEEN * DAY_MS).toISOString(),
+    now,
+    force: opts.force,
+    due: () => p.weekday === 1 && p.hour >= SEO_HOUR,
     // Il attend le plan de contenu de la semaine (Paige, après Guy) — au plus tard jusqu'à 8 h.
-    if (p.hour < SEO_HOUR + 1 && (await latestContentPlan(payload, now))?.period !== periodKey("hebdomadaire", p)) return { status: "pas-encore" };
-  }
-
-  // La réservation : un message « en cours » ; deux déclenchements simultanés, le plus récent se retire.
-  const placeholder = await payload.create({ collection: "ai-team-messages", data: { member: chief.id, from: "agent", text: `${mark} : je prépare vos objectifs…` } as never, overrideAccess: true });
-  if (!opts.force) {
-    const racing = await recent();
-    if (racing.docs.length > 1 && racing.docs[0].id !== placeholder.id) {
-      await payload.delete({ collection: "ai-team-messages", id: placeholder.id, overrideAccess: true });
-      return { status: "deja-faite" };
-    }
-  }
-  const finish = (text: string, costEur?: number) => payload.update({ collection: "ai-team-messages", id: placeholder.id, data: { text, ...(costEur != null ? { costEur } : {}) } as never, overrideAccess: true });
+    ready: async () => p.hour >= SEO_HOUR + 1 || (await latestContentPlan(payload, now))?.period === periodKey("hebdomadaire", p),
+  });
+  if ("skip" in reserved) return reserved.skip;
+  const { chief, placeholderId, finish } = reserved;
+  const placeholder = { id: placeholderId };
 
   try {
     const capacityMin = Math.round((typeof chief.weeklyHours === "number" && chief.weeklyHours > 0 ? chief.weeklyHours : DEFAULT_HOURS) * 60);
@@ -393,11 +384,7 @@ export async function runSeoWeekly(payload: Payload, opts: { now?: Date; force?:
     // Les verdicts : ce qu'ont donné les objectifs faits il y a au moins deux semaines.
     const verdicts = parseObjectiveVerdicts(answer, new Set([...data.objectifsAJuger.map((o) => o.id), ...humanToJudge.map((a) => a.id)]));
     await Promise.all(
-      verdicts.map((v) =>
-        v.id.startsWith("action-")
-          ? judgeHumanAction(payload, v.id, v.outcome, v.lesson, now)
-          : payload.update({ collection: "ai-team-objectives", id: v.id, data: { outcome: v.outcome, verdict: v.lesson, verdictAt: now.toISOString() } as never, overrideAccess: true }).catch(() => null),
-      ),
+      verdicts.map((v) => writeVerdict(payload, "ai-team-objectives", v.id, v.outcome, v.lesson, now)),
     );
 
     // Les créneaux dans l'agenda de la direction, dans l'ordre d'importance.

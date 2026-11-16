@@ -1,6 +1,7 @@
 import type { Payload } from "payload";
 
 import { idOf } from "@/core/lib/relations";
+import { memberByKey } from "@/modules/ai-team/lib/shared-data";
 import { DAY_MS } from "@/modules/ai-team/lib/format";
 
 /**
@@ -280,8 +281,7 @@ export async function writeCarnet(
  * (14 novembre) : … — pourquoi ». Vide s'il n'en a pas.
  */
 export async function consignesFor(payload: Payload, memberKey: string): Promise<string[]> {
-  const found = await payload.find({ collection: "ai-team-members", where: { key: { equals: memberKey } }, limit: 1, depth: 0, overrideAccess: true }).catch(() => null);
-  const member = found?.docs[0] as unknown as Raw | undefined;
+  const member = await memberByKey<Raw>(payload, memberKey).catch(() => undefined);
   if (!member) return [];
   const res = await payload.find({ collection: "ai-team-notes", where: { and: [{ target: { equals: member.id } }, { kind: { equals: "consigne" } }, { status: { equals: "active" } }] }, sort: "createdAt", limit: 12, depth: 1, overrideAccess: true }).catch(() => null);
   return ((res?.docs ?? []) as unknown as Raw[]).map((d) => {

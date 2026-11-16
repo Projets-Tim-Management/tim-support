@@ -5,7 +5,7 @@ vi.mock("@/modules/analytics/lib/seo-gsc", () => ({ loadGsc: vi.fn(async () => (
 vi.mock("@/modules/analytics/lib/seo-ga4", () => ({ loadGa4: vi.fn(async () => ({ status: "missing", missing: [] })) }));
 vi.mock("@/modules/analytics/lib/seo-bing", () => ({ loadBing: vi.fn(async () => ({ status: "missing", missing: [] })) }));
 vi.mock("@/modules/analytics/lib/seo-sources", () => ({ loadOrganicAnalytics: vi.fn(async () => null) }));
-vi.mock("@/modules/ai-team/lib/shared-data", () => ({ cachedScorecard: vi.fn(async () => null) }));
+vi.mock("@/modules/ai-team/lib/shared-data", async (importOriginal) => ({ ...(await importOriginal<object>()), cachedScorecard: vi.fn(async () => null) }));
 
 import { recordAdsUsage } from "@/modules/ads/lib/spend";
 import { planDays, planSlots } from "@/modules/ai-team/lib/agenda";

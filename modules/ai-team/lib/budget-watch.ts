@@ -1,6 +1,7 @@
 import type { Payload } from "payload";
 
 import { money, parisMonthDays, r2 } from "@/modules/ai-team/lib/format";
+import { memberByKey } from "@/modules/ai-team/lib/shared-data";
 import type { RequestInput } from "@/modules/ai-team/lib/requests";
 
 /**
@@ -97,8 +98,7 @@ export function budgetAlert(o: BudgetOutlook, now: Date, chiefName: string): Req
 export async function watchTeamBudget(payload: Payload, opts: { now?: Date; blocked?: boolean } = {}): Promise<"deposee" | "rien"> {
   try {
     const now = opts.now ?? new Date();
-    const found = await payload.find({ collection: "ai-team-members", where: { key: { equals: CHIEF_KEY } }, limit: 1, depth: 0, overrideAccess: true, select: { name: true, monthlyAiBudgetEur: true } as never });
-    const chief = found.docs[0] as unknown as { id: number | string; name?: string; monthlyAiBudgetEur?: number | null } | undefined;
+    const chief = await memberByKey<{ id: number | string; name?: string; monthlyAiBudgetEur?: number | null }>(payload, CHIEF_KEY, { name: true, monthlyAiBudgetEur: true });
     if (!chief || typeof chief.monthlyAiBudgetEur !== "number") return "rien";
     const { spentOf } = await import("@/modules/ads/lib/spend");
     const spent = await spentOf(payload, "agent", now);
@@ -121,8 +121,7 @@ export async function watchTeamBudget(payload: Payload, opts: { now?: Date; bloc
 
 /** Ce que Margaux lit de son budget, dans sa revue et la conversation. */
 export async function loadBudgetOutlook(payload: Payload, now: Date): Promise<BudgetOutlook | null> {
-  const found = await payload.find({ collection: "ai-team-members", where: { key: { equals: CHIEF_KEY } }, limit: 1, depth: 0, overrideAccess: true, select: { monthlyAiBudgetEur: true } as never });
-  const budget = (found.docs[0] as unknown as { monthlyAiBudgetEur?: number | null } | undefined)?.monthlyAiBudgetEur;
+  const budget = (await memberByKey<{ monthlyAiBudgetEur?: number | null }>(payload, CHIEF_KEY, { monthlyAiBudgetEur: true }))?.monthlyAiBudgetEur;
   if (typeof budget !== "number") return null;
   const { spentOf } = await import("@/modules/ads/lib/spend");
   const spent = await spentOf(payload, "agent", now);

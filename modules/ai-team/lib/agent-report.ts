@@ -5,7 +5,7 @@ import { DAY_MS } from "@/modules/ai-team/lib/format";
 import { consignesBlock, consignesFor } from "@/modules/ai-team/lib/notebook";
 import { loadBriefBlock } from "@/modules/ai-team/lib/brief";
 import { roadmapBlock, roadmapForModel } from "@/modules/ai-team/lib/roadmap";
-import { latestMethods } from "@/modules/ai-team/lib/shared-data";
+import { latestMethods, memberByKey } from "@/modules/ai-team/lib/shared-data";
 import { SOCLES, spendKindOf, teamOfKey } from "@/modules/ai-team/lib/veille-domains";
 import { INTERRUPTED, isPeriodDone, staleBefore } from "@/modules/ai-team/lib/stale";
 import { runWebModel, WebRunError, type WebCall } from "@/modules/ai-team/lib/web-model";
@@ -55,8 +55,7 @@ export async function runAgentReport<F>(
 ): Promise<ReportResult> {
   // Pas dû : rien n'est lu en base (le réveil de la minute passe sur une dizaine de rapports — relecture du 15/11/2026).
   if (!o.force && !(await o.due())) return { status: "pas-encore" };
-  const found = await payload.find({ collection: "ai-team-members", where: { key: { equals: o.memberKey } }, limit: 1, depth: 0, overrideAccess: true, select: { name: true, active: true } as never });
-  const member = found.docs[0] as unknown as Member | undefined;
+  const member = await memberByKey<Member>(payload, o.memberKey, { name: true, active: true });
   if (!member) return { status: "echec", message: "Cet agent est introuvable dans l'équipe." };
   if (member.active === false) return { status: "pause", message: `${member.name} est en pause.` };
   // Un rapport coupé en route (fin du temps du réveil) reste « en cours » : il est clos « interrompu », et relancé.

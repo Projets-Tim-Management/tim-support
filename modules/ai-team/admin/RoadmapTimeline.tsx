@@ -6,7 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { indicatorOf } from "@/modules/ai-team/lib/indicators-meta";
 import { CopyPromptButton } from "@/modules/ai-team/admin/CopyPromptButton";
 import { Drawer } from "@/modules/ai-team/admin/Drawer";
-import { actionTone as toneOf, DAY, expectedPct, fmtValue as fmt, gapText, goalTone, OUTCOME, postJson, ProgressRing, t } from "@/modules/ai-team/admin/roadmap-ui";
+import { actionTone as toneOf, DAY, fmtValue as fmt, gapText, goalTone, OUTCOME, postJson, ProgressRing, t } from "@/modules/ai-team/admin/roadmap-ui";
 import type { ActionView, GoalView } from "@/modules/ai-team/lib/roadmap";
 
 /**
@@ -292,7 +292,7 @@ export function RoadmapTimeline({ goals, actions: allActions, today, renderGoal,
               const gs = g ? t(g.startDate ?? today) : NaN;
               const ge = g ? t(g.dueDate) : NaN;
               const pct = g ? (g.progress ?? (g.pace === "atteint" ? 100 : null)) : null;
-              const exp = g && g.status === "valide" ? expectedPct(g, today) : null;
+              const exp = g && g.status === "valide" ? g.expected : null;
               return (
                 <div key={l.key} className={`rdt-row${li % 2 ? " rdt-row--alt" : ""}`} style={{ top: l.top, height: l.height }}>
                   {g && Number.isFinite(gs) && Number.isFinite(ge) && (

@@ -9,6 +9,7 @@ import { activeEngines, ENGINE_LABEL, ENGINES, type EngineAnswer, type EngineKey
 import { IMPACT_ORDER, latestReport, runAgentReport, type ReportResult } from "@/modules/ai-team/lib/agent-report";
 import { seoCompetitors } from "@/modules/ai-team/lib/competitor-maps";
 import { loadFunnel } from "@/modules/ai-team/lib/funnel";
+import { memberByKey } from "@/modules/ai-team/lib/shared-data";
 import { tagOf, type WebCall } from "@/modules/ai-team/lib/web-model";
 
 /**
@@ -225,7 +226,7 @@ export const visibilityForModel = (v: Visibility) => ({
 
 type Member = { id: number | string; name: string; active?: boolean | null };
 const findMember = (payload: Payload) =>
-  payload.find({ collection: "ai-team-members", where: { key: { equals: VISIBILITY_KEY } }, limit: 1, depth: 0, overrideAccess: true }).then((r) => r.docs[0] as unknown as Member | undefined);
+  memberByKey<Member>(payload, VISIBILITY_KEY);
 
 export const loadBrands = (payload: Payload): Promise<Brand[]> => seoCompetitors(payload).then((list) => list.map((c) => ({ name: c.name, host: domainOf(c.website) })));
 

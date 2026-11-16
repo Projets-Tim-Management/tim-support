@@ -8,9 +8,9 @@ import { measureContext } from "@/modules/ai-team/lib/indicators";
 import { COM_MASTERY_KEYS, loadTeamMastery, masteryForModel } from "@/modules/ai-team/lib/mastery";
 import { CARNET_FORMAT, carnetForModel, carnetRules, loadCarnet, splitCarnet, teamOf, writeCarnet } from "@/modules/ai-team/lib/notebook";
 import { latestPipeline } from "@/modules/ai-team/lib/pipeline-agent";
-import { applyGoalUpdates, horizonsOf, GOAL_FORMAT, GOAL_RULES, goalsForChief, humanActionsToJudge, judgeHumanAction } from "@/modules/ai-team/lib/roadmap";
+import { applyGoalUpdates, GOAL_FORMAT, GOAL_RULES, goalsForChief, horizonsOf, humanActionsToJudge, writeVerdict } from "@/modules/ai-team/lib/roadmap";
 import { parseObjectiveVerdicts } from "@/modules/ai-team/lib/seo-weekly";
-import { MAX_INTERRUPTIONS, reopenStale } from "@/modules/ai-team/lib/stale";
+import { reserveChiefReview } from "@/modules/ai-team/lib/stale";
 import { latestMethods } from "@/modules/ai-team/lib/shared-data";
 import { runWebModel, tagOf, WebRunError, type WebCall } from "@/modules/ai-team/lib/web-model";
 
@@ -96,25 +96,20 @@ export async function runComWeekly(payload: Payload, opts: { now?: Date; force?:
   const p = parisNow(now);
   // Pas lundi 9 h : rien n'est lu en base (le réveil passe chaque minute).
   if (!opts.force && (p.weekday !== 1 || p.hour < HOUR)) return { status: "pas-encore" };
-  const found = await payload.find({ collection: "ai-team-members", where: { key: { equals: COM_CHIEF } }, limit: 1, depth: 0, overrideAccess: true, select: { name: true, active: true } as never });
-  const chief = found.docs[0] as unknown as { id: number | string; name: string; active?: boolean | null } | undefined;
-  if (!chief) return { status: "echec", message: "La directrice commerciale est introuvable dans l'équipe." };
-  if (chief.active === false) return { status: "pause", message: `${chief.name} est en pause.` };
-  const recentFrom = new Date(now.getTime() - MIN_DAYS_BETWEEN * DAY_MS).toISOString();
-  const recent = () => payload.find({ collection: "ai-team-messages", where: { and: [{ member: { equals: chief.id } }, { from: { equals: "agent" } }, { text: { like: COM_MARK } }, { createdAt: { greater_than_equal: recentFrom } }] }, sort: "createdAt", limit: 3, depth: 0, overrideAccess: true });
-  const interrupted = await reopenStale(payload, chief.id, "je prépare le point", INTERRUPTED, now, recentFrom);
-  if (!opts.force) {
-    if ((await recent()).docs.length || interrupted >= MAX_INTERRUPTIONS) return { status: "deja-faite" };
-  }
-  const placeholder = await payload.create({ collection: "ai-team-messages", data: { member: chief.id, from: "agent", text: `${COM_MARK} : je prépare le point…` } as never, overrideAccess: true });
-  if (!opts.force) {
-    const racing = await recent();
-    if (racing.docs.length > 1 && racing.docs[0].id !== placeholder.id) {
-      await payload.delete({ collection: "ai-team-messages", id: placeholder.id, overrideAccess: true });
-      return { status: "deja-faite" };
-    }
-  }
-  const finish = (text: string, costEur?: number) => payload.update({ collection: "ai-team-messages", id: placeholder.id, data: { text, ...(costEur != null ? { costEur } : {}) } as never, overrideAccess: true });
+  const reserved = await reserveChiefReview<{ id: number | string; name: string; active?: boolean | null }>(payload, {
+    chiefKey: COM_CHIEF,
+    missing: "La directrice commerciale est introuvable dans l'équipe.",
+    mark: COM_MARK,
+    title: COM_MARK,
+    preparing: "je prépare le point",
+    interrupted: INTERRUPTED,
+    since: new Date(now.getTime() - MIN_DAYS_BETWEEN * DAY_MS).toISOString(),
+    now,
+    force: opts.force,
+  });
+  if ("skip" in reserved) return reserved.skip;
+  const { chief, placeholderId, finish } = reserved;
+  const placeholder = { id: placeholderId };
 
   try {
     const reports = await comReports(payload);
@@ -148,7 +143,7 @@ export async function runComWeekly(payload: Payload, opts: { now?: Date; force?:
       return { status: "echec", message: "Réponse du modèle inutilisable.", costEur: run.costEur };
     }
     const verdicts = parseObjectiveVerdicts(answer, new Set(humanToJudge.map((a) => a.id)));
-    await Promise.all(verdicts.map((v) => judgeHumanAction(payload, v.id, v.outcome, v.lesson, now)));
+    await Promise.all(verdicts.map((v) => writeVerdict(payload, "ai-team-objectives", v.id, v.outcome, v.lesson, now)));
     const noted = await writeCarnet(payload, { chiefId: chief.id, raw, origin: "revue", sourceMessage: placeholder.id, now, notes, team: crew });
     const goals = await applyGoalUpdates(payload, { team: "com", chiefId: chief.id, raw: horizonsOf(answer), now }).catch(() => ({ proposed: 0, points: 0 }));
     if (noted.length) await payload.update({ collection: "ai-team-messages", id: placeholder.id, data: { noted } as never, overrideAccess: true });

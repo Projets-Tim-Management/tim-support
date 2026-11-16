@@ -16,9 +16,9 @@ import { loadAdsReaders, scorecardForModel, teamMethodsForModel } from "@/module
 import { REQUEST_OUTCOMES } from "@/modules/ai-team/lib/requests";
 import { loadScorecard, type Scorecard } from "@/modules/ai-team/lib/scorecard";
 import { allTrends, ensureWeeklySnapshot, loadSnapshots, type Snapshot } from "@/modules/ai-team/lib/snapshots";
-import { MAX_INTERRUPTIONS, reopenStale } from "@/modules/ai-team/lib/stale";
+import { reserveChiefReview } from "@/modules/ai-team/lib/stale";
 import { loadBriefBlock } from "@/modules/ai-team/lib/brief";
-import { applyGoalUpdates, GOAL_RULES, goalsForChief, humanActionsToJudge, judgeHumanAction } from "@/modules/ai-team/lib/roadmap";
+import { applyGoalUpdates, GOAL_RULES, goalsForChief, humanActionsToJudge, writeVerdict } from "@/modules/ai-team/lib/roadmap";
 import { carnetForModel, carnetRules, loadCarnet, teamOf, writeCarnet } from "@/modules/ai-team/lib/notebook";
 import { SEA_VEILLE_KEYS } from "@/modules/ai-team/lib/veille-domains";
 
@@ -314,34 +314,25 @@ export async function runWeeklyReview(payload: Payload, opts: { now?: Date; forc
   const week = periodKey("hebdomadaire", p);
   const mark = `${REVIEW_MARK} — semaine du ${new Date(`${week}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" })}`;
 
-  const found = await payload.find({ collection: "ai-team-members", where: { key: { equals: "chef-sea" } }, limit: 1, depth: 0, overrideAccess: true });
-  const margaux = found.docs[0] as unknown as { id: number | string; name: string; active?: boolean | null } | undefined;
-  if (!margaux) return { status: "echec", message: "Margaux introuvable dans l'équipe." };
-  if (margaux.active === false) return { status: "pause", message: `${margaux.name} est en pause.` };
-
   const mondayStart = new Date(Date.parse(`${week}T00:00:00Z`) - 2 * 3_600_000).toISOString();
   // Une revue coupée en route laisse « je prépare ma revue… » : marquée interrompue, elle se relance (deux fois au plus).
-  const interrupted = await reopenStale(payload, margaux.id, "je prépare ma revue", REVIEW_INTERRUPTED, now, mondayStart);
-  if (!opts.force) {
-    if (p.weekday !== 1 || p.hour < REVIEW_HOUR) return { status: "pas-encore" };
-    if (interrupted >= MAX_INTERRUPTIONS) return { status: "deja-faite" };
-    const done = await payload.count({ collection: "ai-team-messages", where: { and: [{ member: { equals: margaux.id } }, { from: { equals: "agent" } }, { text: { like: REVIEW_MARK } }, { createdAt: { greater_than_equal: mondayStart } }] }, overrideAccess: true });
-    if (done.totalDocs) return { status: "deja-faite" };
+  const reserved = await reserveChiefReview<{ id: number | string; name: string; active?: boolean | null }>(payload, {
+    chiefKey: "chef-sea",
+    missing: "Margaux introuvable dans l'équipe.",
+    mark: REVIEW_MARK,
+    title: mark,
+    preparing: "je prépare ma revue",
+    interrupted: REVIEW_INTERRUPTED,
+    since: mondayStart,
+    now,
+    force: opts.force,
+    due: () => p.weekday === 1 && p.hour >= REVIEW_HOUR,
     // Après les passages du lundi de Camille : on lit leurs bilans, pas leurs brouillons.
-    const busy = await payload.count({ collection: "ad-agent-runs", where: { and: [{ kind: { in: ["hebdomadaire", "mensuel"] } }, { status: { in: ["en-cours", "en-pause-budget"] } }, { startedAt: { greater_than_equal: mondayStart } }] }, overrideAccess: true });
-    if (busy.totalDocs) return { status: "pas-encore" };
-  }
-
-  // La réservation : un message « en cours » ; s'il y en a deux, le plus récent se retire.
-  const placeholder = await payload.create({ collection: "ai-team-messages", data: { member: margaux.id, from: "agent", text: `${mark} : je prépare ma revue…` } as never, overrideAccess: true });
-  if (!opts.force) {
-    const racing = await payload.find({ collection: "ai-team-messages", where: { and: [{ member: { equals: margaux.id } }, { from: { equals: "agent" } }, { text: { like: REVIEW_MARK } }, { createdAt: { greater_than_equal: mondayStart } }] }, sort: "createdAt", limit: 3, depth: 0, overrideAccess: true });
-    if (racing.docs.length > 1 && racing.docs[0].id !== placeholder.id) {
-      await payload.delete({ collection: "ai-team-messages", id: placeholder.id, overrideAccess: true });
-      return { status: "deja-faite" };
-    }
-  }
-  const finish = (text: string, costEur?: number) => payload.update({ collection: "ai-team-messages", id: placeholder.id, data: { text, ...(costEur != null ? { costEur } : {}) } as never, overrideAccess: true });
+    ready: async () => !(await payload.count({ collection: "ad-agent-runs", where: { and: [{ kind: { in: ["hebdomadaire", "mensuel"] } }, { status: { in: ["en-cours", "en-pause-budget"] } }, { startedAt: { greater_than_equal: mondayStart } }] }, overrideAccess: true })).totalDocs,
+  });
+  if ("skip" in reserved) return reserved.skip;
+  const { chief: margaux, placeholderId, finish } = reserved;
+  const placeholder = { id: placeholderId };
 
   try {
     const card = await (opts.scorecard ?? (() => loadScorecard(payload, 3, now)))().catch(() => null);
@@ -384,13 +375,8 @@ export async function runWeeklyReview(payload: Payload, opts: { now?: Date; forc
     for (const v of res.output.verdicts ?? []) {
       if (!toJudge.has(String(v.id)) || !outcomes.has(v.resultat)) continue;
       toJudge.delete(String(v.id));
-      // Une action d'une équipe humaine se juge comme une recommandation.
-      if (String(v.id).startsWith("action-")) {
-        if (v.resultat !== "trop-tot") await judgeHumanAction(payload, String(v.id), v.resultat, String(v.lecon ?? ""), now);
-        judged += 1;
-        continue;
-      }
-      await payload.update({ collection: "ai-team-requests", id: v.id, data: { outcome: v.resultat, verdict: String(v.lecon ?? "").slice(0, 600), verdictAt: now.toISOString() } as never, overrideAccess: true });
+      // Une action d'une équipe humaine se juge comme une recommandation (sans « trop tôt » : elle se rejugera).
+      if (!(String(v.id).startsWith("action-") && v.resultat === "trop-tot")) await writeVerdict(payload, "ai-team-requests", String(v.id), v.resultat, String(v.lecon ?? ""), now);
       judged += 1;
     }
     const noted = await writeCarnet(payload, { chiefId: margaux.id, raw: res.output.carnet ?? null, origin: "revue", sourceMessage: placeholder.id, now, notes, team: crew });

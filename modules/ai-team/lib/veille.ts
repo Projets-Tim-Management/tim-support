@@ -6,7 +6,7 @@ import { loadTeamMastery, masteryForModel } from "@/modules/ai-team/lib/mastery"
 import { loadAdsReaders, recentVerdicts, scorecardForModel, seoVerdicts } from "@/modules/ai-team/lib/model-data";
 import { parseBenchmark, type Benchmark } from "@/modules/ai-team/lib/objectives";
 import type { Scorecard } from "@/modules/ai-team/lib/scorecard";
-import { cachedScorecard, latestMethods } from "@/modules/ai-team/lib/shared-data";
+import { cachedScorecard, latestMethods, memberByKey } from "@/modules/ai-team/lib/shared-data";
 import { allTrends, loadSnapshots } from "@/modules/ai-team/lib/snapshots";
 import { INTERRUPTED, isPeriodDone, staleBefore } from "@/modules/ai-team/lib/stale";
 import { SOCLES, spendKindOf, type TeamKey, VEILLE_DOMAINS, VEILLE_KEYS } from "@/modules/ai-team/lib/veille-domains";
@@ -185,8 +185,7 @@ export async function runVeille(payload: Payload, key: string, opts: { now?: Dat
   const now = opts.now ?? new Date();
   const domain = VEILLE_DOMAINS[key];
   if (!domain) return { status: "echec", message: "Cet agent ne fait pas de veille." };
-  const found = await payload.find({ collection: "ai-team-members", where: { key: { equals: key } }, limit: 1, depth: 0, overrideAccess: true });
-  const member = found.docs[0] as unknown as { id: number | string; name: string; active?: boolean | null } | undefined;
+  const member = await memberByKey<{ id: number | string; name: string; active?: boolean | null }>(payload, key);
   if (!member) return { status: "echec", message: "Agent introuvable dans l'équipe." };
   if (member.active === false) return { status: "pause", member: member.name, message: `${member.name} est en pause.` };
 

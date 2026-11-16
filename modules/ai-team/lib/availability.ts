@@ -4,6 +4,7 @@ import type { AgentRole } from "@/modules/ads/collections/AdAgents";
 import { consignesFor } from "@/modules/ai-team/lib/notebook";
 import type { RequestInput } from "@/modules/ai-team/lib/requests";
 import type { ChiefKey } from "@/modules/ai-team/lib/veille-domains";
+import { memberByKey } from "@/modules/ai-team/lib/shared-data";
 import { engineRoleOwner } from "@/modules/ai-team/lib/team";
 
 /**
@@ -135,8 +136,7 @@ export const teamPort = (payload: Payload) => {
  */
 export async function teamMonthlyBudget(payload: Payload, chiefKey: ChiefKey): Promise<{ name: string; budgetEur: number } | null> {
   try {
-    const res = await payload.find({ collection: "ai-team-members", where: { key: { equals: chiefKey } }, limit: 1, depth: 0, overrideAccess: true, select: { name: true, monthlyAiBudgetEur: true } as never });
-    const m = res.docs[0] as unknown as { name?: string; monthlyAiBudgetEur?: number | null } | undefined;
+    const m = await memberByKey<{ name?: string; monthlyAiBudgetEur?: number | null }>(payload, chiefKey, { name: true, monthlyAiBudgetEur: true });
     return m && typeof m.monthlyAiBudgetEur === "number" ? { name: String(m.name ?? "La cheffe"), budgetEur: m.monthlyAiBudgetEur } : null;
   } catch {
     return null;

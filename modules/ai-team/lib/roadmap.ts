@@ -56,11 +56,21 @@ export type GoalView = {
   progress: number | null;
   /** Où il en est face au temps écoulé. */
   pace: "atteint" | "avance" | "dans-les-temps" | "retard" | null;
+  /** Où il devrait en être aujourd'hui, en % du chemin (le temps écoulé entre son départ et son échéance). */
+  expected: number | null;
   why: string | null;
   review: string | null;
   reviewedAt: string | null;
   by: string | null;
 };
+
+/** La part du temps écoulée entre le départ et l'échéance, en % (null : dates illisibles). Pure. */
+export function expectedShare(startDate: string | null, dueDate: string, now: Date): number | null {
+  const start = Date.parse(startDate ?? "");
+  const due = Date.parse(dueDate);
+  if (!Number.isFinite(start) || !Number.isFinite(due) || due <= start) return null;
+  return Math.max(0, Math.min(100, ((now.getTime() - start) / (due - start)) * 100));
+}
 
 /** La progression d'un objectif chiffré et son allure face au temps écoulé. Pure (testée). */
 export function goalProgress(g: { baseline: number | null; target: number; current: number | null; startDate: string | null; dueDate: string }, better: "up" | "down", now: Date): { progress: number | null; pace: GoalView["pace"] } {
@@ -69,10 +79,8 @@ export function goalProgress(g: { baseline: number | null; target: number; curre
   if (reached) return { progress: 100, pace: "atteint" };
   const span = g.target - g.baseline;
   const progress = span === 0 ? 0 : Math.max(0, Math.min(100, Math.round(((g.current - g.baseline) / span) * 100)));
-  const start = Date.parse(g.startDate ?? "");
-  const due = Date.parse(g.dueDate);
-  if (!Number.isFinite(start) || !Number.isFinite(due) || due <= start) return { progress, pace: null };
-  const expected = Math.max(0, Math.min(100, ((now.getTime() - start) / (due - start)) * 100));
+  const expected = expectedShare(g.startDate, g.dueDate, now);
+  if (expected == null) return { progress, pace: null };
   return { progress, pace: progress >= expected + 15 ? "avance" : progress >= expected - 10 ? "dans-les-temps" : "retard" };
 }
 
@@ -107,6 +115,7 @@ function toGoal(d: Raw, names: Map<string, string>, now: Date): GoalView | null 
     status,
     progress,
     pace,
+    expected: ((e) => (e == null ? null : Math.round(e)))(expectedShare(startDate, dueDate, now)),
     why: (d.why as string | null) ?? null,
     review: (d.review as string | null) ?? null,
     reviewedAt: d.reviewedAt ? String(d.reviewedAt) : null,
@@ -485,6 +494,16 @@ export async function humanActionsToJudge(payload: Payload, team: Team, now: Dat
     .then((r) => r.docs as unknown as Raw[])
     .catch(() => [] as Raw[]);
   return res.map((a) => ({ id: `action-${a.id}`, action: a.title, qui: WHO_LABEL[String(a.who ?? "autre")] ?? "Autre", faiteLe: String(a.doneDate ?? "").slice(0, 10), detail: a.notes ?? null }));
+}
+
+/**
+ * Écrit le verdict d'un chef, où qu'il porte : une action d'une équipe humaine (id « action-12 ») ou une pièce du chef
+ * lui-même — une recommandation de Margaux, un objectif de la semaine de Serge. Le seul aiguillage (relecture du
+ * 15/11/2026).
+ */
+export async function writeVerdict(payload: Payload, own: "ai-team-requests" | "ai-team-objectives", id: string, outcome: string, lesson: string, now: Date) {
+  if (id.startsWith("action-")) return judgeHumanAction(payload, id, outcome as "a-marche" | "sans-effet" | "a-empire", lesson, now);
+  await payload.update({ collection: own, id, data: { outcome, verdict: lesson.slice(0, 600), verdictAt: now.toISOString() } as never, overrideAccess: true }).catch(() => null);
 }
 
 /** Écrit le verdict d'un chef sur une action humaine (id « action-12 »). */

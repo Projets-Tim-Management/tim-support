@@ -48,3 +48,10 @@ export const membersByKeys = (payload: Payload, keys: string[]) =>
   payload
     .find({ collection: "ai-team-members", where: { key: { in: keys } }, pagination: false, ...common, select: { key: true, name: true } as never })
     .then((r) => r.docs as unknown as { id: number | string; key: string; name: string }[]);
+
+/**
+ * UN membre de l'équipe par sa clé (« chef-com », « seo-analyste »…), ou undefined. La lecture qui était recopiée dans
+ * chaque rapport, revue et conversation (relecture du 15/11/2026). `select` : seulement ces champs.
+ */
+export const memberByKey = <T>(payload: Payload, key: string, select?: Record<string, true>): Promise<T | undefined> =>
+  payload.find({ collection: "ai-team-members", where: { key: { equals: key } }, limit: 1, depth: 0, overrideAccess: true, ...(select ? { select: select as never } : {}) }).then((r) => r.docs[0] as unknown as T | undefined);

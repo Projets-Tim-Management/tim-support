@@ -10,6 +10,7 @@ import { PIPELINE_WEIGHTS } from "@/modules/ai-team/lib/indicators";
 import { localMidnight, localParts } from "@/modules/ads/lib/zoned";
 import { parisNow, periodKey } from "@/modules/ads/agent/followup";
 import { tagOf, type WebCall } from "@/modules/ai-team/lib/web-model";
+import { memberByKey } from "@/modules/ai-team/lib/shared-data";
 import { CLIENT_STATUSES } from "@/modules/partner/lib/clientStatus";
 
 /**
@@ -411,7 +412,7 @@ const REFILE_AFTER_MS = 7 * DAY;
  * lecture des demandes existantes ; un geste qui échoue n'empêche pas les autres.
  */
 export async function fileActions(payload: Payload, memberKey: string, findings: PipelineAction[], links: Map<string, string>, now: Date) {
-  const member = (await payload.find({ collection: "ai-team-members", where: { key: { equals: memberKey } }, limit: 1, depth: 0, overrideAccess: true, select: { id: true } as never })).docs[0] as unknown as Raw | undefined;
+  const member = await memberByKey<Raw>(payload, memberKey, { id: true });
   if (!member) return;
   const items = findings.flatMap((f) => (links.has(f.client) ? [{ f, url: links.get(f.client)! }] : []));
   const existing = await payload.find({

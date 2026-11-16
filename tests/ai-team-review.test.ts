@@ -26,7 +26,8 @@ function fakePayload(over: { active?: boolean; busy?: number; done?: number; pas
     find: vi.fn(async ({ collection }: { collection: string }) => {
       if (collection === "ai-team-requests") return { docs: over.past ?? [] };
       if (collection === "ai-team-members") return { docs: [{ id: 1, name: "Margaux", active: over.active ?? true }] };
-      if (collection === "ai-team-messages") return { docs: created.filter((c) => c.collection === "ai-team-messages").map((c, i) => ({ id: i + 100, ...c.data })) };
+      // Une revue déjà faite cette semaine (`done`) : un message qui porte la marque de la revue.
+      if (collection === "ai-team-messages") return { docs: [...Array.from({ length: over.done ?? 0 }, (_, i) => ({ id: 50 + i, from: "agent", text: "📅 Revue du lundi" })), ...created.filter((c) => c.collection === "ai-team-messages").map((c, i) => ({ id: i + 100, ...c.data }))] };
       return { docs: [] };
     }),
     count: vi.fn(async ({ collection, where }: { collection: string; where: unknown }) => {

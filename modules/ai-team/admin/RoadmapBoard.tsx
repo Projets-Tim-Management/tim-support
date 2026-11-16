@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { actionTone, expectedPct, fmtValue as fmt, gapText, goalTone, OutcomeBadge, postJson as post, ProgressRing, t } from "@/modules/ai-team/admin/roadmap-ui";
+import { actionTone, fmtValue as fmt, gapText, goalTone, OutcomeBadge, postJson as post, ProgressRing, t } from "@/modules/ai-team/admin/roadmap-ui";
 import { ACTION_WHO, HORIZONS as HORIZON_LIST, ROADMAP_TEAMS, TEAM_SHORT as TEAM_LABEL } from "@/modules/ai-team/lib/roadmap-constants";
 import { CheckBox, RoadmapTimeline, toggleAction } from "@/modules/ai-team/admin/RoadmapTimeline";
 import { Sparkline } from "@/modules/analytics/admin/ui";
@@ -316,7 +316,7 @@ function GoalRow({ g, actions, today, onAddAction }: { g: GoalView; actions: Act
         </div>
         <div className="rdm-goal__hero">
           {m ? (
-            <ProgressRing pct={g.progress} expected={g.status === "valide" ? expectedPct(g, today) : null} tone={goalTone(g)} />
+            <ProgressRing pct={g.progress} expected={g.status === "valide" ? g.expected : null} tone={goalTone(g)} />
           ) : (
             <span className={`rdm-goal__flag rdm-goal__flag--${goalTone(g)}`} aria-hidden>
               {g.pace === "atteint" ? "✓" : "⚑"}

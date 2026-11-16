@@ -12,7 +12,7 @@ import { loadBudgetOutlook, outlookForModel } from "@/modules/ai-team/lib/budget
 import { idOf } from "@/core/lib/relations";
 import { loadTeamMastery, MASTERY_KEYS_OF, masteryForModel } from "@/modules/ai-team/lib/mastery";
 import { loadAdsReaders, scorecardForModel, teamMethodsForModel } from "@/modules/ai-team/lib/model-data";
-import { cachedScorecard } from "@/modules/ai-team/lib/shared-data";
+import { cachedScorecard, memberByKey } from "@/modules/ai-team/lib/shared-data";
 import { buildTeamSpend } from "@/modules/ai-team/lib/spend";
 import { loadBriefBlock } from "@/modules/ai-team/lib/brief";
 import { roadmapForModel } from "@/modules/ai-team/lib/roadmap";
@@ -189,8 +189,7 @@ export async function askChief(
   if (!text) throw new ChatError("Écrivez votre message.");
   if (text.length > MAX_TEXT) throw new ChatError(`Un message tient en ${MAX_TEXT} caractères.`);
 
-  const found = await payload.find({ collection: "ai-team-members", where: { key: { equals: input.memberKey } }, limit: 1, depth: 0, overrideAccess: true });
-  const chief = found.docs[0] as unknown as (Raw & { id: Id; name: string; jobTitle: string; personality?: string | null; level?: string; active?: boolean | null }) | undefined;
+  const chief = await memberByKey<(Raw & { id: Id; name: string; jobTitle: string; personality?: string | null; level?: string; active?: boolean | null })>(payload, input.memberKey);
   if (!chief || chief.level !== "chef") throw new ChatError("On ne parle qu'aux chefs de l'équipe.");
   if (chief.active === false) throw new ChatError(`${chief.name} est en pause : remettez cet agent en service pour lui écrire.`);
 

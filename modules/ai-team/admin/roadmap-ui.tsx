@@ -35,14 +35,6 @@ export async function postJson(url: string, body: unknown, fallback = "L'enregis
 export const fmtValue = (v: number | null | undefined, unit: string) =>
   v == null ? "—" : unit === "€" ? v.toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }) : unit === "%" ? `${v.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %` : v.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
 
-/** Où l'objectif devrait en être aujourd'hui, en % du chemin (le temps écoulé entre son départ et son échéance). */
-export function expectedPct(g: GoalView, today: string): number | null {
-  const s = t(g.startDate ?? "");
-  const e = t(g.dueDate);
-  if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) return null;
-  return Math.max(0, Math.min(100, Math.round(((t(today) - s) / (e - s)) * 100)));
-}
-
 /** Le ton d'un objectif : atteint, en avance, dans les temps, en retard, à valider. */
 export function goalTone(g: GoalView): "ok" | "good" | "on" | "bad" | "propose" {
   if (g.status === "propose") return "propose";
