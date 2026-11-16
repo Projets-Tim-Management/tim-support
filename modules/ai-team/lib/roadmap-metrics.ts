@@ -24,23 +24,24 @@ const round = (n: number, d = 1) => Math.round(n * 10 ** d) / 10 ** d;
 export async function snapshotMetrics(payload: Payload, now: Date): Promise<Record<string, number | null>> {
   const safe = <T>(p: Promise<T>) => p.catch(() => null);
   const ratio = (part: number, whole: number) => (whole > 0 ? round((part / whole) * 100) : null);
-  const [gsc, funnel, tech, visibility, authority, social] = await Promise.all([
+  // TIM nommé par les IA et les pages indexées se mesurent comme pour un objectif (lib/indicators) : un seul calcul.
+  const ctx = (await import("@/modules/ai-team/lib/indicators")).measureContext(payload, now);
+  const [gsc, funnel, iaMentions, indexed, authority, social] = await Promise.all([
     safe(import("@/modules/analytics/lib/seo-gsc").then((m) => m.loadGsc(3, now))),
     safe(import("@/modules/ai-team/lib/funnel").then((m) => m.loadFunnel(payload, now))),
-    safe(import("@/modules/ai-team/lib/site-health").then((m) => m.latestTech(payload, now))),
-    safe(import("@/modules/ai-team/lib/ai-visibility").then((m) => m.visibilityState(payload, now))),
+    safe(ctx.measure("ia-mentions", now)),
+    safe(ctx.measure("pages-indexees", now)),
     safe(import("@/modules/ai-team/lib/authority").then((m) => m.latestAuthority(payload, now))),
     safe(import("@/modules/ai-team/lib/social").then((m) => m.latestSocial(payload, now))),
   ]);
-  const h = tech?.health ?? null;
   const nets = social?.measure?.networks ?? [];
   const sum = (f: (n: (typeof nets)[number]) => number | null | undefined) => nets.reduce((t, n) => t + (f(n) ?? 0), 0);
   const targets = authority?.findings ?? [];
   return {
     "seo-clics-hors-marque": gsc && gsc.status === "ok" ? gsc.data.brand.nonBrandedClicks : null,
     "seo-conversion": funnel && funnel.totals.sessions ? funnel.totals.leadRate : null,
-    "ia-mentions": visibility?.measure.answers ? visibility.measure.overall.mentionPct : null,
-    "pages-indexees": h && h.indexed != null && h.inspected ? ratio(h.indexed, h.inspected) : null,
+    "ia-mentions": iaMentions,
+    "pages-indexees": indexed,
     "autorite-presence": targets.length ? ratio(targets.filter((t) => t.state === "present").length, targets.length) : null,
     "reseaux-interactions": nets.length ? ratio(sum((n) => n.interactions), sum((n) => n.views)) : null,
   };

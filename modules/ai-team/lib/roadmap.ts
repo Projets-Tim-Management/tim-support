@@ -6,9 +6,9 @@ import { HORIZON_MONTHS, WHO_LABEL, type Horizon } from "@/modules/ai-team/lib/r
 import { OFFICES, teamOfKey } from "@/modules/ai-team/lib/veille-domains";
 
 export { HORIZON_MONTHS, type Horizon };
-import { INDICATORS, indicatorOf } from "@/modules/ai-team/lib/indicators-meta";
+import { INDICATORS, indicatorOf, WEEKLY_INDICATORS } from "@/modules/ai-team/lib/indicators-meta";
 import { initialMeasures, measureContext, type Measure } from "@/modules/ai-team/lib/indicators";
-import { METRICS, metricSeries, type SeriesPoint, type Team } from "@/modules/ai-team/lib/roadmap-calc";
+import { metricSeries, type SeriesPoint, type Team } from "@/modules/ai-team/lib/roadmap-calc";
 import { loadSnapshots } from "@/modules/ai-team/lib/snapshots";
 
 /**
@@ -318,7 +318,7 @@ export async function loadRoadmap(payload: Payload, now = new Date()): Promise<R
   return {
     goals: (goals as unknown as Raw[]).flatMap((g) => toGoal(g, nameById, now) ?? []),
     actions,
-    series: Object.fromEntries(METRICS.map((x) => [x.key, metricSeries(snaps, x.key)])),
+    series: Object.fromEntries(WEEKLY_INDICATORS.map((x) => [x.key, metricSeries(snaps, x.key)])),
     works: whatWorks(actions),
     lastWeek: snaps.at(-1)?.week ?? null,
     today: parisDay(now),

@@ -7,8 +7,8 @@ import { actionTone, expectedPct, fmtValue as fmt, gapText, goalTone, OutcomeBad
 import { ACTION_WHO, HORIZONS as HORIZON_LIST, ROADMAP_TEAMS, TEAM_SHORT as TEAM_LABEL } from "@/modules/ai-team/lib/roadmap-constants";
 import { CheckBox, RoadmapTimeline, toggleAction } from "@/modules/ai-team/admin/RoadmapTimeline";
 import { Sparkline } from "@/modules/analytics/admin/ui";
-import { INDICATOR_GROUPS, INDICATORS, indicatorOf } from "@/modules/ai-team/lib/indicators-meta";
-import { beforeAfter, metricOf, METRICS, type SeriesPoint } from "@/modules/ai-team/lib/roadmap-calc";
+import { INDICATOR_GROUPS, INDICATORS, indicatorOf, WEEKLY_INDICATORS } from "@/modules/ai-team/lib/indicators-meta";
+import { beforeAfter, type SeriesPoint } from "@/modules/ai-team/lib/roadmap-calc";
 import type { ActionView, GoalTeam, GoalView, RoadmapView } from "@/modules/ai-team/lib/roadmap";
 
 /**
@@ -561,10 +561,10 @@ export function RoadmapBoard({ view }: { view: RoadmapView }) {
     return m;
   }, [actions]);
   const today = view.today;
-  const metrics = METRICS.filter((x) => team === "all" || team === "tous" || x.team === team || x.team === "tous");
+  const metrics = WEEKLY_INDICATORS.filter((x) => team === "all" || team === "tous" || x.teams.includes(team));
   const chartGoals = goals.filter((g) => g.kind === "chiffre" && g.metric);
   const sourceGoal = source.startsWith("goal:") ? view.goals.find((g) => `goal:${g.id}` === source) : undefined;
-  const sourceMetric = source.startsWith("metric:") ? metricOf(source.slice(7)) : undefined;
+  const sourceMetric = source.startsWith("metric:") ? WEEKLY_INDICATORS.find((x) => x.key === source.slice(7)) : undefined;
   const chartMeta = sourceGoal ? indicatorOf(sourceGoal.metric) : sourceMetric;
   const chartLabel = sourceGoal ? sourceGoal.title : (sourceMetric?.label ?? "");
   const fullSeries = useMemo(() => (sourceGoal ? sourceGoal.series : sourceMetric ? (view.series[sourceMetric.key] ?? []) : []), [sourceGoal, sourceMetric, view.series]);

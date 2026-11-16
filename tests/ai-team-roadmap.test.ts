@@ -144,3 +144,24 @@ describe("le MRR à une date", () => {
     expect(amountAt({ amount: 500, history: [] }, t("2026-01-01"))).toBe(500);
   });
 });
+
+describe("un seul catalogue d'indicateurs (relecture du 15/11/2026)", () => {
+  it("les courbes du lundi sont des indicateurs du catalogue, mesurables comme objectifs sur la dernière photo", async () => {
+    const { WEEKLY_INDICATORS, indicatorOf } = await import("@/modules/ai-team/lib/indicators-meta");
+    const { measureContext } = await import("@/modules/ai-team/lib/indicators");
+    expect(WEEKLY_INDICATORS.map((x) => x.key)).toEqual(expect.arrayContaining(["leads-qualifies-total", "sea-cout-lead-qualifie", "seo-clics-hors-marque", "ia-mentions", "pages-indexees"]));
+    expect(indicatorOf("sea-cout-lead-qualifie")).toMatchObject({ unit: "€", better: "down", teams: ["sea"] });
+    const snaps = [
+      { week: "2026-11-02", channels: [{ key: "seo", now: { qualified: 3, spend: 0 } }], metrics: { "seo-clics-hors-marque": 900 } },
+      { week: "2026-11-09", channels: [{ key: "seo", now: { qualified: 4, spend: 0 } }, { key: "meta", now: { qualified: 2, spend: 600 } }], metrics: { "seo-clics-hors-marque": 950 } },
+    ];
+    const payload = { find: async ({ collection }: { collection: string }) => ({ docs: collection === "ai-team-snapshots" ? [...snaps].reverse() : [] }) };
+    const ctx = measureContext(payload as never, new Date("2026-11-12T10:00:00Z"));
+    expect(await ctx.measure("leads-qualifies-total", new Date("2026-11-12T10:00:00Z"))).toBe(6);
+    expect(await ctx.measure("sea-cout-lead-qualifie", new Date("2026-11-12T10:00:00Z"))).toBe(300);
+    expect(await ctx.measure("seo-clics-hors-marque", new Date("2026-11-05T10:00:00Z"))).toBe(900);
+    // Avant la première photo, ou trop loin après la dernière : on ne sait pas.
+    expect(await ctx.measure("seo-clics-hors-marque", new Date("2026-10-01T10:00:00Z"))).toBeNull();
+    expect(await ctx.measure("seo-clics-hors-marque", new Date("2026-12-20T10:00:00Z"))).toBeNull();
+  });
+});

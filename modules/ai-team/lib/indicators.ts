@@ -21,6 +21,8 @@ const lastFullMonth = (at: Date) => ymOf(new Date(Date.UTC(at.getUTCFullYear(), 
 export const PIPELINE_WEIGHTS: Record<string, number> = { "en-signature": 0.7, "en-test": 0.4, "attente-engagement": 0.3, "demo-programmee": 0.15, "en-qualification": 0.05, "attente-longue": 0.05, nouvelle: 0.03 };
 /** Un lead QUALIFIÉ : son opportunité est arrivée à « Démo programmée » ou plus loin. */
 export const QUALIFIED = new Set(["demo-programmee", "attente-engagement", "attente-longue", "en-test", "en-signature", "actif", "resilie"]);
+/** Les statuts de fiche dont un indicateur a besoin : le MRR (actif, résilié), le pipeline, les leads qualifiés. */
+const USED_STATUSES = [...new Set([...QUALIFIED, ...Object.keys(PIPELINE_WEIGHTS)])];
 
 type Client = { id: string; status: string; start: number | null; end: number | null; amount: number; history: { at: number; caHT: number }[]; submission: string | null };
 
@@ -65,7 +67,8 @@ export function measureContext(payload: Payload, now = new Date()): MeasureConte
 
   const clients = () =>
     once("clients", async () => {
-      const res = await payload.find({ collection: "partner-clients", pagination: false, depth: 0, overrideAccess: true, draft: true, select: CLIENT_SELECT as never });
+      // Seulement les statuts que les indicateurs lisent (en contrat, pipeline, qualifiés) : pas les perdues ni les archives.
+      const res = await payload.find({ collection: "partner-clients", where: { clientStatus: { in: USED_STATUSES } }, pagination: false, depth: 0, overrideAccess: true, draft: true, select: CLIENT_SELECT as never });
       return (res.docs as unknown as Raw[]).map(toClient);
     }) as Promise<Client[] | null>;
   const submissions = () =>
@@ -79,6 +82,22 @@ export function measureContext(payload: Payload, now = new Date()): MeasureConte
   const page = (path: string) => once(`page:${path}`, () => import("@/modules/analytics/lib/seo-ga4").then((m) => m.loadGa4PageViews(path, now))) as Promise<Awaited<ReturnType<typeof import("@/modules/analytics/lib/seo-ga4").loadGa4PageViews>> | null>;
   const classify = () => once("classify", () => import("@/modules/analytics/lib/seo-ga4").then((m) => m.classifyGa4Source)) as Promise<((s: string, m: string) => { kind: string } | null) | null>;
   const latest = <T>(k: string, f: () => Promise<T>) => once(`latest:${k}`, f) as Promise<T | null>;
+  // Les photos du lundi : la valeur d'un indicateur hebdomadaire à une date est celle de la dernière photo d'avant.
+  const snaps = () => once("snaps", () => import("@/modules/ai-team/lib/snapshots").then((m) => m.loadSnapshots(payload, 80, { history: true }))) as Promise<Awaited<ReturnType<typeof import("@/modules/ai-team/lib/snapshots").loadSnapshots>> | null>;
+  const weekly = async (key: string, at: Date) => {
+    const list = await snaps();
+    if (!list) return null;
+    const { metricValue } = await import("@/modules/ai-team/lib/roadmap-calc");
+    const t = at.getTime();
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (Date.parse(`${list[i].week}T12:00:00Z`) > t) continue;
+      // Une photo de plus de 3 semaines avant la date ne la représente pas.
+      if (t - Date.parse(`${list[i].week}T12:00:00Z`) > 21 * DAY) return null;
+      const v = metricValue(list[i], key);
+      if (v != null) return v;
+    }
+    return null;
+  };
 
   const ga4Month = async (at: Date, pick: (source: string, medium: string) => Promise<boolean> | boolean) => {
     const r = await ga4();
@@ -184,7 +203,7 @@ export function measureContext(payload: Payload, now = new Date()): MeasureConte
         return h && h.indexed != null && h.inspected ? round((h.indexed / h.inspected) * 100, 1) : null;
       }
       default:
-        return null;
+        return indicatorOf(key)?.weekly ? weekly(key, at) : null;
     }
   };
   return { measure };
