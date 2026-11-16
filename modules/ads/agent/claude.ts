@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 
+import { trackApi } from "@/core/lib/api-health";
 import type { Usage } from "@/core/lib/ai-pricing";
 import { CALL_TIMEOUT_MS } from "@/modules/ads/agent/limits";
 import type { AgentModelCall, ModelRequest } from "@/modules/ads/agent/types";
@@ -42,7 +43,7 @@ export function toApiRequest(req: ModelRequest): Anthropic.MessageCreateParamsNo
 }
 
 export const callAgentModel: AgentModelCall = async (req) => {
-  const res = await client().messages.create(toApiRequest(req));
+  const res = await trackApi("anthropic", () => client().messages.create(toApiRequest(req)));
   const usage: Usage = {
     input: res.usage.input_tokens,
     output: res.usage.output_tokens,

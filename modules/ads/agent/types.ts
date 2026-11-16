@@ -36,6 +36,8 @@ export type RunRow = {
   /** La photo des consignes et du carnet prise au lancement (agent/notebook.ts). */
   instructionsRead?: unknown;
   learningsRead?: unknown;
+  /** La photo des méthodes de l'équipe IA prise au lancement (ai-team/lib/methods-photo.ts). */
+  methodsRead?: unknown;
   /** Le rythme du passage : la préparation d'un brouillon, ou le suivi d'une campagne en ligne. */
   kind?: "preparation" | "quotidien" | "hebdomadaire" | "mensuel";
   /** Une préparation sur une campagne EN LIGNE : plan de diffusion et répartition n'y changent pas. */
@@ -244,4 +246,23 @@ export interface SuiviPort {
   learn(campaign: Id, l: { statement: string; confidence: "faible" | "moyenne" | "forte"; global: boolean; decision: Id | null }): Promise<Id>;
 }
 
-export type AgentDeps = { store: AgentStore; model: AgentModelCall; budget: GlobalBudget; atelier: AtelierPort; sources: SourcesPort; suivi?: SuiviPort; now: () => Date };
+/**
+ * L'équipe IA (modules/ai-team) : un rôle en pause — sa fiche décochée par la
+ * direction — ne reçoit plus de mission. Rend la raison du refus, ou null.
+ * Facultatif : sans lui (tests, outils), personne n'est en pause.
+ */
+export type TeamPort = {
+  paused: (role: string) => Promise<string | null>;
+  /** Dépose une demande à la direction au nom du chef qui incarne ce rôle ; rend son identifiant. */
+  ask?: (role: string, request: import("@/modules/ai-team/lib/requests").RequestInput, origin: { run: Id; campaign: Id }) => Promise<Id>;
+  /** Les demandes de ce chef closes depuis 30 jours : ce que la direction a fait ou répondu. */
+  answers?: (role: string) => Promise<{ titre: string; forme: string; etat: string; reponse: string | null; le: string | null }[]>;
+  /** Les consignes en cours que son chef a données au membre qui incarne ce rôle (son carnet) — jointes à sa consigne. */
+  consignes?: (role: string) => Promise<string[]>;
+  /** La feuille de route de l'équipe SEA (objectifs, actions des équipes humaines), jointe à la consigne de chaque agent. */
+  roadmap?: () => Promise<string>;
+  /** La fiche produit & positionnement de TIM, jointe à la consigne de chaque agent. */
+  brief?: () => Promise<string>;
+};
+
+export type AgentDeps = { store: AgentStore; model: AgentModelCall; budget: GlobalBudget; atelier: AtelierPort; sources: SourcesPort; suivi?: SuiviPort; team?: TeamPort; now: () => Date };

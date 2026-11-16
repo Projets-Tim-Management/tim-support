@@ -106,8 +106,8 @@ function ProposalCard({ p }: { p: AgentProposal }) {
             </p>
           )}
           {p.bilan && <p className="ads-plan__bilan">{p.bilan}</p>}
-          <Link href={`/admin/collections/ad-campaigns/${p.campagne.id}`} prefetch={false}>
-            Voir le passage complet (onglet « Agent ») →
+          <Link href={`/admin/equipe-ia?membre=chef-sea&campagne=${p.campagne.id}`} prefetch={false}>
+            Voir le passage complet dans Équipe IA →
           </Link>
         </details>
       )}

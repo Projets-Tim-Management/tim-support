@@ -4,6 +4,7 @@ import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import type { Payload, Where } from "payload";
 
+import { trackApi } from "@/core/lib/api-health";
 import { buildAssistant } from "@/admin/assistant/data-assistant";
 import { hasAdminRole, isPartnerMetier, isSupport, partnerIdOf } from "@/core/access";
 import { CLOSED_STATUSES } from "@/modules/marketing/lib/due-emails";
@@ -410,7 +411,7 @@ export async function answer(payload: Payload, user: Doc, history: ChatTurn[]): 
   const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, calls: 0 };
 
   for (let turn = 0; turn < MAX_TURNS; turn += 1) {
-    const response = await client.messages.create({
+    const response = await trackApi("anthropic", () => client.messages.create({
       model: AI_MODEL,
       max_tokens: MAX_TOKENS,
       // Le référentiel et les outils ne changent pas d'une question à l'autre :
@@ -418,7 +419,7 @@ export async function answer(payload: Payload, user: Doc, history: ChatTurn[]): 
       system: [{ type: "text", text: systemPrompt(scope), cache_control: { type: "ephemeral" } }],
       tools,
       messages,
-    });
+    }));
     usage.calls += 1;
     usage.input += response.usage.input_tokens;
     usage.output += response.usage.output_tokens;

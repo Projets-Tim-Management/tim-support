@@ -98,6 +98,9 @@ const creerSousAgent: AgentTool = {
     if (already) return { kind: "ok", output: { agent: already.id }, line: `${ROLE_SUBJECT[ctx.agent.role]} a créé un ${roleLabel(role)} (${eur(already.budgetEur)}).` };
 
     if (!CREATABLE_ROLES.includes(role)) return refuse(ctx, `rôle inconnu ou non créable (« ${role} »).`, after);
+    // Équipe IA : la direction a mis ce membre en pause — on ne lui confie rien.
+    const paused = await ctx.deps.team?.paused(role);
+    if (paused) return refuse(ctx, paused, after);
     if (!mission) return refuse(ctx, "mission vide.", after);
     if (ctx.agent.depth + 1 > MAX_DEPTH) return refuse(ctx, `profondeur maximale atteinte (${MAX_DEPTH} niveaux).`, after);
     const subAgents = ctx.agents.filter((a) => a.depth > 0).length;

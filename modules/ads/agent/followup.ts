@@ -1,4 +1,5 @@
 import type { Payload } from "payload";
+import { pausedRoles } from "@/modules/ai-team/lib/availability";
 
 import { prepBudget } from "@/modules/ads/agent/budget";
 import { ROLE_TOOLS } from "@/modules/ads/agent/roles";
@@ -94,6 +95,8 @@ type RawCampaign = { id: Id; name: string; publicationStatus?: string | null; st
 export async function scheduleFollowUps(payload: Payload, now = new Date()): Promise<{ campaign: Id; kind: FollowUpKind; run?: Id; skipped?: string }[]> {
   const settings = (await payload.findGlobal({ slug: "ads-settings", overrideAccess: true })) as { enabled?: boolean | null; agentDailyEur?: number | null; agentMonthlyEur?: number | null };
   if (settings.enabled === false) return [];
+  // L'analyste en pause dans l'équipe IA : aucun suivi ne démarre (décision du 12/11/2026).
+  if ((await pausedRoles(payload)).has("analyste")) return [];
   const p = parisNow(now);
   // Avant 7 h, rien n'est dû : on ne lit même pas la base.
   if (p.hour < HOUR.quotidien) return [];
@@ -138,7 +141,8 @@ export async function scheduleFollowUps(payload: Payload, now = new Date()): Pro
  */
 export async function launchFollowUp(payload: Payload, c: { id: Id; name: string }, kind: FollowUpKind, budgetEur: number, now: Date): Promise<Id | null> {
   const { loadNotebook } = await import("@/modules/ads/agent/run");
-  const notebook = await loadNotebook(payload, c.id, now);
+  const { loadMethodsPhoto } = await import("@/modules/ai-team/lib/methods-photo");
+  const [notebook, methods] = await Promise.all([loadNotebook(payload, c.id, now), loadMethodsPhoto(payload)]);
   const mission = missionOf(kind, c.name);
   const run = await payload.create({
     collection: "ad-agent-runs",
@@ -149,6 +153,7 @@ export async function launchFollowUp(payload: Payload, c: { id: Id; name: string
       status: "en-cours",
       instructionsRead: notebook.instructions,
       learningsRead: notebook.learnings,
+      methodsRead: methods,
       budgetEur,
       costEur: 0,
       startedAt: now.toISOString(),

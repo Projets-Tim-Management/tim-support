@@ -8,11 +8,14 @@ import { usePathname } from "next/navigation";
 import { formatAdminURL } from "payload/shared";
 import { Fragment, useEffect, useState } from "react";
 
-import { hasAdminRole } from "@/core/access";
+import { hasAdminRole, isDirection } from "@/core/access";
 
 import CollapsibleGroup from "./CollapsibleGroup";
 import { NAV_HIDDEN, NAV_LAYOUT, NAV_ORDER, isActiveHref, isLink, isSubGroup, type NavItem, type NavLink } from "./nav-structure";
 import { useNavRail } from "./useNavRail";
+
+/** Un lien libre est-il visible pour ce compte ? Admin pour les liens admin, direction pour l'équipe IA. */
+const canSee = (l: NavLink, user: unknown): boolean => (!l.adminOnly || hasAdminRole(user)) && (!l.directionOnly || isDirection(user));
 
 const baseClass = "nav";
 
@@ -97,7 +100,7 @@ export default function CustomNavClient({ groups }: Props) {
     return Object.entries(NAV_LAYOUT)
       .filter(
         ([label, items]) =>
-          !known.has(label) && items.some((it) => isLink(it) && (!it.adminOnly || hasAdminRole(user))),
+          !known.has(label) && items.some((it) => isLink(it) && canSee(it, user)),
       )
       .map(([label]) => ({ label, entities: [] }));
   };
@@ -112,7 +115,7 @@ export default function CustomNavClient({ groups }: Props) {
    */
   const [badges, setBadges] = useState<Record<string, number>>({});
   useEffect(() => {
-    const urls = [...new Set(Object.values(NAV_LAYOUT).flat().filter(isLink).filter((l) => l.badge && (!l.adminOnly || hasAdminRole(user))).map((l) => l.badge!))];
+    const urls = [...new Set(Object.values(NAV_LAYOUT).flat().filter(isLink).filter((l) => l.badge && canSee(l, user)).map((l) => l.badge!))];
     if (!urls.length) return;
     let alive = true;
     void Promise.all(
@@ -221,7 +224,7 @@ export default function CustomNavClient({ groups }: Props) {
          * `nav-analyses-facturation`).
          */
         const renderFreeLink = (item: NavLink) => {
-          if (item.adminOnly && !hasAdminRole(user)) return null;
+          if (!canSee(item, user)) return null;
           const on = isActive(item.href);
           const id = `nav-${item.href.split("/").filter((seg) => seg && seg !== "admin").join("-")}`;
           const label = (
@@ -288,7 +291,7 @@ export default function CustomNavClient({ groups }: Props) {
               const entities = item.slugs
                 .map((s) => bySlug.get(s))
                 .filter((e): e is NavEntity => Boolean(e));
-              const links = (item.links ?? []).filter((l) => !l.adminOnly || hasAdminRole(user));
+              const links = (item.links ?? []).filter((l) => canSee(l, user));
               if (entities.length === 0 && links.length === 0) return null;
 
               const subContainsActive =

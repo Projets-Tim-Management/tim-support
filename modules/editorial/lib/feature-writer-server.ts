@@ -7,6 +7,7 @@ import {
 } from "@payloadcms/richtext-lexical";
 import type { Payload } from "payload";
 
+import { trackApi } from "@/core/lib/api-health";
 import { claudeCostUsd, usdToEur, type Usage } from "@/core/lib/ai-pricing";
 import { featureToImportJson, type FeatureSource } from "@/modules/editorial/import/featureExport";
 import { mergeFeatureFromJson } from "@/modules/editorial/import/featureMerge";
@@ -104,7 +105,7 @@ export async function callWriter(
   content: Anthropic.Beta.BetaContentBlockParam[],
 ): Promise<{ feature: WrittenFeature; usage: Usage }> {
   const client = new Anthropic({ timeout: 120_000, maxRetries: 1 });
-  const res = await client.beta.messages.parse({
+  const res = await trackApi("anthropic", () => client.beta.messages.parse({
     model: WRITER_MODEL,
     max_tokens: 16000,
     // Les consignes ne changent pas d'une fiche à l'autre : en cache.
@@ -116,7 +117,7 @@ export async function callWriter(
     // modèle dans le même appel, plutôt que de laisser l'écran sans texte.
     betas: ["server-side-fallback-2026-07-01"],
     fallbacks: "default",
-  });
+  }));
 
   const usage: Usage = {
     input: res.usage.input_tokens,

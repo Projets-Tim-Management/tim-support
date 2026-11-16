@@ -30,6 +30,8 @@ export interface NavLink {
   href: string;
   /** Réservé aux admins : les autres rôles ne voient pas le lien. */
   adminOnly?: boolean;
+  /** Réservé à la direction (super-admin ET direction@) : l'équipe d'agents IA. */
+  directionOnly?: boolean;
   /** Pastille de compteur à côté du libellé : adresse d'API qui rend `{ count }` (rien à 0). */
   badge?: string;
 }
@@ -56,6 +58,23 @@ export const NAV_HIDDEN = new Set([
   "presentation-bookings",
   // E-mail de masse : les campagnes se lisent dans l'onglet « Campagnes envoyées ».
   "mass-email-campaigns",
+  // Équipe IA : la conversation avec un chef se lit sur sa fiche, dans l'organigramme.
+  "ai-team-messages",
+  // Équipe IA : les demandes des chefs se traitent dans « Vos demandes », en tête de l'organigramme.
+  "ai-team-requests",
+  // Équipe IA (menu « Agent », 13/11/2026) : le travail des agents se lit sur leur fiche, dans
+  // l'organigramme — rapports, réponses des IA, photos du lundi, plans de site des concurrents,
+  // méthodes, objectifs de la semaine, comptes de réseaux. Le menu garde l'organigramme et les fiches.
+  "ai-team-audits",
+  "ai-team-ai-answers",
+  "ai-team-snapshots",
+  "ai-team-competitor-maps",
+  "ai-team-methods",
+  "ai-team-objectives",
+  "ai-team-social-accounts",
+  "ai-team-notes",
+  "ai-team-goals",
+  "ai-team-actions",
 ]);
 
 /** Un item de groupe : un slug, un sous-groupe repliable, ou un lien libre. */
@@ -81,6 +100,8 @@ export const NAV_ORDER = [
   "Éditorial",
   "Marketing",
   "Publicité",
+  // Les agents IA, incarnés : visible de la seule direction (super-admin ET direction@).
+  "Agent",
   "Système",
 ];
 
@@ -150,6 +171,7 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     { label: "Facturation", href: "/admin/analyses/facturation", adminOnly: true },
     { label: "Clients & pipeline", href: "/admin/analyses/pipeline", adminOnly: true },
     { label: "Acquisition", href: "/admin/analyses/acquisition", adminOnly: true },
+    { label: "SEO & GEO", href: "/admin/analyses/seo-geo", adminOnly: true },
     { label: "Vidéos", href: "/admin/analyses/videos", adminOnly: true },
     { label: "Support", href: "/admin/analyses/support", adminOnly: true },
     { label: "Développements", href: "/admin/analyses/developpements", adminOnly: true },
@@ -158,6 +180,16 @@ export const NAV_LAYOUT: Record<string, NavItem[]> = {
     // Axonaut (avant Pennylane), et la catégorie parente de chaque catégorie Pennylane
     // (l'API ne la donne pas).
     { label: "Paramètres", slugs: ["axonaut-invoices", "expense-categories"] },
+  ],
+  /**
+   * L'équipe d'agents IA, réservée à la direction : l'organigramme d'abord
+   * (c'est là qu'on travaille), les fiches ensuite (noms, visages).
+   */
+  Agent: [
+    { label: "Organigramme", href: "/admin/equipe-ia", directionOnly: true },
+    { label: "Feuille de route", href: "/admin/feuille-de-route", directionOnly: true },
+    { label: "Fiche produit", href: "/admin/globals/ai-team-brief", directionOnly: true },
+    { label: "Fiches de l'équipe", slugs: ["ai-team-members"] },
   ],
   Utilisateurs: [
     { label: "Missions", slugs: ["missions", "mission-submissions"] },

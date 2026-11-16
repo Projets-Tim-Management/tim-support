@@ -183,6 +183,31 @@ import * as migration_20261104_075548_expense_categories from './20261104_075548
 import * as migration_20261105_074523_licence_moves from './20261105_074523_licence_moves';
 import * as migration_20261105_075733_licence_moves_lines from './20261105_075733_licence_moves_lines';
 import * as migration_20261105_080201_licence_moves_json from './20261105_080201_licence_moves_json';
+import * as migration_20261105_084407_history_pennylane_stamp from './20261105_084407_history_pennylane_stamp';
+import * as migration_20261112_092912_equipe_ia from './20261112_092912_equipe_ia';
+import * as migration_20261112_095248_equipe_ia_en_service from './20261112_095248_equipe_ia_en_service';
+import * as migration_20261112_101903_equipe_ia_conversation from './20261112_101903_equipe_ia_conversation';
+import * as migration_20261112_103831_equipe_ia_budget_chef from './20261112_103831_equipe_ia_budget_chef';
+import * as migration_20261112_105621_equipe_ia_demandes from './20261112_105621_equipe_ia_demandes';
+import * as migration_20261112_112838_equipe_ia_organisation_sea from './20261112_112838_equipe_ia_organisation_sea';
+import * as migration_20261112_142127_equipe_ia_methodes from './20261112_142127_equipe_ia_methodes';
+import * as migration_20261112_143812_equipe_ia_boucle_de_preuve from './20261112_143812_equipe_ia_boucle_de_preuve';
+import * as migration_20261112_144552_equipe_ia_objectifs from './20261112_144552_equipe_ia_objectifs';
+import * as migration_20261112_145742_equipe_ia_maitrise from './20261112_145742_equipe_ia_maitrise';
+import * as migration_20261112_164226_equipe_seo_victor from './20261112_164226_equipe_seo_victor';
+import * as migration_20261112_171059_equipe_seo_ana from './20261112_171059_equipe_seo_ana';
+import * as migration_20261112_172402_equipe_seo_guy from './20261112_172402_equipe_seo_guy';
+import * as migration_20261112_173116_equipe_seo_paige from './20261112_173116_equipe_seo_paige';
+import * as migration_20261112_175107_equipe_seo_georges from './20261112_175107_equipe_seo_georges';
+import * as migration_20261112_181240_equipe_seo_robert from './20261112_181240_equipe_seo_robert';
+import * as migration_20261112_181647_equipe_seo_linda from './20261112_181647_equipe_seo_linda';
+import * as migration_20261113_075211_equipe_seo_cleo from './20261113_075211_equipe_seo_cleo';
+import * as migration_20261113_144311_api_en_panne from './20261113_144311_api_en_panne';
+import * as migration_20261114_090352_carnet_des_chefs from './20261114_090352_carnet_des_chefs';
+import * as migration_20261114_095237_equipe_seo_progresse from './20261114_095237_equipe_seo_progresse';
+import * as migration_20261114_102341_feuille_de_route from './20261114_102341_feuille_de_route';
+import * as migration_20261114_113201_feuille_de_route_complete from './20261114_113201_feuille_de_route_complete';
+import * as migration_20261115_091839_bureau_commercial_fiche_produit from './20261115_091839_bureau_commercial_fiche_produit';
 
 export const migrations = [
   {
@@ -1108,6 +1133,131 @@ export const migrations = [
   {
     up: migration_20261105_080201_licence_moves_json.up,
     down: migration_20261105_080201_licence_moves_json.down,
-    name: '20261105_080201_licence_moves_json'
+    name: '20261105_080201_licence_moves_json',
+  },
+  {
+    up: migration_20261105_084407_history_pennylane_stamp.up,
+    down: migration_20261105_084407_history_pennylane_stamp.down,
+    name: '20261105_084407_history_pennylane_stamp',
+  },
+  {
+    up: migration_20261112_092912_equipe_ia.up,
+    down: migration_20261112_092912_equipe_ia.down,
+    name: '20261112_092912_equipe_ia',
+  },
+  {
+    up: migration_20261112_095248_equipe_ia_en_service.up,
+    down: migration_20261112_095248_equipe_ia_en_service.down,
+    name: '20261112_095248_equipe_ia_en_service',
+  },
+  {
+    up: migration_20261112_101903_equipe_ia_conversation.up,
+    down: migration_20261112_101903_equipe_ia_conversation.down,
+    name: '20261112_101903_equipe_ia_conversation',
+  },
+  {
+    up: migration_20261112_103831_equipe_ia_budget_chef.up,
+    down: migration_20261112_103831_equipe_ia_budget_chef.down,
+    name: '20261112_103831_equipe_ia_budget_chef',
+  },
+  {
+    up: migration_20261112_105621_equipe_ia_demandes.up,
+    down: migration_20261112_105621_equipe_ia_demandes.down,
+    name: '20261112_105621_equipe_ia_demandes',
+  },
+  {
+    up: migration_20261112_112838_equipe_ia_organisation_sea.up,
+    down: migration_20261112_112838_equipe_ia_organisation_sea.down,
+    name: '20261112_112838_equipe_ia_organisation_sea',
+  },
+  {
+    up: migration_20261112_142127_equipe_ia_methodes.up,
+    down: migration_20261112_142127_equipe_ia_methodes.down,
+    name: '20261112_142127_equipe_ia_methodes',
+  },
+  {
+    up: migration_20261112_143812_equipe_ia_boucle_de_preuve.up,
+    down: migration_20261112_143812_equipe_ia_boucle_de_preuve.down,
+    name: '20261112_143812_equipe_ia_boucle_de_preuve',
+  },
+  {
+    up: migration_20261112_144552_equipe_ia_objectifs.up,
+    down: migration_20261112_144552_equipe_ia_objectifs.down,
+    name: '20261112_144552_equipe_ia_objectifs',
+  },
+  {
+    up: migration_20261112_145742_equipe_ia_maitrise.up,
+    down: migration_20261112_145742_equipe_ia_maitrise.down,
+    name: '20261112_145742_equipe_ia_maitrise',
+  },
+  {
+    up: migration_20261112_164226_equipe_seo_victor.up,
+    down: migration_20261112_164226_equipe_seo_victor.down,
+    name: '20261112_164226_equipe_seo_victor',
+  },
+  {
+    up: migration_20261112_171059_equipe_seo_ana.up,
+    down: migration_20261112_171059_equipe_seo_ana.down,
+    name: '20261112_171059_equipe_seo_ana',
+  },
+  {
+    up: migration_20261112_172402_equipe_seo_guy.up,
+    down: migration_20261112_172402_equipe_seo_guy.down,
+    name: '20261112_172402_equipe_seo_guy',
+  },
+  {
+    up: migration_20261112_173116_equipe_seo_paige.up,
+    down: migration_20261112_173116_equipe_seo_paige.down,
+    name: '20261112_173116_equipe_seo_paige',
+  },
+  {
+    up: migration_20261112_175107_equipe_seo_georges.up,
+    down: migration_20261112_175107_equipe_seo_georges.down,
+    name: '20261112_175107_equipe_seo_georges',
+  },
+  {
+    up: migration_20261112_181240_equipe_seo_robert.up,
+    down: migration_20261112_181240_equipe_seo_robert.down,
+    name: '20261112_181240_equipe_seo_robert',
+  },
+  {
+    up: migration_20261112_181647_equipe_seo_linda.up,
+    down: migration_20261112_181647_equipe_seo_linda.down,
+    name: '20261112_181647_equipe_seo_linda',
+  },
+  {
+    up: migration_20261113_075211_equipe_seo_cleo.up,
+    down: migration_20261113_075211_equipe_seo_cleo.down,
+    name: '20261113_075211_equipe_seo_cleo',
+  },
+  {
+    up: migration_20261113_144311_api_en_panne.up,
+    down: migration_20261113_144311_api_en_panne.down,
+    name: '20261113_144311_api_en_panne',
+  },
+  {
+    up: migration_20261114_090352_carnet_des_chefs.up,
+    down: migration_20261114_090352_carnet_des_chefs.down,
+    name: '20261114_090352_carnet_des_chefs',
+  },
+  {
+    up: migration_20261114_095237_equipe_seo_progresse.up,
+    down: migration_20261114_095237_equipe_seo_progresse.down,
+    name: '20261114_095237_equipe_seo_progresse',
+  },
+  {
+    up: migration_20261114_102341_feuille_de_route.up,
+    down: migration_20261114_102341_feuille_de_route.down,
+    name: '20261114_102341_feuille_de_route',
+  },
+  {
+    up: migration_20261114_113201_feuille_de_route_complete.up,
+    down: migration_20261114_113201_feuille_de_route_complete.down,
+    name: '20261114_113201_feuille_de_route_complete',
+  },
+  {
+    up: migration_20261115_091839_bureau_commercial_fiche_produit.up,
+    down: migration_20261115_091839_bureau_commercial_fiche_produit.down,
+    name: '20261115_091839_bureau_commercial_fiche_produit'
   },
 ];

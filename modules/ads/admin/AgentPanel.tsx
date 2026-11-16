@@ -42,8 +42,10 @@ const plural = (n: number, one: string, many: string) => (n ? `${n} ${n > 1 ? ma
  * Une campagne EN LIGNE n'a plus de lancement à la main : le suivi (§9 nonies)
  * s'affiche en tête, et la salle de contrôle montre ses passages.
  */
-export function AgentPanel() {
-  const { id } = useDocumentInfo();
+export function AgentPanel({ campaignId }: { campaignId?: string | number } = {}) {
+  // Sur la page Équipe IA, la campagne est passée en paramètre ; sur une fiche, c'est la fiche ouverte.
+  const doc = useDocumentInfo();
+  const id = campaignId ?? doc.id;
   const [objective, setObjective] = useState("");
   const [capEur, setCapEur] = useState("2");
   const [preview, setPreview] = useState<Preview | null>(null);

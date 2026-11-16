@@ -1,6 +1,14 @@
 import type { Payload } from "payload";
 
+import { reportApiFailure, reportApiSuccess } from "@/core/lib/api-health";
 import { accessTokenFor } from "@/modules/marketing/lib/calendar";
+import { pingBing } from "@/modules/analytics/lib/seo-bing";
+import { pingGa4 } from "@/modules/analytics/lib/seo-ga4";
+import { pingGoogleAds } from "@/modules/analytics/lib/google-ads";
+import { pingOpenAiAds } from "@/modules/analytics/lib/openai-ads";
+import { pingGemini, pingOpenAi, pingPerplexity } from "@/modules/ai-team/lib/ai-engines";
+import { pingGsc } from "@/modules/analytics/lib/seo-gsc";
+import { pingPageSpeed } from "@/modules/analytics/lib/seo-pagespeed";
 
 import { isConfigured, isSimulated, SUPPORT_CONNECTIONS, type SupportConnection } from "./support-connections";
 
@@ -155,6 +163,46 @@ async function testMeta(payload: Payload): Promise<Omit<TestResult, "at">> {
   }
 }
 
+/** Les trois sources SEO : leur `ping` fait un vrai appel minimal et dit ce qu'il a lu. */
+/**
+ * Les connecteurs de lecture (analyses, équipe IA) : chacun a son « ping », la
+ * lecture la plus légère. Une limite de temps les borne tous — PageSpeed
+ * audite vraiment une page, il a donc plus de temps que les autres.
+ */
+const PINGS = {
+  "search-console": { ping: pingGsc, timeoutMs: 15_000 },
+  pagespeed: { ping: pingPageSpeed, timeoutMs: 60_000 },
+  "bing-webmaster": { ping: pingBing, timeoutMs: 15_000 },
+  "ga4-data": { ping: pingGa4, timeoutMs: 15_000 },
+  "google-ads": { ping: pingGoogleAds, timeoutMs: 15_000 },
+  "openai-ads": { ping: pingOpenAiAds, timeoutMs: 15_000 },
+  openai: { ping: pingOpenAi, timeoutMs: 30_000 },
+  perplexity: { ping: pingPerplexity, timeoutMs: 30_000 },
+  gemini: { ping: pingGemini, timeoutMs: 30_000 },
+} satisfies Partial<Record<SupportConnection["key"], { ping: () => Promise<string>; timeoutMs: number }>>;
+
+/**
+ * Un ping, borné. Le message dit ce qui s'est passé : pas de réponse à temps,
+ * service injoignable (réseau), ou la réponse du service — déjà mise en une
+ * phrase par le connecteur (« accès refusé… », « quota dépassé »).
+ */
+async function testPing({ ping, timeoutMs }: { ping: () => Promise<string>; timeoutMs: number }): Promise<Omit<TestResult, "at">> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(Object.assign(new Error("délai dépassé"), { name: "TimeoutError" })), timeoutMs);
+  });
+  try {
+    return { ok: true, message: await Promise.race([ping(), late]) };
+  } catch (e) {
+    const err = e as Error;
+    const message =
+      err.name === "TimeoutError" || err.name === "AbortError" ? `Aucune réponse en ${Math.round(timeoutMs / 1000)} s.` : err.name === "TypeError" ? `Injoignable : ${err.message}` : err.message;
+    return { ok: false, message };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function testConnection(key: SupportConnection["key"], payload: Payload): Promise<TestResult> {
   const def = SUPPORT_CONNECTIONS.find((c) => c.key === key);
   const at = new Date().toISOString();
@@ -174,6 +222,11 @@ export async function testConnection(key: SupportConnection["key"], payload: Pay
             ? await testGoogle(payload)
             : key === "meta"
               ? await testMeta(payload)
-              : await testAnthropic();
+              : key in PINGS
+                ? await testPing(PINGS[key as keyof typeof PINGS])
+                : await testAnthropic();
+  // Le test rapporte aussi son sort : une panne connue se ferme, une nouvelle s'ouvre (core/lib/api-health.ts).
+  if (r.ok) await reportApiSuccess(key, payload);
+  else await reportApiFailure(key, new Error(r.message), payload);
   return { ...r, at };
 }

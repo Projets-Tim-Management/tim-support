@@ -27,7 +27,7 @@ export type TeamEmail = {
   label: string;
   /** Ce qui le déclenche, en une phrase — affiché dans les réglages. */
   when: string;
-  group: "Facturation" | "Parcours client" | "Publicité" | "Agendas";
+  group: "Facturation" | "Parcours client" | "Publicité" | "Agendas" | "Connexions";
   defaultRoles: Role[];
   /**
    * Une alerte qu'on ne doit pas perdre : si personne n'est coché, elle part
@@ -60,6 +60,14 @@ export const TEAM_EMAILS = [
   { key: "publicite-urgence", group: "Publicité", label: "Publicité : urgence sur une campagne", when: "Après la synchro de nuit, une fois par alerte.", defaultRoles: ADMINS, critical: true },
   { key: "publicite-reconnexion", group: "Publicité", label: "Publicité : compte ou jeton à reconnecter", when: "7 jours avant l'expiration d'une connexion.", defaultRoles: ADMINS, critical: true },
   { key: "publicite-recap", group: "Publicité", label: "Publicité : récap du lundi", when: "Chaque lundi matin.", defaultRoles: ADMINS },
+  {
+    key: "connexion-api",
+    group: "Connexions",
+    label: "Connexions : une API ne répond plus",
+    when: "Quand une API refuse faute de paiement ou d'accès (clé, jeton), ou échoue depuis plus d'une heure — au plus un par API et par jour.",
+    defaultRoles: [ROLES.superAdmin],
+    critical: true,
+  },
   { key: "agendas", group: "Agendas", label: "Agendas : connexion cassée ou visio sans lien", when: "Chaque jour à 8 h 15, seulement en cas de problème.", defaultRoles: ADMINS, critical: true },
 ] as const satisfies readonly TeamEmail[];
 

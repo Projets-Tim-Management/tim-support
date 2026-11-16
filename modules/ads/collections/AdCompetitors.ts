@@ -21,11 +21,36 @@ export const COMPETITOR_STATUSES = [
   { label: "Refusé", value: "refuse" },
 ] as const;
 
+/** À quoi sert un concurrent (une liste, deux usages — décision du 12/11/2026). */
+export const COMPETITOR_USAGES = [
+  { label: "Publicité (SEA)", value: "sea" },
+  { label: "SEO / GEO", value: "seo" },
+] as const;
+
+export const COMPETITOR_KINDS = [
+  { label: "Éditeur concurrent", value: "editeur" },
+  { label: "Comparateur / annuaire", value: "comparateur" },
+  { label: "Média BTP", value: "media" },
+] as const;
+
+/** Le site d'un concurrent : son origine seule (« https://www.exemple.fr »), ou rien. */
+const normalizeWebsite = (v: unknown): string | null => {
+  const raw = String(v ?? "").trim();
+  if (!raw) return null;
+  try {
+    const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.origin : null;
+  } catch {
+    return null;
+  }
+};
+
 /**
  * Lien collé → identifiant, avant la validation. Un lien illisible est laissé
  * tel quel : c'est la validation du champ qui dit pourquoi il est refusé.
  */
 const normalizePageRef: CollectionBeforeValidateHook = ({ data, originalDoc }) => {
+  if (data && "website" in data) data.website = normalizeWebsite(data.website);
   if (!data || data.pageId == null) return data;
   const ref = parsePageRef(data.pageId);
   if (!ref.ok) return data;
@@ -62,7 +87,7 @@ export const AdCompetitors: CollectionConfig = {
   labels: { singular: "Concurrent", plural: "Concurrents" },
   admin: {
     useAsTitle: "name",
-    defaultColumns: ["name", "pageId", "status", "decidedAt"],
+    defaultColumns: ["name", "website", "pageId", "status", "decidedAt"],
     group: "Publicité",
     description: "Les pages Facebook des concurrents dont l'agent lit les publicités. Il peut en proposer ; elles n'entrent qu'après validation.",
   },
@@ -97,6 +122,15 @@ export const AdCompetitors: CollectionConfig = {
       fields: [
         { name: "status", type: "select", label: "État", options: [...COMPETITOR_STATUSES], defaultValue: "suivi", required: true, index: true, admin: { width: "50%" } },
         { name: "decidedAt", type: "date", label: "Ajouté ou refusé le", admin: { width: "50%", readOnly: true } },
+      ],
+    },
+    {
+      type: "row",
+      fields: [
+        // Le site, pour l'équipe SEO/GEO : Guy y lit chaque semaine le plan du site (sitemap).
+        { name: "website", type: "text", label: "Site web", admin: { width: "40%", placeholder: "https://www.exemple.fr", description: "L'adresse du site : Guy (SEO/GEO) y lit chaque semaine les nouvelles pages." } },
+        { name: "usages", type: "select", hasMany: true, label: "Suivi pour", options: [...COMPETITOR_USAGES], defaultValue: ["sea", "seo"], admin: { width: "30%" } },
+        { name: "kind", type: "select", label: "Type", options: [...COMPETITOR_KINDS], defaultValue: "editeur", admin: { width: "30%" } },
       ],
     },
     { name: "proposedBy", type: "relationship", relationTo: "ad-agent-runs", label: "Proposé par le passage", admin: { readOnly: true } },

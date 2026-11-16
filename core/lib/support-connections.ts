@@ -20,7 +20,7 @@ export type EnvVar = {
 };
 
 export type SupportConnection = {
-  key: "pennylane" | "brevo" | "insee" | "google" | "anthropic" | "meta";
+  key: "pennylane" | "brevo" | "insee" | "google" | "anthropic" | "meta" | "search-console" | "pagespeed" | "bing-webmaster" | "ga4-data" | "google-ads" | "openai-ads" | "openai" | "perplexity" | "gemini";
   name: string;
   /** Pictogramme : une lettre, sans dépendre d'un logo externe. */
   mark: string;
@@ -149,6 +149,165 @@ export const SUPPORT_CONNECTIONS: SupportConnection[] = [
     ],
     testLabel: "Obtenir un jeton d'application auprès de Meta",
     simulatedBy: "ADS_META_MOCK",
+  },
+  {
+    key: "search-console",
+    name: "Google Search Console",
+    mark: "S",
+    purpose:
+      "Analyses → SEO & GEO : clics, impressions, CTR et position sur Google, par requête, par page, par appareil — et les opportunités (requêtes en 2e page). Sans elle, le bloc « Moteurs de recherche » reste vide.",
+    scope: [
+      "Search Analytics, lecture seule (webmasters.readonly)",
+      "Compte de service Google Cloud, ajouté comme utilisateur « Restreint » de la propriété",
+      "Le rapport « IA générative » (AI Overviews / AI Mode) n'est pas dans l'API : il se lit dans Search Console",
+    ],
+    docUrl: "https://developers.google.com/webmaster-tools/v1/how-tos/search_analytics",
+    consoleUrl: "https://search.google.com/search-console/users",
+    env: [
+      { name: "GSC_SERVICE_ACCOUNT_JSON", required: true, hint: "La clé JSON du compte de service (collée telle quelle ou en base64)." },
+      { name: "GSC_SITE_URL", required: true, hint: "La propriété, exactement comme dans Search Console : « sc-domain:exemple.fr » ou « https://www.exemple.fr/ »." },
+      { name: "SEO_BRAND_TERMS", required: false, hint: "Mots de la marque, séparés par des virgules — défaut « tim management,tim-management,timmanagement »." },
+    ],
+    testLabel: "Lire les clics d'un jour",
+  },
+  {
+    key: "pagespeed",
+    name: "PageSpeed Insights",
+    mark: "V",
+    purpose:
+      "Analyses → SEO & GEO, « Santé technique » : Core Web Vitals réels (LCP, INP, CLS) et scores Lighthouse des pages clés, sur mobile. Relu une fois par jour.",
+    scope: ["Audit public des pages listées (lecture)", "Données terrain CrUX quand le site a assez de trafic Chrome"],
+    docUrl: "https://developers.google.com/speed/docs/insights/v5/get-started",
+    consoleUrl: "https://console.cloud.google.com/apis/library/pagespeedonline.googleapis.com",
+    env: [
+      { name: "PAGESPEED_API_KEY", required: true, hint: "Clé d'API Google Cloud, restreinte à la PageSpeed Insights API (gratuite)." },
+      { name: "SEO_KEY_URLS", required: false, hint: "Pages à auditer, séparées par des virgules (12 au plus) — défaut : l'accueil de GSC_SITE_URL." },
+    ],
+    testLabel: "Auditer la première page clé",
+  },
+  {
+    key: "bing-webmaster",
+    name: "Bing Webmaster Tools",
+    mark: "W",
+    purpose:
+      "Analyses → SEO & GEO : clics et requêtes Bing. L'index de Bing nourrit Copilot et une partie de ChatGPT Search — y être bien indexé, c'est aussi du GEO.",
+    scope: ["Trafic et requêtes (lecture)", "Le rapport « AI Performance » (citations Copilot) n'a pas encore d'API : il se lit dans Bing Webmaster Tools"],
+    docUrl: "https://learn.microsoft.com/en-us/dotnet/api/microsoft.bing.webmaster.api.interfaces.iwebmasterapi",
+    consoleUrl: "https://www.bing.com/webmasters/apikey",
+    env: [
+      { name: "BING_WEBMASTER_API_KEY", required: true, hint: "Paramètres → Accès API → Clé API." },
+      { name: "BING_SITE_URL", required: false, hint: "Le site tel que déclaré dans Bing (https://www.exemple.fr/) — défaut : déduit de GSC_SITE_URL." },
+    ],
+    testLabel: "Lire le trafic Bing",
+  },
+  {
+    key: "ga4-data",
+    name: "Google Analytics 4 (lecture)",
+    mark: "4",
+    purpose:
+      "Analyses → SEO & GEO : toutes les visites envoyées par Google, Bing et les assistants IA (ChatGPT, Gemini, Perplexity…) — pas seulement celles qui deviennent des prospects — et ce qu'elles font sur le site. L'envoi des conversions vers GA4 (Measurement Protocol) est une autre chose, déjà branchée.",
+    scope: [
+      "Data API, lecture seule (analytics.readonly) : visites par source, page d'arrivée, engagement, conversions",
+      "Même compte de service que Search Console (GSC_SERVICE_ACCOUNT_JSON), ajouté en « Lecteur » sur la propriété",
+      "Ne voit que les visiteurs qui acceptent les cookies : un plancher, dont l'évolution reste juste",
+    ],
+    docUrl: "https://developers.google.com/analytics/devguides/reporting/data/v1",
+    consoleUrl: "https://analytics.google.com/analytics/web/",
+    env: [{ name: "GA4_PROPERTY_ID", required: true, hint: "L'ID de la propriété GA4 (un nombre, Administration → Détails de la propriété) — pas l'ID de mesure G-…" }],
+    testLabel: "Lire les visites des 7 derniers jours",
+  },
+  {
+    key: "google-ads",
+    name: "Google Ads (lecture)",
+    mark: "A",
+    purpose:
+      "Équipe IA : ce que lit Thomas, chef Google Ads — campagnes, dépense, termes de recherche, mots-clés, conversions — et la vraie dépense Google de la fiche des canaux. Sans elle, Thomas reste « Arrive bientôt » et la fiche prend les relevés Pennylane.",
+    scope: [
+      "API Google Ads, lecture seule : le compte de service (GSC_SERVICE_ACCOUNT_JSON) est utilisateur « Lecture seule » du compte",
+      "Projet Google Cloud en accès « Explorer » (2 880 opérations par jour) ; plus de jeton développeur depuis le 09/09/2026",
+      "Aucune écriture : budgets et mots-clés négatifs se changent dans la console, via « Vos demandes »",
+    ],
+    docUrl: "https://developers.google.com/google-ads/api/docs/start",
+    consoleUrl: "https://ads.google.com/aw/accountsettings/accessandsecurity",
+    env: [
+      { name: "GOOGLE_ADS_CUSTOMER_ID", required: true, hint: "L'identifiant du compte Google Ads (335-848-3794), avec ou sans tirets." },
+      { name: "GOOGLE_ADS_LOGIN_CUSTOMER_ID", required: false, hint: "Seulement si l'accès passe par un compte administrateur (MCC) : son identifiant." },
+      { name: "GOOGLE_ADS_API_VERSION", required: false, hint: "Version de l'API — défaut v24." },
+    ],
+    testLabel: "Lire le nom du compte Google Ads",
+  },
+  {
+    key: "openai-ads",
+    name: "ChatGPT Ads (lecture)",
+    mark: "C",
+    purpose:
+      "Équipe IA : ce que lit Sarah, cheffe ChatGPT Ads — campagnes, dépense, clics, conversions du pixel — et la vraie dépense ChatGPT de la fiche des canaux. Sans elle, Sarah reste « Arrive bientôt » et la fiche prend les relevés Pennylane.",
+    scope: [
+      "API annonceur OpenAI (api.ads.openai.com), lectures seulement : le support ne fait que des GET",
+      "La clé d'API annonceur du Gestionnaire de publicités (Paramètres › Général) — pas une clé de conversion, qui ne lit rien",
+      "Aucune écriture : budgets et annonces se changent dans le Gestionnaire, via « Vos demandes »",
+    ],
+    docUrl: "https://developers.openai.com/ads",
+    consoleUrl: "https://ads.openai.com",
+    env: [{ name: "OPENAI_ADS_API_KEY", required: true, hint: "La clé d'API annonceur (Gestionnaire de publicités › Paramètres › Général). Elle peut aussi écrire : à garder en variable sensible." }],
+    testLabel: "Lire le compte ChatGPT Ads",
+  },
+  {
+    key: "openai",
+    name: "ChatGPT (API OpenAI)",
+    mark: "G",
+    purpose:
+      "Équipe IA : Georges (visibilité IA) pose chaque mois à ChatGPT les questions d'un acheteur du BTP et compte si TIM est nommé, cité, à quel rang. Sans elle, ChatGPT n'est pas mesuré (les autres IA le restent).",
+    scope: [
+      "API Responses, outil web_search — modèle gpt-6-luna par défaut (environ 1 à 2 centimes la question)",
+      "Une question à la fois, recherche web activée, sans rien nommer de TIM : les réponses sont gardées pour la mesure",
+      "Une clé de projet API (platform.openai.com), distincte de la clé annonceur ChatGPT Ads",
+    ],
+    docUrl: "https://developers.openai.com/api/docs/guides/tools-web-search",
+    consoleUrl: "https://platform.openai.com/api-keys",
+    env: [
+      { name: "OPENAI_API_KEY", required: true, hint: "Clé d'API OpenAI (sk-…), avec un plafond de dépense réglé sur la console." },
+      { name: "OPENAI_VISIBILITY_MODEL", required: false, hint: "Modèle interrogé — défaut gpt-6-luna." },
+    ],
+    testLabel: "Poser une question minimale à ChatGPT",
+  },
+  {
+    key: "perplexity",
+    name: "Perplexity (API)",
+    mark: "P",
+    purpose:
+      "Équipe IA : Georges pose chaque mois à Perplexity les questions d'un acheteur du BTP — TIM nommé, cité, et les sources lues. Sans elle, Perplexity n'est pas mesuré.",
+    scope: [
+      "Agent API (/v1/agent), outil web_search — la Sonar historique est fermée depuis le 27/09/2026",
+      "Une question à la fois, recherche web activée, sans rien nommer de TIM : les réponses sont gardées pour la mesure",
+      "Moins d'un centime la question",
+    ],
+    docUrl: "https://docs.perplexity.ai/docs/agent-api/tools/web-search",
+    consoleUrl: "https://www.perplexity.ai/account/api/keys",
+    env: [
+      { name: "PERPLEXITY_API_KEY", required: true, hint: "Clé d'API Perplexity (pplx-…), avec des crédits prépayés." },
+      { name: "PERPLEXITY_VISIBILITY_MODEL", required: false, hint: "Modèle interrogé — défaut openai/gpt-5.6-luna." },
+    ],
+    testLabel: "Poser une question minimale à Perplexity",
+  },
+  {
+    key: "gemini",
+    name: "Gemini (API Google AI)",
+    mark: "J",
+    purpose:
+      "Équipe IA : Georges pose chaque mois à Gemini les questions d'un acheteur du BTP, avec l'ancrage Google Search — le plus proche de ce que montre Google. Sans elle, Gemini n'est pas mesuré.",
+    scope: [
+      "generateContent avec l'outil google_search — modèle gemini-3.5-flash-lite par défaut",
+      "Une question à la fois, recherche web activée, sans rien nommer de TIM : les réponses sont gardées pour la mesure",
+      "5 000 recherches gratuites par mois, puis 14 $ les 1 000 (bien au-dessus de nos besoins)",
+    ],
+    docUrl: "https://ai.google.dev/gemini-api/docs/google-search",
+    consoleUrl: "https://aistudio.google.com/apikey",
+    env: [
+      { name: "GEMINI_API_KEY", required: true, hint: "Clé d'API Google AI Studio (AIza…)." },
+      { name: "GEMINI_VISIBILITY_MODEL", required: false, hint: "Modèle interrogé — défaut gemini-3.5-flash-lite." },
+    ],
+    testLabel: "Poser une question minimale à Gemini",
   },
 ];
 

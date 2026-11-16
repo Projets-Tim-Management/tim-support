@@ -3,6 +3,7 @@ import { after, NextResponse } from "next/server";
 import { tickRun } from "@/modules/ads/agent/engine";
 import { controlRoom } from "@/modules/ads/agent/control-room";
 import { agentDeps, launchRun, LaunchError, previewRun } from "@/modules/ads/agent/run";
+import { isDirection } from "@/core/access";
 import { adminRequest } from "@/modules/ads/lib/route-auth";
 
 /**
@@ -27,7 +28,7 @@ const cap = (v: unknown): number | null => (v === null || v === undefined || v =
 
 export async function GET(req: Request, { params }: Params) {
   const { id } = await params;
-  const auth = await adminRequest(req);
+  const auth = await adminRequest(req, isDirection, "reserve-direction");
   if ("response" in auth) return auth.response;
   const { payload } = auth;
   const url = new URL(req.url);
@@ -40,7 +41,7 @@ export async function GET(req: Request, { params }: Params) {
 export async function POST(req: Request, { params }: Params) {
   const start = Date.now();
   const { id } = await params;
-  const auth = await adminRequest(req);
+  const auth = await adminRequest(req, isDirection, "reserve-direction");
   if ("response" in auth) return auth.response;
   const { payload, user } = auth;
   const body = (await req.json().catch(() => ({}))) as { objective?: unknown; capEur?: unknown };

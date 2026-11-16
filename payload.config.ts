@@ -11,6 +11,7 @@ import { buildConfig } from "payload";
 import { Users } from "./core/collections/Users";
 import { Media } from "./core/collections/Media";
 import { EmailSuppressions } from "./core/collections/EmailSuppressions";
+import { ApiAlerts } from "./core/collections/ApiAlerts";
 import { Appearance } from "./core/globals/Appearance";
 import { Platforms } from "./modules/editorial/collections/Platforms";
 import { FeatureCategories } from "./modules/editorial/collections/FeatureCategories";
@@ -39,6 +40,20 @@ import { AdAlerts } from "./modules/ads/collections/AdAlerts";
 import { AdTests } from "./modules/ads/collections/AdTests";
 import { AdConversions } from "./modules/ads/collections/AdConversions";
 import { AdQuestions } from "./modules/ads/collections/AdQuestions";
+import { AiTeamMembers } from "./modules/ai-team/collections/AiTeamMembers";
+import { AiTeamMessages } from "./modules/ai-team/collections/AiTeamMessages";
+import { AiTeamMethods } from "./modules/ai-team/collections/AiTeamMethods";
+import { AiTeamObjectives } from "./modules/ai-team/collections/AiTeamObjectives";
+import { AiTeamAudits } from "./modules/ai-team/collections/AiTeamAudits";
+import { AiTeamCompetitorMaps } from "./modules/ai-team/collections/AiTeamCompetitorMaps";
+import { AiTeamAiAnswers } from "./modules/ai-team/collections/AiTeamAiAnswers";
+import { AiTeamSocialAccounts } from "./modules/ai-team/collections/AiTeamSocialAccounts";
+import { AiTeamNotes } from "./modules/ai-team/collections/AiTeamNotes";
+import { AiTeamGoals } from "./modules/ai-team/collections/AiTeamGoals";
+import { AiTeamActions } from "./modules/ai-team/collections/AiTeamActions";
+import { AiTeamBrief } from "./modules/ai-team/globals/AiTeamBrief";
+import { AiTeamRequests } from "./modules/ai-team/collections/AiTeamRequests";
+import { AiTeamSnapshots } from "./modules/ai-team/collections/AiTeamSnapshots";
 import { AdRecaps } from "./modules/ads/collections/AdRecaps";
 import { AdsSettings } from "./modules/ads/globals/AdsSettings";
 import { AdsBrandKit } from "./modules/ads/globals/AdsBrandKit";
@@ -88,6 +103,7 @@ import { CompanySettings, seedCompanySettings } from "./core/globals/CompanySett
 import { seedForms } from "./modules/forms/lib/seed";
 import { seedSequences } from "./modules/marketing/lib/sequence-seed";
 import { seedDevStatuses } from "./modules/dev/lib/seed";
+import { seedAiTeam } from "./modules/ai-team/lib/seed";
 import {
   hideUnlessAdmin,
   hideUnlessMetier,
@@ -318,6 +334,26 @@ export default buildConfig({
           exact: true,
           meta: { title: "Analyses · Acquisition" },
         },
+        // Équipe IA : l'organigramme des agents, réservé à la direction (modules/ai-team).
+        equipeIa: {
+          Component: "/modules/ai-team/admin/TeamView#default",
+          path: "/equipe-ia",
+          exact: true,
+          meta: { title: "Équipe IA" },
+        },
+        // La feuille de route de l'équipe IA : objectifs à horizon, actions et résultats (modules/ai-team).
+        feuilleDeRoute: {
+          Component: "/modules/ai-team/admin/RoadmapView#default",
+          path: "/feuille-de-route",
+          exact: true,
+          meta: { title: "Feuille de route" },
+        },
+        analysesSeoGeo: {
+          Component: "/modules/analytics/admin/SeoView#default",
+          path: "/analyses/seo-geo",
+          exact: true,
+          meta: { title: "Analyses · SEO & GEO" },
+        },
         analysesVideos: {
           Component: "/modules/analytics/admin/VideosView#default",
           path: "/analyses/videos",
@@ -408,6 +444,28 @@ export default buildConfig({
       AdTests,
       AdConversions,
       AdQuestions,
+      // Équipe IA : les agents incarnés (nom, visage, chef) — réservée à la direction.
+      AiTeamMembers,
+      // La conversation de la direction avec les chefs (écrite par le serveur seul).
+      AiTeamMessages,
+      // La méthode de chaque agent, réécrite après sa veille web de la semaine.
+      AiTeamMethods,
+      // Les objectifs de la semaine fixés à la direction (équipe SEO/GEO), à cocher.
+      AiTeamObjectives,
+      // Les audits du site vitrine par l'analyste SEO/GEO.
+      AiTeamAudits,
+      // Les plans de site des concurrents, photographiés chaque semaine (sans IA).
+      AiTeamCompetitorMaps,
+      AiTeamAiAnswers,
+      // Les comptes de réseaux branchés pour Cléo (jetons chiffrés).
+      AiTeamSocialAccounts,
+      AiTeamNotes,
+      AiTeamGoals,
+      AiTeamActions,
+      // Les demandes des chefs à la direction (« à faire » ou « question »).
+      AiTeamRequests,
+      // La photo des chiffres de chaque lundi (tendances, avant / après des recommandations).
+      AiTeamSnapshots,
       AdRecaps,
       AdMedia,
       AdFacts,
@@ -425,6 +483,8 @@ export default buildConfig({
       // Adresses qui ne reçoivent plus d'envoi commercial — transverse à tous
       // les modules, d'où sa place à côté des collections système.
       EmailSuppressions,
+      // Les API en panne (paiement, accès, échecs répétés) : bandeau des Connexions et e-mail d'alerte.
+      ApiAlerts,
       // Dossier de démarrage — cachées du menu (admin.hidden), gérées via les
       // champs `join` de l'onglet « Dossier de démarrage » de la fiche client.
       ClientEmployees,
@@ -601,6 +661,8 @@ export default buildConfig({
     // Colonnes de départ du suivi des développements — créées une seule fois,
     // dans une base vide (cf. modules/dev/lib/seed).
     await seedDevStatuses(payload);
+    // L'équipe d'agents IA de départ — une seule fois, dans une base vide (cf. modules/ai-team/lib/seed).
+    await seedAiTeam(payload);
   },
 
   secret: process.env.PAYLOAD_SECRET || "",
@@ -633,7 +695,7 @@ export default buildConfig({
        */
     }),
   ],
-  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, TrainingSettings, DevAnnounceEmail, AdsSettings, AdsBrandKit, TeamEmails, ExpenseCategories],
+  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, TrainingSettings, DevAnnounceEmail, AdsSettings, AdsBrandKit, TeamEmails, ExpenseCategories, AiTeamBrief],
 
   db: postgresAdapter({
     // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :

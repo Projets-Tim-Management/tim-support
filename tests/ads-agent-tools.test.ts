@@ -249,3 +249,43 @@ describe("le brief Claude Design — le directeur artistique l'écrit, le code v
   });
 });
 
+
+describe("creer_sous_agent — l'équipe IA : un membre en pause ne reçoit plus de mission", () => {
+  it("refuse de confier une mission à un rôle en pause, et ne crée rien", async () => {
+    const { ctx, run } = await setup("orchestrateur", fakeAtelier());
+    ctx.deps.team = { paused: async (role) => (role === "redacteur" ? "Léa (rédactrice) est en pause dans l'équipe IA." : null) };
+    const before = (await mem.store.listAgents(run.id)).length;
+    const r = await use(ctx, "creer_sous_agent", { role: "redacteur", mission: "Écrire deux accroches", budget_eur: 1, justification: "test" });
+    expect(r).toMatchObject({ kind: "ok", isError: true, output: { refus: "Léa (rédactrice) est en pause dans l'équipe IA." } });
+    expect((await mem.store.listAgents(run.id)).length).toBe(before);
+  });
+
+  it("laisse passer les rôles en service", async () => {
+    const { ctx, run } = await setup("orchestrateur", fakeAtelier());
+    ctx.deps.team = { paused: async (role) => (role === "redacteur" ? "en pause" : null) };
+    const r = await use(ctx, "creer_sous_agent", { role: "stratege", mission: "Trouver trois angles", budget_eur: 1.5, justification: "test" });
+    expect(JSON.stringify(r)).not.toContain("en pause");
+    expect((await mem.store.listAgents(run.id)).some((a) => a.role === "stratege")).toBe(true);
+  });
+});
+
+describe("demander_a_la_direction / lire_reponses_direction — l'équipe IA", () => {
+  it("dépose une demande vérifiée au nom du rôle, et refuse un lien hors liste", async () => {
+    const { ctx, run } = await setup("orchestrateur", fakeAtelier());
+    const ask = vi.fn(async () => 42);
+    ctx.deps.team = { paused: async () => null, ask };
+    const ok = await use(ctx, "demander_a_la_direction", { type: "a-faire", titre: "Reconnecter Meta", pourquoi: "Le jeton expire dans 3 jours", lien: "/admin/collections/ad-accounts", etapes: ["Ouvrez le compte", "Cliquez « Reconnecter »"] });
+    expect(ok).toMatchObject({ kind: "ok", output: { demande: 42 } });
+    expect(ask).toHaveBeenCalledWith("orchestrateur", expect.objectContaining({ kind: "a-faire", title: "Reconnecter Meta" }), { run: run.id, campaign: run.campaign });
+    const bad = await use(ctx, "demander_a_la_direction", { type: "a-faire", titre: "x", pourquoi: "y", lien: "https://evil.example.com", etapes: ["a"] });
+    expect(bad).toMatchObject({ isError: true });
+    expect(ask).toHaveBeenCalledTimes(1);
+  });
+
+  it("relit ce que la direction a fait ou répondu", async () => {
+    const { ctx } = await setup("orchestrateur", fakeAtelier());
+    ctx.deps.team = { paused: async () => null, answers: async () => [{ titre: "Budget de décembre", forme: "question", etat: "repondue", reponse: "200 €", le: "2026-10-04" }] };
+    const r = await use(ctx, "lire_reponses_direction", {});
+    expect(r).toMatchObject({ kind: "ok", output: { reponses: [{ reponse: "200 €" }] } });
+  });
+});
