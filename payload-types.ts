@@ -762,8 +762,13 @@ export interface PartnerClient {
     compagnonPrice?: number | null;
     bureauQty?: number | null;
     bureauPrice?: number | null;
+    magasinierQty?: number | null;
+    magasinierPrice?: number | null;
     visuelQty?: number | null;
     visuelPrice?: number | null;
+    modulePlanning?: boolean | null;
+    modulePointage?: boolean | null;
+    moduleStock?: boolean | null;
     adminDiscountPct?: number | null;
     adminDiscountAmount?: number | null;
     conducteurDiscountPct?: number | null;
@@ -776,6 +781,8 @@ export interface PartnerClient {
     compagnonDiscountAmount?: number | null;
     bureauDiscountPct?: number | null;
     bureauDiscountAmount?: number | null;
+    magasinierDiscountPct?: number | null;
+    magasinierDiscountAmount?: number | null;
     visuelDiscountPct?: number | null;
     visuelDiscountAmount?: number | null;
   };
@@ -912,6 +919,7 @@ export interface PartnerClient {
         at?: string | null;
         totalLicences?: number | null;
         caHT?: number | null;
+        annual?: boolean | null;
         commissionRate?: number | null;
         commission?: number | null;
         detail?:
@@ -1744,7 +1752,8 @@ export interface ClientContact {
   /**
    * Décide du compte TIM créé pour cette personne.
    */
-  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'bureau' | 'visuel') | null;
+  licenceProfile?:
+    ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'bureau' | 'magasinier' | 'visuel') | null;
   /**
    * Généré une fois puis FIGÉ : le client l'a distribué à ses équipes, le changer casserait des connexions.
    */
@@ -2137,6 +2146,8 @@ export interface ClientActivity {
   journeyStep?: string | null;
   emailDirection?: ('recu' | 'envoye') | null;
   sourceMessageId?: string | null;
+  emailSubject?: string | null;
+  emailFrom?: string | null;
   capturedFrom?: string | null;
   /**
    * Noms seulement — les fichiers ne sont pas conservés.
@@ -4261,7 +4272,8 @@ export interface ClientEmployee {
   /**
    * Profil de licence — détermine le prix dans le devis.
    */
-  licenceProfile?: ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'bureau' | 'visuel') | null;
+  licenceProfile?:
+    ('admin' | 'conducteur' | 'chefChantier' | 'chefEquipe' | 'compagnon' | 'bureau' | 'magasinier' | 'visuel') | null;
   /**
    * Requise pour les utilisateurs ; facultative pour les autres salariés.
    */
@@ -5529,8 +5541,13 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         compagnonPrice?: T;
         bureauQty?: T;
         bureauPrice?: T;
+        magasinierQty?: T;
+        magasinierPrice?: T;
         visuelQty?: T;
         visuelPrice?: T;
+        modulePlanning?: T;
+        modulePointage?: T;
+        moduleStock?: T;
         adminDiscountPct?: T;
         adminDiscountAmount?: T;
         conducteurDiscountPct?: T;
@@ -5543,6 +5560,8 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         compagnonDiscountAmount?: T;
         bureauDiscountPct?: T;
         bureauDiscountAmount?: T;
+        magasinierDiscountPct?: T;
+        magasinierDiscountAmount?: T;
         visuelDiscountPct?: T;
         visuelDiscountAmount?: T;
       };
@@ -5620,6 +5639,7 @@ export interface PartnerClientsSelect<T extends boolean = true> {
         at?: T;
         totalLicences?: T;
         caHT?: T;
+        annual?: T;
         commissionRate?: T;
         commission?: T;
         detail?: T;
@@ -5691,6 +5711,8 @@ export interface ClientActivitiesSelect<T extends boolean = true> {
   journeyStep?: T;
   emailDirection?: T;
   sourceMessageId?: T;
+  emailSubject?: T;
+  emailFrom?: T;
   capturedFrom?: T;
   attachmentNames?: T;
   recipients?: T;

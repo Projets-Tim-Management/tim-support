@@ -87,6 +87,8 @@ async function handleSequenceReply(
   payload: Awaited<ReturnType<typeof payloadClient>>,
   id: number,
   text: string,
+  /** L'e-mail reçu : de quoi y répondre d'un clic depuis la fiche (objet, expéditeur, Message-ID pour le fil). */
+  mail: { subject?: string; from?: string; messageId?: string } = {},
 ): Promise<void> {
   try {
     const run = (await payload
@@ -132,6 +134,11 @@ async function handleSequenceReply(
     if (!Number.isFinite(clientId)) return;
 
     const label = run.sequenceLabel ?? "relance";
+    const reply = {
+      ...(mail.subject ? { emailSubject: mail.subject.slice(0, 300) } : {}),
+      ...(mail.from || run.email ? { emailFrom: (mail.from ?? run.email)!.toLowerCase() } : {}),
+      ...(mail.messageId ? { sourceMessageId: mail.messageId } : {}),
+    };
     await payload.create({
       collection: "client-activities",
       data:
@@ -145,12 +152,16 @@ async function handleSequenceReply(
               content: text,
               dueDate: new Date().toISOString(),
               client: clientId,
+              ...reply,
             }
           : {
               type: "email",
               title: `Réponse à « ${label} »`,
               content: text,
               client: clientId,
+              // Reçu : sans le sens, la réponse du prospect se lisait comme un e-mail envoyé PAR nous.
+              emailDirection: "recu",
+              ...reply,
             },
       overrideAccess: true,
     });
@@ -214,7 +225,13 @@ export async function POST(req: Request) {
 
     const seqId = number || runId ? null : extractSequenceRunId(recips);
     if (seqId) {
-      await handleSequenceReply(payload, seqId, text);
+      const fromList: string[] = [];
+      collectAddresses(item.From, fromList);
+      await handleSequenceReply(payload, seqId, text, {
+        subject: typeof item.Subject === "string" ? item.Subject : undefined,
+        from: fromList[0],
+        messageId: typeof item.MessageId === "string" ? item.MessageId : undefined,
+      });
       continue;
     }
 

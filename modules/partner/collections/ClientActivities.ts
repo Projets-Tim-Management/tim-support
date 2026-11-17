@@ -356,6 +356,12 @@ export const ClientActivities: CollectionConfig = {
       index: true,
       admin: { hidden: true },
     },
+    /**
+     * Un e-mail REÇU du prospect (réponse à une séquence) : son objet et son expéditeur, pour y répondre d'un clic
+     * depuis la fiche — « Re : » le bon objet, à la bonne adresse, dans le même fil (17/11/2026).
+     */
+    { name: "emailSubject", type: "text", admin: { hidden: true } },
+    { name: "emailFrom", type: "text", admin: { hidden: true } },
     {
       /**
        * La boîte qui a fourni cet échange, ou l'adresse de capture pour une

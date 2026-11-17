@@ -118,6 +118,16 @@ async function resolveAttachments(
   return { ok: true, files, ids: kept };
 }
 
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** Le message cité d'une réponse, en HTML (échappé : c'est le texte du prospect). */
+function quoteHtml(q: { header: string; text: string }): string {
+  return (
+    `<div style="margin-top:24px;color:#6b7280;font-size:13px">${esc(q.header)}</div>` +
+    `<blockquote style="margin:6px 0 0;padding:0 0 0 12px;border-left:3px solid #d2d2d6;color:#6b7280;font-size:13px;white-space:pre-wrap">${esc(q.text)}</blockquote>`
+  );
+}
+
 /** Découpe et valide une liste d'adresses saisie à la main. */
 function parseRecipients(raw: unknown): string[] {
   return [
@@ -311,6 +321,13 @@ export async function POST(req: Request) {
   const bcc = withoutCapture(parseRecipients(body.bcc));
   const objet = String(body.subject ?? "").trim();
   const markdown = String(body.body ?? "").trim();
+  // Une RÉPONSE à un e-mail du prospect (bouton « Répondre » d'une tâche, 17/11/2026) : le Message-ID d'origine range
+  // la réponse dans le même fil chez lui, et la tâche se coche une fois l'e-mail parti.
+  const inReplyTo = typeof body.inReplyTo === "string" && /^<?[^\s<>]{3,300}>?$/.test(body.inReplyTo) ? body.inReplyTo : null;
+  // Le message cité d'une réponse : posé SOUS la signature, comme dans toute messagerie.
+  const q = body.quote && typeof body.quote === "object" ? (body.quote as { header?: unknown; text?: unknown }) : null;
+  const quote = q && typeof q.text === "string" && q.text.trim() ? { header: String(q.header ?? "").slice(0, 300), text: q.text.trim().slice(0, 20000) } : null;
+  const replyTask = body.replyTask != null && /^\d{1,12}$/.test(String(body.replyTask)) ? Number(body.replyTask) : null;
 
   if (!to.length || !objet || !markdown) {
     return NextResponse.json(
@@ -351,13 +368,17 @@ export async function POST(req: Request) {
       from: sender.name ? `${sender.name} <${sender.email}>` : sender.email,
       subject: objet,
       ...(attached.files.length ? { attachments: attached.files } : {}),
-      html: markdownToHtml(markdown) + signature.html,
+      html: markdownToHtml(markdown) + signature.html + (quote ? quoteHtml(quote) : ""),
       // Version texte : certains clients l'affichent, et elle évite qu'un
       // message sans corps HTML lisible parte totalement vide.
-      text: markdownToPlain(markdown) + (signature.text ? `\n\n--\n${signature.text}` : ""),
+      text:
+        markdownToPlain(markdown) +
+        (signature.text ? `\n\n--\n${signature.text}` : "") +
+        (quote ? `\n\n${quote.header}\n${quote.text.split("\n").map((l) => `> ${l}`).join("\n")}` : ""),
       // Réponse à l'expéditeur RÉEL : sa propre adresse, même quand le message
       // a dû partir depuis celle du support.
       replyTo: sender.email,
+      ...(inReplyTo ? { inReplyTo, references: inReplyTo } : {}),
     });
   } catch (e) {
     payload.logger.error(`[historique] e-mail vers ${to.join(",")} non parti : ${e}`);
@@ -396,6 +417,19 @@ export async function POST(req: Request) {
     // renvoyer. On le dit, et la trace manquante se rattrape à la main.
     payload.logger.error(`[historique] e-mail envoyé mais non tracé (client ${doc.id}) : ${e}`);
     return NextResponse.json({ ok: true, logged: false });
+  }
+
+  // La tâche « Répondre à … » de CETTE fiche : faite, puisque la réponse est partie.
+  if (replyTask != null) {
+    const task = (await payload.findByID({ collection: "client-activities", id: replyTask, depth: 0, overrideAccess: true }).catch(() => null)) as
+      | { client?: unknown; type?: string; done?: boolean }
+      | null;
+    const owner = task?.client && typeof task.client === "object" ? (task.client as { id?: unknown }).id : task?.client;
+    if (task && task.type === "tache" && !task.done && String(owner) === String(doc.id)) {
+      await payload
+        .update({ collection: "client-activities", id: replyTask, data: { done: true }, overrideAccess: true })
+        .catch((e) => payload.logger.error(`[historique] tâche ${replyTask} non cochée après la réponse : ${e}`));
+    }
   }
 
   payload.logger.info(
