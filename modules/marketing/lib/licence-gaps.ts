@@ -30,6 +30,7 @@ const NOUNS: Record<ProfilKey, [string, string]> = {
   chefEquipe: ["chef d'équipe", "chefs d'équipe"],
   compagnon: ["compagnon", "compagnons"],
   bureau: ["utilisateur Bureau", "utilisateurs Bureau"],
+  magasinier: ["magasinier", "magasiniers"],
   visuel: ["utilisateur Visuel", "utilisateurs Visuel"],
 };
 

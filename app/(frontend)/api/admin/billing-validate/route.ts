@@ -99,8 +99,9 @@ export async function POST(req: Request) {
             .findByID({ collection: "partners", id: String(partnerId), depth: 0, overrideAccess: true })
             .catch(() => null)) as { commissionRate?: number | null } | null)
         : null;
-    const { suggestedDiscountPct: _drop, ...entry } = buildHistoryEntry(doc.licences, Number(partner?.commissionRate) || 0);
+    const { suggestedDiscountPct: _drop, caBrut: _brut, ...entry } = buildHistoryEntry(doc.licences, Number(partner?.commissionRate) || 0, doc.billingPeriod);
     void _drop;
+    void _brut;
     next = withValidation(history, {
       month: before.month,
       invoiceDate: before.invoiceDate,

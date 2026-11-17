@@ -4,7 +4,7 @@ import { useFormFields } from "@payloadcms/ui";
 import { useEffect, useState } from "react";
 
 import { eur, fieldRelId, round2 } from "@/modules/partner/lib/format";
-import { effectiveUnitPrice, PROFILS } from "@/modules/partner/lib/pricing";
+import { billingFactor, effectiveUnitPrice, PROFILS } from "@/modules/partner/lib/pricing";
 
 /**
  * Récap live de la barre latérale d'un client apporté : Total licences, CA HT,
@@ -28,7 +28,8 @@ export function PartnerCommissionBox() {
       tQty += q;
       brut += q * net;
     }
-    return { totalQty: tQty, caHT: round2(brut), partnerId: fieldRelId(fields.partner?.value) };
+    // Payé à l'année : −10 % sur tout l'abonnement (16/11/2026).
+    return { totalQty: tQty, caHT: round2(brut * billingFactor(fields.billingPeriod?.value as string | undefined)), partnerId: fieldRelId(fields.partner?.value) };
   });
 
   const [rate, setRate] = useState<number | null>(null);

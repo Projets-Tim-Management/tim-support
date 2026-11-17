@@ -3,7 +3,7 @@ import type { PennylaneStamp } from "./billing-check";
 import { hasContractPhase } from "./clientStatus";
 import { round2 } from "./format";
 import { monthKey, monthStart } from "./month";
-import { computeClientCA, effectiveUnitPrice, licenceLinesOf } from "./pricing";
+import { computeClientCA, effectiveUnitPrice, isAnnualBilling, licenceLinesOf } from "./pricing";
 
 /**
  * L'historique mensuel d'une fiche : ce qui a été FACTURÉ, mois après mois.
@@ -22,6 +22,8 @@ export type HistoryEntry = {
   at?: string;
   totalLicences?: number;
   caHT?: number;
+  /** Payé à l'année : le CA est après −10 % (16/11/2026). Absent sinon. */
+  annual?: boolean;
   commission?: number;
   commissionRate?: number;
   detail?: unknown;
@@ -49,9 +51,10 @@ export type HistoryEntry = {
 export function buildHistoryEntry(
   licences: Record<string, number | null | undefined> | null | undefined,
   commissionRate: number,
-): Omit<HistoryEntry, "at"> & { suggestedDiscountPct: number } {
+  billingPeriod?: string | null,
+): Omit<HistoryEntry, "at"> & { suggestedDiscountPct: number; caBrut: number } {
   const lines = licenceLinesOf(licences);
-  const { totalLicences, caHT, suggestedDiscountPct } = computeClientCA(lines);
+  const { totalLicences, caHT, caBrut, suggestedDiscountPct } = computeClientCA(lines, billingPeriod);
   const detail = lines.map((l) => ({
     key: l.key,
     label: l.label,
@@ -65,6 +68,8 @@ export function buildHistoryEntry(
   return {
     totalLicences,
     caHT,
+    ...(isAnnualBilling(billingPeriod) ? { annual: true } : {}),
+    caBrut,
     commissionRate,
     commission: round2((caHT * commissionRate) / 100),
     detail,
@@ -163,7 +168,9 @@ export function nextHistory(prev: HistoryEntry[], input: NextHistoryInput): Hist
   const changed =
     !last ||
     detailSignature(last.detail) !== detailSignature(input.entry.detail) ||
-    Number(last.commissionRate ?? -1) !== Number(input.entry.commissionRate ?? 0);
+    Number(last.commissionRate ?? -1) !== Number(input.entry.commissionRate ?? 0) ||
+    // Passer à l'année (−10 %) change ce que le client paie : une ligne.
+    Boolean(last.annual) !== Boolean(input.entry.annual);
 
   if (changed) {
     const line: HistoryEntry = { ...input.entry, at: target, pennylane: stamp };

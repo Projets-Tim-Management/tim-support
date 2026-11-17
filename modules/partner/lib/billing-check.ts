@@ -4,7 +4,7 @@ import { billingPeriodMonths, monthsLabel, pennylaneMonths } from "./billing-per
 import { round2 } from "./format";
 import { monthKey, monthStart } from "./month";
 import type { PennylaneSnapshot, PlCustomer, PlInvoice, PlInvoiceLine, PlProduct, PlSubscriptionFull } from "./pennylane";
-import { effectiveUnitPrice, licenceLinesOf, PROFILS, type ProfilKey } from "./pricing";
+import { billingFactor, effectiveUnitPrice, licenceLinesOf, PROFILS, type ProfilKey } from "./pricing";
 import { clientRegularisations, isRegulLabel, type LicenceMove, type Regularisation } from "./regularisation";
 
 /**
@@ -43,6 +43,8 @@ const PENNYLANE_PRODUCT_REFS: Record<ProfilKey, string | null> = {
   chefEquipe: "LCE-Tim",
   compagnon: "LC-Tim",
   bureau: "LB-Tim",
+  // Produit « Licence TIM — Magasinier » à créer dans Pennylane ; en attendant, le libellé le reconnaît.
+  magasinier: null,
   visuel: "LV-Tim",
 };
 
@@ -57,6 +59,7 @@ const LABEL_HINTS: Record<ProfilKey, RegExp> = {
   chefEquipe: /chef\s*d['’]\s*[ée]quipe/i,
   compagnon: /compagnon/i,
   bureau: /bureau/i,
+  magasinier: /magasin/i,
   visuel: /visuel/i,
 };
 
@@ -501,6 +504,9 @@ export function buildBillingReport(clients: SupportClientFacts[], snap: Pennylan
     const plMonths = sub ? pennylaneMonths(sub.recurring_rule) : null;
     const months = plMonths ?? 1;
     const supportMonths = billingPeriodMonths(cl.billingPeriod);
+    // Payé à l'année : −10 % sur tout l'abonnement (16/11/2026). Dans Pennylane, la remise se pose sur chaque ligne ;
+    // le prix attendu par licence est donc celui de la fiche moins 10 %.
+    const factor = billingFactor(cl.billingPeriod);
 
     // Agrégation des lignes Pennylane par profil.
     const agg = new Map<
@@ -574,7 +580,7 @@ export function buildBillingReport(clients: SupportClientFacts[], snap: Pennylan
       const mixedPrices = prices.length > 1;
       // Le prix ne se compare que là où il y a quelque chose à facturer des deux côtés.
       const priceMismatch =
-        r.supportQty > 0 && plQty > 0 && (mixedPrices || round2(r.supportPrice) !== round2(plPrice ?? 0));
+        r.supportQty > 0 && plQty > 0 && (mixedPrices || round2(r.supportPrice * factor) !== round2(plPrice ?? 0));
       return {
         ...r,
         plQty,
@@ -587,7 +593,7 @@ export function buildBillingReport(clients: SupportClientFacts[], snap: Pennylan
       };
     });
 
-    const supportHT = round2(rows.reduce((a, r) => a + r.supportQty * r.supportPrice, 0));
+    const supportHT = round2(rows.reduce((a, r) => a + r.supportQty * r.supportPrice, 0) * factor);
     const plQty = rows.reduce((a, r) => a + r.plQty, 0);
     // Sans la régularisation prévue : elle ne vaut que pour une facture, pas pour le montant habituel.
     const plInvoiceHT = round2(num(sub?.customer_invoice_data?.currency_amount_before_tax) - (plannedRegulHT ?? 0));
@@ -660,7 +666,7 @@ export function buildBillingReport(clients: SupportClientFacts[], snap: Pennylan
               severity: "warn",
               label: r.mixedPrices
                 ? `${r.label} : plusieurs prix différents dans Pennylane`
-                : `${r.label} : ${fmtPrice(r.supportPrice)} sur la fiche, ${fmtPrice(r.plPrice ?? 0)} facturé`,
+                : `${r.label} : ${fmtPrice(round2(r.supportPrice * factor))} sur la fiche${factor < 1 ? " (annuel −10 %)" : ""}, ${fmtPrice(r.plPrice ?? 0)} facturé`,
             });
           }
         }

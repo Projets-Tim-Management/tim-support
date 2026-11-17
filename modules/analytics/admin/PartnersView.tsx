@@ -73,7 +73,7 @@ export default async function PartnersView(view: AdminViewServerProps) {
       payload.find({ collection: collection as never, limit: 10000, depth: 0, overrideAccess: true, select: select as never });
     const [partners, clients, points, submissions, orders] = await Promise.all([
       find("partners", { displayName: true, type: true, partnershipModel: true, commissionRate: true, joinedAt: true, createdAt: true }),
-      payload.find({ collection: "partner-clients", limit: 5000, depth: 0, draft: true, overrideAccess: true, select: { partner: true, clientStatus: true, createdAt: true, contractStartDate: true, licences: true } as never }),
+      payload.find({ collection: "partner-clients", limit: 5000, depth: 0, draft: true, overrideAccess: true, select: { partner: true, clientStatus: true, createdAt: true, contractStartDate: true, billingPeriod: true, licences: true } as never }),
       find("point-transactions", { partner: true, delta: true, source: true, createdAt: true }),
       find("mission-submissions", { partner: true, status: true, createdAt: true }),
       find("reward-orders", { partner: true, status: true, cost: true, createdAt: true }),

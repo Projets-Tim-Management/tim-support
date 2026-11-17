@@ -69,6 +69,26 @@
   color: var(--tim-foreground);
 }
 
+.lic-total__hint { font-weight: 500; color: var(--tim-muted); }
+
+/* Modules de l'offre et paiement annuel (au-dessus du tableau des licences, 16/11/2026). */
+.lic-modules { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-bottom: 0.75rem; }
+.lic-modules__label { margin-right: 0.25rem; font-size: 0.82rem; font-weight: 700; color: var(--tim-muted); }
+.lic-modules__sep { width: 1px; height: 1.4rem; margin: 0 0.35rem; background: var(--tim-border); }
+.lic-chip {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  min-height: 2rem; padding: 0.3rem 0.8rem;
+  border: 1px solid var(--tim-border); border-radius: 999px;
+  background: var(--tim-white); color: var(--tim-foreground);
+  font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  &:hover { border-color: var(--tim-primary); }
+  &.is-on { border-color: var(--tim-primary); background: var(--tim-primary-light); color: var(--tim-primary); }
+}
+.lic-chip--annual.is-on { border-color: var(--tim-green); background: color-mix(in srgb, var(--tim-green) 12%, transparent); color: var(--tim-green); }
+.lic-annual td { padding-top: 0.3rem; border-bottom: none; font-size: 0.88rem; color: var(--tim-green); font-variant-numeric: tabular-nums; }
+.lic-annual--total td { font-weight: 800; color: var(--tim-foreground); }
+.lic-annual--total .lic-num { color: var(--tim-primary); }
+
 /* Mouvements de licences (fiche client, LicenceMovesField) : la graphie du tableau des licences, sur un fond, hauteur bornée. */
 .lic-moves {
   margin: 0.25rem 0 1.25rem;
