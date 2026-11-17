@@ -74,8 +74,9 @@ export function useChartColors(): Colors {
   return colors;
 }
 
-/** Ordre FIXE des profils dans la palette : Admin = 1 … Compagnon = 5, Visuel = 6, Bureau = 7. */
-const PROFILE_SLOT: Record<ProfilKey, number> = { admin: 0, conducteur: 1, chefChantier: 2, chefEquipe: 3, compagnon: 4, visuel: 5, bureau: 6 };
+/** Ordre FIXE des profils dans la palette : Admin = 1 … Compagnon = 5, Visuel = 6, Bureau = 7 ; Magasinier, au-delà de
+ * la palette, prend la couleur « autre » (la barre porte son nom, la couleur n'identifie rien seule). */
+const PROFILE_SLOT: Record<ProfilKey, number> = { admin: 0, conducteur: 1, chefChantier: 2, chefEquipe: 3, compagnon: 4, visuel: 5, bureau: 6, magasinier: 7 };
 
 export const monthLabel = (iso: string, long = false) =>
   new Date(iso).toLocaleDateString("fr-FR", { month: long ? "long" : "short", year: long ? "numeric" : "2-digit", timeZone: "UTC" });
@@ -212,7 +213,7 @@ export function ProfileChart({ data }: { data: ProfileStat[] }) {
   return (
     <ResponsiveContainer width="100%" height={Math.max(160, rows.length * 44 + 24)}>
       <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 72, left: 8, bottom: 4 }} barCategoryGap="30%">
-        <Gradients horizontal entries={rows.map((r) => ({ id: gradientId("profile", r.key), color: c.series[PROFILE_SLOT[r.key]] }))} />
+        <Gradients horizontal entries={rows.map((r) => ({ id: gradientId("profile", r.key), color: c.series[PROFILE_SLOT[r.key]] ?? c.other }))} />
         <CartesianGrid {...gridProps(c, true)} />
         <XAxis type="number" hide />
         <YAxis type="category" dataKey="label" width={150} tick={{ fontSize: 12, fill: c.text }} axisLine={false} tickLine={false} />

@@ -103,6 +103,7 @@ const CONTRACT_PROFILES: { key: (typeof PROFILS)[number]["key"]; label: string }
   { key: "chefChantier", label: "Chef de chantier" },
   { key: "compagnon", label: "Compagnon" },
   { key: "bureau", label: "Bureau" },
+  { key: "magasinier", label: "Magasinier" },
   { key: "visuel", label: "Visuel" },
 ];
 
@@ -111,7 +112,8 @@ export function contractPriceRows(client: Record<string, unknown>): PriceRow[] {
   const byKey = new Map(lines.map((l) => [l.key, l]));
   // Tous les profils tarifés, dans l'ordre du modèle : un profil sans licence
   // aujourd'hui garde son prix négocié — le client peut en ajouter demain.
-  return CONTRACT_PROFILES.map((p) => {
+  // Le Magasinier (module Stock, 16/11/2026) n'entre au contrat que si le client en prend : les autres contrats ne changent pas.
+  return CONTRACT_PROFILES.filter((p) => p.key !== "magasinier" || (byKey.get(p.key)?.qty ?? 0) > 0).map((p) => {
     const line = byKey.get(p.key);
     const price = line ? effectiveUnitPrice(line) : undefined;
     return {

@@ -3,6 +3,7 @@
 import { useDocumentInfo, useFormFields } from "@payloadcms/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { replyDraft } from "@/modules/partner/lib/reply-draft";
 import {
   ActivityDrawer,
   type ActivityDraft,
@@ -62,6 +63,10 @@ type Activity = {
   /** Lien vers l'événement d'agenda, quand il a été créé. */
   calendarLink?: string | null;
   recipients?: string | null;
+  /** E-mail reçu du prospect : son objet, son expéditeur, son Message-ID (pour lui répondre dans le même fil). */
+  emailSubject?: string | null;
+  emailFrom?: string | null;
+  sourceMessageId?: string | null;
   /** Sur un échange CAPTÉ (copie cachée) : d'où il vient. Absent sinon. */
   emailDirection?: "recu" | "envoye" | null;
   /** Noms des pièces jointes d'un échange capté — les fichiers ne sont pas conservés. */
@@ -71,6 +76,7 @@ type Activity = {
 };
 
 const API = "/payload-api/client-activities";
+
 
 const authorLabel = (a: Activity["author"]): string | null => {
   if (!a || typeof a !== "object") return null;
@@ -284,9 +290,17 @@ export function ClientHistory() {
     };
   }, [id]);
 
+  /** La tâche « Répondre à … » à laquelle on répond : le brouillon, le fil, et la tâche à cocher à l'envoi. */
+  const [reply, setReply] = useState<{
+    taskId: number | string;
+    inReplyTo: string | null;
+    prefill: { to: string; title: string; heading: string; quote: { header: string; text: string } | null };
+  } | null>(null);
+
   const closeDrawer = () => {
     setKind(null);
     setEditing(null);
+    setReply(null);
     setError(null);
   };
 
@@ -392,6 +406,7 @@ export function ClientHistory() {
               body: draft.content,
               signature: draft.signature,
               attachments: draft.attachments,
+              ...(reply ? { inReplyTo: reply.inReplyTo, replyTask: reply.taskId, quote: reply.prefill.quote } : {}),
             }),
           });
           const json = await res.json().catch(() => ({}));
@@ -431,6 +446,7 @@ export function ClientHistory() {
         }
         setKind(null);
         setEditing(null);
+        setReply(null);
         await load();
       } catch (e) {
         // Le drawer reste OUVERT sur une erreur : la saisie n'est pas perdue et
@@ -440,7 +456,7 @@ export function ClientHistory() {
         setBusy(false);
       }
     },
-    [editing, id, load],
+    [editing, id, load, reply],
   );
 
   /**
@@ -544,6 +560,7 @@ export function ClientHistory() {
       {kind && (
         <ActivityDrawer
           kind={kind}
+          prefill={reply?.prefill ?? null}
           initial={
             editing
               ? {
@@ -633,6 +650,25 @@ export function ClientHistory() {
                     >
                       {rel.text}
                     </span>
+                  )}
+                  {/* Répondre au prospect : toujours visible, c'est LE geste de cette tâche (17/11/2026). */}
+                  {/* Seulement une tâche née d'un message REÇU : « envoyer la proposition » n'a rien à quoi répondre. */}
+                  {t.taskKind === "email" && (t.emailFrom || /^Répondre à/.test(t.title ?? "")) && (
+                    <button
+                      type="button"
+                      className="tim-history__reply"
+                      disabled={busy}
+                      title="Répondre à son message : la réponse part dans le même fil, et la tâche se coche une fois l'e-mail envoyé"
+                      onClick={() => {
+                        const d = replyDraft(t, items ?? [], clientEmail);
+                        setEditing(null);
+                        setError(null);
+                        setReply({ taskId: t.id, inReplyTo: d.inReplyTo, prefill: { to: d.to, title: d.title, heading: "Répondre", quote: d.quote } });
+                        setKind("email");
+                      }}
+                    >
+                      ↩ Répondre
+                    </button>
                   )}
                   {/* Le double dans l'agenda existe : on le montre, et on y va. */}
                   {t.calendarLink && (

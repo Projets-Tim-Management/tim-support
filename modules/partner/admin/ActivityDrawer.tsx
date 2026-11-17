@@ -281,6 +281,7 @@ function TokenField({
 export function ActivityDrawer({
   kind,
   initial,
+  prefill,
   defaultTo,
   companyName,
   clientId,
@@ -294,6 +295,11 @@ export function ActivityDrawer({
   kind: DraftKind;
   /** Présent = on CORRIGE une activité existante, on n'en crée pas une. */
   initial?: ActivityInitial | null;
+  /**
+   * Un NOUVEL e-mail déjà rempli — la réponse à un message du prospect (17/11/2026) : destinataire, « Re : objet »,
+   * message cité. Contrairement à `initial`, on ne corrige rien : on écrit, et tout reste modifiable.
+   */
+  prefill?: { to?: string; title?: string; content?: string; heading?: string; quote?: { header: string; text: string } | null } | null;
   defaultTo?: string;
   companyName?: string;
   /** Opportunité courante : sert à charger expéditeurs et modèles. */
@@ -313,8 +319,8 @@ export function ActivityDrawer({
 }) {
   // Valeurs INITIALES seulement : le drawer est remonté à chaque ouverture
   // (la fiche le monte sur `kind`), il n'a donc pas à se resynchroniser.
-  const [title, setTitle] = useState(initial?.title ?? "");
-  const [content, setContent] = useState(initial?.content ?? "");
+  const [title, setTitle] = useState(initial?.title ?? prefill?.title ?? "");
+  const [content, setContent] = useState(initial?.content ?? prefill?.content ?? "");
   /**
    * Une tâche neuve est un APPEL, sauf indication contraire.
    *
@@ -333,7 +339,7 @@ export function ActivityDrawer({
   const [toCalendar, setToCalendar] = useState(Boolean(initial?.calendarSync));
   const [minutes, setMinutes] = useState<number>(initial?.calendarMinutes ?? DEFAULT_TASK_EVENT_MINUTES);
   /** Destinataires en JETONS + ce que l'utilisateur est en train de taper. */
-  const [tos, setTos] = useState<string[]>(() => (defaultTo ? [defaultTo] : []));
+  const [tos, setTos] = useState<string[]>(() => (prefill?.to ? [prefill.to] : defaultTo ? [defaultTo] : []));
   const [toDraft, setToDraft] = useState("");
   /** Le nom d'une tâche suit sa nature tant que personne ne l'a récrit. */
   // Un nom déjà écrit ne doit pas être remplacé par le libellé du type.
@@ -391,8 +397,8 @@ export function ActivityDrawer({
    * Échap ; dès que oui, il ne se ferme plus par accident.
    */
   const dirty =
-    content.trim() !== (initial?.content ?? "").trim() ||
-    title.trim() !== (initial?.title ?? "").trim() ||
+    content.trim() !== (initial?.content ?? prefill?.content ?? "").trim() ||
+    title.trim() !== (initial?.title ?? prefill?.title ?? "").trim() ||
     files.length > 0;
 
   // Échap ferme : un panneau qu'on ne sait pas fermer au clavier est un piège.
@@ -481,7 +487,9 @@ export function ActivityDrawer({
         hint: "La correction remplace le texte d'origine dans l'historique.",
         cta: "Enregistrer",
       }
-    : META[kind];
+    : prefill?.heading
+      ? { ...META[kind], title: prefill.heading }
+      : META[kind];
   const isTask = kind === "tache";
   const isEmail = kind === "email";
   const accent = activityKind(kind)?.color;
@@ -1053,13 +1061,24 @@ export function ActivityDrawer({
                 rows={isEmail ? 12 : 10}
                 autoFocus={kind === "note"}
                 footer={
-                  isEmail && withSignature && signatureHtml ? (
-                    <div
-                      className="tim-rte__signature"
-                      // HTML fabriqué par le serveur à partir de champs échappés
-                      // (renderSignature) — ce n'est pas une saisie réinjectée.
-                      dangerouslySetInnerHTML={{ __html: signatureHtml }}
-                    />
+                  isEmail && ((withSignature && signatureHtml) || prefill?.quote) ? (
+                    <>
+                      {withSignature && signatureHtml ? (
+                        <div
+                          className="tim-rte__signature"
+                          // HTML fabriqué par le serveur à partir de champs échappés
+                          // (renderSignature) — ce n'est pas une saisie réinjectée.
+                          dangerouslySetInnerHTML={{ __html: signatureHtml }}
+                        />
+                      ) : null}
+                      {/* Une réponse : le message du prospect, sous la signature, tel qu'il partira. */}
+                      {prefill?.quote ? (
+                        <div className="tim-rte__quote">
+                          <span className="tim-rte__quote-head">{prefill.quote.header}</span>
+                          <blockquote>{prefill.quote.text}</blockquote>
+                        </div>
+                      ) : null}
+                    </>
                   ) : null
                 }
               />

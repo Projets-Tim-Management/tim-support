@@ -21,11 +21,13 @@ describe("la licence Visuel", () => {
   it("1,90 € de base (catalogue Pennylane), en dernier dans la grille et dans la hiérarchie, après Bureau à 8 €", () => {
     expect(LICENCE_BASE_PRICES.visuel).toBe(1.9);
     expect(LICENCE_BASE_PRICES.bureau).toBe(8);
-    expect(PROFILS.slice(-2)).toEqual([
+    // Le Magasinier (module Stock, 16/11/2026) s'intercale entre Bureau et Visuel.
+    expect(PROFILS.slice(-3)).toEqual([
       { key: "bureau", label: "Bureau" },
+      { key: "magasinier", label: "Magasinier" },
       { key: "visuel", label: "Visuel" },
     ]);
-    expect(profileRank("visuel")).toBe(6);
+    expect(profileRank("visuel")).toBe(7);
   });
 
   it("compte dans le total et le CA, mais pas dans le volume de la remise", () => {

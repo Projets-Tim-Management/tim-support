@@ -48,6 +48,8 @@ export const LICENCE_BASE_PRICES = {
   compagnon: 8,
   // Le personnel de bureau, sur le web (catalogue Pennylane LB-Tim, 16/10/2026).
   bureau: 8,
+  // Le module Stock : le magasinier (grille « Offre » du 16/11/2026, l'écart de 40 € entre Planning et Planning + Stock).
+  magasinier: 40,
   // Consultation sur mobile, au plus bas prix (catalogue Pennylane LV-Tim, 16/10/2026).
   visuel: 1.9,
 } as const;
@@ -62,6 +64,7 @@ export const PROFILS: { key: ProfilKey; label: string }[] = [
   { key: "chefEquipe", label: "Chef d'équipe" },
   { key: "compagnon", label: "Compagnon" },
   { key: "bureau", label: "Bureau" },
+  { key: "magasinier", label: "Magasinier" },
   { key: "visuel", label: "Visuel" },
 ];
 
@@ -71,7 +74,69 @@ export const PROFILS: { key: ProfilKey; label: string }[] = [
  * history.detailSignature) : leur arrivée ne doit ni écrire une ligne
  * d'historique sur toutes les fiches, ni repasser les mois validés « à revalider ».
  */
-export const LATE_PROFILES: ReadonlySet<string> = new Set(["bureau", "visuel"]);
+export const LATE_PROFILES: ReadonlySet<string> = new Set(["bureau", "magasinier", "visuel"]);
+
+/**
+ * LES MODULES DE L'OFFRE (grille « Offre » de la vitrine, 16/11/2026) : ce que le prospect prend, coché pendant le
+ * rendez-vous pour lui donner le prix en face. Seuls changent le prix de l'Admin et la ligne Magasinier ; les autres
+ * profils et la remise volume restent ceux de toujours. Aucun module coché : la fiche se calcule comme avant.
+ *
+ *   Planning ou Pointage → Admin 29 € · les deux → 39 € · Stock seul → Admin 9 €
+ *   Stock → + un Magasinier à 40 € (compté d'office, d'autres s'ajoutent ; il compte dans le volume de remise)
+ */
+export const MODULES = [
+  { key: "planning", field: "modulePlanning", label: "Planning", icon: "📅" },
+  { key: "pointage", field: "modulePointage", label: "Pointage", icon: "⏱️" },
+  { key: "stock", field: "moduleStock", label: "Stock", icon: "📦" },
+] as const;
+export type ModuleKey = (typeof MODULES)[number]["key"];
+export type ModuleChoice = Partial<Record<ModuleKey, boolean>>;
+
+/** Le prix de l'Admin selon les modules cochés ; null si aucun (le prix de la fiche ne bouge pas). Pur. */
+export function adminPriceForModules(m: ModuleChoice): number | null {
+  if (!m.planning && !m.pointage && !m.stock) return null;
+  if (!m.planning && !m.pointage) return 9;
+  return m.planning && m.pointage ? 39 : 29;
+}
+
+/** Les modules cochés d'une fiche (groupe `licences`). Pur. */
+export const modulesOf = (licences?: Record<string, unknown> | null): ModuleChoice =>
+  Object.fromEntries(MODULES.map((m) => [m.key, licences?.[m.field] === true]));
+
+/**
+ * L'offre évoquée en rendez-vous, en une ligne, pour les agents (« Planning + Stock · 2 magasiniers · paiement
+ * annuel −10 % ») ; null si aucun module n'est coché ni le paiement annuel. Pur.
+ */
+export function offerSummary(licences?: Record<string, unknown> | null, billingPeriod?: string | null): string | null {
+  const m = modulesOf(licences);
+  const names = MODULES.filter((x) => m[x.key]).map((x) => x.label);
+  const mag = Number(licences?.magasinierQty ?? 0) || 0;
+  const annual = isAnnualBilling(billingPeriod);
+  if (!names.length && !annual) return null;
+  return [
+    names.length ? names.join(" + ") : null,
+    mag ? `${mag} magasinier${mag > 1 ? "s" : ""}` : null,
+    annual ? `paiement annuel −${ANNUAL_DISCOUNT_PCT} %` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * Paiement annuel : −10 % sur tout l'abonnement, après la remise volume (grille « Offre », 16/11/2026). Une seule
+ * information le décide : la périodicité de facturation « annuelle » de la fiche. Signé ainsi, c'est le CA réel
+ * (CA payé, commissions, historique, contrôle Pennylane) ; les prix par profil, eux, restent ceux du tableau.
+ */
+export const ANNUAL_DISCOUNT_PCT = 10;
+export const isAnnualBilling = (billingPeriod?: string | null): boolean => billingPeriod === "annuelle";
+/** Le coefficient de l'abonnement : 0,9 payé à l'année, 1 sinon. */
+export const billingFactor = (billingPeriod?: string | null): number => (isAnnualBilling(billingPeriod) ? 1 - ANNUAL_DISCOUNT_PCT / 100 : 1);
+
+/** Le prix d'un abonnement mensuel HT, payé au mois ou à l'année. Pur. */
+export function annualOffer(monthlyHT: number) {
+  const monthly = round2(monthlyHT * (1 - ANNUAL_DISCOUNT_PCT / 100));
+  return { monthly, saving: round2(monthlyHT - monthly), yearly: round2(monthly * 12) };
+}
 
 /**
  * Les prestations ponctuelles du catalogue (Pennylane), pour le MÉMO de la
@@ -134,8 +199,12 @@ export const profileRank = (key?: string | null): number => {
 const CENTS = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const unitPrice = (n: number): string => (Number.isInteger(n) ? String(n) : CENTS.format(n));
 
-export function tarifsMarkdown(licences?: Record<string, number | undefined> | null): string {
-  const lignes = licenceLinesOf(licences).map((l) => ({
+export function tarifsMarkdown(licences?: Record<string, number | boolean | undefined> | null): string {
+  // Le Magasinier n'existe qu'avec le module Stock (16/11/2026) : pas dans la grille d'un prospect qui ne l'a pas pris.
+  const withStock = licences?.moduleStock === true;
+  const lignes = licenceLinesOf(licences as Record<string, number | undefined> | null)
+    .filter((l) => l.key !== "magasinier" || withStock || l.qty > 0)
+    .map((l) => ({
     label: l.label,
     qty: l.qty,
     // Le prix annoncé est celui qui sera facturé : remise de ligne déduite.
@@ -214,10 +283,11 @@ export function licenceLinesOf(
  *   La remise VOLUME du barème, elle, n'est jamais appliquée d'office.
  * - `suggestedDiscountPct` = remise volume du barème, purement INDICATIVE.
  */
-export function computeClientCA(lines: (LicenceLine & { key?: string })[]) {
+export function computeClientCA(lines: (LicenceLine & { key?: string })[], billingPeriod?: string | null) {
   const totalLicences = lines.reduce((s, l) => s + (Number(l.qty) || 0), 0);
-  const caHT = lines.reduce((s, l) => s + (Number(l.qty) || 0) * effectiveUnitPrice(l), 0);
+  const brut = lines.reduce((s, l) => s + (Number(l.qty) || 0) * effectiveUnitPrice(l), 0);
   // Le palier de remise se compte hors licences Visuel (voir OUT_OF_VOLUME).
   const suggestedDiscountPct = volumeDiscountPct(volumeQty(lines));
-  return { totalLicences, caHT: round2(caHT), suggestedDiscountPct };
+  // `caHT` : ce que le client paie par mois — paiement annuel déduit (−10 %) ; `caBrut` : avant.
+  return { totalLicences, caBrut: round2(brut), caHT: round2(brut * billingFactor(billingPeriod)), suggestedDiscountPct };
 }

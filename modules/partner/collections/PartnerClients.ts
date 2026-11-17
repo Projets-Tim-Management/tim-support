@@ -58,7 +58,7 @@ import { buildHistoryEntry, nextHistory, type HistoryEntry } from "@/modules/par
 import { peekPennylane } from "@/modules/partner/lib/pennylane";
 import { billingPeriodMonths } from "@/modules/partner/lib/billing-period";
 import { nextLicenceMoves, type LicenceMoveDay } from "@/modules/partner/lib/regularisation";
-import { isBillableClient, LICENCE_BASE_PRICES, PRESTATIONS, PROFILS } from "@/modules/partner/lib/pricing";
+import { isBillableClient, LICENCE_BASE_PRICES, MODULES, PRESTATIONS, PROFILS } from "@/modules/partner/lib/pricing";
 import { geocodeClient } from "@/core/hooks/geocodeClient";
 import { setPhoneDigits } from "@/core/hooks/phoneDigits";
 import { sendGa4Steps } from "@/modules/analytics/lib/ga4-hook";
@@ -129,7 +129,8 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
 
   // Une seule façon de calculer une ligne (lib/history.ts) : la validation
   // mensuelle écrit la même, par un autre chemin.
-  const { totalLicences, caHT, commission, detail, suggestedDiscountPct } = buildHistoryEntry(lic, commissionRate);
+  const billingPeriod = (data?.billingPeriod ?? originalDoc?.billingPeriod) as string | null;
+  const { totalLicences, caHT, caBrut, annual, commission, detail, suggestedDiscountPct } = buildHistoryEntry(lic, commissionRate, billingPeriod);
 
   /**
    * Historique mensuel — règles dans modules/partner/lib/history.ts : rien tant
@@ -149,7 +150,7 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
     clientStatus,
     paymentMethod: (data?.paymentMethod ?? originalDoc?.paymentMethod) as string | null,
     paymentTerms: (data?.paymentTerms ?? originalDoc?.paymentTerms) as string | null,
-    billingPeriod: (data?.billingPeriod ?? originalDoc?.billingPeriod) as string | null,
+    billingPeriod,
     licences: lic,
   };
   const prev = ((Array.isArray(data?.history) ? data.history : originalDoc?.history) ?? []) as HistoryEntry[];
@@ -162,7 +163,7 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
     clientStatus,
     billingStart,
     now: new Date(),
-    entry: { totalLicences, caHT, commission, commissionRate, detail },
+    entry: { totalLicences, caHT, ...(annual ? { annual } : {}), commission, commissionRate, detail },
     stamp,
     freshStamp: Boolean(snap),
   });
@@ -177,9 +178,9 @@ const computeCA: CollectionBeforeChangeHook = async ({ data, originalDoc, req })
       ? nextLicenceMoves(Array.isArray(movesIn) ? (movesIn as LicenceMoveDay[]) : [], originalDoc.licences as Record<string, number | undefined>, lic, new Date())
       : undefined;
 
-  // Le partenaire fixe les prix → le CA HT est directement Σ(qté × prix), sans
-  // remise appliquée. `discountPct` reste stocké à titre indicatif.
-  return { ...data, totalLicences, caBrut: caHT, caPaye: caHT, discountPct: suggestedDiscountPct, history: cleanHistory, ...(licenceMoves && { licenceMoves }) };
+  // Le partenaire fixe les prix → le CA HT est Σ(qté × prix), sans remise volume appliquée ; payé à l'année, −10 %
+  // sur le tout (`caBrut` : avant, `caPaye` : ce qui est payé). `discountPct` reste stocké à titre indicatif.
+  return { ...data, totalLicences, caBrut, caPaye: caHT, discountPct: suggestedDiscountPct, history: cleanHistory, ...(licenceMoves && { licenceMoves }) };
 };
 
 /**
@@ -1203,8 +1204,14 @@ export const PartnerClients: CollectionConfig = {
                 hiddenNum("compagnonPrice", LICENCE_BASE_PRICES.compagnon),
                 hiddenNum("bureauQty", 0),
                 hiddenNum("bureauPrice", LICENCE_BASE_PRICES.bureau),
+                hiddenNum("magasinierQty", 0),
+                hiddenNum("magasinierPrice", LICENCE_BASE_PRICES.magasinier),
                 hiddenNum("visuelQty", 0),
                 hiddenNum("visuelPrice", LICENCE_BASE_PRICES.visuel),
+                // Les modules pris (Planning, Pointage, Stock) : cochés dans le tableau pendant le rendez-vous
+                // (16/11/2026). Aucun module coché : la fiche se calcule comme avant. (Le paiement annuel, lui, est la
+                // périodicité de facturation « annuelle ».)
+                ...MODULES.map((m): Field => ({ name: m.field, type: "checkbox", defaultValue: false, admin: { hidden: true } })),
                 // Remise facultative par ligne, en % OU en € par licence (deux
                 // nombres plutôt qu'un type + une valeur : pas d'enum en base).
                 ...PROFILS.flatMap((p) => [hiddenNum(`${p.key}DiscountPct`, 0), hiddenNum(`${p.key}DiscountAmount`, 0)]),
@@ -1743,6 +1750,8 @@ export const PartnerClients: CollectionConfig = {
         { name: "at", type: "date" }, // 1er du mois concerné
         { name: "totalLicences", type: "number" },
         { name: "caHT", type: "number" },
+        // Payé à l'année : caHT est après −10 % (16/11/2026). Stocké, sinon chaque enregistrement croirait à un changement.
+        { name: "annual", type: "checkbox" },
         { name: "commissionRate", type: "number" },
         { name: "commission", type: "number" },
         { name: "detail", type: "json" }, // [{ key, label, qty, price, subtotal }]

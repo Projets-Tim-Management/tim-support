@@ -216,6 +216,10 @@ import * as migration_20261116_133328_rendez_vous_formulaire from './20261116_13
 import * as migration_20261116_134704_rendez_vous_simplifie from './20261116_134704_rendez_vous_simplifie';
 import * as migration_20261116_135347_rendez_vous_creneaux from './20261116_135347_rendez_vous_creneaux';
 import * as migration_20261116_141008_comment_nous_a_connus from './20261116_141008_comment_nous_a_connus';
+import * as migration_20261116_164235_licence_modules_magasinier from './20261116_164235_licence_modules_magasinier';
+import * as migration_20261116_165633_retire_annual_plan from './20261116_165633_retire_annual_plan';
+import * as migration_20261117_161015_reponse_email_prospect from './20261117_161015_reponse_email_prospect';
+import * as migration_20261117_172836_historique_annuel from './20261117_172836_historique_annuel';
 
 export const migrations = [
   {
@@ -1306,6 +1310,26 @@ export const migrations = [
   {
     up: migration_20261116_141008_comment_nous_a_connus.up,
     down: migration_20261116_141008_comment_nous_a_connus.down,
-    name: '20261116_141008_comment_nous_a_connus'
+    name: '20261116_141008_comment_nous_a_connus',
+  },
+  {
+    up: migration_20261116_164235_licence_modules_magasinier.up,
+    down: migration_20261116_164235_licence_modules_magasinier.down,
+    name: '20261116_164235_licence_modules_magasinier',
+  },
+  {
+    up: migration_20261116_165633_retire_annual_plan.up,
+    down: migration_20261116_165633_retire_annual_plan.down,
+    name: '20261116_165633_retire_annual_plan',
+  },
+  {
+    up: migration_20261117_161015_reponse_email_prospect.up,
+    down: migration_20261117_161015_reponse_email_prospect.down,
+    name: '20261117_161015_reponse_email_prospect',
+  },
+  {
+    up: migration_20261117_172836_historique_annuel.up,
+    down: migration_20261117_172836_historique_annuel.down,
+    name: '20261117_172836_historique_annuel'
   },
 ];

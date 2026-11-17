@@ -21,6 +21,8 @@ const GROUPS: { key: TaskGroup; label: string; icon: string; empty?: string }[] 
   { key: "semaine", label: "Cette semaine", icon: "📌", empty: "Rien d'autre cette semaine. 🎉" },
   { key: "plus-tard", label: "Plus tard", icon: "🗓️" },
   { key: "fait", label: "Fait ces 14 derniers jours", icon: "✅" },
+  // Ce que Serge n'a pas vu finir et a reporté : repris cette semaine ou mis de côté — rien ne disparaît sans être vu.
+  { key: "reportees", label: "Reportées la semaine passée", icon: "↪️" },
 ];
 
 const dayFr = (d: string) => new Date(`${d.slice(0, 10)}T12:00:00Z`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
@@ -78,7 +80,8 @@ function Task({ t, today, people, chats, open, onOpen }: { t: MyTask; today: str
   ].filter((b): b is { icon: string; label: string; text: string } => Boolean(b.text));
   const lead = texts.find((b) => b.label !== "Ce que fait le mieux classé" && b.label !== "Ce qu'on mesurera");
   const more = texts.filter((b) => b !== lead);
-  const checkable = t.source !== "a-valider" && t.form === "a-faire";
+  const reported = t.status === "reporte";
+  const checkable = t.source !== "a-valider" && t.form === "a-faire" && !reported;
 
   const send = async (gesture: Parameters<typeof call>[1], optimistic?: () => void, rollback?: () => void) => {
     setBusy(true);
@@ -127,7 +130,7 @@ function Task({ t, today, people, chats, open, onOpen }: { t: MyTask; today: str
           </button>
         ) : (
           <span className="mt-check mt-check--fixed" aria-hidden>
-            {t.source === "a-valider" ? "↗" : done ? "✓" : "?"}
+            {t.source === "a-valider" ? "↗" : reported ? "↪" : done ? "✓" : "?"}
           </span>
         )}
         <button type="button" className="mt-task__main" onClick={() => onOpen(open ? null : t.id)} aria-expanded={open}>
@@ -146,7 +149,9 @@ function Task({ t, today, people, chats, open, onOpen }: { t: MyTask; today: str
               </span>
             )}
             {!chief && t.from && <span>{t.from}</span>}
-            {done && t.doneAt ? <span>fait le {dayFr(t.doneAt)}</span> : t.due ? <span className={group === "retard" ? "mt-late" : undefined}>{group === "retard" ? "en retard · " : "avant "}{dayFr(t.due)}</span> : <span>dès que possible</span>}
+            {reported ? (
+              <span className={t.carriedOver ? "mt-carried" : "mt-late"}>{t.carriedOver ? "Repris cette semaine par Serge" : "Mis de côté par Serge"}</span>
+            ) : done && t.doneAt ? <span>fait le {dayFr(t.doneAt)}</span> : t.due ? <span className={group === "retard" ? "mt-late" : undefined}>{group === "retard" ? "en retard · " : "avant "}{dayFr(t.due)}</span> : <span>dès que possible</span>}
             {steps.length > 0 && t.stepsCheckable && (
               <span className="mt-steps-count">
                 {doneSteps}/{steps.length} étapes
@@ -288,13 +293,23 @@ function Task({ t, today, people, chats, open, onOpen }: { t: MyTask; today: str
                 </button>
               )}
               <span className="mt-bar__spacer" />
-              {!done && t.source !== "a-valider" && (
+              {reported && (
+                <button type="button" className="an-btn rdm-btn--primary" onClick={() => send({ done: false })} disabled={busy}>
+                  ↺ Le remettre cette semaine
+                </button>
+              )}
+              {!done && !reported && t.source !== "a-valider" && (
                 <button type="button" className="mt-link" onClick={() => send({ drop: true, note: text })} disabled={busy}>
                   {t.source === "demande" ? "Retirer" : t.source === "objectif" ? "Abandonner (retire ses créneaux)" : "Abandonner"}
                 </button>
               )}
             </div>
             {t.source === "a-valider" && <span className="mt-hint">Se ferme quand vous décidez dans « À valider ».</span>}
+            {reported && (
+              <span className="mt-hint">
+                {t.carriedOver ? `Serge l'a repris dans « ${t.carriedOver} » : rien à faire ici, sauf si vous voulez aussi garder celui-ci.` : "Serge l'a jugé moins prioritaire que les objectifs de cette semaine. Remettez-le si vous n'êtes pas d'accord : il repart, échéance vendredi."}
+              </span>
+            )}
             {error && <p className="mt-error">{error}</p>}
           </footer>
 
@@ -355,7 +370,7 @@ export function MyTasksBoard({ tasks, today, people, chats, focus }: { tasks: My
     for (const t of shown) by.set(groupOf(t, today), [...(by.get(groupOf(t, today)) ?? []), t]);
     return GROUPS.map((g) => ({ ...g, list: g.key === "fait" ? [...(by.get(g.key) ?? [])].sort((a, b) => (b.doneAt ?? "").localeCompare(a.doneAt ?? "")) : sortTasks(by.get(g.key) ?? [], today) }));
   }, [shown, today]);
-  const openOf = (c: TaskCategory | "tout") => tasks.filter((t) => (c === "tout" || t.category === c) && t.status !== "fait").length;
+  const openOf = (c: TaskCategory | "tout") => tasks.filter((t) => (c === "tout" || t.category === c) && t.status !== "fait" && t.status !== "reporte").length;
   // La tâche ouverte par un lien (?tache=…) reste visible même si elle est faite : son groupe s'ouvre.
   const focused = openId ? tasks.find((t) => t.id === openId) : undefined;
   const focusGroup = focused ? groupOf(focused, today) : null;
@@ -400,7 +415,7 @@ export function MyTasksBoard({ tasks, today, people, chats, focus }: { tasks: My
             {g.icon} {g.label} <span className="mt-group__n">{g.list.length}</span>
           </>
         );
-        return g.key === "fait" || g.key === "plus-tard" ? (
+        return g.key === "fait" || g.key === "plus-tard" || g.key === "reportees" ? (
           <details key={g.key} className={`mt-group mt-group--${g.key}`} open={focusGroup === g.key || undefined}>
             <summary className="mt-group__title">{title}</summary>
             {items}

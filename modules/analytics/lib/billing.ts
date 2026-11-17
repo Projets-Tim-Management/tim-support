@@ -3,7 +3,7 @@ import { round2 } from "@/modules/partner/lib/format";
 import { delta, type Delta } from "@/modules/analytics/lib/growth";
 import type { HistoryEntry } from "@/modules/partner/lib/history";
 import { monthKey, monthStart } from "@/modules/partner/lib/month";
-import { effectiveUnitPrice, licenceLinesOf, PROFILS, type ProfilKey } from "@/modules/partner/lib/pricing";
+import { billingFactor, effectiveUnitPrice, licenceLinesOf, PROFILS, type ProfilKey } from "@/modules/partner/lib/pricing";
 
 /**
  * Analyse de la facturation : ce que les fiches disent qu'on doit facturer,
@@ -254,7 +254,8 @@ export function buildBillingAnalytics(
 
   for (const c of billable) {
     const lines = linesOf(c);
-    const caHT = round2(lines.reduce((s, l) => s + l.qty * l.net, 0));
+    // Paiement annuel : −10 % sur tout l'abonnement (16/11/2026).
+    const caHT = round2(lines.reduce((s, l) => s + l.qty * l.net, 0) * billingFactor(c.billingPeriod));
     const licences = lines.reduce((s, l) => s + l.qty, 0);
     const discount = round2(lines.reduce((s, l) => s + l.qty * (l.price - l.net), 0));
     const pid = relId(c.partner);

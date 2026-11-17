@@ -3,7 +3,7 @@
 import { useField, useFormFields } from "@payloadcms/ui";
 
 import { eur } from "@/modules/partner/lib/format";
-import { effectiveUnitPrice, PRESTATIONS, PROFILS, type PrestationKey } from "@/modules/partner/lib/pricing";
+import { billingFactor, effectiveUnitPrice, PRESTATIONS, PROFILS, type PrestationKey } from "@/modules/partner/lib/pricing";
 
 /**
  * Le mémo des prestations ponctuelles d'un prospect (formation, développement,
@@ -71,7 +71,8 @@ export function PrestationsMemo() {
     }
     let o = 0;
     for (const x of PRESTATIONS) o += Number(f[`prestations.${x.key}Qty`]?.value ?? 0) * Number(f[`prestations.${x.key}Price`]?.value ?? 0);
-    return { monthly: m, once: o };
+    // Payé à l'année : −10 % sur tout l'abonnement (16/11/2026).
+    return { monthly: m * billingFactor(f.billingPeriod?.value as string | undefined), once: o };
   });
 
   return (

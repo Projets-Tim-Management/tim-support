@@ -73,6 +73,8 @@ export const PROFILE_TO_PARCOURS: Record<ProfilKey, string | null> = {
   compagnon: "compagnon",
   // Pas formé (Charlie, 16/10/2026).
   bureau: null,
+  // Pas encore de parcours pour le module Stock (16/11/2026).
+  magasinier: null,
   // Formé comme un compagnon (Charlie, 16/10/2026), sur son propre parcours
   // depuis que l'éditorial a ses fiches (29/10/2026).
   visuel: "visuel",

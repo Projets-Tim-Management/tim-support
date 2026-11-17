@@ -28,6 +28,7 @@ export type PipelineClient = {
   contractStartDate?: string | null;
   resiliationDate?: string | null;
   headcount?: number | null;
+  billingPeriod?: string | null;
   licences?: Record<string, number | null | undefined> | null;
 };
 
@@ -351,7 +352,7 @@ export function buildPipelineAnalytics(
     .map((r) => {
       const current = r.timeline[r.timeline.length - 1];
       const lines = licenceLinesOf(r.c.licences);
-      const { totalLicences, caHT } = computeClientCA(lines);
+      const { totalLicences, caHT } = computeClientCA(lines, r.c.billingPeriod);
       return {
         id: r.c.id,
         name: r.c.companyName ?? "—",

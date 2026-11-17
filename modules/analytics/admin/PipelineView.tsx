@@ -115,6 +115,7 @@ export default async function PipelineView(view: AdminViewServerProps) {
           contractStartDate: true,
           resiliationDate: true,
           headcount: true,
+          billingPeriod: true,
           licences: true,
         } as never,
       }),

@@ -1666,6 +1666,25 @@
   cursor: default;
   user-select: none;
 }
+/* Réponse : le message cité, sous la signature (tel qu'il partira), grisé, en lecture seule. */
+.tim-rte__quote {
+  padding: 0 0.75rem 0.8rem;
+  font-size: 0.82rem;
+  color: var(--tim-muted);
+  cursor: default;
+}
+.tim-rte__quote-head {
+  display: block;
+  margin: 0.6rem 0 0.3rem;
+}
+.tim-rte__quote blockquote {
+  margin: 0;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--tim-border);
+  white-space: pre-wrap;
+  max-height: 14rem;
+  overflow-y: auto;
+}
 .tim-rte__signature table {
   margin-top: 12px !important;
 }
@@ -1775,6 +1794,23 @@
   color: var(--tim-foreground);
 }
 /* « Pas de réponse » : à la teinte de l'appel, toujours visible (pas seulement au survol de la ligne). */
+/* « ↩ Répondre » sur une tâche e-mail : visible sans survol, c'est l'action attendue. */
+.tim-history__reply {
+  align-self: flex-start;
+  flex-shrink: 0;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--tim-blue);
+  border-radius: var(--tim-radius-sm);
+  background: var(--tim-blue);
+  color: var(--tim-white);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  &:hover { filter: brightness(0.92); }
+  &:disabled { opacity: 0.6; cursor: default; }
+}
 .tim-history__mini--noanswer {
   border-color: var(--tim-teal);
   color: var(--tim-teal);

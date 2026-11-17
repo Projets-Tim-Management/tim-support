@@ -27,7 +27,10 @@ export type MyTask = {
   /** « question » : une réponse attendue, pas une case à cocher. */
   form: "a-faire" | "question";
   title: string;
-  status: "a-faire" | "en-cours" | "fait";
+  /** « reporte » : un objectif de Serge non fini à la fin de sa semaine, qu'il a repris ou mis de côté. */
+  status: "a-faire" | "en-cours" | "fait" | "reporte";
+  /** Un objectif reporté : le titre de l'objectif de cette semaine qui le reprend ; null s'il a été mis de côté. */
+  carriedOver?: string | null;
   /** L'échéance (AAAA-MM-JJ), s'il y en a une. Une demande d'un chef n'en a pas : elle est pour maintenant. */
   due: string | null;
   at: string;
@@ -55,7 +58,7 @@ export type MyTask = {
   campaign: string | null;
 };
 
-export type TaskGroup = "retard" | "semaine" | "plus-tard" | "fait";
+export type TaskGroup = "retard" | "semaine" | "plus-tard" | "fait" | "reportees";
 
 /** Le dimanche (AAAA-MM-JJ) de la semaine d'un jour. */
 const sundayOf = (today: string) => {
@@ -72,6 +75,7 @@ export const mondayOf = (today: string) => {
 /** Où ranger une tâche : en retard, cette semaine (ou sans date : maintenant), plus tard, faite. Pure (testée). */
 export function groupOf(t: MyTask, today: string): TaskGroup {
   if (t.status === "fait") return "fait";
+  if (t.status === "reporte") return "reportees";
   if (t.due && t.due < today) return "retard";
   if (!t.due || t.due <= sundayOf(today)) return "semaine";
   return "plus-tard";

@@ -4,6 +4,7 @@ import { PARIS_TZ } from "@/core/lib/dates";
 import { htmlToText } from "@/core/lib/html";
 import { idOf } from "@/core/lib/relations";
 import { parseTransition } from "@/modules/analytics/lib/pipeline";
+import { offerSummary } from "@/modules/partner/lib/pricing";
 import { latestReport, runAgentReport, type ReportResult } from "@/modules/ai-team/lib/agent-report";
 import { DAY_MS, timeOf as time } from "@/modules/ai-team/lib/format";
 import { PIPELINE_WEIGHTS } from "@/modules/ai-team/lib/indicators";
@@ -54,7 +55,7 @@ export const OPEN_STAGES: Record<string, number> = { nouvelle: 1.5, "en-qualific
 const LABEL = Object.fromEntries(CLIENT_STATUSES.map((s) => [s.value, s.label]));
 
 type Raw = Record<string, unknown>;
-export type DealInput = { id: string; name: string; status: string; createdAt: number; amount: number; source: string | null };
+export type DealInput = { id: string; name: string; status: string; createdAt: number; amount: number; source: string | null; offre?: string | null };
 export type ActivityInput = { client: string; at: number; type: string; title: string; done?: boolean | null; dueAt?: number | null; direction?: string | null };
 export type SubmissionInput = { id: string; at: number; client: string | null; name: string };
 
@@ -72,6 +73,8 @@ export type DealView = {
   overdue: boolean;
   priority: "A" | "B" | "C";
   flags: string[];
+  /** L'offre évoquée en rendez-vous (modules, magasiniers, paiement annuel), si elle a été cochée sur la fiche. */
+  offre?: string | null;
 };
 /** Un nouveau lead : `id` est la demande du site, `client` sa fiche (null tant qu'elle n'est pas créée). */
 export type LeadView = { id: string; client: string | null; name: string; hoursWaiting: number; answered: boolean; firstResponseHours: number | null };
@@ -172,6 +175,7 @@ export function analyzePipeline(deals: DealInput[], won: DealInput[], activities
         status: d.status,
         stage: LABEL[d.status] ?? d.status,
         amount: d.amount,
+        ...(d.offre ? { offre: d.offre } : {}),
         daysInStage: Math.round(daysInStage * 10) / 10,
         threshold,
         stalled,
@@ -210,11 +214,11 @@ export async function loadPipeline(payload: Payload, now: Date): Promise<Pipelin
   const common = { pagination: false, depth: 0, overrideAccess: true } as const;
   const [clients, acts, subs] = await Promise.all([
     // Les affaires ouvertes, les clients (gagnées : les seuils) et les fiches récentes (les nouveaux leads) — pas les perdues anciennes.
-    payload.find({ collection: "partner-clients", where: { or: [{ clientStatus: { in: [...Object.keys(OPEN_STAGES), "actif", "resilie"] } }, { createdAt: { greater_than_equal: new Date(now.getTime() - 15 * DAY).toISOString() } }] }, ...common, draft: true, select: { companyName: true, clientStatus: true, createdAt: true, caPaye: true, caBrut: true, source: true, formSubmission: true } as never }).then((r) => r.docs as unknown as Raw[]),
+    payload.find({ collection: "partner-clients", where: { or: [{ clientStatus: { in: [...Object.keys(OPEN_STAGES), "actif", "resilie"] } }, { createdAt: { greater_than_equal: new Date(now.getTime() - 15 * DAY).toISOString() } }] }, ...common, draft: true, select: { companyName: true, clientStatus: true, createdAt: true, caPaye: true, caBrut: true, source: true, formSubmission: true, licences: true, billingPeriod: true } as never }).then((r) => r.docs as unknown as Raw[]),
     payload.find({ collection: "client-activities", where: { occurredAt: { greater_than_equal: new Date(now.getTime() - 400 * DAY).toISOString() } }, ...common, select: { client: true, type: true, title: true, occurredAt: true, done: true, dueDate: true, emailDirection: true } as never }).then((r) => r.docs as unknown as Raw[]),
     payload.find({ collection: "form-submissions", where: { createdAt: { greater_than_equal: new Date(now.getTime() - 15 * DAY).toISOString() } }, ...common, select: { createdAt: true, summary: true } as never }).then((r) => r.docs as unknown as Raw[]),
   ]);
-  const toDeal = (c: Raw): DealInput => ({ id: String(c.id), name: String(c.companyName ?? "Sans nom"), status: String(c.clientStatus ?? ""), createdAt: time(c.createdAt), amount: Number(c.caPaye ?? c.caBrut ?? 0) || 0, source: (c.source as string | null) ?? null });
+  const toDeal = (c: Raw): DealInput => ({ id: String(c.id), name: String(c.companyName ?? "Sans nom"), status: String(c.clientStatus ?? ""), createdAt: time(c.createdAt), amount: Number(c.caPaye ?? c.caBrut ?? 0) || 0, source: (c.source as string | null) ?? null, offre: offerSummary(c.licences as Record<string, unknown> | null, c.billingPeriod as string | null) });
   const clientOfSub = new Map(clients.flatMap((c) => (c.formSubmission != null ? [[String(idOf(c.formSubmission)), String(c.id)]] : [])));
   return analyzePipeline(
     clients.map(toDeal),

@@ -24,6 +24,7 @@ export type PartnerClientRow = {
   clientStatus?: string | null;
   createdAt?: string | null;
   contractStartDate?: string | null;
+  billingPeriod?: string | null;
   licences?: Record<string, number | null | undefined> | null;
 };
 
@@ -105,7 +106,7 @@ export function buildPartnersAnalytics(
     let licences = 0;
     let caHT = 0;
     for (const c of active) {
-      const { totalLicences, caHT: ca } = computeClientCA(licenceLinesOf(c.licences));
+      const { totalLicences, caHT: ca } = computeClientCA(licenceLinesOf(c.licences), c.billingPeriod);
       licences += totalLicences;
       caHT += ca;
     }
