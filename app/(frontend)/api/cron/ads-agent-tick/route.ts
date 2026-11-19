@@ -11,6 +11,7 @@ import { runSiteAudit } from "@/modules/ai-team/lib/site-audit";
 import { runCompetitorCrawl } from "@/modules/ai-team/lib/competitor-maps";
 import { runCompetitionReport } from "@/modules/ai-team/lib/competition";
 import { runContentPlan } from "@/modules/ai-team/lib/content-plan";
+import { runRulesReview } from "@/modules/editorial/lib/articles/rules-review";
 import { runVisibilityDue } from "@/modules/ai-team/lib/ai-visibility";
 import { runTechAudit } from "@/modules/ai-team/lib/site-health";
 import { runAuthority } from "@/modules/ai-team/lib/authority";
@@ -65,7 +66,7 @@ export async function GET(req: Request) {
   if (crawl && crawl.read) payload.logger.info(`[équipe IA] plans des concurrents : ${crawl.read} lu(s), ${crawl.left} restant(s).`);
 
   // LE TRAVAIL DE L'ÉQUIPE IA : UN SEUL gros travail par réveil (14/11/2026). Le réveil a 5 minutes au plus ; enchaîner
-  // un rapport avec recherche web, les objectifs de Serge et la revue de Margaux dans la même minute pouvait les
+  // un rapport avec recherche web, les objectifs de Sergey et la revue de Mark dans la même minute pouvait les
   // dépasser, et Vercel coupait le dernier en route. Chacun regarde s'il est dû ; le premier qui travaille vraiment
   // prend le réveil, les suivants attendent la minute d'après. L'ordre est celui de leurs dépendances.
   const fail = (e: unknown) => ({ status: "echec" as const, message: (e as Error).message });
@@ -108,20 +109,22 @@ export async function GET(req: Request) {
     { name: "authority", label: "rapport d'autorité", run: () => runAuthority(payload).catch(fail) },
     { name: "social", label: "rapport réseaux & vidéo", run: () => runSocial(payload).catch(fail) },
     { name: "audit", label: "audit du site", run: () => runSiteAudit(payload).catch(fail) },
-    // La conversion du site (Lou), le premier jour ouvré de la semaine dès 6 h — avant les objectifs de Serge.
+    // La conversion du site (Lou), le premier jour ouvré de la semaine dès 6 h — avant les objectifs de Sergey.
     { name: "conversion", label: "revue de la conversion", run: () => runConversion(payload).catch(fail) },
-    // Le bureau commercial d'Élise : le pipeline (Nathan) et les essais (Jade) chaque jour ouvré dès 8 h, la santé des
-    // clients (Malo) le lundi dès 8 h, le tri du jour d'Élise dès 9 h, puis son point commercial le lundi.
+    // Le bureau commercial de Jordan : le pipeline (Nathan) et les essais (Jade) chaque jour ouvré dès 8 h, la santé des
+    // clients (Malo) le lundi dès 8 h, le tri du jour de Jordan dès 9 h, puis son point commercial le lundi.
     { name: "pipeline", label: "point du pipeline", run: () => runPipeline(payload).catch(fail) },
     { name: "trials", label: "point des essais", run: () => runTrials(payload).catch(fail) },
     { name: "health", label: "santé des clients", run: () => runHealth(payload).catch(fail) },
-    // Le tri du jour d'Élise (chaque jour ouvré dès 9 h) : ce que Nathan, Jade et Malo proposent, elle le trie.
-    { name: "comTriage", label: "tri du jour d'Élise", run: () => runComTriage(payload).catch(fail) },
+    // Le tri du jour de Jordan (chaque jour ouvré dès 9 h) : ce que Nathan, Jade et Malo proposent, il le trie.
+    { name: "comTriage", label: "tri du jour de Jordan", run: () => runComTriage(payload).catch(fail) },
     // Les mots des clients de la fiche produit (Malo, le lundi dès 10 h).
     { name: "voice", label: "mots des clients", run: () => runClientVoice(payload).catch(fail) },
     { name: "comWeek", label: "point commercial de la semaine", run: () => runComWeekly(payload).catch(fail) },
-    // Les objectifs de la semaine de Serge (lundi dès 7 h), puis la revue de Margaux (lundi dès 10 h).
+    // Les objectifs de la semaine de Sergey (lundi dès 7 h), puis la revue de Mark (lundi dès 10 h).
     { name: "seoWeek", label: "objectifs SEO/GEO de la semaine", run: () => runSeoWeekly(payload).catch(fail) },
+    // La revue mensuelle des règles des articles (Sergey, le premier lundi du mois dès 8 h, après ses objectifs).
+    { name: "rules", label: "revue mensuelle des règles des articles", run: () => runRulesReview(payload).catch(fail) },
     { name: "review", label: "revue du lundi", run: () => runWeeklyReview(payload).catch(fail) },
   ];
   const team: Record<string, string> = {};

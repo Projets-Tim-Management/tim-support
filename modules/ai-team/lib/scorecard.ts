@@ -11,7 +11,7 @@ import { loadGoogleAds } from "@/modules/analytics/lib/google-ads";
 import { loadOpenAiAds } from "@/modules/analytics/lib/openai-ads";
 
 /**
- * La FICHE DES CANAUX — ce que Yanis (mesure & data) tient et ce que Margaux
+ * La FICHE DES CANAUX — ce que Yanis (mesure & data) tient et ce que Mark
  * lit pour recommander à la direction où déplacer le budget (étape 3 de
  * l'organisation SEA, 12/11/2026).
  *
@@ -78,7 +78,7 @@ export type Scorecard = {
   rows: ScoreRow[];
   /** Le canal payant au lead qualifié le moins cher, s'il y en a un mesurable. */
   best: ScoreChannelKey | null;
-  /** Les phrases que la direction lit d'abord (et Margaux aussi). */
+  /** Les phrases que la direction lit d'abord (et Mark aussi). */
   headlines: string[];
   budgets: CampaignBudget[];
   /** Ce qui limite la lecture (journal récent, dépenses absentes…). */

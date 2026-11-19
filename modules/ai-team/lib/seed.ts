@@ -12,7 +12,7 @@ import { AI_TEAM_SEED, PREVIOUS_DEFAULTS } from "@/modules/ai-team/lib/team";
  *    qui relève du code est réaligné : niveau, domaine, chef, rôles du moteur,
  *    ordre ;
  *  - exception : un texte encore égal à l'ancien défaut (PREVIOUS_DEFAULTS)
- *    suit la nouvelle organisation — Margaux devient « Directrice SEA ».
+ *    suit la nouvelle organisation — Mark devient « Directeur SEA ».
  *
  * ⚠️ Base partagée dev/prod : jamais de suppression. Une table absente
  * (migration pas encore appliquée) n'est pas fatale : on le dit, et

@@ -14,7 +14,7 @@ export function AuditButton({ name }: { name: string }) {
       }
       label="Lancer l'audit maintenant"
       busyLabel={`${name} audite le site… (2 à 4 minutes)`}
-      done={(d) => `${d.findings ?? 0} constat${(d.findings ?? 0) > 1 ? "s" : ""} — Serge les reprendra dans vos objectifs.`}
+      done={(d) => `${d.findings ?? 0} constat${(d.findings ?? 0) > 1 ? "s" : ""} — Sergey les reprendra dans vos objectifs.`}
       failed="L'audit n'a pas pu être fait."
     />
   );

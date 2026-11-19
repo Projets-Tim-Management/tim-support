@@ -13,17 +13,17 @@ import { runWebModel, tagOf, WebRunError, type WebCall } from "@/modules/ai-team
 import { NO_LEGWORK } from "@/modules/ai-team/lib/requests";
 
 /**
- * LE TRI DU JOUR D'ÉLISE (16/11/2026) — « je ne devrais avoir des demandes que des chefs : les sous-agents parlent à
+ * LE TRI DU JOUR DE JORDAN (16/11/2026) — « je ne devrais avoir des demandes que des chefs : les sous-agents parlent à
  * leur chef, qui voit si c'est bien ou pas et me fait remonter si besoin. On fonctionne comme une entreprise. Sauf si
  * c'est vraiment urgent. »
  *
- * Nathan (pipeline), Jade (essais) et Malo (clients) remettent leurs gestes à Élise. Chaque jour ouvré, une fois leurs
- * points faits, elle en garde AU PLUS 3 pour la direction — les plus rentables, fusionnés quand deux portent sur la
+ * Nathan (pipeline), Jade (essais) et Malo (clients) remettent leurs gestes à Jordan. Chaque jour ouvré, une fois leurs
+ * points faits, il en garde AU PLUS 3 pour la direction — les plus rentables, fusionnés quand deux portent sur la
  * même fiche — et les dépose à son nom (« idée de Malo »), en écartant le reste avec sa raison. La direction n'a
- * jamais plus de 5 demandes d'Élise ouvertes à la fois. L'urgent (lead sans réponse, essai fini sans décision,
+ * jamais plus de 5 demandes de Jordan ouvertes à la fois. L'urgent (lead sans réponse, essai fini sans décision,
  * résiliation annoncée) ne l'attend pas : l'agent le dépose lui-même (lib/pipeline-agent).
  *
- * Les demandes que les agents avaient déposées eux-mêmes avant ce tri (hors urgentes) passent aussi par elle : gardées
+ * Les demandes que les agents avaient déposées eux-mêmes avant ce tri (hors urgentes) passent aussi par lui : gardées
  * ou écartées, elles sont retirées de « Mes tâches » avec un mot.
  */
 
@@ -31,7 +31,7 @@ const MODEL = "claude-sonnet-5-5" as const;
 export const TRIAGE_MARK = "🗂️ Tri du jour";
 const HOUR = 9;
 const MAX_PICK = 3;
-/** Au plus tant de demandes d'Élise ouvertes chez la direction. */
+/** Au plus tant de demandes de Jordan ouvertes chez la direction. */
 export const MAX_OPEN = 5;
 const INTERRUPTED = "⏳ Tri du jour interrompu (temps dépassé) : je le relance.";
 const SUBS: Record<string, string> = { "com-pipeline": "Nathan", "com-essais": "Jade", "com-clients": "Malo" };
@@ -40,7 +40,7 @@ type Raw = Record<string, unknown>;
 export type Candidate = { id: string; from: string; client: string; url: string; title: string; why: string; steps: string[]; message: string; priority: "A" | "B" | "C"; request?: string };
 export type Pick = { sources: string[]; title: string; why: string; steps: string[]; message: string; priority: "A" | "B" | "C" };
 
-/** Le choix d'Élise, vérifié : des sources connues, au plus `max` tâches, des étapes non vides ; les écartées avec leur raison. Pure (testée). */
+/** Le choix de Jordan, vérifié : des sources connues, au plus `max` tâches, des étapes non vides ; les écartées avec leur raison. Pure (testée). */
 export function parseTriage(text: string, known: Set<string>, max: number): { summary: string; picks: Pick[]; dropped: Map<string, string> } | null {
   const summary = tagOf(text, "synthese");
   let picks: unknown;
@@ -67,7 +67,7 @@ export function parseTriage(text: string, known: Set<string>, max: number): { su
 
 const SYSTEM = (name: string) =>
   [
-    `Tu es ${name}, directrice commerciale & revenu de TIM Management (logiciel de gestion pour les entreprises du BTP, vendu en France par abonnement). C'est ton tri du jour : Nathan (pipeline), Jade (essais) et Malo (clients) t'ont remis leurs gestes ; la direction n'en verra que ce que tu gardes.`,
+    `Tu es ${name}, directeur commercial & revenu de TIM Management (logiciel de gestion pour les entreprises du BTP, vendu en France par abonnement). C'est ton tri du jour : Nathan (pipeline), Jade (essais) et Malo (clients) t'ont remis leurs gestes ; la direction n'en verra que ce que tu gardes.`,
     "Garde ce qui rapporte le plus de MRR ou en évite la perte, cette semaine : une affaire proche de la signature, un essai qui se joue, un client qui pèse et qui va mal. Écarte le reste en une phrase (déjà en cours, trop tôt, peu d'enjeu, doublon, pas assez de faits).",
     "Deux gestes sur la même fiche : fusionne-les en une seule tâche. Reprends les étapes et le message de l'agent tels quels s'ils sont bons, corrige-les sinon. Dis de qui vient l'idée dans « pourquoi ».",
     NO_LEGWORK,
@@ -114,7 +114,7 @@ export async function runComTriage(payload: Payload, opts: { now?: Date; force?:
   const dayStart = localMidnight(y, m, d, PARIS_TZ).toISOString();
   const reserved = await reserveChiefReview<{ id: number | string; name: string; active?: boolean | null }>(payload, {
     chiefKey: COM_CHIEF,
-    missing: "La directrice commerciale est introuvable dans l'équipe.",
+    missing: "Le directeur commercial est introuvable dans l'équipe.",
     mark: TRIAGE_MARK,
     title: `${TRIAGE_MARK} — ${new Date(`${parisDay(now)}T12:00:00Z`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}`,
     preparing: "je trie les propositions de l'équipe",
@@ -122,7 +122,7 @@ export async function runComTriage(payload: Payload, opts: { now?: Date; force?:
     since: dayStart,
     now,
     force: opts.force,
-    // Le lundi, elle attend le point de la semaine de Nathan — au plus tard jusqu'à 11 h ; les autres jours, il n'y en a pas.
+    // Le lundi, il attend le point de la semaine de Nathan — au plus tard jusqu'à 11 h ; les autres jours, il n'y en a pas.
     ready: async () => p.weekday !== 1 || p.hour >= 11 || ((await latestPipeline(payload))?.at ?? "") >= dayStart,
   });
   if ("skip" in reserved) return reserved.skip;
@@ -137,7 +137,7 @@ export async function runComTriage(payload: Payload, opts: { now?: Date; force?:
       consignesFor(payload, COM_CHIEF).catch(() => [] as string[]),
       loadBriefBlock(payload),
     ]);
-    // Une fiche qui a déjà une demande d'Élise ouverte n'est pas reproposée (ses anciennes demandes d'agent, si).
+    // Une fiche qui a déjà une demande de Jordan ouverte n'est pas reproposée (ses anciennes demandes d'agent, si).
     const taken = new Set([...open, ...urgentOpen].map((r) => String(r.url)));
     const candidates = all.filter((c) => c.request || !taken.has(c.url));
     const slots = Math.max(0, Math.min(MAX_PICK, MAX_OPEN - open.length));
@@ -166,14 +166,14 @@ export async function runComTriage(payload: Payload, opts: { now?: Date; force?:
       return { status: "echec", message: "Réponse du modèle inutilisable.", costEur: run.costEur };
     }
     const byId = new Map(candidates.map((c) => [c.id, c]));
-    // Les tâches gardées, au nom d'Élise : la fiche de la première proposition reprise.
+    // Les tâches gardées, au nom de Jordan : la fiche de la première proposition reprise.
     const picks: PipelineAction[] = out.picks.map((pk) => {
       const first = byId.get(pk.sources[0])!;
       const who = [...new Set(pk.sources.map((s) => byId.get(s)!.from))].join(" et ");
       return { client: first.url, title: pk.title, why: `Idée de ${who} — ${pk.why}`, steps: pk.steps, message: pk.message, priority: pk.priority };
     });
     await fileActions(payload, COM_CHIEF, picks, new Map(picks.map((x) => [x.client, x.client])), now);
-    // Les demandes d'agent d'avant le tri : retirées de « Mes tâches », avec ce qu'Élise en a fait.
+    // Les demandes d'agent d'avant le tri : retirées de « Mes tâches », avec ce que Jordan en a fait.
     const kept = new Set(out.picks.flatMap((pk) => pk.sources));
     await Promise.all(
       candidates

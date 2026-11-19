@@ -24,8 +24,8 @@ import { loadSnapshots } from "@/modules/ai-team/lib/snapshots";
  *
  * LES OBJECTIFS (collection ai-team-goals) : chiffrés (un indicateur, une
  * cible) ou jalons (un livrable daté) ; fixés par la direction, ou proposés par
- * les chefs puis validés. LES ACTIONS : celles des agents (objectifs de Serge,
- * recommandations de Margaux, décisions du carnet) et celles des ÉQUIPES
+ * les chefs puis validés. LES ACTIONS : celles des agents (objectifs de Sergey,
+ * recommandations de Mark, décisions du carnet) et celles des ÉQUIPES
  * HUMAINES (collection ai-team-actions), prévues ou faites, chacune avec
  * l'objectif qu'elle sert. Tous les agents lisent les objectifs et les actions
  * humaines (roadmapBlock) : ils travaillent pour les atteindre.
@@ -141,7 +141,7 @@ export type ActionView = {
   human: boolean;
   /**
    * La famille, qui donne sa couleur sur la frise : « vous » — ce que les agents confient à la direction (objectifs de
-   * la semaine de Serge, demandes de Margaux) ; « ia » — ce que les agents font eux-mêmes (rapports, décisions) ;
+   * la semaine de Sergey, demandes de Mark) ; « ia » — ce que les agents font eux-mêmes (rapports, décisions) ;
    * « equipe » — les actions des équipes humaines.
    */
   kind: "vous" | "ia" | "equipe";
@@ -207,7 +207,7 @@ export async function loadRoadmap(payload: Payload, now = new Date()): Promise<R
     loadSnapshots(payload, 80, { history: true }),
     safe(payload.find({ collection: "ai-team-members", ...common, select: { key: true, name: true } as never })),
     safe(payload.find({ collection: "ai-team-goals", where: { or: [{ status: { not_equals: "abandonne" } }, { updatedAt: { greater_than_equal: new Date(now.getTime() - 90 * DAY_MS).toISOString() } }] }, sort: "dueDate", ...common })),
-    // Les objectifs de Serge : faits (avec leur verdict) et à faire (prévus).
+    // Les objectifs de Sergey : faits (avec leur verdict) et à faire (prévus).
     safe(payload.find({ collection: "ai-team-objectives", where: { or: [{ and: [{ status: { equals: "fait" } }, { closedAt: { greater_than_equal: since } }] }, { status: { equals: "a-faire" } }] }, sort: "-closedAt", ...common, select: { title: true, status: true, closedAt: true, dueDate: true, proposedBy: true, goal: true, outcome: true, verdict: true, diagnosis: true, why: true, measure: true, page: true, minutes: true, steps: true } as never })),
     // Les demandes des chefs : ouvertes (ce qui attend la direction) et closes depuis 12 mois.
     safe(payload.find({ collection: "ai-team-requests", where: { or: [{ status: { equals: "ouverte" } }, { and: [{ status: { in: ["faite", "repondue"] } }, { closedAt: { greater_than_equal: since } }] }] }, sort: "-createdAt", ...common, select: { member: true, kind: true, status: true, title: true, createdAt: true, closedAt: true, channel: true, proposedBy: true, goal: true, outcome: true, verdict: true, why: true, url: true, steps: true, question: true } as never })),
@@ -237,7 +237,7 @@ export async function loadRoadmap(payload: Payload, now = new Date()): Promise<R
           status: (done ? "faite" : "prevue") as ActionView["status"],
           title: String(o.title ?? ""),
           type: AGENT_TYPE[String(o.proposedBy ?? "")] ?? "Pilotage SEO",
-          by: o.proposedBy ? `${nameByKey.get(TEAM_CHIEF.seo) ?? "Serge"} · idée de ${nameByKey.get(String(o.proposedBy)) ?? o.proposedBy}` : (nameByKey.get(TEAM_CHIEF.seo) ?? null),
+          by: o.proposedBy ? `${nameByKey.get(TEAM_CHIEF.seo) ?? "Sergey"} · idée de ${nameByKey.get(String(o.proposedBy)) ?? o.proposedBy}` : (nameByKey.get(TEAM_CHIEF.seo) ?? null),
           human: false,
           kind: "vous" as const,
           source: "objectif" as const,
@@ -432,7 +432,7 @@ export function horizonsOf(text: string): unknown {
   }
 }
 
-/** Le format des propositions dans une réponse en texte libre (Serge). */
+/** Le format des propositions dans une réponse en texte libre (Sergey). */
 export const GOAL_FORMAT = '<horizons>{"propositions":[{"horizon":"court|moyen|long","indicateur":"clé","titre":"…","cible":12,"pourquoi":"…"}],"points":[{"id":"…","point":"…"}],"jalonsAtteints":[{"id":"…","preuve":"…"}]}</horizons> — omets la balise s\'il n\'y a rien à proposer, ni point à faire, ni jalon atteint.';
 
 export type GoalProposal = { horizon: Horizon; metric: string; title: string; target: number; why: string };
@@ -582,7 +582,7 @@ export async function humanActionsToJudge(payload: Payload, team: Team, now: Dat
 
 /**
  * Écrit le verdict d'un chef, où qu'il porte : une action d'une équipe humaine (id « action-12 ») ou une pièce du chef
- * lui-même — une recommandation de Margaux, un objectif de la semaine de Serge. Le seul aiguillage (relecture du
+ * lui-même — une recommandation de Mark, un objectif de la semaine de Sergey. Le seul aiguillage (relecture du
  * 15/11/2026).
  */
 export async function writeVerdict(payload: Payload, own: "ai-team-requests" | "ai-team-objectives", id: string, outcome: string, lesson: string, now: Date) {

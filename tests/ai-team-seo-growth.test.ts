@@ -6,10 +6,10 @@ import { veilleSystem } from "@/modules/ai-team/lib/veille";
 import { SEA_VEILLE_KEYS, SEO_VEILLE_KEYS, VEILLE_DOMAINS } from "@/modules/ai-team/lib/veille-domains";
 
 /**
- * L'équipe SEO/GEO progresse comme celle de Margaux (14/11/2026) : une veille
+ * L'équipe SEO/GEO progresse comme celle de Mark (14/11/2026) : une veille
  * chaque semaine (ce qui a changé, en France et aux États-Unis), une méthode
  * réécrite, un score de maîtrise sur 100, et des preuves — les verdicts de
- * Serge sur les objectifs tirés du travail de chacun.
+ * Sergey sur les objectifs tirés du travail de chacun.
  */
 
 describe("la veille de chaque semaine", () => {
@@ -34,7 +34,7 @@ describe("la veille de chaque semaine", () => {
   });
 });
 
-describe("les verdicts de Serge", () => {
+describe("les verdicts de Sergey", () => {
   it("ne juge qu'un objectif à juger, une fois, et jamais « trop tôt »", () => {
     const text = '<verdicts>[{"id":"7","resultat":"a-marche","lecon":"+40 % de clics"},{"id":"7","resultat":"a-empire"},{"id":"8","resultat":"trop-tot"},{"id":"99","resultat":"a-marche"}]</verdicts>';
     expect(parseObjectiveVerdicts(text, new Set(["7", "8"]))).toEqual([{ id: "7", outcome: "a-marche", lesson: "+40 % de clics" }]);
@@ -71,7 +71,7 @@ describe("la maîtrise de l'équipe SEO/GEO", () => {
     expect(results({ key: "seo-technique", seoValue: 100 }).points).toBe(40);
   });
 
-  it("ses preuves parlent d'objectifs jugés par Serge", () => {
+  it("ses preuves parlent d'objectifs jugés par Sergey", () => {
     const m = computeMastery({ ...base, verdicts: [{ outcome: "a-marche" }, { outcome: "sans-effet" }] });
     const p = m.parts.find((x) => x.key === "preuves")!;
     expect(p.points).toBe(10);
@@ -94,7 +94,7 @@ describe("un travail coupé en route", () => {
 
 import { isPaidStep } from "@/modules/ai-team/lib/seo-weekly";
 
-describe("une étape de publicité payante n'a rien à faire chez Serge", () => {
+describe("une étape de publicité payante n'a rien à faire chez Sergey", () => {
   it("est reconnue (et retirée de ses objectifs), une étape SEO non", () => {
     expect(isPaidStep("Hors SEO, à décider : couper la campagne Meta « Campagne brouillon de test » (10 €/jour)")).toBe(true);
     expect(isPaidStep("Baisser le budget de la campagne Google Ads marque")).toBe(true);
@@ -103,7 +103,7 @@ describe("une étape de publicité payante n'a rien à faire chez Serge", () => 
     expect(isPaidStep("Lire la page du numéro 1 sur Google pour « logiciel BTP »")).toBe(false);
   });
 
-  it("disparaît de l'objectif à la lecture de la revue, et part dans la liste pour Margaux", () => {
+  it("disparaît de l'objectif à la lecture de la revue, et part dans la liste pour Mark", () => {
     const text = `<synthese>ok</synthese><objectifs>[{"titre":"Rebrancher Bing","etapes":[{"texte":"Rebrancher la clé d'API","minutes":15},{"texte":"Hors SEO, à décider : couper la campagne Meta test","minutes":5}],"echeance":"2026-11-16"}]</objectifs>`;
     const r = parseSeoWeekly(text, 300, ["2026-11-16"])!;
     expect(r.objectives[0].steps.map((x) => x.text)).toEqual(["Rebrancher la clé d'API"]);

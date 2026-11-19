@@ -16,7 +16,7 @@ import { runWebModel, tagOf, WebRunError, type WebCall } from "@/modules/ai-team
 import { loadBookingInsights } from "@/modules/booking/lib/insights";
 
 /**
- * LA REVUE DU LUNDI D'ÉLISE, DIRECTRICE COMMERCIALE & REVENU (15/11/2026).
+ * LA REVUE DU LUNDI DE JORDAN, DIRECTEUR COMMERCIAL & REVENU (15/11/2026).
  *
  * Ce que fait une revue commerciale qui sert (recherche du 15/11/2026) : partir
  * du revenu SIGNÉ et de sa trajectoire vers l'objectif, pas du nombre de leads ;
@@ -27,7 +27,7 @@ import { loadBookingInsights } from "@/modules/booking/lib/insights";
  * même saison (le BTP ralentit l'hiver et en août) ; à ce volume, juger sur
  * plusieurs semaines et dire quand on ne peut pas conclure.
  *
- * Elle lit les points de Nathan (pipeline), Jade (essais) et Malo (clients),
+ * Il lit les points de Nathan (pipeline), Jade (essais) et Malo (clients),
  * tient son carnet, juge les actions humaines faites, propose ou fait le point
  * de ses objectifs à 3, 6 et 12 mois. Le résultat : un message dans sa
  * conversation, que la direction lit le lundi matin.
@@ -54,7 +54,7 @@ async function revenue(payload: Payload, now: Date) {
   return { mrrAujourdhui: today, mrrFinDeMois: series, nouveauMrr30j: fresh, mrrEnTest: test, pipelinePondere: weighted };
 }
 
-/** Ce qu'Élise sait : le revenu, les trois points de son équipe, sa méthode. Sert la revue et la conversation. */
+/** Ce que Jordan sait : le revenu, les trois points de son équipe, sa méthode. Sert la revue et la conversation. */
 /** Les trois derniers points du bureau (Nathan, Jade, Malo), lus une fois et partagés avec le score de maîtrise. */
 export const comReports = (payload: Payload) => Promise.all([latestPipeline(payload), latestTrials(payload), latestHealth(payload)]).then(([pipe, trials, health]) => ({ pipe, trials, health }));
 
@@ -76,7 +76,7 @@ export async function comChatData(payload: Payload, now: Date, chief: { id: numb
 
 const SYSTEM = (name: string) =>
   [
-    `Tu es ${name}, directrice commerciale & revenu de TIM Management, éditeur d'un logiciel de gestion pour les entreprises du BTP, vendu en France par abonnement mensuel (lead → démo → essai accompagné → signature). Tu es un agent IA ; tu rends compte à la direction, qui fait elle-même les appels et les rendez-vous. Ton équipe : Nathan (pipeline & relances), Jade (essais), Malo (rétention & clients).`,
+    `Tu es ${name}, directeur commercial & revenu de TIM Management, éditeur d'un logiciel de gestion pour les entreprises du BTP, vendu en France par abonnement mensuel (lead → démo → essai accompagné → signature). Tu es un agent IA ; tu rends compte à la direction, qui fait elle-même les appels et les rendez-vous. Ton équipe : Nathan (pipeline & relances), Jade (essais), Malo (rétention & clients).`,
     "C'est ta revue du lundi. Tu pars du REVENU : le MRR signé, sa trajectoire sur 6 mois, l'écart à l'objectif et au temps qui reste. Puis :",
     "- les affaires qui peuvent SIGNER dans les 30 jours (en signature, en test bien parti) : ce qu'il faut pour chacune ; et celles à sortir de la prévision (ni prochaine étape, ni raison d'acheter maintenant) ;",
     "- les essais qui se jouent cette semaine (Jade) ;",
@@ -102,7 +102,7 @@ export async function runComWeekly(payload: Payload, opts: { now?: Date; force?:
   if (!opts.force && (p.weekday > 3 || (p.weekday === 1 && p.hour < HOUR))) return { status: "pas-encore" };
   const reserved = await reserveChiefReview<{ id: number | string; name: string; active?: boolean | null }>(payload, {
     chiefKey: COM_CHIEF,
-    missing: "La directrice commerciale est introuvable dans l'équipe.",
+    missing: "Le directeur commercial est introuvable dans l'équipe.",
     mark: COM_MARK,
     title: COM_MARK,
     preparing: "je prépare le point",

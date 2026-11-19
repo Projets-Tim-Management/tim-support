@@ -35,7 +35,7 @@ type BriefDoc = { quotes?: { quote: string; tag?: string | null; who?: string | 
 
 export type VoiceResult = { status: "faite" | "pas-encore" | "deja-faite" | "pause" | "echec"; added?: number; message?: string; costEur?: number };
 
-/** Chaque lundi dès 10 h (Paris), après la santé des clients et le tri d'Élise ; une fois par semaine, ou maintenant avec `force`. */
+/** Chaque lundi dès 10 h (Paris), après la santé des clients et le tri de Jordan ; une fois par semaine, ou maintenant avec `force`. */
 export async function runClientVoice(payload: Payload, opts: { now?: Date; force?: boolean; call?: WebCall } = {}): Promise<VoiceResult> {
   const now = opts.now ?? new Date();
   const p = parisNow(now);

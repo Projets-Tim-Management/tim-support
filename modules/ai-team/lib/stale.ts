@@ -51,13 +51,13 @@ export type ReviewSkip = { status: "pas-encore" | "deja-faite" | "pause" | "eche
 export type ReservedReview<C> = { chief: C; placeholderId: number | string; finish: (text: string, costEur?: number) => Promise<unknown> };
 
 /**
- * LE DÉBUT COMMUN DES REVUES DU LUNDI (Margaux, Serge, Élise — relecture du 15/11/2026, il était recopié trois fois) :
+ * LE DÉBUT COMMUN DES REVUES DU LUNDI (Mark, Sergey, Jordan — relecture du 15/11/2026, il était recopié trois fois) :
  * le chef existe et est en service ; ses revues coupées en route sont marquées interrompues ; hors `force`, la revue
  * est due (`due`), pas déjà faite depuis `since` (un message qui porte `mark`), pas interrompue trop souvent, et ce
  * qu'elle attend est prêt (`ready`) ; puis elle se RÉSERVE par un message « `title` : `preparing`… » — de deux
  * réservations simultanées, la plus récente se retire. Rend la réservation et de quoi écrire le message final.
  *
- * UNE REVUE EN ÉCHEC NE COMPTE PAS COMME FAITE (16/11/2026 : la revue de Serge, bloquée par le plafond du jour, avait
+ * UNE REVUE EN ÉCHEC NE COMPTE PAS COMME FAITE (16/11/2026 : la revue de Sergey, bloquée par le plafond du jour, avait
  * fermé sa semaine) : son message (« … je n'ai pas pu … ») est ignoré, et elle se rattrape — pas le jour même (un
  * plafond du jour ne se relance pas chaque minute), mais dès le jour suivant, dans la fenêtre de `due`.
  */

@@ -27,7 +27,7 @@ export type MyTask = {
   /** « question » : une réponse attendue, pas une case à cocher. */
   form: "a-faire" | "question";
   title: string;
-  /** « reporte » : un objectif de Serge non fini à la fin de sa semaine, qu'il a repris ou mis de côté. */
+  /** « reporte » : un objectif de Sergey non fini à la fin de sa semaine, qu'il a repris ou mis de côté. */
   status: "a-faire" | "en-cours" | "fait" | "reporte";
   /** Un objectif reporté : le titre de l'objectif de cette semaine qui le reprend ; null s'il a été mis de côté. */
   carriedOver?: string | null;
@@ -37,7 +37,7 @@ export type MyTask = {
   doneAt: string | null;
   /** Le chef à qui en parler (sa conversation), null pour une action d'équipe hors bureau. */
   chief: string | null;
-  /** D'où elle vient, en clair : « Élise · idée de Nathan », « Développement ». */
+  /** D'où elle vient, en clair : « Jordan · idée de Nathan », « Développement ». */
   from: string | null;
   urgent: boolean;
   why: string | null;
@@ -102,5 +102,5 @@ export function weekProgress(tasks: MyTask[], today: string): { done: number; le
 /** Le nombre de tâches qui attendent la direction cette semaine (le lien de l'organigramme). */
 export const openCount = (tasks: MyTask[], today: string) => tasks.filter((t) => ["retard", "semaine"].includes(groupOf(t, today))).length;
 
-/** Le lien d'une tâche dans « Mes tâches » (la feuille de route, la fiche de Serge, les e-mails y renvoient). */
+/** Le lien d'une tâche dans « Mes tâches » (la feuille de route, la fiche de Sergey, les e-mails y renvoient). */
 export const taskHref = (id: string) => `/admin/mes-taches?tache=${encodeURIComponent(id)}`;

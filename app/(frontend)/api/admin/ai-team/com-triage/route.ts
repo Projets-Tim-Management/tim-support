@@ -1,7 +1,7 @@
 import { runComTriage } from "@/modules/ai-team/lib/com-triage";
 import { runNowRoute } from "@/modules/ai-team/lib/run-now-route";
 
-/** Lancer le tri du jour d'Élise tout de suite. POST — réservé à la direction. */
+/** Lancer le tri du jour de Jordan tout de suite. POST — réservé à la direction. */
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 

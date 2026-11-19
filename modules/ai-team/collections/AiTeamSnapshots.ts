@@ -10,7 +10,7 @@ import { hideUnlessDirection, isDirectionAccess } from "@/core/access";
  *
  * Mises bout à bout, les photos donnent les TENDANCES (« troisième semaine sans
  * conversion », « le coût du clic a pris 30 % ») et l'AVANT / APRÈS d'une
- * recommandation de Margaux. Une par semaine ; écrite par le serveur seul.
+ * recommandation de Mark. Une par semaine ; écrite par le serveur seul.
  */
 export const AiTeamSnapshots: CollectionConfig = {
   slug: "ai-team-snapshots",

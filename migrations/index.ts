@@ -220,6 +220,19 @@ import * as migration_20261116_164235_licence_modules_magasinier from './2026111
 import * as migration_20261116_165633_retire_annual_plan from './20261116_165633_retire_annual_plan';
 import * as migration_20261117_161015_reponse_email_prospect from './20261117_161015_reponse_email_prospect';
 import * as migration_20261117_172836_historique_annuel from './20261117_172836_historique_annuel';
+import * as migration_20261118_161041_tableau_articles from './20261118_161041_tableau_articles';
+import * as migration_20261118_164202_chiffres_articles from './20261118_164202_chiffres_articles';
+import * as migration_20261118_170102_propositions_articles from './20261118_170102_propositions_articles';
+import * as migration_20261118_170941_regles_articles from './20261118_170941_regles_articles';
+import * as migration_20261118_174731_redaction_articles from './20261118_174731_redaction_articles';
+import * as migration_20261118_175921_publication_articles from './20261118_175921_publication_articles';
+import * as migration_20261118_180536_suivi_articles from './20261118_180536_suivi_articles';
+import * as migration_20261118_184055_fiches_metier from './20261118_184055_fiches_metier';
+import * as migration_20261119_070807_notes_seo_geo from './20261119_070807_notes_seo_geo';
+import * as migration_20261119_075552_comparateur_concurrents from './20261119_075552_comparateur_concurrents';
+import * as migration_20261119_085321_requetes_suivies from './20261119_085321_requetes_suivies';
+import * as migration_20261119_104627_visuel_article from './20261119_104627_visuel_article';
+import * as migration_20261119_142633_note_v3 from './20261119_142633_note_v3';
 
 export const migrations = [
   {
@@ -1330,6 +1343,71 @@ export const migrations = [
   {
     up: migration_20261117_172836_historique_annuel.up,
     down: migration_20261117_172836_historique_annuel.down,
-    name: '20261117_172836_historique_annuel'
+    name: '20261117_172836_historique_annuel',
+  },
+  {
+    up: migration_20261118_161041_tableau_articles.up,
+    down: migration_20261118_161041_tableau_articles.down,
+    name: '20261118_161041_tableau_articles',
+  },
+  {
+    up: migration_20261118_164202_chiffres_articles.up,
+    down: migration_20261118_164202_chiffres_articles.down,
+    name: '20261118_164202_chiffres_articles',
+  },
+  {
+    up: migration_20261118_170102_propositions_articles.up,
+    down: migration_20261118_170102_propositions_articles.down,
+    name: '20261118_170102_propositions_articles',
+  },
+  {
+    up: migration_20261118_170941_regles_articles.up,
+    down: migration_20261118_170941_regles_articles.down,
+    name: '20261118_170941_regles_articles',
+  },
+  {
+    up: migration_20261118_174731_redaction_articles.up,
+    down: migration_20261118_174731_redaction_articles.down,
+    name: '20261118_174731_redaction_articles',
+  },
+  {
+    up: migration_20261118_175921_publication_articles.up,
+    down: migration_20261118_175921_publication_articles.down,
+    name: '20261118_175921_publication_articles',
+  },
+  {
+    up: migration_20261118_180536_suivi_articles.up,
+    down: migration_20261118_180536_suivi_articles.down,
+    name: '20261118_180536_suivi_articles',
+  },
+  {
+    up: migration_20261118_184055_fiches_metier.up,
+    down: migration_20261118_184055_fiches_metier.down,
+    name: '20261118_184055_fiches_metier',
+  },
+  {
+    up: migration_20261119_070807_notes_seo_geo.up,
+    down: migration_20261119_070807_notes_seo_geo.down,
+    name: '20261119_070807_notes_seo_geo',
+  },
+  {
+    up: migration_20261119_075552_comparateur_concurrents.up,
+    down: migration_20261119_075552_comparateur_concurrents.down,
+    name: '20261119_075552_comparateur_concurrents',
+  },
+  {
+    up: migration_20261119_085321_requetes_suivies.up,
+    down: migration_20261119_085321_requetes_suivies.down,
+    name: '20261119_085321_requetes_suivies',
+  },
+  {
+    up: migration_20261119_104627_visuel_article.up,
+    down: migration_20261119_104627_visuel_article.down,
+    name: '20261119_104627_visuel_article',
+  },
+  {
+    up: migration_20261119_142633_note_v3.up,
+    down: migration_20261119_142633_note_v3.down,
+    name: '20261119_142633_note_v3'
   },
 ];

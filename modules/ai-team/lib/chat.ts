@@ -197,10 +197,10 @@ export async function askChief(
   const office = officeOfChief(String(chief.key)) ?? "sea";
   const sea = office === "sea";
   const spendKind = OFFICES[office].spend;
-  // La fiche des canaux (Yanis) : ce qui fonde les recommandations de budget de Margaux.
+  // La fiche des canaux (Yanis) : ce qui fonde les recommandations de budget de Mark.
   const card = sea ? await cachedScorecard(payload, now) : null;
   const [{ team, data }, past, requests, readers, mastery, notes, crew, roadmap, brief] = await Promise.all([
-    // Serge (SEO/GEO) parle de ses sources et des objectifs de la semaine ; Élise du revenu ; Margaux de ses campagnes.
+    // Sergey (SEO/GEO) parle de ses sources et des objectifs de la semaine ; Jordan du revenu ; Mark de ses campagnes.
     office === "com"
       ? import("@/modules/ai-team/lib/com-weekly").then(async (m) => ({ team: null, data: await m.comChatData(payload, now, chief) }))
       : office === "seo"
@@ -209,7 +209,7 @@ export async function askChief(
     payload.find({ collection: "ai-team-messages", where: { member: { equals: chief.id } }, sort: "-createdAt", limit: HISTORY, depth: 0, overrideAccess: true }),
     // Ce qu'il a demandé à la direction, et ce que la direction a fait ou répondu.
     payload.find({ collection: "ai-team-requests", where: { member: { equals: chief.id } }, sort: "-createdAt", limit: 10, depth: 0, overrideAccess: true }),
-    // Margaux lit aussi ce que lisent Thomas et Sarah.
+    // Mark lit aussi ce que lisent Thomas et Sarah.
     sea ? loadAdsReaders(payload, now) : {},
     loadTeamMastery(payload, card, now, undefined, { keys: MASTERY_KEYS_OF[office] }),
     loadCarnet(payload, chief.id, now),
@@ -235,7 +235,7 @@ export async function askChief(
   const json = JSON.stringify({ ...withRequests, monCarnet: carnetForModel(notes, crew), ...(roadmap ? { feuilleDeRoute: roadmap } : {}) }).replace(/<\/?donnees>/g, "");
   const req = {
     model: QUESTION_MODEL,
-    // Son équipe : celle de chiefData pour Margaux (avec qui est branché) ; pour Serge et Élise, leurs agents.
+    // Son équipe : celle de chiefData pour Mark (avec qui est branché) ; pour Sergey et Jordan, leurs agents.
     system: chiefSystem({ ...chief, key: String(chief.key) }, team ?? crew, crew) + brief,
     messages: [...history, { role: "user" as const, content: `<donnees>\n${json}\n</donnees>\n\nMessage de la direction : ${text}` }],
     tools: [],

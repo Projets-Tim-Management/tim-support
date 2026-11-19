@@ -432,7 +432,7 @@ export function CheckBox({ a }: { a: ActionView }) {
 }
 
 const STATUS_LABEL: Record<ActionView["status"], string> = { faite: "Faite", "en-cours": "En cours", prevue: "À faire" };
-const SOURCE_LABEL: Record<ActionView["source"], string> = { objectif: "Objectif de la semaine (Serge)", recommandation: "Demande d'un chef", decision: "Décision d'un chef", equipe: "Action d'équipe", rapport: "Rapport d'agent" };
+const SOURCE_LABEL: Record<ActionView["source"], string> = { objectif: "Objectif de la semaine (Sergey)", recommandation: "Demande d'un chef", decision: "Décision d'un chef", equipe: "Action d'équipe", rapport: "Rapport d'agent" };
 
 /** La fiche d'une tâche, dans le tiroir : ce qu'elle est, ce qu'il faut faire (étapes à cocher, prompts prêts), ce qu'elle sert. */
 function TaskSheet({ a, goal, today, children }: { a: ActionView; goal: GoalView | undefined; today: string; children: React.ReactNode }) {

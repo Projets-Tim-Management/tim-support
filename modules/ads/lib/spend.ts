@@ -37,7 +37,7 @@ export function limitsFor(kind: AdSpendKind, s: Settings | null | undefined): Li
   if (kind === "texte") return { day: s?.textDailyEur ?? 5, month: s?.textMonthlyEur ?? 50 };
   if (kind === "image") return { month: s?.imagesMonthlyEur ?? 20 };
   if (kind === "agent") return { day: s?.agentDailyEur ?? 15, month: s?.agentMonthlyEur ?? 150 };
-  // L'équipe SEO/GEO : son budget est sur la carte de Serge (assertAdsBudget) ; ce plafond n'est qu'un filet.
+  // L'équipe SEO/GEO : son budget est sur la carte de Sergey (assertAdsBudget) ; ce plafond n'est qu'un filet.
   if (kind === "seo" || kind === "commercial") return { day: 10, month: 100 };
   return { month: s?.videoMonthlyEur ?? 30 };
 }
@@ -107,7 +107,7 @@ export async function spentOf(payload: Payload, kind: AdSpendKind, now = new Dat
  */
 /**
  * `overDailyCap` : la direction a demandé ce travail EXPRESSÉMENT malgré le plafond du jour (16/11/2026, « lance
- * Serge même si on dépasse ») — le plafond du jour est levé pour cet appel seulement ; l'interrupteur, le plafond du
+ * Sergey même si on dépasse ») — le plafond du jour est levé pour cet appel seulement ; l'interrupteur, le plafond du
  * mois et le budget de l'équipe restent vérifiés.
  */
 export async function assertAdsBudget(payload: Payload, kind: AdSpendKind, maxEur: number, now = new Date(), opts: { overDailyCap?: boolean } = {}) {

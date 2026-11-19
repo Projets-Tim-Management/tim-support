@@ -8,7 +8,7 @@ import { parseVeille } from "@/modules/ai-team/lib/veille";
 const fig = (spend: number, qualified: number): Figures => ({ spend, leads: qualified * 3, qualified, won: 0, costPerLead: null, costPerQualified: qualified ? Math.round((spend / qualified) * 100) / 100 : null, costPerWon: null, qualifiedRate: null });
 
 describe("Mesures de résultat", () => {
-  it("canal : son coût par lead qualifié ; Margaux : toute la publicité payante, sans le SEO", () => {
+  it("canal : son coût par lead qualifié ; Mark : toute la publicité payante, sans le SEO", () => {
     const rows = [
       { key: "google", now: fig(1000, 5) },
       { key: "chatgpt", now: fig(900, 3) },

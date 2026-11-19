@@ -9,6 +9,7 @@ import { latestMethods, memberByKey } from "@/modules/ai-team/lib/shared-data";
 import { SOCLES, spendKindOf, teamOfKey } from "@/modules/ai-team/lib/veille-domains";
 import { INTERRUPTED, isPeriodDone, staleBefore } from "@/modules/ai-team/lib/stale";
 import { runWebModel, WebRunError, type WebCall } from "@/modules/ai-team/lib/web-model";
+import { fileVitrineRequests, parseVitrineRequests, VITRINE_RULE } from "@/modules/ai-team/lib/vitrine-requests";
 
 /**
  * LE RAPPORT D'UN AGENT DE L'ÉQUIPE SEO/GEO, d'un bout à l'autre — commun à
@@ -24,9 +25,9 @@ import { runWebModel, WebRunError, type WebCall } from "@/modules/ai-team/lib/we
  *  4. la réponse vérifiée est enregistrée — ou l'échec, avec ce qu'il a coûté.
  */
 
-export type ReportKind = "site" | "concurrence" | "contenu" | "ia" | "technique" | "autorite" | "reseaux" | "pipeline" | "conversion" | "essais" | "sante";
+export type ReportKind = "site" | "concurrence" | "contenu" | "ia" | "technique" | "autorite" | "reseaux" | "pipeline" | "conversion" | "essais" | "sante" | "regles";
 export type ReportResult = { status: "fait" | "pas-encore" | "deja-fait" | "pause" | "echec"; message?: string; findings?: number; costEur?: number };
-type Member = { id: number | string; name: string; active?: boolean | null };
+type Member = { id: number | string; name: string; active?: boolean | null; jobTitle?: string | null };
 
 export async function runAgentReport<F>(
   payload: Payload,
@@ -55,7 +56,7 @@ export async function runAgentReport<F>(
 ): Promise<ReportResult> {
   // Pas dû : rien n'est lu en base (le réveil de la minute passe sur une dizaine de rapports — relecture du 15/11/2026).
   if (!o.force && !(await o.due())) return { status: "pas-encore" };
-  const member = await memberByKey<Member>(payload, o.memberKey, { name: true, active: true });
+  const member = await memberByKey<Member>(payload, o.memberKey, { name: true, active: true, jobTitle: true });
   if (!member) return { status: "echec", message: "Cet agent est introuvable dans l'équipe." };
   if (member.active === false) return { status: "pause", message: `${member.name} est en pause.` };
   // Un rapport coupé en route (fin du temps du réveil) reste « en cours » : il est clos « interrompu », et relancé.
@@ -88,7 +89,8 @@ export async function runAgentReport<F>(
     const run = await runWebModel(payload, {
       model: o.model,
       // Les consignes en cours de son chef (son carnet) s'ajoutent à sa consigne.
-      system: o.system(member.name) + brief + consignesBlock(consignes) + roadmapBlock(road),
+      // Chaque agent peut demander une amélioration du site vitrine hors de son périmètre (19/11/2026).
+      system: o.system(member.name) + brief + consignesBlock(consignes) + roadmapBlock(road) + VITRINE_RULE,
       user: `<donnees>\n${JSON.stringify(data).replace(/<\/?donnees>/g, "")}\n</donnees>${methodBlock}\n\n${o.ask}`,
       // Chaque bureau paie sur son budget : SEO/GEO, commercial (Nathan, Jade, Malo), SEA.
       kind: spendKindOf(teamOfKey(o.memberKey)),
@@ -105,7 +107,12 @@ export async function runAgentReport<F>(
       return { status: "echec", message: "La réponse n'a pas pu être lue.", costEur: run.costEur };
     }
     await payload.update({ collection: "ai-team-audits", id: reserved.id, data: { status: "fait", summary: out.summary, findings: out.findings, searches: run.searches, costEur: run.costEur, ...keep, ...out.keep } as never, overrideAccess: true });
-    return { status: "fait", findings: out.findings.length, costEur: run.costEur };
+    // Ses demandes d'amélioration du site vitrine, déposées dans « Mes tâches » sous son chef, avec un prompt prêt.
+    const vitrine = await fileVitrineRequests(payload, member, o.memberKey, parseVitrineRequests(run.text), o.now).catch((e) => {
+      payload.logger.warn(`[équipe IA] demandes vitrine de ${member.name} : ${e instanceof Error ? e.message : String(e)}`);
+      return 0;
+    });
+    return { status: "fait", findings: out.findings.length, costEur: run.costEur, ...(vitrine ? { message: `${vitrine} demande(s) pour le site vitrine.` } : {}) };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     await fail(message, e instanceof WebRunError ? { searches: e.searches, costEur: e.costEur } : {});

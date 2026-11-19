@@ -21,7 +21,7 @@ const GROUPS: { key: TaskGroup; label: string; icon: string; empty?: string }[] 
   { key: "semaine", label: "Cette semaine", icon: "📌", empty: "Rien d'autre cette semaine. 🎉" },
   { key: "plus-tard", label: "Plus tard", icon: "🗓️" },
   { key: "fait", label: "Fait ces 14 derniers jours", icon: "✅" },
-  // Ce que Serge n'a pas vu finir et a reporté : repris cette semaine ou mis de côté — rien ne disparaît sans être vu.
+  // Ce que Sergey n'a pas vu finir et a reporté : repris cette semaine ou mis de côté — rien ne disparaît sans être vu.
   { key: "reportees", label: "Reportées la semaine passée", icon: "↪️" },
 ];
 
@@ -150,7 +150,7 @@ function Task({ t, today, people, chats, open, onOpen }: { t: MyTask; today: str
             )}
             {!chief && t.from && <span>{t.from}</span>}
             {reported ? (
-              <span className={t.carriedOver ? "mt-carried" : "mt-late"}>{t.carriedOver ? "Repris cette semaine par Serge" : "Mis de côté par Serge"}</span>
+              <span className={t.carriedOver ? "mt-carried" : "mt-late"}>{t.carriedOver ? "Repris cette semaine par Sergey" : "Mis de côté par Sergey"}</span>
             ) : done && t.doneAt ? <span>fait le {dayFr(t.doneAt)}</span> : t.due ? <span className={group === "retard" ? "mt-late" : undefined}>{group === "retard" ? "en retard · " : "avant "}{dayFr(t.due)}</span> : <span>dès que possible</span>}
             {steps.length > 0 && t.stepsCheckable && (
               <span className="mt-steps-count">
@@ -307,7 +307,7 @@ function Task({ t, today, people, chats, open, onOpen }: { t: MyTask; today: str
             {t.source === "a-valider" && <span className="mt-hint">Se ferme quand vous décidez dans « À valider ».</span>}
             {reported && (
               <span className="mt-hint">
-                {t.carriedOver ? `Serge l'a repris dans « ${t.carriedOver} » : rien à faire ici, sauf si vous voulez aussi garder celui-ci.` : "Serge l'a jugé moins prioritaire que les objectifs de cette semaine. Remettez-le si vous n'êtes pas d'accord : il repart, échéance vendredi."}
+                {t.carriedOver ? `Sergey l'a repris dans « ${t.carriedOver} » : rien à faire ici, sauf si vous voulez aussi garder celui-ci.` : "Sergey l'a jugé moins prioritaire que les objectifs de cette semaine. Remettez-le si vous n'êtes pas d'accord : il repart, échéance vendredi."}
               </span>
             )}
             {error && <p className="mt-error">{error}</p>}

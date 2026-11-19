@@ -8,7 +8,7 @@ import { latestMethods, membersByKeys } from "@/modules/ai-team/lib/shared-data"
  * suivi), on prend une PHOTO des méthodes du moment — comme pour les consignes
  * et le carnet — et chaque agent la lit dans son premier message :
  *
- *  - Margaux (orchestratrice) : sa méthode de direction SEA, et la méthode
+ *  - Mark (orchestrateur) : sa méthode de direction SEA, et la méthode
  *    Meta Ads de Camille (elle prépare des campagnes Meta) ;
  *  - Camille (analyste) : la sienne ;
  *  - le studio (stratège, rédactrice, directeur artistique, contrôleuse) :

@@ -17,7 +17,7 @@ const ymOf = (d: Date) => `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).pa
 /** Le dernier mois complet à une date : « AAAAMM ». */
 const lastFullMonth = (at: Date) => ymOf(new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() - 1, 15)));
 
-/** Les étapes du pipeline et leur poids : le pipeline pondéré, le même pour la feuille de route, Élise et Nathan. */
+/** Les étapes du pipeline et leur poids : le pipeline pondéré, le même pour la feuille de route, Jordan et Nathan. */
 export const PIPELINE_WEIGHTS: Record<string, number> = { "en-signature": 0.7, "en-test": 0.4, "attente-engagement": 0.3, "demo-programmee": 0.15, "en-qualification": 0.05, "attente-longue": 0.05, nouvelle: 0.03 };
 /** Un lead QUALIFIÉ : son opportunité est arrivée à « Démo programmée » ou plus loin. */
 export const QUALIFIED = new Set(["demo-programmee", "attente-engagement", "attente-longue", "en-test", "en-signature", "actif", "resilie"]);

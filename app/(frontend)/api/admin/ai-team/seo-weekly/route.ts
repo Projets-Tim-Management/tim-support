@@ -5,7 +5,7 @@ import { adminRequest } from "@/modules/ads/lib/route-auth";
 import { runSeoWeekly } from "@/modules/ai-team/lib/seo-weekly";
 
 /**
- * Lancer la revue de Serge tout de suite, sans attendre lundi : les objectifs
+ * Lancer la revue de Sergey tout de suite, sans attendre lundi : les objectifs
  * de la semaine, leurs créneaux dans l'agenda, la synthèse dans sa
  * conversation. POST — réservé à la direction.
  */

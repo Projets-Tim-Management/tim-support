@@ -25,15 +25,15 @@ describe("Budget IA de l'équipe SEA : un plafond, pas une enveloppe", () => {
   });
 
   it("ne dépose rien sous 80 %, et propose de quoi finir le mois au-dessus", () => {
-    expect(budgetAlert(budgetOutlook({ budgetEur: 50, spentEur: 25, now: NOW }), NOW, "Margaux")).toBeNull();
+    expect(budgetAlert(budgetOutlook({ budgetEur: 50, spentEur: 25, now: NOW }), NOW, "Mark")).toBeNull();
     const o = budgetOutlook({ budgetEur: 50, spentEur: 42, now: NOW });
     expect(suggestedBudget(o)).toBe(110); // 3,50 €/jour × 30 jours = 105 € → 110 €
-    const a = budgetAlert(o, NOW, "Margaux")!;
+    const a = budgetAlert(o, NOW, "Mark")!;
     expect(a.title).toBe("Budget IA de novembre : 80 % du plafond atteint");
     expect(a.kind).toBe("a-faire");
     expect(safeRequestUrl(a.url)).toBe(BUDGET_URL);
     expect(a.steps.join(" ")).toMatch(/110 €/);
-    const stop = budgetAlert(budgetOutlook({ budgetEur: 50, spentEur: 50, now: NOW }), NOW, "Margaux")!;
+    const stop = budgetAlert(budgetOutlook({ budgetEur: 50, spentEur: 50, now: NOW }), NOW, "Mark")!;
     expect(stop.title).toMatch(/atteint : l'équipe SEA est à l'arrêt/);
   });
 
@@ -41,7 +41,7 @@ describe("Budget IA de l'équipe SEA : un plafond, pas une enveloppe", () => {
     const created: unknown[] = [];
     const titles = new Set<string>();
     const payload = {
-      find: async () => ({ docs: [{ id: 7, name: "Margaux", monthlyAiBudgetEur: 50 }] }),
+      find: async () => ({ docs: [{ id: 7, name: "Mark", monthlyAiBudgetEur: 50 }] }),
       count: async ({ where }: { where: { and: { title?: { equals: string } }[] } }) => ({ totalDocs: titles.has(where.and[1].title!.equals) ? 1 : 0 }),
       create: async ({ data }: { data: { title: string } }) => {
         titles.add(data.title);

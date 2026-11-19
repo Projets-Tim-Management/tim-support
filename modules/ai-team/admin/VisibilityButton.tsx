@@ -20,7 +20,7 @@ export function VisibilityButton({ name }: { name: string }) {
         const cost = (d.costEur ?? 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
         const line = `${d.measured ?? 0} réponse${(d.measured ?? 0) > 1 ? "s" : ""} lue${(d.measured ?? 0) > 1 ? "s" : ""} (${cost}).`;
         if (d.left) return `${line} Il en reste ${d.left} sur ${d.total} : la suite continue toute seule.`;
-        if (d.report?.status === "fait") return `${line} Mesure complète — ${d.report.findings ?? 0} action(s) pour Serge.`;
+        if (d.report?.status === "fait") return `${line} Mesure complète — ${d.report.findings ?? 0} action(s) pour Sergey.`;
         return `${line} Mesure complète ; le rapport du mois est déjà fait.`;
       }}
       failed="La mesure n'a pas pu avancer."

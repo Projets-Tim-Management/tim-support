@@ -5,7 +5,7 @@ import { computeMastery, COM_MASTERY_KEYS, SEA_MASTERY_KEYS } from "@/modules/ai
 import { spendKindOf, teamOfKey, COM_VEILLE_KEYS, SOCLES } from "@/modules/ai-team/lib/veille-domains";
 
 /**
- * Le bureau commercial d'Élise (15/11/2026) : Nathan (pipeline), Jade (essais),
+ * Le bureau commercial de Jordan (15/11/2026) : Nathan (pipeline), Jade (essais),
  * Malo (rétention). Les faits sont calculés par le code ; chaque bureau paie
  * sur son propre budget.
  */
@@ -163,7 +163,7 @@ describe("relecture du 15/11/2026 : les calculs corrigés", () => {
   });
 });
 
-describe("le tri du jour d'Élise (16/11/2026)", () => {
+describe("le tri du jour de Jordan (16/11/2026)", () => {
   it("garde au plus les places libres, des sources connues sans doublon, et les raisons des écartées", async () => {
     const { parseTriage } = await import("@/modules/ai-team/lib/com-triage");
     const known = new Set(["pipeline-0", "pipeline-1", "sante-0", "demande-9"]);
@@ -248,7 +248,7 @@ describe("une revue en échec ne compte pas comme faite (16/11/2026)", () => {
       created,
       payload: {
         find: async ({ collection }: { collection: string }) =>
-          collection === "ai-team-members" ? { docs: [{ id: 1, name: "Serge", active: true }] } : { docs: [...texts.map((t, i) => ({ id: i + 1, ...t })), ...created.map((c, i) => ({ id: 100 + i, ...(c as object) }))] },
+          collection === "ai-team-members" ? { docs: [{ id: 1, name: "Sergey", active: true }] } : { docs: [...texts.map((t, i) => ({ id: i + 1, ...t })), ...created.map((c, i) => ({ id: 100 + i, ...(c as object) }))] },
         update: async () => ({ docs: [] }),
         create: async ({ data }: { data: Record<string, unknown> }) => (created.push({ ...data, createdAt: new Date().toISOString() }), { id: 100 + created.length - 1, ...data }),
         delete: async () => ({}),

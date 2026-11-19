@@ -4,7 +4,7 @@ import { buildGoogleAds, competitorIn } from "@/modules/analytics/lib/google-ads
 
 /**
  * Google Ads en lecture : ce que lit Thomas (chef Google Ads) et ce qu'il
- * remet à Margaux — en premier, ce qui empêche Google d'enchérir juste.
+ * remet à Mark — en premier, ce qui empêche Google d'enchérir juste.
  */
 const camp = (name: string, status: string, cost: number, clicks: number, conversions = 0) => ({
   campaign: { id: name, name, status, advertisingChannelType: "SEARCH" },

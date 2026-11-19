@@ -16,7 +16,7 @@ export const AD_SPEND_KINDS = [
   { label: "Images", value: "image" },
   { label: "Vidéo générée", value: "video" },
   { label: "Agent de campagne", value: "agent" },
-  // L'équipe SEO/GEO de l'équipe IA (Serge et ses agents) : son propre budget, à part de celui du SEA.
+  // L'équipe SEO/GEO de l'équipe IA (Sergey et ses agents) : son propre budget, à part de celui du SEA.
   { label: "Équipe SEO/GEO", value: "seo" },
   { label: "Équipe commerciale & revenu", value: "commercial" },
 ] as const;

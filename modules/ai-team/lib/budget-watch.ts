@@ -5,15 +5,15 @@ import { memberByKey } from "@/modules/ai-team/lib/shared-data";
 import type { RequestInput } from "@/modules/ai-team/lib/requests";
 
 /**
- * LE BUDGET IA DU MOIS DE L'ÉQUIPE SEA, VU PAR MARGAUX (12/11/2026).
+ * LE BUDGET IA DU MOIS DE L'ÉQUIPE SEA, VU PAR MARK (12/11/2026).
  *
- * La direction le fixe sur la carte de Margaux. C'est un PLAFOND, pas une
- * enveloppe à vider : l'équipe n'est pas tenue de tout dépenser. Margaux peut
- * en demander plus (ou proposer moins) si elle le justifie, et la direction
+ * La direction le fixe sur la carte de Mark. C'est un PLAFOND, pas une
+ * enveloppe à vider : l'équipe n'est pas tenue de tout dépenser. Mark peut
+ * en demander plus (ou proposer moins) si il le justifie, et la direction
  * change le chiffre.
  *
  *  - `budgetOutlook` : où en est le mois — dépensé, par jour, projection à la
- *    fin du mois. Margaux le lit dans sa revue et dans la conversation.
+ *    fin du mois. Mark le lit dans sa revue et dans la conversation.
  *  - `watchTeamBudget` : deux alertes déposées PAR LE CODE dans « Vos
  *    demandes », une fois par mois chacune — à 80 % du plafond, et quand le
  *    plafond bloque un appel. Aucun appel IA : l'alerte part même quand
@@ -103,7 +103,7 @@ export async function watchTeamBudget(payload: Payload, opts: { now?: Date; bloc
     const { spentOf } = await import("@/modules/ads/lib/spend");
     const spent = await spentOf(payload, "agent", now);
     const o = budgetOutlook({ budgetEur: chief.monthlyAiBudgetEur, spentEur: spent.month, now, blocked: opts.blocked });
-    const alert = budgetAlert(o, now, String(chief.name ?? "la directrice SEA"));
+    const alert = budgetAlert(o, now, String(chief.name ?? "le directeur SEA"));
     if (!alert) return "rien";
     const same = await payload.count({ collection: "ai-team-requests", where: { and: [{ member: { equals: chief.id } }, { title: { equals: alert.title } }] }, overrideAccess: true });
     if (same.totalDocs) return "rien";
@@ -119,7 +119,7 @@ export async function watchTeamBudget(payload: Payload, opts: { now?: Date; bloc
   }
 }
 
-/** Ce que Margaux lit de son budget, dans sa revue et la conversation. */
+/** Ce que Mark lit de son budget, dans sa revue et la conversation. */
 export async function loadBudgetOutlook(payload: Payload, now: Date): Promise<BudgetOutlook | null> {
   const budget = (await memberByKey<{ monthlyAiBudgetEur?: number | null }>(payload, CHIEF_KEY, { monthlyAiBudgetEur: true }))?.monthlyAiBudgetEur;
   if (typeof budget !== "number") return null;

@@ -66,6 +66,18 @@ import { FeatureListFilters as FeatureListFilters_4f368d8e763e844320f6ca114f57f3
 import { FeatureWriterEditButton as FeatureWriterEditButton_5728575d3903454f73d4fc42ca77b15b } from '../../../modules/editorial/admin/FeatureWriter'
 import { FeatureJsonMenu as FeatureJsonMenu_93f888e6d67e320ea8122b4b161a7229 } from '../../../modules/editorial/admin/FeatureJsonMenu'
 import { default as default_7e85f5cff101ba7e7585712dd2365fa1 } from '../../../modules/editorial/admin/ParcoursListView'
+import { ArticleDecision as ArticleDecision_099286c210f6d5e6361723167837c9c8 } from '../../../modules/editorial/admin/ArticleDecision'
+import { ArticleStatusCell as ArticleStatusCell_d73e5ece65a5678fa3098fd006ac1ec5 } from '../../../modules/editorial/admin/ArticleStatusCell'
+import { ScoreCell as ScoreCell_23eb1512c0119ac220b775c44215dc1f } from '../../../modules/editorial/admin/ScoreCell'
+import { TitleDrawerCell as TitleDrawerCell_26bd8977196ebac1907690b44f663b71 } from '../../../modules/editorial/admin/TitleDrawerCell'
+import { ArticleContentPreview as ArticleContentPreview_6ebca30e8c56e26f5b12cc7ffa309ba4 } from '../../../modules/editorial/admin/ArticleContentPreview'
+import { ArticlesBoardHeader as ArticlesBoardHeader_305bd5369ee77915bf15834e4c556796 } from '../../../modules/editorial/admin/ArticlesBoardHeader'
+import { RuleProposalDecision as RuleProposalDecision_80186deabf840b7a7884e6e632dc99dc } from '../../../modules/editorial/admin/RuleProposalDecision'
+import { RuleProposalStatusCell as RuleProposalStatusCell_55e80b6d77961d91656823fe8e0a2018 } from '../../../modules/editorial/admin/RuleProposalStatusCell'
+import { RuleEvidencePanel as RuleEvidencePanel_111a2f6fea3d7c2792f9a62df147c7fd } from '../../../modules/editorial/admin/RuleEvidencePanel'
+import { JobStatusCell as JobStatusCell_fa94575448b8d5073dc5ced56d6c9ed7 } from '../../../modules/editorial/admin/JobStatusCell'
+import { JobSheetsHeader as JobSheetsHeader_8ba993278bed61756ace4ecd120486b5 } from '../../../modules/editorial/admin/JobSheetsHeader'
+import { SeoKeywordsHeader as SeoKeywordsHeader_e179dcce9892fcb0a0a2b515d1dc4706 } from '../../../modules/editorial/admin/SeoKeywordsHeader'
 import { ContractModelAutofill as ContractModelAutofill_efe650ce4b81695b55d0f3c26a9c1118 } from '../../../modules/partner/admin/ContractModelAutofill'
 import { SignaturePreview as SignaturePreview_a3d02792a93a9df9993e8e3ed30ceea2 } from '../../../modules/partner/admin/SignaturePreview'
 import { PartnerAccessManager as PartnerAccessManager_a9d284710faa2b19d5b2a4bb9cc2406b } from '../../../modules/partner/admin/PartnerAccessManager'
@@ -257,6 +269,18 @@ export const importMap = {
   "/modules/editorial/admin/FeatureWriter#FeatureWriterEditButton": FeatureWriterEditButton_5728575d3903454f73d4fc42ca77b15b,
   "/modules/editorial/admin/FeatureJsonMenu#FeatureJsonMenu": FeatureJsonMenu_93f888e6d67e320ea8122b4b161a7229,
   "/modules/editorial/admin/ParcoursListView#default": default_7e85f5cff101ba7e7585712dd2365fa1,
+  "/modules/editorial/admin/ArticleDecision#ArticleDecision": ArticleDecision_099286c210f6d5e6361723167837c9c8,
+  "/modules/editorial/admin/ArticleStatusCell#ArticleStatusCell": ArticleStatusCell_d73e5ece65a5678fa3098fd006ac1ec5,
+  "/modules/editorial/admin/ScoreCell#ScoreCell": ScoreCell_23eb1512c0119ac220b775c44215dc1f,
+  "/modules/editorial/admin/TitleDrawerCell#TitleDrawerCell": TitleDrawerCell_26bd8977196ebac1907690b44f663b71,
+  "/modules/editorial/admin/ArticleContentPreview#ArticleContentPreview": ArticleContentPreview_6ebca30e8c56e26f5b12cc7ffa309ba4,
+  "/modules/editorial/admin/ArticlesBoardHeader#ArticlesBoardHeader": ArticlesBoardHeader_305bd5369ee77915bf15834e4c556796,
+  "/modules/editorial/admin/RuleProposalDecision#RuleProposalDecision": RuleProposalDecision_80186deabf840b7a7884e6e632dc99dc,
+  "/modules/editorial/admin/RuleProposalStatusCell#RuleProposalStatusCell": RuleProposalStatusCell_55e80b6d77961d91656823fe8e0a2018,
+  "/modules/editorial/admin/RuleEvidencePanel#RuleEvidencePanel": RuleEvidencePanel_111a2f6fea3d7c2792f9a62df147c7fd,
+  "/modules/editorial/admin/JobStatusCell#JobStatusCell": JobStatusCell_fa94575448b8d5073dc5ced56d6c9ed7,
+  "/modules/editorial/admin/JobSheetsHeader#JobSheetsHeader": JobSheetsHeader_8ba993278bed61756ace4ecd120486b5,
+  "/modules/editorial/admin/SeoKeywordsHeader#SeoKeywordsHeader": SeoKeywordsHeader_e179dcce9892fcb0a0a2b515d1dc4706,
   "/modules/partner/admin/ContractModelAutofill#ContractModelAutofill": ContractModelAutofill_efe650ce4b81695b55d0f3c26a9c1118,
   "/modules/partner/admin/SignaturePreview#SignaturePreview": SignaturePreview_a3d02792a93a9df9993e8e3ed30ceea2,
   "/modules/partner/admin/PartnerAccessManager#PartnerAccessManager": PartnerAccessManager_a9d284710faa2b19d5b2a4bb9cc2406b,

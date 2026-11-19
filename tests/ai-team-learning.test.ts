@@ -10,12 +10,12 @@ import { adsTrends, allTrends, channelTrend, type Snapshot } from "@/modules/ai-
  */
 
 const PHOTO: MethodsRead = [
-  { key: "chef-sea", name: "Margaux", title: "Méthode de direction SEA", week: "2026-11-09", text: "## Mes principes\n- Le lead qualifié d'abord." },
+  { key: "chef-sea", name: "Mark", title: "Méthode de direction SEA", week: "2026-11-09", text: "## Mes principes\n- Le lead qualifié d'abord." },
   { key: "sea-meta", name: "Camille", title: "Méthode Meta Ads", week: "2026-11-09", text: "## Mes principes\n- Formulaire sur le site." },
 ];
 
 describe("Méthodes : ce que chaque agent lit au lancement d'un passage", () => {
-  it("Margaux lit la sienne puis celle de Camille ; Camille la sienne ; le studio celle de Camille", () => {
+  it("Mark lit la sienne puis celle de Camille ; Camille la sienne ; le studio celle de Camille", () => {
     const margaux = methodsText(PHOTO, "orchestrateur");
     expect(margaux.indexOf("Ta méthode de direction SEA")).toBeGreaterThan(-1);
     expect(margaux.indexOf("La méthode Meta Ads de Camille")).toBeGreaterThan(margaux.indexOf("Ta méthode de direction SEA"));

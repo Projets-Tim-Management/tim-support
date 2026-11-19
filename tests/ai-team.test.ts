@@ -43,7 +43,7 @@ describe("la composition de l'équipe", () => {
     const roles = AI_TEAM_SEED.flatMap((m) => m.engineRoles);
     expect(new Set(roles).size).toBe(roles.length);
     expect([...roles].sort()).toEqual(AGENT_ROLES.map((r) => r.value).sort());
-    // Les suivis Meta passent à Camille, cheffe Meta Ads ; Margaux garde la préparation.
+    // Les suivis Meta passent à Camille, cheffe Meta Ads ; Mark garde la préparation.
     expect(engineRoleOwner("analyste")?.key).toBe("sea-meta");
     expect(engineRoleOwner("orchestrateur")?.key).toBe("chef-sea");
   });
@@ -67,7 +67,7 @@ describe("l'activité de l'équipe", async () => {
   const { buildTeamView, personalize, resultText } = await import("@/modules/ai-team/lib/activity");
   const NOW = new Date("2026-11-12T10:00:00Z");
   const members = [
-    { id: 1, key: "chef-sea", name: "Margaux", jobTitle: "Cheffe SEA", level: "chef", portrait: "chef-sea", engineRoles: ["orchestrateur", "analyste"] },
+    { id: 1, key: "chef-sea", name: "Mark", jobTitle: "Cheffe SEA", level: "chef", portrait: "chef-sea", engineRoles: ["orchestrateur", "analyste"] },
     { id: 2, key: "sea-redacteur", name: "Léa", jobTitle: "Rédactrice", level: "sous-agent", portrait: "redacteur", chief: 1, engineRoles: ["redacteur"] },
     { id: 3, key: "sea-controleur", name: "Inès", jobTitle: "Contrôleuse", level: "sous-agent", portrait: "controleur", chief: 1, engineRoles: ["controleur"] },
   ];
@@ -88,8 +88,8 @@ describe("l'activité de l'équipe", async () => {
   const by = (k: string) => v.members.find((m) => m.key === k)!;
 
   it("remplace le rôle par le prénom en tête de ligne, et seulement là", () => {
-    const names = new Map([["analyste", "Margaux"]]);
-    expect(personalize("L'analyste lit les résultats.", names)).toEqual({ line: "Margaux lit les résultats.", role: "analyste" });
+    const names = new Map([["analyste", "Mark"]]);
+    expect(personalize("L'analyste lit les résultats.", names)).toEqual({ line: "Mark lit les résultats.", role: "analyste" });
     expect(personalize("Rien à voir avec L'analyste", names).line).toBe("Rien à voir avec L'analyste");
     expect(v.feed[0]).toMatchObject({ memberKey: "sea-redacteur", line: "Léa écrit les accroches." });
   });
@@ -125,9 +125,9 @@ describe("la pause d'un membre", async () => {
     }) as never;
 
   it("met en pause tous les rôles de la personne : la cheffe, c'est l'orchestratrice ET l'analyste", async () => {
-    const roles = await pausedRoles(fakePayload([{ name: "Margaux", jobTitle: "Cheffe SEA", engineRoles: ["orchestrateur", "analyste"] }]));
+    const roles = await pausedRoles(fakePayload([{ name: "Mark", jobTitle: "Cheffe SEA", engineRoles: ["orchestrateur", "analyste"] }]));
     expect([...roles.keys()].sort()).toEqual(["analyste", "orchestrateur"]);
-    expect(pausedReason(roles.get("analyste")!)).toMatch(/^Margaux \(cheffe sea\) est en pause/);
+    expect(pausedReason(roles.get("analyste")!)).toMatch(/^Mark \(cheffe sea\) est en pause/);
     expect(await teamPort(fakePayload([])).paused("redacteur")).toBeNull();
   });
 
@@ -186,10 +186,10 @@ describe("le pilotage des agents est réservé à la direction", () => {
 
 describe("l'organisation SEA", async () => {
   const { groupOf, PREVIOUS_DEFAULTS } = await import("@/modules/ai-team/lib/team");
-  it("Margaux, directrice SEA, encadre les chefs de canal, la mesure et le studio ; Élise tient le bureau commercial", () => {
+  it("Mark, directeur SEA, encadre les chefs de canal, la mesure et le studio ; Jordan tient le bureau commercial", () => {
     const margaux = AI_TEAM_SEED.find((m) => m.key === "chef-sea")!;
-    expect(margaux).toMatchObject({ level: "chef", jobTitle: "Directrice SEA", engineRoles: ["orchestrateur"] });
-    // Trois chefs : Margaux (SEA), Serge (SEO & GEO) et Élise (commercial & revenu), chacun avec son domaine.
+    expect(margaux).toMatchObject({ level: "chef", jobTitle: "Directeur SEA", engineRoles: ["orchestrateur"] });
+    // Trois chefs : Mark (SEA), Sergey (SEO & GEO) et Jordan (commercial & revenu), chacun avec son domaine.
     expect(AI_TEAM_SEED.filter((m) => m.level === "chef").map((m) => [m.key, m.domain])).toEqual([
       ["chef-sea", "sea"],
       ["chef-seo", "seo"],
@@ -212,7 +212,7 @@ describe("l'organisation SEA", async () => {
     for (const k of ["sea-google", "sea-chatgpt", "sea-mesure"]) expect(AI_TEAM_SEED.find((m) => m.key === k)!.engineRoles).toEqual([]);
   });
 
-  it("l'ancien métier de Margaux est connu, pour être remplacé seulement s'il n'a pas été réécrit", () => {
+  it("l'ancien métier de Mark est connu, pour être remplacé seulement s'il n'a pas été réécrit", () => {
     expect(PREVIOUS_DEFAULTS["chef-sea"].jobTitle).toBe("Cheffe de la publicité payante (SEA)");
   });
 });

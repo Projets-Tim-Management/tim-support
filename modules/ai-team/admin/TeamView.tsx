@@ -860,7 +860,7 @@ function MethodView({ m, state }: { m: MemberView; state: MethodState | null }) 
                   </li>
                 ))}
               </ul>
-              <p className="ait-meta">{domain.team === "seo" ? "Serge les reprend en objectifs quand elles passent devant, dans sa revue du lundi." : "Margaux choisit lesquelles tester, dans sa revue du lundi."}</p>
+              <p className="ait-meta">{domain.team === "seo" ? "Sergey les reprend en objectifs quand elles passent devant, dans sa revue du lundi." : "Mark choisit lesquelles tester, dans sa revue du lundi."}</p>
             </>
           )}
           <Detail label="Lire sa méthode complète">{cur.method ? <MethodText text={cur.method} /> : null}</Detail>
@@ -924,7 +924,7 @@ function Recos({ recos, name }: { recos: RecoView[]; name: string }) {
   );
 }
 
-/* ─── Serge, directeur SEO & GEO ───────────────────────────────────────── */
+/* ─── Sergey, directeur SEO & GEO ───────────────────────────────────────── */
 
 export type SeoChiefView = {
   /** Le premier jour du dernier plan (« AAAA-MM-JJ »), ou null sans plan. */
@@ -941,7 +941,7 @@ export type SeoChiefView = {
 /** La part du budget IA du mois déjà dépensée, en % (null : pas de budget fixé). */
 const budgetPct = (monthEur: number, budgetEur: number | null) => (budgetEur ? Math.min(100, Math.round((monthEur / Math.max(0.01, budgetEur)) * 100)) : null);
 
-/** Sur la carte d'un chef (Serge, Élise) : sa ligne du jour, ce que coûte son bureau ce mois, et son budget. */
+/** Sur la carte d'un chef (Sergey, Jordan) : sa ligne du jour, ce que coûte son bureau ce mois, et son budget. */
 function ChiefCardExtra({ m, main, monthEur, budgetEur, daysElapsed }: { m: MemberView; main: string; monthEur: number; budgetEur: number | null; daysElapsed: number }) {
   const pct = budgetPct(monthEur, budgetEur);
   return (
@@ -1817,7 +1817,7 @@ const PAGE_TYPE: Record<string, string> = { demo: "Démo / contact", tarifs: "Ta
 function ActionsList({ at, summary, findings, what }: { at: string; summary: string; findings: PipelineAction[]; what: string }) {
   return (
     <section className="ait-score">
-      <p className="ait-meta">Point du {shortDate(at)} — proposé à Élise, qui choisit chaque jour ce qui vous remonte ; l&apos;urgent ({what}s marqués 🔴) est déjà dans « Mes tâches ».</p>
+      <p className="ait-meta">Point du {shortDate(at)} — proposé à Jordan, qui choisit chaque jour ce qui vous remonte ; l&apos;urgent ({what}s marqués 🔴) est déjà dans « Mes tâches ».</p>
       <p className="ait-obj__text">{summary}</p>
       <ol className="ait-objs">
         {findings.map((f, i) => (
@@ -2004,7 +2004,7 @@ function HealthPanel({ m, chief, view, extra = [] }: { m: MemberView; chief: Mem
   );
 }
 
-/* ─── Élise, directrice commerciale & revenu ──────────────────────────────── */
+/* ─── Jordan, directeur commercial & revenu ──────────────────────────────── */
 
 export type ComChiefView = {
   mrr: number | null;
@@ -3180,7 +3180,7 @@ function Report({
   );
 }
 
-/** Élise : le MRR, l'en-test, le pipeline pondéré, la santé des clients, ce que coûte le bureau ce mois et son budget. */
+/** Jordan : le MRR, l'en-test, le pipeline pondéré, la santé des clients, ce que coûte le bureau ce mois et son budget. */
 async function loadComChief(payload: Payload, reports: ComReportsView): Promise<ComChiefView | null> {
   const now = new Date();
   const ctx = measureContext(payload, now);
@@ -3195,11 +3195,11 @@ async function loadComChief(payload: Payload, reports: ComReportsView): Promise<
   return { mrr, mrrTest, weighted, health: health?.measure ? healthSummary(health.measure.health) : null, trials: trials?.measure ? trials.measure.trials.length : null, monthEur: spent.month, budgetEur: budget?.budgetEur ?? null, daysElapsed: parisMonthDays(now).day };
 }
 
-/** Serge : les objectifs de la semaine, ce que coûte son équipe ce mois, son budget, le temps de la direction, l'agenda. */
+/** Sergey : les objectifs de la semaine, ce que coûte son équipe ce mois, son budget, le temps de la direction, l'agenda. */
 async function loadSeoChief(payload: Payload, chief: MemberView | undefined): Promise<SeoChiefView | null> {
   if (!chief) return null;
   const now = new Date();
-  // Le dernier plan de Serge (cinq jours ouvrés à partir de sa revue).
+  // Le dernier plan de Sergey (cinq jours ouvrés à partir de sa revue).
   const [objectives, doc, spent, budget] = await Promise.all([
     latestPlan(payload, chief.id),
     payload.findByID({ collection: "ai-team-members", id: chief.id, depth: 0, overrideAccess: true }).catch(() => null) as Promise<{ weeklyHours?: number | null; calendarConnection?: unknown } | null>,
@@ -3235,7 +3235,7 @@ async function loadSeoChief(payload: Payload, chief: MemberView | undefined): Pr
   };
 }
 
-/** Les campagnes, pour les puces de la fiche de Margaux. */
+/** Les campagnes, pour les puces de la fiche de Mark. */
 const loadCampaignChips = (payload: Payload): Promise<CampaignChip[]> =>
   payload
     .find({ collection: "ad-campaigns", sort: "-updatedAt", limit: 40, depth: 0, overrideAccess: true, select: { name: true, status: true, publicationStatus: true } as never })
@@ -3248,7 +3248,7 @@ const loadCampaignChips = (payload: Payload): Promise<CampaignChip[]> =>
       })),
     );
 
-/** Les recommandations suivies de Margaux (les 12 dernières). */
+/** Les recommandations suivies de Mark (les 12 dernières). */
 const loadRecos = (payload: Payload): Promise<RecoView[]> =>
   payload
     .find({ collection: "ai-team-requests", where: { origin: { equals: "revue" } }, sort: "-createdAt", limit: 12, depth: 0, overrideAccess: true, select: { createdAt: true, title: true, channel: true, status: true, outcome: true, verdict: true } as never })
@@ -3307,8 +3307,8 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
   const campaign = typeof sp?.campagne === "string" ? sp.campagne : null;
   const only = (key: string) => allowed && selected === key;
   // Première vague, en parallèle : l'équipe, les demandes, la fiche des canaux, les photos du lundi —
-  // et ce que lisent Thomas, Sarah, Margaux, seulement quand on ouvre leur fiche (chaque régie gardée 3 h).
-  // Les trois points du bureau commercial, lus UNE fois : la carte d'Élise, les scores et la fiche ouverte les partagent.
+  // et ce que lisent Thomas, Sarah, Mark, seulement quand on ouvre leur fiche (chaque régie gardée 3 h).
+  // Les trois points du bureau commercial, lus UNE fois : la carte de Jordan, les scores et la fiche ouverte les partagent.
   const comReportsP = allowed ? comReports(req.payload) : Promise.resolve({ pipe: null, trials: null, health: null });
   const [[team, campaigns], tasksOpen, gads, oads, recos, scorecard, snaps] = await Promise.all([
     allowed ? Promise.all([loadTeamView(req.payload), loadCampaignChips(req.payload)]) : Promise.resolve([null, [] as CampaignChip[]] as const),
@@ -3344,7 +3344,7 @@ export default async function TeamPage({ initPageResult, params, searchParams }:
     !allowed || !member ? ([] as NoteRow[]) : member.level === "chef" ? loadCarnet(req.payload, member.id, new Date()) : consignesOf(req.payload, member.id),
   ]);
   // Nathan, Jade, Malo et Lou : leur dernier point, seulement quand on ouvre leur fiche (null : pas encore de point) ;
-  // Élise : le revenu et le budget de son bureau, pour sa carte de l'organigramme.
+  // Jordan : le revenu et le budget de son bureau, pour sa carte de l'organigramme.
   const reports = await comReportsP;
   const [conversion, com] = await Promise.all([only("seo-conversion") ? latestConversion(req.payload) : undefined, allowed && team ? loadComChief(req.payload, reports) : null]);
   const revenue: RevenueView = { pipeline: only("com-pipeline") ? reports.pipe : undefined, conversion, trials: only("com-essais") ? reports.trials : undefined, health: only("com-clients") ? reports.health : undefined, com };

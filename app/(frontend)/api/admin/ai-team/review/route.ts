@@ -5,7 +5,7 @@ import { adminRequest } from "@/modules/ads/lib/route-auth";
 import { runWeeklyReview } from "@/modules/ai-team/lib/review";
 
 /**
- * Lancer la revue de Margaux tout de suite, sans attendre lundi.
+ * Lancer la revue de Mark tout de suite, sans attendre lundi.
  * POST — réservé à la direction. La synthèse arrive dans la conversation,
  * les recommandations dans « Mes tâches ».
  */

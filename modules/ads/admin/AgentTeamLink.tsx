@@ -23,7 +23,7 @@ export function AgentTeamLink() {
       <strong>Préparation et suivi : l&apos;équipe IA</strong>
       {isDirection(user) ? (
         <span>
-          Margaux et son équipe préparent et suivent cette campagne.{" "}
+          Mark et son équipe préparent et suivent cette campagne.{" "}
           <Link href={`/admin/equipe-ia?membre=chef-sea&campagne=${encodeURIComponent(String(id))}`} prefetch={false}>
             Ouvrir dans Équipe IA →
           </Link>

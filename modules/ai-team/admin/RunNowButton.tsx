@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 /**
- * « Lancer … maintenant » : la revue du lundi de Margaux, la veille d'un
+ * « Lancer … maintenant » : la revue du lundi de Mark, la veille d'un
  * agent — à la demande. Un spinner pendant le travail, le bouton désactivé
  * (pas de double lancement), puis le résultat ou la raison de l'échec, et la
  * page se rafraîchit. Un seul composant pour les deux (relecture du 12/11/2026).

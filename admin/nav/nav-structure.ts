@@ -119,9 +119,18 @@ export const NAV_ORDER = [
  */
 export const NAV_LAYOUT: Record<string, NavItem[]> = {
   Éditorial: [
+    // Le tableau des articles de la vitrine (18/11/2026) : publiés, en attente, prévus.
+    "articles",
+    // Les règles que suit le rédacteur, et les recommandations mensuelles de Sergey (18/11/2026).
+    "article-rule-proposals",
+    "article-rule-versions",
+    // Les fiches métier de la vitrine (18/11/2026).
+    "job-sheets",
+    // Ce que Google affiche sur nos requêtes : positions, réponse IA, opportunités (19/11/2026).
+    "seo-keywords",
     "features",
     "parcours",
-    { label: "Paramètres", slugs: ["feature-categories", "platforms"] },
+    { label: "Paramètres", slugs: ["article-themes", "feature-categories", "platforms"] },
   ],
   /**
    * Deux objets, le même motif : un modèle qui porte le contenu, une instance

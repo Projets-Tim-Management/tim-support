@@ -9,7 +9,7 @@ import { buildTeamSpend } from "@/modules/ai-team/lib/spend";
  */
 const NOW = new Date("2026-11-12T10:00:00Z");
 const members = [
-  { id: 1, key: "chef-sea", name: "Margaux", level: "chef", engineRoles: ["orchestrateur", "analyste"] },
+  { id: 1, key: "chef-sea", name: "Mark", level: "chef", engineRoles: ["orchestrateur", "analyste"] },
   { id: 2, key: "sea-redacteur", name: "Léa", level: "sous-agent", engineRoles: ["redacteur"] },
   { id: 3, key: "sea-stratege", name: "Hugo", level: "sous-agent", engineRoles: ["stratege"] },
 ];
@@ -55,7 +55,7 @@ describe("le budget IA de l'équipe", () => {
     const lea = s.hints.find((h) => h.memberKey === "sea-redacteur")!;
     expect(lea.tone).toBe("info");
     expect(lea.text).toMatch(/plancher du moteur/);
-    expect(lea.text).toMatch(/Margaux ne peut pas confier moins/);
+    expect(lea.text).toMatch(/Mark ne peut pas confier moins/);
     const hugo = s.hints.find((h) => h.memberKey === "sea-stratege");
     // Hugo reçoit 3 € quand le plancher est plus bas : on peut baisser.
     if (3 > minAgentBudgetEur("stratege") * 1.05) {

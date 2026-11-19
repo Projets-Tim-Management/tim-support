@@ -19,7 +19,7 @@ import { runWebModel, sourcesOf, tagOf, WebRunError, type WebCall } from "@/modu
  * leurs domaines — plus les semaines passent, plus ils deviennent performants,
  * toujours ramené à Tim Management »).
  *
- * Une fois par semaine (le dimanche soir, avant la revue du lundi de Margaux),
+ * Une fois par semaine (le dimanche soir, avant la revue du lundi de Mark),
  * chaque agent de veille :
  *  1. relit sa méthode actuelle et les chiffres de TIM sur son canal ;
  *  2. cherche sur le web ce que font les meilleurs dans son domaine, les
@@ -145,7 +145,7 @@ async function veilleData(payload: Payload, key: string, now: Date, card: Scorec
 
 /**
  * Ce qu'un agent SEO/GEO sait de TIM avant sa veille : l'entonnoir gratuit, son dernier rapport (ce qu'il a vu et
- * recommandé), les verdicts de Serge sur les objectifs tirés de son travail, son score.
+ * recommandé), les verdicts de Sergey sur les objectifs tirés de son travail, son score.
  */
 const SEO_LATEST: Record<string, (payload: Payload, now: Date) => Promise<{ summary: string; ageDays: number } | null>> = {
   "seo-analyste": (p, n) => import("@/modules/ai-team/lib/site-audit").then((m) => m.latestAudit(p, n)),
