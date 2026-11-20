@@ -17,7 +17,10 @@ import { fetchMediaInfo, listWpArticles, type MediaInfo } from "@/modules/editor
  * Ne fait QUE LIRE WordPress.
  */
 
-const MARGIN_MS = 2 * 3_600_000;
+// 3 jours (19/11/2026) : le support met aussi `wpModified` à jour quand IL écrit dans WordPress
+// (image, validation, publication) ; une marge courte sauterait des modifications faites dans
+// WordPress pendant une panne de la synchro. Relire quelques jours de plus ne coûte presque rien.
+const MARGIN_MS = 3 * 24 * 3_600_000;
 const COLLECTION = "articles" as never;
 const THEMES = "article-themes" as never;
 

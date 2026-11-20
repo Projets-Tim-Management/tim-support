@@ -2138,9 +2138,6 @@ export interface Article {
   scheduledAt?: string | null;
   featuredImageUrl?: string | null;
   featuredMediaId?: number | null;
-  /**
-   * Motif forcé dans le prompt de l'image ; vide = Claude Design le choisit (charte).
-   */
   visualMotif?:
     | (
         | 'horloge'
@@ -2160,9 +2157,6 @@ export interface Article {
         | 'repas'
       )
     | null;
-  /**
-   * Un passage EXACT du titre (1 à 3 mots). Vide = le mot-clé.
-   */
   visualItalic?: string | null;
   visualFile?: string | null;
   visualAlt?: string | null;
@@ -2188,6 +2182,15 @@ export interface Article {
     | null;
   backlinksPending?: boolean | null;
   lastUpdateAt?: string | null;
+  performance?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   scoreSeo?: number | null;
   scoreGeo?: number | null;
   scoreRulesVersion?: number | null;
@@ -2353,6 +2356,24 @@ export interface Article {
    * ChatGPT, Perplexity, Gemini, Copilot…
    */
   ga4AiSessions?: number | null;
+  gscQueries?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  changesLog?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   review30?:
     | {
         [k: string]: unknown;
@@ -2648,6 +2669,9 @@ export interface JobSheet {
     | number
     | boolean
     | null;
+  /**
+   * Sur les 16 mois que garde Google.
+   */
   gscClicks?: number | null;
   gscImpressions?: number | null;
   gscPosition?: number | null;
@@ -6245,6 +6269,7 @@ export interface ArticlesSelect<T extends boolean = true> {
   previousAcf?: T;
   backlinksPending?: T;
   lastUpdateAt?: T;
+  performance?: T;
   scoreSeo?: T;
   scoreGeo?: T;
   scoreRulesVersion?: T;
@@ -6327,6 +6352,8 @@ export interface ArticlesSelect<T extends boolean = true> {
   gscClicks28Prev?: T;
   ga4Sessions?: T;
   ga4AiSessions?: T;
+  gscQueries?: T;
+  changesLog?: T;
   review30?: T;
   review90?: T;
   backlinks?: T;

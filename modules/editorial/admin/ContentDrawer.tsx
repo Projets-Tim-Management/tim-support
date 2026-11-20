@@ -5,8 +5,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { htmlToText } from "@/core/lib/html";
 import { Drawer } from "@/modules/ai-team/admin/Drawer";
+import { clearHighlights, highlightIn, quotedPassages } from "@/modules/editorial/admin/highlightIssues";
 import { HtmlEditor } from "@/modules/editorial/admin/HtmlEditor";
 import { ImagePanel } from "@/modules/editorial/admin/ImagePanel";
+import { autoFixArticle, fixBrand } from "@/modules/editorial/lib/articles/autofix";
+import { reviewerName, WP_REVIEWER_LIST } from "@/modules/editorial/lib/articles/from-wp";
+import { articleStatusMeta } from "@/modules/editorial/lib/articles/statuses";
 import { articleCoverageInput, jobCoverageInput } from "@/modules/editorial/lib/competitors/content";
 import { coverage, type Corpus, type Coverage } from "@/modules/editorial/lib/competitors/terms";
 import type { Criterion } from "@/modules/editorial/lib/score/criteria";
@@ -436,7 +440,194 @@ function SerpPreview({ s, set, link, changed }: { s: ArticleState; set: (f: (p: 
   );
 }
 
-function ArticleDocument({ s, set, original, link, doc, onImage }: { s: ArticleState; set: (f: (p: ArticleState) => ArticleState) => void; original: ArticleState; link: string | null; doc: Raw; onImage: () => void }) {
+// ── En haut du tiroir : ce que la direction doit faire (19/11/2026) ─────────
+
+const TODO_STATUSES = ["a-relire", "a-verifier", "image", "pret", "programme", "publie", "a-rafraichir"];
+const longDate = (iso: unknown) => new Date(String(iso)).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+
+function ArticleTodo({ doc, status, unsaved, reviewer, setReviewer, errors, busy, onValidate, onPublish, onImage, detailAlerts, onAutoFix, onUseKeyword }: { doc: Raw; status: string; unsaved: number; reviewer: string; setReviewer: (v: string) => void; errors: string[]; busy: boolean; onValidate: (withoutImage?: boolean) => void; onPublish: () => void; onImage: () => void; detailAlerts?: string[]; onAutoFix: () => void; onUseKeyword: (k: string) => void }) {
+  const hasImage = Boolean(doc.featuredImageUrl || doc.featuredMediaId);
+  const perf = doc.performance as { verdict?: string; label?: string; why?: string; action?: string; suggestedKeyword?: string | null } | undefined;
+  const reviewing = status === "a-relire" || status === "a-verifier";
+  const blocking = (detailAlerts ?? []).length;
+  const live = status === "publie" || status === "a-rafraichir";
+  const [imageOpen, setImageOpen] = useState(!hasImage && (reviewing || status === "image"));
+  const canUpload = reviewing || (Boolean(Number(doc.wpId)) && ["image", "pret", "programme", "publie", "a-rafraichir"].includes(status));
+  const title = status === "a-verifier" ? "À faire : corriger, relire et valider" : reviewing ? "À faire : relire et valider" : status === "image" ? "À faire : l'image principale" : status === "programme" ? "Programmé" : live ? "En ligne" : (articleStatusMeta(status)?.label ?? status);
+  const hint = status === "a-verifier"
+    ? "Le contrôle a bloqué ce texte. Corrigez les points en rouge directement dans le document, enregistrez, puis complétez ces points et validez."
+    : reviewing
+    ? "Relisez et corrigez le texte dans le document ci-dessous, puis complétez ces points et validez."
+    : status === "image"
+      ? "Le texte est validé : déposez l'image, l'article prend ensuite le prochain créneau (mardi ou jeudi, 9 h)."
+      : status === "programme" && doc.scheduledAt
+        ? `Publication prévue le ${longDate(doc.scheduledAt)} (créneaux du mardi et du jeudi, 9 h).`
+        : (articleStatusMeta(status)?.hint ?? "");
+  const onlyImageMissing = errors.length === 1 && /image/i.test(errors[0]) && reviewer && !unsaved;
+
+  return (
+    <section className={`todo todo--${status}`} aria-label="À faire">
+      <div className="todo__head">
+        <div>
+          <strong>{title}</strong>
+          <span>{hint}</span>
+        </div>
+        <div className="todo__cta">
+          {reviewing && (
+            <button type="button" className="cdx-btn cdx-btn--validate" disabled={busy} onClick={() => onValidate(false)}>
+              {busy ? "Validation…" : "✓ Valider le texte"}
+            </button>
+          )}
+          {status === "programme" && (
+            <button type="button" className="cdx-btn cdx-btn--validate" disabled={busy} onClick={onPublish}>
+              {busy ? "Publication…" : "Publier maintenant"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <ul className="todo__list">
+        {(status === "a-verifier" || blocking > 0) && (
+          <li className={blocking ? "is-ko" : "is-ok"}>
+            <span className="todo__mark">{blocking ? "!" : "✓"}</span>
+            <span className="todo__label">Contrôle</span>
+            <span className="todo__value">
+              {blocking ? `${blocking} point${blocking > 1 ? "s" : ""} à corriger (liste en rouge à droite).` : "Plus rien de bloquant."}
+              {blocking > 0 && (
+                <button type="button" className="cdx-btn cdx-btn--primary cdx-btn--sm" onClick={onAutoFix}>
+                  Corriger automatiquement
+                </button>
+              )}
+            </span>
+          </li>
+        )}
+        {reviewing && (
+          <li className={unsaved ? "is-ko" : "is-ok"}>
+            <span className="todo__mark">{unsaved ? "!" : "✓"}</span>
+            <span className="todo__label">Texte</span>
+            <span className="todo__value">{unsaved ? `${unsaved} modification${unsaved > 1 ? "s" : ""} non enregistrée${unsaved > 1 ? "s" : ""} : cliquez « Enregistrer » en haut à droite.` : "Relu et enregistré (corrigez directement dans le document)."}</span>
+          </li>
+        )}
+        {reviewing && (
+          <li className={reviewer ? "is-ok" : "is-todo"}>
+            <span className="todo__mark">{reviewer ? "✓" : "1"}</span>
+            <span className="todo__label">Relu par</span>
+            <span className="todo__value">
+              <select value={reviewer} onChange={(e) => setReviewer(e.target.value)} aria-label="Relecteur">
+                <option value="">Choisir le relecteur…</option>
+                {WP_REVIEWER_LIST.map((r) => (
+                  <option key={r.id} value={r.name}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </span>
+          </li>
+        )}
+        {live && perf && perf.verdict !== "hors-ligne" && (
+          <li className={`todo__perf is-${perf.verdict}`}>
+            <span className="todo__mark">{perf.verdict === "performe" ? "✓" : perf.verdict === "a-ameliorer" ? "✗" : perf.verdict === "moyen" ? "~" : "…"}</span>
+            <span className="todo__label">Performance</span>
+            <span className="todo__value todo__value--stack">
+              <strong>{perf.label}</strong>
+              <span>{perf.why}</span>
+              {perf.action && perf.action !== "—" && <span className="todo__action">→ {perf.action}</span>}
+              {perf.suggestedKeyword && (
+                <button type="button" className="cdx-btn cdx-btn--primary cdx-btn--sm" onClick={() => onUseKeyword(String(perf.suggestedKeyword))}>
+                  Utiliser « {perf.suggestedKeyword} » comme mot-clé
+                </button>
+              )}
+            </span>
+          </li>
+        )}
+        {live && Array.isArray(doc.changesLog) && (doc.changesLog as Raw[]).length > 0 && (
+          <li className="todo__perf">
+            <span className="todo__mark">↻</span>
+            <span className="todo__label">Modifications</span>
+            <span className="todo__value todo__value--stack">
+              {(doc.changesLog as Raw[])
+                .slice(-4)
+                .reverse()
+                .map((e, i) => (
+                  <span key={i}>
+                    <strong className={`todo__verdict is-${String(e.annulee ? "annulee" : (e.verdict ?? "attente"))}`}>{e.annulee ? "Annulée" : e.verdict === "mieux" ? "✓ Mieux" : e.verdict === "moins-bien" ? "✗ Moins bien" : e.verdict === "stable" ? "= Stable" : "En attente"}</strong>{" "}
+                    {new Date(String(e.le)).toLocaleDateString("fr-FR")} · {String(e.detail ?? "")}
+                    {e.lecture ? ` — ${String(e.lecture)}` : !e.verdict && !e.annulee ? " — verdict 4 semaines après." : ""}
+                  </span>
+                ))}
+            </span>
+          </li>
+        )}
+        {!reviewing && doc.reviewedBy ? (
+          <li className="is-ok">
+            <span className="todo__mark">✓</span>
+            <span className="todo__label">Relu par</span>
+            <span className="todo__value">
+              {String(doc.reviewedBy)}
+              {doc.reviewedOn ? ` le ${new Date(String(doc.reviewedOn)).toLocaleDateString("fr-FR")}` : ""}
+            </span>
+          </li>
+        ) : null}
+        {(
+          <li className={hasImage ? "is-ok" : "is-todo"}>
+            <span className="todo__mark">{hasImage ? "✓" : reviewing ? "2" : "!"}</span>
+            <span className="todo__label">Image</span>
+            <span className="todo__value">
+              {hasImage ? (
+                <>
+                  {doc.featuredImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- vignette de la médiathèque WordPress
+                    <img className="todo__thumb" src={String(doc.featuredImageUrl)} alt="" />
+                  ) : null}
+                  <span>{reviewing && !Number(doc.wpId) ? "Déposée (posée sur l'article à la validation)." : "Posée sur l'article dans WordPress."}</span>
+                </>
+              ) : (
+                <span>Pas encore d'image.</span>
+              )}
+              {canUpload && (
+                <button type="button" className="imgp__link" onClick={() => setImageOpen((v) => !v)}>
+                  {imageOpen ? "Fermer" : hasImage ? "Remplacer" : "Ajouter l'image"}
+                </button>
+              )}
+            </span>
+          </li>
+        )}
+      </ul>
+
+      {imageOpen && canUpload && (
+        <div className="todo__image">
+          <ImagePanel
+            articleId={String(doc.id)}
+            canUpload
+            image={{ url: (doc.featuredImageUrl as string) ?? null, alt: (doc.imageAlt as string) ?? null, width: (doc.imageWidth as number) ?? null, bytes: (doc.imageBytes as number) ?? null, mime: (doc.imageMime as string) ?? null }}
+            onDone={() => {
+              setImageOpen(false);
+              onImage();
+            }}
+          />
+        </div>
+      )}
+
+      {errors.length > 0 && (
+        <div className="todo__errors" role="alert">
+          <strong>Il manque quelque chose :</strong>
+          <ul>
+            {errors.map((e) => (
+              <li key={e}>{e}</li>
+            ))}
+          </ul>
+          {onlyImageMissing && (
+            <button type="button" className="imgp__link" onClick={() => onValidate(true)}>
+              Valider sans image (elle se déposera ensuite)
+            </button>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ArticleDocument({ s, set, original, link, doc }: { s: ArticleState; set: (f: (p: ArticleState) => ArticleState) => void; original: ArticleState; link: string | null; doc: Raw }) {
   const setAcf = (k: string, v: unknown) => set((p) => ({ ...p, acf: { ...p.acf, [k]: v } }));
   const blocks = arr(s.acf.contenu);
   const faq = arr(s.acf.faq);
@@ -452,13 +643,12 @@ function ArticleDocument({ s, set, original, link, doc, onImage }: { s: ArticleS
       <textarea className={`cdx-h1${s.title !== original.title ? " is-changed" : ""}`} rows={2} value={s.title} aria-label="Titre de l'article (H1)" placeholder="Titre de l'article" onChange={(e) => set((p) => ({ ...p, title: e.target.value }))} />
       <SerpPreview s={s} set={set} link={link} changed={s.seoTitle !== original.seoTitle || s.seoDescription !== original.seoDescription} />
       <DocSection label="Image principale">
-        <ImagePanel
-          articleId={String(doc.id)}
-          status={String(doc.status ?? "")}
-          canUpload={Boolean(Number(doc.wpId)) && ["image", "pret", "programme", "publie", "a-rafraichir"].includes(String(doc.status))}
-          image={{ url: (doc.featuredImageUrl as string) ?? null, alt: (doc.imageAlt as string) ?? null, width: (doc.imageWidth as number) ?? null, bytes: (doc.imageBytes as number) ?? null, mime: (doc.imageMime as string) ?? null }}
-          onDone={onImage}
-        />
+        {doc.featuredImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- aperçu de la médiathèque WordPress
+          <img className="cdx-hero" src={String(doc.featuredImageUrl)} alt={String(doc.imageAlt ?? "")} />
+        ) : (
+          <p className="cdx-muted">Pas encore d'image : elle se dépose dans l'encadré « À faire », en haut.</p>
+        )}
       </DocSection>
 
       <DocSection label="Introduction" changed={!same(s.acf.introduction, original.acf.introduction)}>
@@ -511,7 +701,7 @@ function ArticleDocument({ s, set, original, link, doc, onImage }: { s: ArticleS
       </DocSection>
 
       <p className="cdx-method">
-        Relu par {String(methode.relu_par || "—")} le {String(methode.relu_le || "—")} · mis à jour le {String(s.acf.date_mise_a_jour || "—")} · assistance IA : {methode.assistance_ia ? "oui" : "non"}
+        Relu par {reviewerName(methode.relu_par) || "—"} le {String(methode.relu_le || "—")} · mis à jour le {String(s.acf.date_mise_a_jour || "—")} · assistance IA : {methode.assistance_ia ? "oui" : "non"}
       </p>
     </>
   );
@@ -742,7 +932,83 @@ export function ContentDrawer({ collection, id, onClose }: { collection: "articl
     }
   };
 
+  // « Publier maintenant » : sans attendre le créneau du mardi ou du jeudi.
+  const publishNow = async () => {
+    if (!window.confirm("Publier cet article maintenant sur tim-management.co, sans attendre son créneau ?")) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`${api}/articles/${id}/decision`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "publier-maintenant" }) });
+      const out = (await res.json().catch(() => ({}))) as { error?: string; link?: string };
+      if (!res.ok) throw new Error(out.error ?? `Erreur ${res.status}`);
+      setMessage({ text: `Article publié${out.link ? ` : ${out.link}` : ""}.`, ok: true });
+      load();
+    } catch (e) {
+      setMessage({ text: e instanceof Error ? e.message : String(e), ok: false });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // « Valider le texte » depuis le tiroir (19/11/2026). Ce qui manque est dit, pas grisé en silence.
+  const [reviewer, setReviewer] = useState("");
+  const [todoErrors, setTodoErrors] = useState<string[]>([]);
+  // Recharge les éditeurs après une correction automatique (ils ne lisent le texte qu'à l'ouverture).
+  const [docRev, setDocRev] = useState(0);
+  useEffect(() => {
+    const known = WP_REVIEWER_LIST.find((r) => r.name === String(doc?.reviewedBy ?? ""));
+    if (known) setReviewer(known.name);
+  }, [doc?.reviewedBy]);
+  const validateText = async (withoutImage = false) => {
+    const missing = [
+      changes.length ? "Enregistrez vos modifications (bouton « Enregistrer » en haut à droite)." : null,
+      !reviewer ? "Choisissez le relecteur." : null,
+      !doc?.featuredMediaId && !withoutImage ? "Déposez l'image principale, ou cliquez « Valider sans image »." : null,
+    ].filter(Boolean) as string[];
+    setTodoErrors(missing);
+    if (missing.length) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`${api}/articles/${id}/decision`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "valider-texte", reviewer, withoutImage }) });
+      const out = (await res.json().catch(() => ({}))) as { error?: string; scheduledAt?: string | null };
+      if (!res.ok) throw new Error(out.error ?? `Erreur ${res.status}`);
+      setMessage({ text: out.scheduledAt ? `Texte validé, image posée : publication prévue le ${new Date(out.scheduledAt).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}.` : "Texte validé : le brouillon WordPress est créé. Il reste l'image principale.", ok: true });
+      load();
+    } catch (e) {
+      setTodoErrors([e instanceof Error ? e.message : String(e)]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const detail = live ?? (obj(doc?.scoreDetail) as unknown as Detail);
+
+  // Les passages à corriger, surlignés en rouge dans le document (sans toucher au texte enregistré).
+  const issuesKey = (detail?.alertes ?? []).join("|");
+  useEffect(() => {
+    const roots = Array.from(document.querySelectorAll(".cdx-page .hed__area"));
+    const t = setTimeout(() => highlightIn(roots, quotedPassages(detail?.alertes ?? [])), 50);
+    return () => {
+      clearTimeout(t);
+      clearHighlights();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- relancé quand les alertes ou le document changent
+  }, [issuesKey, docRev, doc]);
+
+  // « Corriger automatiquement » : marque réécrite, phrases de promesse retirées. Rien n'est enregistré.
+  const autoFix = () => {
+    if (!art) return;
+    const res = autoFixArticle(art.acf as Raw, detail?.alertes ?? []);
+    setArt({ ...art, acf: res.acf as ArticleState["acf"], title: fixBrand(art.title), seoTitle: fixBrand(art.seoTitle), seoDescription: fixBrand(art.seoDescription) });
+    setDocRev((r) => r + 1);
+    setTodoErrors([]);
+    const done = [res.brandFixed ? `marque réécrite « TIM Management » (${res.brandFixed})` : null, res.removed ? `${res.removed} phrase${res.removed > 1 ? "s" : ""} de promesse retirée${res.removed > 1 ? "s" : ""}` : null].filter(Boolean).join(", ");
+    setMessage({
+      text: `${done ? `Corrigé : ${done}.` : "Rien à corriger automatiquement."}${res.notFound.length ? ` Introuvable, à retirer à la main : « ${res.notFound[0].slice(0, 120)}… ».` : ""} Relisez, puis cliquez « Enregistrer dans WordPress ».`,
+      ok: !res.notFound.length,
+    });
+  };
   const title = isArticle ? (art?.title ?? String(doc?.title ?? "")) : String(doc?.title ?? "");
   const status = String(doc?.status ?? "");
   return (
@@ -772,6 +1038,33 @@ export function ContentDrawer({ collection, id, onClose }: { collection: "articl
                 </button>
               </div>
             </header>
+            {isArticle && TODO_STATUSES.includes(status) && (
+              <ArticleTodo
+                doc={doc}
+                status={status}
+                unsaved={changes.length}
+                reviewer={reviewer}
+                setReviewer={(v) => {
+                  setReviewer(v);
+                  setTodoErrors([]);
+                }}
+                errors={todoErrors}
+                detailAlerts={detail?.alertes}
+                onAutoFix={autoFix}
+                onUseKeyword={(k) => {
+                  if (!art) return;
+                  setArt({ ...art, keyword: k });
+                  setMessage({ text: `Mot-clé remplacé par « ${k} ». Adaptez le titre et la description Google (« Modifier » de l'aperçu), puis « Enregistrer dans WordPress » : le changement sera mesuré 4 semaines après.`, ok: true });
+                }}
+                busy={busy}
+                onValidate={validateText}
+                onPublish={publishNow}
+                onImage={() => {
+                  setTodoErrors([]);
+                  load();
+                }}
+              />
+            )}
             {(message || (showDiff && changes.length > 0)) && (
               <div className="cdx-notices">
                 {message && <p className={`cdx-msg${message.ok ? " is-ok" : " is-ko"}`}>{message.text}</p>}
@@ -789,7 +1082,7 @@ export function ContentDrawer({ collection, id, onClose }: { collection: "articl
               <main className="cdx-canvas">
                 <div className="cdx-page">
                   {isArticle && art && original ? (
-                    <ArticleDocument s={art} set={(f) => setArt((p) => (p ? f(p) : p))} original={original} link={doc.wpLink ? String(doc.wpLink) : null} doc={doc} onImage={load} />
+                    <ArticleDocument key={docRev} s={art} set={(f) => setArt((p) => (p ? f(p) : p))} original={original} link={doc.wpLink ? String(doc.wpLink) : null} doc={doc} />
                   ) : jobAcf ? (
                     <JobDocument title={String(doc.title ?? "")} acf={jobAcf} original={originalJob} setAcf={(k, v) => setJobAcf((p) => ({ ...(p ?? {}), [k]: v }))} />
                   ) : null}

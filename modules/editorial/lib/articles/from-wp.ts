@@ -3,6 +3,25 @@ import { isKnownUnpublished, OCTOBER_REVIEW } from "@/modules/editorial/lib/arti
 import { statusFromWordPress } from "@/modules/editorial/lib/articles/statuses";
 import { guessThemeNumber } from "@/modules/editorial/lib/articles/themes";
 
+/** Les relecteurs de la vitrine (champ utilisateur ACF `methode.relu_par` = ID WordPress). */
+export const WP_REVIEWER_LIST = [
+  { id: 1, name: "Charlie Piancatelli" },
+  { id: 4, name: "Aude Pretrelini" },
+] as const;
+const WP_REVIEWERS: Record<number, string> = Object.fromEntries(WP_REVIEWER_LIST.map((r) => [r.id, r.name]));
+
+/** L'ID WordPress d'un relecteur choisi par son nom (null s'il n'est pas dans la liste). Pure. */
+export const reviewerId = (name: unknown): number | null => WP_REVIEWER_LIST.find((r) => r.name === String(name ?? "").trim())?.id ?? null;
+
+/** Le nom du relecteur, que `relu_par` soit un ID WordPress, un objet utilisateur ou déjà un nom. Pure. */
+export function reviewerName(v: unknown): string {
+  if (v == null || v === "" || v === false) return "";
+  if (typeof v === "object") return String((v as { display_name?: string; name?: string }).display_name ?? (v as { name?: string }).name ?? "");
+  const n = Number(v);
+  if (Number.isInteger(n) && n > 0) return WP_REVIEWERS[n] ?? `utilisateur WordPress n° ${n}`;
+  return String(v);
+}
+
 /**
  * D'UN ARTICLE WORDPRESS (CPT `actualite`, lu avec `context=edit`) À UNE FICHE
  * DU TABLEAU. Pur (testé) : la lecture réseau est dans wp-client.ts, l'écriture
@@ -41,7 +60,7 @@ export type WpAcf = {
   conclusion?: string;
   faq?: { titre?: string; text?: string }[] | false | null;
   sources?: { libelle?: string; url?: string; date?: string }[] | false | null;
-  methode?: { assistance_ia?: boolean; note_methode?: string; relu_par?: string; relu_le?: string } | null;
+  methode?: { assistance_ia?: boolean; note_methode?: string; relu_par?: string | number | null; relu_le?: string } | null;
   date_mise_a_jour?: string;
   resume_mise_a_jour?: string;
   [k: string]: unknown;
@@ -100,7 +119,7 @@ export function wordpressFields(post: WpPost) {
     sourcesCount: list(acf.sources).filter((s) => s.url).length,
     hasTldr: /class=["']tldr-box["']/.test(acf.introduction ?? ""),
     assistanceIa: acf.methode?.assistance_ia === true,
-    reviewedBy: acf.methode?.relu_par ?? "",
+    reviewedBy: reviewerName(acf.methode?.relu_par),
     reviewedOn: acfDate(acf.methode?.relu_le),
     updatedOnWp: acfDate(acf.date_mise_a_jour),
   };

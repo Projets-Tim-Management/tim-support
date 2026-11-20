@@ -16,17 +16,31 @@ import { useEffect, useRef } from "react";
  *    listes, lien.
  */
 
+/**
+ * Les <div> NUS (sans attribut) qu'ajoute le navigateur à la frappe deviennent des <p>, avec LEUR
+ * balise fermante. Un <div> qui porte une classe (l'encadré « Points clés », `tldr-box`) est
+ * gardé tel quel, fermeture comprise : le 19/11/2026, remplacer TOUS les </div> cassait la TL;DR.
+ */
+function bareDivsToParagraphs(html: string): string {
+  const stack: boolean[] = [];
+  return html.replace(/<div\b([^>]*)>|<\/div\s*>/gi, (tag, attrs: string | undefined) => {
+    if (tag[1] !== "/") {
+      const bare = !/\bclass\s*=/i.test(String(attrs ?? ""));
+      stack.push(bare);
+      return bare ? "<p>" : tag;
+    }
+    return stack.pop() ? "</p>" : tag;
+  });
+}
+
 /** Nettoie le HTML produit par le navigateur. Pure (testée). */
 export function cleanEditorHtml(html: string): string {
-  return html
-    .replace(/\sstyle="[^"]*"/gi, "")
+  return bareDivsToParagraphs(html.replace(/\sstyle="[^"]*"/gi, ""))
     .replace(/<span(?:\s[^>]*)?>([\s\S]*?)<\/span>/gi, "$1")
     .replace(/<b>/gi, "<strong>")
     .replace(/<\/b>/gi, "</strong>")
     .replace(/<i>/gi, "<em>")
     .replace(/<\/i>/gi, "</em>")
-    .replace(/<div>/gi, "<p>")
-    .replace(/<\/div>/gi, "</p>")
     .replace(/<p><br\s*\/?><\/p>/gi, "")
     .replace(/&nbsp;/g, " ")
     .trim();

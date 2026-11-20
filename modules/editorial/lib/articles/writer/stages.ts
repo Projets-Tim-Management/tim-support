@@ -36,6 +36,7 @@ import {
 } from "@/modules/editorial/lib/articles/check";
 import { HELPER_MODEL, runArticleModel, WRITER_MODEL } from "@/modules/editorial/lib/articles/writer/model";
 import { bodyViolations, checkRefreshParts, hasRealChange, parseRefreshResponse, REFRESH_MAX_TOKENS, REFRESH_SYSTEM, refreshPrompt, RESUME_MISE_A_JOUR, wpPostToArticle } from "@/modules/editorial/lib/articles/writer/refresh";
+import { withChange } from "@/modules/editorial/lib/articles/changes";
 import { parisDay, readPost, updateFields } from "@/modules/editorial/lib/articles/wp-write";
 import type { StageOutcome, Stages } from "@/modules/editorial/lib/articles/writer/pipeline";
 import { loadOffersText, loadOutlines, loadSitemap, type Outline } from "@/modules/editorial/lib/articles/writer/prep";
@@ -428,7 +429,18 @@ async function maj(payload: Payload, a: Raw, now: Date): Promise<StageOutcome> {
   return {
     next: "publie",
     costEur: reply.costEur,
-    data: { previousAcf, lastUpdateAt: now.toISOString(), wpModified: modifiedIso, writeWarnings: null, writeContext: { ...ctx, majRetry: undefined } },
+    data: {
+      previousAcf,
+      lastUpdateAt: now.toISOString(),
+      wpModified: modifiedIso,
+      writeWarnings: null,
+      writeContext: { ...ctx, majRetry: undefined },
+      // Mesurée 4 semaines après (19/11/2026) : mieux ou moins bien qu'avant ?
+      ...(() => {
+        const log = withChange({ ...a, status: "publie" }, "maj-auto", [a.refreshReason ? `raison : ${String(a.refreshReason)}` : "", String(a.refreshWhy ?? "")].filter(Boolean).join(" — ") || "mise à jour", now);
+        return log ? { changesLog: log } : {};
+      })(),
+    },
   };
 }
 

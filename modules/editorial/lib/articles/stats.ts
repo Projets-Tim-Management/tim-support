@@ -1,8 +1,9 @@
 import type { Payload } from "payload";
 
 import { classifyGa4Source, ga4LandingPages, type Ga4PageRow } from "@/modules/analytics/lib/seo-ga4";
-import { gscPages, gscWindow, type GscRow } from "@/modules/analytics/lib/seo-gsc";
+import { gscPages, gscQueryPages, gscWindow, type GscRow } from "@/modules/analytics/lib/seo-gsc";
 import { reviewSnapshots } from "@/modules/editorial/lib/articles/after-publish";
+import { judgeChanges } from "@/modules/editorial/lib/articles/changes";
 
 /**
  * LES CHIFFRES DE CHAQUE ARTICLE (demande de Charlie, 18/11/2026) — une fois par
@@ -97,6 +98,20 @@ export function buildArticleStats(
   return out;
 }
 
+/** Les 5 requêtes Search Console qui amènent le plus d'impressions sur chaque page (90 jours). Pur. */
+export function topQueriesByPath(rows: GscRow[]): Map<string, { requete: string; impressions: number; clics: number; position: number }[]> {
+  const map = new Map<string, { requete: string; impressions: number; clics: number; position: number }[]>();
+  for (const r of rows) {
+    const path = pathKey(r.keys?.[1]);
+    if (!path || !r.keys?.[0]) continue;
+    const list = map.get(path) ?? [];
+    list.push({ requete: r.keys[0], impressions: r.impressions, clics: r.clicks, position: Math.round(r.position * 10) / 10 });
+    map.set(path, list);
+  }
+  for (const [k, list] of map) map.set(k, list.sort((a, b) => b.impressions - a.impressions).slice(0, 5));
+  return map;
+}
+
 export type StatsResult = { articles: number; updated: number; withClicks: number; errors: string[]; period: { from: string; to: string } };
 
 /** Lit Search Console et GA4, puis écrit les chiffres sur chaque fiche. */
@@ -106,7 +121,7 @@ export async function refreshArticleStats(payload: Payload, now = new Date()): P
   const p28 = { from: day(w.endMs - 55 * DAY), to: day(w.endMs - 28 * DAY) };
   const r90 = { from: day(w.endMs - 89 * DAY), to: w.end };
   const errors: string[] = [];
-  const [total, last28, prev28, last90, ga4] = await Promise.all([
+  const [total, last28, prev28, last90, ga4, queryPages] = await Promise.all([
     gscPages(w.start, w.end),
     gscPages(r28.from, r28.to),
     gscPages(p28.from, p28.to),
@@ -116,8 +131,14 @@ export async function refreshArticleStats(payload: Payload, now = new Date()): P
       errors.push(`GA4 : ${e instanceof Error ? e.message : String(e)}`);
       return [] as Ga4PageRow[];
     }),
+    // Les requêtes de chaque page sur 90 jours (19/11/2026) : le vrai mot-clé de chaque article.
+    gscQueryPages(now).catch((e) => {
+      errors.push(`Requêtes par page : ${e instanceof Error ? e.message : String(e)}`);
+      return [] as GscRow[];
+    }),
   ]);
-  const docs = (await payload.find({ collection: "articles" as never, pagination: false, depth: 0, overrideAccess: true, select: { wpLink: true, publishedAt: true, review30: true, review90: true } as never })).docs as unknown as { id: number; wpLink?: string; publishedAt?: string; review30?: unknown; review90?: unknown }[];
+  const queriesByPath = topQueriesByPath(queryPages);
+  const docs = (await payload.find({ collection: "articles" as never, pagination: false, depth: 0, overrideAccess: true, select: { wpLink: true, publishedAt: true, review30: true, review90: true, status: true, changesLog: true } as never })).docs as unknown as { id: number; wpLink?: string; publishedAt?: string; review30?: unknown; review90?: unknown; status?: string; changesLog?: unknown }[];
   const byId = new Map(docs.map((d) => [d.id, d]));
   const stats = buildArticleStats(docs, { total, last28, prev28, last90, ga4 });
   const at = now.toISOString();
@@ -126,8 +147,13 @@ export async function refreshArticleStats(payload: Payload, now = new Date()): P
   for (const [id, s] of stats) {
     try {
       // Les bilans à 30 et 90 jours de la publication (étape 7), pris une fois.
-      const reviews = reviewSnapshots((byId.get(id as number) ?? {}) as Record<string, unknown>, s, now);
-      await payload.update({ collection: "articles" as never, id, data: { ...s, ...reviews, statsUpdatedAt: at } as never, overrideAccess: true, context: { fromWordPress: true } });
+      const doc = (byId.get(id as number) ?? {}) as Record<string, unknown>;
+      const reviews = reviewSnapshots(doc, s, now);
+      // Les modifications qui ont 4 semaines complètes d'après : jugées avec les chiffres de ce lundi.
+      const judged = judgeChanges({ ...doc, ...s }, now);
+      const path = pathKey(String(doc.wpLink ?? ""));
+      const gscQueries = path && queryPages.length ? (queriesByPath.get(path) ?? []) : undefined;
+      await payload.update({ collection: "articles" as never, id, data: { ...s, ...reviews, ...(judged ? { changesLog: judged } : {}), ...(gscQueries ? { gscQueries } : {}), statsUpdatedAt: at } as never, overrideAccess: true, context: { fromWordPress: true } });
       updated++;
       if (s.gscClicks > 0) withClicks++;
     } catch (e) {

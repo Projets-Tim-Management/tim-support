@@ -73,7 +73,7 @@ export function ArticleDecision() {
         {toReview ? "Article à relire" : needsImage ? (status === "programme" ? `Publication prévue ${when ?? ""}` : "Image principale à créer") : canUndo ? "Mise à jour automatique" : refreshPending && !isIdea ? "Reprise proposée" : status === "arretee" ? "Idée arrêtée" : isIdea ? "Idée à décider" : "Idée en préparation"}
       </strong>
       {toReview && <p className="art-decision__label">Relis l'article (onglet Article). Valider crée le brouillon dans WordPress, relu par toi à la date du jour.</p>}
-      {needsImage && <ImagePanel articleId={id} status={status} canUpload image={{ url: imageUrl ?? null }} onDone={() => window.location.reload()} />}
+      {needsImage && <ImagePanel articleId={id} canUpload image={{ url: imageUrl ?? null }} onDone={() => window.location.reload()} />}
       {needsMotif ? (
         <>
           <label className="art-decision__label" htmlFor="art-motif">
@@ -92,9 +92,8 @@ export function ArticleDecision() {
       ) : (
         <div className="art-decision__row">
           {toReview && (
-            <button type="button" className="art-btn" disabled={busy} onClick={() => send("valider-texte")}>
-              Valider le texte
-            </button>
+            // Un seul endroit pour relire et valider (19/11/2026) : le tiroir, avec le relecteur et l'image.
+            <p className="art-decision__hint">La relecture se valide dans le tiroir : cliquez sur le titre de l'article dans le tableau des articles.</p>
           )}
           {canUndo && (
             <button type="button" className="art-btn art-btn--danger" disabled={busy} onClick={() => setAsking("annuler-maj")}>

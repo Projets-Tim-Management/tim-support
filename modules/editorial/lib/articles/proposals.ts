@@ -123,7 +123,10 @@ function articleOf(ref: string, board: BoardArticle[]): BoardArticle | null {
 export function planProposals(proposals: ArticleProposal[], board: BoardArticle[], rows: { keys: string[]; impressions: number }[], now: Date): Decision[] {
   const out: Decision[] = [];
   const waiting = board.filter((a) => a.status === "idee" || a.status === "validee").length;
-  let room = Math.max(0, Math.min(MAX_NEW_PER_WEEK, MAX_WAITING_IDEAS - waiting));
+  // Plus de 4 articles validés attendent leur créneau : pas de nouvel article (19/11/2026), les reprises continuent.
+  const queued = board.filter((a) => ["image", "pret", "programme"].includes(String(a.status))).length;
+  const aheadFull = queued > 4;
+  let room = aheadFull ? 0 : Math.max(0, Math.min(MAX_NEW_PER_WEEK, MAX_WAITING_IDEAS - waiting));
   const stopped = board.filter((a) => a.status === "arretee");
   const live = board.filter((a) => a.status !== "arretee");
   const touched = new Set<string>();
@@ -172,7 +175,7 @@ export function planProposals(proposals: ArticleProposal[], board: BoardArticle[
       continue;
     }
     if (room <= 0) {
-      out.push({ kind: "skip", title: p.title, motive: waiting >= MAX_WAITING_IDEAS ? `Déjà ${waiting} articles décidés attendent leur rédaction (4 au plus).` : "Plus de 2 articles nouveaux cette semaine." });
+      out.push({ kind: "skip", title: p.title, motive: aheadFull ? `Déjà ${queued} articles programmés (4 au plus d'avance) : pas de nouvel article tant que la file n'a pas baissé.` : waiting >= MAX_WAITING_IDEAS ? `Déjà ${waiting} articles décidés attendent leur rédaction (4 au plus).` : "Plus de 2 articles nouveaux cette semaine." });
       continue;
     }
     room--;

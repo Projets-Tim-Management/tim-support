@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { altText, buildImagePrompt, captionOf, categoryOf, fileSlug, frenchSpacing, imageJsonLd, motifOf, splitKeyword, titleSize } from "@/modules/editorial/lib/visual/charte";
+import { altText, buildImagePrompt, keyPointsOf, captionOf, categoryOf, fileSlug, frenchSpacing, imageJsonLd, motifOf, splitKeyword, titleSize } from "@/modules/editorial/lib/visual/charte";
 
 describe("charte des visuels : catégorie et motif", () => {
   it("catégorie d'après la thématique, affinée par le titre", () => {
@@ -61,23 +61,27 @@ describe("charte des visuels : SEO / GEO", () => {
 });
 
 describe("le prompt de l'image pour Claude Design", () => {
-  it("remplit le bloc « À REMPLIR » et garde la charte mot pour mot", () => {
-    const p = buildImagePrompt({ title: "Chômage intempéries BTP : conditions", category: "Paie & RH", keyword: "chômage intempéries BTP", italic: "Chômage intempéries BTP", motif: null });
+  it("remplit le bloc « À REMPLIR » (catégorie, H1, mot-clé, points clés) et garde la charte", () => {
+    const p = buildImagePrompt({ title: "Chômage intempéries BTP : conditions", category: "Paie & RH", keyword: "chômage intempéries BTP", keyPoints: ["Point A", "Point B"] });
     expect(p).toContain("H1 de l'article : Chômage intempéries BTP : conditions");
     expect(p).toContain("Catégorie : Paie & RH");
     expect(p).toContain("Mot-clé principal SEO : chômage intempéries BTP");
-    expect(p).toContain("Mot(s) en serif italique : Chômage intempéries BTP");
-    expect(p).toContain("Motif forcé (optionnel) : auto");
+    expect(p).toContain("- Point A\n- Point B");
+    expect(p).not.toContain("Motif forcé");
+    expect(p).not.toContain("Mot(s) en serif italique");
     expect(p).toContain("=== CHARTE FIGÉE ===");
     expect(p).toContain("Paie & RH : #F7C66E / #FCE6BB / #EBAA36 / #9A6508");
     expect(p).toContain("Envoie-moi le fichier WebP");
     expect(p).toContain("Pas de bloc JSON-LD");
-    expect(p).not.toContain("contentUrl en https://tim-management.co");
   });
-  it("motif forcé et mot-clé absent", () => {
-    const p = buildImagePrompt({ title: "T", category: "Planning", keyword: "", italic: "", motif: "gantt" });
-    expect(p).toContain("Motif forcé (optionnel) : gantt");
+  it("sans mot-clé ni points clés", () => {
+    const p = buildImagePrompt({ title: "T", category: "Planning", keyword: "" });
     expect(p).toContain("Mot-clé principal SEO : déduis-le du H1");
-    expect(p).toContain("Mot(s) en serif italique : choisis 1 à 3 mots porteurs du sujet");
+    expect(p).toContain("- (aucun : appuie-toi sur le H1)");
+  });
+  it("lit les points clés dans la TL;DR, sinon les titres des sections", () => {
+    const intro = '<div class="tldr-box"><p>Points clés :</p><ul><li>On divise les <strong>minutes</strong> par 60</li><li>8 h 20 = 8,33</li></ul></div><p>Intro</p>';
+    expect(keyPointsOf(intro)).toEqual(["On divise les minutes par 60", "8 h 20 = 8,33"]);
+    expect(keyPointsOf("<p>Intro</p>", ["Section 1", "", "Section 2"])).toEqual(["Section 1", "Section 2"]);
   });
 });

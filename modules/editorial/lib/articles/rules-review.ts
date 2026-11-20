@@ -7,6 +7,7 @@ import { memberByKey } from "@/modules/ai-team/lib/shared-data";
 import { tagOf, type WebCall } from "@/modules/ai-team/lib/web-model";
 import { overlaps, topicTokens } from "@/modules/editorial/lib/articles/cannibal";
 import { loadArticleInsights } from "@/modules/editorial/lib/articles/insights";
+import { fileRulesTask } from "@/modules/editorial/lib/articles/rules-task";
 import { applyCriterionChange, applyRuleChange, isOfficialUrl, type CriterionChange, type ProofLevel, type RuleKind } from "@/modules/editorial/lib/articles/rules-text";
 import { criteriaOf, DEFAULT_CRITERIA } from "@/modules/editorial/lib/score/criteria";
 
@@ -244,7 +245,7 @@ export async function runRulesReview(payload: Payload, opts: { now?: Date; force
   const [current, past, member] = await Promise.all([
     loadCurrent(),
     payload.find({ collection: "article-rule-proposals" as never, pagination: false, depth: 0, overrideAccess: true, select: { title: true, status: true, decidedAt: true } as never }).then((r) => r.docs as unknown as Record<string, string>[]),
-    memberByKey<{ name?: string }>(payload, MEMBER_KEY, { name: true }).catch(() => undefined),
+    memberByKey<{ id: number | string; name?: string }>(payload, MEMBER_KEY, { name: true }).catch(() => undefined),
   ]);
   if (!current) return { ...result, message: "Revue faite, mais aucune version des règles en vigueur : rien n'a été proposé." };
   const { kept, dropped } = screenRecommendations(recs, current.text, past, now, criteriaOf(current));
@@ -256,5 +257,7 @@ export async function runRulesReview(payload: Payload, opts: { now?: Date; force
       data: { title: r.title, status: "proposee", month, proposedBy: member?.name ?? "Sergey", part: r.part, kind: r.kind, anchor: r.anchor, currentText: r.currentText, proposedText: r.proposedText, criterionChange: r.criterionChange ?? null, why: r.why, effect: r.effect, evidence } as never,
     });
   }
+  // La direction les trouve dans « Mes tâches », pas en fouillant le menu (19/11/2026).
+  if (kept.length) await fileRulesTask(payload, member).catch(() => undefined);
   return { ...result, message: `${kept.length} recommandation(s) proposée(s) à la direction${dropped.length ? `, ${dropped.length} écartée(s) (${dropped.map((d) => d.motive).join(" ; ").slice(0, 300)})` : ""}.` };
 }

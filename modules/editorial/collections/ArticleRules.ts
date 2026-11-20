@@ -1,7 +1,8 @@
-import type { CollectionConfig, Endpoint } from "payload";
+import type { CollectionConfig, Endpoint, PayloadRequest } from "payload";
 
 import { hasAdminRole, isAdmin } from "@/core/access";
 import { applyCriterionChange, applyRuleChange, PROOF_LEVELS, PROPOSAL_STATUSES, RULE_KINDS, touchesSocle, type CriterionChange, type RuleKind } from "@/modules/editorial/lib/articles/rules-text";
+import { syncRulesTask } from "@/modules/editorial/lib/articles/rules-task";
 
 /**
  * LES RÈGLES DES ARTICLES, VERSIONNÉES, ET LES RECOMMANDATIONS DE SERGE
@@ -74,7 +75,16 @@ export const ArticleRuleVersions: CollectionConfig = {
 const decisionEndpoint: Endpoint = {
   path: "/:id/decision",
   method: "post",
+  // Après chaque décision, la tâche de « Mes tâches » suit : compteur à jour, ou close s'il ne reste rien.
   handler: async (req) => {
+    const res = await decide(req);
+    if (res.ok) await syncRulesTask(req.payload).catch(() => undefined);
+    return res;
+  },
+};
+
+const decide = async (req: PayloadRequest): Promise<Response> => {
+  {
     if (!hasAdminRole(req.user)) return Response.json({ error: "Réservé aux administrateurs." }, { status: 403 });
     const id = String(req.routeParams?.id ?? "");
     const body = (await req.json?.().catch(() => null)) as { action?: string; motif?: string } | null;
@@ -124,7 +134,7 @@ const decisionEndpoint: Endpoint = {
     });
     await req.payload.update({ collection: "article-rule-proposals" as never, id, data: { status: "appliquee", appliedVersion: number, decisionNote: motif || null, decidedAt: now } as never, overrideAccess: true });
     return Response.json({ ok: true, status: "appliquee", version: number });
-  },
+  }
 };
 
 export const ArticleRuleProposals: CollectionConfig = {

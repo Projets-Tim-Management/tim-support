@@ -1,6 +1,7 @@
 import type { Payload } from "payload";
 
 import { checkBrand, checkPolicy, type Article } from "@/modules/editorial/lib/articles/check";
+import { withChange } from "@/modules/editorial/lib/articles/changes";
 import { updateFields } from "@/modules/editorial/lib/articles/wp-write";
 import { wpPostToArticle } from "@/modules/editorial/lib/articles/writer/refresh";
 import { writeJobFields } from "@/modules/editorial/lib/jobs/write";
@@ -66,7 +67,22 @@ export async function saveArticleEdits(payload: Payload, id: number | string, ed
       id,
       overrideAccess: true,
       context: { fromWordPress: true },
-      data: { title, seoTitle, seoDescription, keyword, wpFocusKeyword: keyword, acf, previousAcf, wpModified: modifiedIso } as never,
+      data: {
+        title,
+        seoTitle,
+        seoDescription,
+        keyword,
+        wpFocusKeyword: keyword,
+        acf,
+        previousAcf,
+        wpModified: modifiedIso,
+        // Mesurée 4 semaines après (19/11/2026) ; un article pas encore en ligne n'est pas journalisé.
+        ...(() => {
+          const what = [edits.title != null ? "titre" : "", edits.seoTitle != null || edits.seoDescription != null ? "titre et description Google" : "", edits.keyword != null ? `mot-clé « ${keyword} »` : "", ...Object.keys(obj(edits.acf))].filter(Boolean).join(", ");
+          const log = withChange(doc, edits.keyword != null && edits.keyword !== doc.keyword ? "mot-cle" : "tiroir", what || "modification", new Date());
+          return log ? { changesLog: log } : {};
+        })(),
+      } as never,
     });
   } else {
     await payload.update({ collection: "articles" as never, id, overrideAccess: true, context: { fromWordPress: true }, data: { title, keyword, draft: { ...acf, title, yoast_title: seoTitle, yoast_description: seoDescription } } as never });

@@ -29,6 +29,13 @@ describe("ordonnancement de la rédaction", () => {
     ];
     expect(pickWritingJob(rows, NOW)).toEqual({ id: 3, start: true, mode: "article" });
   });
+  it("plus de 4 articles programmés : aucune nouvelle rédaction ne démarre (19/11/2026)", () => {
+    const queued: BoardRow[] = Array.from({ length: 5 }, (_, i) => ({ id: 50 + i, status: "programme" }));
+    expect(pickWritingJob([...queued, { id: 3, status: "validee" }], NOW)).toBeNull();
+    expect(pickWritingJob([...queued.slice(1), { id: 3, status: "validee" }], NOW)).toEqual({ id: 3, start: true, mode: "article" });
+    // Les mises à jour d'articles en ligne continuent.
+    expect(pickWritingJob([...queued, { id: 9, status: "a-rafraichir", refreshDecidedAt: "2026-11-17T08:00:00Z" }], NOW)).toEqual({ id: 9, start: true, mode: "maj" });
+  });
   it("un seul article commencé par jour (heure de Paris)", () => {
     const rows: BoardRow[] = [
       { id: 1, status: "validee" },

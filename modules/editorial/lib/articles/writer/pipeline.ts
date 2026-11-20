@@ -24,6 +24,13 @@ import { parisNow } from "@/modules/ads/agent/followup";
 
 export const DAILY_STARTS = 1;
 export const MAX_WAITING_REVIEW = 4;
+/**
+ * Avance de publication (décision du 19/11/2026) : au-delà de 4 articles validés qui attendent leur
+ * créneau (deux semaines), aucune NOUVELLE rédaction ne démarre ; un article écrit aujourd'hui serait
+ * publié dans des semaines, chiffres périmés. Les mises à jour d'articles en ligne continuent.
+ */
+export const MAX_SCHEDULED_AHEAD = 4;
+export const QUEUED_STATUSES = ["image", "pret", "programme"];
 export const LOCK_MS = 10 * 60_000;
 export const MAX_ATTEMPTS = 2;
 
@@ -59,7 +66,8 @@ export function pickWritingJob(rows: BoardRow[], now: Date): Job | null {
   const today = parisNow(now).date;
   const startedToday = (mode: WriteMode) => rows.filter((r) => r.writeStartedAt && (r.writeMode ?? "article") === mode && parisNow(new Date(r.writeStartedAt)).date === today).length;
   // Un nouvel article — dans les limites.
-  if (startedToday("article") < DAILY_STARTS && rows.filter((r) => r.status === "a-relire").length < MAX_WAITING_REVIEW) {
+  const queued = rows.filter((r) => QUEUED_STATUSES.includes(String(r.status))).length;
+  if (startedToday("article") < DAILY_STARTS && rows.filter((r) => r.status === "a-relire").length < MAX_WAITING_REVIEW && queued <= MAX_SCHEDULED_AHEAD) {
     const next = rows.filter((r) => r.status === "validee").sort((a, b) => String(a.decidedAt ?? a.createdAt ?? "").localeCompare(String(b.decidedAt ?? b.createdAt ?? "")))[0];
     if (next) return { id: next.id, start: true, mode: "article" };
   }

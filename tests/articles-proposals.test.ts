@@ -88,6 +88,15 @@ describe("propositions de Paige → tableau", () => {
     expect(d[1]).toMatchObject({ motive: "Sujet d'une idée déjà arrêtée par Charlie." });
   });
 
+  it("plus de 4 articles programmés : pas d'article nouveau (19/11/2026)", () => {
+    const fresh = ["inventaire materiel", "entretien engins atelier"].map((k, i) => idea({ title: `Idée ${i}`, keyword: k }));
+    const full: BoardArticle[] = [...board, ...Array.from({ length: 5 }, (_, i) => ({ id: 200 + i, title: `Programmé ${i} zz${i}`, keyword: `programme unique ${i}q`, status: "programme" }))];
+    const d = planProposals(fresh, full, [], NOW);
+    expect(d.filter((x) => x.kind === "create")).toHaveLength(0);
+    expect(d[0]).toMatchObject({ kind: "skip" });
+    expect((d[0] as { motive: string }).motive).toMatch(/programmés/);
+  });
+
   it("l'équipe décide : 2 articles nouveaux par semaine, directement en rédaction ; 4 décidés en attente au plus", () => {
     const fresh = ["inventaire materiel", "entretien engins atelier", "document unique risques", "carte professionnelle intérim", "astreinte week-end"].map((k, i) => idea({ title: `Idée ${i}`, keyword: k }));
     expect(planProposals(fresh, board, [], NOW).filter((x) => x.kind === "create")).toHaveLength(2);

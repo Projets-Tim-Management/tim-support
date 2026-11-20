@@ -1,6 +1,7 @@
 import type { CollectionBeforeChangeHook, CollectionConfig, Endpoint } from "payload";
 
 import { hasAdminRole, isAdmin } from "@/core/access";
+import { diagnose } from "@/modules/editorial/lib/articles/performance";
 import { ARTICLE_STATUSES, PREPARATION_STATUSES, REFRESH_REASONS } from "@/modules/editorial/lib/articles/statuses";
 
 /**
@@ -85,7 +86,7 @@ const decisionEndpoint: Endpoint = {
   handler: async (req) => {
     if (!hasAdminRole(req.user)) return Response.json({ error: "Réservé aux administrateurs." }, { status: 403 });
     const id = String(req.routeParams?.id ?? "");
-    const body = (await req.json?.().catch(() => null)) as { action?: string; motif?: string } | null;
+    const body = (await req.json?.().catch(() => null)) as { action?: string; motif?: string; reviewer?: string; withoutImage?: boolean } | null;
     const action = String(body?.action ?? "");
     const motif = String(body?.motif ?? "").trim().slice(0, 1000);
     const doc = (await req.payload.findByID({ collection: "articles" as never, id, depth: 0, overrideAccess: true }).catch(() => null)) as Record<string, unknown> | null;
@@ -93,10 +94,11 @@ const decisionEndpoint: Endpoint = {
     const now = new Date().toISOString();
     const status = String(doc.status ?? "");
     // Étape 6 : les actions qui écrivent dans WordPress (wp-write.ts : relire avant, écrire ce qui change, relire après).
-    if (action === "valider-texte" || action === "annuler-maj") {
-      const { validateText, undoUpdate, ActionError } = await import("@/modules/editorial/lib/articles/actions");
+    if (action === "valider-texte" || action === "annuler-maj" || action === "publier-maintenant") {
+      const { validateText, undoUpdate, publishNow, ActionError } = await import("@/modules/editorial/lib/articles/actions");
       try {
-        if (action === "valider-texte") return Response.json({ ok: true, ...(await validateText(req.payload, id)) });
+        if (action === "valider-texte") return Response.json({ ok: true, ...(await validateText(req.payload, id, { reviewer: body?.reviewer, withoutImage: body?.withoutImage === true })) });
+        if (action === "publier-maintenant") return Response.json({ ok: true, ...(await publishNow(req.payload, id)) });
         await undoUpdate(req.payload, id, motif);
         return Response.json({ ok: true });
       } catch (e) {
@@ -192,7 +194,7 @@ export const Articles: CollectionConfig = {
   labels: { singular: "Article", plural: "Articles" },
   admin: {
     useAsTitle: "title",
-    defaultColumns: ["title", "status", "scoreSeo", "scoreGeo", "scoreCoverage", "theme", "gscClicks", "gscPosition", "publishedAt"],
+    defaultColumns: ["featuredImageUrl", "title", "status", "scheduledAt", "performance", "scoreSeo", "scoreGeo", "scoreCoverage", "theme", "gscClicks", "gscPosition", "publishedAt"],
     listSearchableFields: ["title", "slug", "keyword"],
     group: "Éditorial",
     pagination: { defaultLimit: 50 },
@@ -247,11 +249,11 @@ export const Articles: CollectionConfig = {
     {
       name: "scheduledAt",
       type: "date",
-      label: "Publication prévue le",
+      label: "Publication prévue",
       index: true,
-      admin: { position: "sidebar", readOnly: true, condition: (d) => Boolean(d?.scheduledAt) && d?.status !== "publie", date: { pickerAppearance: "dayAndTime", displayFormat: "EEEE dd/MM/yyyy HH:mm" } },
+      admin: { position: "sidebar", readOnly: true, condition: (d) => Boolean(d?.scheduledAt) && d?.status !== "publie", date: { pickerAppearance: "dayAndTime", displayFormat: "EEEE dd/MM/yyyy HH:mm" }, components: { Cell: "/modules/editorial/admin/ScheduledCell#ScheduledCell" } },
     },
-    { name: "featuredImageUrl", type: "text", label: "Image principale", admin: { position: "sidebar", readOnly: true, condition: (d) => Boolean(d?.featuredImageUrl) } },
+    { name: "featuredImageUrl", type: "text", label: "Image", admin: { position: "sidebar", readOnly: true, condition: (d) => Boolean(d?.featuredImageUrl), components: { Cell: "/modules/editorial/admin/ThumbCell#ThumbCell" } } },
     { name: "featuredMediaId", type: "number", admin: { hidden: true } },
     // Le visuel de la charte « 5a — Éditorial doux » (étape 8, 19/11/2026), créé par le support.
     {
@@ -259,9 +261,10 @@ export const Articles: CollectionConfig = {
       type: "select",
       label: "Motif du visuel",
       options: ["horloge", "calendrier", "feuille", "pieces", "barres", "versus", "meteo", "route", "bouclier", "personnes", "telephone", "gantt", "casque", "photo", "repas"].map((m) => ({ label: m, value: m })),
-      admin: { position: "sidebar", description: "Motif forcé dans le prompt de l'image ; vide = Claude Design le choisit (charte)." },
+      // Plus lu depuis le 19/11/2026 : Claude Design choisit le motif d'après le H1 et les points clés.
+      admin: { hidden: true },
     },
-    { name: "visualItalic", type: "text", label: "Mots en serif italique", admin: { position: "sidebar", description: "Un passage EXACT du titre (1 à 3 mots). Vide = le mot-clé." } },
+    { name: "visualItalic", type: "text", label: "Mots en serif italique", admin: { hidden: true } },
     { name: "visualFile", type: "text", label: "Fichier du visuel", admin: { position: "sidebar", readOnly: true, condition: (d) => Boolean(d?.visualFile) } },
     { name: "visualAlt", type: "text", label: "Texte alternatif du visuel", admin: { position: "sidebar", readOnly: true, condition: (d) => Boolean(d?.visualAlt) } },
     { name: "visualCaption", type: "text", label: "Légende du visuel", admin: { position: "sidebar", readOnly: true, condition: (d) => Boolean(d?.visualCaption) } },
@@ -271,12 +274,31 @@ export const Articles: CollectionConfig = {
     { name: "backlinksPending", type: "checkbox", index: true, admin: { hidden: true } },
     { name: "lastUpdateAt", type: "date", label: "Dernière mise à jour automatique", admin: { position: "sidebar", readOnly: true, condition: (d) => Boolean(d?.lastUpdateAt), date: { displayFormat: "dd/MM/yyyy" } } },
     // La note SEO / GEO (19/11/2026) : critères de la version en vigueur des règles, mesurés par le code.
-    { name: "scoreSeo", type: "number", label: "Note SEO (%)", index: true, admin: { position: "sidebar", readOnly: true, components: { Cell: "/modules/editorial/admin/ScoreCell#ScoreCell" } } },
-    { name: "scoreGeo", type: "number", label: "Note GEO (%)", index: true, admin: { position: "sidebar", readOnly: true, components: { Cell: "/modules/editorial/admin/ScoreCell#ScoreCell" } } },
+    // Le diagnostic de performance (19/11/2026) : calculé à la lecture d'après les chiffres du lundi,
+    // jamais stocké (champ virtuel, aucune colonne en base). Voir lib/articles/performance.ts.
+    {
+      name: "performance",
+      type: "json",
+      label: "Performance",
+      virtual: true,
+      admin: { position: "sidebar", readOnly: true, components: { Cell: "/modules/editorial/admin/PerfCell#PerfCell" }, condition: () => false },
+      hooks: {
+        afterRead: [
+          async ({ data, req }) => {
+            const doc = (data ?? {}) as Record<string, unknown>;
+            if (doc.status !== "publie" && doc.status !== "a-rafraichir") return diagnose(doc);
+            const { forRequest, serpOfArticle } = await import("@/modules/editorial/lib/articles/performance-data");
+            return diagnose(doc, new Date(), serpOfArticle(await forRequest(req), doc));
+          },
+        ],
+      },
+    },
+    { name: "scoreSeo", type: "number", label: "SEO", index: true, admin: { position: "sidebar", readOnly: true, components: { Cell: "/modules/editorial/admin/ScoreCell#ScoreCell" } } },
+    { name: "scoreGeo", type: "number", label: "GEO", index: true, admin: { position: "sidebar", readOnly: true, components: { Cell: "/modules/editorial/admin/ScoreCell#ScoreCell" } } },
     { name: "scoreRulesVersion", type: "number", label: "Note selon les règles v.", admin: { position: "sidebar", readOnly: true } },
     { name: "scoredAt", type: "date", admin: { hidden: true } },
     { name: "scoreDetail", type: "json", admin: { hidden: true } },
-    { name: "scoreCoverage", type: "number", label: "Couverture concurrents (%)", index: true, admin: { position: "sidebar", readOnly: true, description: "Ressemblance au top 10 de Google sur la requête (termes, questions). Pas une prévision de classement.", components: { Cell: "/modules/editorial/admin/ScoreCell#ScoreCell" } } },
+    { name: "scoreCoverage", type: "number", label: "Couverture", index: true, admin: { position: "sidebar", readOnly: true, description: "Ressemblance au top 10 de Google sur la requête (termes, questions). Pas une prévision de classement.", components: { Cell: "/modules/editorial/admin/ScoreCell#ScoreCell" } } },
     { name: "coverageTarget", type: "number", label: "Cible de couverture (%)", admin: { position: "sidebar", readOnly: true, description: "Médiane des concurrents + 10 points." } },
     { name: "competitorsAt", type: "date", label: "Concurrents relevés le", index: true, admin: { position: "sidebar", readOnly: true } },
     // Le comparateur, pour la note v3 (19/11/2026) : statut, fourchette de longueur du top 10, entités citées, termes en excès.
@@ -455,9 +477,9 @@ export const Articles: CollectionConfig = {
             {
               type: "row",
               fields: [
-                { name: "gscClicks", type: "number", label: "Clics Google (cumulés, 16 mois)", index: true, admin: { readOnly: true, description: "Depuis la publication, sur les 16 mois que garde Google." } },
+                { name: "gscClicks", type: "number", label: "Clics Google", index: true, admin: { readOnly: true, description: "Depuis la publication, sur les 16 mois que garde Google." } },
                 { name: "gscImpressions", type: "number", label: "Impressions (16 mois)", admin: { readOnly: true } },
-                { name: "gscPosition", type: "number", label: "Position moyenne (3 mois)", admin: { readOnly: true } },
+                { name: "gscPosition", type: "number", label: "Position", admin: { readOnly: true } },
               ],
             },
             {
@@ -474,6 +496,10 @@ export const Articles: CollectionConfig = {
                 { name: "ga4AiSessions", type: "number", label: "dont venues d'une IA", admin: { readOnly: true, description: "ChatGPT, Perplexity, Gemini, Copilot…" } },
               ],
             },
+            // Les requêtes Search Console de la page (90 jours, 5 premières), relevées chaque lundi (19/11/2026).
+            { name: "gscQueries", type: "json", label: "Requêtes Google qui amènent la page (90 jours)", admin: { readOnly: true, condition: (d) => Array.isArray(d?.gscQueries) && d.gscQueries.length > 0 } },
+            // Chaque modification d'un article en ligne et son verdict 4 semaines après (19/11/2026, lib/articles/changes.ts).
+            { name: "changesLog", type: "json", label: "Modifications et leur effet", admin: { readOnly: true, condition: (d) => Array.isArray(d?.changesLog) && d.changesLog.length > 0 } },
             { name: "review30", type: "json", label: "Bilan à 30 jours", admin: { readOnly: true, condition: (d) => Boolean(d?.review30) } },
             { name: "review90", type: "json", label: "Bilan à 90 jours", admin: { readOnly: true, condition: (d) => Boolean(d?.review90) } },
             { name: "backlinks", type: "json", label: "Maillage retour (liens ajoutés vers cet article)", admin: { readOnly: true, condition: (d) => Array.isArray(d?.backlinks) && d.backlinks.length > 0 } },

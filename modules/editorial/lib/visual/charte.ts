@@ -212,21 +212,34 @@ export function imageJsonLd(o: { contentUrl: string; caption: string; alt: strin
  * l'article. Motif forcé : celui choisi sur la fiche, sinon « auto » (Claude Design applique
  * la règle de la charte). Pure (testée).
  */
-export function buildImagePrompt(o: { title: string; category: Category; keyword: string; italic: string; motif?: string | null }): string {
+/**
+ * Les points clés d'un article, pour le prompt de l'image : la TL;DR (`tldr-box` de
+ * l'introduction), sinon les titres des sections. 5 au plus, en texte. Pure.
+ */
+export function keyPointsOf(introduction: unknown, sectionTitles: unknown[] = []): string[] {
+  const strip = (h: string) => h.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#0?39;|&rsquo;/g, "’").replace(/\s+/g, " ").trim();
+  const box = String(introduction ?? "").match(/<div\b[^>]*class\s*=\s*["'][^"']*\btldr-box\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+  const fromBox = box ? [...box[1].matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)].map((m) => strip(m[1])).filter(Boolean) : [];
+  const list = fromBox.length ? fromBox : sectionTitles.map((t) => strip(String(t ?? ""))).filter(Boolean);
+  return list.slice(0, 5);
+}
+
+export function buildImagePrompt(o: { title: string; category: Category; keyword: string; keyPoints?: string[] }): string {
+  const points = (o.keyPoints ?? []).length ? (o.keyPoints ?? []).map((k) => `- ${k}`).join("\n") : "- (aucun : appuie-toi sur le H1)";
   return `Crée le visuel d'article de blog Tim Management selon la charte validée « 5a — Éditorial doux » (référence : https://claude.ai/artifact/66eYjVsQ1zud8SBxoADjqs). Seuls le titre, la couleur et le motif changent ; tout le reste est figé. L'image est publiée uniquement sur le site vitrine tim-management.co.
 
 === À REMPLIR ===
 H1 de l'article : ${o.title}
 Catégorie : ${o.category}
 Mot-clé principal SEO : ${o.keyword || "déduis-le du H1"}
-Mot(s) en serif italique : ${o.italic || "choisis 1 à 3 mots porteurs du sujet"}
-Motif forcé (optionnel) : ${o.motif || "auto"}
+Points clés de l'article (pour choisir le motif et les mots en italique) :
+${points}
 
 === CHARTE FIGÉE ===
 Format : 1920×1080 px. Fond #F6F3EE.
 Panneau couleur : de x=1240 à 1920, pleine hauteur.
 Titre : DM Sans Bold, #111111, x=120, largeur 1020 px, centré verticalement, interligne 1.02, approche −0.03em. Taille selon la longueur du H1 : ≤48 caractères = 112 px, ≤72 = 96 px, >72 = 84 px. Espace insécable avant « : ; ? ! ».
-Mot-clé : Instrument Serif italique 400, taille 1.1em, couleur « accent » de la catégorie.
+Mot-clé : 1 à 3 mots du H1 porteurs du sujet (le mot-clé principal s'il y figure), en Instrument Serif italique 400, taille 1.1em, couleur « accent » de la catégorie.
 Logo : symbole Tim noir seul (sans texte), 76 px, à 96 px du bord droit et 84 px du bas, sur le panneau.
 Aucune étiquette de catégorie, aucun nom « Tim Management », aucun autre texte.
 Motif : 590×590 px à x=1285, y=200. Formes plates simples, contour noir 5 px #111111, remplissages blanc / « clair » / « moyen » uniquement.
@@ -239,7 +252,7 @@ Palette (panneau / clair / moyen / accent) :
 - Suivi de chantier : #A398E3 / #DDD8F6 / #7C6FD6 / #5446B3
 - Comparatifs : #6CC7D6 / #CCEDF2 / #2BA9BE / #1C7684
 
-Choix du motif (si auto) : le premier mot précis du sujet qui apparaît dans le H1 l'emporte. Exemples : intempéries/météo → meteo ; panier/repas → repas ; photo → photo ; sécurité/EPI/accident → casque ; déplacement/trajet/kilométrique → route ; zone blanche/mobile/géolocalisation → telephone ; intérim/sous-traitant/équipe/salarié → personnes ; Gantt/multi-chantiers → gantt ; comparatif/vs/top/meilleur/Excel/choisir → versus ; salaire/SMIC/prime/indemnité/coût/rentabilité → pieces ; KPI/indicateur/avancement → barres ; jours fériés/congés/absence/délai → calendrier ; modèle/document/compte rendu/temps de travail → feuille ; heures sup/horaire/pause/nuit → horloge ; RGPD/légal/obligation/règle/contrôle → bouclier. Les mots de catégorie seuls (pointage, planning, feuille d'heures, suivi de chantier, paie) ne servent qu'en dernier recours. Si aucun motif existant ne colle vraiment, propose un nouveau motif dans le même style plutôt qu'un motif hors sujet, et dis-le-moi.
+Choix du motif : le premier mot précis du sujet qui apparaît dans le H1 l'emporte. Exemples : intempéries/météo → meteo ; panier/repas → repas ; photo → photo ; sécurité/EPI/accident → casque ; déplacement/trajet/kilométrique → route ; zone blanche/mobile/géolocalisation → telephone ; intérim/sous-traitant/équipe/salarié → personnes ; Gantt/multi-chantiers → gantt ; comparatif/vs/top/meilleur/Excel/choisir → versus ; salaire/SMIC/prime/indemnité/coût/rentabilité → pieces ; KPI/indicateur/avancement → barres ; jours fériés/congés/absence/délai → calendrier ; modèle/document/compte rendu/temps de travail → feuille ; heures sup/horaire/pause/nuit → horloge ; RGPD/légal/obligation/règle/contrôle → bouclier. Les mots de catégorie seuls (pointage, planning, feuille d'heures, suivi de chantier, paie) ne servent qu'en dernier recours. Si aucun motif existant ne colle vraiment, propose un nouveau motif dans le même style plutôt qu'un motif hors sujet, et dis-le-moi.
 
 === LIVRABLES SEO / GEO ===
 1. Un seul fichier : WebP 1920×1080, qualité ~82, moins de 200 Ko. Nom = slug du mot-clé principal (minuscules, sans accents, mots séparés par des tirets, 60 caractères max, sans mots vides inutiles). Ex. : chomage-intemperies-btp-indemnisation-2026.webp

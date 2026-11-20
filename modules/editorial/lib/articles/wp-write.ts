@@ -1,5 +1,6 @@
 import { htmlToText } from "@/core/lib/html";
 import type { Article } from "@/modules/editorial/lib/articles/check";
+import { WP_REVIEWER_LIST } from "@/modules/editorial/lib/articles/from-wp";
 import { WP_POST_TYPE } from "@/modules/editorial/lib/articles/wp-client";
 
 /**
@@ -20,6 +21,8 @@ import { WP_POST_TYPE } from "@/modules/editorial/lib/articles/wp-client";
 
 export const AUTHOR_DEFAULT = 1; // Charlie Piancatelli
 export const REVIEWER = "Charlie Piancatelli";
+/** « Relu par » est un champ utilisateur ACF : il attend l'ID WordPress (1 = Charlie Piancatelli), pas un nom (19/11/2026). */
+export const REVIEWER_WP_ID: number = WP_REVIEWER_LIST[0].id;
 export const NOTE_METHODE = "Article rédigé avec assistance IA à partir de sources vérifiées, relu avant publication.";
 
 /** Thématique du tableau → catégorie WordPress du CPT `actualite` (relevé du 18/11/2026). */
@@ -42,7 +45,7 @@ export function slugify(text: string): string {
 export const parisDay = (d: Date) => new Intl.DateTimeFormat("fr-CA", { timeZone: "Europe/Paris" }).format(d);
 
 /** Les champs ACF d'un article rédigé (contenu, sources, méthode, dates). Pur (testé). */
-export function acfOfArticle(article: Article, o: { reviewedOn?: string | null; updatedOn?: string | null; updateSummary?: string | null }) {
+export function acfOfArticle(article: Article, o: { reviewedOn?: string | null; reviewerId?: number | null; updatedOn?: string | null; updateSummary?: string | null }) {
   const methode = (article.methode ?? {}) as { assistance_ia?: boolean; note_methode?: string };
   return {
     temps_de_lecture: String(article.temps_de_lecture ?? ""),
@@ -54,7 +57,7 @@ export function acfOfArticle(article: Article, o: { reviewedOn?: string | null; 
     methode: {
       assistance_ia: methode.assistance_ia !== false,
       note_methode: methode.note_methode || NOTE_METHODE,
-      ...(o.reviewedOn ? { relu_par: REVIEWER, relu_le: o.reviewedOn } : {}),
+      ...(o.reviewedOn ? { relu_par: o.reviewerId ?? REVIEWER_WP_ID, relu_le: o.reviewedOn } : {}),
     },
     date_mise_a_jour: o.updatedOn ?? "",
     resume_mise_a_jour: o.updateSummary ?? "",
@@ -62,7 +65,7 @@ export function acfOfArticle(article: Article, o: { reviewedOn?: string | null; 
 }
 
 /** Le brouillon à créer (toujours `draft`). Pur (testé). */
-export function buildDraftPayload(article: Article, o: { keyword: string; themeNumber?: number | null; reviewedOn: string; author?: number }) {
+export function buildDraftPayload(article: Article, o: { keyword: string; themeNumber?: number | null; reviewedOn: string; reviewerId?: number | null; author?: number }) {
   const category = o.themeNumber != null ? THEME_TO_CATEGORY[o.themeNumber] : undefined;
   const slug = slugify(o.keyword || String(article.title ?? ""));
   return {
@@ -73,7 +76,7 @@ export function buildDraftPayload(article: Article, o: { keyword: string; themeN
     ...(slug ? { slug } : {}),
     ...(category ? { categories: [category] } : {}),
     seo_meta: { title: String(article.yoast_title ?? ""), metadesc: String(article.yoast_description ?? ""), focuskw: o.keyword },
-    acf: acfOfArticle(article, { reviewedOn: o.reviewedOn }),
+    acf: acfOfArticle(article, { reviewedOn: o.reviewedOn, reviewerId: o.reviewerId }),
   };
 }
 
@@ -105,9 +108,35 @@ async function wp<T>(method: "GET" | "POST", path: string, body?: unknown, heade
 
 export type WpPostEdit = { id: number; status: string; link: string; modified_gmt: string; featured_media?: number; acf?: Record<string, unknown> | unknown[]; seo_meta?: Record<string, string> };
 
+/** La date de modification WordPress (GMT, sans fuseau) en ISO : ce que le support garde dans `wpModified`. */
+export const modifiedIsoOf = (gmt: string) => new Date(`${gmt}Z`).toISOString();
+
 export const readPost = (id: number) => wp<WpPostEdit>("GET", `${WP_POST_TYPE}/${id}?context=edit`);
 
-const flatText = (v: unknown): string => htmlToText(typeof v === "string" ? v : JSON.stringify(v ?? "")).replace(/\s+/g, " ").trim();
+/**
+ * Le texte d'un champ, tel qu'un lecteur le lit. WordPress, à la relecture :
+ *  - met les apostrophes et guillemets droits en typographiques (' → ’, " → “ ”) ;
+ *  - rend les sections et la FAQ avec un champ technique en plus (`acf_fc_layout`) et dans un
+ *    autre ordre de clés.
+ * Rien de cela ne change le contenu : on compare donc les valeurs texte, clés triées, sans
+ * `acf_fc_layout`, apostrophes et guillemets ramenés à une seule forme.
+ */
+const textOf = (v: unknown): string => {
+  if (v == null) return "";
+  if (typeof v === "string") return htmlToText(v);
+  if (Array.isArray(v)) return v.map(textOf).join(" ");
+  if (typeof v === "object") return Object.keys(v as Record<string, unknown>).filter((k) => k !== "acf_fc_layout").sort().map((k) => textOf((v as Record<string, unknown>)[k])).join(" ");
+  return String(v);
+};
+const flatText = (v: unknown): string =>
+  textOf(v)
+    .replace(/[‘’‚′]/g, "'")
+    .replace(/[“”„″«»]/g, '"')
+    .replace(/[\u00a0\u202f]/g, " ")
+    .replace(/[–—]/g, "-")
+    .replace(/…/g, "...")
+    .replace(/\s+/g, " ")
+    .trim();
 
 /** Ce qui est en ligne correspond-il à ce qu'on a écrit ? Comparaison du texte, aux espaces près. Pur (testé). */
 export function sameContent(written: Record<string, unknown>, online: Record<string, unknown>): string[] {
@@ -120,14 +149,17 @@ export function sameContent(written: Record<string, unknown>, online: Record<str
 }
 
 /** Crée le brouillon, puis le relit. */
-export async function createDraft(payload: ReturnType<typeof buildDraftPayload>): Promise<{ id: number; link: string }> {
+export async function createDraft(payload: ReturnType<typeof buildDraftPayload>, onCreated?: (id: number, link: string) => Promise<void>): Promise<{ id: number; link: string; modifiedIso: string }> {
   const created = await wp<WpPostEdit>("POST", WP_POST_TYPE, payload);
+  // Le brouillon existe : son numéro est gardé AVANT la relecture, pour qu'un nouvel essai le
+  // réutilise au lieu d'en créer un second.
+  await onCreated?.(created.id, created.link);
   const back = await readPost(created.id);
   const acf = back.acf && !Array.isArray(back.acf) ? back.acf : {};
   const off = sameContent({ introduction: payload.acf.introduction, conclusion: payload.acf.conclusion, contenu: payload.acf.contenu, faq: payload.acf.faq }, acf);
   if (back.status !== "draft") throw new WpWriteError(`Le brouillon ${created.id} n'est pas en brouillon (${back.status}).`);
   if (off.length) throw new WpWriteError(`Brouillon ${created.id} créé, mais différent de l'article rédigé après relecture (${off.join(", ")}).`);
-  return { id: created.id, link: back.link };
+  return { id: created.id, link: back.link, modifiedIso: modifiedIsoOf(back.modified_gmt) };
 }
 
 /**
@@ -137,7 +169,7 @@ export async function createDraft(payload: ReturnType<typeof buildDraftPayload>)
  */
 export async function updateFields(id: number, fields: { acf?: Record<string, unknown>; seo_meta?: Record<string, string>; title?: string }, expectedModifiedIso: string | null): Promise<{ modifiedIso: string; previousAcf: Record<string, unknown> }> {
   const before = await readPost(id);
-  const iso = (gmt: string) => new Date(`${gmt}Z`).toISOString();
+  const iso = modifiedIsoOf;
   if (expectedModifiedIso && iso(before.modified_gmt) !== new Date(expectedModifiedIso).toISOString()) {
     throw new WpWriteError(`L'article ${id} a été modifié dans WordPress depuis sa dernière lecture (${before.modified_gmt}) : rien n'est écrit.`);
   }
@@ -155,25 +187,37 @@ export async function updateFields(id: number, fields: { acf?: Record<string, un
 }
 
 /** Publie un brouillon maintenant, et vérifie qu'il est en ligne. */
-export async function publishPost(id: number): Promise<{ link: string }> {
+export async function publishPost(id: number): Promise<{ link: string; modifiedIso: string }> {
   const before = await readPost(id);
-  if (before.status === "publish") return { link: before.link };
+  if (before.status === "publish") return { link: before.link, modifiedIso: modifiedIsoOf(before.modified_gmt) };
   if (before.status !== "draft" && before.status !== "future") throw new WpWriteError(`L'article ${id} est « ${before.status} » dans WordPress : publication annulée.`);
   await wp("POST", `${WP_POST_TYPE}/${id}`, { status: "publish", date_gmt: new Date().toISOString().slice(0, 19) });
   const after = await readPost(id);
   if (after.status !== "publish") throw new WpWriteError(`L'article ${id} n'est pas en ligne après publication (${after.status}).`);
-  return { link: after.link };
+  return { link: after.link, modifiedIso: modifiedIsoOf(after.modified_gmt) };
 }
 
 /** Envoie une image dans la médiathèque, avec son texte alternatif, et la pose en image principale de l'article. */
-export async function setFeaturedImage(postId: number, file: { data: Uint8Array; filename: string; mime: string }, alt: string, caption?: string): Promise<{ mediaId: number; url: string }> {
+/** Envoie une image dans la médiathèque WordPress (alt, titre, légende), sans la poser sur un article. */
+export async function uploadMedia(file: { data: Uint8Array; filename: string; mime: string }, alt: string, caption?: string): Promise<{ mediaId: number; url: string }> {
   const media = await wp<{ id: number; source_url: string }>("POST", "media", file.data, {
     "Content-Type": file.mime,
     "Content-Disposition": `attachment; filename="${file.filename.replace(/"/g, "")}"`,
   });
   await wp("POST", `media/${media.id}`, { alt_text: alt, title: alt, ...(caption ? { caption } : {}) });
-  await wp("POST", `${WP_POST_TYPE}/${postId}`, { featured_media: media.id });
-  const after = await readPost(postId);
-  if (after.featured_media !== media.id) throw new WpWriteError(`Image ${media.id} envoyée, mais pas posée en image principale de l'article ${postId}.`);
   return { mediaId: media.id, url: media.source_url };
+}
+
+/** Pose une image de la médiathèque en image principale d'un article, et le vérifie. */
+export async function attachFeaturedImage(postId: number, mediaId: number): Promise<{ modifiedIso: string }> {
+  await wp("POST", `${WP_POST_TYPE}/${postId}`, { featured_media: mediaId });
+  const after = await readPost(postId);
+  if (after.featured_media !== mediaId) throw new WpWriteError(`Image ${mediaId} envoyée, mais pas posée en image principale de l'article ${postId}.`);
+  return { modifiedIso: modifiedIsoOf(after.modified_gmt) };
+}
+
+export async function setFeaturedImage(postId: number, file: { data: Uint8Array; filename: string; mime: string }, alt: string, caption?: string): Promise<{ mediaId: number; url: string; modifiedIso: string }> {
+  const media = await uploadMedia(file, alt, caption);
+  const { modifiedIso } = await attachFeaturedImage(postId, media.mediaId);
+  return { ...media, modifiedIso };
 }

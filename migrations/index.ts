@@ -233,6 +233,7 @@ import * as migration_20261119_075552_comparateur_concurrents from './20261119_0
 import * as migration_20261119_085321_requetes_suivies from './20261119_085321_requetes_suivies';
 import * as migration_20261119_104627_visuel_article from './20261119_104627_visuel_article';
 import * as migration_20261119_142633_note_v3 from './20261119_142633_note_v3';
+import * as migration_20261120_070825_suivi_performance_articles from './20261120_070825_suivi_performance_articles';
 
 export const migrations = [
   {
@@ -1408,6 +1409,11 @@ export const migrations = [
   {
     up: migration_20261119_142633_note_v3.up,
     down: migration_20261119_142633_note_v3.down,
-    name: '20261119_142633_note_v3'
+    name: '20261119_142633_note_v3',
+  },
+  {
+    up: migration_20261120_070825_suivi_performance_articles.up,
+    down: migration_20261120_070825_suivi_performance_articles.down,
+    name: '20261120_070825_suivi_performance_articles'
   },
 ];

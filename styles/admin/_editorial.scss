@@ -2910,65 +2910,149 @@
   font-weight: 600;
 }
 
-/* Image principale : prompt Claude Design puis dépôt (19/11/2026). */
+/* Image principale (19/11/2026) : l'image à gauche (glisser-déposer, aperçu 16/9), le prompt et
+   ce qui accompagne l'image à droite. */
 .imgp {
   display: grid;
-  gap: 0.9rem;
+  gap: 0.75rem;
 }
-.imgp__current img {
-  display: block;
-  width: 100%;
+.imgp__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 1.1rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .imgp__grid { grid-template-columns: 1fr; }
+}
+.imgp__visual { display: grid; gap: 0.4rem; }
+.imgp__drop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 2px dashed var(--tim-border);
+  border-radius: 0.75rem;
+  background: var(--tim-surface);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.imgp__drop:hover,
+.imgp__drop.is-drag {
+  border-color: var(--tim-primary);
+  background: var(--tim-primary-light);
+}
+.imgp__drop.has-img { border-style: solid; background: var(--tim-white); }
+.imgp__drop.is-locked { cursor: default; }
+.imgp__drop.is-locked:hover { border-color: var(--tim-border); background: var(--tim-surface); }
+.imgp__drop img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border-radius: 0.6rem;
+}
+.imgp__change {
+  position: absolute;
+  right: 0.6rem;
+  bottom: 0.6rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.72);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.imgp__drop:hover .imgp__change { opacity: 1; }
+.imgp__placeholder {
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+  padding: 1rem;
+  text-align: center;
+}
+.imgp__placeholder strong { font-size: 0.92rem; }
+.imgp__placeholder small { color: var(--tim-muted); font-size: 0.78rem; }
+.imgp__icon {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  margin-bottom: 0.2rem;
+  border-radius: 999px;
+  background: var(--tim-white);
   border: 1px solid var(--tim-border);
+  color: var(--tim-primary);
+  font-size: 1.1rem;
 }
-.imgp__meta,
-.imgp__empty {
-  margin: 0.35rem 0 0;
+.imgp__meta {
+  margin: 0;
   color: var(--tim-muted);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
 }
+.imgp__meta.is-ok { color: var(--tim-green); }
 .imgp__issues {
-  margin: 0.25rem 0 0;
+  margin: 0;
   color: var(--tim-red);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 600;
 }
-.imgp__step {
-  display: grid;
-  gap: 0.5rem;
-  padding: 0.75rem 0.85rem;
+.imgp__side { display: grid; gap: 0.75rem; }
+.imgp__prompt-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
   border-radius: 0.6rem;
   background: var(--tim-surface);
 }
-.imgp__row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: flex-end;
-}
-.imgp__row label,
-.imgp__field {
-  display: grid;
-  flex: 1 1 12rem;
-  gap: 0.2rem;
-}
-.imgp__row span,
-.imgp__field span {
+.imgp__prompt-box > div:first-child { display: grid; gap: 0.1rem; min-width: 0; }
+.imgp__prompt-box strong { font-size: 0.85rem; }
+.imgp__prompt-box small { color: var(--tim-muted); font-size: 0.74rem; }
+.imgp__prompt-actions { display: flex; align-items: center; gap: 0.6rem; flex: none; }
+.imgp__link {
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--tim-muted);
-  font-size: 0.72rem;
+  font: inherit;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.imgp__field { display: grid; gap: 0.25rem; }
+.imgp__field span {
+  display: flex;
+  justify-content: space-between;
+  color: var(--tim-muted);
+  font-size: 0.74rem;
   font-weight: 600;
 }
-.imgp select,
-.imgp input:not([type="file"]) {
+.imgp__field em { font-style: normal; font-weight: 500; }
+.imgp__field em.is-ko { color: var(--tim-red); }
+.imgp textarea {
   width: 100%;
-  padding: 0.4rem 0.55rem;
+  padding: 0.5rem 0.6rem;
   border: 1px solid var(--tim-border);
-  border-radius: 0.45rem;
+  border-radius: 0.5rem;
   background: var(--tim-white);
   font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  resize: vertical;
 }
+.imgp textarea:disabled { opacity: 0.6; }
+.imgp__send {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.imgp__send small { color: var(--tim-muted); font-size: 0.76rem; }
+.imgp__send .cdx-btn { flex: none; white-space: nowrap; }
 .imgp__prompt {
   max-height: 260px;
   overflow: auto;
@@ -2980,3 +3064,261 @@
   font-size: 0.72rem;
   white-space: pre-wrap;
 }
+
+/* ─── Tableaux Articles et Fiches métier (19/11/2026) ───────────────────────
+   Un titre large sur deux lignes au plus, des colonnes chiffrées étroites et
+   centrées, des en-têtes sur une ligne, des lignes plus basses. */
+.collection-list--articles,
+.collection-list--job-sheets {
+  .table thead th {
+    white-space: nowrap;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--tim-muted, #6b7280);
+  }
+  .table tbody td {
+    height: 3rem;
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+  }
+  /* Le titre : large, deux lignes au plus (le titre complet s'ouvre dans le tiroir). */
+  .table th#heading-title,
+  .table td.cell-title {
+    min-width: 24rem;
+    width: 40%;
+  }
+  .table td.cell-title .cdr-open {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.35;
+  }
+  /* Les colonnes courtes : centrées, sans retour à la ligne. */
+  @each $f in status, scheduledAt, performance, scoreSeo, scoreGeo, scoreCoverage, gscClicks, gscPosition, publishedAt, rome, figuresUpdatedAt {
+    .table th#heading-#{$f},
+    .table td.cell-#{$f} {
+      text-align: center;
+      white-space: nowrap;
+      width: 1%;
+    }
+    .table th#heading-#{$f} .sort-column {
+      justify-content: center;
+    }
+  }
+  .table td.cell-gscClicks,
+  .table td.cell-gscPosition {
+    font-variant-numeric: tabular-nums;
+  }
+  /* La thématique : secondaire, en plus petit. */
+  .table td.cell-theme {
+    min-width: 11rem;
+    font-size: 0.85rem;
+    color: var(--tim-muted, #6b7280);
+  }
+}
+
+/* ─── Tiroir : l'étape en cours de l'article, et son bouton (19/11/2026) ─── */
+.cdx-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+  margin: 0.9rem 1.5rem 0;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid var(--tim-border);
+  border-left: 4px solid var(--tim-primary);
+  border-radius: 0.6rem;
+  background: var(--tim-white);
+}
+.cdx-step--image { border-left-color: var(--tim-purple); }
+.cdx-step--pret,
+.cdx-step--programme { border-left-color: var(--tim-teal); }
+.cdx-step--a-verifier { border-left-color: var(--tim-amber); }
+.cdx-step__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  flex: 1 1 24rem;
+}
+.cdx-step__text strong { font-size: 0.95rem; }
+.cdx-step__text span { color: var(--tim-muted); font-size: 0.85rem; line-height: 1.45; }
+.cdx-btn--validate {
+  border-color: var(--tim-green);
+  background: var(--tim-green);
+  color: #fff;
+  font-weight: 600;
+}
+.cdx-btn--validate:hover:not(:disabled) { filter: brightness(0.95); }
+.cdx-btn--validate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ─── Tiroir : l'encadré « À faire » en haut (19/11/2026) ───────────────────
+   Tout ce que la direction doit faire, au même endroit : relecteur, image,
+   bouton de l'étape, et ce qui manque si elle clique trop tôt. */
+.todo {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.9rem 1.5rem 0;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--tim-border);
+  border-left: 4px solid var(--tim-primary);
+  border-radius: 0.7rem;
+  background: var(--tim-white);
+}
+.todo--image { border-left-color: var(--tim-purple); }
+.todo--programme,
+.todo--pret { border-left-color: var(--tim-teal); }
+.todo--publie,
+.todo--a-rafraichir { border-left-color: var(--tim-green); }
+.todo--a-verifier { border-left-color: var(--tim-amber); }
+.todo__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.25rem;
+}
+.todo__head > div:first-child {
+  display: grid;
+  gap: 0.2rem;
+  flex: 1 1 24rem;
+  min-width: 0;
+}
+.todo__head strong { font-size: 1rem; }
+.todo__head span { color: var(--tim-muted); font-size: 0.85rem; line-height: 1.45; }
+.todo__cta { display: flex; gap: 0.5rem; flex: none; }
+.todo__list {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.todo__list li {
+  display: grid;
+  grid-template-columns: 1.6rem 6.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.5rem;
+  background: var(--tim-surface);
+  font-size: 0.86rem;
+}
+.todo__mark {
+  display: grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--tim-border);
+  color: var(--tim-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.todo__list li.is-ok .todo__mark { border-color: var(--tim-green); background: var(--tim-green); color: #fff; }
+.todo__list li.is-ko .todo__mark { border-color: var(--tim-red); background: var(--tim-red); color: #fff; }
+.todo__list li.is-todo .todo__mark { border-color: var(--tim-primary); color: var(--tim-primary); }
+.todo__label { font-weight: 600; }
+.todo__value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  color: var(--tim-foreground);
+}
+.todo__list li.is-ko .todo__value { color: var(--tim-red); }
+.todo__value select {
+  min-width: 14rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--tim-border);
+  border-radius: 0.45rem;
+  background: var(--tim-white);
+  font: inherit;
+}
+.todo__thumb {
+  width: 4.8rem;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 0.3rem;
+  border: 1px solid var(--tim-border);
+}
+.todo__image {
+  padding: 0.9rem;
+  border: 1px dashed var(--tim-border);
+  border-radius: 0.6rem;
+}
+.todo__errors {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.5rem;
+  background: var(--tim-red-bg);
+  color: var(--tim-red);
+  font-size: 0.86rem;
+}
+.todo__errors ul { margin: 0; padding-left: 1.1rem; }
+.todo__errors .imgp__link { justify-self: start; color: var(--tim-red); }
+.cdx-hero {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 0.6rem;
+  border: 1px solid var(--tim-border);
+}
+.art-decision__hint {
+  margin: 0;
+  color: var(--tim-muted);
+  font-size: 0.85rem;
+}
+
+.art-scheduled {
+  color: var(--tim-foreground);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+
+/* Vignette de l'image principale dans le tableau des articles (19/11/2026). */
+.collection-list--articles .table th#heading-featuredImageUrl,
+.collection-list--articles .table td.cell-featuredImageUrl {
+  width: 1%;
+  padding-right: 0;
+}
+.art-thumb {
+  display: block;
+  width: 6.4rem;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 0.35rem;
+  border: 1px solid var(--tim-border);
+  background: var(--tim-surface);
+}
+.art-thumb--empty {
+  display: grid;
+  place-items: center;
+  color: var(--tim-muted);
+  font-size: 0.68rem;
+  border-style: dashed;
+}
+
+/* Le diagnostic de performance dans l'encadré du tiroir (19/11/2026). */
+.todo__value--stack { flex-direction: column; align-items: flex-start; gap: 0.15rem; }
+.todo__action { color: var(--tim-foreground); font-weight: 600; }
+.todo__list li.todo__perf { align-items: start; }
+.todo__list li.todo__perf.is-performe .todo__mark { border-color: var(--tim-green); background: var(--tim-green); color: #fff; }
+.todo__list li.todo__perf.is-moyen .todo__mark { border-color: var(--tim-amber); background: var(--tim-amber); color: #fff; }
+.todo__list li.todo__perf.is-a-ameliorer .todo__mark { border-color: var(--tim-red); background: var(--tim-red); color: #fff; }
+.todo__list li.todo__perf.is-a-ameliorer strong { color: var(--tim-red); }
+.todo__list li.todo__perf.is-moyen strong { color: var(--tim-amber); }
+.todo__list li.todo__perf.is-performe strong { color: var(--tim-green); }
+
+.todo__verdict { font-weight: 700; }
+.todo__verdict.is-mieux { color: var(--tim-green); }
+.todo__verdict.is-moins-bien { color: var(--tim-red); }
+.todo__verdict.is-stable, .todo__verdict.is-attente, .todo__verdict.is-annulee { color: var(--tim-muted); }

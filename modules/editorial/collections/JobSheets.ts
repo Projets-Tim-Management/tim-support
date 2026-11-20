@@ -114,12 +114,12 @@ export const JobSheets: CollectionConfig = {
     { name: "rome", type: "text", label: "Code ROME", index: true, admin: { position: "sidebar" } },
     { name: "figuresUpdatedAt", type: "date", label: "Chiffres France Travail du", index: true, admin: { position: "sidebar", readOnly: true, description: "Rafraîchis une fois par an, à cette date anniversaire.", date: { displayFormat: "dd/MM/yyyy" } } },
     // La note SEO / GEO (19/11/2026) : critères de la version en vigueur des règles, mesurés par le code.
-    { name: "scoreSeo", type: "number", label: "Note SEO (%)", index: true, admin: { position: "sidebar", readOnly: true, components: { Cell: "/modules/editorial/admin/ScoreCell#ScoreCell" } } },
-    { name: "scoreGeo", type: "number", label: "Note GEO (%)", index: true, admin: { position: "sidebar", readOnly: true, components: { Cell: "/modules/editorial/admin/ScoreCell#ScoreCell" } } },
+    { name: "scoreSeo", type: "number", label: "SEO", index: true, admin: { position: "sidebar", readOnly: true, components: { Cell: "/modules/editorial/admin/ScoreCell#ScoreCell" } } },
+    { name: "scoreGeo", type: "number", label: "GEO", index: true, admin: { position: "sidebar", readOnly: true, components: { Cell: "/modules/editorial/admin/ScoreCell#ScoreCell" } } },
     { name: "scoreRulesVersion", type: "number", label: "Note selon les règles v.", admin: { position: "sidebar", readOnly: true } },
     { name: "scoredAt", type: "date", admin: { hidden: true } },
     { name: "scoreDetail", type: "json", admin: { hidden: true } },
-    { name: "scoreCoverage", type: "number", label: "Couverture concurrents (%)", index: true, admin: { position: "sidebar", readOnly: true, description: "Ressemblance au top 10 de Google sur la requête (termes, questions). Pas une prévision de classement.", components: { Cell: "/modules/editorial/admin/ScoreCell#ScoreCell" } } },
+    { name: "scoreCoverage", type: "number", label: "Couverture", index: true, admin: { position: "sidebar", readOnly: true, description: "Ressemblance au top 10 de Google sur la requête (termes, questions). Pas une prévision de classement.", components: { Cell: "/modules/editorial/admin/ScoreCell#ScoreCell" } } },
     { name: "coverageTarget", type: "number", label: "Cible de couverture (%)", admin: { position: "sidebar", readOnly: true, description: "Médiane des concurrents + 10 points." } },
     { name: "competitorsAt", type: "date", label: "Concurrents relevés le", index: true, admin: { position: "sidebar", readOnly: true } },
     // Le comparateur, pour la note v3 (19/11/2026) : statut, fourchette de longueur du top 10, entités citées, termes en excès.
@@ -159,9 +159,9 @@ export const JobSheets: CollectionConfig = {
             {
               type: "row",
               fields: [
-                { name: "gscClicks", type: "number", label: "Clics Google (16 mois)", index: true, admin: ro },
+                { name: "gscClicks", type: "number", label: "Clics Google", index: true, admin: { ...ro, description: "Sur les 16 mois que garde Google." } },
                 { name: "gscImpressions", type: "number", label: "Impressions (16 mois)", admin: ro },
-                { name: "gscPosition", type: "number", label: "Position moyenne (3 mois)", admin: ro },
+                { name: "gscPosition", type: "number", label: "Position", admin: ro },
               ],
             },
             {

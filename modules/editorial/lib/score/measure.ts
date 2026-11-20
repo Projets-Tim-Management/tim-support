@@ -1,4 +1,5 @@
 import { checkBrand, checkCapsules, checkHeadings, checkPolicy, checkTldr, getH2s, internalLinks, keywordPresent, norm, splitSentences, stripTags, wordCount, type Article } from "@/modules/editorial/lib/articles/check";
+import { reviewerName } from "@/modules/editorial/lib/articles/from-wp";
 import type { ContentKind, Criterion } from "@/modules/editorial/lib/score/criteria";
 
 /**
@@ -197,8 +198,8 @@ export const MEASURES: Record<string, (i: ScoreInput, c: Criterion) => Measured>
     return graded(n / min, `${n} phrase(s) attribuée(s) à une source (cible ${min}).`, "Attribuer les faits à leur source (« selon l'URSSAF… »).");
   },
   "GEO-08": (i) => {
-    const m = (i.article.methode ?? {}) as { relu_par?: string };
-    return m.relu_par ? { state: "rempli", value: 1, detail: `Relu par ${m.relu_par}.` } : missing(i, "« Relu par » vide", "rempli à « Valider le texte »", "Valider le texte : « relu par » se remplit à ce moment.");
+    const who = reviewerName(((i.article.methode ?? {}) as { relu_par?: unknown }).relu_par);
+    return who ? { state: "rempli", value: 1, detail: `Relu par ${who}.` } : missing(i, "« Relu par » vide", "rempli à « Valider le texte »", "Valider le texte : « relu par » se remplit à ce moment.");
   },
   "GEO-09": (i, c) => {
     const s = compState(i);

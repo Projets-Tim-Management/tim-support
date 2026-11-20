@@ -68,6 +68,9 @@ import { FeatureJsonMenu as FeatureJsonMenu_93f888e6d67e320ea8122b4b161a7229 } f
 import { default as default_7e85f5cff101ba7e7585712dd2365fa1 } from '../../../modules/editorial/admin/ParcoursListView'
 import { ArticleDecision as ArticleDecision_099286c210f6d5e6361723167837c9c8 } from '../../../modules/editorial/admin/ArticleDecision'
 import { ArticleStatusCell as ArticleStatusCell_d73e5ece65a5678fa3098fd006ac1ec5 } from '../../../modules/editorial/admin/ArticleStatusCell'
+import { ScheduledCell as ScheduledCell_d936d5e9600a59cd5e0c5035ac36d0d7 } from '../../../modules/editorial/admin/ScheduledCell'
+import { ThumbCell as ThumbCell_a08b6481b4eb1b5220daf5028ed75ab4 } from '../../../modules/editorial/admin/ThumbCell'
+import { PerfCell as PerfCell_4b66c6cd436d8bdcfd57738c31a7c66d } from '../../../modules/editorial/admin/PerfCell'
 import { ScoreCell as ScoreCell_23eb1512c0119ac220b775c44215dc1f } from '../../../modules/editorial/admin/ScoreCell'
 import { TitleDrawerCell as TitleDrawerCell_26bd8977196ebac1907690b44f663b71 } from '../../../modules/editorial/admin/TitleDrawerCell'
 import { ArticleContentPreview as ArticleContentPreview_6ebca30e8c56e26f5b12cc7ffa309ba4 } from '../../../modules/editorial/admin/ArticleContentPreview'
@@ -271,6 +274,9 @@ export const importMap = {
   "/modules/editorial/admin/ParcoursListView#default": default_7e85f5cff101ba7e7585712dd2365fa1,
   "/modules/editorial/admin/ArticleDecision#ArticleDecision": ArticleDecision_099286c210f6d5e6361723167837c9c8,
   "/modules/editorial/admin/ArticleStatusCell#ArticleStatusCell": ArticleStatusCell_d73e5ece65a5678fa3098fd006ac1ec5,
+  "/modules/editorial/admin/ScheduledCell#ScheduledCell": ScheduledCell_d936d5e9600a59cd5e0c5035ac36d0d7,
+  "/modules/editorial/admin/ThumbCell#ThumbCell": ThumbCell_a08b6481b4eb1b5220daf5028ed75ab4,
+  "/modules/editorial/admin/PerfCell#PerfCell": PerfCell_4b66c6cd436d8bdcfd57738c31a7c66d,
   "/modules/editorial/admin/ScoreCell#ScoreCell": ScoreCell_23eb1512c0119ac220b775c44215dc1f,
   "/modules/editorial/admin/TitleDrawerCell#TitleDrawerCell": TitleDrawerCell_26bd8977196ebac1907690b44f663b71,
   "/modules/editorial/admin/ArticleContentPreview#ArticleContentPreview": ArticleContentPreview_6ebca30e8c56e26f5b12cc7ffa309ba4,

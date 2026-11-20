@@ -1,6 +1,9 @@
 import type { Payload } from "payload";
 
 import { loadRecentPublications } from "@/modules/editorial/lib/articles/after-publish";
+import { changesSummary } from "@/modules/editorial/lib/articles/changes";
+import { diagnose, PERF_LABEL, type SerpContext } from "@/modules/editorial/lib/articles/performance";
+import { loadSerpContexts, serpOfArticle } from "@/modules/editorial/lib/articles/performance-data";
 import { articleStatusMeta, ARTICLE_STATUSES } from "@/modules/editorial/lib/articles/statuses";
 
 /**
@@ -50,7 +53,7 @@ function notesOf(online: Raw[]) {
   };
 }
 
-export function buildArticleInsights(articles: Raw[], now: Date) {
+export function buildArticleInsights(articles: Raw[], now: Date, serp: Map<string, SerpContext> = new Map()) {
   const byStatus = Object.fromEntries(ARTICLE_STATUSES.map((s) => [s.label, articles.filter((a) => a.status === s.value).length]));
   const online = articles.filter((a) => a.status === "publie" || a.status === "a-rafraichir");
   const themes = new Map<string, { enLigne: number; enPreparation: number }>();
@@ -91,6 +94,20 @@ export function buildArticleInsights(articles: Raw[], now: Date) {
       .sort((a, b) => Number(b.gscClicks28Prev) - Number(b.gscClicks28 ?? 0) - (Number(a.gscClicks28Prev) - Number(a.gscClicks28 ?? 0)))
       .slice(0, 10)
       .map((a) => ({ titre: a.title, clics28j: Number(a.gscClicks28 ?? 0), clics28jAvant: Number(a.gscClicks28Prev), position: a.gscPosition ?? null })),
+    // Le diagnostic de performance (19/11/2026) : combien performent, et ce qu'il faut améliorer.
+    performance: (() => {
+      const diags = online.map((a) => ({ a, d: diagnose(a, now, serpOfArticle(serp, a)) }));
+      const count = Object.fromEntries(Object.values(PERF_LABEL).map((l) => [l, diags.filter((x) => x.d.label === l).length]));
+      const pick = (v: string) =>
+        diags
+          .filter((x) => x.d.verdict === v)
+          .sort((x, y) => Number(y.a.gscImpressions ?? 0) - Number(x.a.gscImpressions ?? 0))
+          .slice(0, 10)
+          .map((x) => ({ titre: x.a.title, pourquoi: x.d.why, quoiFaire: x.d.action }));
+      return { lecture: "Verdict calculé sur les chiffres Search Console et GA4 du lundi (pas un avis d'IA).", parVerdict: count, aAmeliorer: pick("a-ameliorer"), moyens: pick("moyen") };
+    })(),
+    // Ce qu'ont donné les modifications des articles en ligne, 4 semaines après (19/11/2026).
+    modificationsJugees: changesSummary(online),
     // La note SEO / GEO de conformité aux règles en vigueur (19/11/2026) : où l'équipe doit agir.
     notesSeoGeo: notesOf(online),
     dernieresPublications: [...online]
@@ -108,7 +125,7 @@ export async function loadArticleInsights(payload: Payload, now = new Date()): P
       pagination: false,
       depth: 1,
       overrideAccess: true,
-      select: { title: true, status: true, theme: true, notes: true, deadlines: true, hasTldr: true, sourcesCount: true, publishedAt: true, wpLink: true, ideaWhy: true, refreshState: true, refreshReason: true, refreshWhy: true, gscClicks: true, gscClicks28: true, gscClicks28Prev: true, gscPosition: true, ga4Sessions: true, ga4AiSessions: true, scoreSeo: true, scoreGeo: true, scoreDetail: true, scoreCoverage: true, coverageTarget: true } as never,
+      select: { title: true, keyword: true, status: true, changesLog: true, gscQueries: true, theme: true, notes: true, deadlines: true, hasTldr: true, sourcesCount: true, publishedAt: true, wpLink: true, ideaWhy: true, refreshState: true, refreshReason: true, refreshWhy: true, gscClicks: true, gscImpressions: true, gscClicks28: true, gscClicks28Prev: true, gscPosition: true, ga4Sessions: true, ga4AiSessions: true, scoreSeo: true, scoreGeo: true, scoreDetail: true, scoreCoverage: true, coverageTarget: true } as never,
     })
     .catch(() => null);
   const docs = (r?.docs ?? []) as unknown as Raw[];
@@ -120,5 +137,6 @@ export async function loadArticleInsights(payload: Payload, now = new Date()): P
     .catch(() => []);
   // Les publications des 30 derniers jours (lien, script vidéo, visuels, bilan) : Cléo les diffuse (étape 7).
   const nouvellesPublications = await loadRecentPublications(payload, now).catch(() => []);
-  return { ...buildArticleInsights(docs, now), recommandationsDeReglesEnAttente: recos, nouvellesPublications };
+  const serp = await loadSerpContexts(payload).catch(() => new Map<string, SerpContext>());
+  return { ...buildArticleInsights(docs, now, serp), recommandationsDeReglesEnAttente: recos, nouvellesPublications };
 }

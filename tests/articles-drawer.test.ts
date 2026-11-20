@@ -16,6 +16,14 @@ describe("éditeur HTML du tiroir", () => {
   it("transforme les div en paragraphes et supprime les paragraphes vides", () => {
     expect(cleanEditorHtml("<div>Un</div><p><br></p><div>Deux&nbsp;mots</div>")).toBe("<p>Un</p><p>Deux mots</p>");
   });
+  it("un <div style> ajouté par le navigateur devient un paragraphe", () => {
+    expect(cleanEditorHtml('<div style="color:red">Texte</div>')).toBe("<p>Texte</p>");
+  });
+  it("garde l'encadré « Points clés » (div à classe) et sa fermeture", () => {
+    const tldr = '<div class="tldr-box"><p>Points clés :</p><ul><li>a</li></ul></div><p>Suite</p>';
+    expect(cleanEditorHtml(tldr)).toBe(tldr);
+    expect(cleanEditorHtml('<div class="tldr-box"><ul><li>a</li></ul><div>tapé</div></div>')).toBe('<div class="tldr-box"><ul><li>a</li></ul><p>tapé</p></div>');
+  });
   it("laisse intacts titres, listes, liens et tableaux", () => {
     const html = '<h2>Titre ?</h2><ul><li>a</li></ul><a href="/pointage">lien</a><table><tr><td>1</td></tr></table>';
     expect(cleanEditorHtml(html)).toBe(html);

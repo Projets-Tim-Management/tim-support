@@ -35,12 +35,16 @@ describe("écriture dans WordPress", () => {
       { keyword: "heures supplémentaires btp", themeNumber: 2, reviewedOn: "2026-11-24" },
     );
     expect(p).toMatchObject({ status: "draft", author: 1, slug: "heures-supplementaires-btp", categories: [62], seo_meta: { title: "Heures sup BTP", metadesc: "Tout savoir", focuskw: "heures supplémentaires btp" } });
-    expect(p.acf.methode).toMatchObject({ assistance_ia: true, relu_par: "Charlie Piancatelli", relu_le: "2026-11-24" });
+    expect(p.acf.methode).toMatchObject({ assistance_ia: true, relu_par: 1, relu_le: "2026-11-24" });
     expect(p.acf.date_mise_a_jour).toBe("");
   });
   it("relecture après écriture : le texte compte, pas les espaces ni les entités", () => {
     expect(sameContent({ introduction: "<p>Délai d’un an</p>" }, { introduction: "<p>Délai d&rsquo;un  an</p>\n" })).toEqual([]);
     expect(sameContent({ introduction: "<p>Un an</p>" }, { introduction: "<p>Cinq ans</p>" })).toEqual(["introduction"]);
+    // WordPress met les apostrophes en typographiques et ajoute `acf_fc_layout` aux sections (19/11/2026).
+    expect(sameContent({ introduction: "<p>selon l'INRS</p>" }, { introduction: "<p>selon l’INRS</p>" })).toEqual([]);
+    expect(sameContent({ contenu: [{ texte: "<h2>A</h2><p>B</p>" }], faq: [{ text: "R", titre: "Q ?" }] }, { contenu: [{ acf_fc_layout: "texte", texte: "<h2>A</h2><p>B</p>" }], faq: [{ titre: "Q ?", text: "R" }] })).toEqual([]);
+    expect(sameContent({ contenu: [{ texte: "<p>B</p>" }] }, { contenu: [{ acf_fc_layout: "texte", texte: "<p>C</p>" }] })).toEqual(["contenu"]);
   });
   it("synchronisation : un article programmé reste programmé tant qu'il est brouillon dans WordPress", () => {
     expect(statusFromWordPress("programme", "draft")).toBe("programme");
