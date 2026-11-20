@@ -733,9 +733,16 @@ export default buildConfig({
     migrationDir: path.resolve(dirname, "migrations"),
     push: false,
     pool: {
-      connectionString: process.env.DATABASE_URL || "",
+      // À l'EXÉCUTION (fonctions Vercel), le pooler Supabase en mode TRANSACTION (port 6543) si
+      // `DATABASE_POOL_URL` est posée : une connexion n'y est tenue que le temps d'une requête.
+      // En mode session (5432), des dizaines de fonctions démarrées ensemble (déploiement, crons)
+      // dépassaient la limite de 200 clients du pooler (« EMAXCONN », 20/11/2026, 8 h 23-8 h 25).
+      // Le BUILD et les migrations (scripts/db-migrate.mjs, qui lit DATABASE_URL) restent en
+      // session. Sans la variable, rien ne change.
+      connectionString:
+        (process.env.NEXT_PHASE !== "phase-production-build" && process.env.DATABASE_POOL_URL) || process.env.DATABASE_URL || "",
       // Supabase impose TLS ; on tolère le certificat du pooler.
-      ssl: process.env.DATABASE_URL?.includes("supabase")
+      ssl: (process.env.DATABASE_POOL_URL || process.env.DATABASE_URL)?.includes("supabase")
         ? { rejectUnauthorized: false }
         : undefined,
       // Le session pooler Supabase plafonne à 15 clients : on garde une petite
