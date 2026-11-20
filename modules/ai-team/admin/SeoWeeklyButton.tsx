@@ -2,7 +2,7 @@
 
 import { RunNowButton } from "@/modules/ai-team/admin/RunNowButton";
 
-/** « Préparer mes objectifs maintenant » : la revue de Serge, sans attendre lundi (deux à quatre minutes). */
+/** « Préparer mes objectifs maintenant » : la revue de Sergey, sans attendre lundi (deux à quatre minutes). */
 export function SeoWeeklyButton({ name }: { name: string }) {
   return (
     <RunNowButton<{ objectives?: number; booked?: number }>

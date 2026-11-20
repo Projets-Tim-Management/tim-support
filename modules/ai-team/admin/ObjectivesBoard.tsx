@@ -1,7 +1,7 @@
 import { taskHref } from "@/modules/ai-team/lib/my-tasks-shared";
 
 /**
- * LES OBJECTIFS DE LA SEMAINE de la direction, sur la fiche de Serge : où en
+ * LES OBJECTIFS DE LA SEMAINE de la direction, sur la fiche de Sergey : où en
  * est chacun (fait ou à faire, étapes faites), son échéance et ses créneaux.
  * Lecture seule (16/11/2026 : « je ne veux pas cocher à un autre endroit ») :
  * les étapes, les prompts et la case se trouvent dans « Mes tâches ».

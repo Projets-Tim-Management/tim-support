@@ -20,13 +20,13 @@ import { recordAdsUsage } from "@/modules/ads/lib/spend";
  * échange est gardé ; un sous-agent ou un chef en pause ne répond pas.
  */
 
-const MARGAUX = { id: 1, key: "chef-sea", name: "Margaux", jobTitle: "Cheffe de la publicité payante (SEA)", level: "chef", active: true, personality: "Directe et chiffrée." };
+const MARK = { id: 1, key: "chef-sea", name: "Mark", jobTitle: "Cheffe de la publicité payante (SEA)", level: "chef", active: true, personality: "Directe et chiffrée." };
 
 function fakePayload(over: { member?: Record<string, unknown> | null; past?: unknown[] } = {}) {
   const created: { collection: string; data: Record<string, unknown> }[] = [];
   const payload = {
     find: vi.fn(async ({ collection, where }: { collection: string; where?: Record<string, unknown> }) => {
-      if (collection === "ai-team-members" && where && "key" in where) return { docs: over.member === null ? [] : [over.member ?? MARGAUX] };
+      if (collection === "ai-team-members" && where && "key" in where) return { docs: over.member === null ? [] : [over.member ?? MARK] };
       if (collection === "ai-team-members") return { docs: [{ id: 2, name: "Léa", jobTitle: "Rédactrice", level: "sous-agent", active: false, engineRoles: ["redacteur"] }] };
       if (collection === "ai-team-messages") return { docs: over.past ?? [] };
       if (collection === "ad-campaigns") return { docs: [{ id: 7, name: "Campagne test", status: "active", publicationStatus: "active" }] };
@@ -51,8 +51,8 @@ beforeEach(() => vi.mocked(recordAdsUsage).mockClear());
 
 describe("la consigne du chef", () => {
   it("dit qui il est, son équipe (et qui est en pause), comment parler, et qu'il n'agit pas d'ici", () => {
-    const s = chiefSystem(MARGAUX, [{ name: "Léa", jobTitle: "Rédactrice", active: false }]);
-    expect(s).toContain("Tu es Margaux, cheffe de la publicité payante (sea)");
+    const s = chiefSystem(MARK, [{ name: "Léa", jobTitle: "Rédactrice", active: false }]);
+    expect(s).toContain("Tu es Mark, cheffe de la publicité payante (sea)");
     expect(s).toContain("Léa (rédactrice, en pause)");
     expect(s).toContain("Directe et chiffrée.");
     expect(s).toMatch(/vouvoyant la direction/);
@@ -87,7 +87,7 @@ describe("écrire à un chef", () => {
       ["ai-team-messages", "direction"],
       ["ai-team-messages", "agent"],
     ]);
-    expect(recordAdsUsage).toHaveBeenCalledWith(payload, expect.objectContaining({ kind: "agent", detail: "conversation avec Margaux" }));
+    expect(recordAdsUsage).toHaveBeenCalledWith(payload, expect.objectContaining({ kind: "agent", detail: "conversation avec Mark" }));
     // Les données jointes : les créas en attente, les campagnes, l'équipe, les chiffres en ligne.
     const sent = JSON.stringify(model.mock.calls[0]);
     expect(sent).toContain("creasQuiAttendentLaDirection");
@@ -101,8 +101,8 @@ describe("écrire à un chef", () => {
   });
 
   it("refuse un sous-agent, un chef en pause et un message vide", async () => {
-    await expect(askChief(fakePayload({ member: { ...MARGAUX, level: "sous-agent" } }).payload, { memberKey: "sea-redacteur", text: "Salut", userId: 9 }, { model: answer("x") })).rejects.toThrow(ChatError);
-    await expect(askChief(fakePayload({ member: { ...MARGAUX, active: false } }).payload, { memberKey: "chef-sea", text: "Salut", userId: 9 }, { model: answer("x") })).rejects.toThrow(/en pause/);
+    await expect(askChief(fakePayload({ member: { ...MARK, level: "sous-agent" } }).payload, { memberKey: "sea-redacteur", text: "Salut", userId: 9 }, { model: answer("x") })).rejects.toThrow(ChatError);
+    await expect(askChief(fakePayload({ member: { ...MARK, active: false } }).payload, { memberKey: "chef-sea", text: "Salut", userId: 9 }, { model: answer("x") })).rejects.toThrow(/en pause/);
     await expect(askChief(fakePayload().payload, { memberKey: "chef-sea", text: "   ", userId: 9 }, { model: answer("x") })).rejects.toThrow(/Écrivez/);
   });
 

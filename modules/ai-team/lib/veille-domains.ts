@@ -28,7 +28,7 @@ export const teamOfKey = (key: string): TeamKey => VEILLE_DOMAINS[key]?.team ?? 
 export const spendKindOf = (team: TeamKey): OfficeSpend => OFFICES[team].spend;
 
 export type VeilleDomain = {
-  /** L'équipe : SEA (publicité payante, Margaux), SEO (visibilité gratuite, Serge) ou commerciale (le revenu, Élise). */
+  /** L'équipe : SEA (publicité payante, Mark), SEO (visibilité gratuite, Sergey) ou commerciale (le revenu, Jordan). */
   team: TeamKey;
   channel: "google" | "chatgpt" | "meta" | null;
   title: string;
@@ -356,7 +356,7 @@ VEILLE_DOMAINS["seo-conversion"] = {
 };
 
 export const VEILLE_KEYS = Object.keys(VEILLE_DOMAINS);
-/** La veille de l'équipe de Margaux (sa revue, sa conversation) et celle de l'équipe de Serge. */
+/** La veille de l'équipe de Mark (sa revue, sa conversation) et celle de l'équipe de Sergey. */
 export const SEA_VEILLE_KEYS = VEILLE_KEYS.filter((k) => VEILLE_DOMAINS[k].team === "sea");
 export const SEO_VEILLE_KEYS = VEILLE_KEYS.filter((k) => VEILLE_DOMAINS[k].team === "seo");
 export const COM_VEILLE_KEYS = VEILLE_KEYS.filter((k) => VEILLE_DOMAINS[k].team === "com");

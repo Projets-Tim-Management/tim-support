@@ -12,7 +12,7 @@ import { loadOpenAiAds } from "@/modules/analytics/lib/openai-ads";
  * La PHOTO DE LA SEMAINE et les TENDANCES qu'on en tire (B2 de
  * l'apprentissage, 12/11/2026). Voir collections/AiTeamSnapshots.
  *
- * Prise le lundi à partir de 7 h (Paris), avant la revue de Margaux, et au
+ * Prise le lundi à partir de 7 h (Paris), avant la revue de Mark, et au
  * plus tard par la revue elle-même si le rythme l'a manquée. Une par semaine
  * (la semaine est unique en base : deux prises simultanées n'en font qu'une).
  */
@@ -128,7 +128,7 @@ export function channelTrend(snaps: Snapshot[], key: string): string | null {
   return move(series, "Le coût par lead qualifié", 4, 15);
 }
 
-/** Toutes les tendances, par canal, pour Margaux et pour la veille. Pure. */
+/** Toutes les tendances, par canal, pour Mark et pour la veille. Pure. */
 export function allTrends(snaps: Snapshot[]): Record<string, string[]> {
   const keys = [...new Set(snaps.flatMap((s) => s.channels.map((c) => c.key)))];
   const out: Record<string, string[]> = {};

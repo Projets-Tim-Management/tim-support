@@ -8,7 +8,7 @@ import { Portrait } from "@/modules/ai-team/lib/portraits";
  * La conversation avec un chef de l'équipe IA, sur sa fiche (Équipe IA).
  *
  * Une messagerie : la direction à droite, le chef à gauche avec son visage,
- * « Margaux écrit… » pendant qu'elle répond. Au départ, trois questions toutes
+ * « Mark écrit… » pendant qu'il répond. Au départ, trois questions toutes
  * faites pour lancer la discussion. Les échanges sont gardés côté serveur
  * (ai-team-messages) : la page les relit à chaque visite.
  */

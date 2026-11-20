@@ -37,7 +37,7 @@ export const AiTeamRequests: CollectionConfig = {
     { name: "run", type: "relationship", relationTo: "ad-agent-runs", label: "Passage" },
     { name: "campaign", type: "relationship", relationTo: "ad-campaigns", label: "Campagne" },
     // Le suivi d'une recommandation (B2 de l'apprentissage) : d'où elle vient, sur quel canal, les chiffres
-    // au moment où elle a été faite, et ce qu'elle a donné — le verdict que Margaux rend quelques semaines après.
+    // au moment où elle a été faite, et ce qu'elle a donné — le verdict que Mark rend quelques semaines après.
     {
       type: "row",
       fields: [

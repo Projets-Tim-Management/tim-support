@@ -106,7 +106,7 @@ export function buildTeamSpend(input: {
 }): TeamSpend {
   const from = parisMonthStart(input.now);
   const inMonth = (iso: unknown) => Date.parse(String(iso ?? "")) >= from;
-  // Le budget IA « agents » est celui de l'équipe SEA : Serge (SEO/GEO) a le sien, compté à part.
+  // Le budget IA « agents » est celui de l'équipe SEA : Sergey (SEO/GEO) a le sien, compté à part.
   const sea = input.members.filter((m) => m.domain !== "seo");
   const chief = sea.find((m) => m.key === "chef-sea") ?? sea.find((m) => m.level === "chef") ?? null;
 

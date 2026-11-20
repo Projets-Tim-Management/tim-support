@@ -17,7 +17,7 @@ import { NO_LEGWORK } from "@/modules/ai-team/lib/requests";
 import { loadBookingInsights } from "@/modules/booking/lib/insights";
 
 /**
- * NATHAN, RESPONSABLE PIPELINE & RELANCES (14/11/2026 ; bureau commercial d'Élise
+ * NATHAN, RESPONSABLE PIPELINE & RELANCES (14/11/2026 ; bureau commercial de Jordan
  * depuis le 15/11) — « le MRR
  * va se jouer sur les leads déjà en discussion dans le pipe ».
  *
@@ -309,7 +309,7 @@ export function parsePipeline(text: string, known: Set<string>): { summary: stri
 
 const SYSTEM = (name: string) =>
   [
-    `Tu es ${name}, responsable du pipeline et des relances de TIM Management, éditeur d'un logiciel de gestion pour les entreprises du BTP, vendu en France sur démo (lead → qualification → démo → essai → signature). Tu es un agent IA ; tu rends compte à Élise, directrice commerciale & revenu : tu lui remets tes gestes, elle choisit chaque jour ceux qui vont à la direction (qui appelle et écrit elle-même). Un geste vraiment urgent (lead sans réponse, essai fini sans décision, résiliation annoncée) part directement.`,
+    `Tu es ${name}, responsable du pipeline et des relances de TIM Management, éditeur d'un logiciel de gestion pour les entreprises du BTP, vendu en France sur démo (lead → qualification → démo → essai → signature). Tu es un agent IA ; tu rends compte à Jordan, directeur commercial & revenu : tu lui remets tes gestes, elle choisit chaque jour ceux qui vont à la direction (qui appelle et écrit elle-même). Un geste vraiment urgent (lead sans réponse, essai fini sans décision, résiliation annoncée) part directement.`,
     "Chaque lundi, tu lis l'état du pipeline (calculé pour toi : pipeline) et tu choisis AU PLUS 5 actions, les plus rentables d'abord — un lead sans réponse depuis plus d'une heure ouvrée passe devant tout, puis les affaires proches de la signature qui stagnent, puis les affaires sans prochaine étape. Les essais en cours (« En phase de test ») sont suivis par Jade, responsable des essais : ne les prends pas, sauf un lead sans réponse.",
     "Ce qui marche, et ce que tu fais :",
     "- Une affaire perdue l'est le plus souvent par INDÉCISION (peur de se tromper : adoption par les équipes, reprise des données, temps à y passer), pas au profit d'un concurrent. Rassure par du concret (reprise des données faite par TIM, prise en main accompagnée, engagement mensuel) et recommande fermement une décision ; jamais d'urgence inventée, jamais de fausse remise.",
@@ -329,7 +329,7 @@ const SYSTEM = (name: string) =>
 
 /**
  * LE DÉROULÉ COMMUN du bureau commercial (Nathan, Jade, Malo) : les faits calculés, le modèle qui choisit au plus 5
- * gestes (format commun, parsePipeline). Les gestes vont à ÉLISE, qui les trie chaque jour et ne remonte à la
+ * gestes (format commun, parsePipeline). Les gestes vont à JORDAN, qui les trie chaque jour et ne remonte à la
  * direction que ce qui en vaut la peine (lib/com-triage, 16/11/2026 : « on fonctionne comme une entreprise »). Seul
  * l'URGENT passe directement chez la direction — et c'est le code qui le dit, pas le modèle (`urgent` : les fiches
  * concernées). `load` rend les données et les fiches connues (id → lien) : un geste sur une fiche inconnue est écarté.
@@ -380,7 +380,7 @@ export async function runActionsReport<M>(
     detail: o.detail,
     call: o.call,
   });
-  // L'urgent seulement, directement à la direction ; le reste attend le tri d'Élise (il est dans le rapport).
+  // L'urgent seulement, directement à la direction ; le reste attend le tri de Jordan (il est dans le rapport).
   const urgentOnes = parsed.filter((f) => urgent.has(f.client)).map((f) => ({ ...f, title: `🔴 Urgent — ${f.title}`, why: `${urgent.get(f.client)}. ${f.why}` }));
   if (result.status === "fait" && urgentOnes.length) await fileActions(payload, o.memberKey, urgentOnes, links, o.now).catch((e) => payload.logger.warn(`[équipe IA] ${o.kind} : ${e instanceof Error ? e.message : String(e)}`));
   return result;

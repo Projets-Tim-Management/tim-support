@@ -166,7 +166,7 @@ export function checkRequestStep(req: { kind: string; status: string; steps?: un
 
 /**
  * La règle de toutes les demandes faites à la direction (16/11/2026 : « c'est à moi de faire cette tâche, pas à un
- * agent ? » — Serge lui faisait exporter de la Search Console une liste que Robert avait déjà) : jointe à la consigne
+ * agent ? » — Sergey lui faisait exporter de la Search Console une liste que Robert avait déjà) : jointe à la consigne
  * de chaque agent qui confie un geste à la direction.
  */
 export const NO_LEGWORK =

@@ -57,7 +57,7 @@ async function memberOfRole(payload: Payload, role: string): Promise<{ id: numbe
 
 /**
  * À qui s'adresse une demande : la direction ne parle qu'aux chefs. Un sous-agent
- * (Camille, cheffe Meta Ads) remonte donc par son chef (Margaux) — la demande
+ * (Camille, cheffe Meta Ads) remonte donc par son chef (Mark) — la demande
  * porte le nom du chef, et dit qui l'a soulevée.
  */
 async function speakerOfRole(payload: Payload, role: string): Promise<{ id: number | string; via: string | null } | null> {

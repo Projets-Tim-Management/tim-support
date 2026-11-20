@@ -77,6 +77,8 @@ export const NAV_HIDDEN = new Set([
   "ai-team-actions",
   // Équipe IA : la fiche produit s'ouvre par le lien « Fiche produit » du menu (sinon elle apparaissait deux fois).
   "ai-team-brief",
+  // Éditorial : les recommandations de règles de Sergey arrivent dans « Mes tâches », qui y renvoie (19/11/2026).
+  "article-rule-proposals",
   // Système : les API en panne se lisent dans le bandeau de Connexions du support, qui y renvoie.
   "api-alerts",
 ]);
@@ -118,10 +120,21 @@ export const NAV_ORDER = [
  * (nav.scss) — et disparaît si aucun de ses liens n'est visible pour le rôle.
  */
 export const NAV_LAYOUT: Record<string, NavItem[]> = {
+  /**
+   * Rangé le 19/11/2026 : en tête, ce que la direction ouvre pour travailler (articles, fiches
+   * métier, features) ; tout le reste dans « Paramètres », replié.
+   */
   Éditorial: [
+    // Le tableau des articles de la vitrine (18/11/2026) : publiés, en attente, prévus.
+    "articles",
+    // Les fiches métier de la vitrine (18/11/2026).
+    "job-sheets",
     "features",
-    "parcours",
-    { label: "Paramètres", slugs: ["feature-categories", "platforms"] },
+    {
+      label: "Paramètres",
+      // « Requêtes suivies » : la matière des agents SEO (positions, réponse IA de Google, opportunités).
+      slugs: ["seo-keywords", "article-rule-versions", "article-themes", "parcours", "feature-categories", "platforms"],
+    },
   ],
   /**
    * Deux objets, le même motif : un modèle qui porte le contenu, une instance

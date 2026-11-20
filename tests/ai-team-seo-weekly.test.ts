@@ -28,7 +28,7 @@ const answer = (objs: unknown[]) => `<synthese>La page Pointage décroche face a
 
 const DATES = ["2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20"];
 
-describe("Objectifs : la réponse de Serge, vérifiée", () => {
+describe("Objectifs : la réponse de Sergey, vérifiée", () => {
   it("garde l'ordre, et retire ce qui ne tient pas dans le temps de la direction", () => {
     const out = parseSeoWeekly(answer([objective("Refaire la page Pointage", [60, 60, 30]), objective("Créer la page comparatif", [120, 60]), objective("Demander 3 avis", [30])]), 300, DATES)!;
     // 150 + 180 > 300 : le comparatif ne tient pas ; les avis (30) tiennent encore.
@@ -102,7 +102,7 @@ describe("Cocher une étape", () => {
   });
 });
 
-describe("La revue de Serge, d'un bout à l'autre", () => {
+describe("La revue de Sergey, d'un bout à l'autre", () => {
   beforeEach(() => vi.mocked(recordAdsUsage).mockClear());
 
   function fakePayload() {
@@ -114,7 +114,7 @@ describe("La revue de Serge, d'un bout à l'autre", () => {
       updated,
       payload: {
         find: vi.fn(async ({ collection }: { collection: string }) => {
-          if (collection === "ai-team-members") return { docs: [{ id: 50, name: "Serge", active: true, weeklyHours: 3 }] };
+          if (collection === "ai-team-members") return { docs: [{ id: 50, name: "Sergey", active: true, weeklyHours: 3 }] };
           if (collection === "calendar-connections") return { docs: [] };
           return { docs: [] };
         }),

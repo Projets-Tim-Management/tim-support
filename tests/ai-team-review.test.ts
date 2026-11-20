@@ -11,7 +11,7 @@ import { AdsBudgetError, assertAdsBudget } from "@/modules/ads/lib/spend";
 import { isToJudge, recoToRequest, runWeeklyReview, type ReviewOutput } from "@/modules/ai-team/lib/review";
 
 /**
- * La revue du lundi de Margaux : le lundi après 10 h, une fois par semaine,
+ * La revue du lundi de Mark : le lundi après 10 h, une fois par semaine,
  * après les passages du lundi ; des recommandations vérifiées dans « Vos
  * demandes » ; la synthèse dans la conversation.
  */
@@ -26,7 +26,7 @@ function fakePayload(over: { active?: boolean; busy?: number; done?: number; pas
   const payload = {
     find: vi.fn(async ({ collection }: { collection: string }) => {
       if (collection === "ai-team-requests") return { docs: over.past ?? [] };
-      if (collection === "ai-team-members") return { docs: [{ id: 1, name: "Margaux", active: over.active ?? true }] };
+      if (collection === "ai-team-members") return { docs: [{ id: 1, name: "Mark", active: over.active ?? true }] };
       // Une revue déjà faite cette semaine (`done`) : un message qui porte la marque de la revue.
       if (collection === "ai-team-messages") return { docs: [...Array.from({ length: over.done ?? 0 }, (_, i) => ({ id: 50 + i, from: "agent", text: "📅 Revue du lundi" })), ...created.filter((c) => c.collection === "ai-team-messages").map((c, i) => ({ id: i + 100, ...c.data }))] };
       return { docs: [] };
@@ -61,7 +61,7 @@ const scorecard = async () => ({ window: { months: 3, from: "2026-09-01", previo
 beforeEach(() => vi.mocked(assertAdsBudget).mockReset().mockResolvedValue(undefined as never));
 
 describe("quand la revue part", () => {
-  it("pas avant le lundi 10 h, pas deux fois, pas pendant les passages du lundi, pas si Margaux est en pause", async () => {
+  it("pas avant le lundi 10 h, pas deux fois, pas pendant les passages du lundi, pas si Mark est en pause", async () => {
     // Hors de la fenêtre (lundi 10 h → mercredi) : pas de revue ; le mardi, une revue manquée se rattrape.
     expect((await runWeeklyReview(fakePayload().payload, { now: THURSDAY, model: model(), scorecard })).status).toBe("pas-encore");
     expect((await runWeeklyReview(fakePayload().payload, { now: TUESDAY, model: model(), scorecard })).status).toBe("faite");
@@ -94,7 +94,7 @@ describe("ce que la revue produit", () => {
   });
 
   it("dit pourquoi elle n'a pas pu se faire quand le budget IA est atteint", async () => {
-    vi.mocked(assertAdsBudget).mockRejectedValueOnce(new AdsBudgetError("Budget IA du mois de l'équipe de Margaux atteint"));
+    vi.mocked(assertAdsBudget).mockRejectedValueOnce(new AdsBudgetError("Budget IA du mois de l'équipe de Mark atteint"));
     const { payload, updated } = fakePayload();
     const r = await runWeeklyReview(payload, { now: MONDAY_11H, model: model(), scorecard });
     expect(r.status).toBe("echec");
@@ -102,7 +102,7 @@ describe("ce que la revue produit", () => {
   });
 });
 
-describe("Margaux juge ses recommandations passées", () => {
+describe("Mark juge ses recommandations passées", () => {
   const DAY = 86_400_000;
   const past = (over: Record<string, unknown>) => ({ id: 41, title: "Exclure « gratuit »", channel: "google", status: "faite", closedAt: new Date(MONDAY_11H.getTime() - 20 * DAY).toISOString(), createdAt: "2026-10-20T10:00:00Z", baseline: { fiche: [] }, ...over });
 

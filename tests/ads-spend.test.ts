@@ -132,7 +132,7 @@ describe("le budget IA du mois de l'équipe, fixé sur la carte de la cheffe (É
     const payload = {
       ...base,
       find: async (args: { collection?: string; where?: unknown }) =>
-        args.collection === "ai-team-members" ? { docs: [{ name: "Margaux", monthlyAiBudgetEur: budget }] } : base.find(args),
+        args.collection === "ai-team-members" ? { docs: [{ name: "Mark", monthlyAiBudgetEur: budget }] } : base.find(args),
     };
     return payload as never;
   }
@@ -141,7 +141,7 @@ describe("le budget IA du mois de l'équipe, fixé sur la carte de la cheffe (É
   it("refuse l'appel qui ferait dépasser le budget de l'équipe, même sous le plafond global", async () => {
     const payload = withChief(15, spentThisMonth);
     await expect(assertAdsBudget(payload, "agent", 1, NOW)).rejects.toThrow(AdsBudgetError);
-    await expect(assertAdsBudget(payload, "agent", 1, NOW)).rejects.toThrow(/Budget IA du mois de l'équipe de Margaux atteint/);
+    await expect(assertAdsBudget(payload, "agent", 1, NOW)).rejects.toThrow(/Budget IA du mois de l'équipe de Mark atteint/);
     await expect(assertAdsBudget(payload, "agent", 0.4, NOW)).resolves.toMatchObject({ ok: true });
   });
 

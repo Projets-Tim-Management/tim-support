@@ -35,6 +35,35 @@ async function query(site: string, body: Record<string, unknown>): Promise<GscRo
   return (await googlePost<{ rows?: GscRow[] }>(url, { type: "web", dataState: "final", ...body }, "Search Console")).rows ?? [];
 }
 
+/**
+ * Clics, impressions et position par PAGE entre deux dates (AAAA-MM-JJ), sans
+ * cache : le tableau des articles (Éditorial › Articles) en tire les chiffres
+ * de chaque article, une fois par semaine ou à la demande. Gratuit (API Search Console).
+ */
+export async function gscPages(startDate: string, endDate: string): Promise<GscRow[]> {
+  const site = process.env.GSC_SITE_URL?.trim();
+  if (!site || !process.env.GSC_SERVICE_ACCOUNT_JSON) throw new Error("Search Console non configurée (GSC_SITE_URL, GSC_SERVICE_ACCOUNT_JSON).");
+  return query(site, { startDate, endDate, dimensions: ["page"], rowLimit: 25000 });
+}
+
+/**
+ * Les couples requête × page des 3 derniers mois (sans cache) : le contrôle de
+ * cannibalisation des idées d'articles voit si une recherche mène déjà à un de
+ * nos articles. Gratuit (API Search Console).
+ */
+export async function gscQueryPages(now: Date): Promise<GscRow[]> {
+  const site = process.env.GSC_SITE_URL?.trim();
+  if (!site || !process.env.GSC_SERVICE_ACCOUNT_JSON) throw new Error("Search Console non configurée (GSC_SITE_URL, GSC_SERVICE_ACCOUNT_JSON).");
+  const end = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 3);
+  return query(site, { startDate: day(end - 89 * 86400_000), endDate: day(end), dimensions: ["query", "page"], rowLimit: 25000 });
+}
+
+/** La date la plus ancienne que Search Console garde (16 mois), et la plus récente fiable (J-3). */
+export function gscWindow(now: Date) {
+  const end = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 3);
+  return { start: day(end - MAX_DAYS * 86400_000), end: day(end), endMs: end };
+}
+
 /** Les bornes de la période et de la précédente, plafonnées aux 16 mois que garde Google. */
 export function gscRanges(months: number, now: Date) {
   const end = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 3);

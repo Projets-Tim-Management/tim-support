@@ -15,7 +15,7 @@ import { createPortal } from "react-dom";
  * l'admin l'enfermait sous la navigation et l'en-tête de Payload.
  */
 const noop = () => () => {};
-export function Drawer({ label, closeHref, onClose, narrow = false, children }: { label: string; closeHref?: string; onClose?: () => void; narrow?: boolean; children: React.ReactNode }) {
+export function Drawer({ label, closeHref, onClose, narrow = false, wide = false, children }: { label: string; closeHref?: string; onClose?: () => void; narrow?: boolean; wide?: boolean; children: React.ReactNode }) {
   const router = useRouter();
   // Côté serveur, pas de document : le panneau apparaît une fois la page hydratée.
   const onClient = useSyncExternalStore(noop, () => true, () => false);
@@ -39,7 +39,7 @@ export function Drawer({ label, closeHref, onClose, narrow = false, children }: 
   return createPortal(
     <div className="ait-drawer" role="dialog" aria-modal="true" aria-label={label}>
       <button type="button" className="ait-drawer__overlay" aria-label="Fermer la fiche" onClick={close} />
-      <aside className={`ait-drawer__panel${narrow ? " ait-drawer__panel--narrow" : ""}`}>
+      <aside className={`ait-drawer__panel${narrow ? " ait-drawer__panel--narrow" : ""}${wide ? " ait-drawer__panel--wide" : ""}`}>
         <button type="button" className="ait-drawer__close" aria-label="Fermer la fiche" onClick={close}>
           ✕
         </button>

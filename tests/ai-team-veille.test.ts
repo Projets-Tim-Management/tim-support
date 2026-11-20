@@ -37,7 +37,7 @@ describe("Veille : la réponse découpée et vérifiée", () => {
 function fakePayload(opts: { active?: boolean } = {}) {
   const methods: Record<string, unknown>[] = [];
   const members = [
-    { id: 1, key: "chef-sea", name: "Margaux", active: true },
+    { id: 1, key: "chef-sea", name: "Mark", active: true },
     { id: 2, key: "sea-google", name: "Thomas", active: opts.active ?? true },
     { id: 3, key: "sea-chatgpt", name: "Sarah", active: true },
     { id: 4, key: "sea-meta", name: "Camille", active: true },
@@ -119,7 +119,7 @@ describe("Veille : un passage", () => {
     expect((await runDueVeille(payload as never, sunday, model)).member).toBe("Thomas");
     expect((await runDueVeille(payload as never, sunday, model)).member).toBe("Sarah");
     expect((await runDueVeille(payload as never, sunday, model)).member).toBe("Camille");
-    expect((await runDueVeille(payload as never, sunday, model)).member).toBe("Margaux");
+    expect((await runDueVeille(payload as never, sunday, model)).member).toBe("Mark");
     expect((await runDueVeille(payload as never, sunday, model)).status).toBe("deja-faite");
   });
 });

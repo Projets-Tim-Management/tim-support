@@ -7,7 +7,7 @@ import { hideUnlessDirection, isDirectionAccess } from "@/core/access";
  * mois, et à la demande, l'audit du site vitrine — technique, contenu,
  * conversion — à partir de l'entonnoir de bout en bout et de PageSpeed, et la
  * lecture des pages qui comptent. Au plus 10 constats, classés par impact ;
- * Serge en tire les objectifs de la direction.
+ * Sergey en tire les objectifs de la direction.
  *
  * Écrits par le serveur seul, lus par la direction seule.
  */
@@ -38,6 +38,8 @@ export const AiTeamAudits: CollectionConfig = {
         { label: "Conversion du site", value: "conversion" },
         { label: "Suivi des essais", value: "essais" },
         { label: "Santé des clients", value: "sante" },
+        // La revue mensuelle des règles des articles (Sergey, 18/11/2026).
+        { label: "Règles des articles", value: "regles" },
       ],
     },
     { name: "period", type: "text", label: "Période (mois AAAA-MM, ou lundi de la semaine)", required: true, index: true },

@@ -14,11 +14,11 @@ import { OFFICES, teamOfKey } from "@/modules/ai-team/lib/veille-domains";
  *
  * Tout ce que la direction a à faire, au même endroit, quelle qu'en soit l'origine :
  *  - les demandes des chefs (ai-team-requests) — à faire (étapes à cocher) ou question (une réponse) ;
- *  - les objectifs de la semaine de Serge (ai-team-objectives) — étapes, prompts, créneaux dans l'agenda ;
+ *  - les objectifs de la semaine de Sergey (ai-team-objectives) — étapes, prompts, créneaux dans l'agenda ;
  *  - les actions des équipes sur la feuille de route (ai-team-actions) ;
  *  - ce qui attend une décision dans Publicité › À valider (créas, actions sur les campagnes) — se décide là-bas.
  *
- * C'est ici, et seulement ici, qu'on coche. La feuille de route, la fiche de Serge et l'organigramme montrent l'état
+ * C'est ici, et seulement ici, qu'on coche. La feuille de route, la fiche de Sergey et l'organigramme montrent l'état
  * (fait ou en attente) et renvoient ici.
  */
 
@@ -104,7 +104,7 @@ export function buildMyTasks(input: MyTasksInput): MyTask[] {
       at: String(o.createdAt ?? o.week ?? ""),
       doneAt: done ? (str(o.closedAt) ?? null) : null,
       chief: serge,
-      from: [nameOfKey.get(serge) ?? "Serge", o.proposedBy ? `idée de ${nameOfKey.get(String(o.proposedBy)) ?? o.proposedBy}` : null].filter(Boolean).join(" · "),
+      from: [nameOfKey.get(serge) ?? "Sergey", o.proposedBy ? `idée de ${nameOfKey.get(String(o.proposedBy)) ?? o.proposedBy}` : null].filter(Boolean).join(" · "),
       urgent: false,
       why: str(o.why),
       diagnosis: str(o.diagnosis),
@@ -221,7 +221,7 @@ export async function loadMyTasks(payload: Payload, now = new Date()): Promise<{
   const safe = (p: Promise<{ docs: unknown[] }>) => p.then((r) => r.docs as Raw[]).catch(() => [] as Raw[]);
   const [requests, objectives, actions, members, goals, campaigns, pendingCreatives, proposedActions] = await Promise.all([
     safe(payload.find({ collection: "ai-team-requests", where: { or: [{ status: { equals: "ouverte" } }, { and: [{ status: { in: ["faite", "repondue"] } }, { closedAt: { greater_than_equal: since } }] }] }, sort: "-createdAt", limit: 200, depth: 0, overrideAccess: true })),
-    // Les objectifs reportés (non finis à la fin de la semaine de Serge) : ces 14 derniers jours, pour qu'aucun ne
+    // Les objectifs reportés (non finis à la fin de la semaine de Sergey) : ces 14 derniers jours, pour qu'aucun ne
     // disparaisse sans que la direction le voie (16/11/2026).
     safe(payload.find({ collection: "ai-team-objectives", where: { or: [{ status: { equals: "a-faire" } }, { and: [{ status: { in: ["fait", "reporte"] } }, { closedAt: { greater_than_equal: since } }] }] }, sort: "rank", ...common })),
     safe(payload.find({ collection: "ai-team-actions", where: { or: [{ status: { in: ["prevue", "en-cours"] } }, { and: [{ status: { equals: "faite" } }, { doneDate: { greater_than_equal: since } }] }] }, sort: "plannedDate", ...common })),

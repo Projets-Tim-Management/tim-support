@@ -6,7 +6,7 @@ import { HORIZONS, TEAM_OPTIONS } from "@/modules/ai-team/lib/roadmap-constants"
 /**
  * LES OBJECTIFS À HORIZON de la feuille de route (14/11/2026) — court terme
  * (3 mois), moyen terme (6 mois), long terme (12 mois), pour l'équipe SEA
- * (Margaux) et l'équipe SEO/GEO (Serge).
+ * (Mark) et l'équipe SEO/GEO (Sergey).
  *
  * Deux sortes (14/11/2026, après relecture de la direction) : CHIFFRÉ — un
  * indicateur, une cible, une échéance — ou JALON — un livrable daté (« chaîne

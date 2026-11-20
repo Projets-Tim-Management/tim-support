@@ -183,6 +183,17 @@ export async function loadGa4(months: number, now: Date): Promise<SourceResult<G
   });
 }
 
+/**
+ * Les sessions par page d'arrivée et par source depuis `startDate` (AAAA-MM-JJ),
+ * sans cache : le tableau des articles en tire les visites de chaque article
+ * (dont celles venues des IA). Gratuit (API GA4 Data).
+ */
+export async function ga4LandingPages(startDate: string): Promise<Ga4PageRow[]> {
+  if (!process.env.GA4_PROPERTY_ID || !process.env.GSC_SERVICE_ACCOUNT_JSON) throw new Error("GA4 non configuré (GA4_PROPERTY_ID, GSC_SERVICE_ACCOUNT_JSON).");
+  const rows = await runFullReport({ dateRanges: [{ startDate, endDate: "yesterday" }], dimensions: [{ name: "landingPage" }, { name: "sessionSource" }, { name: "sessionMedium" }], metrics: METRICS });
+  return rows.map((r) => ({ page: r.dimensionValues[0].value || "/", source: r.dimensionValues[1].value, medium: r.dimensionValues[2].value, ...metricsOf(r) }));
+}
+
 /** Les lignes brutes de GA4 (toutes sources, réseaux compris) : l'entonnoir de l'analyste SEO/GEO. */
 export const loadGa4Rows = (months: number, now: Date): Promise<SourceResult<{ rows: Ga4Row[]; pages: Ga4PageRow[] }>> =>
   loadSource(GA4_ENV, `ga4rows:${process.env.GA4_PROPERTY_ID}:${months}:${iso(now)}`, TTL, () => ga4Raw(months, now));

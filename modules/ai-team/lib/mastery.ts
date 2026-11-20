@@ -27,11 +27,11 @@ import { loadSnapshots, type Snapshot } from "@/modules/ai-team/lib/snapshots";
  *
  * L'ÉQUIPE SEO/GEO (14/11/2026) suit les mêmes quatre parts. Ses résultats :
  * un chiffre de TIM face au repère du marché que rapporte sa veille — la
- * conversion d'une visite gratuite en lead (Serge, Ana, Guy, Paige), la part
+ * conversion d'une visite gratuite en lead (Sergey, Ana, Guy, Paige), la part
  * des réponses d'IA qui nomment TIM (Georges), la part des sites de référence
  * où TIM est présent (Linda), le taux d'interaction des réseaux (Cléo) ; pour
  * Robert, la part des pages indexées (cible 100 %). Ses preuves et son
- * apprentissage : les verdicts de Serge sur les objectifs tirés de son travail.
+ * apprentissage : les verdicts de Sergey sur les objectifs tirés de son travail.
  *
  * Une part qu'on ne peut pas encore mesurer vaut 0, et la fiche dit ce qui la
  * débloquera. Recalculé à chaque affichage ; photographié chaque lundi pour
@@ -90,7 +90,7 @@ const SCOPE: Record<string, { channel: string | null; benchmarkOf: string } | { 
   "com-clients": { com: "sante" },
 };
 export const MASTERY_KEYS = Object.keys(SCOPE);
-/** Les agents de Margaux (sa revue, sa conversation) et ceux de Serge. */
+/** Les agents de Mark (sa revue, sa conversation) et ceux de Sergey. */
 export const SEA_MASTERY_KEYS = MASTERY_KEYS.filter((k) => !("seo" in SCOPE[k]) && !("com" in SCOPE[k]));
 export const SEO_MASTERY_KEYS = MASTERY_KEYS.filter((k) => "seo" in SCOPE[k]);
 export const COM_MASTERY_KEYS = MASTERY_KEYS.filter((k) => "com" in SCOPE[k]);
@@ -194,7 +194,7 @@ export function computeMastery(i: MasteryInput): Mastery {
     max: 20,
     points: judged ? Math.round((worked / judged) * 20) : 0,
     detail: judged ? `${worked} ${seo ? "objectif" : "recommandation"}${worked > 1 ? "s" : ""} sur ${judged} jugé${seo ? "" : "e"}${judged > 1 ? "s" : ""} ont marché (12 semaines).` : seo ? "Aucun objectif tiré de son travail encore jugé." : "Aucune recommandation encore jugée sur son canal.",
-    next: judged && worked === judged ? null : seo ? "Des objectifs tirés de son travail, faits, qui marchent — jugés par Serge deux semaines après." : "Des recommandations appliquées, qui marchent, jugées deux semaines après.",
+    next: judged && worked === judged ? null : seo ? "Des objectifs tirés de son travail, faits, qui marchent — jugés par Sergey deux semaines après." : "Des recommandations appliquées, qui marchent, jugées deux semaines après.",
   });
 
   // Apprentissage
@@ -205,7 +205,7 @@ export function computeMastery(i: MasteryInput): Mastery {
     max: 20,
     points: learn,
     detail: i.tests.judged ? `${i.tests.judged} de ses idées testée${i.tests.judged > 1 ? "s" : ""} et jugée${i.tests.judged > 1 ? "s" : ""} ce mois-ci.` : i.tests.applied ? "Une de ses idées est en test chez TIM, verdict à venir." : "Aucune de ses idées testée chez TIM ce mois-ci.",
-    next: learn === 20 ? null : seo ? "Que Serge reprenne une de ses actions en objectif, que la direction la fasse, puis qu'elle soit jugée." : "Qu'une de ses idées soit retenue par Margaux, appliquée, puis jugée.",
+    next: learn === 20 ? null : seo ? "Que Sergey reprenne une de ses actions en objectif, que la direction la fasse, puis qu'elle soit jugée." : "Qu'une de ses idées soit retenue par Mark, appliquée, puis jugée.",
   });
 
   return { score: parts.reduce((s, p) => s + p.points, 0), parts };
@@ -289,7 +289,7 @@ export async function loadTeamMastery(payload: Payload, card: Scorecard | null, 
       snaps ?? loadSnapshots(payload, 12),
       payload.find({ collection: "ai-team-requests", where: { and: [{ outcome: { exists: true } }, { verdictAt: since(84) }] }, ...common, select: { channel: true, outcome: true } as never }),
       payload.find({ collection: "ai-team-requests", where: { and: [{ proposedBy: { exists: true } }, { createdAt: since(56) }] }, ...common, select: { proposedBy: true, status: true, outcome: true, verdictAt: true } as never }),
-      // L'équipe SEO/GEO : les objectifs de Serge des 12 dernières semaines (qui les a proposés, ce qu'ils ont donné).
+      // L'équipe SEO/GEO : les objectifs de Sergey des 12 dernières semaines (qui les a proposés, ce qu'ils ont donné).
       payload.find({ collection: "ai-team-objectives", where: { createdAt: since(84) }, ...common, select: { proposedBy: true, status: true, outcome: true, verdictAt: true } as never }).catch(() => ({ docs: [] })),
     ]);
     const objectives = objectivesRes.docs as unknown as Raw[];
@@ -321,7 +321,7 @@ export async function loadTeamMastery(payload: Payload, card: Scorecard | null, 
       const own = methods.get(String(m.id));
       const benchmark = "benchmarkOf" in scope ? methods.get(idOfKey.get(scope.benchmarkOf) ?? "")?.benchmark : "seo" in scope ? own?.benchmark : null;
       if ("com" in scope) {
-        // Élise : celles de tout son bureau ; chacun des autres : les siennes.
+        // Jordan : celles de tout son bureau ; chacun des autres : les siennes.
         const mine = m.key === "chef-com" ? comRequests : comRequests.filter((r) => String(typeof r.member === "object" && r.member ? (r.member as Raw).id : r.member) === String(m.id));
         const mastery = computeMastery({
           key: m.key,
@@ -338,7 +338,7 @@ export async function loadTeamMastery(payload: Payload, card: Scorecard | null, 
         continue;
       }
       if ("seo" in scope) {
-        // Ses objectifs : ceux qui reprenaient son action (tous, pour Serge).
+        // Ses objectifs : ceux qui reprenaient son action (tous, pour Sergey).
         const mine = objectives.filter((o) => m.key === "chef-seo" || o.proposedBy === m.key);
         const mastery = computeMastery({
           key: m.key,
@@ -380,7 +380,7 @@ export async function loadTeamMastery(payload: Payload, card: Scorecard | null, 
   }
 }
 
-/** Ce que Margaux et la veille lisent d'un score. Pure. */
+/** Ce que Mark et la veille lisent d'un score. Pure. */
 export function masteryForModel(x: MemberMastery) {
   const prev = x.history.length >= 2 ? x.history[x.history.length - 2].score : null;
   return {

@@ -14,7 +14,7 @@ import { groupOf, type TeamGroup } from "@/modules/ai-team/lib/team";
  * que mettre un nom et un visage sur ce que le moteur enregistre déjà.
  *
  * Qui est qui : un membre incarne un ou plusieurs rôles du moteur
- * (`engineRoles`) — Margaux, la cheffe SEA, est à la fois l'orchestratrice et
+ * (`engineRoles`) — Mark, le chef SEA, est à la fois l'orchestrateur et
  * l'analyste.
  *
  * `buildTeamView` est pur (testé) ; `loadTeamView` lit la base.
@@ -116,7 +116,7 @@ export function resultText(result: unknown): string | null {
 }
 
 /**
- * Une ligne du fil au prénom : « L'analyste lit… » → « Margaux lit… ». Le sujet
+ * Une ligne du fil au prénom : « L'analyste lit… » → « Mark lit… ». Le sujet
  * est en tête de ligne (ROLE_SUBJECT) ; on ne touche à rien d'autre.
  */
 export function personalize(line: string, nameByRole: Map<string, string>): { line: string; role: string | null } {
@@ -195,7 +195,7 @@ export function buildTeamView(input: { members: Raw[]; agents: Raw[]; runs: Raw[
             costEur: r2(num(r.costEur)),
           }))
       : [];
-    // Les créas à valider sont celles du SEA : elles attendent Margaux, pas Serge.
+    // Les créas à valider sont celles du SEA : elles attendent Mark, pas Sergey.
     const waiting = String(m.key) === "chef-sea" && input.pendingValidations > 0;
     const active = m.active !== false;
     // Yanis (mesure) tient la fiche des canaux ; Thomas lit Google Ads et Sarah ChatGPT Ads dès que

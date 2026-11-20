@@ -7,8 +7,8 @@ import { HEARD_FROM } from "@/modules/booking/lib/heard-from";
 /**
  * CE QUE LES AGENTS LISENT DES RENDEZ-VOUS ET DE « COMMENT NOUS AVEZ-VOUS CONNUS ? » (16/11/2026 : « tout ce qu'on fait
  * sur le support ou la vitrine doit être analysé par les agents concernés »). Un bloc, calculé une fois, joint à
- * l'entonnoir d'Ana (que lisent Serge, Paige, Cléo, l'audit et les veilles), au point d'Élise, au pipeline de Nathan,
- * à la revue de Margaux et à la conversion de Lou :
+ * l'entonnoir d'Ana (que lisent Sergey, Paige, Cléo, l'audit et les veilles), au point de Jordan, au pipeline de Nathan,
+ * à la revue de Mark et à la conversion de Lou :
  *  - les rendez-vous pris en ligne : combien, visio (démo) ou téléphone (découverte), annulés, déplacés, venus, absents,
  *    avec problème ; la part des demandes du formulaire qui réservent ; le délai entre la demande et le rendez-vous ;
  *  - les sources DÉCLARÉES par les prospects, et leur croisement avec la source calculée (UTM, clics) — ce que les

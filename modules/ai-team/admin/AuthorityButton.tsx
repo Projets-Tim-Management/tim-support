@@ -14,7 +14,7 @@ export function AuthorityButton({ name }: { name: string }) {
       }
       label="Chercher maintenant"
       busyLabel={`${name} cherche sur le web… (3 à 6 minutes)`}
-      done={(d) => `${d.findings ?? 0} cible${(d.findings ?? 0) > 1 ? "s" : ""} — Serge les reprendra dans vos objectifs.`}
+      done={(d) => `${d.findings ?? 0} cible${(d.findings ?? 0) > 1 ? "s" : ""} — Sergey les reprendra dans vos objectifs.`}
       failed="Le rapport n'a pas pu être fait."
     />
   );

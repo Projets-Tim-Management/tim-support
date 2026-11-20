@@ -17,6 +17,13 @@ import { Platforms } from "./modules/editorial/collections/Platforms";
 import { FeatureCategories } from "./modules/editorial/collections/FeatureCategories";
 import { Features } from "./modules/editorial/collections/Features";
 import { Parcours } from "./modules/editorial/collections/Parcours";
+import { Articles } from "./modules/editorial/collections/Articles";
+import { ArticleThemes } from "./modules/editorial/collections/ArticleThemes";
+import { ArticleRuleProposals, ArticleRuleVersions } from "./modules/editorial/collections/ArticleRules";
+import { CompetitorSnapshots } from "./modules/editorial/collections/CompetitorSnapshots";
+import { SeoKeywords } from "./modules/editorial/collections/SeoKeywords";
+import { SeoMarket } from "./modules/editorial/globals/SeoMarket";
+import { JobSheets } from "./modules/editorial/collections/JobSheets";
 import { Partners } from "./modules/partner/collections/Partners";
 import { PartnerClients } from "./modules/partner/collections/PartnerClients";
 import { ClientActivities } from "./modules/partner/collections/ClientActivities";
@@ -407,6 +414,16 @@ export default buildConfig({
       Platforms,
       // Parcours
       Parcours,
+      // Articles de la vitrine (tableau éditorial, 18/11/2026) et leurs thématiques
+      Articles,
+      ArticleThemes,
+      // Les règles des articles, versionnées, et les recommandations mensuelles de Serge (18/11/2026)
+      ArticleRuleVersions,
+      ArticleRuleProposals,
+      // Les fiches métier de la vitrine (étape 9, 18/11/2026)
+      JobSheets,
+      CompetitorSnapshots,
+      SeoKeywords,
       // Partenaires
       Partners,
       PartnerClients,
@@ -706,7 +723,7 @@ export default buildConfig({
        */
     }),
   ],
-  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, TrainingSettings, DevAnnounceEmail, AdsSettings, AdsBrandKit, TeamEmails, ExpenseCategories, AiTeamBrief],
+  globals: [Appearance, SupportConnectionsGlobal, CompanySettings, ContractSettings, TrainingSettings, DevAnnounceEmail, AdsSettings, AdsBrandKit, TeamEmails, ExpenseCategories, AiTeamBrief, SeoMarket],
 
   db: postgresAdapter({
     // Migrations versionnées (dossier ./migrations). Le push auto est DÉSACTIVÉ :

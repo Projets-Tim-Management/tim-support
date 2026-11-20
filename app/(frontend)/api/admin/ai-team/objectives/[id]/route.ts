@@ -6,7 +6,7 @@ import { unbook, type BookedSlot } from "@/modules/ai-team/lib/agenda";
 import { applyObjectiveAction, type ObjectiveStep } from "@/modules/ai-team/lib/seo-weekly";
 
 /**
- * Un objectif de la semaine, depuis la fiche de Serge (Équipe IA).
+ * Un objectif de la semaine, depuis la fiche de Sergey (Équipe IA).
  *
  * POST { step, done } — cocher ou décocher une étape (toutes cochées : l'objectif est fait) ;
  * POST { status: "fait" | "abandonne" | "a-faire" } — le clore ou le rouvrir ; un objectif reporté remis « à faire »

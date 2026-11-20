@@ -65,10 +65,10 @@ describe("« Mes tâches » rassemble tout ce qui attend la direction", () => {
   const tasks = buildMyTasks({
     ...base,
     members: [
-      { id: 1, key: "chef-sea", name: "Margaux", engineRoles: ["orchestrateur"] },
-      { id: 2, key: "chef-com", name: "Élise" },
+      { id: 1, key: "chef-sea", name: "Mark", engineRoles: ["orchestrateur"] },
+      { id: 2, key: "chef-com", name: "Jordan" },
       { id: 3, key: "com-clients", name: "Malo" },
-      { id: 4, key: "chef-seo", name: "Serge" },
+      { id: 4, key: "chef-seo", name: "Sergey" },
     ],
     goals: [{ id: 9, title: "5 000 € de MRR" }],
     campaigns: [{ id: 7, name: "Campagne test" }],
@@ -88,8 +88,8 @@ describe("« Mes tâches » rassemble tout ce qui attend la direction", () => {
   const byId = (id: string) => tasks.find((t) => t.id === id)!;
 
   it("une couleur par bureau, et le chef à qui en parler — l'idée d'un agent remonte par son chef", () => {
-    expect(byId("r10")).toMatchObject({ category: "sea", form: "question", chief: "chef-sea", from: "Margaux", status: "a-faire" });
-    expect(byId("r12")).toMatchObject({ category: "com", chief: "chef-com", from: "Élise · idée de Malo", urgent: true, goal: "5 000 € de MRR", stepsCheckable: true });
+    expect(byId("r10")).toMatchObject({ category: "sea", form: "question", chief: "chef-sea", from: "Mark", status: "a-faire" });
+    expect(byId("r12")).toMatchObject({ category: "com", chief: "chef-com", from: "Jordan · idée de Malo", urgent: true, goal: "5 000 € de MRR", stepsCheckable: true });
     expect(byId("r12").steps.map((s) => s.done)).toEqual([true, false]);
     expect(byId("o5")).toMatchObject({ category: "seo", chief: "chef-seo", due: "2026-11-14", stepsCheckable: true });
     expect(byId("o5").slots).toHaveLength(1);

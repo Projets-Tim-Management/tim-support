@@ -94,6 +94,6 @@ describe("ce que le chef relit, et ce que l'équipe reçoit", () => {
 
   it("une consigne s'ajoute à la mission du sous-agent ; sans consigne, rien", () => {
     expect(consignesBlock([])).toBe("");
-    expect(consignesBlock(["Consigne de Margaux (14 novembre) : plus de nouveau thème"])).toMatch(/LES CONSIGNES DE TON CHEF[\s\S]*- Consigne de Margaux/);
+    expect(consignesBlock(["Consigne de Mark (14 novembre) : plus de nouveau thème"])).toMatch(/LES CONSIGNES DE TON CHEF[\s\S]*- Consigne de Mark/);
   });
 });

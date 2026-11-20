@@ -75,6 +75,26 @@
     {
       "path": "/api/cron/booking-reminders",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/articles-sync",
+      "schedule": "35 * * * *"
+    },
+    {
+      "path": "/api/cron/articles-stats",
+      "schedule": "15 5 * * 1"
+    },
+    {
+      "path": "/api/cron/articles-write",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/seo-track",
+      "schedule": "50 * * * *"
+    },
+    {
+      "path": "/api/cron/articles-publish",
+      "schedule": "*/15 7-9 * * 2,4"
     }
   ]
 }

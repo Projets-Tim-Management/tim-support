@@ -16,7 +16,7 @@ import { DAY_MS } from "@/modules/ai-team/lib/format";
  * idée écartée peut revenir quand les chiffres bougent.
  *
  * Le chef écrit dans son carnet par un bloc <carnet>{…}</carnet> à la fin de sa
- * réponse (conversation, objectifs de Serge) ou par le champ « carnet » de sa
+ * réponse (conversation, objectifs de Sergey) ou par le champ « carnet » de sa
  * revue structurée ; le serveur vérifie chaque opération avant de l'écrire.
  */
 
@@ -277,7 +277,7 @@ export async function writeCarnet(
 }
 
 /**
- * Les consignes en cours adressées à un membre, telles qu'on les joint à sa mission : « Consigne de Margaux
+ * Les consignes en cours adressées à un membre, telles qu'on les joint à sa mission : « Consigne de Mark
  * (14 novembre) : … — pourquoi ». Vide s'il n'en a pas.
  */
 export async function consignesFor(payload: Payload, memberKey: string): Promise<string[]> {

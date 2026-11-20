@@ -75,6 +75,13 @@ export interface Config {
     'feature-categories': FeatureCategory;
     platforms: Platform;
     parcours: Parcour;
+    articles: Article;
+    'article-themes': ArticleTheme;
+    'article-rule-versions': ArticleRuleVersion;
+    'article-rule-proposals': ArticleRuleProposal;
+    'job-sheets': JobSheet;
+    'competitor-snapshots': CompetitorSnapshot;
+    'seo-keywords': SeoKeyword;
     partners: Partner;
     'partner-clients': PartnerClient;
     'client-contacts': ClientContact;
@@ -184,6 +191,13 @@ export interface Config {
     'feature-categories': FeatureCategoriesSelect<false> | FeatureCategoriesSelect<true>;
     platforms: PlatformsSelect<false> | PlatformsSelect<true>;
     parcours: ParcoursSelect<false> | ParcoursSelect<true>;
+    articles: ArticlesSelect<false> | ArticlesSelect<true>;
+    'article-themes': ArticleThemesSelect<false> | ArticleThemesSelect<true>;
+    'article-rule-versions': ArticleRuleVersionsSelect<false> | ArticleRuleVersionsSelect<true>;
+    'article-rule-proposals': ArticleRuleProposalsSelect<false> | ArticleRuleProposalsSelect<true>;
+    'job-sheets': JobSheetsSelect<false> | JobSheetsSelect<true>;
+    'competitor-snapshots': CompetitorSnapshotsSelect<false> | CompetitorSnapshotsSelect<true>;
+    'seo-keywords': SeoKeywordsSelect<false> | SeoKeywordsSelect<true>;
     partners: PartnersSelect<false> | PartnersSelect<true>;
     'partner-clients': PartnerClientsSelect<false> | PartnerClientsSelect<true>;
     'client-contacts': ClientContactsSelect<false> | ClientContactsSelect<true>;
@@ -278,6 +292,7 @@ export interface Config {
     'team-emails': TeamEmail;
     'expense-categories': ExpenseCategory;
     'ai-team-brief': AiTeamBrief;
+    'seo-market': SeoMarket;
   };
   globalsSelect: {
     appearance: AppearanceSelect<false> | AppearanceSelect<true>;
@@ -291,6 +306,7 @@ export interface Config {
     'team-emails': TeamEmailsSelect<false> | TeamEmailsSelect<true>;
     'expense-categories': ExpenseCategoriesSelect<false> | ExpenseCategoriesSelect<true>;
     'ai-team-brief': AiTeamBriefSelect<false> | AiTeamBriefSelect<true>;
+    'seo-market': SeoMarketSelect<false> | SeoMarketSelect<true>;
   };
   locale: null;
   widgets: {
@@ -2094,6 +2110,793 @@ export interface Parcour {
   _status?: ('draft' | 'published') | null;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "articles".
+ */
+export interface Article {
+  id: number;
+  status:
+    | 'idee'
+    | 'validee'
+    | 'redaction'
+    | 'a-relire'
+    | 'a-verifier'
+    | 'image'
+    | 'pret'
+    | 'programme'
+    | 'publie'
+    | 'a-rafraichir'
+    | 'depublie'
+    | 'arretee';
+  theme?: (number | null) | ArticleTheme;
+  themeSource?: ('auto' | 'manuel') | null;
+  subtheme?: string | null;
+  /**
+   * Décide de la place de TIM Management dans l'article (règle B1/B2).
+   */
+  intent?: ('tofu' | 'mofu' | 'bofu') | null;
+  scheduledAt?: string | null;
+  featuredImageUrl?: string | null;
+  featuredMediaId?: number | null;
+  visualMotif?:
+    | (
+        | 'horloge'
+        | 'calendrier'
+        | 'feuille'
+        | 'pieces'
+        | 'barres'
+        | 'versus'
+        | 'meteo'
+        | 'route'
+        | 'bouclier'
+        | 'personnes'
+        | 'telephone'
+        | 'gantt'
+        | 'casque'
+        | 'photo'
+        | 'repas'
+      )
+    | null;
+  visualItalic?: string | null;
+  visualFile?: string | null;
+  visualAlt?: string | null;
+  visualCaption?: string | null;
+  visualJsonLd?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  textValidatedAt?: string | null;
+  previousAcf?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  backlinksPending?: boolean | null;
+  lastUpdateAt?: string | null;
+  performance?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  scoreSeo?: number | null;
+  scoreGeo?: number | null;
+  scoreRulesVersion?: number | null;
+  scoredAt?: string | null;
+  scoreDetail?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Ressemblance au top 10 de Google sur la requête (termes, questions). Pas une prévision de classement.
+   */
+  scoreCoverage?: number | null;
+  /**
+   * Médiane des concurrents + 10 points.
+   */
+  coverageTarget?: number | null;
+  competitorsAt?: string | null;
+  coverageStatus?: ('analyse' | 'insuffisant') | null;
+  coverageWordsMin?: number | null;
+  coverageWordsMax?: number | null;
+  coverageEntities?: number | null;
+  coverageExcess?: number | null;
+  imageAlt?: string | null;
+  imageMime?: string | null;
+  imageWidth?: number | null;
+  imageBytes?: number | null;
+  imageFile?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  publishedAt?: string | null;
+  /**
+   * Chiffres à l'appui : Search Console, concurrence (Guy), IA (Georges).
+   */
+  ideaWhy?: string | null;
+  ideaAngle?: string | null;
+  /**
+   * Un intertitre (H2) par ligne.
+   */
+  ideaOutline?: string | null;
+  proposedBy?: string | null;
+  proposedAt?: string | null;
+  decidedAt?: string | null;
+  decisionNote?: string | null;
+  refreshState?: ('proposee' | 'validee' | 'refusee') | null;
+  refreshReason?: ('baisse' | 'position' | 'echeance' | 'format' | 'doublon' | 'autre') | null;
+  refreshWhy?: string | null;
+  refreshPlan?: string | null;
+  refreshProposedBy?: string | null;
+  refreshProposedAt?: string | null;
+  refreshDecidedAt?: string | null;
+  refreshDecisionNote?: string | null;
+  title: string;
+  slug?: string | null;
+  keyword?: string | null;
+  /**
+   * Séparés par des virgules.
+   */
+  secondaryKeywords?: string | null;
+  writeStage?: ('attente' | 'recherche' | 'preparation' | 'redaction' | 'relance' | 'maj' | 'termine' | 'echec') | null;
+  writeAttempts?: number | null;
+  writeMode?: ('article' | 'maj') | null;
+  /**
+   * Celle avec laquelle l'article a été écrit.
+   */
+  rulesVersion?: number | null;
+  writeCostEur?: number | null;
+  writeStartedAt?: string | null;
+  writeFinishedAt?: string | null;
+  writeLockedUntil?: string | null;
+  writeErrors?: string | null;
+  writeWarnings?: string | null;
+  /**
+   * Facultatif : sinon, la longueur que le sujet exige.
+   */
+  wordcountTarget?: number | null;
+  /**
+   * Le SEUL cas, la seule entreprise ou le seul témoignage que l'article peut citer. Vide = aucun.
+   */
+  clientCase?: string | null;
+  /**
+   * Trouvés par la recherche (extrait vérifié mot pour mot dans la page lue) ou ajoutés par toi. « [sujet] » en tête de fait : sujets dont les sources divergent.
+   */
+  facts?:
+    | {
+        fact: string;
+        source: string;
+        url?: string | null;
+        year?: string | null;
+        origin?: ('recherche' | 'manuel') | null;
+        excerpt?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  rejectedFacts?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  writeContext?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  draft?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Historique (revues d'octobre 2026), motif d'un « À vérifier », décisions.
+   */
+  notes?: string | null;
+  /**
+   * Revérifications datées : barème annuel, texte abrogé, tarifs des concurrents…
+   */
+  deadlines?:
+    | {
+        date: string;
+        reason: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Raccourci à la main (revue du 07/10/2026) : aucune reprise ne le change.
+   */
+  keepSeoTitle?: boolean | null;
+  /**
+   * Article retiré du site et fusionné dans un autre.
+   */
+  redirectTo?: number | null;
+  origin?: ('import-wordpress' | 'equipe-seo' | 'manuel') | null;
+  /**
+   * Depuis la publication, sur les 16 mois que garde Google.
+   */
+  gscClicks?: number | null;
+  gscImpressions?: number | null;
+  gscPosition?: number | null;
+  gscClicks28?: number | null;
+  gscClicks28Prev?: number | null;
+  /**
+   * Toutes sources : Google, IA, réseaux, direct…
+   */
+  ga4Sessions?: number | null;
+  /**
+   * ChatGPT, Perplexity, Gemini, Copilot…
+   */
+  ga4AiSessions?: number | null;
+  gscQueries?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  changesLog?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  review30?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  review90?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  backlinks?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  statsUpdatedAt?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  seoTitle?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  seoDescription?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  wpFocusKeyword?: string | null;
+  wpId?: number | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  wpStatus?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  wpAuthor?: number | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  wpLink?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  wordCount?: number | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  faqCount?: number | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  sourcesCount?: number | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  hasTldr?: boolean | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  assistanceIa?: boolean | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  reviewedBy?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  reviewedOn?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  updatedOnWp?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  wpModified?: string | null;
+  syncedAt?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  wpCategories?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  acf?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Les grandes thématiques des articles, et leur page pilier. Les articles s'y rangent ; l'équipe SEO/GEO propose des sujets dans chacune.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "article-themes".
+ */
+export interface ArticleTheme {
+  id: number;
+  name: string;
+  /**
+   * Identifiant stable (le rangement automatique des articles importés s'appuie dessus).
+   */
+  number: number;
+  /**
+   * 1 = d'abord.
+   */
+  priority?: number | null;
+  /**
+   * Seuls les articles « vente » peuvent citer les prix de TIM Management.
+   */
+  kind: 'trafic' | 'vente';
+  /**
+   * Le sujet de la page qui chapeaute la thématique.
+   */
+  pillar?: string | null;
+  /**
+   * Vide tant que la page pilier n'existe pas.
+   */
+  pillarUrl?: string | null;
+  module?: string | null;
+  subthemes?:
+    | {
+        name: string;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Le fichier de règles que suit le rédacteur. La version la plus récente est en vigueur. Elle change quand tu valides une recommandation de Sergey.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "article-rule-versions".
+ */
+export interface ArticleRuleVersion {
+  id: number;
+  label?: string | null;
+  number: number;
+  effectiveAt: string;
+  changes?: string | null;
+  /**
+   * Identifiant, jauge, poids, niveau de preuve (A à D), statut (active / info) et mesure de chaque critère. Versionnés avec les règles : une nouvelle version reprend ceux de la précédente.
+   */
+  criteria?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  text: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Chaque mois, Sergey cherche ce qui se fait aux États-Unis et en Europe en SEO et GEO, et propose de faire évoluer les règles, preuves à l'appui. Tu valides ou tu refuses chacune.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "article-rule-proposals".
+ */
+export interface ArticleRuleProposal {
+  id: number;
+  status: 'proposee' | 'appliquee' | 'a-developper' | 'refusee' | 'inapplicable';
+  month?: string | null;
+  proposedBy?: string | null;
+  appliedVersion?: number | null;
+  decidedAt?: string | null;
+  title: string;
+  /**
+   * A = socle vérifié par le code ; B = rédaction ; C = pièges ; D = à coder ; F = note SEO/GEO.
+   */
+  part?: string | null;
+  kind?: ('ajout' | 'modification' | 'retrait' | 'critere') | null;
+  why?: string | null;
+  effect?: string | null;
+  anchor?: string | null;
+  criterionChange?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  currentText?: string | null;
+  proposedText?: string | null;
+  /**
+   * Chaque citation est relue sur la page par le support : « vérifiée » = trouvée mot pour mot.
+   */
+  evidence?:
+    | {
+        url: string;
+        source?: string | null;
+        date?: string | null;
+        level?: ('officiel' | 'mesure' | 'indice') | null;
+        verified?: boolean | null;
+        quote?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  decisionNote?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "job-sheets".
+ */
+export interface JobSheet {
+  id: number;
+  status: 'a-rediger' | 'redaction' | 'a-verifier' | 'publiee' | 'arretee';
+  rome?: string | null;
+  /**
+   * Rafraîchis une fois par an, à cette date anniversaire.
+   */
+  figuresUpdatedAt?: string | null;
+  scoreSeo?: number | null;
+  scoreGeo?: number | null;
+  scoreRulesVersion?: number | null;
+  scoredAt?: string | null;
+  scoreDetail?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Ressemblance au top 10 de Google sur la requête (termes, questions). Pas une prévision de classement.
+   */
+  scoreCoverage?: number | null;
+  /**
+   * Médiane des concurrents + 10 points.
+   */
+  coverageTarget?: number | null;
+  competitorsAt?: string | null;
+  coverageStatus?: ('analyse' | 'insuffisant') | null;
+  coverageWordsMin?: number | null;
+  coverageWordsMax?: number | null;
+  coverageEntities?: number | null;
+  coverageExcess?: number | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  wpFocusKeyword?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  publishedAt?: string | null;
+  title: string;
+  slug?: string | null;
+  why?: string | null;
+  proposedBy?: string | null;
+  proposedAt?: string | null;
+  figures?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Sur les 16 mois que garde Google.
+   */
+  gscClicks?: number | null;
+  gscImpressions?: number | null;
+  gscPosition?: number | null;
+  gscClicks28?: number | null;
+  gscClicks28Prev?: number | null;
+  ga4Sessions?: number | null;
+  ga4AiSessions?: number | null;
+  statsUpdatedAt?: string | null;
+  writeStage?: ('redaction' | 'relance' | 'publication' | 'chiffres' | 'termine' | 'echec') | null;
+  writeAttempts?: number | null;
+  writeCostEur?: number | null;
+  writeStartedAt?: string | null;
+  writeLockedUntil?: string | null;
+  writeErrors?: string | null;
+  writeWarnings?: string | null;
+  writeContext?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  draft?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  previousAcf?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  wpId?: number | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  wpStatus?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  wpLink?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  wpModified?: string | null;
+  syncedAt?: string | null;
+  /**
+   * Repris de WordPress à chaque synchronisation.
+   */
+  acf?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Le top 10 de Google sur chaque requête suivie, et ce qu'en tire le comparateur.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "competitor-snapshots".
+ */
+export interface CompetitorSnapshot {
+  id: number;
+  keyword: string;
+  keywordKey: string;
+  takenAt: string;
+  costUsd?: number | null;
+  validPages?: number | null;
+  domains?: number | null;
+  checkUrl?: string | null;
+  serp?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  questions?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  pages?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  corpus?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Ce que Google affiche sur nos requêtes : notre position, le n° 1, la réponse IA et ses sources. Relevé chaque semaine (DataForSEO). Les opportunités viennent des requêtes de nos concurrents.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "seo-keywords".
+ */
+export interface SeoKeyword {
+  id: number;
+  keyword: string;
+  keywordKey?: string | null;
+  source?: ('article' | 'fiche' | 'page' | 'classee' | 'opportunite' | 'manuel' | 'agent') | null;
+  tracked?: boolean | null;
+  /**
+   * La page qui doit se classer sur cette requête.
+   */
+  targetUrl?: string | null;
+  /**
+   * Dans le top 20 de google.fr ; vide = absent.
+   */
+  position?: number | null;
+  /**
+   * Places gagnées (+) ou perdues (−) depuis le relevé précédent.
+   */
+  positionChange?: number | null;
+  bestPosition?: number | null;
+  positionUrl?: string | null;
+  volume?: number | null;
+  difficulty?: number | null;
+  intent?: string | null;
+  cpc?: number | null;
+  top1Domain?: string | null;
+  aiOverview?: boolean | null;
+  aiCited?: boolean | null;
+  aiSources?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  top10?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  competitorsRanking?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Pages du site : ressemblance au top 10 (termes, entités, questions).
+   */
+  coverage?: number | null;
+  coverageTarget?: number | null;
+  coverageGaps?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  checkedAt?: string | null;
+  pageCheckedAt?: string | null;
+  metricsAt?: string | null;
+  history?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  serp?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Notes, e-mails, tâches et journal automatique des opportunités.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3812,6 +4615,7 @@ export interface AiTeamAudit {
         | 'conversion'
         | 'essais'
         | 'sante'
+        | 'regles'
       )
     | null;
   period: string;
@@ -4796,6 +5600,34 @@ export interface PayloadLockedDocument {
         value: number | Parcour;
       } | null)
     | ({
+        relationTo: 'articles';
+        value: number | Article;
+      } | null)
+    | ({
+        relationTo: 'article-themes';
+        value: number | ArticleTheme;
+      } | null)
+    | ({
+        relationTo: 'article-rule-versions';
+        value: number | ArticleRuleVersion;
+      } | null)
+    | ({
+        relationTo: 'article-rule-proposals';
+        value: number | ArticleRuleProposal;
+      } | null)
+    | ({
+        relationTo: 'job-sheets';
+        value: number | JobSheet;
+      } | null)
+    | ({
+        relationTo: 'competitor-snapshots';
+        value: number | CompetitorSnapshot;
+      } | null)
+    | ({
+        relationTo: 'seo-keywords';
+        value: number | SeoKeyword;
+      } | null)
+    | ({
         relationTo: 'partners';
         value: number | Partner;
       } | null)
@@ -5413,6 +6245,322 @@ export interface ParcoursSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "articles_select".
+ */
+export interface ArticlesSelect<T extends boolean = true> {
+  status?: T;
+  theme?: T;
+  themeSource?: T;
+  subtheme?: T;
+  intent?: T;
+  scheduledAt?: T;
+  featuredImageUrl?: T;
+  featuredMediaId?: T;
+  visualMotif?: T;
+  visualItalic?: T;
+  visualFile?: T;
+  visualAlt?: T;
+  visualCaption?: T;
+  visualJsonLd?: T;
+  textValidatedAt?: T;
+  previousAcf?: T;
+  backlinksPending?: T;
+  lastUpdateAt?: T;
+  performance?: T;
+  scoreSeo?: T;
+  scoreGeo?: T;
+  scoreRulesVersion?: T;
+  scoredAt?: T;
+  scoreDetail?: T;
+  scoreCoverage?: T;
+  coverageTarget?: T;
+  competitorsAt?: T;
+  coverageStatus?: T;
+  coverageWordsMin?: T;
+  coverageWordsMax?: T;
+  coverageEntities?: T;
+  coverageExcess?: T;
+  imageAlt?: T;
+  imageMime?: T;
+  imageWidth?: T;
+  imageBytes?: T;
+  imageFile?: T;
+  publishedAt?: T;
+  ideaWhy?: T;
+  ideaAngle?: T;
+  ideaOutline?: T;
+  proposedBy?: T;
+  proposedAt?: T;
+  decidedAt?: T;
+  decisionNote?: T;
+  refreshState?: T;
+  refreshReason?: T;
+  refreshWhy?: T;
+  refreshPlan?: T;
+  refreshProposedBy?: T;
+  refreshProposedAt?: T;
+  refreshDecidedAt?: T;
+  refreshDecisionNote?: T;
+  title?: T;
+  slug?: T;
+  keyword?: T;
+  secondaryKeywords?: T;
+  writeStage?: T;
+  writeAttempts?: T;
+  writeMode?: T;
+  rulesVersion?: T;
+  writeCostEur?: T;
+  writeStartedAt?: T;
+  writeFinishedAt?: T;
+  writeLockedUntil?: T;
+  writeErrors?: T;
+  writeWarnings?: T;
+  wordcountTarget?: T;
+  clientCase?: T;
+  facts?:
+    | T
+    | {
+        fact?: T;
+        source?: T;
+        url?: T;
+        year?: T;
+        origin?: T;
+        excerpt?: T;
+        id?: T;
+      };
+  rejectedFacts?: T;
+  writeContext?: T;
+  draft?: T;
+  notes?: T;
+  deadlines?:
+    | T
+    | {
+        date?: T;
+        reason?: T;
+        id?: T;
+      };
+  keepSeoTitle?: T;
+  redirectTo?: T;
+  origin?: T;
+  gscClicks?: T;
+  gscImpressions?: T;
+  gscPosition?: T;
+  gscClicks28?: T;
+  gscClicks28Prev?: T;
+  ga4Sessions?: T;
+  ga4AiSessions?: T;
+  gscQueries?: T;
+  changesLog?: T;
+  review30?: T;
+  review90?: T;
+  backlinks?: T;
+  statsUpdatedAt?: T;
+  seoTitle?: T;
+  seoDescription?: T;
+  wpFocusKeyword?: T;
+  wpId?: T;
+  wpStatus?: T;
+  wpAuthor?: T;
+  wpLink?: T;
+  wordCount?: T;
+  faqCount?: T;
+  sourcesCount?: T;
+  hasTldr?: T;
+  assistanceIa?: T;
+  reviewedBy?: T;
+  reviewedOn?: T;
+  updatedOnWp?: T;
+  wpModified?: T;
+  syncedAt?: T;
+  wpCategories?: T;
+  acf?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "article-themes_select".
+ */
+export interface ArticleThemesSelect<T extends boolean = true> {
+  name?: T;
+  number?: T;
+  priority?: T;
+  kind?: T;
+  pillar?: T;
+  pillarUrl?: T;
+  module?: T;
+  subthemes?:
+    | T
+    | {
+        name?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "article-rule-versions_select".
+ */
+export interface ArticleRuleVersionsSelect<T extends boolean = true> {
+  label?: T;
+  number?: T;
+  effectiveAt?: T;
+  changes?: T;
+  criteria?: T;
+  text?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "article-rule-proposals_select".
+ */
+export interface ArticleRuleProposalsSelect<T extends boolean = true> {
+  status?: T;
+  month?: T;
+  proposedBy?: T;
+  appliedVersion?: T;
+  decidedAt?: T;
+  title?: T;
+  part?: T;
+  kind?: T;
+  why?: T;
+  effect?: T;
+  anchor?: T;
+  criterionChange?: T;
+  currentText?: T;
+  proposedText?: T;
+  evidence?:
+    | T
+    | {
+        url?: T;
+        source?: T;
+        date?: T;
+        level?: T;
+        verified?: T;
+        quote?: T;
+        id?: T;
+      };
+  decisionNote?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "job-sheets_select".
+ */
+export interface JobSheetsSelect<T extends boolean = true> {
+  status?: T;
+  rome?: T;
+  figuresUpdatedAt?: T;
+  scoreSeo?: T;
+  scoreGeo?: T;
+  scoreRulesVersion?: T;
+  scoredAt?: T;
+  scoreDetail?: T;
+  scoreCoverage?: T;
+  coverageTarget?: T;
+  competitorsAt?: T;
+  coverageStatus?: T;
+  coverageWordsMin?: T;
+  coverageWordsMax?: T;
+  coverageEntities?: T;
+  coverageExcess?: T;
+  seoTitle?: T;
+  seoDescription?: T;
+  wpFocusKeyword?: T;
+  publishedAt?: T;
+  title?: T;
+  slug?: T;
+  why?: T;
+  proposedBy?: T;
+  proposedAt?: T;
+  figures?: T;
+  gscClicks?: T;
+  gscImpressions?: T;
+  gscPosition?: T;
+  gscClicks28?: T;
+  gscClicks28Prev?: T;
+  ga4Sessions?: T;
+  ga4AiSessions?: T;
+  statsUpdatedAt?: T;
+  writeStage?: T;
+  writeAttempts?: T;
+  writeCostEur?: T;
+  writeStartedAt?: T;
+  writeLockedUntil?: T;
+  writeErrors?: T;
+  writeWarnings?: T;
+  writeContext?: T;
+  draft?: T;
+  previousAcf?: T;
+  wpId?: T;
+  wpStatus?: T;
+  wpLink?: T;
+  wpModified?: T;
+  syncedAt?: T;
+  acf?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "competitor-snapshots_select".
+ */
+export interface CompetitorSnapshotsSelect<T extends boolean = true> {
+  keyword?: T;
+  keywordKey?: T;
+  takenAt?: T;
+  costUsd?: T;
+  validPages?: T;
+  domains?: T;
+  checkUrl?: T;
+  serp?: T;
+  questions?: T;
+  pages?: T;
+  corpus?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "seo-keywords_select".
+ */
+export interface SeoKeywordsSelect<T extends boolean = true> {
+  keyword?: T;
+  keywordKey?: T;
+  source?: T;
+  tracked?: T;
+  targetUrl?: T;
+  position?: T;
+  positionChange?: T;
+  bestPosition?: T;
+  positionUrl?: T;
+  volume?: T;
+  difficulty?: T;
+  intent?: T;
+  cpc?: T;
+  top1Domain?: T;
+  aiOverview?: T;
+  aiCited?: T;
+  aiSources?: T;
+  top10?: T;
+  competitorsRanking?: T;
+  coverage?: T;
+  coverageTarget?: T;
+  coverageGaps?: T;
+  checkedAt?: T;
+  pageCheckedAt?: T;
+  metricsAt?: T;
+  history?: T;
+  serp?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -8120,6 +9268,37 @@ export interface AiTeamBrief {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "seo-market".
+ */
+export interface SeoMarket {
+  id: number;
+  ranAt?: string | null;
+  costUsd?: number | null;
+  ourKeywords?: number | null;
+  ourTop10?: number | null;
+  competitors?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  errors?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "appearance_select".
  */
 export interface AppearanceSelect<T extends boolean = true> {
@@ -8400,6 +9579,21 @@ export interface AiTeamBriefSelect<T extends boolean = true> {
         change?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "seo-market_select".
+ */
+export interface SeoMarketSelect<T extends boolean = true> {
+  ranAt?: T;
+  costUsd?: T;
+  ourKeywords?: T;
+  ourTop10?: T;
+  competitors?: T;
+  errors?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

@@ -11,7 +11,7 @@ import { isRunClosed, isStepDone, PHASE_DE_TEST_KEY, PRODUCTION_KEY, stepDueDate
 import { NO_LEGWORK } from "@/modules/ai-team/lib/requests";
 
 /**
- * LE BUREAU COMMERCIAL D'ÉLISE (15/11/2026) — « un truc axé sur le pipeline et
+ * LE BUREAU COMMERCIAL DE JORDAN (15/11/2026) — « un truc axé sur le pipeline et
  * la partie commerciale » : Nathan tient le pipeline (lib/pipeline-agent),
  * JADE les essais, MALO les clients en place.
  *
@@ -206,7 +206,7 @@ export async function loadTrials(payload: Payload, now: Date): Promise<TrialView
 
 const TRIALS_SYSTEM = (name: string) =>
   [
-    `Tu es ${name}, responsable des essais de TIM Management, éditeur d'un logiciel de gestion pour les entreprises du BTP, vendu en France (démo → essai accompagné → signature). Tu es un agent IA ; tu rends compte à Élise, directrice commerciale & revenu : tu lui remets tes gestes, elle choisit chaque jour ceux qui vont à la direction (qui appelle et écrit elle-même). Un geste vraiment urgent (lead sans réponse, essai fini sans décision, résiliation annoncée) part directement.`,
+    `Tu es ${name}, responsable des essais de TIM Management, éditeur d'un logiciel de gestion pour les entreprises du BTP, vendu en France (démo → essai accompagné → signature). Tu es un agent IA ; tu rends compte à Jordan, directeur commercial & revenu : tu lui remets tes gestes, elle choisit chaque jour ceux qui vont à la direction (qui appelle et écrit elle-même). Un geste vraiment urgent (lead sans réponse, essai fini sans décision, résiliation annoncée) part directement.`,
     "Chaque jour ouvré, tu lis l'état des essais en cours (calculé pour toi : essais) et tu choisis AU PLUS 5 gestes, ceux qui rapprochent le plus d'une DÉCISION d'abord : un essai qui se termine sans bilan calé, un essai fini sans décision, un essai silencieux, une séance de prise en main pas calée, des étapes en retard.",
     "Ce qui marche, et ce que tu fais :",
     "- Un essai réussi a un CRITÈRE DE SUCCÈS écrit avec le client (« saisir un vrai chantier et sortir sa première situation de travaux »), un premier usage réel dans les 48 heures et une date de décision. S'ils manquent, ton geste les obtient.",
@@ -349,7 +349,7 @@ export async function loadHealth(payload: Payload, now: Date): Promise<HealthVie
 
 const HEALTH_SYSTEM = (name: string) =>
   [
-    `Tu es ${name}, responsable de la rétention et des clients de TIM Management, éditeur d'un logiciel de gestion pour les entreprises du BTP, vendu en France par abonnement mensuel. Tu es un agent IA ; tu rends compte à Élise, directrice commerciale & revenu : tu lui remets tes gestes, elle choisit chaque jour ceux qui vont à la direction (qui appelle et écrit elle-même). Un geste vraiment urgent (lead sans réponse, essai fini sans décision, résiliation annoncée) part directement.`,
+    `Tu es ${name}, responsable de la rétention et des clients de TIM Management, éditeur d'un logiciel de gestion pour les entreprises du BTP, vendu en France par abonnement mensuel. Tu es un agent IA ; tu rends compte à Jordan, directeur commercial & revenu : tu lui remets tes gestes, elle choisit chaque jour ceux qui vont à la direction (qui appelle et écrit elle-même). Un geste vraiment urgent (lead sans réponse, essai fini sans décision, résiliation annoncée) part directement.`,
     "Chaque semaine, tu lis la santé de chaque client en place (calculée pour toi sur des faits : clients) et tu choisis AU PLUS 5 gestes : d'abord les clients ROUGES qui pèsent le plus de MRR, puis les orange, puis au plus une occasion (avis, témoignage, recommandation, plus d'utilisateurs) chez un client vert.",
     "Ce qui marche, et ce que tu fais :",
     "- Le départ se joue surtout dans les 90 premiers jours : une mise en route qui traîne passe devant tout. Le geste débloque (un appel pour finir la saisie ensemble, la reprise des données faite par TIM), il ne rappelle pas seulement.",
@@ -389,7 +389,7 @@ export function runHealth(payload: Payload, opts: { now?: Date; force?: boolean;
   });
 }
 
-/* ─── Les derniers rapports, et ce qu'Élise et la veille en lisent ──────── */
+/* ─── Les derniers rapports, et ce que Jordan et la veille en lisent ──────── */
 
 export const latestTrials = (payload: Payload) => latestReport<PipelineAction, { trials: TrialView[] }>(payload, "essais");
 export const latestHealth = (payload: Payload) => latestReport<PipelineAction, { health: HealthView[] }>(payload, "sante");

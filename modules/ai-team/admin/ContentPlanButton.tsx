@@ -14,7 +14,7 @@ export function ContentPlanButton({ name }: { name: string }) {
       }
       label="Préparer le plan maintenant"
       busyLabel={`${name} prépare le plan de contenu… (2 à 4 minutes)`}
-      done={(d) => `${d.findings ?? 0} action${(d.findings ?? 0) > 1 ? "s" : ""} — Serge les reprendra dans vos objectifs.`}
+      done={(d) => `${d.findings ?? 0} action${(d.findings ?? 0) > 1 ? "s" : ""} — Sergey les reprendra dans vos objectifs.`}
       failed="Le plan n'a pas pu être fait."
     />
   );

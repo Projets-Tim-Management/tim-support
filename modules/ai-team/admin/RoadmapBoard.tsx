@@ -632,7 +632,7 @@ export function RoadmapBoard({ view }: { view: RoadmapView }) {
           })
         ) : (
           <div className="an-empty rdm-start">
-            <p>Aucun objectif. Fixez le premier, ou lancez la revue de Serge ou de Margaux : ils proposeront les leurs.</p>
+            <p>Aucun objectif. Fixez le premier, ou lancez la revue de Sergey ou de Mark : ils proposeront les leurs.</p>
             <button type="button" className="an-btn rdm-btn--primary" onClick={() => setDialog({ kind: "goal" })}>
               + Objectif
             </button>

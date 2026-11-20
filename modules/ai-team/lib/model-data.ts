@@ -8,7 +8,7 @@ import { loadOpenAiAds, type OpenAiAdsView } from "@/modules/analytics/lib/opena
 
 /**
  * Ce que les agents LISENT des données de TIM, mis en forme pour le modèle —
- * une seule forme pour la revue de Margaux, sa conversation et les veilles
+ * une seule forme pour la revue de Mark, sa conversation et les veilles
  * (relecture du 12/11/2026 : chacune avait la sienne, presque pareille).
  */
 
@@ -75,8 +75,8 @@ export async function recentVerdicts(payload: Payload, now: Date, channel?: stri
 }
 
 /**
- * Les verdicts de Serge sur les objectifs SEO/GEO des 12 dernières semaines — ceux qui reprenaient l'action de
- * `key` (tous pour Serge). Ce sont les preuves de l'équipe SEO, comme les verdicts des recommandations pour le SEA.
+ * Les verdicts de Sergey sur les objectifs SEO/GEO des 12 dernières semaines — ceux qui reprenaient l'action de
+ * `key` (tous pour Sergey). Ce sont les preuves de l'équipe SEO, comme les verdicts des recommandations pour le SEA.
  */
 export async function seoVerdicts(payload: Payload, now: Date, key?: string | null) {
   const res = await payload
@@ -89,7 +89,7 @@ export async function seoVerdicts(payload: Payload, now: Date, key?: string | nu
 }
 
 /**
- * Ce que Margaux lit des méthodes de l'équipe : la sienne en entier, et pour
+ * Ce que Mark lit des méthodes de l'équipe : la sienne en entier, et pour
  * chaque agent ce qui a changé et ses idées à tester. `keys` : les agents qui
  * font une veille. Une lecture qui échoue ne casse rien.
  */

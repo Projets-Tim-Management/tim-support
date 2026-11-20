@@ -6,7 +6,7 @@ import { REQUEST_OUTCOMES } from "@/modules/ai-team/lib/requests";
 export const OBJECTIVE_STATUSES = [
   { label: "À faire", value: "a-faire" },
   { label: "Fait", value: "fait" },
-  // Pas fini à la revue suivante : Serge le reprend s'il reste parmi les plus importants.
+  // Pas fini à la revue suivante : Sergey le reprend s'il reste parmi les plus importants.
   { label: "Reporté", value: "reporte" },
   { label: "Abandonné", value: "abandonne" },
 ] as const;
@@ -25,7 +25,7 @@ export const OBJECTIVE_EVIDENCE = [
  * rapport au numéro 1 qui fait ça ; il faut donc avant la fin de semaine faire
  * ça — et je coche au fur et à mesure ; on peut même planifier mes créneaux »).
  *
- * Fixés chaque lundi par Serge, dans le temps dont dispose la direction,
+ * Fixés chaque lundi par Sergey, dans le temps dont dispose la direction,
  * classés par importance. Chaque étape se coche ; un prompt prêt l'accompagne
  * quand il y a quelque chose à écrire. Le créneau posé dans l'agenda de la
  * direction est gardé (pour le déplacer ou l'annuler).
@@ -57,7 +57,7 @@ export const AiTeamObjectives: CollectionConfig = {
     { name: "why", type: "textarea", label: "Pourquoi maintenant, ce qu'on y gagne" },
     { name: "measure", type: "text", label: "Ce qu'on mesurera" },
     { name: "evidence", type: "select", label: "Niveau de preuve", options: [...OBJECTIVE_EVIDENCE] },
-    // Ce que l'objectif a donné (14/11/2026) : Serge le juge deux semaines après qu'il est fait, chiffres à l'appui —
+    // Ce que l'objectif a donné (14/11/2026) : Sergey le juge deux semaines après qu'il est fait, chiffres à l'appui —
     // et l'agent dont il reprend l'action en gagne des points de maîtrise (preuves, apprentissage).
     { name: "proposedBy", type: "text", label: "Action proposée par (agent)", index: true },
     { name: "goal", type: "relationship", relationTo: "ai-team-goals", label: "Sert l'objectif (feuille de route)" },

@@ -22,22 +22,42 @@ import { safeHttpsUrl } from "@/modules/ai-team/lib/format";
  */
 
 export type WebTurn = { content: Anthropic.ContentBlock[]; usage: Usage; searches: number; stopReason: string | null };
-export type WebCallInput = { model: ClaudeModel; system: string; messages: Anthropic.MessageParam[]; maxTokens: number; maxSearches: number; maxFetches: number; effort: "low" | "medium" | "high" };
+export type WebCallInput = {
+  model: ClaudeModel;
+  system: string;
+  messages: Anthropic.MessageParam[];
+  maxTokens: number;
+  maxSearches: number;
+  maxFetches: number;
+  effort: "low" | "medium" | "high";
+  /**
+   * La recherche des faits des articles (18/11/2026) : seuls ces domaines peuvent être cherchés et lus, et les
+   * outils « de base » rendent le TEXTE BRUT des pages lues, que le code relit pour vérifier chaque extrait mot
+   * pour mot (comme le pipeline Python). Absent : les outils habituels, sans restriction.
+   */
+  facts?: { allowedDomains: string[]; maxFetchTokens: number };
+};
 export type WebCall = (input: WebCallInput) => Promise<WebTurn>;
 
 const client = () => new Anthropic({ timeout: 280_000, maxRetries: 1 });
 
-export const callWebModel: WebCall = async ({ model, system, messages, maxTokens, maxSearches, maxFetches, effort }) => {
+export const callWebModel: WebCall = async ({ model, system, messages, maxTokens, maxSearches, maxFetches, effort, facts }) => {
   const res = await client()
     .messages.stream({
       model,
       max_tokens: maxTokens,
       system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
       messages,
-      tools: [
-        { type: "web_search_20260209", name: "web_search", max_uses: maxSearches, user_location: { type: "approximate", country: "FR", timezone: "Europe/Paris" } },
-        { type: "web_fetch_20260209", name: "web_fetch", max_uses: maxFetches },
-      ],
+      tools: facts
+        ? ([
+            { type: "web_search_20250305", name: "web_search", max_uses: maxSearches, allowed_domains: facts.allowedDomains, user_location: { type: "approximate", country: "FR", timezone: "Europe/Paris" } },
+            { type: "web_fetch_20250910", name: "web_fetch", max_uses: maxFetches, allowed_domains: facts.allowedDomains, max_content_tokens: facts.maxFetchTokens },
+          ] as unknown as Anthropic.Messages.ToolUnion[])
+        : [
+            { type: "web_search_20260209", name: "web_search", max_uses: maxSearches, user_location: { type: "approximate", country: "FR", timezone: "Europe/Paris" } },
+            { type: "web_fetch_20260209", name: "web_fetch", max_uses: maxFetches },
+          ],
+      ...(facts ? { thinking: { type: "adaptive" } as const } : {}),
       output_config: { effort },
     })
     .finalMessage();
@@ -82,6 +102,8 @@ export async function runWebModel(
     call?: WebCall;
     /** Levé à la demande expresse de la direction : le plafond du JOUR seulement (lib/spend). */
     overDailyCap?: boolean;
+    /** Recherche des faits des articles : domaines permis et outils « de base » (voir WebCallInput). */
+    facts?: WebCallInput["facts"];
   },
 ): Promise<WebRun> {
   const maxTokens = o.maxTokens ?? 16_000;
@@ -99,7 +121,7 @@ export async function runWebModel(
     for (let turn = 0; turn < (o.maxTurns ?? 3); turn += 1) {
       const maxEur = usdToEur(claudeMaxCostUsd(o.model, estimateTokens(o.system, JSON.stringify(messages)) + (o.webInputTokens ?? 90_000), maxTokens) + maxSearches * WEB_SEARCH_USD);
       await assertAdsBudget(payload, o.kind, maxEur, o.now, { overDailyCap: o.overDailyCap });
-      const input = { model: o.model, system: o.system, messages, maxTokens, maxSearches, maxFetches, effort: o.effort ?? "medium" } as const;
+      const input: WebCallInput = { model: o.model, system: o.system, messages, maxTokens, maxSearches, maxFetches, effort: o.effort ?? "medium", ...(o.facts ? { facts: o.facts } : {}) };
       // Un vrai appel rapporte son sort (API en panne : paiement, clé…) ; un appel simulé (tests) non.
       last = o.call ? await o.call(input) : await trackApi("anthropic", () => callWebModel(input), payload);
       total.input += last.usage.input;
